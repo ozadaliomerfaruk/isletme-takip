@@ -169,7 +169,7 @@ export default function DahaPage() {
             <MenuItem
               icon={<BarChart3 size={22} color={colors.info} />}
               label="Raporlar"
-              onPress={() => router.push('/raporlar/index')}
+              onPress={() => router.push('/raporlar')}
             />
           </Card>
         </View>
@@ -189,7 +189,7 @@ export default function DahaPage() {
             <MenuItem
               icon={<Tag size={22} color={colors.success} />}
               label="Kategoriler"
-              onPress={() => router.push('/kategoriler/index')}
+              onPress={() => router.push('/kategoriler')}
             />
           </Card>
         </View>

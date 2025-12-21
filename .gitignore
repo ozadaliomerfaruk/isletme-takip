@@ -34,6 +34,9 @@ yarn-error.*
 .env*.local
 .env
 
+# Apple secret generator (contains private key)
+generate-apple-secret.js
+
 # IDE
 .idea/
 .vscode/

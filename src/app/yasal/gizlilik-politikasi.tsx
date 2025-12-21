@@ -112,7 +112,7 @@ export default function GizlilikPolitikasiPage() {
                 8. Iletisim
               </Text>
               <Text variant="body" color="secondary" style={styles.paragraph}>
-                Gizlilik politikasi hakkinda sorulariniz icin gizlilik@business-tracker.app adresinden bize ulasabilirsiniz.
+                Gizlilik politikasi hakkinda sorulariniz icin ozadaliomerfaruk@gmail.com adresinden bize ulasabilirsiniz.
               </Text>
             </View>
           </View>

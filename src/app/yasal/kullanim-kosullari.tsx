@@ -90,7 +90,7 @@ export default function KullanimKosullariPage() {
                 8. Iletisim
               </Text>
               <Text variant="body" color="secondary" style={styles.paragraph}>
-                Kullanim kosullari hakkinda sorulariniz icin destek@business-tracker.app adresinden bize ulasabilirsiniz.
+                Kullanim kosullari hakkinda sorulariniz icin ozadaliomerfaruk@gmail.com adresinden bize ulasabilirsiniz.
               </Text>
             </View>
           </View>

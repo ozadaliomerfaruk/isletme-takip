@@ -27,9 +27,9 @@ export default function KVKKPage() {
                 1. Veri Sorumlusu
               </Text>
               <Text variant="body" color="secondary" style={styles.paragraph}>
-                Isletme Takip Yazilim ve Teknoloji{'\n'}
+                Omer Faruk Ozadali{'\n'}
                 Adres: Istanbul, Turkiye{'\n'}
-                E-posta: kvkk@business-tracker.app
+                E-posta: ozadaliomerfaruk@gmail.com
               </Text>
             </View>
 
@@ -115,7 +115,7 @@ export default function KVKKPage() {
               </Text>
               <Text variant="body" color="secondary" style={styles.paragraph}>
                 Haklarinizi kullanmak icin asagidaki yontemlerle basvurabilirsiniz:{'\n\n'}
-                <Text style={styles.bold}>E-posta:</Text> kvkk@business-tracker.app{'\n'}
+                <Text style={styles.bold}>E-posta:</Text> ozadaliomerfaruk@gmail.com{'\n'}
                 <Text style={styles.bold}>Konu:</Text> KVKK Bilgi Talebi
                 {'\n\n'}
                 Basvurunuz en gec 30 gun icinde ucretsiz olarak sonuclandirilacaktir. Islemin ayrica bir maliyet gerektirmesi halinde Kisisel Verileri Koruma Kurulu tarafindan belirlenen ucret alinabilir.
