@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-expo-app:*)",
+      "Bash(cat:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npx expo install:*)",
+      "Bash(npx expo start:*)",
+      "Bash(ls:*)",
+      "Bash(dir:*)",
+      "Bash(npm ls:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(cmd //c \"taskkill /F /PID 11444 & taskkill /F /PID 8928 & taskkill /F /PID 27092 & taskkill /F /PID 25928 & taskkill /F /PID 10628\")",
+      "Bash(cmd //c \"taskkill /F /PID 23160\")",
+      "Bash(wc:*)",
+      "Bash(npm show:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npm run lint)",
+      "Bash(npx tsc:*)",
+      "Bash(ipconfig:*)",
+      "Bash(npx eas-cli:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

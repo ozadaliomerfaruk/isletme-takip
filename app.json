@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "İşletme Takip",
+    "slug": "isletmetakip",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "isletmetakip",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0D5C4D"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.isletmetakip.app",
+      "buildNumber": "1",
+      "usesAppleSignIn": true,
+      "usesNonExemptEncryption": false,
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0D5C4D"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.isletmetakip.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-apple-authentication",
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "94617fe4-917d-4dc5-a346-360c98a95891"
+      }
+    }
+  }
+}

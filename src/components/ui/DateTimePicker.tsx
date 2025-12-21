@@ -1,0 +1,260 @@
+import { useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
+import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Calendar, Clock } from 'lucide-react-native';
+import { Text } from './Text';
+import { Button } from './Button';
+import { colors } from '@/constants/colors';
+import { spacing, borderRadius } from '@/constants/spacing';
+
+interface DateTimePickerProps {
+  label?: string;
+  value: Date;
+  onChange: (date: Date) => void;
+  mode?: 'date' | 'time' | 'datetime';
+  error?: string;
+}
+
+export function DateTimePicker({
+  label,
+  value,
+  onChange,
+  mode = 'datetime',
+  error,
+}: DateTimePickerProps) {
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempDate, setTempDate] = useState(value);
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('tr-TR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+      if (event.type === 'set' && selectedDate) {
+        const newDate = new Date(value);
+        newDate.setFullYear(selectedDate.getFullYear());
+        newDate.setMonth(selectedDate.getMonth());
+        newDate.setDate(selectedDate.getDate());
+        onChange(newDate);
+      }
+    } else {
+      if (selectedDate) {
+        setTempDate(selectedDate);
+      }
+    }
+  };
+
+  const handleTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowTimePicker(false);
+      if (event.type === 'set' && selectedDate) {
+        const newDate = new Date(value);
+        newDate.setHours(selectedDate.getHours());
+        newDate.setMinutes(selectedDate.getMinutes());
+        onChange(newDate);
+      }
+    } else {
+      if (selectedDate) {
+        setTempDate(selectedDate);
+      }
+    }
+  };
+
+  const handleIOSConfirm = (pickerType: 'date' | 'time') => {
+    onChange(tempDate);
+    if (pickerType === 'date') {
+      setShowDatePicker(false);
+    } else {
+      setShowTimePicker(false);
+    }
+  };
+
+  const handleIOSCancel = (pickerType: 'date' | 'time') => {
+    setTempDate(value);
+    if (pickerType === 'date') {
+      setShowDatePicker(false);
+    } else {
+      setShowTimePicker(false);
+    }
+  };
+
+  const renderIOSModal = (pickerType: 'date' | 'time') => {
+    const isVisible = pickerType === 'date' ? showDatePicker : showTimePicker;
+
+    return (
+      <Modal
+        visible={isVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => handleIOSCancel(pickerType)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => handleIOSCancel(pickerType)}>
+                <Text variant="body" color="secondary">İptal</Text>
+              </TouchableOpacity>
+              <Text variant="label">
+                {pickerType === 'date' ? 'Tarih Seç' : 'Saat Seç'}
+              </Text>
+              <TouchableOpacity onPress={() => handleIOSConfirm(pickerType)}>
+                <Text variant="body" color="primary">Tamam</Text>
+              </TouchableOpacity>
+            </View>
+            <DateTimePickerRN
+              value={tempDate}
+              mode={pickerType}
+              display="spinner"
+              onChange={pickerType === 'date' ? handleDateChange : handleTimeChange}
+              locale="tr-TR"
+            />
+          </View>
+        </View>
+      </Modal>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {label && (
+        <Text variant="label" color="secondary" style={styles.label}>
+          {label}
+        </Text>
+      )}
+
+      <View style={styles.pickersRow}>
+        {(mode === 'date' || mode === 'datetime') && (
+          <TouchableOpacity
+            style={[styles.picker, error && styles.pickerError, mode === 'datetime' && styles.pickerHalf]}
+            onPress={() => {
+              setTempDate(value);
+              setShowDatePicker(true);
+            }}
+          >
+            <Calendar size={20} color={colors.textMuted} />
+            <Text variant="body" style={styles.pickerText}>
+              {formatDate(value)}
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {(mode === 'time' || mode === 'datetime') && (
+          <TouchableOpacity
+            style={[styles.picker, error && styles.pickerError, mode === 'datetime' && styles.pickerHalf]}
+            onPress={() => {
+              setTempDate(value);
+              setShowTimePicker(true);
+            }}
+          >
+            <Clock size={20} color={colors.textMuted} />
+            <Text variant="body" style={styles.pickerText}>
+              {formatTime(value)}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {error && (
+        <Text variant="caption" color="error" style={styles.errorText}>
+          {error}
+        </Text>
+      )}
+
+      {/* Android DatePicker */}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePickerRN
+          value={value}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+        />
+      )}
+
+      {/* Android TimePicker */}
+      {Platform.OS === 'android' && showTimePicker && (
+        <DateTimePickerRN
+          value={value}
+          mode="time"
+          display="default"
+          onChange={handleTimeChange}
+          is24Hour={true}
+        />
+      )}
+
+      {/* iOS Modals */}
+      {Platform.OS === 'ios' && renderIOSModal('date')}
+      {Platform.OS === 'ios' && renderIOSModal('time')}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    marginBottom: spacing.lg,
+  },
+  label: {
+    marginBottom: spacing.sm,
+  },
+  pickersRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  picker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    flex: 1,
+  },
+  pickerHalf: {
+    flex: 1,
+  },
+  pickerError: {
+    borderColor: colors.error,
+  },
+  pickerText: {
+    flex: 1,
+  },
+  errorText: {
+    marginTop: spacing.xs,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    paddingBottom: spacing['2xl'],
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+});
