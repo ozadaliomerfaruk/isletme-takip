@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "scheme": "isletmetakip",
+    "scheme": ["isletmetakip", "com.googleusercontent.apps.831070684290-pbth4tdbeepa1udu859cinh8cunrh6ba"],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -20,7 +20,8 @@
       "usesAppleSignIn": true,
       "usesNonExemptEncryption": false,
       "infoPlist": {
-        "CFBundleAllowMixedLocalizations": true
+        "CFBundleAllowMixedLocalizations": true,
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {

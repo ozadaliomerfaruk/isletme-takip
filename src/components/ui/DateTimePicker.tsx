@@ -121,6 +121,8 @@ export function DateTimePicker({
               display="spinner"
               onChange={pickerType === 'date' ? handleDateChange : handleTimeChange}
               locale="tr-TR"
+              textColor={colors.text}
+              themeVariant="light"
             />
           </View>
         </View>
