@@ -46,44 +46,7 @@ function MenuItem({ icon, label, onPress, danger }: MenuItemProps) {
 
 export default function DahaPage() {
   const router = useRouter();
-  const { signOut, deleteAccount } = useAuthContext();
-
-  const handleDeleteAccount = () => {
-    Alert.alert(
-      'Hesabi Sil',
-      'Hesabinizi silmek istediginizden emin misiniz?\n\nBu islem geri alinamaz ve tum verileriniz kalici olarak silinecektir.',
-      [
-        { text: 'Iptal', style: 'cancel' },
-        {
-          text: 'Hesabi Sil',
-          style: 'destructive',
-          onPress: () => {
-            // İkinci onay
-            Alert.alert(
-              'Son Onay',
-              'Tum isletme verileriniz, hesaplariniz, carileriniz ve islemleriniz silinecek. Devam etmek istiyor musunuz?',
-              [
-                { text: 'Vazgec', style: 'cancel' },
-                {
-                  text: 'Evet, Sil',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await deleteAccount();
-                      Alert.alert('Basarili', 'Hesabiniz basariyla silindi.');
-                    } catch (error) {
-                      console.error('Delete account error:', error);
-                      Alert.alert('Hata', 'Hesap silinirken bir hata olustu. Lutfen tekrar deneyin.');
-                    }
-                  },
-                },
-              ]
-            );
-          },
-        },
-      ]
-    );
-  };
+  const { signOut } = useAuthContext();
 
   const handleLogout = () => {
     Alert.alert(
@@ -274,7 +237,7 @@ export default function DahaPage() {
             <MenuItem
               icon={<Trash2 size={22} color={colors.error} />}
               label="Hesabi Sil"
-              onPress={handleDeleteAccount}
+              onPress={() => router.push('/ayarlar/hesap-sil' as any)}
               danger
             />
           </Card>
