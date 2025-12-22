@@ -203,18 +203,31 @@ export function useAuth() {
 
       // Kullanıcı için işletme var mı kontrol et, yoksa oluştur
       if (data.user) {
-        const existingIsletme = await fetchIsletme(data.user.id);
+        let isletme = await fetchIsletme(data.user.id);
 
-        if (!existingIsletme) {
+        if (!isletme) {
           // İlk giriş - işletme oluştur
           const userName = credential.fullName?.givenName || 'İşletmem';
-          await supabase
+          const { data: newIsletme } = await supabase
             .from('isletmeler')
             .insert({
               user_id: data.user.id,
               name: `${userName}'in İşletmesi`,
-            });
+            })
+            .select()
+            .single();
+
+          isletme = newIsletme;
         }
+
+        // State'i güncelle
+        setState((prev) => ({
+          ...prev,
+          session: data.session,
+          user: data.user,
+          isletme,
+          loading: false,
+        }));
       }
 
       return data;
@@ -246,18 +259,31 @@ export function useAuth() {
 
       // Kullanıcı için işletme var mı kontrol et, yoksa oluştur
       if (data.user) {
-        const existingIsletme = await fetchIsletme(data.user.id);
+        let isletme = await fetchIsletme(data.user.id);
 
-        if (!existingIsletme) {
+        if (!isletme) {
           // İlk giriş - işletme oluştur
           const userName = data.user.user_metadata?.full_name?.split(' ')[0] || 'İşletmem';
-          await supabase
+          const { data: newIsletme } = await supabase
             .from('isletmeler')
             .insert({
               user_id: data.user.id,
               name: `${userName}'in İşletmesi`,
-            });
+            })
+            .select()
+            .single();
+
+          isletme = newIsletme;
         }
+
+        // State'i güncelle
+        setState((prev) => ({
+          ...prev,
+          session: data.session,
+          user: data.user,
+          isletme,
+          loading: false,
+        }));
       }
 
       return data;

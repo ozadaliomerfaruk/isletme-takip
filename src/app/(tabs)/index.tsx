@@ -37,7 +37,7 @@ export default function HomePage() {
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
   const totalBalance = useTotalBalance();
   const { totalReceivables, totalPayables } = useCariSummary();
-  const { data: monthSummary } = useMonthSummary();
+  const { data: monthSummary } = useMonthSummary(period as 'month' | 'all');
 
   const totalIncome = monthSummary?.income ?? 0;
   const totalExpense = monthSummary?.expense ?? 0;

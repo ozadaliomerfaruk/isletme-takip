@@ -555,8 +555,8 @@ async function reverseBalances(islem: Islem) {
   }
 }
 
-// Bu ay gelir/gider özeti
-export function useMonthSummary() {
+// Gelir/gider özeti (dönem parametreli)
+export function useMonthSummary(period: 'month' | 'all' = 'month') {
   const { isletme } = useAuthContext();
 
   const now = new Date();
@@ -564,16 +564,21 @@ export function useMonthSummary() {
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
 
   return useQuery({
-    queryKey: ['month-summary', isletme?.id, startOfMonth],
+    queryKey: ['month-summary', isletme?.id, period, startOfMonth],
     queryFn: async () => {
       if (!isletme) return { income: 0, expense: 0 };
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('islemler')
         .select('type, amount')
-        .eq('isletme_id', isletme.id)
-        .gte('date', startOfMonth)
-        .lte('date', endOfMonth);
+        .eq('isletme_id', isletme.id);
+
+      // Sadece "month" seçiliyse tarih filtresi uygula
+      if (period === 'month') {
+        query = query.gte('date', startOfMonth).lte('date', endOfMonth);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
