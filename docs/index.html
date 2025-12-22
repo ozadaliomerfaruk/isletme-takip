@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İşletme Takip - HesApp</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #0D5C4D 0%, #0a4a3d 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .hero {
+            text-align: center;
+            color: white;
+            padding: 60px 20px;
+        }
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 16px;
+        }
+        .hero p {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            margin-bottom: 32px;
+        }
+        .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            margin-bottom: 24px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            color: #0D5C4D;
+            margin-bottom: 16px;
+        }
+        .card p {
+            line-height: 1.7;
+            color: #555;
+        }
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 32px;
+        }
+        .links a {
+            display: inline-block;
+            padding: 12px 24px;
+            background: white;
+            color: #0D5C4D;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .links a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }
+        .feature {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+        .feature h3 {
+            color: #0D5C4D;
+            margin-bottom: 8px;
+        }
+        .feature p {
+            font-size: 0.875rem;
+            color: #666;
+        }
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: rgba(255,255,255,0.7);
+        }
+        footer a {
+            color: white;
+            text-decoration: none;
+        }
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <div class="badge">App Store'da Yakinda</div>
+        <h1>HesApp</h1>
+        <p>Isletmenizi kolayca yonetin. Gelir, gider, cari ve personel takibi tek uygulamada.</p>
+        <div class="links">
+            <a href="privacy-policy.html">Gizlilik Politikasi</a>
+            <a href="terms-of-service.html">Kullanim Kosullari</a>
+            <a href="support.html">Destek</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="card">
+            <h2>Uygulama Hakkinda</h2>
+            <p>Isletme Takip (HesApp), kucuk ve orta olcekli isletmeler icin gelistirilmis kapsamli bir finansal yonetim uygulamasidir. Gelir ve giderlerinizi takip edin, cari hesaplarinizi yonetin, personel maaslarini izleyin ve isletmenizin finansal durumunu tek bakista gorun.</p>
+
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">💰</div>
+                    <h3>Gelir/Gider</h3>
+                    <p>Tum finansal hareketlerinizi kaydedin</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">👥</div>
+                    <h3>Cari Takip</h3>
+                    <p>Musteri ve tedarikci hesaplari</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">👔</div>
+                    <h3>Personel</h3>
+                    <p>Maas ve odeme takibi</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">📊</div>
+                    <h3>Raporlar</h3>
+                    <p>Detayli finansal analizler</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Iletisim</h2>
+            <p>Sorulariniz veya geri bildirimleriniz icin bizimle iletisime gecin:</p>
+            <p style="margin-top: 12px;"><strong>E-posta:</strong> destek@isletmetakip.com</p>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 Isletme Takip. Tum haklari saklidir.</p>
+        <p style="margin-top: 8px;">
+            <a href="privacy-policy.html">Gizlilik Politikasi</a> |
+            <a href="terms-of-service.html">Kullanim Kosullari</a>
+        </p>
+    </footer>
+</body>
+</html>
