@@ -18,6 +18,7 @@ import {
   Banknote,
   Users,
   CreditCard,
+  Trash2,
 } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -45,7 +46,44 @@ function MenuItem({ icon, label, onPress, danger }: MenuItemProps) {
 
 export default function DahaPage() {
   const router = useRouter();
-  const { signOut } = useAuthContext();
+  const { signOut, deleteAccount } = useAuthContext();
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Hesabi Sil',
+      'Hesabinizi silmek istediginizden emin misiniz?\n\nBu islem geri alinamaz ve tum verileriniz kalici olarak silinecektir.',
+      [
+        { text: 'Iptal', style: 'cancel' },
+        {
+          text: 'Hesabi Sil',
+          style: 'destructive',
+          onPress: () => {
+            // İkinci onay
+            Alert.alert(
+              'Son Onay',
+              'Tum isletme verileriniz, hesaplariniz, carileriniz ve islemleriniz silinecek. Devam etmek istiyor musunuz?',
+              [
+                { text: 'Vazgec', style: 'cancel' },
+                {
+                  text: 'Evet, Sil',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await deleteAccount();
+                      Alert.alert('Basarili', 'Hesabiniz basariyla silindi.');
+                    } catch (error) {
+                      console.error('Delete account error:', error);
+                      Alert.alert('Hata', 'Hesap silinirken bir hata olustu. Lutfen tekrar deneyin.');
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -220,13 +258,23 @@ export default function DahaPage() {
           </Card>
         </View>
 
-        {/* Cikis */}
+        {/* Hesap */}
         <View style={styles.section}>
+          <Text variant="label" color="secondary" style={styles.sectionTitle}>
+            HESAP
+          </Text>
           <Card padding="none">
             <MenuItem
               icon={<LogOut size={22} color={colors.error} />}
               label="Cikis Yap"
               onPress={handleLogout}
+              danger
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon={<Trash2 size={22} color={colors.error} />}
+              label="Hesabi Sil"
+              onPress={handleDeleteAccount}
               danger
             />
           </Card>

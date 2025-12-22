@@ -293,6 +293,52 @@ export function useAuth() {
     }
   };
 
+  // Hesabı sil
+  const deleteAccount = async () => {
+    if (!state.user || !state.isletme) {
+      throw new Error('Kullanıcı bulunamadı');
+    }
+
+    setState((prev) => ({ ...prev, loading: true }));
+
+    try {
+      const userId = state.user.id;
+      const isletmeId = state.isletme.id;
+
+      // 1. Tüm işlemleri sil
+      await supabase.from('islemler').delete().eq('isletme_id', isletmeId);
+
+      // 2. Tüm personeli sil
+      await supabase.from('personel').delete().eq('isletme_id', isletmeId);
+
+      // 3. Tüm carileri sil
+      await supabase.from('cariler').delete().eq('isletme_id', isletmeId);
+
+      // 4. Tüm hesapları sil
+      await supabase.from('hesaplar').delete().eq('isletme_id', isletmeId);
+
+      // 5. Tüm kategorileri sil
+      await supabase.from('kategoriler').delete().eq('isletme_id', isletmeId);
+
+      // 6. İşletmeyi sil
+      await supabase.from('isletmeler').delete().eq('id', isletmeId);
+
+      // 7. Kullanıcıyı çıkış yaptır
+      await supabase.auth.signOut();
+
+      setState({
+        session: null,
+        user: null,
+        isletme: null,
+        loading: false,
+        initialized: true,
+      });
+    } catch (error) {
+      setState((prev) => ({ ...prev, loading: false }));
+      throw error;
+    }
+  };
+
   // Apple Sign-In kullanılabilir mi kontrol et
   const isAppleSignInAvailable = Platform.OS === 'ios';
 
@@ -301,6 +347,7 @@ export function useAuth() {
     signIn,
     signUp,
     signOut,
+    deleteAccount,
     refreshIsletme,
     signInWithApple,
     signInWithGoogle,

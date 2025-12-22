@@ -28,7 +28,8 @@
       "Bash(node:*)",
       "Bash(git rm:*)",
       "Bash(del:*)",
-      "Bash(git remote add:*)"
+      "Bash(git remote add:*)",
+      "Bash(git push:*)"
     ]
   }
 }
