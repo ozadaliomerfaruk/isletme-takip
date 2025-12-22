@@ -44,32 +44,91 @@ export function useAuth() {
 
   // Auth state değişikliklerini dinle
   useEffect(() => {
+    let isMounted = true;
+
     // Mevcut session'ı al
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      let isletme: Isletme | null = null;
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
 
-      if (session?.user) {
-        isletme = await fetchIsletme(session.user.id);
+        if (!isMounted) return;
+
+        if (error) {
+          console.error('Session getirme hatası:', error);
+          setState({
+            session: null,
+            user: null,
+            isletme: null,
+            loading: false,
+            initialized: true,
+          });
+          return;
+        }
+
+        let isletme: Isletme | null = null;
+        if (session?.user) {
+          try {
+            isletme = await fetchIsletme(session.user.id);
+          } catch (e) {
+            console.error('İşletme getirme hatası:', e);
+          }
+        }
+
+        if (!isMounted) return;
+
+        setState({
+          session,
+          user: session?.user ?? null,
+          isletme,
+          loading: false,
+          initialized: true,
+        });
+      } catch (error) {
+        console.error('Auth başlatma hatası:', error);
+        if (isMounted) {
+          setState({
+            session: null,
+            user: null,
+            isletme: null,
+            loading: false,
+            initialized: true,
+          });
+        }
       }
+    };
 
-      setState({
-        session,
-        user: session?.user ?? null,
-        isletme,
-        loading: false,
-        initialized: true,
-      });
-    });
+    // Timeout ile koruma - 10 saniye içinde başlatılamazsa devam et
+    const timeout = setTimeout(() => {
+      if (isMounted && !state.initialized) {
+        console.warn('Auth başlatma zaman aşımı');
+        setState({
+          session: null,
+          user: null,
+          isletme: null,
+          loading: false,
+          initialized: true,
+        });
+      }
+    }, 10000);
+
+    initializeAuth();
 
     // Auth değişikliklerini dinle
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      let isletme: Isletme | null = null;
+      if (!isMounted) return;
 
+      let isletme: Isletme | null = null;
       if (session?.user) {
-        isletme = await fetchIsletme(session.user.id);
+        try {
+          isletme = await fetchIsletme(session.user.id);
+        } catch (e) {
+          console.error('İşletme getirme hatası:', e);
+        }
       }
+
+      if (!isMounted) return;
 
       setState((prev) => ({
         ...prev,
@@ -80,7 +139,11 @@ export function useAuth() {
       }));
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, [fetchIsletme]);
 
   // Giriş yap

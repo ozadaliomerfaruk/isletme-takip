@@ -13,7 +13,7 @@ import { colors } from '@/constants/colors';
 const ONBOARDING_KEY = '@defter_onboarding_completed';
 
 function RootLayoutNav() {
-  const { user, loading, initialized } = useAuthContext();
+  const { user, initialized } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
   const [onboardingChecked, setOnboardingChecked] = useState(false);
@@ -54,8 +54,9 @@ function RootLayoutNav() {
     }
   }, [user, segments, initialized, onboardingChecked, showOnboarding]);
 
-  // Yukleniyor
-  if (!initialized || loading || !onboardingChecked) {
+  // Yukleniyor - sadece initialized ve onboardingChecked kontrol et
+  // loading'i burada kontrol etmiyoruz çünkü login/logout sırasında da true oluyor
+  if (!initialized || !onboardingChecked) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
