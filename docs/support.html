@@ -1,157 +1,176 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Destek - Isletme Takip</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.7;
-        }
-        .header {
-            background: linear-gradient(135deg, #0D5C4D 0%, #0a4a3d 100%);
-            color: white;
-            padding: 40px 20px;
-            text-align: center;
-        }
-        .header h1 {
-            font-size: 2rem;
-            margin-bottom: 8px;
-        }
-        .header p {
-            opacity: 0.8;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 32px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            margin-bottom: 24px;
-        }
-        h2 {
-            color: #0D5C4D;
-            margin-bottom: 16px;
-            font-size: 1.5rem;
-        }
-        p {
-            margin-bottom: 16px;
-            color: #555;
-        }
-        .back-link {
-            display: inline-block;
-            margin-bottom: 20px;
-            color: #0D5C4D;
-            text-decoration: none;
-        }
-        .back-link:hover {
-            text-decoration: underline;
-        }
-        .contact-box {
-            background: #e8f5e9;
-            padding: 24px;
-            border-radius: 12px;
-            text-align: center;
-        }
-        .contact-box h3 {
-            color: #0D5C4D;
-            margin-bottom: 12px;
-        }
-        .contact-box a {
-            color: #0D5C4D;
-            font-size: 1.25rem;
-            font-weight: 600;
-            text-decoration: none;
-        }
-        .contact-box a:hover {
-            text-decoration: underline;
-        }
-        .faq-item {
-            border-bottom: 1px solid #eee;
-            padding: 20px 0;
-        }
-        .faq-item:last-child {
-            border-bottom: none;
-        }
-        .faq-item h3 {
-            color: #333;
-            margin-bottom: 8px;
-            font-size: 1.1rem;
-        }
-        .faq-item p {
-            margin-bottom: 0;
-            font-size: 0.95rem;
-        }
-        footer {
-            text-align: center;
-            padding: 40px 20px;
-            color: #888;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background: #f5f5f5;
+        color: #333;
+        line-height: 1.7;
+      }
+      .header {
+        background: linear-gradient(135deg, #0d5c4d 0%, #0a4a3d 100%);
+        color: white;
+        padding: 40px 20px;
+        text-align: center;
+      }
+      .header h1 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+      }
+      .header p {
+        opacity: 0.8;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+      .card {
+        background: white;
+        border-radius: 12px;
+        padding: 32px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 24px;
+      }
+      h2 {
+        color: #0d5c4d;
+        margin-bottom: 16px;
+        font-size: 1.5rem;
+      }
+      p {
+        margin-bottom: 16px;
+        color: #555;
+      }
+      .back-link {
+        display: inline-block;
+        margin-bottom: 20px;
+        color: #0d5c4d;
+        text-decoration: none;
+      }
+      .back-link:hover {
+        text-decoration: underline;
+      }
+      .contact-box {
+        background: #e8f5e9;
+        padding: 24px;
+        border-radius: 12px;
+        text-align: center;
+      }
+      .contact-box h3 {
+        color: #0d5c4d;
+        margin-bottom: 12px;
+      }
+      .contact-box a {
+        color: #0d5c4d;
+        font-size: 1.25rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .contact-box a:hover {
+        text-decoration: underline;
+      }
+      .faq-item {
+        border-bottom: 1px solid #eee;
+        padding: 20px 0;
+      }
+      .faq-item:last-child {
+        border-bottom: none;
+      }
+      .faq-item h3 {
+        color: #333;
+        margin-bottom: 8px;
+        font-size: 1.1rem;
+      }
+      .faq-item p {
+        margin-bottom: 0;
+        font-size: 0.95rem;
+      }
+      footer {
+        text-align: center;
+        padding: 40px 20px;
+        color: #888;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="header">
-        <h1>Destek</h1>
-        <p>Size nasil yardimci olabiliriz?</p>
+      <h1>Destek</h1>
+      <p>Size nasil yardimci olabiliriz?</p>
     </div>
 
     <div class="container">
-        <a href="index.html" class="back-link">← Ana Sayfaya Don</a>
+      <a href="index.html" class="back-link">← Ana Sayfaya Don</a>
 
-        <div class="card">
-            <h2>Bize Ulasin</h2>
-            <p>Sorulariniz, onerileriniz veya karsilastiginiz sorunlar icin bizimle iletisime gecebilirsiniz. En kisa surede size donus yapacagiz.</p>
+      <div class="card">
+        <h2>Bize Ulasin</h2>
+        <p>
+          Sorulariniz, onerileriniz veya karsilastiginiz sorunlar icin bizimle iletisime
+          gecebilirsiniz. En kisa surede size donus yapacagiz.
+        </p>
 
-            <div class="contact-box">
-                <h3>E-posta</h3>
-                <a href="mailto:ozadaliomerfaruk@gmail.com">ozadaliomerfaruk@gmail.com</a>
-            </div>
+        <div class="contact-box">
+          <h3>E-posta</h3>
+          <a href="mailto:ozadaliomerfaruk@gmail.com">ozadaliomerfaruk@gmail.com</a>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Sikca Sorulan Sorular</h2>
+
+        <div class="faq-item">
+          <h3>Verilerim guvenli mi?</h3>
+          <p>
+            Evet, tum verileriniz SSL sifreleme ile korunur ve guvenli sunucularda saklanir.
+            Sifreleriniz hashlenerek depolanir.
+          </p>
         </div>
 
-        <div class="card">
-            <h2>Sikca Sorulan Sorular</h2>
-
-            <div class="faq-item">
-                <h3>Verilerim guvenli mi?</h3>
-                <p>Evet, tum verileriniz SSL sifreleme ile korunur ve guvenli sunucularda saklanir. Sifreleriniz hashlenerek depolanir.</p>
-            </div>
-
-            <div class="faq-item">
-                <h3>Birden fazla cihazda kullanabilir miyim?</h3>
-                <p>Evet, ayni hesabinizla farkli cihazlarda giris yapabilirsiniz. Verileriniz otomatik olarak senkronize edilir.</p>
-            </div>
-
-            <div class="faq-item">
-                <h3>Verilerimi nasil yedeklerim?</h3>
-                <p>Verileriniz otomatik olarak bulutta yedeklenir. Ileride manuel yedekleme ve disa aktarma ozelligi de eklenecektir.</p>
-            </div>
-
-            <div class="faq-item">
-                <h3>Hesabimi nasil silerim?</h3>
-                <p>Daha > Hesap bolumunden "Hesabi Sil" secenegini kullanabilirsiniz. Silme islemi kalicidir ve tum verileriniz kaldirilir.</p>
-            </div>
-
-            <div class="faq-item">
-                <h3>Uygulama ucretli mi?</h3>
-                <p>Uygulama su anda ucretsizdir. Gelecekte premium ozellikler eklenebilir ancak temel ozellikler her zaman ucretsiz kalacaktir.</p>
-            </div>
+        <div class="faq-item">
+          <h3>Birden fazla cihazda kullanabilir miyim?</h3>
+          <p>
+            Evet, ayni hesabinizla farkli cihazlarda giris yapabilirsiniz. Verileriniz otomatik
+            olarak senkronize edilir.
+          </p>
         </div>
+
+        <div class="faq-item">
+          <h3>Verilerimi nasil yedeklerim?</h3>
+          <p>
+            Verileriniz otomatik olarak bulutta yedeklenir. Ileride manuel yedekleme ve disa aktarma
+            ozelligi de eklenecektir.
+          </p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Hesabimi nasil silerim?</h3>
+          <p>
+            Daha > Hesap bolumunden "Hesabi Sil" secenegini kullanabilirsiniz. Silme islemi
+            kalicidir ve tum verileriniz kaldirilir.
+          </p>
+        </div>
+
+        <div class="faq-item">
+          <h3>Uygulama ucretli mi?</h3>
+          <p>
+            Uygulama su anda ucretsizdir. Gelecekte premium ozellikler eklenebilir ancak temel
+            ozellikler her zaman ucretsiz kalacaktir.
+          </p>
+        </div>
+      </div>
     </div>
 
     <footer>
-        <p>&copy; 2024 Isletme Takip. Tum haklari saklidir.</p>
+      <p>&copy; 2024 Isletme Takip. Tum haklari saklidir.</p>
     </footer>
-</body>
+  </body>
 </html>

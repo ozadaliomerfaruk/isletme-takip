@@ -1,178 +1,220 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Isletme Takip</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background: linear-gradient(135deg, #0D5C4D 0%, #0a4a3d 100%);
-            min-height: 100vh;
-            color: #333;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 40px 20px;
-        }
-        .hero {
-            text-align: center;
-            color: white;
-            padding: 60px 20px;
-        }
-        .hero h1 {
-            font-size: 3rem;
-            margin-bottom: 16px;
-        }
-        .hero p {
-            font-size: 1.25rem;
-            opacity: 0.9;
-            margin-bottom: 32px;
-        }
-        .badge {
-            display: inline-block;
-            background: rgba(255,255,255,0.2);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.875rem;
-            margin-bottom: 24px;
-        }
-        .card {
-            background: white;
-            border-radius: 16px;
-            padding: 32px;
-            margin-bottom: 24px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-        }
-        .card h2 {
-            color: #0D5C4D;
-            margin-bottom: 16px;
-        }
-        .card p {
-            line-height: 1.7;
-            color: #555;
-        }
-        .links {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 16px;
-            justify-content: center;
-            margin-top: 32px;
-        }
-        .links a {
-            display: inline-block;
-            padding: 12px 24px;
-            background: white;
-            color: #0D5C4D;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 600;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .links a:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        }
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-top: 24px;
-        }
-        .feature {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-        }
-        .feature-icon {
-            font-size: 2rem;
-            margin-bottom: 12px;
-        }
-        .feature h3 {
-            color: #0D5C4D;
-            margin-bottom: 8px;
-        }
-        .feature p {
-            font-size: 0.875rem;
-            color: #666;
-        }
-        footer {
-            text-align: center;
-            padding: 40px 20px;
-            color: rgba(255,255,255,0.7);
-        }
-        footer a {
-            color: white;
-            text-decoration: none;
-        }
-        footer a:hover {
-            text-decoration: underline;
-        }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background: linear-gradient(135deg, #0d5c4d 0%, #0a4a3d 100%);
+        min-height: 100vh;
+        color: #333;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px 20px;
+      }
+      .hero {
+        text-align: center;
+        color: white;
+        padding: 60px 20px;
+      }
+      .hero h1 {
+        font-size: 3rem;
+        margin-bottom: 16px;
+      }
+      .hero p {
+        font-size: 1.25rem;
+        opacity: 0.9;
+        margin-bottom: 32px;
+      }
+      .badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-size: 0.875rem;
+        margin-bottom: 24px;
+      }
+      .card {
+        background: white;
+        border-radius: 16px;
+        padding: 32px;
+        margin-bottom: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+      .card h2 {
+        color: #0d5c4d;
+        margin-bottom: 16px;
+      }
+      .card p {
+        line-height: 1.7;
+        color: #555;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: center;
+        margin-top: 32px;
+      }
+      .links a {
+        display: inline-block;
+        padding: 12px 24px;
+        background: white;
+        color: #0d5c4d;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .links a:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+      .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-top: 24px;
+      }
+      .feature {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 12px;
+        text-align: center;
+      }
+      .feature-icon {
+        width: 48px;
+        height: 48px;
+        margin: 0 auto 12px;
+        background: #e8f5e9;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .feature-icon svg {
+        width: 24px;
+        height: 24px;
+        stroke: #0d5c4d;
+        stroke-width: 2;
+        fill: none;
+      }
+      .feature h3 {
+        color: #0d5c4d;
+        margin-bottom: 8px;
+      }
+      .feature p {
+        font-size: 0.875rem;
+        color: #666;
+      }
+      footer {
+        text-align: center;
+        padding: 40px 20px;
+        color: rgba(255, 255, 255, 0.7);
+      }
+      footer a {
+        color: white;
+        text-decoration: none;
+      }
+      footer a:hover {
+        text-decoration: underline;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="hero">
-        <div class="badge">App Store'da Yakinda</div>
-        <h1>Isletme Takip</h1>
-        <p>Isletmenizi kolayca yonetin. Gelir, gider, cari ve personel takibi tek uygulamada.</p>
-        <div class="links">
-            <a href="privacy-policy.html">Gizlilik Politikasi</a>
-            <a href="terms-of-service.html">Kullanim Kosullari</a>
-            <a href="kvkk.html">KVKK</a>
-            <a href="support.html">Destek</a>
-        </div>
+      <div class="badge">App Store'da Yakinda</div>
+      <h1>Isletme Takip</h1>
+      <p>Isletmenizi kolayca yonetin. Gelir, gider, cari ve personel takibi tek uygulamada.</p>
+      <div class="links">
+        <a href="privacy-policy.html">Gizlilik Politikasi</a>
+        <a href="terms-of-service.html">Kullanim Kosullari</a>
+        <a href="kvkk.html">KVKK</a>
+        <a href="support.html">Destek</a>
+      </div>
     </div>
 
     <div class="container">
-        <div class="card">
-            <h2>Uygulama Hakkinda</h2>
-            <p>Isletme Takip, kucuk ve orta olcekli isletmeler icin gelistirilmis kapsamli bir finansal yonetim uygulamasidir. Gelir ve giderlerinizi takip edin, cari hesaplarinizi yonetin, personel maaslarini izleyin ve isletmenizin finansal durumunu tek bakista gorun.</p>
+      <div class="card">
+        <h2>Uygulama Hakkinda</h2>
+        <p>
+          Isletme Takip, kucuk ve orta olcekli isletmeler icin gelistirilmis kapsamli bir finansal
+          yonetim uygulamasidir. Gelir ve giderlerinizi takip edin, cari hesaplarinizi yonetin,
+          personel maaslarini izleyin ve isletmenizin finansal durumunu tek bakista gorun.
+        </p>
 
-            <div class="features">
-                <div class="feature">
-                    <div class="feature-icon">💰</div>
-                    <h3>Gelir/Gider</h3>
-                    <p>Tum finansal hareketlerinizi kaydedin</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">👥</div>
-                    <h3>Cari Takip</h3>
-                    <p>Musteri ve tedarikci hesaplari</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">👔</div>
-                    <h3>Personel</h3>
-                    <p>Maas ve odeme takibi</p>
-                </div>
-                <div class="feature">
-                    <div class="feature-icon">📊</div>
-                    <h3>Raporlar</h3>
-                    <p>Detayli finansal analizler</p>
-                </div>
+        <div class="features">
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
             </div>
+            <h3>Gelir/Gider</h3>
+            <p>Tum finansal hareketlerinizi kaydedin</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <h3>Cari Takip</h3>
+            <p>Musteri ve tedarikci hesaplari</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+            <h3>Personel</h3>
+            <p>Maas ve odeme takibi</p>
+          </div>
+          <div class="feature">
+            <div class="feature-icon">
+              <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+            </div>
+            <h3>Raporlar</h3>
+            <p>Detayli finansal analizler</p>
+          </div>
         </div>
+      </div>
 
-        <div class="card">
-            <h2>Iletisim</h2>
-            <p>Sorulariniz veya geri bildirimleriniz icin bizimle iletisime gecin:</p>
-            <p style="margin-top: 12px;"><strong>E-posta:</strong> ozadaliomerfaruk@gmail.com</p>
-        </div>
+      <div class="card">
+        <h2>Iletisim</h2>
+        <p>Sorulariniz veya geri bildirimleriniz icin bizimle iletisime gecin:</p>
+        <p style="margin-top: 12px"><strong>E-posta:</strong> ozadaliomerfaruk@gmail.com</p>
+      </div>
     </div>
 
     <footer>
-        <p>&copy; 2024 Isletme Takip. Tum haklari saklidir.</p>
-        <p style="margin-top: 8px;">
-            <a href="privacy-policy.html">Gizlilik Politikasi</a> |
-            <a href="terms-of-service.html">Kullanim Kosullari</a> |
-            <a href="kvkk.html">KVKK</a>
-        </p>
+      <p>&copy; 2025 Isletme Takip. Tum haklari saklidir.</p>
+      <p style="margin-top: 8px">
+        <a href="privacy-policy.html">Gizlilik Politikasi</a> |
+        <a href="terms-of-service.html">Kullanim Kosullari</a> |
+        <a href="kvkk.html">KVKK</a>
+      </p>
     </footer>
-</body>
+  </body>
 </html>
