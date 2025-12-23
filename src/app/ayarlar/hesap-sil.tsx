@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Trash2, AlertTriangle } from 'lucide-react-native';
+import { Trash2, AlertTriangle, Clock } from 'lucide-react-native';
 import { Text, Button, Input, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -24,21 +24,25 @@ export default function HesapSilPage() {
     }
 
     Alert.alert(
-      'Son Onay',
-      'Bu islem geri alinamaz. Tum verileriniz kalici olarak silinecektir. Devam etmek istiyor musunuz?',
+      'Hesap Silme Talebi',
+      'Hesabiniz 7 gun icinde silinecektir. Bu sure icinde giris yaparak silme islemini iptal edebilirsiniz.\n\nDevam etmek istiyor musunuz?',
       [
         { text: 'Vazgec', style: 'cancel' },
         {
-          text: 'Evet, Hesabimi Sil',
+          text: 'Evet, Silme Talebi Olustur',
           style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
             try {
               await deleteAccount();
+              Alert.alert(
+                'Talep Olusturuldu',
+                'Hesabiniz 7 gun icinde silinecektir. Bu sure icinde giris yaparak iptal edebilirsiniz.'
+              );
             } catch (error) {
               console.error('Delete account error:', error);
               setIsDeleting(false);
-              Alert.alert('Hata', 'Hesap silinirken bir hata olustu. Lutfen tekrar deneyin.');
+              Alert.alert('Hata', 'Hesap silme talebi olusturulurken bir hata olustu. Lutfen tekrar deneyin.');
             }
           },
         },
@@ -62,7 +66,7 @@ export default function HesapSilPage() {
           </Text>
 
           <Text variant="body" color="secondary" style={styles.description}>
-            Bu islem geri alinamaz. Hesabinizi sildiginizde asagidaki tum verileriniz kalici olarak silinecektir:
+            Hesabinizi silmek istediginizde 7 gunluk bekleme suresi baslar. Bu sure icinde giris yaparak vazgecebilirsiniz. 7 gun sonunda asagidaki tum verileriniz kalici olarak silinecektir:
           </Text>
 
           <Card style={styles.warningCard}>

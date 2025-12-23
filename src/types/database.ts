@@ -60,6 +60,7 @@ export interface Isletme {
   phone: string | null;
   address: string | null;
   tax_number: string | null;
+  scheduled_deletion_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -78,6 +79,7 @@ export interface IsletmeUpdate {
   phone?: string | null;
   address?: string | null;
   tax_number?: string | null;
+  scheduled_deletion_at?: string | null;
 }
 
 // Hesap

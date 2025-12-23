@@ -14,9 +14,9 @@ interface IslemFilters {
 }
 
 export function useIslemler(filters?: IslemFilters) {
-  const { isletme } = useAuthContext();
+  const { isletme, isletmeLoading } = useAuthContext();
 
-  return useQuery({
+  const result = useQuery({
     queryKey: ['islemler', isletme?.id, filters],
     queryFn: async () => {
       if (!isletme) return [];
@@ -70,6 +70,12 @@ export function useIslemler(filters?: IslemFilters) {
     },
     enabled: !!isletme,
   });
+
+  // isletme henüz yükleniyorsa loading olarak göster
+  return {
+    ...result,
+    isLoading: result.isLoading || isletmeLoading,
+  };
 }
 
 // Tek işlem getir

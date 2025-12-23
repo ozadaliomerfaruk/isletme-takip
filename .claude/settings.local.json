@@ -29,7 +29,11 @@
       "Bash(git rm:*)",
       "Bash(del:*)",
       "Bash(git remote add:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npx supabase functions new delete-scheduled-accounts)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(git fetch:*)"
     ]
   }
 }

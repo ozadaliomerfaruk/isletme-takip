@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -14,6 +14,7 @@ import {
   ArrowLeftRight,
   History,
   Banknote,
+  AlertTriangle,
 } from 'lucide-react-native';
 import { Text, Card, TabFilter, ExpandableCard, Button, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -22,6 +23,7 @@ import { formatCurrency } from '@/lib/utils';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
 import { useCariSummary } from '@/hooks/useCariler';
 import { useMonthSummary } from '@/hooks/useIslemler';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { HesapType } from '@/types/database';
 
 const periodOptions = [
@@ -32,6 +34,8 @@ const periodOptions = [
 export default function HomePage() {
   const router = useRouter();
   const [period, setPeriod] = useState('month');
+  const [isCancelling, setIsCancelling] = useState(false);
+  const { isletme, cancelAccountDeletion } = useAuthContext();
 
   // Gerçek veriler
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
@@ -42,6 +46,37 @@ export default function HomePage() {
   const totalIncome = monthSummary?.income ?? 0;
   const totalExpense = monthSummary?.expense ?? 0;
   const netProfit = totalIncome - totalExpense;
+
+  // Silme planlanmış mı kontrol et
+  const scheduledDeletion = isletme?.scheduled_deletion_at;
+  const deletionDate = scheduledDeletion ? new Date(scheduledDeletion) : null;
+  const daysRemaining = deletionDate
+    ? Math.ceil((deletionDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  const handleCancelDeletion = () => {
+    Alert.alert(
+      'Silme Talebini Iptal Et',
+      'Hesap silme talebinizi iptal etmek istediginize emin misiniz?',
+      [
+        { text: 'Vazgec', style: 'cancel' },
+        {
+          text: 'Evet, Iptal Et',
+          onPress: async () => {
+            setIsCancelling(true);
+            try {
+              await cancelAccountDeletion();
+              Alert.alert('Basarili', 'Hesap silme talebi iptal edildi.');
+            } catch (error) {
+              Alert.alert('Hata', 'Islem sirasinda bir hata olustu.');
+            } finally {
+              setIsCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const getHesapIcon = (type: HesapType) => {
     switch (type) {
@@ -61,8 +96,34 @@ export default function HomePage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="h2">HesApp</Text>
+          <Text variant="h2">Ana Sayfa</Text>
         </View>
+
+        {/* Hesap Silme Uyarısı */}
+        {scheduledDeletion && daysRemaining > 0 && (
+          <View style={styles.deletionWarning}>
+            <View style={styles.deletionWarningContent}>
+              <AlertTriangle size={20} color={colors.surface} />
+              <View style={styles.deletionWarningText}>
+                <Text variant="body" style={{ color: colors.surface, fontWeight: '600' }}>
+                  Hesabiniz {daysRemaining} gun icinde silinecek
+                </Text>
+                <Text variant="caption" style={{ color: colors.surface, opacity: 0.9 }}>
+                  Vazgecmek icin asagidaki butona basin
+                </Text>
+              </View>
+            </View>
+            <Button
+              variant="secondary"
+              size="sm"
+              onPress={handleCancelDeletion}
+              loading={isCancelling}
+              style={styles.cancelDeletionBtn}
+            >
+              Iptal Et
+            </Button>
+          </View>
+        )}
 
         {/* Dönem Seçici */}
         <View style={styles.periodFilter}>
@@ -287,6 +348,25 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+  },
+  deletionWarning: {
+    backgroundColor: colors.error,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    padding: spacing.md,
+    borderRadius: 12,
+    gap: spacing.md,
+  },
+  deletionWarningContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  deletionWarningText: {
+    flex: 1,
+  },
+  cancelDeletionBtn: {
+    alignSelf: 'flex-start',
   },
   periodFilter: {
     paddingHorizontal: spacing.lg,

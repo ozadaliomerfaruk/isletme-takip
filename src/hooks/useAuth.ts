@@ -16,6 +16,7 @@ interface AuthState {
   isletme: Isletme | null;
   loading: boolean;
   initialized: boolean;
+  isletmeLoading: boolean;
 }
 
 export function useAuth() {
@@ -25,6 +26,7 @@ export function useAuth() {
     isletme: null,
     loading: true,
     initialized: false,
+    isletmeLoading: true,
   });
 
   // İşletme bilgisini getir
@@ -61,6 +63,7 @@ export function useAuth() {
             isletme: null,
             loading: false,
             initialized: true,
+            isletmeLoading: false,
           });
           return;
         }
@@ -82,6 +85,7 @@ export function useAuth() {
           isletme,
           loading: false,
           initialized: true,
+          isletmeLoading: false,
         });
       } catch (error) {
         console.error('Auth başlatma hatası:', error);
@@ -92,6 +96,7 @@ export function useAuth() {
             isletme: null,
             loading: false,
             initialized: true,
+            isletmeLoading: false,
           });
         }
       }
@@ -107,6 +112,7 @@ export function useAuth() {
           isletme: null,
           loading: false,
           initialized: true,
+          isletmeLoading: false,
         });
       }
     }, 10000);
@@ -136,6 +142,7 @@ export function useAuth() {
         user: session?.user ?? null,
         isletme,
         loading: false,
+        isletmeLoading: false,
       }));
     });
 
@@ -226,6 +233,7 @@ export function useAuth() {
       isletme: null,
       loading: false,
       initialized: true,
+      isletmeLoading: false,
     });
   };
 
@@ -356,7 +364,7 @@ export function useAuth() {
     }
   };
 
-  // Hesabı sil
+  // Hesap silme isteği (7 gün sonra silinecek)
   const deleteAccount = async () => {
     if (!state.user || !state.isletme) {
       throw new Error('Kullanıcı bulunamadı');
@@ -365,28 +373,21 @@ export function useAuth() {
     setState((prev) => ({ ...prev, loading: true }));
 
     try {
-      const userId = state.user.id;
       const isletmeId = state.isletme.id;
 
-      // 1. Tüm işlemleri sil
-      await supabase.from('islemler').delete().eq('isletme_id', isletmeId);
+      // 7 gün sonrası için silme tarihi ayarla
+      const deletionDate = new Date();
+      deletionDate.setDate(deletionDate.getDate() + 7);
 
-      // 2. Tüm personeli sil
-      await supabase.from('personel').delete().eq('isletme_id', isletmeId);
+      // İşletmeye silme tarihi ekle
+      const { error } = await supabase
+        .from('isletmeler')
+        .update({ scheduled_deletion_at: deletionDate.toISOString() })
+        .eq('id', isletmeId);
 
-      // 3. Tüm carileri sil
-      await supabase.from('cariler').delete().eq('isletme_id', isletmeId);
+      if (error) throw error;
 
-      // 4. Tüm hesapları sil
-      await supabase.from('hesaplar').delete().eq('isletme_id', isletmeId);
-
-      // 5. Tüm kategorileri sil
-      await supabase.from('kategoriler').delete().eq('isletme_id', isletmeId);
-
-      // 6. İşletmeyi sil
-      await supabase.from('isletmeler').delete().eq('id', isletmeId);
-
-      // 7. Kullanıcıyı çıkış yaptır
+      // Kullanıcıyı çıkış yaptır
       await supabase.auth.signOut();
 
       setState({
@@ -395,7 +396,39 @@ export function useAuth() {
         isletme: null,
         loading: false,
         initialized: true,
+        isletmeLoading: false,
       });
+    } catch (error) {
+      setState((prev) => ({ ...prev, loading: false }));
+      throw error;
+    }
+  };
+
+  // Hesap silme isteğini iptal et
+  const cancelAccountDeletion = async () => {
+    if (!state.user || !state.isletme) {
+      throw new Error('Kullanıcı bulunamadı');
+    }
+
+    setState((prev) => ({ ...prev, loading: true }));
+
+    try {
+      const isletmeId = state.isletme.id;
+
+      // Silme tarihini kaldır
+      const { error } = await supabase
+        .from('isletmeler')
+        .update({ scheduled_deletion_at: null })
+        .eq('id', isletmeId);
+
+      if (error) throw error;
+
+      // State'i güncelle
+      setState((prev) => ({
+        ...prev,
+        isletme: prev.isletme ? { ...prev.isletme, scheduled_deletion_at: null } : null,
+        loading: false,
+      }));
     } catch (error) {
       setState((prev) => ({ ...prev, loading: false }));
       throw error;
@@ -411,6 +444,7 @@ export function useAuth() {
     signUp,
     signOut,
     deleteAccount,
+    cancelAccountDeletion,
     refreshIsletme,
     signInWithApple,
     signInWithGoogle,

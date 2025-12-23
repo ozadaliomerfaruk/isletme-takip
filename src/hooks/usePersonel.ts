@@ -4,9 +4,9 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Personel, PersonelInsert, PersonelUpdate } from '@/types/database';
 
 export function usePersonelList() {
-  const { isletme } = useAuthContext();
+  const { isletme, isletmeLoading } = useAuthContext();
 
-  return useQuery({
+  const result = useQuery({
     queryKey: ['personel', isletme?.id],
     queryFn: async () => {
       if (!isletme) return [];
@@ -23,6 +23,12 @@ export function usePersonelList() {
     },
     enabled: !!isletme,
   });
+
+  // isletme henüz yükleniyorsa loading olarak göster
+  return {
+    ...result,
+    isLoading: result.isLoading || isletmeLoading,
+  };
 }
 
 export function usePersonel(id: string | undefined) {

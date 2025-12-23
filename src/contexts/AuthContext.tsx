@@ -9,10 +9,12 @@ interface AuthContextType {
   isletme: Isletme | null;
   loading: boolean;
   initialized: boolean;
+  isletmeLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ user: User; session: Session }>;
   signUp: (email: string, password: string, isletmeName: string) => Promise<{ user: User; isletme: Isletme }>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<void>;
+  cancelAccountDeletion: () => Promise<void>;
   refreshIsletme: () => Promise<void>;
   signInWithApple: () => Promise<any>;
   signInWithGoogle: (idToken: string) => Promise<any>;

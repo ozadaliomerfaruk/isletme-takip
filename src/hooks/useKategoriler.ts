@@ -4,9 +4,9 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, KategoriInsert, KategoriUpdate, KategoriType } from '@/types/database';
 
 export function useKategoriler(type?: KategoriType) {
-  const { isletme } = useAuthContext();
+  const { isletme, isletmeLoading } = useAuthContext();
 
-  return useQuery({
+  const result = useQuery({
     queryKey: ['kategoriler', isletme?.id, type],
     queryFn: async () => {
       if (!isletme) return [];
@@ -29,6 +29,12 @@ export function useKategoriler(type?: KategoriType) {
     },
     enabled: !!isletme,
   });
+
+  // isletme henüz yükleniyorsa loading olarak göster
+  return {
+    ...result,
+    isLoading: result.isLoading || isletmeLoading,
+  };
 }
 
 export function useCreateKategori() {

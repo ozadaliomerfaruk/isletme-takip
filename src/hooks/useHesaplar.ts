@@ -4,9 +4,9 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 
 export function useHesaplar() {
-  const { isletme } = useAuthContext();
+  const { isletme, isletmeLoading } = useAuthContext();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['hesaplar', isletme?.id],
     queryFn: async () => {
       if (!isletme) return [];
@@ -23,6 +23,12 @@ export function useHesaplar() {
     },
     enabled: !!isletme,
   });
+
+  // isletme henüz yükleniyorsa loading olarak göster
+  return {
+    ...query,
+    isLoading: query.isLoading || isletmeLoading,
+  };
 }
 
 export function useHesap(id: string | undefined) {

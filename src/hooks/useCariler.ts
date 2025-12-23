@@ -4,9 +4,9 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Cari, CariInsert, CariUpdate, CariType } from '@/types/database';
 
 export function useCariler(type?: CariType) {
-  const { isletme } = useAuthContext();
+  const { isletme, isletmeLoading } = useAuthContext();
 
-  return useQuery({
+  const result = useQuery({
     queryKey: ['cariler', isletme?.id, type],
     queryFn: async () => {
       if (!isletme) return [];
@@ -29,6 +29,12 @@ export function useCariler(type?: CariType) {
     },
     enabled: !!isletme,
   });
+
+  // isletme henüz yükleniyorsa loading olarak göster
+  return {
+    ...result,
+    isLoading: result.isLoading || isletmeLoading,
+  };
 }
 
 export function useCari(id: string | undefined) {
