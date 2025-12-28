@@ -45,11 +45,14 @@ export default function IslemlerPage() {
     if (filter === 'personel') matchesFilter = islem.type.startsWith('personel_');
 
     const searchLower = searchQuery.toLowerCase();
+    const personelName = islem.personel
+      ? `${islem.personel.first_name || ''} ${islem.personel.last_name || ''}`.trim().toLowerCase()
+      : '';
     const matchesSearch =
       (islem.description?.toLowerCase().includes(searchLower) || false) ||
       (islem.hesap?.name?.toLowerCase().includes(searchLower) || false) ||
       (islem.cari?.name?.toLowerCase().includes(searchLower) || false) ||
-      ((islem.personel ? `${islem.personel.first_name} ${islem.personel.last_name}`.toLowerCase().includes(searchLower) : false));
+      (personelName.includes(searchLower));
 
     return matchesFilter && matchesSearch;
   });

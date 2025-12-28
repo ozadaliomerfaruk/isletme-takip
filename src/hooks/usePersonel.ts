@@ -100,22 +100,39 @@ export function useUpdatePersonel() {
 
 export function useDeletePersonel() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Önce ilişkili işlemleri sil
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
+      // Önce personelin bu işletmeye ait olduğunu doğrula
+      const { data: personel, error: checkError } = await supabase
+        .from('personel')
+        .select('id')
+        .eq('id', id)
+        .eq('isletme_id', isletme.id)
+        .single();
+
+      if (checkError || !personel) {
+        throw new Error('Personel bulunamadı veya erişim yetkiniz yok');
+      }
+
+      // İlişkili işlemleri sil (ownership kontrolü ile)
       const { error: islemError } = await supabase
         .from('islemler')
         .delete()
-        .eq('personel_id', id);
+        .eq('personel_id', id)
+        .eq('isletme_id', isletme.id);
 
       if (islemError) throw islemError;
 
-      // Sonra personeli sil (soft delete)
+      // Sonra personeli sil (soft delete) - ownership kontrolü ile
       const { error } = await supabase
         .from('personel')
         .update({ is_active: false })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);
 
       if (error) throw error;
     },

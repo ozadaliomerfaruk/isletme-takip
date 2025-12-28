@@ -17,7 +17,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
 
 export default function CariAlisPage() {
   const router = useRouter();
@@ -48,7 +48,7 @@ export default function CariAlisPage() {
   const validate = () => {
     const newErrors: { amount?: string; cari?: string } = {};
 
-    if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
+    if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
     }
 
@@ -66,11 +66,11 @@ export default function CariAlisPage() {
     try {
       await createIslem.mutateAsync({
         type: 'cari_alis',
-        amount: parseFloat(amount.replace(',', '.')),
+        amount: parseCurrency(amount),
         description: description.trim() || `${selectedCari?.name} - Alış`,
         cari_id: cariId,
         kategori_id: kategoriId,
-        date: selectedDate.toISOString().split('T')[0],
+        date: formatDateForDB(selectedDate),
       });
 
       Alert.alert('Başarılı', 'Alış kaydedildi', [

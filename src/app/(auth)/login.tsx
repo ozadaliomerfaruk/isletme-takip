@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -40,6 +40,16 @@ export default function LoginPage() {
     webClientId: GOOGLE_WEB_CLIENT_ID,
   });
 
+  const handleGoogleSignIn = useCallback(async (idToken: string) => {
+    try {
+      await signInWithGoogle(idToken);
+    } catch (error: any) {
+      Alert.alert('Hata', error.message || 'Google ile giriş başarısız oldu');
+    } finally {
+      setSocialLoading(null);
+    }
+  }, [signInWithGoogle]);
+
   // Google auth response handler
   useEffect(() => {
     if (response?.type === 'success') {
@@ -51,17 +61,7 @@ export default function LoginPage() {
       setSocialLoading(null);
       Alert.alert('Hata', 'Google ile giriş başarısız oldu');
     }
-  }, [response]);
-
-  const handleGoogleSignIn = async (idToken: string) => {
-    try {
-      await signInWithGoogle(idToken);
-    } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Google ile giriş başarısız oldu');
-    } finally {
-      setSocialLoading(null);
-    }
-  };
+  }, [response, handleGoogleSignIn]);
 
   const handleAppleSignIn = async () => {
     try {

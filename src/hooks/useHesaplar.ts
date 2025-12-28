@@ -97,29 +97,47 @@ export function useUpdateHesap() {
 
 export function useDeleteHesap() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Önce bu hesapla ilişkili işlemleri sil (hem hesap_id hem hedef_hesap_id)
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
+      // Önce hesabın bu işletmeye ait olduğunu doğrula
+      const { data: hesap, error: checkError } = await supabase
+        .from('hesaplar')
+        .select('id')
+        .eq('id', id)
+        .eq('isletme_id', isletme.id)
+        .single();
+
+      if (checkError || !hesap) {
+        throw new Error('Hesap bulunamadı veya erişim yetkiniz yok');
+      }
+
+      // Bu hesapla ilişkili işlemleri sil (ownership kontrolü ile)
       const { error: islemError1 } = await supabase
         .from('islemler')
         .delete()
-        .eq('hesap_id', id);
+        .eq('hesap_id', id)
+        .eq('isletme_id', isletme.id);
 
       if (islemError1) throw islemError1;
 
       const { error: islemError2 } = await supabase
         .from('islemler')
         .delete()
-        .eq('hedef_hesap_id', id);
+        .eq('hedef_hesap_id', id)
+        .eq('isletme_id', isletme.id);
 
       if (islemError2) throw islemError2;
 
-      // Sonra hesabı sil (soft delete)
+      // Sonra hesabı sil (soft delete) - ownership kontrolü ile
       const { error } = await supabase
         .from('hesaplar')
         .update({ is_active: false })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);
 
       if (error) throw error;
     },

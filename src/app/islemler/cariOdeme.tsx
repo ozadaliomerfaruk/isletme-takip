@@ -18,7 +18,7 @@ import { useCariler } from '@/hooks/useCariler';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
 
 export default function CariOdemePage() {
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function CariOdemePage() {
   const validate = () => {
     const newErrors: { amount?: string; cari?: string; hesap?: string } = {};
 
-    if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
+    if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
     }
 
@@ -78,12 +78,12 @@ export default function CariOdemePage() {
     try {
       await createIslem.mutateAsync({
         type: 'cari_odeme',
-        amount: parseFloat(amount.replace(',', '.')),
+        amount: parseCurrency(amount),
         description: description.trim() || `${selectedCari?.name} - Ödeme`,
         cari_id: cariId,
         hesap_id: hesapId,
         kategori_id: kategoriId,
-        date: selectedDate.toISOString().split('T')[0],
+        date: formatDateForDB(selectedDate),
       });
 
       Alert.alert('Başarılı', 'Ödeme kaydedildi', [

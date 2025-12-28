@@ -17,6 +17,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCreateIslem } from '@/hooks/useIslemler';
+import { parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
 
 export default function GelirEklePage() {
   const router = useRouter();
@@ -48,7 +49,7 @@ export default function GelirEklePage() {
   const validate = () => {
     const newErrors: { amount?: string; hesap?: string } = {};
 
-    if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
+    if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
     }
 
@@ -66,11 +67,11 @@ export default function GelirEklePage() {
     try {
       await createIslem.mutateAsync({
         type: 'gelir',
-        amount: parseFloat(amount.replace(',', '.')),
+        amount: parseCurrency(amount),
         description: description.trim() || null,
         hesap_id: hesapId,
         kategori_id: kategoriId,
-        date: selectedDate.toISOString().split('T')[0],
+        date: formatDateForDB(selectedDate),
       });
 
       Alert.alert('Başarılı', 'Gelir eklendi', [

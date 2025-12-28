@@ -17,7 +17,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
 
 export default function PersonelGiderPage() {
   const router = useRouter();
@@ -48,7 +48,7 @@ export default function PersonelGiderPage() {
   const validate = () => {
     const newErrors: { amount?: string; personel?: string } = {};
 
-    if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
+    if (!isValidAmount(amount)) {
       newErrors.amount = 'Gecerli bir tutar girin';
     }
 
@@ -66,11 +66,11 @@ export default function PersonelGiderPage() {
     try {
       await createIslem.mutateAsync({
         type: 'personel_gider',
-        amount: parseFloat(amount.replace(',', '.')),
+        amount: parseCurrency(amount),
         description: description.trim() || `${selectedPersonel?.first_name} ${selectedPersonel?.last_name} - Gider`,
         personel_id: personelId,
         kategori_id: kategoriId,
-        date: selectedDate.toISOString().split('T')[0],
+        date: formatDateForDB(selectedDate),
       });
 
       Alert.alert('Basarili', 'Gider kaydedildi', [

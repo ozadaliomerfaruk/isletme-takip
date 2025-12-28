@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { Platform } from 'react-native';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Platform, AppState, AppStateStatus } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
@@ -29,19 +29,86 @@ export function useAuth() {
     isletmeLoading: true,
   });
 
-  // İşletme bilgisini getir
-  const fetchIsletme = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('isletmeler')
-      .select('*')
-      .eq('user_id', userId)
-      .single();
+  // AppState için ref - arka plan/ön plan takibi
+  const appState = useRef(AppState.currentState);
+  const lastRefreshTime = useRef<number>(Date.now());
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('İşletme getirme hatası:', error);
+  // Race condition önleme - eşzamanlı fetchIsletme çağrılarını engelle
+  const fetchIsletmeInProgress = useRef<string | null>(null);
+
+  // Session'ı yenile - arka plandan dönüşte veya token süresi dolmak üzereyken çağrılır
+  const refreshSession = useCallback(async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.refreshSession();
+
+      if (error) {
+        console.error('Session yenileme hatası:', error);
+        // Refresh token da geçersizse kullanıcıyı çıkış yaptır
+        if (error.message?.includes('refresh_token') || error.message?.includes('Invalid')) {
+          console.log('Refresh token geçersiz, çıkış yapılıyor...');
+          setState({
+            session: null,
+            user: null,
+            isletme: null,
+            loading: false,
+            initialized: true,
+            isletmeLoading: false,
+          });
+        }
+        return null;
+      }
+
+      lastRefreshTime.current = Date.now();
+      return session;
+    } catch (error) {
+      console.error('Session yenileme exception:', error);
+      return null;
+    }
+  }, []);
+
+  // Token'ın süresinin dolup dolmadığını veya dolmak üzere olduğunu kontrol et
+  const checkAndRefreshToken = useCallback(async () => {
+    const currentSession = state.session;
+    if (!currentSession) return;
+
+    const expiresAt = currentSession.expires_at;
+    if (!expiresAt) return;
+
+    const now = Math.floor(Date.now() / 1000);
+    const timeUntilExpiry = expiresAt - now;
+
+    // Token 5 dakika içinde dolacaksa veya zaten dolmuşsa yenile
+    if (timeUntilExpiry < 300) {
+      console.log('Token süresi dolmak üzere, yenileniyor...');
+      await refreshSession();
+    }
+  }, [state.session, refreshSession]);
+
+  // İşletme bilgisini getir - race condition korumalı
+  const fetchIsletme = useCallback(async (userId: string): Promise<Isletme | null> => {
+    // Aynı userId için zaten bir istek varsa, bekle ve sonucu paylaş
+    if (fetchIsletmeInProgress.current === userId) {
+      // Zaten devam eden bir istek var, null döndür (state zaten güncellenecek)
+      return null;
     }
 
-    return data as Isletme | null;
+    fetchIsletmeInProgress.current = userId;
+
+    try {
+      const { data, error } = await supabase
+        .from('isletmeler')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('İşletme getirme hatası:', error);
+      }
+
+      return data as Isletme | null;
+    } finally {
+      fetchIsletmeInProgress.current = null;
+    }
   }, []);
 
   // Auth state değişikliklerini dinle
@@ -102,7 +169,7 @@ export function useAuth() {
       }
     };
 
-    // Timeout ile koruma - 10 saniye içinde başlatılamazsa devam et
+    // Timeout ile koruma - 15 saniye içinde başlatılamazsa devam et
     const timeout = setTimeout(() => {
       if (isMounted && !state.initialized) {
         console.warn('Auth başlatma zaman aşımı');
@@ -115,7 +182,7 @@ export function useAuth() {
           isletmeLoading: false,
         });
       }
-    }, 10000);
+    }, 15000);
 
     initializeAuth();
 
@@ -152,6 +219,47 @@ export function useAuth() {
       subscription.unsubscribe();
     };
   }, [fetchIsletme]);
+
+  // AppState değişikliklerini dinle - arka plandan dönüşte session yenile
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
+      // Arka plandan ön plana geçiş
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('Uygulama ön plana geldi, session kontrol ediliyor...');
+
+        // Son yenilemeden bu yana en az 1 dakika geçtiyse session'ı yenile
+        const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
+        const ONE_MINUTE = 60 * 1000;
+
+        if (timeSinceLastRefresh > ONE_MINUTE && state.session) {
+          console.log('Session yenileniyor...');
+          await refreshSession();
+        }
+      }
+
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [state.session, refreshSession]);
+
+  // Periyodik token kontrolü - her 4 dakikada bir token süresini kontrol et
+  useEffect(() => {
+    if (!state.session) return;
+
+    const interval = setInterval(() => {
+      checkAndRefreshToken();
+    }, 4 * 60 * 1000); // 4 dakika
+
+    return () => clearInterval(interval);
+  }, [state.session, checkAndRefreshToken]);
 
   // Giriş yap
   const signIn = async (email: string, password: string) => {

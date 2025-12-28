@@ -18,7 +18,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
 
 export default function PersonelOdemePage() {
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function PersonelOdemePage() {
   const validate = () => {
     const newErrors: { amount?: string; personel?: string; hesap?: string } = {};
 
-    if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
+    if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
     }
 
@@ -78,12 +78,12 @@ export default function PersonelOdemePage() {
     try {
       await createIslem.mutateAsync({
         type: 'personel_odeme',
-        amount: parseFloat(amount.replace(',', '.')),
+        amount: parseCurrency(amount),
         description: description.trim() || `${selectedPersonel?.first_name} ${selectedPersonel?.last_name} - Maaş/Ödeme`,
         personel_id: personelId,
         hesap_id: hesapId,
         kategori_id: kategoriId,
-        date: selectedDate.toISOString().split('T')[0],
+        date: formatDateForDB(selectedDate),
       });
 
       Alert.alert('Başarılı', 'Ödeme kaydedildi', [

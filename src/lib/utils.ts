@@ -1,6 +1,50 @@
 import { CURRENCY_SYMBOL } from '@/constants';
 
 /**
+ * Türkçe para formatından sayıya dönüştür
+ * "1.234,56" → 1234.56
+ * "1234,56" → 1234.56
+ * "1234.56" → 1234.56
+ */
+export const parseCurrency = (value: string): number => {
+  if (!value || value.trim() === '') return NaN;
+
+  // Boşlukları temizle
+  let cleaned = value.trim();
+
+  // Hem nokta hem virgül varsa, Türkçe format (1.234,56)
+  if (cleaned.includes('.') && cleaned.includes(',')) {
+    // Binlik ayracı olan noktaları kaldır, ondalık virgülü noktaya çevir
+    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+  } else if (cleaned.includes(',')) {
+    // Sadece virgül var - ondalık ayracı olarak kullan
+    cleaned = cleaned.replace(',', '.');
+  }
+  // Sadece nokta varsa olduğu gibi bırak (İngilizce format)
+
+  const result = parseFloat(cleaned);
+  return result;
+};
+
+/**
+ * Tutar validation - geçerli bir sayı mı ve 0'dan büyük mü kontrol et
+ */
+export const isValidAmount = (value: string): boolean => {
+  const amount = parseCurrency(value);
+  return !isNaN(amount) && amount > 0;
+};
+
+/**
+ * Tarihi timezone-safe şekilde YYYY-MM-DD formatına çevir
+ */
+export const formatDateForDB = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Para formatla (₺1.234,56 şeklinde)
  */
 export const formatCurrency = (amount: number): string => {

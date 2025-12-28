@@ -16,7 +16,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
 
 export default function TransferPage() {
   const router = useRouter();
@@ -46,7 +46,7 @@ export default function TransferPage() {
   const validate = () => {
     const newErrors: { amount?: string; kaynak?: string; hedef?: string } = {};
 
-    if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
+    if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
     }
 
@@ -72,11 +72,11 @@ export default function TransferPage() {
     try {
       await createIslem.mutateAsync({
         type: 'transfer',
-        amount: parseFloat(amount.replace(',', '.')),
+        amount: parseCurrency(amount),
         description: description.trim() || `${kaynakHesap?.name} → ${hedefHesap?.name}`,
         hesap_id: kaynakHesapId,
         hedef_hesap_id: hedefHesapId,
-        date: selectedDate.toISOString().split('T')[0],
+        date: formatDateForDB(selectedDate),
       });
 
       Alert.alert('Başarılı', 'Transfer yapıldı', [

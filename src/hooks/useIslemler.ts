@@ -137,6 +137,20 @@ export function useCreateIslem() {
   });
 }
 
+// RPC çağrısı için helper fonksiyon - hata kontrolü ile
+async function safeIncrementBalance(tableName: string, rowId: string, amount: number) {
+  const { error } = await supabase.rpc('increment_balance', {
+    table_name: tableName,
+    row_id: rowId,
+    amount: amount,
+  });
+
+  if (error) {
+    console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
+    throw new Error(`Bakiye güncellenemedi: ${error.message}`);
+  }
+}
+
 // Bakiye güncelleme yardımcı fonksiyonu
 async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
   const amount = Number(islem.amount);
@@ -145,127 +159,75 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
     case 'gelir':
       // Hesap bakiyesini artır
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       break;
 
     case 'gider':
       // Hesap bakiyesini azalt
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       break;
 
     case 'transfer':
       // Kaynak hesaptan düş, hedef hesaba ekle
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       if (islem.hedef_hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hedef_hesap_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, amount);
       }
       break;
 
     case 'cari_alis':
       // Tedarikçiden alış - cari bakiyesi azalır (borcumuz artar)
       if (islem.cari_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'cariler',
-          row_id: islem.cari_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
       }
       break;
 
     case 'cari_satis':
       // Müşteriye satış - cari bakiyesi artar (alacağımız artar)
       if (islem.cari_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'cariler',
-          row_id: islem.cari_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
       }
       break;
 
     case 'cari_odeme':
       // Tedarikçiye ödeme - cari bakiyesi artar, hesap bakiyesi azalır
       if (islem.cari_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'cariler',
-          row_id: islem.cari_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
       }
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       break;
 
     case 'cari_tahsilat':
       // Müşteriden tahsilat - cari bakiyesi azalır, hesap bakiyesi artar
       if (islem.cari_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'cariler',
-          row_id: islem.cari_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
       }
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       break;
 
     case 'personel_gider':
       // Personel gideri - personel bakiyesi azalır (borcumuz artar), hesap değişmez
       if (islem.personel_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'personel',
-          row_id: islem.personel_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('personel', islem.personel_id, -amount);
       }
       break;
 
     case 'personel_odeme':
       // Personel borcunu ödeme - personel bakiyesi artar, hesap azalır
       if (islem.personel_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'personel',
-          row_id: islem.personel_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('personel', islem.personel_id, amount);
       }
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       break;
   }
@@ -343,7 +305,7 @@ export function useIslemlerByPersonel(personelId: string) {
   });
 }
 
-// İşlem güncelleme
+// İşlem güncelleme - transaction güvenliği ile
 export function useUpdateIslem() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
@@ -361,11 +323,9 @@ export function useUpdateIslem() {
         .single();
 
       if (fetchError) throw fetchError;
+      if (!oldIslem) throw new Error('İşlem bulunamadı veya erişim yetkiniz yok');
 
-      // Eski bakiyeleri geri al
-      await reverseBalances(oldIslem);
-
-      // İşlemi güncelle
+      // 1. Önce işlemi güncelle
       const { data, error } = await supabase
         .from('islemler')
         .update(updates)
@@ -376,8 +336,26 @@ export function useUpdateIslem() {
 
       if (error) throw error;
 
-      // Yeni bakiyeleri uygula
-      await updateBalances({ ...oldIslem, ...updates });
+      // 2. Güncelleme başarılı olduysa bakiyeleri güncelle
+      try {
+        // Eski bakiyeleri geri al
+        await reverseBalances(oldIslem);
+        // Yeni bakiyeleri uygula
+        await updateBalances({ ...oldIslem, ...updates });
+      } catch (balanceError) {
+        // Bakiye güncellemesi başarısız olursa işlemi geri al
+        console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
+        try {
+          await supabase
+            .from('islemler')
+            .update(oldIslem)
+            .eq('id', id)
+            .eq('isletme_id', isletme.id);
+        } catch (rollbackError) {
+          console.error('İşlem geri alma hatası:', rollbackError);
+        }
+        throw balanceError;
+      }
 
       return data as Islem;
     },
@@ -396,31 +374,45 @@ export function useUpdateIslem() {
   });
 }
 
-// İşlem silme
+// İşlem silme - önce bakiyeleri geri al, sonra sil (transaction güvenliği)
 export function useDeleteIslem() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Önce işlemi al (bakiye geri almak için)
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
+      // Önce işlemi al (bakiye geri almak için) - ownership kontrolü ile
       const { data: islem, error: fetchError } = await supabase
         .from('islemler')
         .select('*')
         .eq('id', id)
+        .eq('isletme_id', isletme.id)
         .single();
 
       if (fetchError) throw fetchError;
+      if (!islem) throw new Error('İşlem bulunamadı veya erişim yetkiniz yok');
 
-      // Bakiyeleri geri al
+      // Önce bakiyeleri geri al (silme başarısız olursa geri alınabilir)
       await reverseBalances(islem);
 
-      // İşlemi sil
+      // Sonra işlemi sil - ownership kontrolü ile
       const { error } = await supabase
         .from('islemler')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);
 
-      if (error) throw error;
+      if (error) {
+        // Silme başarısız olursa bakiyeleri geri yükle
+        try {
+          await updateBalances(islem);
+        } catch (rollbackError) {
+          console.error('Bakiye geri yükleme hatası:', rollbackError);
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['islemler'] });
@@ -443,119 +435,67 @@ async function reverseBalances(islem: Islem) {
   switch (islem.type) {
     case 'gelir':
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       break;
 
     case 'gider':
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       break;
 
     case 'transfer':
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       if (islem.hedef_hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hedef_hesap_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, -amount);
       }
       break;
 
     case 'cari_alis':
       if (islem.cari_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'cariler',
-          row_id: islem.cari_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
       }
       break;
 
     case 'cari_satis':
       if (islem.cari_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'cariler',
-          row_id: islem.cari_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
       }
       break;
 
     case 'cari_odeme':
       if (islem.cari_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'cariler',
-          row_id: islem.cari_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
       }
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       break;
 
     case 'cari_tahsilat':
       if (islem.cari_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'cariler',
-          row_id: islem.cari_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
       }
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       break;
 
     case 'personel_gider':
       if (islem.personel_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'personel',
-          row_id: islem.personel_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('personel', islem.personel_id, amount);
       }
       break;
 
     case 'personel_odeme':
       if (islem.personel_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'personel',
-          row_id: islem.personel_id,
-          amount: -amount,
-        });
+        await safeIncrementBalance('personel', islem.personel_id, -amount);
       }
       if (islem.hesap_id) {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: islem.hesap_id,
-          amount: amount,
-        });
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       break;
   }

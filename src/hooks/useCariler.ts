@@ -103,22 +103,39 @@ export function useUpdateCari() {
 
 export function useDeleteCari() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // Önce ilişkili işlemleri sil
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
+      // Önce carinin bu işletmeye ait olduğunu doğrula
+      const { data: cari, error: checkError } = await supabase
+        .from('cariler')
+        .select('id')
+        .eq('id', id)
+        .eq('isletme_id', isletme.id)
+        .single();
+
+      if (checkError || !cari) {
+        throw new Error('Cari bulunamadı veya erişim yetkiniz yok');
+      }
+
+      // İlişkili işlemleri sil (ownership kontrolü ile)
       const { error: islemError } = await supabase
         .from('islemler')
         .delete()
-        .eq('cari_id', id);
+        .eq('cari_id', id)
+        .eq('isletme_id', isletme.id);
 
       if (islemError) throw islemError;
 
-      // Sonra cariyi sil (soft delete)
+      // Sonra cariyi sil (soft delete) - ownership kontrolü ile
       const { error } = await supabase
         .from('cariler')
         .update({ is_active: false })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);
 
       if (error) throw error;
     },
