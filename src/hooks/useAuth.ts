@@ -68,7 +68,8 @@ export function useAuth() {
 
   // Token'ın süresinin dolup dolmadığını veya dolmak üzere olduğunu kontrol et
   const checkAndRefreshToken = useCallback(async () => {
-    const currentSession = state.session;
+    // Güncel session'ı Supabase'den al (stale state sorununu önler)
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
     if (!currentSession) return;
 
     const expiresAt = currentSession.expires_at;
@@ -79,10 +80,9 @@ export function useAuth() {
 
     // Token 5 dakika içinde dolacaksa veya zaten dolmuşsa yenile
     if (timeUntilExpiry < 300) {
-      console.log('Token süresi dolmak üzere, yenileniyor...');
       await refreshSession();
     }
-  }, [state.session, refreshSession]);
+  }, [refreshSession]);
 
   // İşletme bilgisini getir - race condition korumalı
   const fetchIsletme = useCallback(async (userId: string): Promise<Isletme | null> => {
@@ -169,10 +169,57 @@ export function useAuth() {
       }
     };
 
-    // Timeout ile koruma - 15 saniye içinde başlatılamazsa devam et
-    const timeout = setTimeout(() => {
-      if (isMounted && !state.initialized) {
-        console.warn('Auth başlatma zaman aşımı');
+    // Timeout ref - initializeAuth tamamlandığında iptal edilecek
+    let timeoutId: NodeJS.Timeout | null = null;
+    let authInitialized = false;
+
+    const initWithTimeout = async () => {
+      // Timeout'u başlat - 30 saniye
+      timeoutId = setTimeout(() => {
+        if (isMounted && !authInitialized) {
+          console.warn('Auth başlatma zaman aşımı');
+          // Session'ı sıfırlamak yerine, sadece loading'i kapat
+          // Mevcut session varsa koruyalım
+          setState((prev) => ({
+            ...prev,
+            loading: false,
+            initialized: true,
+            isletmeLoading: false,
+          }));
+        }
+      }, 30000);
+
+      await initializeAuth();
+
+      // Başarıyla tamamlandı, timeout'u iptal et
+      authInitialized = true;
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+    };
+
+    initWithTimeout();
+
+    // Auth değişikliklerini dinle
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+
+      // TOKEN_REFRESHED eventinde sadece session'ı güncelle, isletme'yi tekrar çekme
+      if (event === 'TOKEN_REFRESHED') {
+        lastRefreshTime.current = Date.now();
+        setState((prev) => ({
+          ...prev,
+          session,
+          user: session?.user ?? null,
+        }));
+        return;
+      }
+
+      // SIGNED_OUT eventinde state'i temizle
+      if (event === 'SIGNED_OUT') {
         setState({
           session: null,
           user: null,
@@ -181,17 +228,10 @@ export function useAuth() {
           initialized: true,
           isletmeLoading: false,
         });
+        return;
       }
-    }, 15000);
 
-    initializeAuth();
-
-    // Auth değişikliklerini dinle
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isMounted) return;
-
+      // SIGNED_IN, INITIAL_SESSION, USER_UPDATED eventlerinde isletme'yi çek
       let isletme: Isletme | null = null;
       if (session?.user) {
         try {
@@ -207,7 +247,7 @@ export function useAuth() {
         ...prev,
         session,
         user: session?.user ?? null,
-        isletme,
+        isletme: isletme ?? prev.isletme,
         loading: false,
         isletmeLoading: false,
       }));
@@ -215,7 +255,9 @@ export function useAuth() {
 
     return () => {
       isMounted = false;
-      clearTimeout(timeout);
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       subscription.unsubscribe();
     };
   }, [fetchIsletme]);
@@ -228,14 +270,11 @@ export function useAuth() {
         appState.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
-        console.log('Uygulama ön plana geldi, session kontrol ediliyor...');
-
         // Son yenilemeden bu yana en az 1 dakika geçtiyse session'ı yenile
         const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
         const ONE_MINUTE = 60 * 1000;
 
         if (timeSinceLastRefresh > ONE_MINUTE && state.session) {
-          console.log('Session yenileniyor...');
           await refreshSession();
         }
       }
@@ -250,13 +289,16 @@ export function useAuth() {
     };
   }, [state.session, refreshSession]);
 
-  // Periyodik token kontrolü - her 4 dakikada bir token süresini kontrol et
+  // Periyodik token kontrolü - her 2 dakikada bir token süresini kontrol et
   useEffect(() => {
     if (!state.session) return;
 
+    // İlk kontrolü hemen yap
+    checkAndRefreshToken();
+
     const interval = setInterval(() => {
       checkAndRefreshToken();
-    }, 4 * 60 * 1000); // 4 dakika
+    }, 2 * 60 * 1000); // 2 dakika
 
     return () => clearInterval(interval);
   }, [state.session, checkAndRefreshToken]);
