@@ -33,7 +33,8 @@
       "Bash(npx supabase functions new delete-scheduled-accounts)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(git fetch:*)"
+      "Bash(git fetch:*)",
+      "Bash(./node_modules/.bin/tsc:*)"
     ]
   }
 }
