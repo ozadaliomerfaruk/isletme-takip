@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -40,28 +40,36 @@ export default function LoginPage() {
     webClientId: GOOGLE_WEB_CLIENT_ID,
   });
 
-  const handleGoogleSignIn = useCallback(async (idToken: string) => {
-    try {
-      await signInWithGoogle(idToken);
-    } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Google ile giriş başarısız oldu');
-    } finally {
-      setSocialLoading(null);
-    }
-  }, [signInWithGoogle]);
+  // Response'un sadece bir kez işlenmesini sağla
+  const lastProcessedResponse = useRef<string | null>(null);
 
   // Google auth response handler
   useEffect(() => {
-    if (response?.type === 'success') {
+    if (!response) return;
+
+    // Aynı response'u tekrar işleme
+    const responseKey = response.type + (response.type === 'success' ? response.params?.id_token : '');
+    if (lastProcessedResponse.current === responseKey) return;
+    lastProcessedResponse.current = responseKey;
+
+    if (response.type === 'success') {
       const { id_token } = response.params;
       if (id_token) {
-        handleGoogleSignIn(id_token);
+        (async () => {
+          try {
+            await signInWithGoogle(id_token);
+          } catch (error: any) {
+            Alert.alert('Hata', error.message || 'Google ile giriş başarısız oldu');
+          } finally {
+            setSocialLoading(null);
+          }
+        })();
       }
-    } else if (response?.type === 'error') {
+    } else if (response.type === 'error') {
       setSocialLoading(null);
       Alert.alert('Hata', 'Google ile giriş başarısız oldu');
     }
-  }, [response, handleGoogleSignIn]);
+  }, [response, signInWithGoogle]);
 
   const handleAppleSignIn = async () => {
     try {

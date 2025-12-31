@@ -91,10 +91,17 @@ export function useAuth() {
     userId: string,
     userName?: string | null
   ): Promise<Isletme | null> => {
-    // Aynı userId için zaten bir istek varsa, bekle ve sonucu paylaş
+    // Aynı userId için zaten bir istek varsa, bekle ve sonucu bekle
     if (fetchIsletmeInProgress.current === userId) {
-      // Zaten devam eden bir istek var, null döndür (state zaten güncellenecek)
-      return null;
+      // Zaten devam eden bir istek var, biraz bekle ve mevcut işletmeyi getir
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { data } = await supabase
+        .from('isletmeler')
+        .select('*')
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
+      return data as Isletme | null;
     }
 
     fetchIsletmeInProgress.current = userId;
@@ -216,29 +223,50 @@ export function useAuth() {
           return;
         }
 
-        let isletme: Isletme | null = null;
         if (session?.user) {
+          // Önce session/user'ı hemen set et ki routing çalışsın
+          setState({
+            session,
+            user: session.user,
+            isletme: null,
+            loading: false,
+            initialized: true,
+            isletmeLoading: true,
+          });
+
+          // Sonra işletmeyi arka planda getir
           try {
-            // Kullanıcı adını metadata'dan al
             const userName = session.user.user_metadata?.full_name?.split(' ')[0]
               || session.user.user_metadata?.name?.split(' ')[0]
               || null;
-            isletme = await fetchOrCreateIsletme(session.user.id, userName);
+            const isletme = await fetchOrCreateIsletme(session.user.id, userName);
+
+            if (!isMounted) return;
+
+            setState((prev) => ({
+              ...prev,
+              isletme,
+              isletmeLoading: false,
+            }));
           } catch (e) {
             console.error('İşletme getirme/oluşturma hatası:', e);
+            if (!isMounted) return;
+            setState((prev) => ({
+              ...prev,
+              isletmeLoading: false,
+            }));
           }
+        } else {
+          if (!isMounted) return;
+          setState({
+            session: null,
+            user: null,
+            isletme: null,
+            loading: false,
+            initialized: true,
+            isletmeLoading: false,
+          });
         }
-
-        if (!isMounted) return;
-
-        setState({
-          session,
-          user: session?.user ?? null,
-          isletme,
-          loading: false,
-          initialized: true,
-          isletmeLoading: false,
-        });
       } catch (error) {
         console.error('Auth başlatma hatası:', error);
         if (isMounted) {
@@ -316,30 +344,52 @@ export function useAuth() {
         return;
       }
 
-      // SIGNED_IN, INITIAL_SESSION, USER_UPDATED eventlerinde isletme'yi çek veya oluştur
-      let isletme: Isletme | null = null;
+      // SIGNED_IN, INITIAL_SESSION, USER_UPDATED eventlerinde
+      // Önce session/user'ı hemen güncelle ki routing çalışsın
       if (session?.user) {
+        setState((prev) => ({
+          ...prev,
+          session,
+          user: session.user,
+          loading: false,
+          initialized: true,
+          isletmeLoading: true, // İşletme yükleniyor
+        }));
+
+        // Sonra işletmeyi arka planda getir/oluştur
         try {
-          // Kullanıcı adını metadata'dan al
           const userName = session.user.user_metadata?.full_name?.split(' ')[0]
             || session.user.user_metadata?.name?.split(' ')[0]
             || null;
-          isletme = await fetchOrCreateIsletme(session.user.id, userName);
+          const isletme = await fetchOrCreateIsletme(session.user.id, userName);
+
+          if (!isMounted) return;
+
+          setState((prev) => ({
+            ...prev,
+            isletme: isletme ?? prev.isletme,
+            isletmeLoading: false,
+          }));
         } catch (e) {
           console.error('İşletme getirme/oluşturma hatası:', e);
+          if (!isMounted) return;
+          setState((prev) => ({
+            ...prev,
+            isletmeLoading: false,
+          }));
         }
+      } else {
+        // Session yok
+        if (!isMounted) return;
+        setState((prev) => ({
+          ...prev,
+          session: null,
+          user: null,
+          loading: false,
+          initialized: true,
+          isletmeLoading: false,
+        }));
       }
-
-      if (!isMounted) return;
-
-      setState((prev) => ({
-        ...prev,
-        session,
-        user: session?.user ?? null,
-        isletme: isletme ?? prev.isletme,
-        loading: false,
-        isletmeLoading: false,
-      }));
     });
 
     return () => {
@@ -553,20 +603,10 @@ export function useAuth() {
         throw error;
       }
 
-      // Kullanıcı için işletme var mı kontrol et, yoksa oluştur
-      if (data.user) {
-        const userName = data.user.user_metadata?.full_name?.split(' ')[0] || null;
-        const isletme = await fetchOrCreateIsletme(data.user.id, userName);
-
-        // State'i güncelle
-        setState((prev) => ({
-          ...prev,
-          session: data.session,
-          user: data.user,
-          isletme,
-          loading: false,
-        }));
-      }
+      // NOT: İşletme oluşturma/getirme işlemini burada yapmıyoruz.
+      // onAuthStateChange listener'ı SIGNED_IN event'inde bunu zaten yapacak.
+      // Bu sayede race condition ve duplicate çağrılar önleniyor.
+      // State güncellemesi de onAuthStateChange tarafından yapılacak.
 
       return data;
     } catch (error) {
