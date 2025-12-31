@@ -236,7 +236,7 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
   }
 }
 
-// Cari işlemleri
+// Cari işlemleri (kategori bilgisi dahil)
 export function useIslemlerByCari(cariId: string) {
   const { isletme } = useAuthContext();
 
@@ -247,14 +247,17 @@ export function useIslemlerByCari(cariId: string) {
 
       const { data, error } = await supabase
         .from('islemler')
-        .select('*')
+        .select(`
+          *,
+          kategori:kategoriler(*)
+        `)
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Islem[];
+      return data as IslemWithRelations[];
     },
     enabled: !!isletme && !!cariId,
   });

@@ -20,6 +20,7 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useCari, useDeleteCari } from '@/hooks/useCariler';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
+import { IslemWithRelations } from '@/types/database';
 
 export default function CariHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -81,6 +82,15 @@ export default function CariHareketleriPage() {
       default:
         return type;
     }
+  };
+
+  const getHareketSubtitle = (islem: IslemWithRelations) => {
+    const parts = [getHareketLabel(islem.type)];
+    if (islem.kategori?.name) {
+      parts.push(islem.kategori.name);
+    }
+    parts.push(formatDateShort(islem.date));
+    return parts.join(' • ');
   };
 
   const handleDelete = (islemId: string) => {
@@ -288,7 +298,7 @@ export default function CariHareketleriPage() {
                         <View style={styles.hareketInfo}>
                           <Text variant="body">{islem.description || getHareketLabel(islem.type)}</Text>
                           <Text variant="caption" color="secondary">
-                            {getHareketLabel(islem.type)} • {formatDateShort(islem.date)}
+                            {getHareketSubtitle(islem)}
                           </Text>
                         </View>
                         <Text
