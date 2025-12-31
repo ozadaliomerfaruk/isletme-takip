@@ -89,12 +89,18 @@ export function formatDateForDB(date: Date): string {
 /**
  * Veritabanı tarih string'ini Date objesine çevir
  * Timezone-safe: Gün kayması olmaz
+ * ISO timestamp formatını da destekler (created_at gibi alanlar için)
  *
  * @example
  * parseDateFromDB("2024-12-31") // Date object at local midnight
+ * parseDateFromDB("2024-12-31T14:30:00.000Z") // ISO timestamp
  */
 export function parseDateFromDB(dateStr: string): Date {
-  // 'T00:00:00' ekleyerek yerel timezone'da parse et
+  // ISO timestamp formatı ise (T içeriyorsa) direkt parse et
+  if (dateStr.includes('T')) {
+    return new Date(dateStr);
+  }
+  // YYYY-MM-DD formatı için 'T00:00:00' ekleyerek yerel timezone'da parse et
   return new Date(dateStr + 'T00:00:00');
 }
 
