@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -31,6 +32,8 @@ export default function PersonelHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByPersonel(id!);
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
+
+  const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
 
   const fullName = personel ? `${personel.first_name} ${personel.last_name}` : 'Yukleniyor...';
 
@@ -241,6 +244,8 @@ export default function PersonelHareketleriPage() {
                 {islemler && islemler.length > 0 && islemler.map((islem) => (
                   <ExpandableCard
                     key={islem.id}
+                    expanded={expandedIslemId === islem.id}
+                    onToggle={() => setExpandedIslemId(expandedIslemId === islem.id ? null : islem.id)}
                     header={
                       <View style={styles.hareketHeader}>
                         <View style={[

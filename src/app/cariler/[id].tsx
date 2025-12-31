@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -30,6 +31,8 @@ export default function CariHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
+
+  const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
 
   // Başlangıç bakiyesini hesapla
   const calculateInitialBalance = () => {
@@ -275,6 +278,8 @@ export default function CariHareketleriPage() {
                 {islemler && islemler.length > 0 && islemler.map((islem) => (
                   <ExpandableCard
                     key={islem.id}
+                    expanded={expandedIslemId === islem.id}
+                    onToggle={() => setExpandedIslemId(expandedIslemId === islem.id ? null : islem.id)}
                     header={
                       <View style={styles.hareketHeader}>
                         <View style={[

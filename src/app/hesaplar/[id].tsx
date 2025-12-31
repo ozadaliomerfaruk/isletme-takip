@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -31,6 +32,8 @@ export default function HesapHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByHesap(id!);
   const deleteIslem = useDeleteIslem();
   const deleteHesap = useDeleteHesap();
+
+  const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
 
   // Başlangıç bakiyesini hesapla (mevcut bakiye - tüm işlemlerin etkisi)
   const calculateInitialBalance = () => {
@@ -291,6 +294,8 @@ export default function HesapHareketleriPage() {
                   return (
                     <ExpandableCard
                       key={islem.id}
+                      expanded={expandedIslemId === islem.id}
+                      onToggle={() => setExpandedIslemId(expandedIslemId === islem.id ? null : islem.id)}
                       header={
                         <View style={styles.hareketHeader}>
                           <View style={[
