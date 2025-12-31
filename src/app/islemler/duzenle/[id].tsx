@@ -21,18 +21,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { formatCurrency } from '@/lib/currency';
 import { IslemType } from '@/types/database';
-
-const ISLEM_TYPE_LABELS: Record<IslemType, string> = {
-  gelir: 'Gelir',
-  gider: 'Gider',
-  transfer: 'Transfer',
-  cari_alis: 'Cari Alis',
-  cari_satis: 'Cari Satis',
-  cari_odeme: 'Cari Odeme',
-  cari_tahsilat: 'Cari Tahsilat',
-  personel_gider: 'Personel Gider',
-  personel_odeme: 'Personel Odeme',
-};
+import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
@@ -84,7 +73,8 @@ export default function IslemDuzenlePage() {
 
   const needsHesap = ['gelir', 'gider', 'transfer', 'cari_odeme', 'cari_tahsilat', 'personel_odeme'].includes(islemType || '');
   const needsHedefHesap = islemType === 'transfer';
-  const needsKategori = ['gelir', 'gider'].includes(islemType || '');
+  // Kategori: gelir, gider, cari_alis, cari_satis, personel_gider
+  const needsKategori = ['gelir', 'gider', 'cari_alis', 'cari_satis', 'personel_gider'].includes(islemType || '');
   const needsCari = ['cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat'].includes(islemType || '');
   const needsPersonel = ['personel_gider', 'personel_odeme'].includes(islemType || '');
 
@@ -289,7 +279,7 @@ export default function IslemDuzenlePage() {
                 <CategoryPicker
                   value={kategoriId}
                   onChange={setKategoriId}
-                  type={islemType === 'gelir' ? 'gelir' : 'gider'}
+                  type={islemType === 'gelir' || islemType === 'cari_satis' ? 'gelir' : 'gider'}
                   label="Kategori"
                 />
               )}
