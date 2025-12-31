@@ -2,6 +2,7 @@ export { Text } from './Text';
 export { Button } from './Button';
 export { Card } from './Card';
 export { Input } from './Input';
+export { CurrencyInput } from './CurrencyInput';
 export { ExpandableCard } from './ExpandableCard';
 export { TabFilter } from './TabFilter';
 export { SearchInput } from './SearchInput';

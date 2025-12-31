@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CategoryPicker } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -215,10 +215,8 @@ export default function PersonelOdemePage() {
               label="Kategori"
             />
 
-            <Input
+            <CurrencyInput
               label="Tutar"
-              placeholder="0,00"
-              keyboardType="decimal-pad"
               value={amount}
               onChangeText={setAmount}
               error={errors.amount}

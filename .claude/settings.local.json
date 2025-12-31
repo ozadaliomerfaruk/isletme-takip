@@ -35,7 +35,9 @@
       "Bash(grep:*)",
       "Bash(git fetch:*)",
       "Bash(./node_modules/.bin/tsc:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)"
     ]
   }
 }

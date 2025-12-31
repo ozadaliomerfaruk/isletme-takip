@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, CategoryPicker } from '@/components/ui';
+import { Text, Input, Button, Card, CategoryPicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -172,10 +172,8 @@ export default function IslemDuzenlePage() {
             {/* Form */}
             <View style={styles.section}>
               {/* Tutar */}
-              <Input
+              <CurrencyInput
                 label="Tutar"
-                placeholder="0,00"
-                keyboardType="decimal-pad"
                 value={amount}
                 onChangeText={setAmount}
                 error={errors.amount}

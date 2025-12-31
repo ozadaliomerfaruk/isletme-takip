@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronDown, ArrowRight } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -105,10 +105,8 @@ export default function TransferPage() {
           </View>
 
           <View style={styles.section}>
-            <Input
+            <CurrencyInput
               label="Tutar"
-              placeholder="0,00"
-              keyboardType="decimal-pad"
               value={amount}
               onChangeText={setAmount}
               error={errors.amount}

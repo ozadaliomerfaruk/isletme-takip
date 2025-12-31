@@ -138,6 +138,64 @@ export function formatCurrencyCompact(amount: number): string {
 }
 
 // ============================================================================
+// INPUT FORMATLAMA (Kullanıcı yazarken)
+// ============================================================================
+
+/**
+ * Input'a yazılan değeri Türkçe para formatına çevir
+ * Kullanıcı yazarken canlı formatlama yapar
+ *
+ * @example
+ * formatCurrencyInput("2000")      // "2.000"
+ * formatCurrencyInput("2000,5")    // "2.000,5"
+ * formatCurrencyInput("2000,50")   // "2.000,50"
+ * formatCurrencyInput("")          // ""
+ */
+export function formatCurrencyInput(value: string): string {
+  if (!value || value.trim() === '') return '';
+
+  // Sadece rakam, virgül ve nokta bırak
+  let cleaned = value.replace(/[^\d,]/g, '');
+
+  // Birden fazla virgül varsa sadece ilkini tut
+  const parts = cleaned.split(',');
+  if (parts.length > 2) {
+    cleaned = parts[0] + ',' + parts.slice(1).join('');
+  }
+
+  // Virgülden önce ve sonra ayır
+  const [integerPart, decimalPart] = cleaned.split(',');
+
+  // Tam kısmı formatla (binlik ayracı ekle)
+  const formattedInteger = integerPart
+    ? parseInt(integerPart, 10).toLocaleString('tr-TR')
+    : '';
+
+  // NaN kontrolü
+  if (formattedInteger === 'NaN') return '';
+
+  // Ondalık kısım varsa ekle (max 2 hane)
+  if (decimalPart !== undefined) {
+    const limitedDecimal = decimalPart.slice(0, 2);
+    return `${formattedInteger},${limitedDecimal}`;
+  }
+
+  return formattedInteger;
+}
+
+/**
+ * Formatlanmış input değerini parse için hazırla
+ * formatCurrencyInput ile formatlanmış değeri parseCurrency'ye uygun hale getirir
+ *
+ * @example
+ * unformatCurrencyInput("2.000,50") // "2000,50"
+ * unformatCurrencyInput("2.000")    // "2000"
+ */
+export function unformatCurrencyInput(value: string): string {
+  return value.replace(/\./g, '');
+}
+
+// ============================================================================
 // VALİDASYON FONKSİYONLARI
 // ============================================================================
 

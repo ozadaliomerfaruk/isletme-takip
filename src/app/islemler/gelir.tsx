@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CategoryPicker } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -98,10 +98,8 @@ export default function GelirEklePage() {
 
           {/* Form */}
           <View style={styles.section}>
-            <Input
+            <CurrencyInput
               label="Tutar"
-              placeholder="0,00"
-              keyboardType="decimal-pad"
               value={amount}
               onChangeText={setAmount}
               error={errors.amount}
