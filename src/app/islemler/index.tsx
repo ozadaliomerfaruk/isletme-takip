@@ -16,7 +16,7 @@ import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { formatDateShort } from '@/lib/date';
+import { formatDateMedium } from '@/lib/date';
 import { getIslemIcon, getIslemIconBg, getIslemTypeLabel, getIslemAmountColor, getIslemAmountPrefix } from '@/lib/icons';
 import { useIslemler, useDeleteIslem } from '@/hooks/useIslemler';
 import { IslemType, IslemWithRelations } from '@/types/database';
@@ -89,27 +89,21 @@ export default function IslemlerPage() {
     );
   };
 
-  const getIslemSubtitle = (islem: IslemWithRelations) => {
+  // İşlem tipi + ilgili kişi/hesap bilgisi
+  const getIslemSecondLine = (islem: IslemWithRelations) => {
     const parts = [getIslemTypeLabel(islem.type)];
 
-    if (islem.kategori?.name) {
-      parts.push(islem.kategori.name);
-    }
-
-    if (islem.hesap?.name) {
-      parts.push(islem.hesap.name);
-    }
-
-    if (islem.hedef_hesap?.name) {
-      parts.push(`→ ${islem.hedef_hesap.name}`);
-    }
-
-    if (islem.cari?.name) {
+    // Transfer için hesaplar
+    if (islem.type === 'transfer') {
+      if (islem.hesap?.name && islem.hedef_hesap?.name) {
+        parts.push(`${islem.hesap.name} → ${islem.hedef_hesap.name}`);
+      }
+    } else if (islem.cari?.name) {
       parts.push(islem.cari.name);
-    }
-
-    if (islem.personel) {
+    } else if (islem.personel) {
       parts.push(`${islem.personel.first_name} ${islem.personel.last_name}`);
+    } else if (islem.hesap?.name) {
+      parts.push(islem.hesap.name);
     }
 
     return parts.join(' • ');
@@ -159,23 +153,23 @@ export default function IslemlerPage() {
                         {getIslemIcon(islem.type, 24)}
                       </View>
                       <View style={styles.islemInfo}>
-                        <Text variant="body">{islem.description || getIslemTypeLabel(islem.type)}</Text>
+                        <Text variant="body">{formatDateMedium(islem.date)}</Text>
                         <Text variant="caption" color="secondary">
-                          {getIslemSubtitle(islem)}
+                          {getIslemSecondLine(islem)}
                         </Text>
+                        {islem.kategori?.name && (
+                          <Text variant="caption" color="secondary">
+                            {islem.kategori.name}
+                          </Text>
+                        )}
                       </View>
-                      <View style={styles.islemAmount}>
-                        <Text
-                          variant="h3"
-                          color={getIslemAmountColor(islem.type)}
-                        >
-                          {getIslemAmountPrefix(islem.type)}
-                          {formatCurrency(toNumber(islem.amount))}
-                        </Text>
-                        <Text variant="caption" color="secondary">
-                          {formatDateShort(islem.date)}
-                        </Text>
-                      </View>
+                      <Text
+                        variant="h3"
+                        color={getIslemAmountColor(islem.type)}
+                      >
+                        {getIslemAmountPrefix(islem.type)}
+                        {formatCurrency(toNumber(islem.amount))}
+                      </Text>
                     </View>
                   }
                 >
@@ -246,9 +240,6 @@ const styles = StyleSheet.create({
   },
   islemInfo: {
     flex: 1,
-  },
-  islemAmount: {
-    alignItems: 'flex-end',
   },
   islemActions: {
     flexDirection: 'row',

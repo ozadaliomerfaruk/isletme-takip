@@ -17,7 +17,7 @@ import { Text, Card, ExpandableCard, Button, EmptyState } from '@/components/ui'
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateShort } from '@/lib/date';
+import { formatDateShort, formatDateMedium } from '@/lib/date';
 import { useCari, useDeleteCari } from '@/hooks/useCariler';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { IslemWithRelations } from '@/types/database';
@@ -84,14 +84,6 @@ export default function CariHareketleriPage() {
     }
   };
 
-  const getHareketSubtitle = (islem: IslemWithRelations) => {
-    const parts = [getHareketLabel(islem.type)];
-    if (islem.kategori?.name) {
-      parts.push(islem.kategori.name);
-    }
-    parts.push(formatDateShort(islem.date));
-    return parts.join(' • ');
-  };
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
@@ -296,10 +288,15 @@ export default function CariHareketleriPage() {
                           {getHareketIcon(islem.type)}
                         </View>
                         <View style={styles.hareketInfo}>
-                          <Text variant="body">{islem.description || getHareketLabel(islem.type)}</Text>
+                          <Text variant="body">{formatDateMedium(islem.date)}</Text>
                           <Text variant="caption" color="secondary">
-                            {getHareketSubtitle(islem)}
+                            {getHareketLabel(islem.type)}
                           </Text>
+                          {islem.kategori?.name && (
+                            <Text variant="caption" color="secondary">
+                              {islem.kategori.name}
+                            </Text>
+                          )}
                         </View>
                         <Text
                           variant="h3"

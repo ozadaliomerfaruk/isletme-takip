@@ -263,7 +263,7 @@ export function useIslemlerByCari(cariId: string) {
   });
 }
 
-// Hesap işlemleri
+// Hesap işlemleri (kategori bilgisi dahil)
 export function useIslemlerByHesap(hesapId: string) {
   const { isletme } = useAuthContext();
 
@@ -274,20 +274,23 @@ export function useIslemlerByHesap(hesapId: string) {
 
       const { data, error } = await supabase
         .from('islemler')
-        .select('*')
+        .select(`
+          *,
+          kategori:kategoriler(*)
+        `)
         .eq('isletme_id', isletme.id)
         .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Islem[];
+      return data as IslemWithRelations[];
     },
     enabled: !!isletme && !!hesapId,
   });
 }
 
-// Personel işlemleri
+// Personel işlemleri (kategori bilgisi dahil)
 export function useIslemlerByPersonel(personelId: string) {
   const { isletme } = useAuthContext();
 
@@ -298,14 +301,17 @@ export function useIslemlerByPersonel(personelId: string) {
 
       const { data, error } = await supabase
         .from('islemler')
-        .select('*')
+        .select(`
+          *,
+          kategori:kategoriler(*)
+        `)
         .eq('isletme_id', isletme.id)
         .eq('personel_id', personelId)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as Islem[];
+      return data as IslemWithRelations[];
     },
     enabled: !!isletme && !!personelId,
   });

@@ -18,9 +18,10 @@ import { Text, Card, ExpandableCard, Button, EmptyState } from '@/components/ui'
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateShort } from '@/lib/date';
+import { formatDateShort, formatDateMedium } from '@/lib/date';
 import { useHesap, useDeleteHesap } from '@/hooks/useHesaplar';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
+import { IslemWithRelations } from '@/types/database';
 
 export default function HesapHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -305,10 +306,15 @@ export default function HesapHareketleriPage() {
                             {getHareketIcon(islem.type)}
                           </View>
                           <View style={styles.hareketInfo}>
-                            <Text variant="body">{islem.description || getHareketLabel(islem.type)}</Text>
+                            <Text variant="body">{formatDateMedium(islem.date)}</Text>
                             <Text variant="caption" color="secondary">
-                              {getHareketLabel(islem.type)} • {formatDateShort(islem.date)}
+                              {getHareketLabel(islem.type)}
                             </Text>
+                            {(islem as IslemWithRelations).kategori?.name && (
+                              <Text variant="caption" color="secondary">
+                                {(islem as IslemWithRelations).kategori?.name}
+                              </Text>
+                            )}
                           </View>
                           <Text variant="h3" color={colorType}>
                             {sign}{formatCurrency(Number(islem.amount))}
