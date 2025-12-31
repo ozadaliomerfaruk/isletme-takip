@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
@@ -31,6 +31,7 @@ export default function CariSatisPage() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [cariId, setCariId] = useState<string | null>(params.cari_id || null);
   const [showCariPicker, setShowCariPicker] = useState(false);
+  const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ amount?: string; cari?: string }>({});
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function CariSatisPage() {
         amount: parseCurrency(amount),
         description: description.trim() || `${selectedCari?.name} - Satış`,
         cari_id: cariId,
+        kategori_id: kategoriId,
         date: formatDateForDB(selectedDate),
       });
 
@@ -153,6 +155,13 @@ export default function CariSatisPage() {
               value={selectedDate}
               onChange={setSelectedDate}
               mode="datetime"
+            />
+
+            <CategoryPicker
+              label="Kategori (Opsiyonel)"
+              value={kategoriId}
+              onChange={setKategoriId}
+              type="gelir"
             />
 
             <Input
