@@ -61,6 +61,7 @@ export default function IslemlerPage() {
       (islem.description?.toLowerCase().includes(searchLower) || false) ||
       (islem.hesap?.name?.toLowerCase().includes(searchLower) || false) ||
       (islem.cari?.name?.toLowerCase().includes(searchLower) || false) ||
+      (islem.kategori?.name?.toLowerCase().includes(searchLower) || false) ||
       (personelName.includes(searchLower));
 
     return matchesFilter && matchesSearch;
@@ -90,6 +91,10 @@ export default function IslemlerPage() {
 
   const getIslemSubtitle = (islem: IslemWithRelations) => {
     const parts = [getIslemTypeLabel(islem.type)];
+
+    if (islem.kategori?.name) {
+      parts.push(islem.kategori.name);
+    }
 
     if (islem.hesap?.name) {
       parts.push(islem.hesap.name);
