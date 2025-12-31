@@ -16,7 +16,8 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatDateForDB } from '@/lib/date';
 
 export default function CariSatisPage() {
   const router = useRouter();

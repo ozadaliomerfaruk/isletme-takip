@@ -11,13 +11,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
-import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatDateForDB } from '@/lib/date';
 
 export default function PersonelGiderPage() {
   const router = useRouter();
@@ -25,7 +25,6 @@ export default function PersonelGiderPage() {
   const createIslem = useCreateIslem();
 
   const { data: personelList } = usePersonelList();
-  const { data: kategoriler } = useKategoriler('gider');
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -33,7 +32,6 @@ export default function PersonelGiderPage() {
   const [personelId, setPersonelId] = useState<string | null>(params.personel_id || null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
-  const [showKategoriPicker, setShowKategoriPicker] = useState(false);
   const [errors, setErrors] = useState<{ amount?: string; personel?: string }>({});
 
   useEffect(() => {
@@ -43,7 +41,6 @@ export default function PersonelGiderPage() {
   }, [personelList, personelId, params.personel_id]);
 
   const selectedPersonel = personelList?.find((p) => p.id === personelId);
-  const selectedKategori = kategoriler?.find((k) => k.id === kategoriId);
 
   const validate = () => {
     const newErrors: { amount?: string; personel?: string } = {};
@@ -109,7 +106,6 @@ export default function PersonelGiderPage() {
                 style={[styles.picker, errors.personel && styles.pickerError]}
                 onPress={() => {
                   setShowPersonelPicker(!showPersonelPicker);
-                  setShowKategoriPicker(false);
                 }}
               >
                 <View>
@@ -152,55 +148,12 @@ export default function PersonelGiderPage() {
             </View>
 
             {/* Kategori Seçici */}
-            <View style={[styles.pickerContainer, { zIndex: 10 }]}>
-              <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Kategori (Opsiyonel)
-              </Text>
-              <TouchableOpacity
-                style={styles.picker}
-                onPress={() => {
-                  setShowKategoriPicker(!showKategoriPicker);
-                  setShowPersonelPicker(false);
-                }}
-              >
-                <Text variant="body" color={selectedKategori ? 'primary' : 'secondary'}>
-                  {selectedKategori?.name || 'Kategori seçin'}
-                </Text>
-                <ChevronDown size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-              {showKategoriPicker && (
-                <Card style={styles.pickerDropdown}>
-                  <TouchableOpacity
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      setKategoriId(null);
-                      setShowKategoriPicker(false);
-                    }}
-                  >
-                    <Text variant="body" color="secondary">
-                      Kategori yok
-                    </Text>
-                  </TouchableOpacity>
-                  {kategoriler?.map((kategori) => (
-                    <TouchableOpacity
-                      key={kategori.id}
-                      style={styles.pickerOption}
-                      onPress={() => {
-                        setKategoriId(kategori.id);
-                        setShowKategoriPicker(false);
-                      }}
-                    >
-                      <Text
-                        variant="body"
-                        style={kategori.id === kategoriId && { color: colors.primary }}
-                      >
-                        {kategori.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </Card>
-              )}
-            </View>
+            <CategoryPicker
+              value={kategoriId}
+              onChange={setKategoriId}
+              type="gider"
+              label="Kategori"
+            />
 
             <Input
               label="Tutar"

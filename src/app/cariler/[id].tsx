@@ -16,7 +16,8 @@ import {
 import { Text, Card, ExpandableCard, Button, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency, formatDateShort } from '@/lib/utils';
+import { formatCurrency } from '@/lib/currency';
+import { formatDateShort } from '@/lib/date';
 import { useCari, useDeleteCari } from '@/hooks/useCariler';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 

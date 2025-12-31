@@ -20,10 +20,12 @@ export const colors = {
   successLight: '#D1FAE5',
   error: '#EF4444',
   errorLight: '#FEE2E2',
-  warning: '#F59E0B',
-  warningLight: '#FEF3C7',
+  warning: '#EAB308',
+  warningLight: '#FEF9C3',
   info: '#3B82F6',
   infoLight: '#DBEAFE',
+  orange: '#F97316',
+  orangeLight: '#FFEDD5',
 
   // Gelir/Gider renkleri
   income: '#10B981',

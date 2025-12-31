@@ -20,18 +20,31 @@ interface ExpandableCardProps {
   header: React.ReactNode;
   children: React.ReactNode;
   defaultExpanded?: boolean;
+  // Controlled mode props
+  expanded?: boolean;
+  onToggle?: () => void;
 }
 
 export function ExpandableCard({
   header,
   children,
   defaultExpanded = false,
+  expanded: controlledExpanded,
+  onToggle,
 }: ExpandableCardProps) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
+
+  // Controlled veya uncontrolled mod
+  const isControlled = controlledExpanded !== undefined;
+  const expanded = isControlled ? controlledExpanded : internalExpanded;
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpanded(!expanded);
+    if (isControlled && onToggle) {
+      onToggle();
+    } else {
+      setInternalExpanded(!internalExpanded);
+    }
   };
 
   return (

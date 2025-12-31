@@ -278,6 +278,17 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen
+          name="raporlar/kategori/[id]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: 'Kategori Detayı',
+            headerShadowVisible: false,
+          }}
+        />
         {/* Kategoriler */}
         <Stack.Screen
           name="kategoriler/index"

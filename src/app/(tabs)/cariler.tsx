@@ -16,7 +16,8 @@ import {
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, toNumber } from '@/lib/currency';
+import { getCariIcon, getCariBalanceLabel } from '@/lib/icons';
 import { useCariler } from '@/hooks/useCariler';
 import { CariType } from '@/types/database';
 
@@ -30,6 +31,7 @@ export default function CarilerPage() {
   const router = useRouter();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedCariId, setExpandedCariId] = useState<string | null>(null);
 
   // Gerçek veriler
   const { data: cariler, isLoading } = useCariler(
@@ -41,22 +43,6 @@ export default function CarilerPage() {
     cari.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getCariIcon = (type: CariType) => {
-    return type === 'tedarikci' ? (
-      <Building2 size={24} color={colors.warning} />
-    ) : (
-      <User size={24} color={colors.info} />
-    );
-  };
-
-  const getBalanceLabel = (type: CariType, balance: number) => {
-    if (balance === 0) return 'Bakiye yok';
-    if (type === 'tedarikci') {
-      return balance < 0 ? 'Borcumuz' : 'Alacağımız';
-    } else {
-      return balance > 0 ? 'Alacağımız' : 'Borcumuz';
-    }
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -108,9 +94,11 @@ export default function CarilerPage() {
             filteredCariler.map((cari) => (
               <ExpandableCard
                 key={cari.id}
+                expanded={expandedCariId === cari.id}
+                onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
                 header={
                   <View style={styles.cariHeader}>
-                    {getCariIcon(cari.type)}
+                    {getCariIcon(cari.type, 24)}
                     <View style={styles.cariInfo}>
                       <Text variant="body">{cari.name}</Text>
                       <Text variant="caption" color="secondary">
@@ -120,19 +108,19 @@ export default function CarilerPage() {
                     </View>
                     <View style={styles.cariBalance}>
                       <Text variant="caption" color="secondary">
-                        {getBalanceLabel(cari.type, Number(cari.balance))}
+                        {getCariBalanceLabel(cari.type, toNumber(cari.balance))}
                       </Text>
                       <Text
                         variant="h3"
                         color={
-                          Number(cari.balance) === 0
+                          toNumber(cari.balance) === 0
                             ? 'secondary'
-                            : Number(cari.balance) > 0
+                            : toNumber(cari.balance) > 0
                             ? 'success'
                             : 'error'
                         }
                       >
-                        {formatCurrency(Math.abs(Number(cari.balance)))}
+                        {formatCurrency(Math.abs(toNumber(cari.balance)))}
                       </Text>
                     </View>
                   </View>

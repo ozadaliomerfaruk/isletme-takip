@@ -12,15 +12,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
-import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useIslem, useUpdateIslem } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 
 const ISLEM_TYPE_LABELS: Record<IslemType, string> = {
@@ -43,8 +42,6 @@ export default function IslemDuzenlePage() {
   const updateIslem = useUpdateIslem();
 
   const { data: hesaplar } = useHesaplar();
-  const { data: gelirKategorileri } = useKategoriler('gelir');
-  const { data: giderKategorileri } = useKategoriler('gider');
   const { data: cariler } = useCariler();
   const { data: personelList } = usePersonelList();
 
@@ -59,7 +56,6 @@ export default function IslemDuzenlePage() {
 
   const [showHesapPicker, setShowHesapPicker] = useState(false);
   const [showHedefHesapPicker, setShowHedefHesapPicker] = useState(false);
-  const [showKategoriPicker, setShowKategoriPicker] = useState(false);
   const [showCariPicker, setShowCariPicker] = useState(false);
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
 
@@ -81,10 +77,8 @@ export default function IslemDuzenlePage() {
 
   const islemType = islem?.type as IslemType | undefined;
 
-  const kategoriler = islemType === 'gelir' ? gelirKategorileri : giderKategorileri;
   const selectedHesap = hesaplar?.find((h) => h.id === hesapId);
   const selectedHedefHesap = hesaplar?.find((h) => h.id === hedefHesapId);
-  const selectedKategori = kategoriler?.find((k) => k.id === kategoriId);
   const selectedCari = cariler?.find((c) => c.id === cariId);
   const selectedPersonel = personelList?.find((p) => p.id === personelId);
 
@@ -208,7 +202,6 @@ export default function IslemDuzenlePage() {
                     onPress={() => {
                       setShowHesapPicker(!showHesapPicker);
                       setShowHedefHesapPicker(false);
-                      setShowKategoriPicker(false);
                       setShowCariPicker(false);
                       setShowPersonelPicker(false);
                     }}
@@ -258,7 +251,6 @@ export default function IslemDuzenlePage() {
                     onPress={() => {
                       setShowHedefHesapPicker(!showHedefHesapPicker);
                       setShowHesapPicker(false);
-                      setShowKategoriPicker(false);
                       setShowCariPicker(false);
                       setShowPersonelPicker(false);
                     }}
@@ -294,58 +286,12 @@ export default function IslemDuzenlePage() {
 
               {/* Kategori Seçici */}
               {needsKategori && (
-                <View style={[styles.pickerContainer, { zIndex: 40 }]}>
-                  <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                    Kategori (Opsiyonel)
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.picker}
-                    onPress={() => {
-                      setShowKategoriPicker(!showKategoriPicker);
-                      setShowHesapPicker(false);
-                      setShowHedefHesapPicker(false);
-                      setShowCariPicker(false);
-                      setShowPersonelPicker(false);
-                    }}
-                  >
-                    <Text variant="body" color={selectedKategori ? 'primary' : 'secondary'}>
-                      {selectedKategori?.name || 'Kategori secin'}
-                    </Text>
-                    <ChevronDown size={20} color={colors.textMuted} />
-                  </TouchableOpacity>
-                  {showKategoriPicker && (
-                    <Card style={styles.pickerDropdown}>
-                      <TouchableOpacity
-                        style={styles.pickerOption}
-                        onPress={() => {
-                          setKategoriId(null);
-                          setShowKategoriPicker(false);
-                        }}
-                      >
-                        <Text variant="body" color="secondary">
-                          Kategori yok
-                        </Text>
-                      </TouchableOpacity>
-                      {kategoriler?.map((kategori) => (
-                        <TouchableOpacity
-                          key={kategori.id}
-                          style={styles.pickerOption}
-                          onPress={() => {
-                            setKategoriId(kategori.id);
-                            setShowKategoriPicker(false);
-                          }}
-                        >
-                          <Text
-                            variant="body"
-                            style={kategori.id === kategoriId && { color: colors.primary }}
-                          >
-                            {kategori.name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </Card>
-                  )}
-                </View>
+                <CategoryPicker
+                  value={kategoriId}
+                  onChange={setKategoriId}
+                  type={islemType === 'gelir' ? 'gelir' : 'gider'}
+                  label="Kategori"
+                />
               )}
 
               {/* Cari Seçici */}
@@ -360,7 +306,6 @@ export default function IslemDuzenlePage() {
                       setShowCariPicker(!showCariPicker);
                       setShowHesapPicker(false);
                       setShowHedefHesapPicker(false);
-                      setShowKategoriPicker(false);
                       setShowPersonelPicker(false);
                     }}
                   >
@@ -412,7 +357,6 @@ export default function IslemDuzenlePage() {
                       setShowPersonelPicker(!showPersonelPicker);
                       setShowHesapPicker(false);
                       setShowHedefHesapPicker(false);
-                      setShowKategoriPicker(false);
                       setShowCariPicker(false);
                     }}
                   >

@@ -11,47 +11,44 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useHesaplar } from '@/hooks/useHesaplar';
-import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatDateForDB } from '@/lib/date';
 
 export default function CariOdemePage() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ cari_id?: string }>();
+  const params = useLocalSearchParams<{ cari_id?: string; hesap_id?: string }>();
   const createIslem = useCreateIslem();
 
   const { data: cariler } = useCariler('tedarikci');
   const { data: hesaplar } = useHesaplar();
-  const { data: kategoriler } = useKategoriler('gider');
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [cariId, setCariId] = useState<string | null>(params.cari_id || null);
-  const [hesapId, setHesapId] = useState<string | null>(null);
+  const [hesapId, setHesapId] = useState<string | null>(params.hesap_id || null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [showCariPicker, setShowCariPicker] = useState(false);
   const [showHesapPicker, setShowHesapPicker] = useState(false);
-  const [showKategoriPicker, setShowKategoriPicker] = useState(false);
   const [errors, setErrors] = useState<{ amount?: string; cari?: string; hesap?: string }>({});
 
   useEffect(() => {
     if (!cariId && cariler && cariler.length > 0 && !params.cari_id) {
       setCariId(cariler[0].id);
     }
-    if (!hesapId && hesaplar && hesaplar.length > 0) {
+    if (!hesapId && hesaplar && hesaplar.length > 0 && !params.hesap_id) {
       setHesapId(hesaplar[0].id);
     }
-  }, [cariler, hesaplar, cariId, hesapId, params.cari_id]);
+  }, [cariler, hesaplar, cariId, hesapId, params.cari_id, params.hesap_id]);
 
   const selectedCari = cariler?.find((c) => c.id === cariId);
   const selectedHesap = hesaplar?.find((h) => h.id === hesapId);
-  const selectedKategori = kategoriler?.find((k) => k.id === kategoriId);
 
   const validate = () => {
     const newErrors: { amount?: string; cari?: string; hesap?: string } = {};
@@ -124,7 +121,6 @@ export default function CariOdemePage() {
                 onPress={() => {
                   setShowCariPicker(!showCariPicker);
                   setShowHesapPicker(false);
-                  setShowKategoriPicker(false);
                 }}
               >
                 <View>
@@ -172,7 +168,6 @@ export default function CariOdemePage() {
                 onPress={() => {
                   setShowHesapPicker(!showHesapPicker);
                   setShowCariPicker(false);
-                  setShowKategoriPicker(false);
                 }}
               >
                 <View>
@@ -211,56 +206,12 @@ export default function CariOdemePage() {
             </View>
 
             {/* Kategori Seçici */}
-            <View style={[styles.pickerContainer, { zIndex: 10 }]}>
-              <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Kategori (Opsiyonel)
-              </Text>
-              <TouchableOpacity
-                style={styles.picker}
-                onPress={() => {
-                  setShowKategoriPicker(!showKategoriPicker);
-                  setShowCariPicker(false);
-                  setShowHesapPicker(false);
-                }}
-              >
-                <Text variant="body" color={selectedKategori ? 'primary' : 'secondary'}>
-                  {selectedKategori?.name || 'Kategori seçin'}
-                </Text>
-                <ChevronDown size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-              {showKategoriPicker && (
-                <Card style={styles.pickerDropdown}>
-                  <TouchableOpacity
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      setKategoriId(null);
-                      setShowKategoriPicker(false);
-                    }}
-                  >
-                    <Text variant="body" color="secondary">
-                      Kategori yok
-                    </Text>
-                  </TouchableOpacity>
-                  {kategoriler?.map((kategori) => (
-                    <TouchableOpacity
-                      key={kategori.id}
-                      style={styles.pickerOption}
-                      onPress={() => {
-                        setKategoriId(kategori.id);
-                        setShowKategoriPicker(false);
-                      }}
-                    >
-                      <Text
-                        variant="body"
-                        style={kategori.id === kategoriId && { color: colors.primary }}
-                      >
-                        {kategori.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </Card>
-              )}
-            </View>
+            <CategoryPicker
+              value={kategoriId}
+              onChange={setKategoriId}
+              type="gider"
+              label="Kategori"
+            />
 
             <Input
               label="Tutar"

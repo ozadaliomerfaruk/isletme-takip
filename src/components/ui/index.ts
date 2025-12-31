@@ -7,3 +7,8 @@ export { TabFilter } from './TabFilter';
 export { SearchInput } from './SearchInput';
 export { EmptyState } from './EmptyState';
 export { DateTimePicker } from './DateTimePicker';
+export { CategoryReportCard, HierarchicalCategoryReportCard } from './CategoryReportCard';
+export { IconPicker } from './IconPicker';
+export { ColorPicker } from './ColorPicker';
+export { ParentCategoryPicker } from './ParentCategoryPicker';
+export { CategoryPicker } from './CategoryPicker';

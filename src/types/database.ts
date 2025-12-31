@@ -121,8 +121,15 @@ export interface Kategori {
   type: KategoriType;
   icon: string | null;
   color: string | null;
+  parent_id: string | null;
   is_active: boolean;
   created_at: string;
+}
+
+// Kategori with children (for hierarchical display)
+export interface KategoriWithChildren extends Kategori {
+  children?: KategoriWithChildren[];
+  parent?: Kategori | null;
 }
 
 export interface KategoriInsert {
@@ -132,6 +139,7 @@ export interface KategoriInsert {
   type: KategoriType;
   icon?: string | null;
   color?: string | null;
+  parent_id?: string | null;
   is_active?: boolean;
 }
 
@@ -140,6 +148,7 @@ export interface KategoriUpdate {
   type?: KategoriType;
   icon?: string | null;
   color?: string | null;
+  parent_id?: string | null;
   is_active?: boolean;
 }
 

@@ -9,12 +9,61 @@ import {
   Tag,
   Pencil,
   Trash2,
+  ChevronRight,
+  type LucideIcon,
+  Star, Heart, Gift, Briefcase, Folder, Archive, Bookmark, Flag, Layers,
+  Wallet, CreditCard, DollarSign, Landmark, Banknote, Coins, PiggyBank, Receipt,
+  Percent, HandCoins, CircleDollarSign, ChartPie, Calculator, CircleAlert,
+  Users, User, UserCheck, UsersRound, Badge, Clock, Award, Calendar,
+  Car, Truck, Plane, TrainFront, Bus, Ship, MapPin, Navigation, Luggage, Bed, Compass,
+  Utensils, Coffee, Pizza, Salad, Beef, Egg, Milk, Wheat, IceCreamCone, Cake, Wine, Apple,
+  ShoppingBasket, ChefHat, Croissant,
+  ShoppingCart, Package, Box, Store, Handshake, Contact, Barcode,
+  Zap, Flame, Droplet, Wifi, Phone, Home, FileText, ScrollText, FileCheck,
+  Building, Building2, Settings, Megaphone, Presentation, Clipboard, Globe, Target,
+  ChartBar, Sparkles, Ribbon, CircleHelp, CirclePlus, CircleMinus, HandHelping,
+  FileSignature, Scale, ChartLine,
+  Monitor, Smartphone, Laptop, Printer, HardDrive, Camera, Tv, Headphones, Cog,
+  Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
 } from 'lucide-react-native';
 import { Text, Card, TabFilter, EmptyState, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
-import { useKategoriler, useDeleteKategori } from '@/hooks/useKategoriler';
-import { KategoriType } from '@/types/database';
+import { spacing, borderRadius } from '@/constants/spacing';
+import { useKategorilerHierarchical, useDeleteKategori, FlattenedCategory } from '@/hooks/useKategoriler';
+import { KategoriType, Kategori } from '@/types/database';
+
+// Lucide icon haritası
+const ICON_MAP: Record<string, LucideIcon> = {
+  'tag': Tag, 'star': Star, 'heart': Heart, 'gift': Gift, 'briefcase': Briefcase,
+  'folder': Folder, 'archive': Archive, 'bookmark': Bookmark, 'flag': Flag, 'layers': Layers,
+  'wallet': Wallet, 'credit-card': CreditCard, 'dollar-sign': DollarSign,
+  'trending-up': TrendingUp, 'trending-down': TrendingDown, 'landmark': Landmark,
+  'banknote': Banknote, 'coins': Coins, 'piggy-bank': PiggyBank, 'receipt': Receipt,
+  'percent': Percent, 'hand-coins': HandCoins, 'circle-dollar-sign': CircleDollarSign,
+  'chart-pie': ChartPie, 'calculator': Calculator, 'circle-alert': CircleAlert,
+  'users': Users, 'user': User, 'user-check': UserCheck, 'users-round': UsersRound,
+  'badge': Badge, 'clock': Clock, 'award': Award, 'calendar': Calendar,
+  'car': Car, 'truck': Truck, 'plane': Plane, 'train-front': TrainFront, 'bus': Bus,
+  'ship': Ship, 'map-pin': MapPin, 'navigation': Navigation, 'luggage': Luggage,
+  'bed': Bed, 'compass': Compass,
+  'utensils': Utensils, 'coffee': Coffee, 'pizza': Pizza, 'salad': Salad, 'beef': Beef,
+  'egg': Egg, 'milk': Milk, 'wheat': Wheat, 'ice-cream-cone': IceCreamCone, 'cake': Cake,
+  'wine': Wine, 'apple': Apple, 'shopping-basket': ShoppingBasket, 'chef-hat': ChefHat,
+  'croissant': Croissant,
+  'shopping-cart': ShoppingCart, 'package': Package, 'box': Box, 'store': Store,
+  'handshake': Handshake, 'contact': Contact, 'barcode': Barcode,
+  'zap': Zap, 'flame': Flame, 'droplet': Droplet, 'wifi': Wifi, 'phone': Phone,
+  'home': Home, 'file-text': FileText, 'scroll-text': ScrollText, 'file-check': FileCheck,
+  'building': Building, 'building-2': Building2, 'settings': Settings, 'megaphone': Megaphone,
+  'presentation': Presentation, 'clipboard': Clipboard, 'globe': Globe, 'target': Target,
+  'chart-bar': ChartBar, 'sparkles': Sparkles, 'ribbon': Ribbon, 'circle-help': CircleHelp,
+  'circle-plus': CirclePlus, 'circle-minus': CircleMinus, 'hand-helping': HandHelping,
+  'file-signature': FileSignature, 'scale': Scale, 'chart-line': ChartLine,
+  'monitor': Monitor, 'smartphone': Smartphone, 'laptop': Laptop, 'printer': Printer,
+  'hard-drive': HardDrive, 'camera': Camera, 'tv': Tv, 'headphones': Headphones, 'cog': Cog,
+  'wrench': Wrench, 'hammer': Hammer, 'scissors': Scissors, 'paintbrush': Paintbrush,
+  'spray-can': SprayCan, 'construction': Construction,
+};
 
 const typeOptions = [
   { label: 'Gelir', value: 'gelir' },
@@ -25,13 +74,17 @@ export default function KategorilerPage() {
   const router = useRouter();
   const [selectedType, setSelectedType] = useState<KategoriType>('gelir');
 
-  const { data: kategoriler, isLoading } = useKategoriler(selectedType);
+  const { flatList, isLoading } = useKategorilerHierarchical(selectedType);
   const deleteKategori = useDeleteKategori();
 
-  const handleDelete = (id: string, name: string) => {
+  const handleDelete = (id: string, name: string, hasChildren: boolean) => {
+    const message = hasChildren
+      ? `"${name}" kategorisi ve tüm alt kategorileri silinecek. Devam etmek istiyor musunuz?`
+      : `"${name}" kategorisini silmek istediğinizden emin misiniz?`;
+
     Alert.alert(
       'Kategoriyi Sil',
-      `"${name}" kategorisini silmek istediginizden emin misiniz?`,
+      message,
       [
         { text: 'Iptal', style: 'cancel' },
         {
@@ -49,16 +102,26 @@ export default function KategorilerPage() {
     );
   };
 
-  const getTypeIcon = (type: KategoriType) => {
-    return type === 'gelir' ? (
+  const getCategoryIcon = (kategori: FlattenedCategory) => {
+    const categoryColor = kategori.color || colors.primary;
+    const iconName = kategori.icon;
+
+    if (iconName && ICON_MAP[iconName]) {
+      const IconComponent = ICON_MAP[iconName];
+      return <IconComponent size={20} color={categoryColor} />;
+    }
+
+    // Varsayılan icon
+    return kategori.type === 'gelir' ? (
       <TrendingUp size={20} color={colors.success} />
     ) : (
       <TrendingDown size={20} color={colors.error} />
     );
   };
 
-  const getTypeColor = (type: KategoriType) => {
-    return type === 'gelir' ? colors.successLight : colors.errorLight;
+  const getCategoryBgColor = (kategori: FlattenedCategory) => {
+    const categoryColor = kategori.color || (kategori.type === 'gelir' ? colors.success : colors.error);
+    return categoryColor + '20';
   };
 
   return (
@@ -91,7 +154,7 @@ export default function KategorilerPage() {
               <View style={styles.loadingContainer}>
                 <Text color="secondary">Yukleniyor...</Text>
               </View>
-            ) : !kategoriler || kategoriler.length === 0 ? (
+            ) : !flatList || flatList.length === 0 ? (
               <EmptyState
                 icon={<Tag size={48} color={colors.textMuted} />}
                 title={`${selectedType === 'gelir' ? 'Gelir' : 'Gider'} kategorisi yok`}
@@ -101,22 +164,29 @@ export default function KategorilerPage() {
               />
             ) : (
               <Card padding="none">
-                {kategoriler.map((kategori, index) => (
+                {flatList.map((kategori, index) => (
                   <View key={kategori.id}>
-                    {index > 0 && <View style={styles.divider} />}
-                    <View style={styles.kategoriItem}>
+                    {index > 0 && <View style={[styles.divider, { marginLeft: spacing.lg + 40 + spacing.md + (kategori.level * 24) }]} />}
+                    <View style={[styles.kategoriItem, { paddingLeft: spacing.lg + (kategori.level * 24) }]}>
                       <View
                         style={[
                           styles.kategoriIcon,
-                          { backgroundColor: getTypeColor(kategori.type) },
+                          { backgroundColor: getCategoryBgColor(kategori) },
                         ]}
                       >
-                        {getTypeIcon(kategori.type)}
+                        {getCategoryIcon(kategori)}
                       </View>
                       <View style={styles.kategoriInfo}>
-                        <Text variant="body">{kategori.name}</Text>
+                        <View style={styles.kategoriNameRow}>
+                          <Text variant="body">{kategori.name}</Text>
+                          {kategori.hasChildren && (
+                            <View style={styles.childIndicator}>
+                              <ChevronRight size={14} color={colors.textMuted} />
+                            </View>
+                          )}
+                        </View>
                         <Text variant="caption" color="secondary">
-                          {kategori.type === 'gelir' ? 'Gelir Kategorisi' : 'Gider Kategorisi'}
+                          {kategori.level > 0 ? 'Alt Kategori' : (kategori.type === 'gelir' ? 'Gelir Kategorisi' : 'Gider Kategorisi')}
                         </Text>
                       </View>
                       <View style={styles.kategoriActions}>
@@ -133,7 +203,7 @@ export default function KategorilerPage() {
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.actionButton}
-                          onPress={() => handleDelete(kategori.id, kategori.name)}
+                          onPress={() => handleDelete(kategori.id, kategori.name, kategori.hasChildren)}
                         >
                           <Trash2 size={18} color={colors.error} />
                         </TouchableOpacity>
@@ -195,6 +265,14 @@ const styles = StyleSheet.create({
   },
   kategoriInfo: {
     flex: 1,
+  },
+  kategoriNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  childIndicator: {
+    opacity: 0.5,
   },
   kategoriActions: {
     flexDirection: 'row',

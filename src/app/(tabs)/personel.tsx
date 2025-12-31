@@ -14,12 +14,15 @@ import {
 import { Text, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency, getInitials } from '@/lib/utils';
+import { formatCurrency, toNumber } from '@/lib/currency';
+import { getInitials } from '@/lib/utils';
+import { getPersonelBalanceLabel } from '@/lib/icons';
 import { usePersonelList } from '@/hooks/usePersonel';
 
 export default function PersonelPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedPersonelId, setExpandedPersonelId] = useState<string | null>(null);
 
   // Gerçek veriler
   const { data: personelList, isLoading } = usePersonelList();
@@ -31,10 +34,6 @@ export default function PersonelPage() {
     )
     .sort((a, b) => a.first_name.localeCompare(b.first_name, 'tr'));
 
-  const getBalanceLabel = (balance: number) => {
-    if (balance === 0) return 'Bakiye yok';
-    return balance < 0 ? 'Borcumuz' : 'Alacağımız';
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -81,6 +80,8 @@ export default function PersonelPage() {
             filteredPersonel.map((personel) => (
               <ExpandableCard
                 key={personel.id}
+                expanded={expandedPersonelId === personel.id}
+                onToggle={() => setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id)}
                 header={
                   <View style={styles.personelHeader}>
                     <View style={styles.avatar}>
@@ -113,19 +114,19 @@ export default function PersonelPage() {
                     </View>
                     <View style={styles.personelBalance}>
                       <Text variant="caption" color="secondary">
-                        {getBalanceLabel(Number(personel.balance))}
+                        {getPersonelBalanceLabel(toNumber(personel.balance))}
                       </Text>
                       <Text
                         variant="h3"
                         color={
-                          Number(personel.balance) === 0
+                          toNumber(personel.balance) === 0
                             ? 'secondary'
-                            : Number(personel.balance) < 0
+                            : toNumber(personel.balance) < 0
                             ? 'error'
                             : 'success'
                         }
                       >
-                        {formatCurrency(Math.abs(Number(personel.balance)))}
+                        {formatCurrency(Math.abs(toNumber(personel.balance)))}
                       </Text>
                     </View>
                   </View>

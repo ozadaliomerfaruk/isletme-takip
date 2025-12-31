@@ -11,9 +11,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, IconPicker, ColorPicker, ParentCategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
 import { useCreateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 
@@ -23,6 +24,9 @@ export default function KategoriEklePage() {
 
   const [name, setName] = useState('');
   const [type, setType] = useState<KategoriType>('gelir');
+  const [icon, setIcon] = useState<string>(DEFAULT_CATEGORY_ICON);
+  const [color, setColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
+  const [parentId, setParentId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string }>({});
 
   const validate = () => {
@@ -43,6 +47,9 @@ export default function KategoriEklePage() {
       await createKategori.mutateAsync({
         name: name.trim(),
         type,
+        icon,
+        color,
+        parent_id: parentId,
       });
 
       Alert.alert('Basarili', 'Kategori eklendi', [
@@ -51,6 +58,12 @@ export default function KategoriEklePage() {
     } catch (error: any) {
       Alert.alert('Hata', error.message || 'Kategori eklenemedi');
     }
+  };
+
+  // Tip değiştiğinde parent_id'yi sıfırla (farklı tipteki kategoriye alt kategori eklenemez)
+  const handleTypeChange = (newType: KategoriType) => {
+    setType(newType);
+    setParentId(null);
   };
 
   return (
@@ -77,7 +90,7 @@ export default function KategoriEklePage() {
                     type === 'gelir' && styles.typeCardSelected,
                     type === 'gelir' && { borderColor: colors.success },
                   ]}
-                  onPress={() => setType('gelir')}
+                  onPress={() => handleTypeChange('gelir')}
                   activeOpacity={0.7}
                 >
                   <View
@@ -102,7 +115,7 @@ export default function KategoriEklePage() {
                     type === 'gider' && styles.typeCardSelected,
                     type === 'gider' && { borderColor: colors.error },
                   ]}
-                  onPress={() => setType('gider')}
+                  onPress={() => handleTypeChange('gider')}
                   activeOpacity={0.7}
                 >
                   <View
@@ -131,6 +144,38 @@ export default function KategoriEklePage() {
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
+              />
+            </View>
+
+            {/* İkon ve Üst Kategori */}
+            <View style={styles.section}>
+              <Text variant="label" style={styles.sectionTitle}>
+                İkon ve Üst Kategori
+              </Text>
+              <View style={styles.pickerRow}>
+                <View style={styles.pickerItem}>
+                  <IconPicker
+                    value={icon}
+                    onChange={setIcon}
+                    color={color}
+                  />
+                </View>
+                <View style={styles.pickerItem}>
+                  <ParentCategoryPicker
+                    value={parentId}
+                    onChange={setParentId}
+                    type={type}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Renk Seçimi */}
+            <View style={styles.section}>
+              <ColorPicker
+                label="Renk"
+                value={color}
+                onChange={setColor}
               />
             </View>
 
@@ -230,6 +275,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  pickerItem: {
+    flex: 1,
   },
   examplesGrid: {
     flexDirection: 'row',

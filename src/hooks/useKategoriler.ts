@@ -1,7 +1,66 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Kategori, KategoriInsert, KategoriUpdate, KategoriType } from '@/types/database';
+import { Kategori, KategoriInsert, KategoriUpdate, KategoriType, KategoriWithChildren } from '@/types/database';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
+
+/**
+ * Düz kategori listesini hiyerarşik yapıya dönüştürür
+ */
+function buildCategoryTree(categories: Kategori[]): KategoriWithChildren[] {
+  const categoryMap = new Map<string, KategoriWithChildren>();
+  const rootCategories: KategoriWithChildren[] = [];
+
+  // İlk geçişte tüm kategorileri map'e ekle
+  categories.forEach(cat => {
+    categoryMap.set(cat.id, { ...cat, children: [] });
+  });
+
+  // İkinci geçişte parent-child ilişkilerini kur
+  categories.forEach(cat => {
+    const category = categoryMap.get(cat.id)!;
+    if (cat.parent_id && categoryMap.has(cat.parent_id)) {
+      const parent = categoryMap.get(cat.parent_id)!;
+      category.parent = parent;
+      parent.children = parent.children || [];
+      parent.children.push(category);
+    } else {
+      rootCategories.push(category);
+    }
+  });
+
+  return rootCategories;
+}
+
+/**
+ * Hiyerarşik kategori listesini düz listeye dönüştürür (indentasyon bilgisiyle)
+ */
+export interface FlattenedCategory extends Kategori {
+  level: number;
+  hasChildren: boolean;
+}
+
+function flattenCategoryTree(
+  categories: KategoriWithChildren[],
+  level: number = 0
+): FlattenedCategory[] {
+  const result: FlattenedCategory[] = [];
+
+  categories.forEach(cat => {
+    result.push({
+      ...cat,
+      level,
+      hasChildren: (cat.children?.length ?? 0) > 0,
+    });
+
+    if (cat.children && cat.children.length > 0) {
+      result.push(...flattenCategoryTree(cat.children, level + 1));
+    }
+  });
+
+  return result;
+}
 
 export function useKategoriler(type?: KategoriType) {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -37,6 +96,63 @@ export function useKategoriler(type?: KategoriType) {
   };
 }
 
+/**
+ * Kategorileri hiyerarşik yapıda döndürür
+ */
+export function useKategorilerHierarchical(type?: KategoriType) {
+  const { data: kategoriler, ...rest } = useKategoriler(type);
+
+  const hierarchicalData = useMemo(() => {
+    if (!kategoriler) return { tree: [], flat: [] };
+
+    const tree = buildCategoryTree(kategoriler);
+    const flat = flattenCategoryTree(tree);
+
+    return { tree, flat };
+  }, [kategoriler]);
+
+  return {
+    ...rest,
+    data: kategoriler,
+    tree: hierarchicalData.tree,
+    flatList: hierarchicalData.flat,
+  };
+}
+
+/**
+ * Sadece ana kategorileri döndürür (parent_id null olanlar)
+ */
+export function useParentKategoriler(type?: KategoriType) {
+  const { data: kategoriler, ...rest } = useKategoriler(type);
+
+  const parentCategories = useMemo(() => {
+    if (!kategoriler) return [];
+    return kategoriler.filter(k => k.parent_id === null);
+  }, [kategoriler]);
+
+  return {
+    ...rest,
+    data: parentCategories,
+  };
+}
+
+/**
+ * Belirli bir kategorinin alt kategorilerini döndürür
+ */
+export function useSubKategoriler(parentId: string | null, type?: KategoriType) {
+  const { data: kategoriler, ...rest } = useKategoriler(type);
+
+  const subCategories = useMemo(() => {
+    if (!kategoriler || !parentId) return [];
+    return kategoriler.filter(k => k.parent_id === parentId);
+  }, [kategoriler, parentId]);
+
+  return {
+    ...rest,
+    data: subCategories,
+  };
+}
+
 export function useCreateKategori() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
@@ -55,7 +171,7 @@ export function useCreateKategori() {
       return data as Kategori;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kategoriler'] });
+      invalidateRelatedQueries(queryClient, 'kategori');
     },
   });
 }
@@ -76,7 +192,7 @@ export function useUpdateKategori() {
       return data as Kategori;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kategoriler'] });
+      invalidateRelatedQueries(queryClient, 'kategori');
     },
   });
 }
@@ -94,7 +210,7 @@ export function useDeleteKategori() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['kategoriler'] });
+      invalidateRelatedQueries(queryClient, 'kategori');
     },
   });
 }

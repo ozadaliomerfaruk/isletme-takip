@@ -1,5 +1,7 @@
 export * from './colors';
 export * from './spacing';
+export * from './islemTypes';
+export * from './categoryIcons';
 
 export const APP_NAME = 'İşletme Takip';
 export const CURRENCY = 'TRY';

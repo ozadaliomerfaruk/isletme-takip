@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Personel, PersonelInsert, PersonelUpdate } from '@/types/database';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { toNumber } from '@/lib/currency';
 
 export function usePersonelList() {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -71,7 +73,8 @@ export function useCreatePersonel() {
       return data as Personel;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'personel');
     },
   });
 }
@@ -91,9 +94,9 @@ export function useUpdatePersonel() {
       if (error) throw error;
       return data as Personel;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
-      queryClient.invalidateQueries({ queryKey: ['personel-detail', data.id] });
+    onSuccess: () => {
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'personel');
     },
   });
 }
@@ -137,10 +140,8 @@ export function useDeletePersonel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
-      queryClient.invalidateQueries({ queryKey: ['islemler'] });
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['month-summary'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'personel');
     },
   });
 }
@@ -149,8 +150,9 @@ export function useDeletePersonel() {
 export function usePersonelSummary() {
   const { data: personelList } = usePersonelList();
 
+  // Merkezi toNumber fonksiyonunu kullan
   const totalDebt = personelList?.reduce((acc, p) => {
-    const balance = Number(p.balance);
+    const balance = toNumber(p.balance);
     // Negatif bakiye = borcumuz var
     if (balance < 0) {
       return acc + Math.abs(balance);

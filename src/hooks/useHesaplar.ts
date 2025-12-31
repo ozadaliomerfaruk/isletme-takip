@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { toNumber } from '@/lib/currency';
 
 export function useHesaplar() {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -68,7 +70,8 @@ export function useCreateHesap() {
       return data as Hesap;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'hesap');
     },
   });
 }
@@ -88,9 +91,9 @@ export function useUpdateHesap() {
       if (error) throw error;
       return data as Hesap;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['hesap', data.id] });
+    onSuccess: () => {
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'hesap');
     },
   });
 }
@@ -142,9 +145,8 @@ export function useDeleteHesap() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['islemler'] });
-      queryClient.invalidateQueries({ queryKey: ['month-summary'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'hesap');
     },
   });
 }
@@ -153,7 +155,8 @@ export function useDeleteHesap() {
 export function useTotalBalance() {
   const { data: hesaplar } = useHesaplar();
 
-  const total = hesaplar?.reduce((acc, h) => acc + Number(h.balance), 0) ?? 0;
+  // Merkezi toNumber fonksiyonunu kullan
+  const total = hesaplar?.reduce((acc, h) => acc + toNumber(h.balance), 0) ?? 0;
 
   return total;
 }

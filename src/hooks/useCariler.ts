@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Cari, CariInsert, CariUpdate, CariType } from '@/types/database';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { toNumber, calculateBalanceSummary } from '@/lib/currency';
 
 export function useCariler(type?: CariType) {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -74,7 +76,8 @@ export function useCreateCari() {
       return data as Cari;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'cari');
     },
   });
 }
@@ -94,9 +97,9 @@ export function useUpdateCari() {
       if (error) throw error;
       return data as Cari;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
-      queryClient.invalidateQueries({ queryKey: ['cari', data.id] });
+    onSuccess: () => {
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'cari');
     },
   });
 }
@@ -140,10 +143,8 @@ export function useDeleteCari() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
-      queryClient.invalidateQueries({ queryKey: ['islemler'] });
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['month-summary'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'cari');
     },
   });
 }
@@ -152,19 +153,13 @@ export function useDeleteCari() {
 export function useCariSummary() {
   const { data: cariler } = useCariler();
 
-  const summary = cariler?.reduce(
-    (acc, cari) => {
-      const balance = Number(cari.balance);
-      // Pozitif bakiye = alacak (müşteriden), Negatif bakiye = borç (tedarikçiye)
-      if (balance > 0) {
-        acc.totalReceivables += balance;
-      } else {
-        acc.totalPayables += Math.abs(balance);
-      }
-      return acc;
-    },
-    { totalReceivables: 0, totalPayables: 0 }
-  ) ?? { totalReceivables: 0, totalPayables: 0 };
+  // Merkezi bakiye hesaplama fonksiyonunu kullan
+  const { receivables, payables } = cariler
+    ? calculateBalanceSummary(cariler)
+    : { receivables: 0, payables: 0 };
 
-  return summary;
+  return {
+    totalReceivables: receivables,
+    totalPayables: payables,
+  };
 }

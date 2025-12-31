@@ -1,0 +1,703 @@
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { Kategori, KategoriType } from '@/types/database';
+import { INCOME_TYPES, EXPENSE_TYPES } from '@/constants/islemTypes';
+
+export interface CategoryReportItem {
+  kategori: Kategori | null; // null = kategorisiz
+  total: number;
+  count: number;
+  percentage: number;
+}
+
+// Hiyerarşik kategori rapor item'ı
+export interface HierarchicalCategoryReportItem extends CategoryReportItem {
+  children: CategoryReportItem[];
+  totalWithChildren: number; // Kendi + alt kategorilerin toplamı
+  countWithChildren: number; // Kendi + alt kategorilerin işlem sayısı
+  percentageWithChildren: number; // Alt kategoriler dahil yüzde
+}
+
+export interface CategoryReportResult {
+  items: CategoryReportItem[];
+  totalAmount: number;
+  uncategorizedAmount: number;
+  uncategorizedCount: number;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+// Hiyerarşik kategori rapor sonucu
+export interface HierarchicalCategoryReportResult {
+  items: HierarchicalCategoryReportItem[];
+  totalAmount: number;
+  uncategorizedAmount: number;
+  uncategorizedCount: number;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+interface UseCategoryReportOptions {
+  startDate: string;
+  endDate: string;
+}
+
+export function useCategoryReport(
+  type: KategoriType,
+  options: UseCategoryReportOptions
+): CategoryReportResult {
+  const { isletme } = useAuthContext();
+  const { startDate, endDate } = options;
+
+  // İşlem tiplerini belirle
+  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+
+  // Tüm kategorileri çek (parent bilgisi için)
+  const { data: allKategoriler } = useQuery({
+    queryKey: ['all-kategoriler', isletme?.id, type],
+    queryFn: async () => {
+      if (!isletme) return [];
+
+      const { data, error } = await supabase
+        .from('kategoriler')
+        .select('*')
+        .eq('isletme_id', isletme.id)
+        .eq('type', type);
+
+      if (error) throw error;
+      return data as Kategori[];
+    },
+    enabled: !!isletme,
+  });
+
+  // İşlemleri çek (kategori bilgisi ile birlikte)
+  const {
+    data: islemler,
+    isLoading: islemlerLoading,
+    error: islemlerError,
+  } = useQuery({
+    queryKey: ['category-report', isletme?.id, type, startDate, endDate],
+    queryFn: async () => {
+      if (!isletme) return [];
+
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          id,
+          type,
+          amount,
+          kategori_id,
+          kategori:kategoriler(*)
+        `)
+        .eq('isletme_id', isletme.id)
+        .in('type', islemTypes)
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (error) throw error;
+
+      // Supabase join sonucunu düzelt (kategori array olarak dönüyor)
+      return data.map((item) => ({
+        ...item,
+        kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
+      }));
+    },
+    enabled: !!isletme && !!startDate && !!endDate,
+  });
+
+  // Kategori bazlı gruplama ve hesaplama (alt kategoriler ana kategoriye dahil)
+  const result = useMemo(() => {
+    if (!islemler || islemler.length === 0) {
+      return {
+        items: [],
+        totalAmount: 0,
+        uncategorizedAmount: 0,
+        uncategorizedCount: 0,
+      };
+    }
+
+    // Tüm kategorileri map'e al (parent bilgisi için)
+    const kategoriMap = new Map<string, Kategori>();
+    allKategoriler?.forEach((kat) => {
+      kategoriMap.set(kat.id, kat);
+    });
+
+    // Ana kategori bazlı gruplama (alt kategoriler dahil)
+    const parentCategoryMap = new Map<string, {
+      kategori: Kategori;
+      total: number;
+      count: number;
+    }>();
+
+    let totalAmount = 0;
+    let uncategorizedAmount = 0;
+    let uncategorizedCount = 0;
+
+    islemler.forEach((islem) => {
+      const amount = Number(islem.amount);
+      totalAmount += amount;
+
+      const kategori = islem.kategori as Kategori | null;
+
+      // Kategorisiz işlem
+      if (!kategori) {
+        uncategorizedAmount += amount;
+        uncategorizedCount += 1;
+        return;
+      }
+
+      // Alt kategori ise parent'a ekle, değilse kendi ID'sine ekle
+      const parentId = kategori.parent_id;
+      const targetId = parentId || kategori.id;
+
+      // Parent kategorisini bul
+      const parentKategori = parentId ? kategoriMap.get(parentId) : kategori;
+
+      if (!parentKategori) {
+        // Parent bulunamadı, bu kategoriyi ana kategori olarak kullan
+        const existing = parentCategoryMap.get(kategori.id);
+        if (existing) {
+          existing.total += amount;
+          existing.count += 1;
+        } else {
+          parentCategoryMap.set(kategori.id, {
+            kategori: kategori,
+            total: amount,
+            count: 1,
+          });
+        }
+        return;
+      }
+
+      const existing = parentCategoryMap.get(targetId);
+      if (existing) {
+        existing.total += amount;
+        existing.count += 1;
+      } else {
+        parentCategoryMap.set(targetId, {
+          kategori: parentKategori,
+          total: amount,
+          count: 1,
+        });
+      }
+    });
+
+    // Map'i array'e çevir ve sırala (büyükten küçüğe)
+    const items: CategoryReportItem[] = Array.from(parentCategoryMap.values())
+      .map((value) => ({
+        kategori: value.kategori,
+        total: value.total,
+        count: value.count,
+        percentage: totalAmount > 0 ? (value.total / totalAmount) * 100 : 0,
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    // Kategorisiz varsa en sona ekle
+    if (uncategorizedCount > 0) {
+      items.push({
+        kategori: null,
+        total: uncategorizedAmount,
+        count: uncategorizedCount,
+        percentage: totalAmount > 0 ? (uncategorizedAmount / totalAmount) * 100 : 0,
+      });
+    }
+
+    return {
+      items,
+      totalAmount,
+      uncategorizedAmount,
+      uncategorizedCount,
+    };
+  }, [islemler, allKategoriler]);
+
+  return {
+    ...result,
+    isLoading: islemlerLoading,
+    error: islemlerError as Error | null,
+  };
+}
+
+// Hiyerarşik kategori raporu - ana kategoriler ve alt kategorileri gruplar
+export function useHierarchicalCategoryReport(
+  type: KategoriType,
+  options: UseCategoryReportOptions
+): HierarchicalCategoryReportResult {
+  const { isletme } = useAuthContext();
+  const { startDate, endDate } = options;
+
+  // İşlem tiplerini belirle
+  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+
+  // İşlemleri ve kategorileri çek
+  const {
+    data: islemler,
+    isLoading: islemlerLoading,
+    error: islemlerError,
+  } = useQuery({
+    queryKey: ['hierarchical-category-report', isletme?.id, type, startDate, endDate],
+    queryFn: async () => {
+      if (!isletme) return [];
+
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          id,
+          type,
+          amount,
+          kategori_id,
+          kategori:kategoriler(*)
+        `)
+        .eq('isletme_id', isletme.id)
+        .in('type', islemTypes)
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (error) throw error;
+
+      // Supabase join sonucunu düzelt
+      return data.map((item) => ({
+        ...item,
+        kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
+      }));
+    },
+    enabled: !!isletme && !!startDate && !!endDate,
+  });
+
+  // Hiyerarşik gruplama
+  const result = useMemo(() => {
+    if (!islemler || islemler.length === 0) {
+      return {
+        items: [],
+        totalAmount: 0,
+        uncategorizedAmount: 0,
+        uncategorizedCount: 0,
+      };
+    }
+
+    // Kategori bazlı gruplama
+    const categoryMap = new Map<string | null, {
+      kategori: Kategori | null;
+      total: number;
+      count: number;
+    }>();
+
+    let totalAmount = 0;
+
+    islemler.forEach((islem) => {
+      const amount = Number(islem.amount);
+      totalAmount += amount;
+
+      const kategoriId = islem.kategori_id;
+      const existing = categoryMap.get(kategoriId);
+
+      if (existing) {
+        existing.total += amount;
+        existing.count += 1;
+      } else {
+        categoryMap.set(kategoriId, {
+          kategori: islem.kategori as Kategori | null,
+          total: amount,
+          count: 1,
+        });
+      }
+    });
+
+    // Kategorisiz işlemleri ayır
+    const uncategorized = categoryMap.get(null);
+    const uncategorizedAmount = uncategorized?.total ?? 0;
+    const uncategorizedCount = uncategorized?.count ?? 0;
+
+    // Ana kategorileri ve alt kategorileri ayır
+    const parentCategories = new Map<string, HierarchicalCategoryReportItem>();
+    const childCategories: CategoryReportItem[] = [];
+
+    Array.from(categoryMap.entries())
+      .filter(([key]) => key !== null)
+      .forEach(([_, value]) => {
+        const kategori = value.kategori;
+        if (!kategori) return;
+
+        const item: CategoryReportItem = {
+          kategori: kategori,
+          total: value.total,
+          count: value.count,
+          percentage: totalAmount > 0 ? (value.total / totalAmount) * 100 : 0,
+        };
+
+        if (kategori.parent_id) {
+          // Alt kategori
+          childCategories.push(item);
+        } else {
+          // Ana kategori
+          parentCategories.set(kategori.id, {
+            ...item,
+            children: [],
+            totalWithChildren: value.total,
+            countWithChildren: value.count,
+            percentageWithChildren: totalAmount > 0 ? (value.total / totalAmount) * 100 : 0,
+          });
+        }
+      });
+
+    // Alt kategorileri ana kategorilere bağla
+    childCategories.forEach((child) => {
+      if (!child.kategori?.parent_id) return;
+
+      const parent = parentCategories.get(child.kategori.parent_id);
+      if (parent) {
+        parent.children.push(child);
+        parent.totalWithChildren += child.total;
+        parent.countWithChildren += child.count;
+        parent.percentageWithChildren = totalAmount > 0
+          ? (parent.totalWithChildren / totalAmount) * 100
+          : 0;
+      } else {
+        // Ana kategori işlemlerde yok ama alt kategori var
+        // Bu durumda alt kategoriyi ana kategori gibi göster
+        const kategori = child.kategori;
+        parentCategories.set(kategori.parent_id!, {
+          kategori: null, // Placeholder - görünmez ana kategori
+          total: 0,
+          count: 0,
+          percentage: 0,
+          children: [child],
+          totalWithChildren: child.total,
+          countWithChildren: child.count,
+          percentageWithChildren: totalAmount > 0 ? (child.total / totalAmount) * 100 : 0,
+        });
+      }
+    });
+
+    // Ana kategorileri yoksa, alt kategorileri doğrudan göster
+    // Orphan alt kategoriler (ana kategorisi olmayan) için
+    const orphanChildren = childCategories.filter((child) => {
+      if (!child.kategori?.parent_id) return false;
+      const parent = parentCategories.get(child.kategori.parent_id);
+      return !parent || parent.kategori === null;
+    });
+
+    // Placeholder ana kategorileri kaldır ve orphan'ları ana kategori olarak ekle
+    orphanChildren.forEach((orphan) => {
+      if (!orphan.kategori) return;
+      // Placeholder'ı kaldır
+      if (orphan.kategori.parent_id) {
+        parentCategories.delete(orphan.kategori.parent_id);
+      }
+      // Orphan'ı ana kategori olarak ekle
+      parentCategories.set(orphan.kategori.id, {
+        ...orphan,
+        children: [],
+        totalWithChildren: orphan.total,
+        countWithChildren: orphan.count,
+        percentageWithChildren: orphan.percentage,
+      });
+    });
+
+    // Alt kategorileri sırala (büyükten küçüğe)
+    parentCategories.forEach((parent) => {
+      parent.children.sort((a, b) => b.total - a.total);
+    });
+
+    // Ana kategorileri sırala (toplam dahil, büyükten küçüğe)
+    const items: HierarchicalCategoryReportItem[] = Array.from(parentCategories.values())
+      .filter((item) => item.kategori !== null) // Placeholder'ları kaldır
+      .sort((a, b) => b.totalWithChildren - a.totalWithChildren);
+
+    // Kategorisiz varsa en sona ekle
+    if (uncategorizedCount > 0) {
+      items.push({
+        kategori: null,
+        total: uncategorizedAmount,
+        count: uncategorizedCount,
+        percentage: totalAmount > 0 ? (uncategorizedAmount / totalAmount) * 100 : 0,
+        children: [],
+        totalWithChildren: uncategorizedAmount,
+        countWithChildren: uncategorizedCount,
+        percentageWithChildren: totalAmount > 0 ? (uncategorizedAmount / totalAmount) * 100 : 0,
+      });
+    }
+
+    return {
+      items,
+      totalAmount,
+      uncategorizedAmount,
+      uncategorizedCount,
+    };
+  }, [islemler]);
+
+  return {
+    ...result,
+    isLoading: islemlerLoading,
+    error: islemlerError as Error | null,
+  };
+}
+
+// Belirli bir kategorinin işlemlerini getir
+export function useCategoryTransactions(
+  kategoriId: string | null,
+  type: KategoriType,
+  options: UseCategoryReportOptions
+) {
+  const { isletme } = useAuthContext();
+  const { startDate, endDate } = options;
+
+  // İşlem tiplerini belirle
+  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+
+  return useQuery({
+    queryKey: ['category-transactions', isletme?.id, kategoriId, type, startDate, endDate],
+    queryFn: async () => {
+      if (!isletme) return [];
+
+      let query = supabase
+        .from('islemler')
+        .select(`
+          *,
+          hesap:hesaplar!hesap_id(*),
+          kategori:kategoriler(*),
+          cari:cariler(*),
+          personel:personel(*)
+        `)
+        .eq('isletme_id', isletme.id)
+        .in('type', islemTypes)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false });
+
+      // Kategorisiz işlemler için null kontrolü
+      if (kategoriId === null || kategoriId === 'uncategorized') {
+        query = query.is('kategori_id', null);
+      } else {
+        query = query.eq('kategori_id', kategoriId);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!isletme && !!startDate && !!endDate,
+  });
+}
+
+// Birden fazla kategori için işlemleri getir (checkbox filtresi için)
+export function useMultiCategoryTransactions(
+  kategoriIds: string[],
+  type: KategoriType,
+  options: UseCategoryReportOptions
+) {
+  const { isletme } = useAuthContext();
+  const { startDate, endDate } = options;
+
+  // İşlem tiplerini belirle
+  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+
+  return useQuery({
+    queryKey: ['multi-category-transactions', isletme?.id, kategoriIds.sort().join(','), type, startDate, endDate],
+    queryFn: async () => {
+      if (!isletme || kategoriIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          *,
+          hesap:hesaplar!hesap_id(*),
+          kategori:kategoriler(*),
+          cari:cariler(*),
+          personel:personel(*)
+        `)
+        .eq('isletme_id', isletme.id)
+        .in('type', islemTypes)
+        .in('kategori_id', kategoriIds)
+        .gte('date', startDate)
+        .lte('date', endDate)
+        .order('date', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!isletme && !!startDate && !!endDate && kategoriIds.length > 0,
+  });
+}
+
+// Alt kategori raporu - bir ana kategorinin alt kategorilerini getir
+export interface SubCategoryReportItem {
+  kategori: Kategori;
+  total: number;
+  count: number;
+  percentage: number; // Ana kategori toplamına göre yüzde
+}
+
+export interface SubCategoryReportResult {
+  parentKategori: Kategori | null;
+  subCategories: SubCategoryReportItem[];
+  parentTotal: number; // Ana kategorinin doğrudan işlemleri
+  parentCount: number;
+  totalAmount: number; // Tüm işlemler (ana + alt kategoriler)
+  totalCount: number;
+  isLoading: boolean;
+  error: Error | null;
+}
+
+export function useSubCategoryReport(
+  parentKategoriId: string | null,
+  type: KategoriType,
+  options: UseCategoryReportOptions
+): SubCategoryReportResult {
+  const { isletme } = useAuthContext();
+  const { startDate, endDate } = options;
+
+  // İşlem tiplerini belirle
+  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+
+  // Ana kategoriyi ve alt kategorileri çek
+  const {
+    data: kategoriler,
+    isLoading: kategorilerLoading,
+  } = useQuery({
+    queryKey: ['sub-categories', isletme?.id, parentKategoriId, type],
+    queryFn: async () => {
+      if (!isletme || !parentKategoriId) return { parent: null, children: [] };
+
+      // Ana kategoriyi çek
+      const { data: parentData, error: parentError } = await supabase
+        .from('kategoriler')
+        .select('*')
+        .eq('id', parentKategoriId)
+        .single();
+
+      if (parentError) throw parentError;
+
+      // Alt kategorileri çek
+      const { data: childrenData, error: childrenError } = await supabase
+        .from('kategoriler')
+        .select('*')
+        .eq('parent_id', parentKategoriId)
+        .eq('type', type)
+        .order('name');
+
+      if (childrenError) throw childrenError;
+
+      return {
+        parent: parentData as Kategori,
+        children: childrenData as Kategori[],
+      };
+    },
+    enabled: !!isletme && !!parentKategoriId,
+  });
+
+  // Tüm ilgili kategorilerin işlemlerini çek
+  const allKategoriIds = useMemo(() => {
+    if (!parentKategoriId) return [];
+    const ids = [parentKategoriId];
+    if (kategoriler?.children) {
+      ids.push(...kategoriler.children.map((k) => k.id));
+    }
+    return ids;
+  }, [parentKategoriId, kategoriler]);
+
+  const {
+    data: islemler,
+    isLoading: islemlerLoading,
+    error: islemlerError,
+  } = useQuery({
+    queryKey: ['sub-category-transactions', isletme?.id, allKategoriIds.sort().join(','), type, startDate, endDate],
+    queryFn: async () => {
+      if (!isletme || allKategoriIds.length === 0) return [];
+
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          id,
+          type,
+          amount,
+          kategori_id,
+          kategori:kategoriler(*)
+        `)
+        .eq('isletme_id', isletme.id)
+        .in('type', islemTypes)
+        .in('kategori_id', allKategoriIds)
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!isletme && !!startDate && !!endDate && allKategoriIds.length > 0,
+  });
+
+  // Sonuçları hesapla
+  const result = useMemo(() => {
+    if (!kategoriler || !islemler) {
+      return {
+        parentKategori: null,
+        subCategories: [],
+        parentTotal: 0,
+        parentCount: 0,
+        totalAmount: 0,
+        totalCount: 0,
+      };
+    }
+
+    let totalAmount = 0;
+    let totalCount = 0;
+    let parentTotal = 0;
+    let parentCount = 0;
+
+    const subCategoryMap = new Map<string, { total: number; count: number }>();
+
+    // Alt kategorileri map'e ekle
+    kategoriler.children?.forEach((child) => {
+      subCategoryMap.set(child.id, { total: 0, count: 0 });
+    });
+
+    // İşlemleri grupla
+    islemler.forEach((islem) => {
+      const amount = Number(islem.amount);
+      totalAmount += amount;
+      totalCount += 1;
+
+      if (islem.kategori_id === parentKategoriId) {
+        // Ana kategoriye ait doğrudan işlem
+        parentTotal += amount;
+        parentCount += 1;
+      } else if (subCategoryMap.has(islem.kategori_id)) {
+        // Alt kategoriye ait işlem
+        const existing = subCategoryMap.get(islem.kategori_id)!;
+        existing.total += amount;
+        existing.count += 1;
+      }
+    });
+
+    // Alt kategori rapor item'larını oluştur
+    const subCategories: SubCategoryReportItem[] = (kategoriler.children || [])
+      .map((child) => {
+        const stats = subCategoryMap.get(child.id) || { total: 0, count: 0 };
+        return {
+          kategori: child,
+          total: stats.total,
+          count: stats.count,
+          percentage: totalAmount > 0 ? (stats.total / totalAmount) * 100 : 0,
+        };
+      })
+      .filter((item) => item.count > 0) // Sadece işlemi olan alt kategorileri göster
+      .sort((a, b) => b.total - a.total);
+
+    return {
+      parentKategori: kategoriler.parent,
+      subCategories,
+      parentTotal,
+      parentCount,
+      totalAmount,
+      totalCount,
+    };
+  }, [kategoriler, islemler, parentKategoriId]);
+
+  return {
+    ...result,
+    isLoading: kategorilerLoading || islemlerLoading,
+    error: islemlerError as Error | null,
+  };
+}

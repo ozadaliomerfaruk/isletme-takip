@@ -17,7 +17,8 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatDateForDB } from '@/lib/date';
 
 export default function CariTahsilatPage() {
   const router = useRouter();

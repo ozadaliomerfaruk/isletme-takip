@@ -2,6 +2,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
+import { calculateIncomeSummary } from '@/constants/islemTypes';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { toNumber } from '@/lib/currency';
+import {
+  formatDateForDB,
+  formatDateLong,
+  getDateRange,
+  MONTHS_FULL,
+  MONTHS_SHORT,
+  type PeriodType as DatePeriodType,
+} from '@/lib/date';
 
 interface IslemFilters {
   type?: IslemType;
@@ -123,16 +134,8 @@ export function useCreateIslem() {
       return data as Islem;
     },
     onSuccess: () => {
-      // Tüm ilgili verileri yenile
-      queryClient.invalidateQueries({ queryKey: ['islemler'] });
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['hesap'] });
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
-      queryClient.invalidateQueries({ queryKey: ['cari'] });
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
-      queryClient.invalidateQueries({ queryKey: ['personel-detail'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['month-summary'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'islem');
     },
   });
 }
@@ -360,16 +363,8 @@ export function useUpdateIslem() {
       return data as Islem;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['islemler'] });
-      queryClient.invalidateQueries({ queryKey: ['islem'] });
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['hesap'] });
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
-      queryClient.invalidateQueries({ queryKey: ['cari'] });
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
-      queryClient.invalidateQueries({ queryKey: ['personel-detail'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['month-summary'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'islem');
     },
   });
 }
@@ -415,15 +410,8 @@ export function useDeleteIslem() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['islemler'] });
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['hesap'] });
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
-      queryClient.invalidateQueries({ queryKey: ['cari'] });
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
-      queryClient.invalidateQueries({ queryKey: ['personel-detail'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['month-summary'] });
+      // Merkezi invalidation helper kullan
+      invalidateRelatedQueries(queryClient, 'islem');
     },
   });
 }
@@ -501,57 +489,134 @@ async function reverseBalances(islem: Islem) {
   }
 }
 
-// Gelir/gider özeti (dönem parametreli)
-export function useMonthSummary(period: 'month' | 'all' = 'month') {
+// Dönem tiplerini tanımla
+export type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
+
+// Ay isimleri
+const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+                'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
+
+// Tarihi yerel timezone'a göre formatla (YYYY-MM-DD)
+export function formatDateLocal(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Tarihi kullanıcı dostu formata çevir
+export function formatDateLabel(dateStr: string): string {
+  const date = new Date(dateStr + 'T00:00:00');
+  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+// Dönem tarih aralığını hesapla (offset destekli)
+export function getPeriodDateRange(
+  period: PeriodType,
+  offset: number = 0,
+  customRange?: { startDate: string; endDate: string }
+): {
+  startDate: string;
+  endDate: string;
+  label: string;
+} {
+  const now = new Date();
+  let startDate: Date;
+  let endDate: Date;
+  let label: string;
+
+  switch (period) {
+    case 'yearly':
+      // Yıl hesapla (offset: -1 = geçen yıl, 0 = bu yıl, 1 = gelecek yıl)
+      const targetYear = now.getFullYear() + offset;
+      startDate = new Date(targetYear, 0, 1);
+      endDate = new Date(targetYear, 11, 31);
+      label = targetYear.toString();
+      break;
+    case 'monthly':
+      // Ay hesapla (offset: -1 = geçen ay, 0 = bu ay, 1 = gelecek ay)
+      const targetMonth = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      startDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
+      endDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+      label = `${MONTHS[targetMonth.getMonth()]} ${targetMonth.getFullYear()}`;
+      break;
+    case 'weekly':
+      // Hafta hesapla (offset: -1 = geçen hafta, 0 = bu hafta, 1 = gelecek hafta)
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset);
+      startDate = new Date(thisMonday);
+      startDate.setDate(thisMonday.getDate() + (offset * 7));
+      endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
+      // Hafta etiketi: "23-29 Aralık" veya "28 Ara - 3 Oca" (aylar farklıysa)
+      if (startDate.getMonth() === endDate.getMonth()) {
+        label = `${startDate.getDate()}-${endDate.getDate()} ${MONTHS[startDate.getMonth()]}`;
+      } else {
+        label = `${startDate.getDate()} ${MONTHS[startDate.getMonth()].substring(0, 3)} - ${endDate.getDate()} ${MONTHS[endDate.getMonth()].substring(0, 3)}`;
+      }
+      break;
+    case 'daily':
+      // Gün hesapla (offset: -1 = dün, 0 = bugün, 1 = yarın)
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      endDate = new Date(startDate);
+      label = `${startDate.getDate()} ${MONTHS[startDate.getMonth()]} ${startDate.getFullYear()}`;
+      break;
+    case 'custom':
+      // Özel tarih aralığı
+      if (customRange) {
+        return {
+          startDate: customRange.startDate,
+          endDate: customRange.endDate,
+          label: `${formatDateLabel(customRange.startDate)} - ${formatDateLabel(customRange.endDate)}`,
+        };
+      }
+      // Varsayılan olarak bu ayı göster
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      label = 'Tarih Seçin';
+      break;
+  }
+
+  return {
+    startDate: formatDateLocal(startDate),
+    endDate: formatDateLocal(endDate),
+    label,
+  };
+}
+
+// Gelir/gider özeti (dönem ve offset parametreli)
+export function useMonthSummary(
+  period: PeriodType = 'monthly',
+  offset: number = 0,
+  customRange?: { startDate: string; endDate: string }
+) {
   const { isletme } = useAuthContext();
 
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  const { startDate, endDate, label } = getPeriodDateRange(period, offset, customRange);
 
-  return useQuery({
-    queryKey: ['month-summary', isletme?.id, period, startOfMonth],
+  const query = useQuery({
+    queryKey: ['month-summary', isletme?.id, period, offset, startDate, endDate],
     queryFn: async () => {
       if (!isletme) return { income: 0, expense: 0 };
 
-      let query = supabase
+      const { data, error } = await supabase
         .from('islemler')
         .select('type, amount')
-        .eq('isletme_id', isletme.id);
-
-      // Sadece "month" seçiliyse tarih filtresi uygula
-      if (period === 'month') {
-        query = query.gte('date', startOfMonth).lte('date', endOfMonth);
-      }
-
-      const { data, error } = await query;
+        .eq('isletme_id', isletme.id)
+        .gte('date', startDate)
+        .lte('date', endDate);
 
       if (error) throw error;
 
-      const summary = data.reduce(
-        (acc, islem) => {
-          const amount = Number(islem.amount);
-          // Gelir: gelir işlemi, müşteriden tahsilat, müşteriye satış
-          if (islem.type === 'gelir' || islem.type === 'cari_tahsilat' || islem.type === 'cari_satis') {
-            acc.income += amount;
-          }
-          // Gider: gider işlemi, tedarikçiye ödeme, tedarikçiden alış, personel gideri, personel ödemesi
-          else if (
-            islem.type === 'gider' ||
-            islem.type === 'cari_odeme' ||
-            islem.type === 'cari_alis' ||
-            islem.type === 'personel_gider' ||
-            islem.type === 'personel_odeme'
-          ) {
-            acc.expense += amount;
-          }
-          return acc;
-        },
-        { income: 0, expense: 0 }
-      );
-
-      return summary;
+      // Merkezi hesaplama fonksiyonunu kullan
+      return calculateIncomeSummary(data as { type: IslemType; amount: number }[]);
     },
     enabled: !!isletme,
   });
+
+  return {
+    ...query,
+    periodLabel: label,
+  };
 }

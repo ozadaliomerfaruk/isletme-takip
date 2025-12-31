@@ -11,13 +11,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
-import { useKategoriler } from '@/hooks/useKategoriler';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatCurrency, parseCurrency, isValidAmount, formatDateForDB } from '@/lib/utils';
+import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatDateForDB } from '@/lib/date';
 
 export default function CariAlisPage() {
   const router = useRouter();
@@ -25,7 +25,6 @@ export default function CariAlisPage() {
   const createIslem = useCreateIslem();
 
   const { data: cariler } = useCariler('tedarikci');
-  const { data: kategoriler } = useKategoriler('gider');
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -33,7 +32,6 @@ export default function CariAlisPage() {
   const [cariId, setCariId] = useState<string | null>(params.cari_id || null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [showCariPicker, setShowCariPicker] = useState(false);
-  const [showKategoriPicker, setShowKategoriPicker] = useState(false);
   const [errors, setErrors] = useState<{ amount?: string; cari?: string }>({});
 
   useEffect(() => {
@@ -43,7 +41,6 @@ export default function CariAlisPage() {
   }, [cariler, cariId, params.cari_id]);
 
   const selectedCari = cariler?.find((c) => c.id === cariId);
-  const selectedKategori = kategoriler?.find((k) => k.id === kategoriId);
 
   const validate = () => {
     const newErrors: { amount?: string; cari?: string } = {};
@@ -110,7 +107,6 @@ export default function CariAlisPage() {
                 style={[styles.picker, errors.cari && styles.pickerError]}
                 onPress={() => {
                   setShowCariPicker(!showCariPicker);
-                  setShowKategoriPicker(false);
                 }}
               >
                 <View>
@@ -155,55 +151,12 @@ export default function CariAlisPage() {
             </View>
 
             {/* Kategori Seçici */}
-            <View style={[styles.pickerContainer, { zIndex: 10 }]}>
-              <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Kategori (Opsiyonel)
-              </Text>
-              <TouchableOpacity
-                style={styles.picker}
-                onPress={() => {
-                  setShowKategoriPicker(!showKategoriPicker);
-                  setShowCariPicker(false);
-                }}
-              >
-                <Text variant="body" color={selectedKategori ? 'primary' : 'secondary'}>
-                  {selectedKategori?.name || 'Kategori seçin'}
-                </Text>
-                <ChevronDown size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-              {showKategoriPicker && (
-                <Card style={styles.pickerDropdown}>
-                  <TouchableOpacity
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      setKategoriId(null);
-                      setShowKategoriPicker(false);
-                    }}
-                  >
-                    <Text variant="body" color="secondary">
-                      Kategori yok
-                    </Text>
-                  </TouchableOpacity>
-                  {kategoriler?.map((kategori) => (
-                    <TouchableOpacity
-                      key={kategori.id}
-                      style={styles.pickerOption}
-                      onPress={() => {
-                        setKategoriId(kategori.id);
-                        setShowKategoriPicker(false);
-                      }}
-                    >
-                      <Text
-                        variant="body"
-                        style={kategori.id === kategoriId && { color: colors.primary }}
-                      >
-                        {kategori.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </Card>
-              )}
-            </View>
+            <CategoryPicker
+              value={kategoriId}
+              onChange={setKategoriId}
+              type="gider"
+              label="Kategori"
+            />
 
             <Input
               label="Tutar"

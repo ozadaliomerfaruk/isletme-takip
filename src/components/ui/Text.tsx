@@ -3,7 +3,7 @@ import { colors } from '@/constants/colors';
 import { fontSize, fontWeight } from '@/constants/spacing';
 
 type TextVariant = 'h1' | 'h2' | 'h3' | 'body' | 'bodySmall' | 'caption' | 'label';
-type TextColor = 'primary' | 'secondary' | 'muted' | 'success' | 'error' | 'warning';
+type TextColor = 'primary' | 'secondary' | 'muted' | 'success' | 'error' | 'warning' | 'info';
 
 interface TextProps extends RNTextProps {
   variant?: TextVariant;
@@ -29,6 +29,7 @@ const colorStyles = {
   success: colors.success,
   error: colors.error,
   warning: colors.warning,
+  info: colors.info,
 };
 
 export function Text({

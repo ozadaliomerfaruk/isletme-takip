@@ -11,9 +11,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, IconPicker, ColorPicker, ParentCategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
 import { useKategoriler, useUpdateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 
@@ -27,12 +28,18 @@ export default function KategoriDuzenlePage() {
 
   const [name, setName] = useState('');
   const [type, setType] = useState<KategoriType>('gelir');
+  const [icon, setIcon] = useState<string>(DEFAULT_CATEGORY_ICON);
+  const [color, setColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
+  const [parentId, setParentId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string }>({});
 
   useEffect(() => {
     if (kategori) {
       setName(kategori.name);
       setType(kategori.type);
+      setIcon(kategori.icon || DEFAULT_CATEGORY_ICON);
+      setColor(kategori.color || DEFAULT_CATEGORY_COLOR);
+      setParentId(kategori.parent_id);
     }
   }, [kategori]);
 
@@ -55,6 +62,9 @@ export default function KategoriDuzenlePage() {
         id,
         name: name.trim(),
         type,
+        icon,
+        color,
+        parent_id: parentId,
       });
 
       Alert.alert('Basarili', 'Kategori guncellendi', [
@@ -63,6 +73,12 @@ export default function KategoriDuzenlePage() {
     } catch (error: any) {
       Alert.alert('Hata', error.message || 'Kategori guncellenemedi');
     }
+  };
+
+  // Tip değiştiğinde parent_id'yi sıfırla (farklı tipteki kategoriye alt kategori eklenemez)
+  const handleTypeChange = (newType: KategoriType) => {
+    setType(newType);
+    setParentId(null);
   };
 
   if (!kategori) {
@@ -99,7 +115,7 @@ export default function KategoriDuzenlePage() {
                     type === 'gelir' && styles.typeCardSelected,
                     type === 'gelir' && { borderColor: colors.success },
                   ]}
-                  onPress={() => setType('gelir')}
+                  onPress={() => handleTypeChange('gelir')}
                   activeOpacity={0.7}
                 >
                   <View
@@ -124,7 +140,7 @@ export default function KategoriDuzenlePage() {
                     type === 'gider' && styles.typeCardSelected,
                     type === 'gider' && { borderColor: colors.error },
                   ]}
-                  onPress={() => setType('gider')}
+                  onPress={() => handleTypeChange('gider')}
                   activeOpacity={0.7}
                 >
                   <View
@@ -153,6 +169,39 @@ export default function KategoriDuzenlePage() {
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
+              />
+            </View>
+
+            {/* İkon ve Üst Kategori */}
+            <View style={styles.section}>
+              <Text variant="label" style={styles.sectionTitle}>
+                İkon ve Üst Kategori
+              </Text>
+              <View style={styles.pickerRow}>
+                <View style={styles.pickerItem}>
+                  <IconPicker
+                    value={icon}
+                    onChange={setIcon}
+                    color={color}
+                  />
+                </View>
+                <View style={styles.pickerItem}>
+                  <ParentCategoryPicker
+                    value={parentId}
+                    onChange={setParentId}
+                    type={type}
+                    excludeId={id}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Renk Seçimi */}
+            <View style={styles.section}>
+              <ColorPicker
+                label="Renk"
+                value={color}
+                onChange={setColor}
               />
             </View>
 
@@ -232,6 +281,13 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  pickerItem: {
+    flex: 1,
   },
   buttons: {
     flexDirection: 'row',

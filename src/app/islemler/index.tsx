@@ -15,7 +15,9 @@ import {
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency, formatDateShort } from '@/lib/utils';
+import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatDateShort } from '@/lib/date';
+import { getIslemIcon, getIslemIconBg, getIslemTypeLabel, getIslemAmountColor, getIslemAmountPrefix } from '@/lib/icons';
 import { useIslemler, useDeleteIslem } from '@/hooks/useIslemler';
 import { IslemType, IslemWithRelations } from '@/types/database';
 
@@ -32,14 +34,21 @@ export default function IslemlerPage() {
   const router = useRouter();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
 
   const { data: islemler, isLoading } = useIslemler();
   const deleteIslem = useDeleteIslem();
 
   const filteredIslemler = (islemler || []).filter((islem) => {
     let matchesFilter = filter === 'all';
-    if (filter === 'gelir') matchesFilter = islem.type === 'gelir';
-    if (filter === 'gider') matchesFilter = islem.type === 'gider';
+    // Gelir sekmesi: gelirimizi artıran işlemler (tahsilat hariç - o nakit akışı)
+    if (filter === 'gelir') {
+      matchesFilter = ['gelir', 'cari_satis'].includes(islem.type);
+    }
+    // Gider sekmesi: giderimizi artıran işlemler (ödeme hariç - o nakit akışı)
+    if (filter === 'gider') {
+      matchesFilter = ['gider', 'cari_alis', 'personel_gider'].includes(islem.type);
+    }
     if (filter === 'transfer') matchesFilter = islem.type === 'transfer';
     if (filter === 'cari') matchesFilter = islem.type.startsWith('cari_');
     if (filter === 'personel') matchesFilter = islem.type.startsWith('personel_');
@@ -77,86 +86,6 @@ export default function IslemlerPage() {
         },
       ]
     );
-  };
-
-  const getIslemIcon = (type: IslemType) => {
-    switch (type) {
-      case 'gelir':
-        return <ArrowDownLeft size={24} color={colors.success} />;
-      case 'gider':
-        return <ArrowUpRight size={24} color={colors.error} />;
-      case 'transfer':
-        return <ArrowLeftRight size={24} color={colors.info} />;
-      case 'cari_alis':
-      case 'cari_satis':
-      case 'cari_odeme':
-      case 'cari_tahsilat':
-        return <Users size={24} color={colors.warning} />;
-      case 'personel_gider':
-      case 'personel_odeme':
-        return <UserCheck size={24} color={colors.primary} />;
-      default:
-        return <Receipt size={24} color={colors.textMuted} />;
-    }
-  };
-
-  const getIslemIconBg = (type: IslemType) => {
-    switch (type) {
-      case 'gelir':
-        return colors.successLight;
-      case 'gider':
-        return colors.errorLight;
-      case 'transfer':
-        return colors.infoLight;
-      case 'cari_alis':
-      case 'cari_satis':
-      case 'cari_odeme':
-      case 'cari_tahsilat':
-        return colors.warningLight;
-      case 'personel_gider':
-      case 'personel_odeme':
-        return colors.primaryLight;
-      default:
-        return colors.surfaceLight;
-    }
-  };
-
-  const getIslemTypeLabel = (type: IslemType) => {
-    switch (type) {
-      case 'gelir':
-        return 'Gelir';
-      case 'gider':
-        return 'Gider';
-      case 'transfer':
-        return 'Transfer';
-      case 'cari_alis':
-        return 'Tedarikçi Alış';
-      case 'cari_satis':
-        return 'Müşteri Satış';
-      case 'cari_odeme':
-        return 'Tedarikçi Ödeme';
-      case 'cari_tahsilat':
-        return 'Müşteri Tahsilat';
-      case 'personel_gider':
-        return 'Personel Gider';
-      case 'personel_odeme':
-        return 'Personel Ödeme';
-      default:
-        return type;
-    }
-  };
-
-  const getAmountColor = (type: IslemType): 'success' | 'error' | 'primary' | 'warning' => {
-    if (type === 'gelir' || type === 'cari_tahsilat') return 'success';
-    if (type === 'gider' || type === 'cari_odeme' || type === 'personel_odeme') return 'error';
-    if (type === 'transfer') return 'primary';
-    return 'warning';
-  };
-
-  const getAmountPrefix = (type: IslemType) => {
-    if (type === 'gelir' || type === 'cari_tahsilat') return '+';
-    if (type === 'gider' || type === 'cari_odeme' || type === 'personel_odeme') return '-';
-    return '';
   };
 
   const getIslemSubtitle = (islem: IslemWithRelations) => {
@@ -214,13 +143,15 @@ export default function IslemlerPage() {
               filteredIslemler.map((islem) => (
                 <ExpandableCard
                   key={islem.id}
+                  expanded={expandedIslemId === islem.id}
+                  onToggle={() => setExpandedIslemId(expandedIslemId === islem.id ? null : islem.id)}
                   header={
                     <View style={styles.islemHeader}>
                       <View style={[
                         styles.islemIconContainer,
                         { backgroundColor: getIslemIconBg(islem.type) }
                       ]}>
-                        {getIslemIcon(islem.type)}
+                        {getIslemIcon(islem.type, 24)}
                       </View>
                       <View style={styles.islemInfo}>
                         <Text variant="body">{islem.description || getIslemTypeLabel(islem.type)}</Text>
@@ -231,10 +162,10 @@ export default function IslemlerPage() {
                       <View style={styles.islemAmount}>
                         <Text
                           variant="h3"
-                          color={getAmountColor(islem.type)}
+                          color={getIslemAmountColor(islem.type)}
                         >
-                          {getAmountPrefix(islem.type)}
-                          {formatCurrency(Number(islem.amount))}
+                          {getIslemAmountPrefix(islem.type)}
+                          {formatCurrency(toNumber(islem.amount))}
                         </Text>
                         <Text variant="caption" color="secondary">
                           {formatDateShort(islem.date)}
