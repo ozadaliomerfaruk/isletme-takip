@@ -11,13 +11,6 @@ import {
   ScrollText,
   LogOut,
   ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  ArrowLeftRight,
-  ShoppingCart,
-  Banknote,
-  Users,
-  CreditCard,
   Trash2,
 } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
@@ -75,84 +68,6 @@ export default function DahaPage() {
         {/* Header */}
         <View style={styles.header}>
           <Text variant="h2">Daha</Text>
-        </View>
-
-        {/* Hizli Islemler */}
-        <View style={styles.section}>
-          <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            HIZLI ISLEMLER
-          </Text>
-          <Card padding="none">
-            <MenuItem
-              icon={<TrendingUp size={22} color={colors.success} />}
-              label="Gelir Ekle"
-              onPress={() => router.push('/islemler/gelir')}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<TrendingDown size={22} color={colors.error} />}
-              label="Gider Ekle"
-              onPress={() => router.push('/islemler/gider')}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<ArrowLeftRight size={22} color={colors.info} />}
-              label="Transfer"
-              onPress={() => router.push('/islemler/transfer')}
-            />
-          </Card>
-        </View>
-
-        {/* Cari Islemler */}
-        <View style={styles.section}>
-          <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            CARI ISLEMLER
-          </Text>
-          <Card padding="none">
-            <MenuItem
-              icon={<ShoppingCart size={22} color={colors.warning} />}
-              label="Tedarikci Alisi"
-              onPress={() => router.push('/islemler/cariAlis')}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<CreditCard size={22} color={colors.success} />}
-              label="Tedarikci Odemesi"
-              onPress={() => router.push('/islemler/cariOdeme')}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<Receipt size={22} color={colors.primary} />}
-              label="Musteri Satisi"
-              onPress={() => router.push('/islemler/cariSatis')}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<Banknote size={22} color={colors.info} />}
-              label="Musteri Tahsilati"
-              onPress={() => router.push('/islemler/cariTahsilat')}
-            />
-          </Card>
-        </View>
-
-        {/* Personel Islemler */}
-        <View style={styles.section}>
-          <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            PERSONEL ISLEMLER
-          </Text>
-          <Card padding="none">
-            <MenuItem
-              icon={<Users size={22} color={colors.warning} />}
-              label="Personel Gideri"
-              onPress={() => router.push('/islemler/personelGider')}
-            />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<Banknote size={22} color={colors.success} />}
-              label="Personel Odemesi"
-              onPress={() => router.push('/islemler/personelOdeme')}
-            />
-          </Card>
         </View>
 
         {/* Islemler & Raporlar */}
