@@ -262,7 +262,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Islemi Duzenle',
+            headerTitle: 'İşlemi Düzenle',
             headerShadowVisible: false,
           }}
         />
@@ -319,7 +319,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Kategori Duzenle',
+            headerTitle: 'Kategori Düzenle',
             headerShadowVisible: false,
           }}
         />
@@ -331,7 +331,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Isletme Bilgileri',
+            headerTitle: 'İşletme Bilgileri',
             headerShadowVisible: false,
           }}
         />
@@ -343,7 +343,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Kullanim Kosullari',
+            headerTitle: 'Kullanım Koşulları',
             headerShadowVisible: false,
           }}
         />
@@ -354,7 +354,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Gizlilik Politikasi',
+            headerTitle: 'Gizlilik Politikası',
             headerShadowVisible: false,
           }}
         />
@@ -365,11 +365,11 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'KVKK Aydinlatma Metni',
+            headerTitle: 'KVKK Aydınlatma Metni',
             headerShadowVisible: false,
           }}
         />
-        {/* Duzenleme Sayfalari */}
+        {/* Düzenleme Sayfaları */}
         <Stack.Screen
           name="hesaplar/duzenle/[id]"
           options={{
@@ -377,7 +377,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Hesap Duzenle',
+            headerTitle: 'Hesap Düzenle',
             headerShadowVisible: false,
           }}
         />
@@ -388,7 +388,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Cari Duzenle',
+            headerTitle: 'Cari Düzenle',
             headerShadowVisible: false,
           }}
         />
@@ -399,7 +399,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Personel Duzenle',
+            headerTitle: 'Personel Düzenle',
             headerShadowVisible: false,
           }}
         />

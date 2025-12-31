@@ -75,11 +75,11 @@ export default function CariHareketleriPage() {
   const getHareketLabel = (type: string) => {
     switch (type) {
       case 'cari_alis':
-        return 'Alis';
+        return 'Alış';
       case 'cari_odeme':
-        return 'Odeme';
+        return 'Ödeme';
       case 'cari_satis':
-        return 'Satis';
+        return 'Satış';
       case 'cari_tahsilat':
         return 'Tahsilat';
       default:
@@ -90,10 +90,10 @@ export default function CariHareketleriPage() {
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
-      'Islemi Sil',
-      'Bu islemi silmek istediginizden emin misiniz?',
+      'İşlemi Sil',
+      'Bu işlemi silmek istediğinizden emin misiniz?',
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
@@ -101,7 +101,7 @@ export default function CariHareketleriPage() {
             try {
               await deleteIslem.mutateAsync(islemId);
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'Islem silinemedi');
+              Alert.alert('Hata', error.message || 'İşlem silinemedi');
             }
           },
         },
@@ -112,9 +112,9 @@ export default function CariHareketleriPage() {
   const handleDeleteCari = () => {
     Alert.alert(
       'Cariyi Sil',
-      'Bu cariyi silmek istediginizden emin misiniz?\n\nDikkat: Bu cariye ait tum alis, satis, odeme ve tahsilat islemleri de silinecektir. Bu islem geri alinamaz.',
+      'Bu cariyi silmek istediğinizden emin misiniz?\n\nDikkat: Bu cariye ait tüm alış, satış, ödeme ve tahsilat işlemleri de silinecektir. Bu işlem geri alınamaz.',
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
@@ -135,7 +135,7 @@ export default function CariHareketleriPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yukleniyor...</Text>
+          <Text>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -146,8 +146,8 @@ export default function CariHareketleriPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <EmptyState
           icon={<Building2 size={48} color={colors.textMuted} />}
-          title="Cari bulunamadi"
-          description="Bu cari mevcut degil veya silinmis olabilir."
+          title="Cari bulunamadı"
+          description="Bu cari mevcut değil veya silinmiş olabilir."
         />
       </SafeAreaView>
     );
@@ -176,7 +176,7 @@ export default function CariHareketleriPage() {
               </View>
               <View style={styles.summaryInfo}>
                 <Text variant="body" color="secondary">
-                  {isTedarikci ? 'Tedarikci' : 'Musteri'}
+                  {isTedarikci ? 'Tedarikçi' : 'Müşteri'}
                 </Text>
                 {cari.phone && (
                   <View style={styles.phoneRow}>
@@ -189,7 +189,7 @@ export default function CariHareketleriPage() {
               </View>
               <View style={styles.balanceInfo}>
                 <Text variant="caption" color="secondary">
-                  {Number(cari.balance) < 0 ? 'Borcumuz' : 'Alacagimiz'}
+                  {Number(cari.balance) < 0 ? 'Borcumuz' : 'Alacağımız'}
                 </Text>
                 <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
                   {formatCurrency(Math.abs(Number(cari.balance)))}
@@ -204,7 +204,7 @@ export default function CariHareketleriPage() {
                 onPress={() => router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } })}
                 style={styles.cariActionBtn}
               >
-                Duzenle
+                Düzenle
               </Button>
               <Button
                 variant="outline"
@@ -272,7 +272,7 @@ export default function CariHareketleriPage() {
             </Text>
 
             {islemlerLoading ? (
-              <Text color="secondary">Yukleniyor...</Text>
+              <Text color="secondary">Yükleniyor...</Text>
             ) : (
               <>
                 {islemler && islemler.length > 0 && islemler.map((islem) => (
@@ -326,7 +326,7 @@ export default function CariHareketleriPage() {
                         onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
                         style={styles.actionButton}
                       >
-                        Duzenle
+                        Düzenle
                       </Button>
                       <Button
                         variant="outline"

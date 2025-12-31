@@ -36,8 +36,8 @@ interface OnboardingSlide {
 const slides: OnboardingSlide[] = [
   {
     id: '1',
-    title: 'Hesaplarinizi Yonetin',
-    description: 'Nakit, banka ve kredi karti hesaplarinizi tek yerden takip edin. Tum bakiyelerinizi anlik olarak gorun.',
+    title: 'Hesaplarınızı Yönetin',
+    description: 'Nakit, banka ve kredi kartı hesaplarınızı tek yerden takip edin. Tüm bakiyelerinizi anlık olarak görün.',
     icon: <Wallet size={80} color={colors.primary} />,
     backgroundColor: colors.background,
     iconBgColor: colors.primaryLight + '40',
@@ -45,7 +45,7 @@ const slides: OnboardingSlide[] = [
   {
     id: '2',
     title: 'Cari ve Personel Takibi',
-    description: 'Musterileriniz, tedarikcileriniz ve personelinizle olan tum finansal iliskilerinizi kolayca yonetin.',
+    description: 'Müşterileriniz, tedarikçileriniz ve personelinizle olan tüm finansal ilişkilerinizi kolayca yönetin.',
     icon: <Users size={80} color={colors.info} />,
     backgroundColor: colors.background,
     iconBgColor: colors.infoLight + '40',
@@ -53,7 +53,7 @@ const slides: OnboardingSlide[] = [
   {
     id: '3',
     title: 'Gelir ve Gider Analizi',
-    description: 'Isletmenizin finansal durumunu anlik raporlarla takip edin. Karliligini artirin.',
+    description: 'İşletmenizin finansal durumunu anlık raporlarla takip edin. Karlılığını artırın.',
     icon: <TrendingUp size={80} color={colors.success} />,
     backgroundColor: colors.background,
     iconBgColor: colors.successLight + '40',
@@ -192,12 +192,12 @@ export default function OnboardingScreen() {
               onPress={completeOnboarding}
               style={styles.startButton}
             >
-              Basla
+              Başla
             </Button>
           ) : (
             <TouchableOpacity style={styles.nextButton} onPress={scrollTo}>
               <Text variant="label" style={{ color: colors.surface }}>
-                Ileri
+                İleri
               </Text>
               <ChevronRight size={20} color={colors.surface} />
             </TouchableOpacity>

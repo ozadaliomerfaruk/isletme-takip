@@ -40,7 +40,7 @@ export default function IsletmeBilgileriPage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Isletme adi gerekli';
+      newErrors.name = 'İşletme adı gerekli';
     }
 
     setErrors(newErrors);
@@ -58,11 +58,11 @@ export default function IsletmeBilgileriPage() {
         tax_number: taxNumber.trim() || null,
       });
 
-      Alert.alert('Basarili', 'Isletme bilgileri guncellendi', [
+      Alert.alert('Başarılı', 'İşletme bilgileri güncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Isletme bilgileri guncellenemedi');
+      Alert.alert('Hata', error.message || 'İşletme bilgileri güncellenemedi');
     }
   };
 
@@ -70,7 +70,7 @@ export default function IsletmeBilgileriPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yukleniyor...</Text>
+          <Text>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -88,7 +88,7 @@ export default function IsletmeBilgileriPage() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Isletme Icon */}
+            {/* İşletme Icon */}
             <View style={styles.iconContainer}>
               <View style={styles.iconCircle}>
                 <Building2 size={48} color={colors.primary} />
@@ -100,19 +100,19 @@ export default function IsletmeBilgileriPage() {
               <Text variant="label" color="secondary">Hesap E-posta</Text>
               <Text variant="body">{user?.email}</Text>
               <Text variant="caption" color="muted" style={{ marginTop: spacing.xs }}>
-                E-posta adresi degistirilemez
+                E-posta adresi değiştirilemez
               </Text>
             </Card>
 
             {/* Form */}
             <View style={styles.section}>
               <Text variant="h3" style={styles.sectionTitle}>
-                Isletme Bilgileri
+                İşletme Bilgileri
               </Text>
 
               <Input
-                label="Isletme Adi"
-                placeholder="Isletmenizin adi"
+                label="İşletme Adı"
+                placeholder="İşletmenizin adı"
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
@@ -128,7 +128,7 @@ export default function IsletmeBilgileriPage() {
 
               <Input
                 label="Adres (Opsiyonel)"
-                placeholder="Isletme adresi"
+                placeholder="İşletme adresi"
                 value={address}
                 onChangeText={setAddress}
                 multiline
@@ -136,17 +136,17 @@ export default function IsletmeBilgileriPage() {
               />
 
               <Input
-                label="Vergi Numarasi (Opsiyonel)"
-                placeholder="Vergi numarasi"
+                label="Vergi Numarası (Opsiyonel)"
+                placeholder="Vergi numarası"
                 keyboardType="number-pad"
                 value={taxNumber}
                 onChangeText={setTaxNumber}
               />
             </View>
 
-            {/* Kayit Bilgisi */}
+            {/* Kayıt Bilgisi */}
             <Card style={styles.infoCard}>
-              <Text variant="label" color="secondary">Kayit Tarihi</Text>
+              <Text variant="label" color="secondary">Kayıt Tarihi</Text>
               <Text variant="body">
                 {new Date(isletme.created_at).toLocaleDateString('tr-TR', {
                   year: 'numeric',
@@ -164,7 +164,7 @@ export default function IsletmeBilgileriPage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                Iptal
+                İptal
               </Button>
               <Button
                 variant="primary"

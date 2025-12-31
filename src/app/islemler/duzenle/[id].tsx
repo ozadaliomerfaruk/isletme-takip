@@ -82,11 +82,11 @@ export default function IslemDuzenlePage() {
     const newErrors: { amount?: string; hesap?: string } = {};
 
     if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
-      newErrors.amount = 'Gecerli bir tutar girin';
+      newErrors.amount = 'Geçerli bir tutar girin';
     }
 
     if (needsHesap && !hesapId) {
-      newErrors.hesap = 'Hesap secin';
+      newErrors.hesap = 'Hesap seçin';
     }
 
     setErrors(newErrors);
@@ -111,7 +111,7 @@ export default function IslemDuzenlePage() {
         },
       });
 
-      Alert.alert('Basarili', 'Islem guncellendi', [
+      Alert.alert('Başarılı', 'Islem guncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
@@ -124,7 +124,7 @@ export default function IslemDuzenlePage() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text color="secondary" style={{ marginTop: spacing.md }}>Yukleniyor...</Text>
+          <Text color="secondary" style={{ marginTop: spacing.md }}>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -147,7 +147,7 @@ export default function IslemDuzenlePage() {
     <>
       <Stack.Screen
         options={{
-          headerTitle: 'Islemi Duzenle',
+          headerTitle: 'İşlemi Düzenle',
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -163,7 +163,7 @@ export default function IslemDuzenlePage() {
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text variant="h2">{ISLEM_TYPE_LABELS[islemType!]} Duzenle</Text>
+              <Text variant="h2">{ISLEM_TYPE_LABELS[islemType!]} Düzenle</Text>
               <Text variant="caption" color="secondary">
                 Islem tipi degistirilemez
               </Text>
@@ -195,7 +195,7 @@ export default function IslemDuzenlePage() {
                     }}
                   >
                     <Text variant="body">
-                      {selectedHesap?.name || 'Hesap secin'}
+                      {selectedHesap?.name || 'Hesap seçin'}
                     </Text>
                     <ChevronDown size={20} color={colors.textMuted} />
                   </TouchableOpacity>
@@ -244,7 +244,7 @@ export default function IslemDuzenlePage() {
                     }}
                   >
                     <Text variant="body">
-                      {selectedHedefHesap?.name || 'Hedef hesap secin'}
+                      {selectedHedefHesap?.name || 'Hedef hesap seçin'}
                     </Text>
                     <ChevronDown size={20} color={colors.textMuted} />
                   </TouchableOpacity>
@@ -299,7 +299,7 @@ export default function IslemDuzenlePage() {
                   >
                     <View>
                       <Text variant="body">
-                        {selectedCari?.name || 'Cari secin'}
+                        {selectedCari?.name || 'Cari seçin'}
                       </Text>
                       {selectedCari && (
                         <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
@@ -352,7 +352,7 @@ export default function IslemDuzenlePage() {
                       <Text variant="body">
                         {selectedPersonel
                           ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
-                          : 'Personel secin'}
+                          : 'Personel seçin'}
                       </Text>
                       {selectedPersonel && (
                         <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
@@ -388,8 +388,8 @@ export default function IslemDuzenlePage() {
 
               {/* Açıklama */}
               <Input
-                label="Aciklama (Opsiyonel)"
-                placeholder="Islem hakkinda not..."
+                label="Açıklama (Opsiyonel)"
+                placeholder="İşlem hakkında not..."
                 multiline
                 numberOfLines={3}
                 value={description}

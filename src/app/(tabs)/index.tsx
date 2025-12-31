@@ -96,17 +96,17 @@ export default function HomePage() {
 
   const handleCancelDeletion = () => {
     Alert.alert(
-      'Silme Talebini Iptal Et',
+      'Silme Talebini İptal Et',
       'Hesap silme talebinizi iptal etmek istediginize emin misiniz?',
       [
         { text: 'Vazgec', style: 'cancel' },
         {
-          text: 'Evet, Iptal Et',
+          text: 'Evet, İptal Et',
           onPress: async () => {
             setIsCancelling(true);
             try {
               await cancelAccountDeletion();
-              Alert.alert('Basarili', 'Hesap silme talebi iptal edildi.');
+              Alert.alert('Başarılı', 'Hesap silme talebi iptal edildi.');
             } catch (error) {
               Alert.alert('Hata', 'Islem sirasinda bir hata olustu.');
             } finally {
@@ -134,7 +134,7 @@ export default function HomePage() {
               <AlertTriangle size={20} color={colors.surface} />
               <View style={styles.deletionWarningText}>
                 <Text variant="body" style={{ color: colors.surface, fontWeight: '600' }}>
-                  Hesabiniz {daysRemaining} gun icinde silinecek
+                  Hesabınız {daysRemaining} gün içinde silinecek
                 </Text>
                 <Text variant="caption" style={{ color: colors.surface, opacity: 0.9 }}>
                   Vazgecmek icin asagidaki butona basin

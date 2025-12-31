@@ -46,11 +46,11 @@ export default function PersonelGiderPage() {
     const newErrors: { amount?: string; personel?: string } = {};
 
     if (!isValidAmount(amount)) {
-      newErrors.amount = 'Gecerli bir tutar girin';
+      newErrors.amount = 'Geçerli bir tutar girin';
     }
 
     if (!personelId) {
-      newErrors.personel = 'Personel secin';
+      newErrors.personel = 'Personel seçin';
     }
 
     setErrors(newErrors);
@@ -70,11 +70,11 @@ export default function PersonelGiderPage() {
         date: formatDateForDB(selectedDate),
       });
 
-      Alert.alert('Basarili', 'Gider kaydedildi', [
+      Alert.alert('Başarılı', 'Gider kaydedildi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Islem eklenemedi');
+      Alert.alert('Hata', error.message || 'İşlem eklenemedi');
     }
   };
 
@@ -93,7 +93,7 @@ export default function PersonelGiderPage() {
           <View style={styles.header}>
             <Text variant="h2">Personel Gideri</Text>
             <Text variant="body" color="secondary">
-              Bu islem personele olan borcunuzu artirir (maas tahakkuku vb.)
+              Bu işlem personele olan borcunuzu artırır (maaş tahakkuku vb.)
             </Text>
           </View>
 
@@ -112,11 +112,11 @@ export default function PersonelGiderPage() {
                   <Text variant="body">
                     {selectedPersonel
                       ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
-                      : 'Personel secin'}
+                      : 'Personel seçin'}
                   </Text>
                   {selectedPersonel && (
                     <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
-                      Borc: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                      Borç: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
                     </Text>
                   )}
                 </View>
@@ -170,7 +170,7 @@ export default function PersonelGiderPage() {
             />
 
             <Input
-              label="Aciklama (Opsiyonel)"
+              label="Açıklama (Opsiyonel)"
               placeholder="Gider notu..."
               multiline
               numberOfLines={3}

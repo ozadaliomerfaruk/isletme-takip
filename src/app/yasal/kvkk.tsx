@@ -10,15 +10,15 @@ export default function KVKKPage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text variant="h3" style={styles.title}>
-            KVKK Aydinlatma Metni
+            KVKK Aydınlatma Metni
           </Text>
           <Text variant="caption" color="secondary" style={styles.date}>
-            6698 Sayili Kisisel Verilerin Korunmasi Kanunu
+            6698 Sayılı Kişisel Verilerin Korunması Kanunu
           </Text>
 
           <View style={styles.section}>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Bu Aydinlatma Metni, 6698 sayili Kisisel Verilerin Korunmasi Kanunu ("KVKK") uyarinca veri sorumlusu sifatiyla hazirlanmistir.
+              Bu Aydınlatma Metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca veri sorumlusu sıfatıyla hazırlanmıştır.
             </Text>
           </View>
 
@@ -27,42 +27,42 @@ export default function KVKKPage() {
               1. Veri Sorumlusu
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Omer Faruk Ozadali{'\n'}
-              Adres: Istanbul, Turkiye{'\n'}
+              Ömer Faruk Özadalı{'\n'}
+              Adres: İstanbul, Türkiye{'\n'}
               E-posta: ozadaliomerfaruk@gmail.com
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              2. Islenen Kisisel Veriler
+              2. İşlenen Kişisel Veriler
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Uygulama kapsaminda asagidaki kisisel veriler islenebilmektedir:{'\n\n'}
+              Uygulama kapsamında aşağıdaki kişisel veriler işlenebilmektedir:{'\n\n'}
               <Text style={styles.bold}>Kimlik ve Hesap Bilgileri:</Text>{'\n'}
               E-posta adresi{'\n\n'}
-              <Text style={styles.bold}>Iletisim Bilgileri</Text> (kullanici tarafindan girilmesi halinde):{'\n'}
-              Telefon numarasi{'\n\n'}
-              <Text style={styles.bold}>Kimlik Dogrulama ve Oturum Bilgileri:</Text>{'\n'}
+              <Text style={styles.bold}>İletişim Bilgileri</Text> (kullanıcı tarafından girilmesi halinde):{'\n'}
+              Telefon numarası{'\n\n'}
+              <Text style={styles.bold}>Kimlik Doğrulama ve Oturum Bilgileri:</Text>{'\n'}
               Oturum ve yetkilendirme bilgileri{'\n\n'}
               <Text style={styles.bold}>Finansal Bilgiler:</Text>{'\n'}
-              Kullanici tarafindan manuel olarak girilen isletme hesap kayitlari{'\n\n'}
-              <Text style={styles.bold}>Islem ve Teknik Guvenlik Bilgileri:</Text>{'\n'}
-              Sistem guvenligi ve hizmetin saglanmasi amaciyla olusturulan teknik kayitlar
+              Kullanıcı tarafından manuel olarak girilen işletme hesap kayıtları{'\n\n'}
+              <Text style={styles.bold}>İşlem ve Teknik Güvenlik Bilgileri:</Text>{'\n'}
+              Sistem güvenliği ve hizmetin sağlanması amacıyla oluşturulan teknik kayıtlar
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              3. Kisisel Verilerin Islenme Amaclari
+              3. Kişisel Verilerin İşlenme Amaçları
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kisisel verileriniz asagidaki amaclarla islenmektedir:{'\n\n'}
-              • Uyelik ve hesap islemlerinin yurutulmesi{'\n'}
-              • Uygulama hizmetlerinin sunulmasi{'\n'}
-              • Finansal kayit ve raporlama fonksiyonlarinin saglanmasi{'\n'}
-              • Bilgi guvenligi sureclerinin yurutulmesi{'\n'}
-              • Yasal yukumluluklerin yerine getirilmesi
+              Kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:{'\n\n'}
+              • Üyelik ve hesap işlemlerinin yürütülmesi{'\n'}
+              • Uygulama hizmetlerinin sunulması{'\n'}
+              • Finansal kayıt ve raporlama fonksiyonlarının sağlanması{'\n'}
+              • Bilgi güvenliği süreçlerinin yürütülmesi{'\n'}
+              • Yasal yükümlülüklerin yerine getirilmesi
             </Text>
           </View>
 
@@ -71,55 +71,55 @@ export default function KVKKPage() {
               4. Hukuki Sebepler
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kisisel verileriniz, KVKK'nin 5. maddesi uyarinca asagidaki hukuki sebeplere dayanilarak islenmektedir:{'\n\n'}
-              • Bir sozlesmenin kurulmasi veya ifasiyla dogrudan ilgili olmasi{'\n'}
-              • Veri sorumlusunun hukuki yukumluluklerini yerine getirebilmesi{'\n'}
-              • Bir hakkin tesisi, kullanilmasi veya korunmasi{'\n'}
-              • Veri sorumlusunun mesru menfaatleri{'\n\n'}
-              Acik riza, yalnizca gerekli hallerde alinmaktadir.
+              Kişisel verileriniz, KVKK'nın 5. maddesi uyarınca aşağıdaki hukuki sebeplere dayanılarak işlenmektedir:{'\n\n'}
+              • Bir sözleşmenin kurulması veya ifasıyla doğrudan ilgili olması{'\n'}
+              • Veri sorumlusunun hukuki yükümlülüklerini yerine getirebilmesi{'\n'}
+              • Bir hakkın tesisi, kullanılması veya korunması{'\n'}
+              • Veri sorumlusunun meşru menfaatleri{'\n\n'}
+              Açık rıza, yalnızca gerekli hallerde alınmaktadır.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              5. Kisisel Verilerin Aktarilmasi
+              5. Kişisel Verilerin Aktarılması
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kisisel verileriniz;{'\n\n'}
-              • Yasal zorunluluk hallerinde yetkili kamu kurum ve kuruluslarina{'\n'}
-              • Teknik altyapi ve bulut hizmet saglayicilarina{'\n\n'}
-              KVKK'nin 8. ve 9. maddelerine uygun olarak aktarilabilir.
+              Kişisel verileriniz;{'\n\n'}
+              • Yasal zorunluluk hallerinde yetkili kamu kurum ve kuruluşlarına{'\n'}
+              • Teknik altyapı ve bulut hizmet sağlayıcılarına{'\n\n'}
+              KVKK'nın 8. ve 9. maddelerine uygun olarak aktarılabilir.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              6. Veri Sahibi Haklari
+              6. Veri Sahibi Hakları
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              KVKK'nin 11. maddesi uyarinca veri sahipleri olarak:{'\n\n'}
-              a) Kisisel verilerinizin islenip islenmedigini ogrenme{'\n'}
-              b) Islenmisse buna iliskin bilgi talep etme{'\n'}
-              c) Isleme amacini ve amacina uygun kullanilip kullanilmadigini ogrenme{'\n'}
-              d) Aktarildigi ucuncu kisileri bilme{'\n'}
-              e) Eksik veya yanlis islenmisse duzeltilmesini isteme{'\n'}
+              KVKK'nın 11. maddesi uyarınca veri sahipleri olarak:{'\n\n'}
+              a) Kişisel verilerinizin işlenip işlenmediğini öğrenme{'\n'}
+              b) İşlenmişse buna ilişkin bilgi talep etme{'\n'}
+              c) İşlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme{'\n'}
+              d) Aktarıldığı üçüncü kişileri bilme{'\n'}
+              e) Eksik veya yanlış işlenmişse düzeltilmesini isteme{'\n'}
               f) Silinmesini veya yok edilmesini isteme{'\n'}
-              g) Bu islemlerin ucuncu kisilere bildirilmesini isteme{'\n'}
-              h) Aleyhinize bir sonucun ortaya cikmasina itiraz etme{'\n'}
-              i) Zarara ugramaniz halinde giderilmesini talep etme{'\n\n'}
-              haklarina sahipsiniz.
+              g) Bu işlemlerin üçüncü kişilere bildirilmesini isteme{'\n'}
+              h) Aleyhinize bir sonucun ortaya çıkmasına itiraz etme{'\n'}
+              i) Zarara uğramanız halinde giderilmesini talep etme{'\n\n'}
+              haklarına sahipsiniz.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              7. Basvuru Yontemi
+              7. Başvuru Yöntemi
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Haklarinizi kullanmak icin asagidaki yontemle basvurabilirsiniz:{'\n\n'}
+              Haklarınızı kullanmak için aşağıdaki yöntemle başvurabilirsiniz:{'\n\n'}
               E-posta: ozadaliomerfaruk@gmail.com{'\n'}
               Konu: KVKK Bilgi Talebi{'\n\n'}
-              Basvurulariniz, en gec 30 gun icinde ucretsiz olarak sonuclandirilir.
+              Başvurularınız, en geç 30 gün içinde ücretsiz olarak sonuçlandırılır.
             </Text>
           </View>
         </View>

@@ -19,30 +19,30 @@ export default function HesapSilPage() {
 
   const handleDelete = async () => {
     if (!isConfirmValid) {
-      Alert.alert('Hata', 'Lutfen isletme adini dogru yazip tekrar deneyin.');
+      Alert.alert('Hata', 'Lütfen işletme adını doğru yazıp tekrar deneyin.');
       return;
     }
 
     Alert.alert(
       'Hesap Silme Talebi',
-      'Hesabiniz 7 gun icinde silinecektir. Bu sure icinde giris yaparak silme islemini iptal edebilirsiniz.\n\nDevam etmek istiyor musunuz?',
+      'Hesabınız 7 gün içinde silinecektir. Bu süre içinde giriş yaparak silme işlemini iptal edebilirsiniz.\n\nDevam etmek istiyor musunuz?',
       [
-        { text: 'Vazgec', style: 'cancel' },
+        { text: 'Vazgeç', style: 'cancel' },
         {
-          text: 'Evet, Silme Talebi Olustur',
+          text: 'Evet, Silme Talebi Oluştur',
           style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
             try {
               await deleteAccount();
               Alert.alert(
-                'Talep Olusturuldu',
-                'Hesabiniz 7 gun icinde silinecektir. Bu sure icinde giris yaparak iptal edebilirsiniz.'
+                'Talep Oluşturuldu',
+                'Hesabınız 7 gün içinde silinecektir. Bu süre içinde giriş yaparak iptal edebilirsiniz.'
               );
             } catch (error) {
               console.error('Delete account error:', error);
               setIsDeleting(false);
-              Alert.alert('Hata', 'Hesap silme talebi olusturulurken bir hata olustu. Lutfen tekrar deneyin.');
+              Alert.alert('Hata', 'Hesap silme talebi oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.');
             }
           },
         },
@@ -62,36 +62,36 @@ export default function HesapSilPage() {
           </View>
 
           <Text variant="h2" style={styles.title}>
-            Hesabi Sil
+            Hesabı Sil
           </Text>
 
           <Text variant="body" color="secondary" style={styles.description}>
-            Hesabinizi silmek istediginizde 7 gunluk bekleme suresi baslar. Bu sure icinde giris yaparak vazgecebilirsiniz. 7 gun sonunda asagidaki tum verileriniz kalici olarak silinecektir:
+            Hesabınızı silmek istediğinizde 7 günlük bekleme süresi başlar. Bu süre içinde giriş yaparak vazgeçebilirsiniz. 7 gün sonunda aşağıdaki tüm verileriniz kalıcı olarak silinecektir:
           </Text>
 
           <Card style={styles.warningCard}>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tum islemleriniz (gelir, gider, transfer)</Text>
+              <Text variant="body" color="error">• Tüm işlemleriniz (gelir, gider, transfer)</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tum hesaplariniz ve bakiyeler</Text>
+              <Text variant="body" color="error">• Tüm hesaplarınız ve bakiyeler</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tum cari hesaplariniz</Text>
+              <Text variant="body" color="error">• Tüm cari hesaplarınız</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tum personel kayitlariniz</Text>
+              <Text variant="body" color="error">• Tüm personel kayıtlarınız</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tum kategorileriniz</Text>
+              <Text variant="body" color="error">• Tüm kategorileriniz</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Isletme bilgileriniz</Text>
+              <Text variant="body" color="error">• İşletme bilgileriniz</Text>
             </View>
           </Card>
 
           <Text variant="body" color="secondary" style={styles.confirmLabel}>
-            Onaylamak icin isletme adinizi yazin:
+            Onaylamak için işletme adınızı yazın:
           </Text>
 
           <Text variant="h3" color="primary" style={styles.isletmeAdi}>
@@ -99,7 +99,7 @@ export default function HesapSilPage() {
           </Text>
 
           <Input
-            placeholder="Isletme adini yazin"
+            placeholder="İşletme adını yazın"
             value={confirmText}
             onChangeText={setConfirmText}
             autoCapitalize="none"
@@ -113,7 +113,7 @@ export default function HesapSilPage() {
               style={styles.cancelButton}
               disabled={isDeleting}
             >
-              Vazgec
+              Vazgeç
             </Button>
 
             <Button
@@ -124,7 +124,7 @@ export default function HesapSilPage() {
               style={[styles.deleteButton, { backgroundColor: isConfirmValid ? colors.error : colors.textMuted }]}
               icon={<Trash2 size={18} color={colors.surface} />}
             >
-              Hesabi Sil
+              Hesabı Sil
             </Button>
           </View>
         </View>

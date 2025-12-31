@@ -86,7 +86,7 @@ export default function KategorilerPage() {
       'Kategoriyi Sil',
       message,
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
@@ -152,13 +152,13 @@ export default function KategorilerPage() {
           <View style={styles.content}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <Text color="secondary">Yukleniyor...</Text>
+                <Text color="secondary">Yükleniyor...</Text>
               </View>
             ) : !flatList || flatList.length === 0 ? (
               <EmptyState
                 icon={<Tag size={48} color={colors.textMuted} />}
                 title={`${selectedType === 'gelir' ? 'Gelir' : 'Gider'} kategorisi yok`}
-                description="Yeni kategori ekleyerek baslayin"
+                description="Yeni kategori ekleyerek başlayın"
                 actionLabel="Kategori Ekle"
                 onAction={() => router.push('/kategoriler/ekle')}
               />
@@ -218,7 +218,7 @@ export default function KategorilerPage() {
           {/* Bilgi */}
           <View style={styles.infoContainer}>
             <Text variant="caption" color="muted" style={styles.infoText}>
-              Kategoriler, gelir ve gider islemlerinizi gruplamak icin kullanilir.
+              Kategoriler, gelir ve gider işlemlerinizi gruplamak için kullanılır.
             </Text>
           </View>
         </ScrollView>

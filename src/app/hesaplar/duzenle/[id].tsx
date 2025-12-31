@@ -64,7 +64,7 @@ export default function HesapDuzenlePage() {
         description: description.trim() || null,
       });
 
-      Alert.alert('Basarili', 'Hesap guncellendi', [
+      Alert.alert('Başarılı', 'Hesap guncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
@@ -76,7 +76,7 @@ export default function HesapDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Yukleniyor...</Text>
+          <Text>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -147,7 +147,7 @@ export default function HesapDuzenlePage() {
               />
 
               <Input
-                label="Aciklama (Opsiyonel)"
+                label="Açıklama (Opsiyonel)"
                 placeholder="Hesap hakkinda not..."
                 multiline
                 numberOfLines={3}

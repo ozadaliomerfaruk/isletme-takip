@@ -43,12 +43,12 @@ export default function DahaPage() {
 
   const handleLogout = () => {
     Alert.alert(
-      'Cikis Yap',
-      'Cikmak istediginizden emin misiniz?',
+      'Çıkış Yap',
+      'Çıkmak istediğinizden emin misiniz?',
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
-          text: 'Cikis Yap',
+          text: 'Çıkış Yap',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -78,7 +78,7 @@ export default function DahaPage() {
           <Card padding="none">
             <MenuItem
               icon={<Receipt size={22} color={colors.primary} />}
-              label="Tum Islemler"
+              label="Tüm İşlemler"
               onPress={() => router.push('/islemler')}
             />
             <View style={styles.divider} />
@@ -98,7 +98,7 @@ export default function DahaPage() {
           <Card padding="none">
             <MenuItem
               icon={<Building2 size={22} color={colors.warning} />}
-              label="Isletme Bilgileri"
+              label="İşletme Bilgileri"
               onPress={() => router.push('/ayarlar/isletme')}
             />
             <View style={styles.divider} />
@@ -118,19 +118,19 @@ export default function DahaPage() {
           <Card padding="none">
             <MenuItem
               icon={<FileText size={22} color={colors.textSecondary} />}
-              label="Kullanim Kosullari"
+              label="Kullanım Koşulları"
               onPress={() => router.push('/yasal/kullanim-kosullari')}
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<Shield size={22} color={colors.textSecondary} />}
-              label="Gizlilik Politikasi"
+              label="Gizlilik Politikası"
               onPress={() => router.push('/yasal/gizlilik-politikasi')}
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<ScrollText size={22} color={colors.textSecondary} />}
-              label="KVKK Aydinlatma Metni"
+              label="KVKK Aydınlatma Metni"
               onPress={() => router.push('/yasal/kvkk')}
             />
           </Card>
@@ -144,14 +144,14 @@ export default function DahaPage() {
           <Card padding="none">
             <MenuItem
               icon={<LogOut size={22} color={colors.error} />}
-              label="Cikis Yap"
+              label="Çıkış Yap"
               onPress={handleLogout}
               danger
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<Trash2 size={22} color={colors.error} />}
-              label="Hesabi Sil"
+              label="Hesabı Sil"
               onPress={() => router.push('/ayarlar/hesap-sil' as any)}
               danger
             />

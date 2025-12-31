@@ -52,7 +52,7 @@ export default function KategoriEklePage() {
         parent_id: parentId,
       });
 
-      Alert.alert('Basarili', 'Kategori eklendi', [
+      Alert.alert('Başarılı', 'Kategori eklendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {

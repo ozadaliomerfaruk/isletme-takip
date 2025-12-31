@@ -65,7 +65,7 @@ export default function PersonelDuzenlePage() {
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
       });
 
-      Alert.alert('Basarili', 'Personel guncellendi', [
+      Alert.alert('Başarılı', 'Personel guncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
@@ -77,7 +77,7 @@ export default function PersonelDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Yukleniyor...</Text>
+          <Text>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );

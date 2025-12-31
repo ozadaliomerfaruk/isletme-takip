@@ -35,7 +35,7 @@ export default function PersonelHareketleriPage() {
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
 
-  const fullName = personel ? `${personel.first_name} ${personel.last_name}` : 'Yukleniyor...';
+  const fullName = personel ? `${personel.first_name} ${personel.last_name}` : 'Yükleniyor...';
 
   // Başlangıç bakiyesini hesapla
   const calculateInitialBalance = () => {
@@ -72,7 +72,7 @@ export default function PersonelHareketleriPage() {
       case 'personel_gider':
         return 'Gider';
       case 'personel_odeme':
-        return 'Odeme';
+        return 'Ödeme';
       default:
         return type;
     }
@@ -80,10 +80,10 @@ export default function PersonelHareketleriPage() {
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
-      'Islemi Sil',
-      'Bu islemi silmek istediginizden emin misiniz?',
+      'İşlemi Sil',
+      'Bu işlemi silmek istediğinizden emin misiniz?',
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
@@ -91,7 +91,7 @@ export default function PersonelHareketleriPage() {
             try {
               await deleteIslem.mutateAsync(islemId);
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'Islem silinemedi');
+              Alert.alert('Hata', error.message || 'İşlem silinemedi');
             }
           },
         },
@@ -102,9 +102,9 @@ export default function PersonelHareketleriPage() {
   const handleDeletePersonel = () => {
     Alert.alert(
       'Personeli Sil',
-      'Bu personeli silmek istediginizden emin misiniz?\n\nDikkat: Bu personele ait tum gider ve odeme islemleri de silinecektir. Bu islem geri alinamaz.',
+      'Bu personeli silmek istediğinizden emin misiniz?\n\nDikkat: Bu personele ait tüm gider ve ödeme işlemleri de silinecektir. Bu işlem geri alınamaz.',
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
@@ -125,7 +125,7 @@ export default function PersonelHareketleriPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yukleniyor...</Text>
+          <Text>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -136,8 +136,8 @@ export default function PersonelHareketleriPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <EmptyState
           icon={<UserCircle size={48} color={colors.textMuted} />}
-          title="Personel bulunamadi"
-          description="Bu personel mevcut degil veya silinmis olabilir."
+          title="Personel bulunamadı"
+          description="Bu personel mevcut değil veya silinmiş olabilir."
         />
       </SafeAreaView>
     );
@@ -180,7 +180,7 @@ export default function PersonelHareketleriPage() {
               </View>
               <View style={styles.balanceInfo}>
                 <Text variant="caption" color="secondary">
-                  {Number(personel.balance) < 0 ? 'Borcumuz' : 'Alacagimiz'}
+                  {Number(personel.balance) < 0 ? 'Borcumuz' : 'Alacağımız'}
                 </Text>
                 <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
                   {formatCurrency(Math.abs(Number(personel.balance)))}
@@ -195,7 +195,7 @@ export default function PersonelHareketleriPage() {
                 onPress={() => router.push({ pathname: '/personel/duzenle/[id]', params: { id: id } })}
                 style={styles.personelActionBtn}
               >
-                Duzenle
+                Düzenle
               </Button>
               <Button
                 variant="outline"
@@ -238,7 +238,7 @@ export default function PersonelHareketleriPage() {
             </Text>
 
             {islemlerLoading ? (
-              <Text color="secondary">Yukleniyor...</Text>
+              <Text color="secondary">Yükleniyor...</Text>
             ) : (
               <>
                 {islemler && islemler.length > 0 && islemler.map((islem) => (
@@ -288,7 +288,7 @@ export default function PersonelHareketleriPage() {
                         onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
                         style={styles.actionButton}
                       >
-                        Duzenle
+                        Düzenle
                       </Button>
                       <Button
                         variant="outline"

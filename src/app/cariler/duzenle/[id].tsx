@@ -17,8 +17,8 @@ import { useCari, useUpdateCari } from '@/hooks/useCariler';
 import { CariType } from '@/types/database';
 
 const cariTypes: { type: CariType; label: string; icon: React.ReactNode }[] = [
-  { type: 'tedarikci', label: 'Tedarikci', icon: <Building2 size={24} color={colors.warning} /> },
-  { type: 'musteri', label: 'Musteri', icon: <User size={24} color={colors.info} /> },
+  { type: 'tedarikci', label: 'Tedarikçi', icon: <Building2 size={24} color={colors.warning} /> },
+  { type: 'musteri', label: 'Müşteri', icon: <User size={24} color={colors.info} /> },
 ];
 
 export default function CariDuzenlePage() {
@@ -50,7 +50,7 @@ export default function CariDuzenlePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Cari adi gerekli';
+      newErrors.name = 'Cari adı gerekli';
     }
 
     setErrors(newErrors);
@@ -71,11 +71,11 @@ export default function CariDuzenlePage() {
         notes: notes.trim() || null,
       });
 
-      Alert.alert('Basarili', 'Cari guncellendi', [
+      Alert.alert('Başarılı', 'Cari güncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Cari guncellenemedi');
+      Alert.alert('Hata', error.message || 'Cari güncellenemedi');
     }
   };
 
@@ -83,7 +83,7 @@ export default function CariDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Yukleniyor...</Text>
+          <Text>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -93,7 +93,7 @@ export default function CariDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Cari bulunamadi</Text>
+          <Text>Cari bulunamadı</Text>
         </View>
       </SafeAreaView>
     );
@@ -146,8 +146,8 @@ export default function CariDuzenlePage() {
             {/* Form */}
             <View style={styles.section}>
               <Input
-                label="Cari Adi"
-                placeholder={type === 'tedarikci' ? 'Orn: Metro Market' : 'Orn: Mehmet Bey'}
+                label="Cari Adı"
+                placeholder={type === 'tedarikci' ? 'Örn: Metro Market' : 'Örn: Mehmet Bey'}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}

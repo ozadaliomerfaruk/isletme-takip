@@ -10,51 +10,51 @@ export default function KullanimKosullariPage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text variant="h3" style={styles.title}>
-            Kullanim Kosullari
+            Kullanım Koşulları
           </Text>
           <Text variant="caption" color="secondary" style={styles.date}>
-            Son Guncelleme: 22 Aralik 2025
+            Son Güncelleme: 22 Aralık 2025
           </Text>
 
           <View style={styles.section}>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Isletme Takip uygulamasini kullanarak asagidaki kosullari kabul etmis sayilirsiniz.
+              İşletme Takip uygulamasını kullanarak aşağıdaki koşulları kabul etmiş sayılırsınız.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              1. Hizmet Tanimi
+              1. Hizmet Tanımı
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Isletme Takip, kucuk ve orta olcekli isletmeler icin gelistirilmis bir finansal takip ve yonetim uygulamasidir. Uygulama; gelir-gider takibi, cari hesap yonetimi, personel kayit ve odeme takibi ile finansal raporlama araclari sunar.{'\n\n'}Uygulama, resmi muhasebe, bordro, vergi veya hukuki danismanlik hizmeti sunmaz.
+              İşletme Takip, küçük ve orta ölçekli işletmeler için geliştirilmiş bir finansal takip ve yönetim uygulamasıdır. Uygulama; gelir-gider takibi, cari hesap yönetimi, personel kayıt ve ödeme takibi ile finansal raporlama araçları sunar.{'\n\n'}Uygulama, resmi muhasebe, bordro, vergi veya hukuki danışmanlık hizmeti sunmaz.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              2. Kullanim Sartlari ve Yas Siniri
+              2. Kullanım Şartları ve Yaş Sınırı
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Bu uygulamayi kullanabilmek icin en az 13 yasinda olmaniz gerekmektedir. 13 yasindan kucuk bireylerin uygulamayi kullanmasi yasaktir.{'\n\n'}Kullanici, uygulamaya girdigi tum verilerin dogrulugu, guncelligi ve mevzuata uygunlugundan sorumludur. Yanlis veya eksik veri girisinden kaynaklanan sonuclardan Isletme Takip sorumlu tutulamaz.
+              Bu uygulamayı kullanabilmek için en az 13 yaşında olmanız gerekmektedir. 13 yaşından küçük bireylerin uygulamayı kullanması yasaktır.{'\n\n'}Kullanıcı, uygulamaya girdiği tüm verilerin doğruluğu, güncelliği ve mevzuata uygunluğundan sorumludur. Yanlış veya eksik veri girişinden kaynaklanan sonuçlardan İşletme Takip sorumlu tutulamaz.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              3. Hesap Guvenligi
+              3. Hesap Güvenliği
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kullanici, hesap bilgilerini gizli tutmak ve yetkisiz erisimi onlemekle yukumludur. Hesap uzerinden gerceklestirilen tum islemlerden kullanici sorumludur.
+              Kullanıcı, hesap bilgilerini gizli tutmak ve yetkisiz erişimi önlemekle yükümlüdür. Hesap üzerinden gerçekleştirilen tüm işlemlerden kullanıcı sorumludur.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              4. Veri Guvenligi
+              4. Veri Güvenliği
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kullanici verileri, guvenli sunucular uzerinde ve makul teknik guvenlik onlemleri uygulanarak saklanir. Bununla birlikte, internet uzerinden gerceklestirilen veri iletimlerinin tamamen risksiz olmadigi kabul edilir.
+              Kullanıcı verileri, güvenli sunucular üzerinde ve makul teknik güvenlik önlemleri uygulanarak saklanır. Bununla birlikte, internet üzerinden gerçekleştirilen veri iletimlerinin tamamen risksiz olmadığı kabul edilir.
             </Text>
           </View>
 
@@ -63,61 +63,61 @@ export default function KullanimKosullariPage() {
               5. Hesap Silme
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kullanici, hesabini uygulama icerisindeki Ayarlar {'>'} Hesabimi Sil menusu uzerinden silebilir. Hesap silme talebi sonrasinda 7 gunluk bekleme suresi uygulanir. Bu sure icerisinde kullanici silme islemini iptal edebilir. Bekleme suresinin sonunda hesap ve hesaba bagli tum veriler kalici olarak silinir ve geri alinamaz.
+              Kullanıcı, hesabını uygulama içerisindeki Ayarlar {'>'} Hesabımı Sil menüsü üzerinden silebilir. Hesap silme talebi sonrasında 7 günlük bekleme süresi uygulanır. Bu süre içerisinde kullanıcı silme işlemini iptal edebilir. Bekleme süresinin sonunda hesap ve hesaba bağlı tüm veriler kalıcı olarak silinir ve geri alınamaz.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              6. Ucuncu Taraf Hizmetler
+              6. Üçüncü Taraf Hizmetler
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Uygulama, kimlik dogrulama amaciyla Apple Kimligi ve Google Hesabi gibi ucuncu taraf hizmetleri kullanabilir. Bu hizmetlerin kullanimi, ilgili hizmet saglayicilarin kendi kullanim kosullarina tabidir.
+              Uygulama, kimlik doğrulama amacıyla Apple Kimliği ve Google Hesabı gibi üçüncü taraf hizmetleri kullanabilir. Bu hizmetlerin kullanımı, ilgili hizmet sağlayıcıların kendi kullanım koşullarına tabidir.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              7. Hizmet Degisiklikleri
+              7. Hizmet Değişiklikleri
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Isletme Takip, uygulamanin hizmet icerigini, ozelliklerini ve fiyatlandirmasini onceden bildirimde bulunmaksizin degistirme hakkini sakli tutar.
+              İşletme Takip, uygulamanın hizmet içeriğini, özelliklerini ve fiyatlandırmasını önceden bildirimde bulunmaksızın değiştirme hakkını saklı tutar.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              8. Fikri Mulkiyet
+              8. Fikri Mülkiyet
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Isletme Takip uygulamasinin tasarimi, yazilimi ve marka unsurlari Isletme Takip'e aittir. Kullanici tarafindan uygulamaya girilen tum verilerin mulkiyeti kullaniciya aittir.
+              İşletme Takip uygulamasının tasarımı, yazılımı ve marka unsurları İşletme Takip'e aittir. Kullanıcı tarafından uygulamaya girilen tüm verilerin mülkiyeti kullanıcıya aittir.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              9. Sorumlulugun Sinirlandirilmasi
+              9. Sorumluluğun Sınırlandırılması
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Isletme Takip, uygulamanin kullanimindan dogabilecek dolayli zararlardan sorumlu tutulamaz. Uygulama, mevcut haliyle ("oldugu gibi") sunulmaktadir.
+              İşletme Takip, uygulamanın kullanımından doğabilecek dolaylı zararlardan sorumlu tutulamaz. Uygulama, mevcut haliyle ("olduğu gibi") sunulmaktadır.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              10. Uyusmazliklarin Cozumu
+              10. Uyuşmazlıkların Çözümü
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Bu kullanim kosullarindan dogabilecek uyusmazliklarda Turkiye Cumhuriyeti hukuku uygulanir ve Istanbul Mahkemeleri yetkilidir.
+              Bu kullanım koşullarından doğabilecek uyuşmazlıklarda Türkiye Cumhuriyeti hukuku uygulanır ve İstanbul Mahkemeleri yetkilidir.
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              11. Iletisim
+              11. İletişim
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kullanim kosullari ile ilgili sorulariniz icin:{'\n'}ozadaliomerfaruk@gmail.com
+              Kullanım koşulları ile ilgili sorularınız için:{'\n'}ozadaliomerfaruk@gmail.com
             </Text>
           </View>
         </View>

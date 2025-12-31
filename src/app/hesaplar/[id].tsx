@@ -87,11 +87,11 @@ export default function HesapHareketleriPage() {
       case 'transfer':
         return 'Transfer';
       case 'cari_odeme':
-        return 'Cari Odeme';
+        return 'Cari Ödeme';
       case 'cari_tahsilat':
         return 'Cari Tahsilat';
       case 'personel_odeme':
-        return 'Personel Odeme';
+        return 'Personel Ödeme';
       case 'personel_gider':
         return 'Personel Gider';
       default:
@@ -124,10 +124,10 @@ export default function HesapHareketleriPage() {
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
-      'Islemi Sil',
-      'Bu islemi silmek istediginizden emin misiniz?',
+      'İşlemi Sil',
+      'Bu işlemi silmek istediğinizden emin misiniz?',
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
@@ -135,7 +135,7 @@ export default function HesapHareketleriPage() {
             try {
               await deleteIslem.mutateAsync(islemId);
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'Islem silinemedi');
+              Alert.alert('Hata', error.message || 'İşlem silinemedi');
             }
           },
         },
@@ -145,10 +145,10 @@ export default function HesapHareketleriPage() {
 
   const handleDeleteHesap = () => {
     Alert.alert(
-      'Hesabi Sil',
-      'Bu hesabi silmek istediginizden emin misiniz?\n\nDikkat: Bu hesaba ait tum gelir, gider ve transfer islemleri de silinecektir. Bu islem geri alinamaz.',
+      'Hesabı Sil',
+      'Bu hesabı silmek istediğinizden emin misiniz?\n\nDikkat: Bu hesaba ait tüm gelir, gider ve transfer işlemleri de silinecektir. Bu işlem geri alınamaz.',
       [
-        { text: 'Iptal', style: 'cancel' },
+        { text: 'İptal', style: 'cancel' },
         {
           text: 'Sil',
           style: 'destructive',
@@ -182,7 +182,7 @@ export default function HesapHareketleriPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yukleniyor...</Text>
+          <Text>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
@@ -193,8 +193,8 @@ export default function HesapHareketleriPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <EmptyState
           icon={<Wallet size={48} color={colors.textMuted} />}
-          title="Hesap bulunamadi"
-          description="Bu hesap mevcut degil veya silinmis olabilir."
+          title="Hesap bulunamadı"
+          description="Bu hesap mevcut değil veya silinmiş olabilir."
         />
       </SafeAreaView>
     );
@@ -232,7 +232,7 @@ export default function HesapHareketleriPage() {
                 onPress={() => router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } })}
                 style={styles.hesapActionBtn}
               >
-                Duzenle
+                Düzenle
               </Button>
               <Button
                 variant="outline"
@@ -284,7 +284,7 @@ export default function HesapHareketleriPage() {
             </Text>
 
             {islemlerLoading ? (
-              <Text color="secondary">Yukleniyor...</Text>
+              <Text color="secondary">Yükleniyor...</Text>
             ) : (
               <>
                 {islemler && islemler.length > 0 && islemler.map((islem) => {
@@ -340,7 +340,7 @@ export default function HesapHareketleriPage() {
                           onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
                           style={styles.actionButton}
                         >
-                          Duzenle
+                          Düzenle
                         </Button>
                         <Button
                           variant="outline"

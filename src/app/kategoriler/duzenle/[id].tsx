@@ -67,7 +67,7 @@ export default function KategoriDuzenlePage() {
         parent_id: parentId,
       });
 
-      Alert.alert('Basarili', 'Kategori guncellendi', [
+      Alert.alert('Başarılı', 'Kategori guncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
@@ -85,7 +85,7 @@ export default function KategoriDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yukleniyor...</Text>
+          <Text>Yükleniyor...</Text>
         </View>
       </SafeAreaView>
     );
