@@ -64,7 +64,7 @@ export default function PersonelGiderPage() {
       await createIslem.mutateAsync({
         type: 'personel_gider',
         amount: parseCurrency(amount),
-        description: description.trim() || `${selectedPersonel?.first_name} ${selectedPersonel?.last_name} - Gider`,
+        description: description.trim() || null,
         personel_id: personelId,
         kategori_id: kategoriId,
         date: formatDateForDB(selectedDate),

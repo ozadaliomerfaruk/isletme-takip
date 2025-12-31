@@ -74,7 +74,7 @@ export default function TransferPage() {
       await createIslem.mutateAsync({
         type: 'transfer',
         amount: parseCurrency(amount),
-        description: description.trim() || `${kaynakHesap?.name} → ${hedefHesap?.name}`,
+        description: description.trim() || null,
         hesap_id: kaynakHesapId,
         hedef_hesap_id: hedefHesapId,
         date: formatDateForDB(selectedDate),

@@ -259,6 +259,11 @@ export default function PersonelHareketleriPage() {
                               {(islem as IslemWithRelations).kategori?.name}
                             </Text>
                           )}
+                          {islem.description && (
+                            <Text variant="caption" color="secondary" numberOfLines={1}>
+                              {islem.description}
+                            </Text>
+                          )}
                         </View>
                         <Text
                           variant="h3"

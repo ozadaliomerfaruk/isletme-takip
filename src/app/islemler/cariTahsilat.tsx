@@ -75,7 +75,7 @@ export default function CariTahsilatPage() {
       await createIslem.mutateAsync({
         type: 'cari_tahsilat',
         amount: parseCurrency(amount),
-        description: description.trim() || `${selectedCari?.name} - Tahsilat`,
+        description: description.trim() || null,
         cari_id: cariId,
         hesap_id: hesapId,
         date: formatDateForDB(selectedDate),

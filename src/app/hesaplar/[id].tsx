@@ -315,6 +315,11 @@ export default function HesapHareketleriPage() {
                                 {(islem as IslemWithRelations).kategori?.name}
                               </Text>
                             )}
+                            {islem.description && (
+                              <Text variant="caption" color="secondary" numberOfLines={1}>
+                                {islem.description}
+                              </Text>
+                            )}
                           </View>
                           <Text variant="h3" color={colorType}>
                             {sign}{formatCurrency(Number(islem.amount))}

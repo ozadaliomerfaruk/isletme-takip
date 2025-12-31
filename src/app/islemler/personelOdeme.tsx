@@ -76,7 +76,7 @@ export default function PersonelOdemePage() {
       await createIslem.mutateAsync({
         type: 'personel_odeme',
         amount: parseCurrency(amount),
-        description: description.trim() || `${selectedPersonel?.first_name} ${selectedPersonel?.last_name} - Maaş/Ödeme`,
+        description: description.trim() || null,
         personel_id: personelId,
         hesap_id: hesapId,
         kategori_id: kategoriId,
