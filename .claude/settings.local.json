@@ -38,7 +38,8 @@
       "Bash(tree:*)",
       "Bash(git checkout:*)",
       "Bash(git merge:*)",
-      "Bash({} ;)"
+      "Bash({} ;)",
+      "Bash(git pull:*)"
     ]
   }
 }

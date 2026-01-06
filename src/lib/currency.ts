@@ -24,6 +24,7 @@ import { CURRENCY_SYMBOL } from '@/constants';
  * parseCurrency("1.234,56") // 1234.56
  * parseCurrency("1234,56")  // 1234.56
  * parseCurrency("1234.56")  // 1234.56
+ * parseCurrency("5.000")    // 5000 (Türkçe binlik ayracı)
  * parseCurrency("")         // NaN
  */
 export function parseCurrency(value: string): number {
@@ -38,8 +39,19 @@ export function parseCurrency(value: string): number {
   } else if (cleaned.includes(',')) {
     // Sadece virgül var - ondalık ayracı olarak kullan
     cleaned = cleaned.replace(',', '.');
+  } else if (cleaned.includes('.')) {
+    // Sadece nokta var - Türkçe binlik ayracı mı yoksa İngilizce ondalık mı?
+    // Türkçe binlik ayracı: noktadan sonra tam 3 rakam varsa (5.000, 1.234.567)
+    // İngilizce ondalık: noktadan sonra 1-2 rakam varsa (5.00, 123.45)
+    const parts = cleaned.split('.');
+    const lastPart = parts[parts.length - 1];
+
+    if (lastPart.length === 3 && parts.length >= 2) {
+      // Türkçe binlik ayracı - noktaları kaldır
+      cleaned = cleaned.replace(/\./g, '');
+    }
+    // Aksi halde İngilizce format - olduğu gibi bırak
   }
-  // Sadece nokta varsa olduğu gibi bırak (İngilizce format)
 
   return parseFloat(cleaned);
 }
