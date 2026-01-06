@@ -53,7 +53,9 @@ export function parseCurrency(value: string): number {
     // afterDot < 3 ise İngilizce ondalık, olduğu gibi bırak
   }
 
-  return parseFloat(cleaned);
+  const result = parseFloat(cleaned);
+  console.log('[parseCurrency] input:', value, '→ cleaned:', cleaned, '→ result:', result);
+  return result;
 }
 
 /**

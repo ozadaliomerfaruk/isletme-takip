@@ -19,7 +19,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useIslem, useUpdateIslem } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
@@ -81,7 +81,7 @@ export default function IslemDuzenlePage() {
   const validate = () => {
     const newErrors: { amount?: string; hesap?: string } = {};
 
-    if (!amount || parseFloat(amount.replace(',', '.')) <= 0) {
+    if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
     }
 
@@ -100,7 +100,7 @@ export default function IslemDuzenlePage() {
       await updateIslem.mutateAsync({
         id,
         updates: {
-          amount: parseFloat(amount.replace(',', '.')),
+          amount: parseCurrency(amount),
           description: description.trim() || null,
           hesap_id: hesapId,
           hedef_hesap_id: hedefHesapId,
