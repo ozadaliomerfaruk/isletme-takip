@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronDown, ArrowRight, Bell } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CurrencyInput } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CurrencyInput, ReminderSettings, type ReminderConfig } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -19,6 +19,8 @@ import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
+import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
+import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
 export default function TransferPage() {
   const router = useRouter();
@@ -35,6 +37,11 @@ export default function TransferPage() {
   const [showKaynakPicker, setShowKaynakPicker] = useState(false);
   const [showHedefPicker, setShowHedefPicker] = useState(false);
   const [isIleriTarihli, setIsIleriTarihli] = useState(false);
+  const [reminderConfig, setReminderConfig] = useState<ReminderConfig>({
+    enabled: false,
+    daysBefore: 0,
+    time: '09:00',
+  });
   const [errors, setErrors] = useState<{ amount?: string; kaynak?: string; hedef?: string; date?: string }>({});
 
   useEffect(() => {
@@ -86,14 +93,36 @@ export default function TransferPage() {
 
     try {
       if (isIleriTarihli) {
-        await createIleriTarihliIslem.mutateAsync({
+        const scheduledDate = formatDateForDB(selectedDate);
+        const result = await createIleriTarihliIslem.mutateAsync({
           type: 'transfer',
           amount: parseCurrency(amount),
           description: description.trim() || null,
           hesap_id: kaynakHesapId,
           hedef_hesap_id: hedefHesapId,
-          scheduled_date: formatDateForDB(selectedDate),
+          scheduled_date: scheduledDate,
         });
+
+        // Hatırlatıcı aktifse bildirim planla
+        if (reminderConfig.enabled && result?.id) {
+          const reminderDate = calculateReminderDate(
+            scheduledDate,
+            reminderConfig.daysBefore,
+            reminderConfig.time
+          );
+
+          await scheduleTransactionReminder(
+            result.id,
+            'Yaklaşan İşlem Hatırlatması',
+            `${ISLEM_TYPE_LABELS.transfer}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            reminderDate,
+            {
+              type: 'scheduled_transaction_reminder',
+              transaction_id: result.id,
+              hesap_id: kaynakHesapId,
+            }
+          );
+        }
 
         Alert.alert('Başarılı', 'İleri tarihli transfer oluşturuldu', [
           { text: 'Tamam', onPress: () => router.back() },
@@ -286,6 +315,13 @@ export default function TransferPage() {
               mode={isIleriTarihli ? "date" : "datetime"}
               error={errors.date}
             />
+
+            {isIleriTarihli && (
+              <ReminderSettings
+                value={reminderConfig}
+                onChange={setReminderConfig}
+              />
+            )}
 
             <Input
               label="Açıklama (Opsiyonel)"

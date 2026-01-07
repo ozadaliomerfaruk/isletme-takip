@@ -29,9 +29,7 @@ import { getHesapIcon } from '@/lib/icons';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useMonthSummary, PeriodType } from '@/hooks/useIslemler';
-import { useTodayIleriTarihliIslemler } from '@/hooks/useIleriTarihliIslemler';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 
 const periodOptions = [
   { label: 'Yıllık', value: 'yearly' },
@@ -60,7 +58,6 @@ export default function HomePage() {
 
   // Gerçek veriler
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
-  const { data: todayIslemler, isLoading: todayIslemlerLoading } = useTodayIleriTarihliIslemler();
 
   const handleOdemePress = (hesapId: string) => {
     setSelectedHesapId(hesapId);
@@ -307,17 +304,6 @@ export default function HomePage() {
             />
           )}
         </View>
-
-        {/* Bugün Yapılacak İşlemler */}
-        {todayIslemler && todayIslemler.length > 0 && (
-          <View style={styles.todaySection}>
-            <IleriTarihliIslemlerSection
-              ileriTarihliIslemler={todayIslemler}
-              isLoading={todayIslemlerLoading}
-              title="Bugün Yapılacak İşlemler"
-            />
-          </View>
-        )}
 
         {/* Özet Kartları */}
         <View style={styles.summaryGrid}>
@@ -634,10 +620,6 @@ const styles = StyleSheet.create({
   },
   cancelDeletionBtn: {
     alignSelf: 'flex-start',
-  },
-  todaySection: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
   },
   periodFilter: {
     paddingHorizontal: spacing.lg,

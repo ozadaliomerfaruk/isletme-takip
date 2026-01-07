@@ -63,8 +63,28 @@ function RootLayoutNav() {
       },
       (response) => {
         // Bildirime tıklandığında
-        const data = response.notification.request.content.data;
-        if (data?.screen) {
+        const data = response.notification.request.content.data as {
+          type?: string;
+          screen?: string;
+          transaction_id?: string;
+          hesap_id?: string;
+          cari_id?: string;
+          personel_id?: string;
+        };
+
+        // İleri tarihli işlem hatırlatması
+        if (data?.type === 'scheduled_transaction_reminder') {
+          if (data.hesap_id) {
+            router.push(`/hesaplar/${data.hesap_id}` as any);
+          } else if (data.cari_id) {
+            router.push(`/cariler/${data.cari_id}` as any);
+          } else if (data.personel_id) {
+            router.push(`/personel/${data.personel_id}` as any);
+          } else {
+            // Varsayılan olarak ana sayfaya git
+            router.push('/(tabs)' as any);
+          }
+        } else if (data?.screen) {
           router.push(data.screen as any);
         }
       }

@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, Bell } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput, ReminderSettings, type ReminderConfig } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
@@ -19,6 +19,8 @@ import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
+import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
+import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
 export default function CariSatisPage() {
   const router = useRouter();
@@ -35,6 +37,11 @@ export default function CariSatisPage() {
   const [showCariPicker, setShowCariPicker] = useState(false);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [isIleriTarihli, setIsIleriTarihli] = useState(false);
+  const [reminderConfig, setReminderConfig] = useState<ReminderConfig>({
+    enabled: false,
+    daysBefore: 0,
+    time: '09:00',
+  });
   const [errors, setErrors] = useState<{ amount?: string; cari?: string; date?: string }>({});
 
   useEffect(() => {
@@ -76,14 +83,35 @@ export default function CariSatisPage() {
 
     try {
       if (isIleriTarihli) {
-        await createIleriTarihliIslem.mutateAsync({
+        const scheduledDate = formatDateForDB(selectedDate);
+        const result = await createIleriTarihliIslem.mutateAsync({
           type: 'cari_satis',
           amount: parseCurrency(amount),
           description: description.trim() || null,
           cari_id: cariId,
           kategori_id: kategoriId,
-          scheduled_date: formatDateForDB(selectedDate),
+          scheduled_date: scheduledDate,
         });
+
+        if (reminderConfig.enabled && result?.id) {
+          const reminderDate = calculateReminderDate(
+            scheduledDate,
+            reminderConfig.daysBefore,
+            reminderConfig.time
+          );
+
+          await scheduleTransactionReminder(
+            result.id,
+            'Yaklaşan İşlem Hatırlatması',
+            `${ISLEM_TYPE_LABELS.cari_satis}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            reminderDate,
+            {
+              type: 'scheduled_transaction_reminder',
+              transaction_id: result.id,
+              cari_id: cariId,
+            }
+          );
+        }
 
         Alert.alert('Başarılı', 'İleri tarihli satış oluşturuldu', [
           { text: 'Tamam', onPress: () => router.back() },
@@ -208,6 +236,13 @@ export default function CariSatisPage() {
               mode={isIleriTarihli ? "date" : "datetime"}
               error={errors.date}
             />
+
+            {isIleriTarihli && (
+              <ReminderSettings
+                value={reminderConfig}
+                onChange={setReminderConfig}
+              />
+            )}
 
             <CategoryPicker
               label="Kategori (Opsiyonel)"

@@ -2,7 +2,11 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+
+// Reminder storage key prefix
+const REMINDER_STORAGE_KEY = 'reminder_';
 
 // Bildirim ayarları
 Notifications.setNotificationHandler({
@@ -142,4 +146,86 @@ export function addNotificationListeners(
     receivedSubscription.remove();
     responseSubscription.remove();
   };
+}
+
+// İleri tarihli işlem için local notification planla
+export async function scheduleTransactionReminder(
+  transactionId: string,
+  title: string,
+  body: string,
+  triggerDate: Date,
+  data: {
+    type: string;
+    transaction_id: string;
+    hesap_id?: string | null;
+    cari_id?: string | null;
+    personel_id?: string | null;
+  }
+): Promise<string | null> {
+  try {
+    // Geçmiş tarih kontrolü
+    if (triggerDate <= new Date()) {
+      console.log('Hatırlatma tarihi geçmiş, bildirim planlanmadı');
+      return null;
+    }
+
+    // Mevcut hatırlatmayı iptal et (varsa)
+    await cancelTransactionReminder(transactionId);
+
+    // Yeni bildirim planla
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data,
+        sound: 'default',
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerDate,
+        channelId: 'scheduled-transactions',
+      },
+    });
+
+    // Notification ID'yi AsyncStorage'a kaydet
+    await AsyncStorage.setItem(
+      `${REMINDER_STORAGE_KEY}${transactionId}`,
+      notificationId
+    );
+
+    console.log(`Hatırlatma planlandı: ${transactionId} -> ${notificationId} (${triggerDate.toISOString()})`);
+    return notificationId;
+  } catch (error) {
+    console.error('Hatırlatma planlama hatası:', error);
+    return null;
+  }
+}
+
+// İşlem için planlanmış hatırlatmayı iptal et
+export async function cancelTransactionReminder(transactionId: string): Promise<void> {
+  try {
+    const storageKey = `${REMINDER_STORAGE_KEY}${transactionId}`;
+    const notificationId = await AsyncStorage.getItem(storageKey);
+
+    if (notificationId) {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+      await AsyncStorage.removeItem(storageKey);
+      console.log(`Hatırlatma iptal edildi: ${transactionId}`);
+    }
+  } catch (error) {
+    console.error('Hatırlatma iptal hatası:', error);
+  }
+}
+
+// Hatırlatma tarihini hesapla
+export function calculateReminderDate(
+  scheduledDate: string,
+  daysBefore: number,
+  time: string
+): Date {
+  const [hours, minutes] = time.split(':').map(Number);
+  const date = new Date(scheduledDate + 'T00:00:00');
+  date.setDate(date.getDate() - daysBefore);
+  date.setHours(hours, minutes, 0, 0);
+  return date;
 }

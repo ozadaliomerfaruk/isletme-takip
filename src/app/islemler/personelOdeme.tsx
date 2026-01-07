@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, Bell } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput, ReminderSettings, type ReminderConfig } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -20,6 +20,8 @@ import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
+import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
+import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
 export default function PersonelOdemePage() {
   const router = useRouter();
@@ -39,6 +41,11 @@ export default function PersonelOdemePage() {
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
   const [showHesapPicker, setShowHesapPicker] = useState(false);
   const [isIleriTarihli, setIsIleriTarihli] = useState(false);
+  const [reminderConfig, setReminderConfig] = useState<ReminderConfig>({
+    enabled: false,
+    daysBefore: 0,
+    time: '09:00',
+  });
   const [errors, setErrors] = useState<{ amount?: string; personel?: string; hesap?: string; date?: string }>({});
 
   useEffect(() => {
@@ -88,15 +95,37 @@ export default function PersonelOdemePage() {
 
     try {
       if (isIleriTarihli) {
-        await createIleriTarihliIslem.mutateAsync({
+        const scheduledDate = formatDateForDB(selectedDate);
+        const result = await createIleriTarihliIslem.mutateAsync({
           type: 'personel_odeme',
           amount: parseCurrency(amount),
           description: description.trim() || null,
           personel_id: personelId,
           hesap_id: hesapId,
           kategori_id: kategoriId,
-          scheduled_date: formatDateForDB(selectedDate),
+          scheduled_date: scheduledDate,
         });
+
+        // Hatırlatıcı aktifse bildirim planla
+        if (reminderConfig.enabled && result?.id) {
+          const reminderDate = calculateReminderDate(
+            scheduledDate,
+            reminderConfig.daysBefore,
+            reminderConfig.time
+          );
+
+          await scheduleTransactionReminder(
+            result.id,
+            'Yaklaşan İşlem Hatırlatması',
+            `${ISLEM_TYPE_LABELS.personel_odeme}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            reminderDate,
+            {
+              type: 'scheduled_transaction_reminder',
+              transaction_id: result.id,
+              personel_id: personelId,
+            }
+          );
+        }
 
         Alert.alert('Başarılı', 'İleri tarihli ödeme oluşturuldu', [
           { text: 'Tamam', onPress: () => router.back() },
@@ -287,6 +316,13 @@ export default function PersonelOdemePage() {
               mode={isIleriTarihli ? "date" : "datetime"}
               error={errors.date}
             />
+
+            {isIleriTarihli && (
+              <ReminderSettings
+                value={reminderConfig}
+                onChange={setReminderConfig}
+              />
+            )}
 
             <Input
               label="Açıklama (Opsiyonel)"

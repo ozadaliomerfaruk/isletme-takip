@@ -11,14 +11,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, Bell } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput, ReminderSettings, type ReminderConfig } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { parseCurrency, isValidAmount } from '@/lib/currency';
+import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
+import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
+import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
 export default function GiderEklePage() {
   const router = useRouter();
@@ -35,6 +37,11 @@ export default function GiderEklePage() {
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [showHesapPicker, setShowHesapPicker] = useState(false);
   const [isIleriTarihli, setIsIleriTarihli] = useState(false);
+  const [reminderConfig, setReminderConfig] = useState<ReminderConfig>({
+    enabled: false,
+    daysBefore: 0,
+    time: '09:00',
+  });
   const [errors, setErrors] = useState<{ amount?: string; hesap?: string; date?: string }>({});
 
   useEffect(() => {
@@ -77,15 +84,36 @@ export default function GiderEklePage() {
 
     try {
       if (isIleriTarihli) {
-        // İleri tarihli işlem olarak kaydet
-        await createIleriTarihliIslem.mutateAsync({
+        const scheduledDate = formatDateForDB(selectedDate);
+        const result = await createIleriTarihliIslem.mutateAsync({
           type: 'gider',
           amount: parseCurrency(amount),
           description: description.trim() || null,
           hesap_id: hesapId,
           kategori_id: kategoriId,
-          scheduled_date: formatDateForDB(selectedDate),
+          scheduled_date: scheduledDate,
         });
+
+        // Hatırlatıcı aktifse bildirim planla
+        if (reminderConfig.enabled && result?.id) {
+          const reminderDate = calculateReminderDate(
+            scheduledDate,
+            reminderConfig.daysBefore,
+            reminderConfig.time
+          );
+
+          await scheduleTransactionReminder(
+            result.id,
+            'Yaklaşan İşlem Hatırlatması',
+            `${ISLEM_TYPE_LABELS.gider}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            reminderDate,
+            {
+              type: 'scheduled_transaction_reminder',
+              transaction_id: result.id,
+              hesap_id: hesapId,
+            }
+          );
+        }
 
         Alert.alert('Başarılı', 'İleri tarihli gider oluşturuldu', [
           { text: 'Tamam', onPress: () => router.back() },
@@ -215,6 +243,13 @@ export default function GiderEklePage() {
               mode={isIleriTarihli ? "date" : "datetime"}
               error={errors.date}
             />
+
+            {isIleriTarihli && (
+              <ReminderSettings
+                value={reminderConfig}
+                onChange={setReminderConfig}
+              />
+            )}
 
             <Input
               label="Açıklama (Opsiyonel)"

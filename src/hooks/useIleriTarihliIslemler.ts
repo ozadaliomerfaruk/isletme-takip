@@ -10,6 +10,7 @@ import {
 } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { formatDateForDB } from '@/lib/date';
+import { cancelTransactionReminder } from '@/lib/notifications';
 
 // ============================================================================
 // QUERY HOOKS
@@ -301,6 +302,9 @@ export function useDeleteIleriTarihliIslem() {
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error('İşletme bulunamadı');
 
+      // Önce hatırlatıcıyı iptal et
+      await cancelTransactionReminder(id);
+
       const { error } = await supabase
         .from('ileri_tarihli_islemler')
         .delete()
@@ -325,6 +329,9 @@ export function useCompleteIleriTarihliIslem() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error('İşletme bulunamadı');
+
+      // 0. Hatırlatıcıyı iptal et (varsa)
+      await cancelTransactionReminder(id);
 
       // 1. İleri tarihli işlemi al
       const { data: ileriIslem, error: fetchError } = await supabase
@@ -541,7 +548,7 @@ async function reverseBalancesForIslem(islem: IslemInsert) {
         await safeIncrementBalance('personel', islem.personel_id, -amount);
       }
       if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       break;
   }

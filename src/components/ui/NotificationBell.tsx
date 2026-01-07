@@ -73,11 +73,6 @@ export function NotificationBell() {
     }
   };
 
-  const handleAddPress = () => {
-    setIsOpen(false);
-    router.push('/islemler/ileri-tarihli' as any);
-  };
-
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
     const day = date.getDate();
@@ -224,15 +219,6 @@ export function NotificationBell() {
                 })
               )}
             </ScrollView>
-
-            {/* Alt Buton */}
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={handleAddPress}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.addButtonText}>+ İleri Tarihli İşlem Ekle</Text>
-            </TouchableOpacity>
           </View>
         </Animated.View>
       </Modal>
@@ -346,16 +332,5 @@ const styles = StyleSheet.create({
   },
   itemRight: {
     alignItems: 'flex-end',
-  },
-  addButton: {
-    paddingVertical: spacing.lg,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  addButtonText: {
-    color: colors.primary,
-    fontWeight: '600',
-    fontSize: 16,
   },
 });
