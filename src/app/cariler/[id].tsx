@@ -14,13 +14,14 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort, formatDateMedium } from '@/lib/date';
 import { useCari, useDeleteCari } from '@/hooks/useCariler';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
+import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
 
 export default function CariHareketleriPage() {
@@ -29,6 +30,7 @@ export default function CariHareketleriPage() {
 
   const { data: cari, isLoading: cariLoading } = useCari(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
+  const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
 
@@ -265,8 +267,13 @@ export default function CariHareketleriPage() {
             )}
           </View>
 
-          {/* Hareketler */}
+          {/* İleri Tarihli İşlemler ve Hareketler */}
           <View style={styles.section}>
+            <IleriTarihliIslemlerSection
+              ileriTarihliIslemler={ileriTarihliIslemler}
+              isLoading={ileriTarihliLoading}
+            />
+
             <Text variant="h3" style={styles.sectionTitle}>
               Hareketler
             </Text>

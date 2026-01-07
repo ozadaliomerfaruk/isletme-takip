@@ -2,7 +2,7 @@
   "expo": {
     "name": "İşletme Takip",
     "slug": "isletmetakip-",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.isletmetakip.app",
-      "buildNumber": "9",
+      "buildNumber": "10",
       "usesAppleSignIn": true,
       "usesNonExemptEncryption": false,
       "infoPlist": {
@@ -77,7 +77,14 @@
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#0D5C4D"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

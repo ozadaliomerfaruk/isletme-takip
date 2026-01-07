@@ -10,12 +10,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronDown } from 'lucide-react-native';
+import { ChevronDown, Bell } from 'lucide-react-native';
 import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
+import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
@@ -23,6 +24,7 @@ export default function PersonelGiderPage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ personel_id?: string }>();
   const createIslem = useCreateIslem();
+  const createIleriTarihliIslem = useCreateIleriTarihliIslem();
 
   const { data: personelList } = usePersonelList();
 
@@ -32,7 +34,8 @@ export default function PersonelGiderPage() {
   const [personelId, setPersonelId] = useState<string | null>(params.personel_id || null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
-  const [errors, setErrors] = useState<{ amount?: string; personel?: string }>({});
+  const [isIleriTarihli, setIsIleriTarihli] = useState(false);
+  const [errors, setErrors] = useState<{ amount?: string; personel?: string; date?: string }>({});
 
   useEffect(() => {
     if (!personelId && personelList && personelList.length > 0 && !params.personel_id) {
@@ -43,7 +46,7 @@ export default function PersonelGiderPage() {
   const selectedPersonel = personelList?.find((p) => p.id === personelId);
 
   const validate = () => {
-    const newErrors: { amount?: string; personel?: string } = {};
+    const newErrors: { amount?: string; personel?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
@@ -51,6 +54,17 @@ export default function PersonelGiderPage() {
 
     if (!personelId) {
       newErrors.personel = 'Personel seçin';
+    }
+
+    if (isIleriTarihli) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selected = new Date(selectedDate);
+      selected.setHours(0, 0, 0, 0);
+
+      if (selected <= today) {
+        newErrors.date = 'İleri tarihli işlem için bugünden sonraki bir tarih seçin';
+      }
     }
 
     setErrors(newErrors);
@@ -61,18 +75,33 @@ export default function PersonelGiderPage() {
     if (!validate()) return;
 
     try {
-      await createIslem.mutateAsync({
-        type: 'personel_gider',
-        amount: parseCurrency(amount),
-        description: description.trim() || null,
-        personel_id: personelId,
-        kategori_id: kategoriId,
-        date: formatDateForDB(selectedDate),
-      });
+      if (isIleriTarihli) {
+        await createIleriTarihliIslem.mutateAsync({
+          type: 'personel_gider',
+          amount: parseCurrency(amount),
+          description: description.trim() || null,
+          personel_id: personelId,
+          kategori_id: kategoriId,
+          scheduled_date: formatDateForDB(selectedDate),
+        });
 
-      Alert.alert('Başarılı', 'Gider kaydedildi', [
-        { text: 'Tamam', onPress: () => router.back() },
-      ]);
+        Alert.alert('Başarılı', 'İleri tarihli gider oluşturuldu', [
+          { text: 'Tamam', onPress: () => router.back() },
+        ]);
+      } else {
+        await createIslem.mutateAsync({
+          type: 'personel_gider',
+          amount: parseCurrency(amount),
+          description: description.trim() || null,
+          personel_id: personelId,
+          kategori_id: kategoriId,
+          date: formatDateForDB(selectedDate),
+        });
+
+        Alert.alert('Başarılı', 'Gider kaydedildi', [
+          { text: 'Tamam', onPress: () => router.back() },
+        ]);
+      }
     } catch (error: any) {
       Alert.alert('Hata', error.message || 'İşlem eklenemedi');
     }
@@ -91,10 +120,34 @@ export default function PersonelGiderPage() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text variant="h2">Personel Gideri</Text>
-            <Text variant="body" color="secondary">
-              Bu işlem personele olan borcunuzu artırır (maaş tahakkuku vb.)
-            </Text>
+            <View style={styles.headerRow}>
+              <View style={styles.headerTitleContainer}>
+                <Text variant="h2">Personel Gideri</Text>
+                <Text variant="body" color="secondary">
+                  Bu işlem personele olan borcunuzu artırır (maaş tahakkuku vb.)
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
+                onPress={() => {
+                  setIsIleriTarihli(!isIleriTarihli);
+                  if (!isIleriTarihli) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    setSelectedDate(tomorrow);
+                  }
+                }}
+              >
+                <Bell size={22} color={isIleriTarihli ? colors.warning : colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {isIleriTarihli && (
+              <View style={styles.ileriTarihliIndicator}>
+                <Text variant="caption" style={styles.ileriTarihliText}>
+                  İleri Tarihli İşlem
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -147,7 +200,6 @@ export default function PersonelGiderPage() {
               )}
             </View>
 
-            {/* Kategori Seçici */}
             <CategoryPicker
               value={kategoriId}
               onChange={setKategoriId}
@@ -163,10 +215,11 @@ export default function PersonelGiderPage() {
             />
 
             <DateTimePicker
-              label="Tarih ve Saat"
+              label={isIleriTarihli ? "İşlem Tarihi" : "Tarih ve Saat"}
               value={selectedDate}
               onChange={setSelectedDate}
-              mode="datetime"
+              mode={isIleriTarihli ? "date" : "datetime"}
+              error={errors.date}
             />
 
             <Input
@@ -181,16 +234,16 @@ export default function PersonelGiderPage() {
 
           <View style={styles.buttons}>
             <Button variant="outline" size="lg" onPress={() => router.back()} style={styles.button}>
-              Iptal
+              İptal
             </Button>
             <Button
               variant="primary"
               size="lg"
-              loading={createIslem.isPending}
+              loading={createIslem.isPending || createIleriTarihliIslem.isPending}
               onPress={handleSubmit}
-              style={styles.button}
+              style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              Kaydet
+              {isIleriTarihli ? 'Planla' : 'Kaydet'}
             </Button>
           </View>
         </ScrollView>
@@ -205,6 +258,40 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: spacing['3xl'] },
   header: { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bellButtonActive: {
+    backgroundColor: colors.warning + '20',
+    borderColor: colors.warning,
+  },
+  ileriTarihliIndicator: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  ileriTarihliText: {
+    color: colors.warning,
+    fontWeight: '600',
+  },
   section: { paddingHorizontal: spacing.lg, marginBottom: spacing.lg },
   pickerContainer: { marginBottom: spacing.lg, zIndex: 1 },
   pickerLabel: { marginBottom: spacing.sm },
@@ -242,4 +329,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   button: { flex: 1 },
+  buttonIleriTarihli: {
+    backgroundColor: colors.warning,
+  },
 });

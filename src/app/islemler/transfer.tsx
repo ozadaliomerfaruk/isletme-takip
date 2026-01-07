@@ -10,18 +10,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronDown, ArrowRight } from 'lucide-react-native';
+import { ChevronDown, ArrowRight, Bell } from 'lucide-react-native';
 import { Text, Input, Button, Card, DateTimePicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
+import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
 export default function TransferPage() {
   const router = useRouter();
   const createIslem = useCreateIslem();
+  const createIleriTarihliIslem = useCreateIleriTarihliIslem();
 
   const { data: hesaplar } = useHesaplar();
 
@@ -32,7 +34,8 @@ export default function TransferPage() {
   const [hedefHesapId, setHedefHesapId] = useState<string | null>(null);
   const [showKaynakPicker, setShowKaynakPicker] = useState(false);
   const [showHedefPicker, setShowHedefPicker] = useState(false);
-  const [errors, setErrors] = useState<{ amount?: string; kaynak?: string; hedef?: string }>({});
+  const [isIleriTarihli, setIsIleriTarihli] = useState(false);
+  const [errors, setErrors] = useState<{ amount?: string; kaynak?: string; hedef?: string; date?: string }>({});
 
   useEffect(() => {
     if (hesaplar && hesaplar.length >= 2 && !kaynakHesapId && !hedefHesapId) {
@@ -45,7 +48,7 @@ export default function TransferPage() {
   const hedefHesap = hesaplar?.find((h) => h.id === hedefHesapId);
 
   const validate = () => {
-    const newErrors: { amount?: string; kaynak?: string; hedef?: string } = {};
+    const newErrors: { amount?: string; kaynak?: string; hedef?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
@@ -63,6 +66,17 @@ export default function TransferPage() {
       newErrors.hedef = 'Kaynak ve hedef hesap aynı olamaz';
     }
 
+    if (isIleriTarihli) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selected = new Date(selectedDate);
+      selected.setHours(0, 0, 0, 0);
+
+      if (selected <= today) {
+        newErrors.date = 'İleri tarihli işlem için bugünden sonraki bir tarih seçin';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -71,21 +85,41 @@ export default function TransferPage() {
     if (!validate()) return;
 
     try {
-      await createIslem.mutateAsync({
-        type: 'transfer',
-        amount: parseCurrency(amount),
-        description: description.trim() || null,
-        hesap_id: kaynakHesapId,
-        hedef_hesap_id: hedefHesapId,
-        date: formatDateForDB(selectedDate),
-      });
+      if (isIleriTarihli) {
+        await createIleriTarihliIslem.mutateAsync({
+          type: 'transfer',
+          amount: parseCurrency(amount),
+          description: description.trim() || null,
+          hesap_id: kaynakHesapId,
+          hedef_hesap_id: hedefHesapId,
+          scheduled_date: formatDateForDB(selectedDate),
+        });
 
-      Alert.alert('Başarılı', 'Transfer yapıldı', [
-        { text: 'Tamam', onPress: () => router.back() },
-      ]);
+        Alert.alert('Başarılı', 'İleri tarihli transfer oluşturuldu', [
+          { text: 'Tamam', onPress: () => router.back() },
+        ]);
+      } else {
+        await createIslem.mutateAsync({
+          type: 'transfer',
+          amount: parseCurrency(amount),
+          description: description.trim() || null,
+          hesap_id: kaynakHesapId,
+          hedef_hesap_id: hedefHesapId,
+          date: formatDateForDB(selectedDate),
+        });
+
+        Alert.alert('Başarılı', 'Transfer yapıldı', [
+          { text: 'Tamam', onPress: () => router.back() },
+        ]);
+      }
     } catch (error: any) {
       Alert.alert('Hata', error.message || 'Transfer yapılamadı');
     }
+  };
+
+  const closeAllPickers = () => {
+    setShowKaynakPicker(false);
+    setShowHedefPicker(false);
   };
 
   return (
@@ -101,7 +135,29 @@ export default function TransferPage() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text variant="h2">Hesaplar Arası Transfer</Text>
+            <View style={styles.headerRow}>
+              <Text variant="h2" style={styles.headerTitle}>Hesaplar Arası Transfer</Text>
+              <TouchableOpacity
+                style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
+                onPress={() => {
+                  setIsIleriTarihli(!isIleriTarihli);
+                  if (!isIleriTarihli) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    setSelectedDate(tomorrow);
+                  }
+                }}
+              >
+                <Bell size={22} color={isIleriTarihli ? colors.warning : colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {isIleriTarihli && (
+              <View style={styles.ileriTarihliIndicator}>
+                <Text variant="caption" style={styles.ileriTarihliText}>
+                  İleri Tarihli İşlem
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>
@@ -120,8 +176,8 @@ export default function TransferPage() {
               <TouchableOpacity
                 style={[styles.picker, errors.kaynak && styles.pickerError]}
                 onPress={() => {
+                  closeAllPickers();
                   setShowKaynakPicker(!showKaynakPicker);
-                  setShowHedefPicker(false);
                 }}
               >
                 <View>
@@ -178,8 +234,8 @@ export default function TransferPage() {
               <TouchableOpacity
                 style={[styles.picker, errors.hedef && styles.pickerError]}
                 onPress={() => {
+                  closeAllPickers();
                   setShowHedefPicker(!showHedefPicker);
-                  setShowKaynakPicker(false);
                 }}
               >
                 <View>
@@ -224,10 +280,11 @@ export default function TransferPage() {
             </View>
 
             <DateTimePicker
-              label="Tarih ve Saat"
+              label={isIleriTarihli ? "İşlem Tarihi" : "Tarih ve Saat"}
               value={selectedDate}
               onChange={setSelectedDate}
-              mode="datetime"
+              mode={isIleriTarihli ? "date" : "datetime"}
+              error={errors.date}
             />
 
             <Input
@@ -252,11 +309,11 @@ export default function TransferPage() {
             <Button
               variant="primary"
               size="lg"
-              loading={createIslem.isPending}
+              loading={createIslem.isPending || createIleriTarihliIslem.isPending}
               onPress={handleSubmit}
-              style={styles.button}
+              style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              Transfer Yap
+              {isIleriTarihli ? 'Planla' : 'Transfer Yap'}
             </Button>
           </View>
         </ScrollView>
@@ -282,6 +339,40 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerTitle: {
+    flex: 1,
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bellButtonActive: {
+    backgroundColor: colors.warning + '20',
+    borderColor: colors.warning,
+  },
+  ileriTarihliIndicator: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  ileriTarihliText: {
+    color: colors.warning,
+    fontWeight: '600',
   },
   section: {
     paddingHorizontal: spacing.lg,
@@ -337,5 +428,8 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  buttonIleriTarihli: {
+    backgroundColor: colors.warning,
   },
 });

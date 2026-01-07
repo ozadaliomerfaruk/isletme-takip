@@ -15,13 +15,14 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort, formatDateMedium } from '@/lib/date';
 import { useHesap, useDeleteHesap } from '@/hooks/useHesaplar';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
+import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
 
 export default function HesapHareketleriPage() {
@@ -30,6 +31,7 @@ export default function HesapHareketleriPage() {
 
   const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByHesap(id!);
+  const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
   const deleteIslem = useDeleteIslem();
   const deleteHesap = useDeleteHesap();
 
@@ -277,8 +279,14 @@ export default function HesapHareketleriPage() {
             </Button>
           </View>
 
-          {/* Hareketler */}
+          {/* İleri Tarihli İşlemler */}
           <View style={styles.section}>
+            <IleriTarihliIslemlerSection
+              ileriTarihliIslemler={ileriTarihliIslemler}
+              isLoading={ileriTarihliLoading}
+            />
+
+            {/* Hareketler */}
             <Text variant="h3" style={styles.sectionTitle}>
               Hareketler
             </Text>

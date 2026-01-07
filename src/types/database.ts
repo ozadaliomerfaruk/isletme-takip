@@ -296,3 +296,60 @@ export interface DashboardSummary {
   totalReceivables: number;
   totalPayables: number;
 }
+
+// İleri Tarihli İşlem
+export type IleriTarihliIslemStatus = 'pending' | 'completed' | 'cancelled';
+
+export interface IleriTarihliIslem {
+  id: string;
+  isletme_id: string;
+  type: IslemType;
+  amount: number;
+  description: string | null;
+  scheduled_date: string;
+  hesap_id: string | null;
+  hedef_hesap_id: string | null;
+  kategori_id: string | null;
+  cari_id: string | null;
+  personel_id: string | null;
+  status: IleriTarihliIslemStatus;
+  notified_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IleriTarihliIslemInsert {
+  id?: string;
+  isletme_id: string;
+  type: IslemType;
+  amount: number;
+  description?: string | null;
+  scheduled_date: string;
+  hesap_id?: string | null;
+  hedef_hesap_id?: string | null;
+  kategori_id?: string | null;
+  cari_id?: string | null;
+  personel_id?: string | null;
+  status?: IleriTarihliIslemStatus;
+}
+
+export interface IleriTarihliIslemUpdate {
+  type?: IslemType;
+  amount?: number;
+  description?: string | null;
+  scheduled_date?: string;
+  hesap_id?: string | null;
+  hedef_hesap_id?: string | null;
+  kategori_id?: string | null;
+  cari_id?: string | null;
+  personel_id?: string | null;
+  status?: IleriTarihliIslemStatus;
+}
+
+export interface IleriTarihliIslemWithRelations extends IleriTarihliIslem {
+  hesap?: Hesap | null;
+  hedef_hesap?: Hesap | null;
+  kategori?: Kategori | null;
+  cari?: Cari | null;
+  personel?: Personel | null;
+}

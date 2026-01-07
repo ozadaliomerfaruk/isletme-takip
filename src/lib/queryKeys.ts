@@ -77,6 +77,23 @@ export const queryKeys = {
   dashboard: {
     all: () => ['dashboard'] as const,
   },
+
+  // İleri Tarihli İşlemler
+  ileriTarihliIslemler: {
+    all: () => ['ileri-tarihli-islemler'] as const,
+    list: (isletmeId: string) => ['ileri-tarihli-islemler', isletmeId] as const,
+    detail: (id: string) => ['ileri-tarihli-islem', id] as const,
+    byHesap: (hesapId: string, isletmeId: string) =>
+      ['ileri-tarihli-islemler', 'hesap', hesapId, isletmeId] as const,
+    byCari: (cariId: string, isletmeId: string) =>
+      ['ileri-tarihli-islemler', 'cari', cariId, isletmeId] as const,
+    byPersonel: (personelId: string, isletmeId: string) =>
+      ['ileri-tarihli-islemler', 'personel', personelId, isletmeId] as const,
+    pending: (isletmeId: string) =>
+      ['ileri-tarihli-islemler', 'pending', isletmeId] as const,
+    today: (isletmeId: string) =>
+      ['ileri-tarihli-islemler', 'today', isletmeId] as const,
+  },
 } as const;
 
 // ============================================================================
@@ -101,6 +118,12 @@ const invalidationMap = {
     'month-summary',
     'category-report',
     'category-transactions',
+  ],
+
+  // İleri tarihli işlem değişikliği
+  ileriTarihliIslem: [
+    'ileri-tarihli-islemler',
+    'ileri-tarihli-islem',
   ],
 
   // Hesap değişikliği
@@ -231,4 +254,9 @@ export const createInvalidators = (queryClient: QueryClient) => ({
    * Kategori mutation'ları için
    */
   onKategoriMutation: () => invalidateRelatedQueries(queryClient, 'kategori'),
+
+  /**
+   * İleri tarihli işlem mutation'ları için
+   */
+  onIleriTarihliIslemMutation: () => invalidateRelatedQueries(queryClient, 'ileriTarihliIslem'),
 });

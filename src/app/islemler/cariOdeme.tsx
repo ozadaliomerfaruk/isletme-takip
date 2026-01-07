@@ -10,13 +10,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { ChevronDown } from 'lucide-react-native';
+import { ChevronDown, Bell } from 'lucide-react-native';
 import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
+import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
@@ -24,6 +25,7 @@ export default function CariOdemePage() {
   const router = useRouter();
   const params = useLocalSearchParams<{ cari_id?: string; hesap_id?: string }>();
   const createIslem = useCreateIslem();
+  const createIleriTarihliIslem = useCreateIleriTarihliIslem();
 
   const { data: cariler } = useCariler('tedarikci');
   const { data: hesaplar } = useHesaplar();
@@ -36,7 +38,8 @@ export default function CariOdemePage() {
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [showCariPicker, setShowCariPicker] = useState(false);
   const [showHesapPicker, setShowHesapPicker] = useState(false);
-  const [errors, setErrors] = useState<{ amount?: string; cari?: string; hesap?: string }>({});
+  const [isIleriTarihli, setIsIleriTarihli] = useState(false);
+  const [errors, setErrors] = useState<{ amount?: string; cari?: string; hesap?: string; date?: string }>({});
 
   useEffect(() => {
     if (!cariId && cariler && cariler.length > 0 && !params.cari_id) {
@@ -51,7 +54,7 @@ export default function CariOdemePage() {
   const selectedHesap = hesaplar?.find((h) => h.id === hesapId);
 
   const validate = () => {
-    const newErrors: { amount?: string; cari?: string; hesap?: string } = {};
+    const newErrors: { amount?: string; cari?: string; hesap?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
       newErrors.amount = 'Geçerli bir tutar girin';
@@ -65,6 +68,17 @@ export default function CariOdemePage() {
       newErrors.hesap = 'Ödeme yapılacak hesabı seçin';
     }
 
+    if (isIleriTarihli) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selected = new Date(selectedDate);
+      selected.setHours(0, 0, 0, 0);
+
+      if (selected <= today) {
+        newErrors.date = 'İleri tarihli işlem için bugünden sonraki bir tarih seçin';
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -73,22 +87,43 @@ export default function CariOdemePage() {
     if (!validate()) return;
 
     try {
-      await createIslem.mutateAsync({
-        type: 'cari_odeme',
-        amount: parseCurrency(amount),
-        description: description.trim() || null,
-        cari_id: cariId,
-        hesap_id: hesapId,
-        kategori_id: kategoriId,
-        date: formatDateForDB(selectedDate),
-      });
+      if (isIleriTarihli) {
+        await createIleriTarihliIslem.mutateAsync({
+          type: 'cari_odeme',
+          amount: parseCurrency(amount),
+          description: description.trim() || null,
+          cari_id: cariId,
+          hesap_id: hesapId,
+          kategori_id: kategoriId,
+          scheduled_date: formatDateForDB(selectedDate),
+        });
 
-      Alert.alert('Başarılı', 'Ödeme kaydedildi', [
-        { text: 'Tamam', onPress: () => router.back() },
-      ]);
+        Alert.alert('Başarılı', 'İleri tarihli ödeme oluşturuldu', [
+          { text: 'Tamam', onPress: () => router.back() },
+        ]);
+      } else {
+        await createIslem.mutateAsync({
+          type: 'cari_odeme',
+          amount: parseCurrency(amount),
+          description: description.trim() || null,
+          cari_id: cariId,
+          hesap_id: hesapId,
+          kategori_id: kategoriId,
+          date: formatDateForDB(selectedDate),
+        });
+
+        Alert.alert('Başarılı', 'Ödeme kaydedildi', [
+          { text: 'Tamam', onPress: () => router.back() },
+        ]);
+      }
     } catch (error: any) {
       Alert.alert('Hata', error.message || 'İşlem eklenemedi');
     }
+  };
+
+  const closeAllPickers = () => {
+    setShowCariPicker(false);
+    setShowHesapPicker(false);
   };
 
   return (
@@ -104,14 +139,37 @@ export default function CariOdemePage() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <Text variant="h2">Tedarikçiye Ödeme</Text>
-            <Text variant="body" color="secondary">
-              Bu işlem tedarikçiye olan borcunuzu azaltır
-            </Text>
+            <View style={styles.headerRow}>
+              <View style={styles.headerTitleContainer}>
+                <Text variant="h2">Tedarikçiye Ödeme</Text>
+                <Text variant="body" color="secondary">
+                  Bu işlem tedarikçiye olan borcunuzu azaltır
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
+                onPress={() => {
+                  setIsIleriTarihli(!isIleriTarihli);
+                  if (!isIleriTarihli) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    setSelectedDate(tomorrow);
+                  }
+                }}
+              >
+                <Bell size={22} color={isIleriTarihli ? colors.warning : colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {isIleriTarihli && (
+              <View style={styles.ileriTarihliIndicator}>
+                <Text variant="caption" style={styles.ileriTarihliText}>
+                  İleri Tarihli İşlem
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.section}>
-            {/* Tedarikçi Seçici */}
             <View style={[styles.pickerContainer, { zIndex: 30 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
                 Tedarikçi
@@ -119,8 +177,8 @@ export default function CariOdemePage() {
               <TouchableOpacity
                 style={[styles.picker, errors.cari && styles.pickerError]}
                 onPress={() => {
+                  closeAllPickers();
                   setShowCariPicker(!showCariPicker);
-                  setShowHesapPicker(false);
                 }}
               >
                 <View>
@@ -158,7 +216,6 @@ export default function CariOdemePage() {
               )}
             </View>
 
-            {/* Hesap Seçici */}
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
                 Ödeme Yapılacak Hesap
@@ -166,8 +223,8 @@ export default function CariOdemePage() {
               <TouchableOpacity
                 style={[styles.picker, errors.hesap && styles.pickerError]}
                 onPress={() => {
+                  closeAllPickers();
                   setShowHesapPicker(!showHesapPicker);
-                  setShowCariPicker(false);
                 }}
               >
                 <View>
@@ -205,7 +262,6 @@ export default function CariOdemePage() {
               )}
             </View>
 
-            {/* Kategori Seçici */}
             <CategoryPicker
               value={kategoriId}
               onChange={setKategoriId}
@@ -221,10 +277,11 @@ export default function CariOdemePage() {
             />
 
             <DateTimePicker
-              label="Tarih ve Saat"
+              label={isIleriTarihli ? "İşlem Tarihi" : "Tarih ve Saat"}
               value={selectedDate}
               onChange={setSelectedDate}
-              mode="datetime"
+              mode={isIleriTarihli ? "date" : "datetime"}
+              error={errors.date}
             />
 
             <Input
@@ -244,11 +301,11 @@ export default function CariOdemePage() {
             <Button
               variant="primary"
               size="lg"
-              loading={createIslem.isPending}
+              loading={createIslem.isPending || createIleriTarihliIslem.isPending}
               onPress={handleSubmit}
-              style={styles.button}
+              style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              Ödeme Yap
+              {isIleriTarihli ? 'Planla' : 'Ödeme Yap'}
             </Button>
           </View>
         </ScrollView>
@@ -263,6 +320,40 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { paddingBottom: spacing['3xl'] },
   header: { paddingHorizontal: spacing.lg, paddingVertical: spacing.lg },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bellButtonActive: {
+    backgroundColor: colors.warning + '20',
+    borderColor: colors.warning,
+  },
+  ileriTarihliIndicator: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  ileriTarihliText: {
+    color: colors.warning,
+    fontWeight: '600',
+  },
   section: { paddingHorizontal: spacing.lg, marginBottom: spacing.lg },
   pickerContainer: { marginBottom: spacing.lg, zIndex: 1 },
   pickerLabel: { marginBottom: spacing.sm },
@@ -300,4 +391,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   button: { flex: 1 },
+  buttonIleriTarihli: {
+    backgroundColor: colors.warning,
+  },
 });

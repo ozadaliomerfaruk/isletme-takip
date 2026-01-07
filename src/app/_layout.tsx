@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -9,6 +9,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { colors } from '@/constants/colors';
+import {
+  registerForPushNotificationsAsync,
+  savePushToken,
+  addNotificationListeners,
+} from '@/lib/notifications';
 
 const ONBOARDING_KEY = '@defter_onboarding_completed';
 
@@ -18,6 +23,7 @@ function RootLayoutNav() {
   const router = useRouter();
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const pushTokenRegistered = useRef(false);
 
   // Onboarding durumunu kontrol et
   useEffect(() => {
@@ -32,6 +38,40 @@ function RootLayoutNav() {
     };
     checkOnboarding();
   }, []);
+
+  // Push notification ayarları
+  useEffect(() => {
+    if (!user || pushTokenRegistered.current) return;
+
+    const setupPushNotifications = async () => {
+      const token = await registerForPushNotificationsAsync();
+      if (token) {
+        await savePushToken(user.id, token);
+        pushTokenRegistered.current = true;
+      }
+    };
+
+    setupPushNotifications();
+  }, [user]);
+
+  // Bildirim dinleyicileri
+  useEffect(() => {
+    const cleanup = addNotificationListeners(
+      (notification) => {
+        // Bildirim alındığında (uygulama açıkken)
+        console.log('Bildirim alındı:', notification.request.content.title);
+      },
+      (response) => {
+        // Bildirime tıklandığında
+        const data = response.notification.request.content.data;
+        if (data?.screen) {
+          router.push(data.screen as any);
+        }
+      }
+    );
+
+    return cleanup;
+  }, [router]);
 
   useEffect(() => {
     if (!initialized || !onboardingChecked) return;

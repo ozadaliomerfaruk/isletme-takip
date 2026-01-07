@@ -55,6 +55,7 @@ export default function DahaPage() {
               await signOut();
             } catch (error) {
               console.error('Logout error:', error);
+              Alert.alert('Hata', 'Çıkış yapılırken bir sorun oluştu. Lütfen tekrar deneyin.');
             }
           },
         },

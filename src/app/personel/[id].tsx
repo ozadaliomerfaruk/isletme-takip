@@ -14,7 +14,7 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -22,6 +22,7 @@ import { formatDateShort, formatDateMedium } from '@/lib/date';
 import { getInitials } from '@/lib/utils';
 import { usePersonelById, useDeletePersonel } from '@/hooks/usePersonel';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
+import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
 
 export default function PersonelHareketleriPage() {
@@ -30,6 +31,7 @@ export default function PersonelHareketleriPage() {
 
   const { data: personel, isLoading: personelLoading } = usePersonelById(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByPersonel(id!);
+  const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
 
@@ -231,8 +233,13 @@ export default function PersonelHareketleriPage() {
             </Button>
           </View>
 
-          {/* Hareketler */}
+          {/* İleri Tarihli İşlemler ve Hareketler */}
           <View style={styles.section}>
+            <IleriTarihliIslemlerSection
+              ileriTarihliIslemler={ileriTarihliIslemler}
+              isLoading={ileriTarihliLoading}
+            />
+
             <Text variant="h3" style={styles.sectionTitle}>
               Hareketler
             </Text>
