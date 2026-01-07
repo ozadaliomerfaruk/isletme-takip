@@ -19,7 +19,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useIslem, useUpdateIslem } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, toNumber } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
@@ -302,8 +302,8 @@ export default function IslemDuzenlePage() {
                         {selectedCari?.name || 'Cari seçin'}
                       </Text>
                       {selectedCari && (
-                        <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
-                          Bakiye: {formatCurrency(Number(selectedCari.balance))}
+                        <Text variant="caption" color={toNumber(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
+                          Bakiye: {formatCurrency(toNumber(selectedCari.balance))}
                         </Text>
                       )}
                     </View>
@@ -355,8 +355,8 @@ export default function IslemDuzenlePage() {
                           : 'Personel seçin'}
                       </Text>
                       {selectedPersonel && (
-                        <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
-                          Borc: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                        <Text variant="caption" color={toNumber(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
+                          Borc: {formatCurrency(Math.abs(toNumber(selectedPersonel.balance)))}
                         </Text>
                       )}
                     </View>

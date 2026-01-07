@@ -541,7 +541,7 @@ async function reverseBalancesForIslem(islem: IslemInsert) {
         await safeIncrementBalance('personel', islem.personel_id, -amount);
       }
       if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       break;
   }

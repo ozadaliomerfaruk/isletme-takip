@@ -17,7 +17,7 @@ import {
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort, formatDateMedium } from '@/lib/date';
 import { useCari, useDeleteCari } from '@/hooks/useCariler';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
@@ -54,7 +54,7 @@ export default function CariHareketleriPage() {
       }
     });
 
-    return Number(cari.balance) - totalEffect;
+    return toNumber(cari.balance) - totalEffect;
   };
 
   const initialBalance = calculateInitialBalance();
@@ -191,10 +191,10 @@ export default function CariHareketleriPage() {
               </View>
               <View style={styles.balanceInfo}>
                 <Text variant="caption" color="secondary">
-                  {Number(cari.balance) < 0 ? 'Borcumuz' : 'Alacağımız'}
+                  {toNumber(cari.balance) < 0 ? 'Borcumuz' : 'Alacağımız'}
                 </Text>
-                <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
-                  {formatCurrency(Math.abs(Number(cari.balance)))}
+                <Text variant="h2" color={toNumber(cari.balance) < 0 ? 'error' : 'success'}>
+                  {formatCurrency(Math.abs(toNumber(cari.balance)))}
                 </Text>
               </View>
             </View>

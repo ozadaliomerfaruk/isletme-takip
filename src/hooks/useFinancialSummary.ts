@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useCariler } from './useCariler';
 import { usePersonelList } from './usePersonel';
+import { toNumber } from '@/lib/currency';
 
 export interface FinancialBreakdown {
   cari: number;
@@ -44,7 +45,7 @@ export function useFinancialSummary(): FinancialSummary {
     // Cari hesaplaması
     const cariSummary = cariler?.reduce(
       (acc, cari) => {
-        const balance = Number(cari.balance);
+        const balance = toNumber(cari.balance);
         if (balance > 0) {
           // Pozitif bakiye = müşteriden alacak
           acc.receivables += balance;
@@ -60,7 +61,7 @@ export function useFinancialSummary(): FinancialSummary {
     // Personel hesaplaması
     const personelSummary = personelList?.reduce(
       (acc, personel) => {
-        const balance = Number(personel.balance);
+        const balance = toNumber(personel.balance);
         if (balance > 0) {
           // Pozitif bakiye = personelden alacak (avans vs.)
           acc.receivables += balance;

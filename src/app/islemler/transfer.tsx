@@ -17,7 +17,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency, isValidAmount, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
 export default function TransferPage() {
@@ -184,7 +184,7 @@ export default function TransferPage() {
                   <Text variant="body">{kaynakHesap?.name || 'Hesap seçin'}</Text>
                   {kaynakHesap && (
                     <Text variant="caption" color="secondary">
-                      Bakiye: {formatCurrency(Number(kaynakHesap.balance))}
+                      Bakiye: {formatCurrency(toNumber(kaynakHesap.balance))}
                     </Text>
                   )}
                 </View>
@@ -213,7 +213,7 @@ export default function TransferPage() {
                         {hesap.name}
                       </Text>
                       <Text variant="caption" color="secondary">
-                        {formatCurrency(Number(hesap.balance))}
+                        {formatCurrency(toNumber(hesap.balance))}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -242,7 +242,7 @@ export default function TransferPage() {
                   <Text variant="body">{hedefHesap?.name || 'Hesap seçin'}</Text>
                   {hedefHesap && (
                     <Text variant="caption" color="secondary">
-                      Bakiye: {formatCurrency(Number(hedefHesap.balance))}
+                      Bakiye: {formatCurrency(toNumber(hedefHesap.balance))}
                     </Text>
                   )}
                 </View>
@@ -271,7 +271,7 @@ export default function TransferPage() {
                         {hesap.name}
                       </Text>
                       <Text variant="caption" color="secondary">
-                        {formatCurrency(Number(hesap.balance))}
+                        {formatCurrency(toNumber(hesap.balance))}
                       </Text>
                     </TouchableOpacity>
                   ))}

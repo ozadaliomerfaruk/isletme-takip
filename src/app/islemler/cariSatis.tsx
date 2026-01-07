@@ -17,7 +17,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency, isValidAmount, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
 export default function CariSatisPage() {
@@ -162,8 +162,8 @@ export default function CariSatisPage() {
                 <View>
                   <Text variant="body">{selectedCari?.name || 'Müşteri seçin'}</Text>
                   {selectedCari && (
-                    <Text variant="caption" color={Number(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
-                      Alacak: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                    <Text variant="caption" color={toNumber(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
+                      Alacak: {formatCurrency(Math.abs(toNumber(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>

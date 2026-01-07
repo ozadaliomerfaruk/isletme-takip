@@ -18,7 +18,7 @@ import {
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort, formatDateMedium } from '@/lib/date';
 import { useHesap, useDeleteHesap } from '@/hooks/useHesaplar';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
@@ -58,7 +58,7 @@ export default function HesapHareketleriPage() {
       }
     });
 
-    return Number(hesap.balance) - totalEffect;
+    return toNumber(hesap.balance) - totalEffect;
   };
 
   const initialBalance = calculateInitialBalance();
@@ -221,8 +221,8 @@ export default function HesapHareketleriPage() {
                 <Text variant="caption" color="secondary">
                   Mevcut Bakiye
                 </Text>
-                <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
-                  {formatCurrency(Number(hesap.balance))}
+                <Text variant="h2" color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}>
+                  {formatCurrency(toNumber(hesap.balance))}
                 </Text>
               </View>
             </View>

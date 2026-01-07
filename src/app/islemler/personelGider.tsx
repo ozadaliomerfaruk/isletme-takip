@@ -17,7 +17,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency, isValidAmount, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
 export default function PersonelGiderPage() {
@@ -168,8 +168,8 @@ export default function PersonelGiderPage() {
                       : 'Personel seçin'}
                   </Text>
                   {selectedPersonel && (
-                    <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
-                      Borç: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                    <Text variant="caption" color={toNumber(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
+                      Borç: {formatCurrency(Math.abs(toNumber(selectedPersonel.balance)))}
                     </Text>
                   )}
                 </View>

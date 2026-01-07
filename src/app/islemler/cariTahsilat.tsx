@@ -18,7 +18,7 @@ import { useCariler } from '@/hooks/useCariler';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency, isValidAmount, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
 export default function CariTahsilatPage() {
@@ -181,8 +181,8 @@ export default function CariTahsilatPage() {
                 <View>
                   <Text variant="body">{selectedCari?.name || 'Müşteri seçin'}</Text>
                   {selectedCari && (
-                    <Text variant="caption" color={Number(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
-                      Alacak: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                    <Text variant="caption" color={toNumber(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
+                      Alacak: {formatCurrency(Math.abs(toNumber(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>
@@ -228,7 +228,7 @@ export default function CariTahsilatPage() {
                   <Text variant="body">{selectedHesap?.name || 'Hesap seçin'}</Text>
                   {selectedHesap && (
                     <Text variant="caption" color="secondary">
-                      Bakiye: {formatCurrency(Number(selectedHesap.balance))}
+                      Bakiye: {formatCurrency(toNumber(selectedHesap.balance))}
                     </Text>
                   )}
                 </View>

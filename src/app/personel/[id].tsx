@@ -17,7 +17,7 @@ import {
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort, formatDateMedium } from '@/lib/date';
 import { getInitials } from '@/lib/utils';
 import { usePersonelById, useDeletePersonel } from '@/hooks/usePersonel';
@@ -53,7 +53,7 @@ export default function PersonelHareketleriPage() {
       }
     });
 
-    return Number(personel.balance) - totalEffect;
+    return toNumber(personel.balance) - totalEffect;
   };
 
   const initialBalance = calculateInitialBalance();
@@ -182,10 +182,10 @@ export default function PersonelHareketleriPage() {
               </View>
               <View style={styles.balanceInfo}>
                 <Text variant="caption" color="secondary">
-                  {Number(personel.balance) < 0 ? 'Borcumuz' : 'Alacağımız'}
+                  {toNumber(personel.balance) < 0 ? 'Borcumuz' : 'Alacağımız'}
                 </Text>
-                <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
-                  {formatCurrency(Math.abs(Number(personel.balance)))}
+                <Text variant="h2" color={toNumber(personel.balance) < 0 ? 'error' : 'success'}>
+                  {formatCurrency(Math.abs(toNumber(personel.balance)))}
                 </Text>
               </View>
             </View>

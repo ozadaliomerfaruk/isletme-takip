@@ -17,7 +17,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency, isValidAmount, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
 export default function CariAlisPage() {
@@ -164,8 +164,8 @@ export default function CariAlisPage() {
                 <View>
                   <Text variant="body">{selectedCari?.name || 'Tedarikçi seçin'}</Text>
                   {selectedCari && (
-                    <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
-                      Borç: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                    <Text variant="caption" color={toNumber(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
+                      Borç: {formatCurrency(Math.abs(toNumber(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>
@@ -194,7 +194,7 @@ export default function CariAlisPage() {
                         {cari.name}
                       </Text>
                       <Text variant="caption" color="secondary">
-                        Borç: {formatCurrency(Math.abs(Number(cari.balance)))}
+                        Borç: {formatCurrency(Math.abs(toNumber(cari.balance)))}
                       </Text>
                     </TouchableOpacity>
                   ))}

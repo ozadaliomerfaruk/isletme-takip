@@ -18,7 +18,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency, isValidAmount, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 
 export default function PersonelOdemePage() {
@@ -188,8 +188,8 @@ export default function PersonelOdemePage() {
                       : 'Personel seçin'}
                   </Text>
                   {selectedPersonel && (
-                    <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'success'}>
-                      Borç: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                    <Text variant="caption" color={toNumber(selectedPersonel.balance) < 0 ? 'error' : 'success'}>
+                      Borç: {formatCurrency(Math.abs(toNumber(selectedPersonel.balance)))}
                     </Text>
                   )}
                 </View>
@@ -235,7 +235,7 @@ export default function PersonelOdemePage() {
                   <Text variant="body">{selectedHesap?.name || 'Hesap seçin'}</Text>
                   {selectedHesap && (
                     <Text variant="caption" color="secondary">
-                      Bakiye: {formatCurrency(Number(selectedHesap.balance))}
+                      Bakiye: {formatCurrency(toNumber(selectedHesap.balance))}
                     </Text>
                   )}
                 </View>
