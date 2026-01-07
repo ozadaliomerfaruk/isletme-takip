@@ -40,17 +40,17 @@ export function parseCurrency(value: string): number {
     // Sadece virgül var - ondalık ayracı olarak kullan
     cleaned = cleaned.replace(',', '.');
   } else if (cleaned.includes('.')) {
-    // Sadece nokta var - Türkçe binlik ayracı mı yoksa İngilizce ondalık mı?
-    // Türkçe binlik ayracı: noktadan sonra tam 3 rakam varsa (5.000, 1.234.567)
-    // İngilizce ondalık: noktadan sonra 1-2 rakam varsa (5.00, 123.45)
-    const parts = cleaned.split('.');
-    const lastPart = parts[parts.length - 1];
+    // Sadece nokta var - binlik mi ondalık mı kontrol et
+    // Türkçe binlik ayracı: nokta her zaman 3 rakamdan önce gelir (5.000, 50.000, 1.234.567)
+    // İngilizce ondalık: nokta 1-2 rakamdan önce gelir (5.5, 5.50)
+    const dotIndex = cleaned.lastIndexOf('.');
+    const afterDot = cleaned.length - dotIndex - 1;
 
-    if (lastPart.length === 3 && parts.length >= 2) {
-      // Türkçe binlik ayracı - noktaları kaldır
+    if (afterDot === 3) {
+      // Türkçe binlik ayracı (5.000 → 5000)
       cleaned = cleaned.replace(/\./g, '');
     }
-    // Aksi halde İngilizce format - olduğu gibi bırak
+    // afterDot < 3 ise İngilizce ondalık, olduğu gibi bırak
   }
 
   return parseFloat(cleaned);
