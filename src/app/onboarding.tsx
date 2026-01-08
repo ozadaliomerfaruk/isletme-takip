@@ -87,7 +87,7 @@ export default function OnboardingScreen() {
       await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
       router.replace('/(tabs)');
     } catch (error) {
-      console.error('Onboarding kayit hatasi:', error);
+      console.error('Onboarding kayıt hatası:', error);
       router.replace('/(tabs)');
     }
   };

@@ -179,16 +179,16 @@ export default function RaporlarPage() {
         </Card>
       </View>
 
-      {/* Islem Dagilimi */}
+      {/* İşlem Dağılımı */}
       <View style={styles.section}>
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          ISLEM DAGILIMI
+          İŞLEM DAĞILIMI
         </Text>
         <Card>
           <View style={styles.distributionHeader}>
             <PieChart size={20} color={colors.primary} />
             <Text variant="body" style={{ marginLeft: spacing.sm }}>
-              Toplam {islemler?.length ?? 0} islem
+              Toplam {islemler?.length ?? 0} işlem
             </Text>
           </View>
           <View style={styles.distributionGrid}>
@@ -261,7 +261,7 @@ export default function RaporlarPage() {
       {/* Cari Durum */}
       <View style={styles.section}>
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          CARI DURUM
+          CARİ DURUM
         </Text>
         <Card>
           <View style={styles.accountHeader}>

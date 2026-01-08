@@ -65,11 +65,11 @@ export default function PersonelDuzenlePage() {
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
       });
 
-      Alert.alert('Başarılı', 'Personel guncellendi', [
+      Alert.alert('Başarılı', 'Personel güncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Personel guncellenemedi');
+      Alert.alert('Hata', error.message || 'Personel güncellenemedi');
     }
   };
 
@@ -87,7 +87,7 @@ export default function PersonelDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Personel bulunamadi</Text>
+          <Text>Personel bulunamadı</Text>
         </View>
       </SafeAreaView>
     );
@@ -155,7 +155,7 @@ export default function PersonelDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                Iptal
+                İptal
               </Button>
               <Button
                 variant="primary"
@@ -164,7 +164,7 @@ export default function PersonelDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Guncelle
+                Güncelle
               </Button>
             </View>
           </ScrollView>

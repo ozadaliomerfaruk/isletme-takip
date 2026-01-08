@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
+  ArrowLeft,
+  ArrowRight,
   ArrowLeftRight,
   Wallet,
   TrendingUp,
@@ -14,18 +14,21 @@ import {
   CircleDollarSign,
   Pencil,
   Trash2,
+  Clock,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
+import { QuickTransactionBar, TransactionType } from '@/components/transaction';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateShort, formatDateMedium } from '@/lib/date';
+import { formatDateShort, formatDateSmart, formatTime, isSameYear } from '@/lib/date';
 import { useHesap, useDeleteHesap } from '@/hooks/useHesaplar';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
 
 export default function HesapHareketleriPage() {
+  console.log('=== HESAP DETAY SAYFASI YUKLENDI ===');
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -36,6 +39,23 @@ export default function HesapHareketleriPage() {
   const deleteHesap = useDeleteHesap();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
+  const [showTransactionBar, setShowTransactionBar] = useState(false);
+  const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
+  const isOpeningRef = useRef(false);
+
+  // Debounced transaction opener to prevent race conditions
+  const openTransaction = useCallback((type: TransactionType) => {
+    if (isOpeningRef.current) return;
+    isOpeningRef.current = true;
+
+    setTransactionType(type);
+    setShowTransactionBar(true);
+
+    // Reset guard after animation completes
+    setTimeout(() => {
+      isOpeningRef.current = false;
+    }, 500);
+  }, []);
 
   // Başlangıç bakiyesini hesapla (mevcut bakiye - tüm işlemlerin etkisi)
   const calculateInitialBalance = () => {
@@ -63,21 +83,55 @@ export default function HesapHareketleriPage() {
 
   const initialBalance = calculateInitialBalance();
 
-  const getHareketIcon = (type: string) => {
-    switch (type) {
-      case 'gelir':
-      case 'cari_tahsilat':
-        return <ArrowDownLeft size={20} color={colors.success} />;
-      case 'gider':
+  // Yön bazlı icon: gelen para ← , giden para →
+  const getHareketIcon = (type: string, isIncoming: boolean) => {
+    if (type === 'transfer') {
+      // Transfer için yöne göre ok
+      return isIncoming
+        ? <ArrowLeft size={20} color={colors.success} />
+        : <ArrowRight size={20} color={colors.error} />;
+    }
+
+    // Gelen para (gelir, tahsilat)
+    if (type === 'gelir' || type === 'cari_tahsilat') {
+      return <ArrowLeft size={20} color={colors.success} />;
+    }
+
+    // Giden para (gider, ödeme)
+    return <ArrowRight size={20} color={colors.error} />;
+  };
+
+  // İşlemin hedef/kaynak bilgisini al
+  const getTransactionTarget = (islem: IslemWithRelations): string | null => {
+    switch (islem.type) {
+      case 'transfer':
+        // Transfer için hedef veya kaynak hesap
+        if (islem.hedef_hesap_id === id) {
+          return islem.hesap?.name || null; // Gelen transfer: kaynak hesap
+        }
+        return islem.hedef_hesap?.name || null; // Giden transfer: hedef hesap
       case 'cari_odeme':
+      case 'cari_tahsilat':
+      case 'cari_alis':
+      case 'cari_satis':
+        return islem.cari?.name || null;
       case 'personel_odeme':
       case 'personel_gider':
-        return <ArrowUpRight size={20} color={colors.error} />;
-      case 'transfer':
-        return <ArrowLeftRight size={20} color={colors.info} />;
+        if (islem.personel) {
+          return `${islem.personel.first_name} ${islem.personel.last_name}`;
+        }
+        return null;
       default:
-        return <Wallet size={20} color={colors.textMuted} />;
+        return null;
     }
+  };
+
+  // İşlem gelen mi giden mi?
+  const isIncomingTransaction = (type: string, hedefHesapId: string | null): boolean => {
+    if (type === 'transfer') {
+      return hedefHesapId === id;
+    }
+    return type === 'gelir' || type === 'cari_tahsilat';
   };
 
   const getHareketLabel = (type: string) => {
@@ -254,7 +308,7 @@ export default function HesapHareketleriPage() {
               variant="primary"
               size="md"
               icon={<TrendingUp size={18} color={colors.surface} />}
-              onPress={() => router.push({ pathname: '/islemler/gelir', params: { hesap_id: id } })}
+              onPress={() => openTransaction('gelir')}
               style={styles.actionBtn}
             >
               Gelir
@@ -263,7 +317,7 @@ export default function HesapHareketleriPage() {
               variant="secondary"
               size="md"
               icon={<TrendingDown size={18} color={colors.text} />}
-              onPress={() => router.push({ pathname: '/islemler/gider', params: { hesap_id: id } })}
+              onPress={() => openTransaction('gider')}
               style={styles.actionBtn}
             >
               Gider
@@ -298,6 +352,9 @@ export default function HesapHareketleriPage() {
                 {islemler && islemler.length > 0 && islemler.map((islem) => {
                   const sign = getAmountSign(islem.type, id!, islem.hesap_id, islem.hedef_hesap_id);
                   const colorType = getAmountColor(islem.type, id!, islem.hedef_hesap_id);
+                  const isIncoming = isIncomingTransaction(islem.type, islem.hedef_hesap_id);
+                  const target = getTransactionTarget(islem as IslemWithRelations);
+                  const showTimeInExpanded = !isSameYear(islem.date);
 
                   return (
                     <ExpandableCard
@@ -316,13 +373,18 @@ export default function HesapHareketleriPage() {
                                   : colors.infoLight
                             }
                           ]}>
-                            {getHareketIcon(islem.type)}
+                            {getHareketIcon(islem.type, isIncoming)}
                           </View>
                           <View style={styles.hareketInfo}>
-                            <Text variant="body">{formatDateMedium(islem.date)}</Text>
+                            <Text variant="body">{formatDateSmart(islem.date)}</Text>
                             <Text variant="caption" color="secondary">
                               {getHareketLabel(islem.type)}
                             </Text>
+                            {target && (
+                              <Text variant="caption" color="secondary">
+                                {target}
+                              </Text>
+                            )}
                             {(islem as IslemWithRelations).kategori?.name && (
                               <Text variant="caption" color="secondary">
                                 {(islem as IslemWithRelations).kategori?.name}
@@ -340,6 +402,15 @@ export default function HesapHareketleriPage() {
                         </View>
                       }
                     >
+                      {/* Farklı yıl işlemlerinde saat göster */}
+                      {showTimeInExpanded && (
+                        <View style={styles.timeRow}>
+                          <Clock size={14} color={colors.textMuted} />
+                          <Text variant="caption" color="secondary">
+                            Saat: {formatTime(islem.date)}
+                          </Text>
+                        </View>
+                      )}
                       <View style={styles.hareketActions}>
                         <Button
                           variant="secondary"
@@ -371,9 +442,9 @@ export default function HesapHareketleriPage() {
                       <CircleDollarSign size={20} color={colors.primary} />
                     </View>
                     <View style={styles.hareketInfo}>
-                      <Text variant="body">Baslangic Bakiyesi</Text>
+                      <Text variant="body">Başlangıç Bakiyesi</Text>
                       <Text variant="caption" color="secondary">
-                        Hesap acilisi • {formatDateShort(hesap?.created_at || '')}
+                        Hesap açılışı • {formatDateShort(hesap?.created_at || '')}
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'primary' : 'error'}>
@@ -386,6 +457,14 @@ export default function HesapHareketleriPage() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {/* Quick Transaction Bar */}
+      <QuickTransactionBar
+        visible={showTransactionBar}
+        onDismiss={() => setShowTransactionBar(false)}
+        defaultType={transactionType}
+        defaultHesapId={id}
+      />
     </>
   );
 }
@@ -473,5 +552,14 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
 });

@@ -13,12 +13,13 @@ import {
   Banknote,
   History,
 } from 'lucide-react-native';
-import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
+import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getCariIcon, getCariBalanceLabel } from '@/lib/icons';
 import { useCariler } from '@/hooks/useCariler';
+import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { CariType } from '@/types/database';
 
 const filterOptions = [
@@ -37,6 +38,7 @@ export default function CarilerPage() {
   const { data: cariler, isLoading } = useCariler(
     filter === 'all' ? undefined : (filter as CariType)
   );
+  const { payables, receivables } = useFinancialSummary();
 
   // Arama filtresi
   const filteredCariler = cariler?.filter((cari) =>
@@ -58,6 +60,18 @@ export default function CarilerPage() {
           >
             Ekle
           </Button>
+        </View>
+
+        {/* Özet Kartları */}
+        <View style={styles.summaryContainer}>
+          <Card style={styles.summaryCard}>
+            <Text variant="caption" color="secondary">Toplam Borcumuz</Text>
+            <Text variant="h3" color="error">{formatCurrency(payables.cari)}</Text>
+          </Card>
+          <Card style={styles.summaryCard}>
+            <Text variant="caption" color="secondary">Toplam Alacağımız</Text>
+            <Text variant="h3" color="success">{formatCurrency(receivables.cari)}</Text>
+          </Card>
         </View>
 
         {/* Arama */}
@@ -203,6 +217,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  summaryCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,

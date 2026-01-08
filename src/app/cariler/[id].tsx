@@ -166,7 +166,7 @@ export default function CariHareketleriPage() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Cari Ozeti */}
+          {/* Cari Özeti */}
           <Card style={styles.summaryCard}>
             <View style={styles.summaryRow}>
               <View style={[styles.summaryIcon, { backgroundColor: isTedarikci ? colors.warningLight : colors.infoLight }]}>
@@ -231,7 +231,7 @@ export default function CariHareketleriPage() {
                   onPress={() => router.push({ pathname: '/islemler/cariAlis', params: { cari_id: id } })}
                   style={styles.actionBtn}
                 >
-                  Alis
+                  Alış
                 </Button>
                 <Button
                   variant="secondary"
@@ -240,7 +240,7 @@ export default function CariHareketleriPage() {
                   onPress={() => router.push({ pathname: '/islemler/cariOdeme', params: { cari_id: id } })}
                   style={styles.actionBtn}
                 >
-                  Odeme
+                  Ödeme
                 </Button>
               </>
             ) : (
@@ -252,7 +252,7 @@ export default function CariHareketleriPage() {
                   onPress={() => router.push({ pathname: '/islemler/cariSatis', params: { cari_id: id } })}
                   style={styles.actionBtn}
                 >
-                  Satis
+                  Satış
                 </Button>
                 <Button
                   variant="secondary"
@@ -355,9 +355,9 @@ export default function CariHareketleriPage() {
                       <CircleDollarSign size={20} color={colors.primary} />
                     </View>
                     <View style={styles.hareketInfo}>
-                      <Text variant="body">Baslangic Bakiyesi</Text>
+                      <Text variant="body">Başlangıç Bakiyesi</Text>
                       <Text variant="caption" color="secondary">
-                        Cari acilisi • {formatDateShort(cari.created_at)}
+                        Cari açılışı • {formatDateShort(cari.created_at)}
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>

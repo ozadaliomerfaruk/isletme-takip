@@ -18,7 +18,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
@@ -134,7 +134,7 @@ export default function TransferPage() {
           description: description.trim() || null,
           hesap_id: kaynakHesapId,
           hedef_hesap_id: hedefHesapId,
-          date: formatDateForDB(selectedDate),
+          date: formatDateTimeForDB(selectedDate),
         });
 
         Alert.alert('Başarılı', 'Transfer yapıldı', [

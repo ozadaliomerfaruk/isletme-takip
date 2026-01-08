@@ -33,7 +33,7 @@ export default function KategoriEklePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Kategori adi gerekli';
+      newErrors.name = 'Kategori adı gerekli';
     }
 
     setErrors(newErrors);
@@ -78,7 +78,7 @@ export default function KategoriEklePage() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Tip Secimi */}
+            {/* Tip Seçimi */}
             <View style={styles.section}>
               <Text variant="label" style={styles.sectionTitle}>
                 Kategori Tipi
@@ -136,11 +136,11 @@ export default function KategoriEklePage() {
               </View>
             </View>
 
-            {/* Kategori Adi */}
+            {/* Kategori Adı */}
             <View style={styles.section}>
               <Input
-                label="Kategori Adi"
-                placeholder="Orn: Yemek, Ulasim, Kira..."
+                label="Kategori Adı"
+                placeholder="Örn: Yemek, Ulaşım, Kira..."
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
@@ -182,13 +182,13 @@ export default function KategoriEklePage() {
             {/* Ornek Kategoriler */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                Ornek Kategoriler
+                Örnek Kategoriler
               </Text>
               <Card>
                 <View style={styles.examplesGrid}>
                   {(type === 'gelir'
-                    ? ['Satis', 'Hizmet', 'Faiz', 'Kira Geliri', 'Diger Gelir']
-                    : ['Kira', 'Maas', 'Fatura', 'Malzeme', 'Ulasim', 'Yemek', 'Reklam', 'Diger Gider']
+                    ? ['Satış', 'Hizmet', 'Faiz', 'Kira Geliri', 'Diğer Gelir']
+                    : ['Kira', 'Maaş', 'Fatura', 'Malzeme', 'Ulaşım', 'Yemek', 'Reklam', 'Diğer Gider']
                   ).map((example) => (
                     <TouchableOpacity
                       key={example}
@@ -212,7 +212,7 @@ export default function KategoriEklePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                Iptal
+                İptal
               </Button>
               <Button
                 variant="primary"

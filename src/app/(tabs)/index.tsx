@@ -21,6 +21,9 @@ import {
   ChevronRight,
 } from 'lucide-react-native';
 import { Text, Card, TabFilter, ExpandableCard, Button, EmptyState, NotificationBell } from '@/components/ui';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { TransactionType } from '@/components/transaction/TransactionTypeTabs';
+import { SummaryCarousel } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
@@ -48,6 +51,11 @@ export default function HomePage() {
   const [selectedHesapId, setSelectedHesapId] = useState<string | null>(null);
   const [expandedHesapId, setExpandedHesapId] = useState<string | null>(null);
 
+  // QuickTransactionBar state
+  const [quickBarVisible, setQuickBarVisible] = useState(false);
+  const [quickBarType, setQuickBarType] = useState<TransactionType>('gelir');
+  const [quickBarHesapId, setQuickBarHesapId] = useState<string | undefined>(undefined);
+
   // Özel tarih aralığı için state'ler
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
@@ -64,6 +72,12 @@ export default function HomePage() {
     setOdemeModalVisible(true);
   };
 
+  const openQuickBar = (type: TransactionType, hesapId: string) => {
+    setQuickBarType(type);
+    setQuickBarHesapId(hesapId);
+    setQuickBarVisible(true);
+  };
+
   const handleOdemeSelect = (type: 'cari' | 'personel') => {
     setOdemeModalVisible(false);
     // Eğer hesap seçili değilse ilk hesabı kullan
@@ -76,7 +90,7 @@ export default function HomePage() {
     }
   };
   const totalBalance = useTotalBalance();
-  const { payables, receivables } = useFinancialSummary();
+  const { assets, payables, receivables, generalStatus } = useFinancialSummary();
   const customRange = period === 'custom' ? {
     startDate: formatDateForDB(customStartDate),
     endDate: formatDateForDB(customEndDate),
@@ -85,7 +99,6 @@ export default function HomePage() {
 
   const totalIncome = monthSummary?.income ?? 0;
   const totalExpense = monthSummary?.expense ?? 0;
-  const netProfit = totalIncome - totalExpense;
 
   // Silme planlanmış mı kontrol et
   const scheduledDeletion = isletme?.scheduled_deletion_at;
@@ -97,9 +110,9 @@ export default function HomePage() {
   const handleCancelDeletion = () => {
     Alert.alert(
       'Silme Talebini İptal Et',
-      'Hesap silme talebinizi iptal etmek istediginize emin misiniz?',
+      'Hesap silme talebinizi iptal etmek istediğinize emin misiniz?',
       [
-        { text: 'Vazgec', style: 'cancel' },
+        { text: 'Vazgeç', style: 'cancel' },
         {
           text: 'Evet, İptal Et',
           onPress: async () => {
@@ -108,7 +121,7 @@ export default function HomePage() {
               await cancelAccountDeletion();
               Alert.alert('Başarılı', 'Hesap silme talebi iptal edildi.');
             } catch (error) {
-              Alert.alert('Hata', 'Islem sirasinda bir hata olustu.');
+              Alert.alert('Hata', 'İşlem sırasında bir hata oluştu.');
             } finally {
               setIsCancelling(false);
             }
@@ -138,7 +151,7 @@ export default function HomePage() {
                   Hesabınız {daysRemaining} gün içinde silinecek
                 </Text>
                 <Text variant="caption" style={{ color: colors.surface, opacity: 0.9 }}>
-                  Vazgecmek icin asagidaki butona basin
+                  Vazgeçmek için aşağıdaki butona basın
                 </Text>
               </View>
             </View>
@@ -149,7 +162,7 @@ export default function HomePage() {
               loading={isCancelling}
               style={styles.cancelDeletionBtn}
             >
-              Iptal Et
+              İptal Et
             </Button>
           </View>
         )}
@@ -305,88 +318,16 @@ export default function HomePage() {
           )}
         </View>
 
-        {/* Özet Kartları */}
-        <View style={styles.summaryGrid}>
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={[styles.summaryIcon, { backgroundColor: colors.successLight }]}>
-                <TrendingUp size={20} color={colors.success} />
-              </View>
-              <View>
-                <Text variant="caption" color="secondary">
-                  Gelir
-                </Text>
-                <Text variant="h3" color="success">
-                  {formatCurrency(totalIncome)}
-                </Text>
-              </View>
-            </View>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={[styles.summaryIcon, { backgroundColor: colors.errorLight }]}>
-                <TrendingDown size={20} color={colors.error} />
-              </View>
-              <View>
-                <Text variant="caption" color="secondary">
-                  Gider
-                </Text>
-                <Text variant="h3" color="error">
-                  {formatCurrency(totalExpense)}
-                </Text>
-              </View>
-            </View>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={[styles.summaryIcon, { backgroundColor: colors.warningLight }]}>
-                <ArrowDownLeft size={20} color={colors.warning} />
-              </View>
-              <View>
-                <Text variant="caption" color="secondary">
-                  Toplam Borçlar
-                </Text>
-                <Text variant="h3">
-                  {formatCurrency(payables.total)}
-                </Text>
-              </View>
-            </View>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={[styles.summaryIcon, { backgroundColor: colors.infoLight }]}>
-                <ArrowUpRight size={20} color={colors.info} />
-              </View>
-              <View>
-                <Text variant="caption" color="secondary">
-                  Toplam Alacaklar
-                </Text>
-                <Text variant="h3">
-                  {formatCurrency(receivables.total)}
-                </Text>
-              </View>
-            </View>
-          </Card>
-
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={[styles.summaryIcon, { backgroundColor: colors.primaryLight }]}>
-                <TrendingUp size={20} color={colors.primary} />
-              </View>
-              <View>
-                <Text variant="caption" color="secondary">
-                  Net Kar/Zarar
-                </Text>
-                <Text variant="h3" color={netProfit >= 0 ? 'primary' : 'error'}>
-                  {formatCurrency(netProfit)}
-                </Text>
-              </View>
-            </View>
-          </Card>
-        </View>
+        {/* Özet Carousel */}
+        <SummaryCarousel
+          assets={assets}
+          receivables={receivables.total}
+          payables={payables.total}
+          generalStatus={generalStatus}
+          income={totalIncome}
+          expense={totalExpense}
+          periodLabel={periodLabel}
+        />
 
         {/* Hesaplar Bölümü */}
         <View style={styles.section}>
@@ -454,7 +395,7 @@ export default function HomePage() {
               }}
               style={styles.quickActionBtn}
             >
-              Odeme
+              Ödeme
             </Button>
           </View>
 
@@ -492,34 +433,14 @@ export default function HomePage() {
               >
                 <View style={styles.hesapActions}>
                   <Button
-                    variant="secondary"
+                    variant="primary"
                     size="sm"
-                    icon={<ArrowDownLeft size={16} color={colors.success} />}
-                    onPress={() => router.push(`/islemler/gelir?hesap_id=${hesap.id}`)}
+                    icon={<Plus size={16} color={colors.surface} />}
+                    onPress={() => openQuickBar('gelir', hesap.id)}
                     style={styles.actionButton}
                   >
-                    Gelir
+                    İşlem Yap
                   </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<ArrowUpRight size={16} color={colors.error} />}
-                    onPress={() => router.push(`/islemler/gider?hesap_id=${hesap.id}`)}
-                    style={styles.actionButton}
-                  >
-                    Gider
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<Send size={16} color={colors.orange} />}
-                    onPress={() => handleOdemePress(hesap.id)}
-                    style={styles.actionButton}
-                  >
-                    Odeme
-                  </Button>
-                </View>
-                <View style={styles.hesapActionsSecondRow}>
                   <Button
                     variant="outline"
                     size="sm"
@@ -583,6 +504,14 @@ export default function HomePage() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* QuickTransactionBar */}
+      <QuickTransactionBar
+        visible={quickBarVisible}
+        onDismiss={() => setQuickBarVisible(false)}
+        defaultType={quickBarType}
+        defaultHesapId={quickBarHesapId}
+      />
     </SafeAreaView>
   );
 }
@@ -678,28 +607,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
   },
-  summaryGrid: {
-    paddingHorizontal: spacing.lg,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  summaryCard: {
-    width: '48%',
-    flexGrow: 1,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  summaryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   section: {
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
@@ -744,11 +651,6 @@ const styles = StyleSheet.create({
   hesapActions: {
     flexDirection: 'row',
     gap: spacing.sm,
-  },
-  hesapActionsSecondRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
   },
   actionButton: {
     flex: 1,

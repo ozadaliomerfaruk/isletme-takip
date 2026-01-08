@@ -229,7 +229,7 @@ export default function PersonelHareketleriPage() {
               onPress={() => router.push({ pathname: '/islemler/personelOdeme', params: { personel_id: id } })}
               style={styles.actionBtn}
             >
-              Odeme Yap
+              Ödeme Yap
             </Button>
           </View>
 
@@ -317,9 +317,9 @@ export default function PersonelHareketleriPage() {
                       <CircleDollarSign size={20} color={colors.primary} />
                     </View>
                     <View style={styles.hareketInfo}>
-                      <Text variant="body">Baslangic Bakiyesi</Text>
+                      <Text variant="body">Başlangıç Bakiyesi</Text>
                       <Text variant="caption" color="secondary">
-                        Personel kaydi • {formatDateShort(personel.created_at)}
+                        Personel kaydı • {formatDateShort(personel.created_at)}
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>

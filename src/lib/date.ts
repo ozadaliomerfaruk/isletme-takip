@@ -87,6 +87,23 @@ export function formatDateForDB(date: Date): string {
 }
 
 /**
+ * Tarih ve saati veritabanı formatına çevir (YYYY-MM-DDTHH:MM:SS)
+ * Timezone-safe: Yerel tarihi ve saati korur
+ *
+ * @example
+ * formatDateTimeForDB(new Date()) // "2024-12-31T14:30:00"
+ */
+export function formatDateTimeForDB(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+/**
  * Veritabanı tarih string'ini Date objesine çevir
  * Timezone-safe: Gün kayması olmaz
  * ISO timestamp formatını da destekler (created_at gibi alanlar için)
@@ -341,6 +358,44 @@ export function isSameDay(date1: Date | string, date2: Date | string): boolean {
  */
 export function isToday(date: Date | string): boolean {
   return isSameDay(date, new Date());
+}
+
+/**
+ * Tarih bu yıl içinde mi kontrol et
+ */
+export function isSameYear(date: Date | string): boolean {
+  const d = typeof date === 'string' ? parseDateFromDB(date) : date;
+  return d.getFullYear() === new Date().getFullYear();
+}
+
+/**
+ * Saat formatla: "14:30"
+ */
+export function formatTime(date: string | Date): string {
+  const d = typeof date === 'string' ? parseDateFromDB(date) : date;
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+/**
+ * Akıllı tarih formatı:
+ * - Aynı yıl: "19 Ara 14:30" (yıl yok, saat var)
+ * - Farklı yıl: "19 Ara 2025" (yıl var, saat yok)
+ */
+export function formatDateSmart(date: string | Date): string {
+  const d = typeof date === 'string' ? parseDateFromDB(date) : date;
+  const day = d.getDate();
+  const month = MONTHS_SHORT[d.getMonth()];
+
+  if (isSameYear(d)) {
+    // Aynı yıl: gün ay saat
+    const time = formatTime(d);
+    return `${day} ${month} ${time}`;
+  } else {
+    // Farklı yıl: gün ay yıl
+    return `${day} ${month} ${d.getFullYear()}`;
+  }
 }
 
 /**

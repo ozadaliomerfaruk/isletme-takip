@@ -18,7 +18,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
@@ -126,7 +126,7 @@ export default function GiderEklePage() {
           description: description.trim() || null,
           hesap_id: hesapId,
           kategori_id: kategoriId,
-          date: formatDateForDB(selectedDate),
+          date: formatDateTimeForDB(selectedDate),
         });
 
         Alert.alert('Başarılı', 'Gider eklendi', [

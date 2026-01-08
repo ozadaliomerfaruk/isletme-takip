@@ -111,7 +111,7 @@ export default function CariDuzenlePage() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Cari Tipi Secimi */}
+            {/* Cari Tipi Seçimi */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
                 Cari Tipi
@@ -181,7 +181,7 @@ export default function CariDuzenlePage() {
 
               <Input
                 label="Not (Opsiyonel)"
-                placeholder="Cari hakkinda not..."
+                placeholder="Cari hakkında not..."
                 multiline
                 numberOfLines={3}
                 value={notes}
@@ -197,7 +197,7 @@ export default function CariDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                Iptal
+                İptal
               </Button>
               <Button
                 variant="primary"
@@ -206,7 +206,7 @@ export default function CariDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Guncelle
+                Güncelle
               </Button>
             </View>
           </ScrollView>

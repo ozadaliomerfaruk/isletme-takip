@@ -1,25 +1,37 @@
 import { useMemo } from 'react';
 import { useCariler } from './useCariler';
 import { usePersonelList } from './usePersonel';
+import { useHesaplar } from './useHesaplar';
+import { toNumber } from '@/lib/currency';
 
 export interface FinancialBreakdown {
   cari: number;
   personel: number;
-  // İleride eklenebilecek alanlar:
-  // demirbasKredi?: number;
-  // stokBorcu?: number;
+  hesap: number; // Hesaplardan gelen borç (negatif bakiyeler)
+  total: number;
+}
+
+export interface ReceivablesBreakdown {
+  cari: number;
+  personel: number;
   total: number;
 }
 
 export interface FinancialSummary {
+  // Hesap varlıkları (pozitif bakiyeli hesaplar)
+  assets: number;
+
   // Borçlar (biz borçluyuz)
   payables: FinancialBreakdown;
 
   // Alacaklar (bize borçlular)
-  receivables: FinancialBreakdown;
+  receivables: ReceivablesBreakdown;
 
   // Net durum (pozitif = net alacaklıyız, negatif = net borçluyuz)
   netPosition: number;
+
+  // Genel Durum = (Hesaplar + Alacaklar) - Borçlar
+  generalStatus: number;
 
   isLoading: boolean;
 }
@@ -28,19 +40,42 @@ export interface FinancialSummary {
  * Birleşik finansal özet hook'u
  * Tüm borç ve alacakları tek bir yerden yönetir
  *
- * Borç kaynakları:
+ * Varlıklar (Assets):
+ * - Hesaplar (pozitif bakiyeli hesaplar)
+ *
+ * Borç kaynakları (Payables):
  * - Cariler (tedarikçilere borç - negatif bakiye)
  * - Personel (personele borç - negatif bakiye)
+ * - Hesaplar (negatif bakiyeli hesaplar - kredi kartı vs.)
  *
- * Alacak kaynakları:
+ * Alacak kaynakları (Receivables):
  * - Cariler (müşterilerden alacak - pozitif bakiye)
  * - Personel (personelden alacak/avans - pozitif bakiye)
+ *
+ * Genel Durum = (Varlıklar + Alacaklar) - Borçlar
  */
 export function useFinancialSummary(): FinancialSummary {
+  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
   const { data: cariler, isLoading: carilerLoading } = useCariler();
   const { data: personelList, isLoading: personelLoading } = usePersonelList();
 
   const summary = useMemo(() => {
+    // Hesap hesaplaması (varlıklar ve borçlar)
+    const hesapSummary = hesaplar?.reduce(
+      (acc, hesap) => {
+        const balance = toNumber(hesap.balance);
+        if (balance > 0) {
+          // Pozitif bakiye = varlık
+          acc.assets += balance;
+        } else if (balance < 0) {
+          // Negatif bakiye = borç (kredi kartı vs.)
+          acc.payables += Math.abs(balance);
+        }
+        return acc;
+      },
+      { assets: 0, payables: 0 }
+    ) ?? { assets: 0, payables: 0 };
+
     // Cari hesaplaması
     const cariSummary = cariler?.reduce(
       (acc, cari) => {
@@ -73,32 +108,41 @@ export function useFinancialSummary(): FinancialSummary {
       { receivables: 0, payables: 0 }
     ) ?? { receivables: 0, payables: 0 };
 
+    // Varlıklar
+    const assets = hesapSummary.assets;
+
     // Toplam borçlar
     const payables: FinancialBreakdown = {
       cari: cariSummary.payables,
       personel: personelSummary.payables,
-      total: cariSummary.payables + personelSummary.payables,
+      hesap: hesapSummary.payables,
+      total: cariSummary.payables + personelSummary.payables + hesapSummary.payables,
     };
 
     // Toplam alacaklar
-    const receivables: FinancialBreakdown = {
+    const receivables: ReceivablesBreakdown = {
       cari: cariSummary.receivables,
       personel: personelSummary.receivables,
       total: cariSummary.receivables + personelSummary.receivables,
     };
 
-    // Net pozisyon
+    // Net pozisyon (sadece alacak - borç)
     const netPosition = receivables.total - payables.total;
 
+    // Genel Durum = (Hesaplar + Alacaklar) - Borçlar
+    const generalStatus = (assets + receivables.total) - payables.total;
+
     return {
+      assets,
       payables,
       receivables,
       netPosition,
+      generalStatus,
     };
-  }, [cariler, personelList]);
+  }, [hesaplar, cariler, personelList]);
 
   return {
     ...summary,
-    isLoading: carilerLoading || personelLoading,
+    isLoading: hesaplarLoading || carilerLoading || personelLoading,
   };
 }

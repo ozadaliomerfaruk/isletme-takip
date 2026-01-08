@@ -1,10 +1,11 @@
-import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions } from 'react-native';
-import { useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions, TextInput } from 'react-native';
+import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   X,
   Check,
   ChevronDown,
+  Search,
   Tag,
   Folder,
   type LucideIcon,
@@ -85,6 +86,7 @@ export function CategoryPicker({
   error,
 }: CategoryPickerProps) {
   const [modalVisible, setModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
 
@@ -93,9 +95,22 @@ export function CategoryPicker({
   // Seçili kategoriyi bul
   const selectedCategory = flatList?.find(c => c.id === value);
 
+  // Filtrelenmiş kategori listesi
+  const filteredList = useMemo(() => {
+    if (!flatList || !searchQuery.trim()) return flatList;
+    const query = searchQuery.toLowerCase().trim();
+    return flatList.filter(c => c.name.toLowerCase().includes(query));
+  }, [flatList, searchQuery]);
+
   const handleSelect = (categoryId: string | null) => {
     onChange(categoryId);
     setModalVisible(false);
+    setSearchQuery('');
+  };
+
+  const handleCloseModal = () => {
+    setModalVisible(false);
+    setSearchQuery('');
   };
 
   const getCategoryIcon = (category: FlattenedCategory, size: number = 20) => {
@@ -159,27 +174,46 @@ export function CategoryPicker({
         visible={modalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={handleCloseModal}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
               <Text variant="h3">{label} Seç</Text>
               <TouchableOpacity
-                onPress={() => setModalVisible(false)}
+                onPress={handleCloseModal}
                 style={styles.closeButton}
               >
                 <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+              <Search size={20} color={colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Kategori ara..."
+                placeholderTextColor={colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <X size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
             <ScrollView
               style={styles.categoryList}
               contentContainerStyle={styles.categoryListContent}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
             >
-              {/* Kategori yok seçeneği */}
-              {optional && (
+              {/* Kategori yok seçeneği - arama yokken göster */}
+              {optional && !searchQuery.trim() && (
                 <TouchableOpacity
                   style={[
                     styles.categoryItem,
@@ -205,7 +239,7 @@ export function CategoryPicker({
               )}
 
               {/* Kategoriler listesi */}
-              {flatList?.map((category) => {
+              {filteredList?.map((category) => {
                 const isSelected = value === category.id;
                 const categoryColor = category.color || colors.primary;
                 const isSubcategory = category.level > 0;
@@ -254,7 +288,18 @@ export function CategoryPicker({
                 );
               })}
 
-              {(!flatList || flatList.length === 0) && !isLoading && (
+              {/* Arama sonucu yok */}
+              {searchQuery.trim() && filteredList?.length === 0 && (
+                <View style={styles.emptyState}>
+                  <Search size={48} color={colors.textMuted} />
+                  <Text variant="body" color="secondary" style={styles.emptyText}>
+                    "{searchQuery}" için sonuç bulunamadı
+                  </Text>
+                </View>
+              )}
+
+              {/* Kategori yok */}
+              {!searchQuery.trim() && (!flatList || flatList.length === 0) && !isLoading && (
                 <View style={styles.emptyState}>
                   <Folder size={48} color={colors.textMuted} />
                   <Text variant="body" color="secondary" style={styles.emptyText}>
@@ -330,6 +375,23 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: spacing.xs,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.lg,
+    marginHorizontal: spacing.lg,
+    marginVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: colors.text,
+    paddingVertical: spacing.xs,
   },
   categoryList: {
     flex: 1,

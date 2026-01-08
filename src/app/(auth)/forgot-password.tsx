@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
 
       setSent(true);
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Bir hata olustu');
+      Alert.alert('Hata', err.message || 'Bir hata oluştu');
     } finally {
       setLoading(false);
     }
@@ -60,10 +60,10 @@ export default function ForgotPasswordPage() {
       <SafeAreaView style={styles.container}>
         <View style={styles.sentContainer}>
           <Text variant="h2" center style={styles.sentTitle}>
-            E-posta Gonderildi
+            E-posta Gönderildi
           </Text>
           <Text variant="body" color="secondary" center style={styles.sentText}>
-            Sifre sifirlama baglantisi {email} adresine gonderildi. Lutfen e-postanizi kontrol edin.
+            Şifre sıfırlama bağlantısı {email} adresine gönderildi. Lütfen e-postanızı kontrol edin.
           </Text>
           <Button
             variant="primary"
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            Giris Sayfasina Don
+            Giriş Sayfasına Dön
           </Button>
         </View>
       </SafeAreaView>
@@ -98,13 +98,13 @@ export default function ForgotPasswordPage() {
             <ArrowLeft size={24} color={colors.text} />
           </TouchableOpacity>
 
-          {/* Baslik */}
+          {/* Başlık */}
           <View style={styles.header}>
             <Text variant="h1" style={styles.title}>
-              Sifremi Unuttum
+              Şifremi Unuttum
             </Text>
             <Text variant="body" color="secondary" center>
-              E-posta adresinizi girin, size sifre sifirlama baglantisi gonderelim.
+              E-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.
             </Text>
           </View>
 
@@ -130,7 +130,7 @@ export default function ForgotPasswordPage() {
               onPress={handleResetPassword}
               style={styles.submitButton}
             >
-              Sifirlama Baglantisi Gonder
+              Sıfırlama Bağlantısı Gönder
             </Button>
           </View>
         </ScrollView>

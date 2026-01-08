@@ -18,7 +18,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
@@ -124,7 +124,7 @@ export default function PersonelGiderPage() {
           description: description.trim() || null,
           personel_id: personelId,
           kategori_id: kategoriId,
-          date: formatDateForDB(selectedDate),
+          date: formatDateTimeForDB(selectedDate),
         });
 
         Alert.alert('Başarılı', 'Gider kaydedildi', [

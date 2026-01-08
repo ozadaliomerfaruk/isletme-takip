@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, CategoryPicker, CurrencyInput } from '@/components/ui';
+import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -22,6 +22,7 @@ import { useIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
+import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
@@ -111,11 +112,11 @@ export default function IslemDuzenlePage() {
         },
       });
 
-      Alert.alert('Başarılı', 'Islem guncellendi', [
+      Alert.alert('Başarılı', 'İşlem güncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Islem guncellenemedi');
+      Alert.alert('Hata', error.message || 'İşlem güncellenemedi');
     }
   };
 
@@ -134,9 +135,9 @@ export default function IslemDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text color="error">Islem bulunamadi</Text>
+          <Text color="error">İşlem bulunamadı</Text>
           <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
-            Geri Don
+            Geri Dön
           </Button>
         </View>
       </SafeAreaView>
@@ -165,7 +166,7 @@ export default function IslemDuzenlePage() {
             <View style={styles.header}>
               <Text variant="h2">{ISLEM_TYPE_LABELS[islemType!]} Düzenle</Text>
               <Text variant="caption" color="secondary">
-                Islem tipi degistirilemez
+                İşlem tipi değiştirilemez
               </Text>
             </View>
 
@@ -386,6 +387,13 @@ export default function IslemDuzenlePage() {
                 </View>
               )}
 
+              {/* Tarih ve Saat */}
+              <DateTimePicker
+                label="Tarih ve Saat"
+                value={date ? parseDateFromDB(date) : new Date()}
+                onChange={(newDate) => setDate(formatDateTimeForDB(newDate))}
+              />
+
               {/* Açıklama */}
               <Input
                 label="Açıklama (Opsiyonel)"
@@ -405,7 +413,7 @@ export default function IslemDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                Iptal
+                İptal
               </Button>
               <Button
                 variant="primary"
@@ -414,7 +422,7 @@ export default function IslemDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Guncelle
+                Güncelle
               </Button>
             </View>
           </ScrollView>

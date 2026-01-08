@@ -11,13 +11,14 @@ import {
   Phone,
   Briefcase,
 } from 'lucide-react-native';
-import { Text, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
+import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import { getPersonelBalanceLabel } from '@/lib/icons';
 import { usePersonelList } from '@/hooks/usePersonel';
+import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 
 export default function PersonelPage() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function PersonelPage() {
 
   // Gerçek veriler
   const { data: personelList, isLoading } = usePersonelList();
+  const { payables, receivables } = useFinancialSummary();
 
   // Arama ve sıralama
   const filteredPersonel = personelList
@@ -49,6 +51,18 @@ export default function PersonelPage() {
           >
             Ekle
           </Button>
+        </View>
+
+        {/* Özet Kartları */}
+        <View style={styles.summaryContainer}>
+          <Card style={styles.summaryCard}>
+            <Text variant="caption" color="secondary">Toplam Borcumuz</Text>
+            <Text variant="h3" color="error">{formatCurrency(payables.personel)}</Text>
+          </Card>
+          <Card style={styles.summaryCard}>
+            <Text variant="caption" color="secondary">Toplam Alacağımız</Text>
+            <Text variant="h3" color="success">{formatCurrency(receivables.personel)}</Text>
+          </Card>
         </View>
 
         {/* Arama */}
@@ -184,6 +198,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  summaryCard: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,

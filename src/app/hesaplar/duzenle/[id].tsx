@@ -19,8 +19,8 @@ import { HesapType } from '@/types/database';
 const hesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
   { type: 'nakit', label: 'Nakit', icon: <Wallet size={24} color={colors.primary} /> },
   { type: 'banka', label: 'Banka', icon: <Building2 size={24} color={colors.info} /> },
-  { type: 'kredi_karti', label: 'Kredi Karti', icon: <CreditCard size={24} color={colors.warning} /> },
-  { type: 'diger', label: 'Diger', icon: <Banknote size={24} color={colors.textSecondary} /> },
+  { type: 'kredi_karti', label: 'Kredi Kartı', icon: <CreditCard size={24} color={colors.warning} /> },
+  { type: 'diger', label: 'Diğer', icon: <Banknote size={24} color={colors.textSecondary} /> },
 ];
 
 export default function HesapDuzenlePage() {
@@ -46,7 +46,7 @@ export default function HesapDuzenlePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Hesap adi gerekli';
+      newErrors.name = 'Hesap adı gerekli';
     }
 
     setErrors(newErrors);
@@ -64,11 +64,11 @@ export default function HesapDuzenlePage() {
         description: description.trim() || null,
       });
 
-      Alert.alert('Başarılı', 'Hesap guncellendi', [
+      Alert.alert('Başarılı', 'Hesap güncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Hesap guncellenemedi');
+      Alert.alert('Hata', error.message || 'Hesap güncellenemedi');
     }
   };
 
@@ -86,7 +86,7 @@ export default function HesapDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Hesap bulunamadi</Text>
+          <Text>Hesap bulunamadı</Text>
         </View>
       </SafeAreaView>
     );
@@ -104,7 +104,7 @@ export default function HesapDuzenlePage() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Hesap Tipi Secimi */}
+            {/* Hesap Tipi Seçimi */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
                 Hesap Tipi
@@ -139,8 +139,8 @@ export default function HesapDuzenlePage() {
             {/* Form */}
             <View style={styles.section}>
               <Input
-                label="Hesap Adi"
-                placeholder="Orn: Nakit Kasa, Ziraat Bankasi"
+                label="Hesap Adı"
+                placeholder="Örn: Nakit Kasa, Ziraat Bankası"
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
@@ -148,7 +148,7 @@ export default function HesapDuzenlePage() {
 
               <Input
                 label="Açıklama (Opsiyonel)"
-                placeholder="Hesap hakkinda not..."
+                placeholder="Hesap hakkında not..."
                 multiline
                 numberOfLines={3}
                 value={description}
@@ -164,7 +164,7 @@ export default function HesapDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                Iptal
+                İptal
               </Button>
               <Button
                 variant="primary"
@@ -173,7 +173,7 @@ export default function HesapDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Guncelle
+                Güncelle
               </Button>
             </View>
           </ScrollView>

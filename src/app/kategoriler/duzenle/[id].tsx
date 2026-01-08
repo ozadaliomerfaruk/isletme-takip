@@ -47,7 +47,7 @@ export default function KategoriDuzenlePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Kategori adi gerekli';
+      newErrors.name = 'Kategori adı gerekli';
     }
 
     setErrors(newErrors);
@@ -67,11 +67,11 @@ export default function KategoriDuzenlePage() {
         parent_id: parentId,
       });
 
-      Alert.alert('Başarılı', 'Kategori guncellendi', [
+      Alert.alert('Başarılı', 'Kategori güncellendi', [
         { text: 'Tamam', onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Kategori guncellenemedi');
+      Alert.alert('Hata', error.message || 'Kategori güncellenemedi');
     }
   };
 
@@ -103,7 +103,7 @@ export default function KategoriDuzenlePage() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Tip Secimi */}
+            {/* Tip Seçimi */}
             <View style={styles.section}>
               <Text variant="label" style={styles.sectionTitle}>
                 Kategori Tipi
@@ -161,11 +161,11 @@ export default function KategoriDuzenlePage() {
               </View>
             </View>
 
-            {/* Kategori Adi */}
+            {/* Kategori Adı */}
             <View style={styles.section}>
               <Input
-                label="Kategori Adi"
-                placeholder="Orn: Yemek, Ulasim, Kira..."
+                label="Kategori Adı"
+                placeholder="Örn: Yemek, Ulaşım, Kira..."
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
@@ -213,7 +213,7 @@ export default function KategoriDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                Iptal
+                İptal
               </Button>
               <Button
                 variant="primary"
@@ -222,7 +222,7 @@ export default function KategoriDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Guncelle
+                Güncelle
               </Button>
             </View>
           </ScrollView>

@@ -276,7 +276,11 @@ export function useIslemlerByHesap(hesapId: string) {
         .from('islemler')
         .select(`
           *,
-          kategori:kategoriler(*)
+          kategori:kategoriler(*),
+          hesap:hesaplar!islemler_hesap_id_fkey(*),
+          hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(*),
+          cari:cariler(*),
+          personel:personel(*)
         `)
         .eq('isletme_id', isletme.id)
         .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`)

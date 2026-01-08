@@ -71,10 +71,10 @@ export default function DahaPage() {
           <Text variant="h2">Daha</Text>
         </View>
 
-        {/* Islemler & Raporlar */}
+        {/* İşlemler & Raporlar */}
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            ISLEMLER & RAPORLAR
+            İŞLEMLER & RAPORLAR
           </Text>
           <Card padding="none">
             <MenuItem
