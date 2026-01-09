@@ -59,14 +59,19 @@
     "noItems": "No items",
     "emptyList": "List is empty",
     "nothingHere": "Nothing here yet",
-    "startAdding": "Start by adding"
+    "startAdding": "Start by adding",
+    "noCategory": "No category",
+    "noCategoriesYet": "No categories yet"
   },
   "search": {
     "search": "Search",
     "searchPlaceholder": "Search...",
     "searching": "Searching...",
     "noResults": "No results found",
-    "tryDifferent": "Try a different search term"
+    "noResultsFor": "No results found for \"{{query}}\"",
+    "tryDifferent": "Try a different search term",
+    "searchIcons": "Search icons...",
+    "searchCategories": "Search categories..."
   },
   "select": {
     "selectOption": "Select an option",
@@ -78,7 +83,8 @@
     "selectColor": "Select Color",
     "selectAll": "Select all",
     "noneSelected": "None selected",
-    "itemsSelected": "{{count}} selected"
+    "itemsSelected": "{{count}} selected",
+    "selectLabel": "Select {{label}}"
   },
   "confirm": {
     "areYouSure": "Are you sure?",
@@ -106,7 +112,22 @@
     "dueDate": "Due Date",
     "selectDate": "Select Date",
     "selectTime": "Select Time",
-    "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+    "monthsShort": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    "days": ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+    "daysShort": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    "relative": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "daysAgo": "{{count}} day ago",
+      "daysAgo_plural": "{{count}} days ago",
+      "weeksAgo": "{{count}} week ago",
+      "weeksAgo_plural": "{{count}} weeks ago",
+      "monthsAgo": "{{count}} month ago",
+      "monthsAgo_plural": "{{count}} months ago",
+      "yearsAgo": "{{count}} year ago",
+      "yearsAgo_plural": "{{count}} years ago"
+    }
   },
   "currency": {
     "symbol": "₺",
@@ -120,6 +141,7 @@
     "notes": "Notes",
     "type": "Type",
     "category": "Category",
+    "subCategory": "Sub category",
     "amount": "Amount",
     "total": "Total",
     "balance": "Balance",
@@ -130,10 +152,12 @@
     "email": "Email",
     "address": "Address",
     "optional": "Optional",
+    "optionalSuffix": "(Optional)",
     "required": "Required",
     "details": "Details",
     "summary": "Summary",
-    "all": "All"
+    "all": "All",
+    "other": "Other"
   },
   "placeholders": {
     "enterName": "Enter name",

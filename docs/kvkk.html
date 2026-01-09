@@ -22,6 +22,7 @@
         color: white;
         padding: 40px 20px;
         text-align: center;
+        position: relative;
       }
       .header h1 {
         font-size: 2rem;
@@ -29,6 +30,23 @@
       }
       .header p {
         opacity: 0.8;
+      }
+      .lang-switcher {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+      }
+      .lang-switcher a {
+        color: white;
+        text-decoration: none;
+        padding: 8px 16px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 20px;
+        font-size: 0.875rem;
+        transition: background 0.2s;
+      }
+      .lang-switcher a:hover {
+        background: rgba(255,255,255,0.1);
       }
       .container {
         max-width: 800px;
@@ -90,6 +108,9 @@
   </head>
   <body>
     <div class="header">
+      <div class="lang-switcher">
+        <a href="kvkk-en.html">EN</a>
+      </div>
       <h1>KVKK Aydinlatma Metni</h1>
       <p>6698 Sayili Kisisel Verilerin Korunmasi Kanunu</p>
     </div>

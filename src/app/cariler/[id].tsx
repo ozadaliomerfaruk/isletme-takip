@@ -21,7 +21,8 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateShort, formatDateMedium } from '@/lib/date';
+import { formatDateShort } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCari, useDeleteCari } from '@/hooks/useCariler';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
@@ -30,7 +31,8 @@ import { IslemWithRelations } from '@/types/database';
 export default function CariHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useTranslation(['cariler', 'common', 'errors']);
+  const { t } = useTranslation(['clients', 'common', 'errors']);
+  const { formatDateMedium } = useDateFormat();
 
   const { data: cari, isLoading: cariLoading } = useCari(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
@@ -90,17 +92,17 @@ export default function CariHareketleriPage() {
   const getHareketLabel = (type: string) => {
     switch (type) {
       case 'cari_alis':
-        return t('cariler:transactionLabels.alis');
+        return t('clients:transactionLabels.alis');
       case 'cari_odeme':
-        return t('cariler:transactionLabels.odeme');
+        return t('clients:transactionLabels.odeme');
       case 'cari_satis':
-        return t('cariler:transactionLabels.satis');
+        return t('clients:transactionLabels.satis');
       case 'cari_tahsilat':
-        return t('cariler:transactionLabels.tahsilat');
+        return t('clients:transactionLabels.tahsilat');
       case 'cari_alis_iade':
-        return t('cariler:transactionLabels.alisIade');
+        return t('clients:transactionLabels.alisIade');
       case 'cari_satis_iade':
-        return t('cariler:transactionLabels.satisIade');
+        return t('clients:transactionLabels.satisIade');
       default:
         return type;
     }
@@ -109,8 +111,8 @@ export default function CariHareketleriPage() {
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
-      t('cariler:deleteConfirm.transactionTitle'),
-      t('cariler:deleteConfirm.transactionMessage'),
+      t('clients:deleteConfirm.transactionTitle'),
+      t('clients:deleteConfirm.transactionMessage'),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -130,8 +132,8 @@ export default function CariHareketleriPage() {
 
   const handleDeleteCari = () => {
     Alert.alert(
-      t('cariler:deleteConfirm.cariTitle'),
-      t('cariler:deleteConfirm.cariMessage'),
+      t('clients:deleteConfirm.clientTitle'),
+      t('clients:deleteConfirm.clientMessage'),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -166,7 +168,7 @@ export default function CariHareketleriPage() {
         <EmptyState
           icon={<Building2 size={48} color={colors.textMuted} />}
           title={t('errors:cari.notFound')}
-          description={t('cariler:details.notFoundDescription')}
+          description={t('clients:details.notFoundDescription')}
         />
       </SafeAreaView>
     );
@@ -195,7 +197,7 @@ export default function CariHareketleriPage() {
               </View>
               <View style={styles.summaryInfo}>
                 <Text variant="body" color="secondary">
-                  {isTedarikci ? t('cariler:types.tedarikci') : t('cariler:types.musteri')}
+                  {isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}
                 </Text>
                 {cari.phone && (
                   <View style={styles.phoneRow}>
@@ -208,7 +210,7 @@ export default function CariHareketleriPage() {
               </View>
               <View style={styles.balanceInfo}>
                 <Text variant="caption" color="secondary">
-                  {Number(cari.balance) < 0 ? t('cariler:balance.weOwe') : t('cariler:balance.theyOwe')}
+                  {Number(cari.balance) < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe')}
                 </Text>
                 <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
                   {formatCurrency(Math.abs(Number(cari.balance)))}
@@ -246,7 +248,7 @@ export default function CariHareketleriPage() {
               onPress={() => setQuickBarVisible(true)}
               style={styles.actionBtn}
             >
-              {t('cariler:details.newTransaction')}
+              {t('clients:details.newTransaction')}
             </Button>
           </View>
 
@@ -258,7 +260,7 @@ export default function CariHareketleriPage() {
             />
 
             <Text variant="h3" style={styles.sectionTitle}>
-              {t('cariler:details.hareketler')}
+              {t('clients:details.transactions')}
             </Text>
 
             {islemlerLoading ? (
@@ -349,9 +351,9 @@ export default function CariHareketleriPage() {
                       <CircleDollarSign size={20} color={colors.primary} />
                     </View>
                     <View style={styles.hareketInfo}>
-                      <Text variant="body">{t('cariler:details.initialBalance')}</Text>
+                      <Text variant="body">{t('clients:details.initialBalance')}</Text>
                       <Text variant="caption" color="secondary">
-                        {t('cariler:details.cariOpening')} • {formatDateShort(cari.created_at)}
+                        {t('clients:details.cariOpening')} • {formatDateShort(cari.created_at)}
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>

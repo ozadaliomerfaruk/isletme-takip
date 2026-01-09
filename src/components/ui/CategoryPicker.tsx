@@ -27,6 +27,7 @@ import {
   TrendingDown,
   CornerDownRight,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -80,15 +81,20 @@ export function CategoryPicker({
   value,
   onChange,
   type,
-  label = 'Kategori',
-  placeholder = 'Kategori seçin',
+  label,
+  placeholder,
   optional = true,
   error,
 }: CategoryPickerProps) {
+  const { t } = useTranslation(['common', 'categories']);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
+
+  // Use translations for defaults
+  const displayLabel = label || t('common:labels.category');
+  const displayPlaceholder = placeholder || t('common:select.selectCategory');
 
   const { flatList, isLoading } = useKategorilerHierarchical(type);
 
@@ -139,7 +145,7 @@ export function CategoryPicker({
     <>
       <View style={styles.container}>
         <Text variant="label" color="secondary" style={styles.label}>
-          {label}{optional ? ' (Opsiyonel)' : ''}
+          {displayLabel}{optional ? ` ${t('common:labels.optionalSuffix')}` : ''}
         </Text>
         <TouchableOpacity
           style={[styles.trigger, error && styles.triggerError]}
@@ -158,7 +164,7 @@ export function CategoryPicker({
             </View>
           ) : (
             <Text variant="body" color="secondary">
-              {placeholder}
+              {displayPlaceholder}
             </Text>
           )}
           <ChevronDown size={20} color={colors.textMuted} />
@@ -179,7 +185,7 @@ export function CategoryPicker({
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
-              <Text variant="h3">{label} Seç</Text>
+              <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
               <TouchableOpacity
                 onPress={handleCloseModal}
                 style={styles.closeButton}
@@ -193,7 +199,7 @@ export function CategoryPicker({
               <Search size={20} color={colors.textMuted} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Kategori ara..."
+                placeholder={t('common:search.searchCategories')}
                 placeholderTextColor={colors.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -227,7 +233,7 @@ export function CategoryPicker({
                       <Tag size={20} color={colors.textMuted} />
                     </View>
                     <Text variant="body" style={value === null && { color: colors.primary }}>
-                      Kategori yok
+                      {t('common:empty.noCategory')}
                     </Text>
                   </View>
                   {value === null && (
@@ -274,7 +280,7 @@ export function CategoryPicker({
                         </Text>
                         {isSubcategory && (
                           <Text variant="caption" color="secondary">
-                            Alt kategori
+                            {t('common:labels.subCategory')}
                           </Text>
                         )}
                       </View>
@@ -288,22 +294,22 @@ export function CategoryPicker({
                 );
               })}
 
-              {/* Arama sonucu yok */}
+              {/* No search results */}
               {searchQuery.trim() && filteredList?.length === 0 && (
                 <View style={styles.emptyState}>
                   <Search size={48} color={colors.textMuted} />
                   <Text variant="body" color="secondary" style={styles.emptyText}>
-                    "{searchQuery}" için sonuç bulunamadı
+                    {t('common:search.noResultsFor', { query: searchQuery })}
                   </Text>
                 </View>
               )}
 
-              {/* Kategori yok */}
+              {/* No categories */}
               {!searchQuery.trim() && (!flatList || flatList.length === 0) && !isLoading && (
                 <View style={styles.emptyState}>
                   <Folder size={48} color={colors.textMuted} />
                   <Text variant="body" color="secondary" style={styles.emptyText}>
-                    Henüz kategori yok
+                    {t('common:empty.noCategoriesYet')}
                   </Text>
                 </View>
               )}

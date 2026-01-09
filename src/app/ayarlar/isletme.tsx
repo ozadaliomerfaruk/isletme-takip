@@ -16,10 +16,12 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUpdateIsletme } from '@/hooks/useIsletme';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 export default function IsletmeBilgileriPage() {
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
+  const { locale, formatDateLong } = useDateFormat();
   const { isletme, user } = useAuthContext();
   const updateIsletme = useUpdateIsletme();
 
@@ -150,11 +152,7 @@ export default function IsletmeBilgileriPage() {
             <Card style={styles.infoCard}>
               <Text variant="label" color="secondary">{t('settings:business.registrationDate')}</Text>
               <Text variant="body">
-                {new Date(isletme.created_at).toLocaleDateString('tr-TR', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+                {formatDateLong(isletme.created_at)}
               </Text>
             </Card>
 

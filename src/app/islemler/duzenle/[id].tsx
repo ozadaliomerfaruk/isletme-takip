@@ -22,14 +22,12 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
-import { getIslemTypeLabel } from '@/lib/icons';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useTranslation(['transactions', 'common', 'errors', 'cariler', 'personel']);
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
 
   const { data: islem, isLoading: islemLoading } = useIslem(id);
   const updateIslem = useUpdateIslem();
@@ -167,7 +165,7 @@ export default function IslemDuzenlePage() {
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text variant="h2">{getIslemTypeLabel(islemType!)} {t('common:buttons.edit')}</Text>
+              <Text variant="h2">{t(`transactions:types.${islemType}`)} {t('common:buttons.edit')}</Text>
               <Text variant="caption" color="secondary">
                 {t('transactions:messages.typeCannotChange')}
               </Text>
@@ -290,7 +288,7 @@ export default function IslemDuzenlePage() {
               {needsCari && (
                 <View style={[styles.pickerContainer, { zIndex: 35 }]}>
                   <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                    {t('cariler:titles.client')}
+                    {t('clients:titles.client')}
                   </Text>
                   <TouchableOpacity
                     style={styles.picker}
@@ -303,7 +301,7 @@ export default function IslemDuzenlePage() {
                   >
                     <View>
                       <Text variant="body">
-                        {selectedCari?.name || t('cariler:form.selectClient')}
+                        {selectedCari?.name || t('clients:form.selectClient')}
                       </Text>
                       {selectedCari && (
                         <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
@@ -341,7 +339,7 @@ export default function IslemDuzenlePage() {
               {needsPersonel && (
                 <View style={[styles.pickerContainer, { zIndex: 30 }]}>
                   <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                    {t('personel:titles.personnel')}
+                    {t('staff:titles.personnel')}
                   </Text>
                   <TouchableOpacity
                     style={styles.picker}
@@ -356,11 +354,11 @@ export default function IslemDuzenlePage() {
                       <Text variant="body">
                         {selectedPersonel
                           ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
-                          : t('personel:form.selectPersonnel')}
+                          : t('staff:form.selectPersonnel')}
                       </Text>
                       {selectedPersonel && (
                         <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
-                          {t('personel:balance.debt')} {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                          {t('staff:balance.debt')} {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
                         </Text>
                       )}
                     </View>

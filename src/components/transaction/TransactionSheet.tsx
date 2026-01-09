@@ -32,7 +32,8 @@ import { DateTimePicker } from '@/components/ui/DateTimePicker';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
-import { formatDateForDB, formatDateLong, isToday } from '@/lib/date';
+import { formatDateForDB, isToday } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
@@ -62,6 +63,7 @@ export function TransactionSheet({
 }: TransactionSheetProps) {
   console.log('TransactionSheet render, visible:', visible);
   const { t } = useTranslation(['transactions', 'common']);
+  const { formatDateLong } = useDateFormat();
   const insets = useSafeAreaInsets();
 
   // State Machine

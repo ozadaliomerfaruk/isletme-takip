@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import i18n from 'i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
@@ -7,12 +8,25 @@ import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
 import {
   formatDateForDB,
-  formatDateLong,
-  getDateRange,
-  MONTHS_FULL,
-  MONTHS_SHORT,
   type PeriodType as DatePeriodType,
 } from '@/lib/date';
+
+// Get translated months array
+function getMonths(): string[] {
+  const months = i18n.t('date.months', { ns: 'common', returnObjects: true });
+  if (Array.isArray(months) && months.every((m) => typeof m === 'string')) {
+    return months as string[];
+  }
+  return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+}
+
+function getMonthsShort(): string[] {
+  const months = i18n.t('date.monthsShort', { ns: 'common', returnObjects: true });
+  if (Array.isArray(months) && months.every((m) => typeof m === 'string')) {
+    return months as string[];
+  }
+  return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+}
 
 interface IslemFilters {
   type?: IslemType;
@@ -553,10 +567,6 @@ async function reverseBalances(islem: Islem) {
 // Dönem tiplerini tanımla
 export type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 
-// Ay isimleri
-const MONTHS = ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-                'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
-
 // Tarihi yerel timezone'a göre formatla (YYYY-MM-DD)
 export function formatDateLocal(date: Date): string {
   const year = date.getFullYear();
@@ -568,7 +578,8 @@ export function formatDateLocal(date: Date): string {
 // Tarihi kullanıcı dostu formata çevir
 export function formatDateLabel(dateStr: string): string {
   const date = new Date(dateStr + 'T00:00:00');
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  const months = getMonths();
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 // Dönem tarih aralığını hesapla (offset destekli)
@@ -582,6 +593,8 @@ export function getPeriodDateRange(
   label: string;
 } {
   const now = new Date();
+  const months = getMonths();
+  const monthsShort = getMonthsShort();
   let startDate: Date;
   let endDate: Date;
   let label: string;
@@ -599,7 +612,7 @@ export function getPeriodDateRange(
       const targetMonth = new Date(now.getFullYear(), now.getMonth() + offset, 1);
       startDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
       endDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
-      label = `${MONTHS[targetMonth.getMonth()]} ${targetMonth.getFullYear()}`;
+      label = `${months[targetMonth.getMonth()]} ${targetMonth.getFullYear()}`;
       break;
     case 'weekly':
       // Hafta hesapla (offset: -1 = geçen hafta, 0 = bu hafta, 1 = gelecek hafta)
@@ -612,16 +625,16 @@ export function getPeriodDateRange(
       endDate.setDate(startDate.getDate() + 6);
       // Hafta etiketi: "23-29 Aralık" veya "28 Ara - 3 Oca" (aylar farklıysa)
       if (startDate.getMonth() === endDate.getMonth()) {
-        label = `${startDate.getDate()}-${endDate.getDate()} ${MONTHS[startDate.getMonth()]}`;
+        label = `${startDate.getDate()}-${endDate.getDate()} ${months[startDate.getMonth()]}`;
       } else {
-        label = `${startDate.getDate()} ${MONTHS[startDate.getMonth()].substring(0, 3)} - ${endDate.getDate()} ${MONTHS[endDate.getMonth()].substring(0, 3)}`;
+        label = `${startDate.getDate()} ${monthsShort[startDate.getMonth()]} - ${endDate.getDate()} ${monthsShort[endDate.getMonth()]}`;
       }
       break;
     case 'daily':
       // Gün hesapla (offset: -1 = dün, 0 = bugün, 1 = yarın)
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
       endDate = new Date(startDate);
-      label = `${startDate.getDate()} ${MONTHS[startDate.getMonth()]} ${startDate.getFullYear()}`;
+      label = `${startDate.getDate()} ${months[startDate.getMonth()]} ${startDate.getFullYear()}`;
       break;
     case 'custom':
       // Özel tarih aralığı
@@ -635,7 +648,7 @@ export function getPeriodDateRange(
       // Varsayılan olarak bu ayı göster
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      label = 'Tarih Seçin';
+      label = i18n.t('date.selectDate', { ns: 'common' }) || 'Select Date';
       break;
   }
 

@@ -113,6 +113,7 @@ export function calculateIncomeSummary<T extends { type: IslemType; amount: numb
 
 /**
  * İşlem tipi etiketleri (Türkçe)
+ * @deprecated Çeviriler için t('transactions:types.${type}') kullanın
  */
 export const ISLEM_TYPE_LABELS: Record<IslemType, string> = {
   gelir: 'Gelir',
@@ -131,6 +132,7 @@ export const ISLEM_TYPE_LABELS: Record<IslemType, string> = {
 
 /**
  * İşlem tipinin etiketini döndürür
+ * @deprecated Çeviriler için t('transactions:types.${type}') kullanın
  */
 export function getIslemTypeLabel(type: IslemType): string {
   return ISLEM_TYPE_LABELS[type] || type;

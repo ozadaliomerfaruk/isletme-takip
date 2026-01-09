@@ -6,12 +6,12 @@
     "cari_alis": "Supplier Purchase",
     "cari_satis": "Customer Sale",
     "cari_odeme": "Supplier Payment",
-    "cari_tahsilat": "Customer Collection",
+    "cari_tahsilat": "Customer Payment Received",
     "cari_alis_iade": "Purchase Return",
     "cari_satis_iade": "Sale Return",
-    "personel_gider": "Personnel Expense",
-    "personel_odeme": "Personnel Payment",
-    "personel_tahsilat": "Personnel Collection",
+    "personel_gider": "Staff Expense",
+    "personel_odeme": "Staff Payment",
+    "personel_tahsilat": "Staff Payment Received",
     "kredi_karti_harcama": "Credit Card Expense"
   },
   "accountTypes": {
@@ -43,8 +43,8 @@
     "notePlaceholder": "Add note...",
     "client": "Client",
     "clientPlaceholder": "Select client",
-    "personnel": "Personnel",
-    "personnelPlaceholder": "Select personnel",
+    "personnel": "Staff Member",
+    "personnelPlaceholder": "Select staff member",
     "recurring": "Recurring",
     "futureDate": "Future Date",
     "schedule": "Schedule"
@@ -60,13 +60,13 @@
     "allTransactions": "All Transactions",
     "recentTransactions": "Recent Transactions",
     "clientPayment": "Client Payment",
-    "clientCollection": "Client Collection",
+    "clientCollection": "Client Payment Received",
     "clientPurchase": "Supplier Purchase",
     "clientSale": "Customer Sale",
     "clientReturn": "Return",
-    "personnelExpense": "Personnel Expense",
-    "personnelPayment": "Personnel Payment",
-    "personnelCollection": "Personnel Collection"
+    "personnelExpense": "Staff Expense",
+    "personnelPayment": "Staff Payment",
+    "personnelCollection": "Staff Payment Received"
   },
   "messages": {
     "createSuccess": "Transaction saved",
@@ -100,7 +100,7 @@
     "expense": "Expense",
     "transfer": "Transfer",
     "client": "Client",
-    "personnel": "Personnel",
+    "personnel": "Staff",
     "byDate": "By Date",
     "byAmount": "By Amount",
     "byCategory": "By Category"
@@ -139,14 +139,14 @@
     "gider": "Expense",
     "transfer": "Transfer",
     "odeme": "Payment",
-    "tahsilat": "Collection",
+    "tahsilat": "Payment Received",
     "alis": "Purchase",
     "satis": "Sale",
     "alis_iade": "Purchase Return",
     "satis_iade": "Sale Return",
     "personel_odeme": "Payment",
     "personel_gider": "Expense",
-    "personel_tahsilat": "Collection"
+    "personel_tahsilat": "Payment Received"
   },
   "validation": {
     "selectTargetAccount": "Select target account"

@@ -21,12 +21,11 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { getIslemTypeLabel } from '@/lib/icons';
 import { useTranslation } from 'react-i18next';
 
 export default function CariTahsilatPage() {
   const router = useRouter();
-  const { t } = useTranslation(['transactions', 'common', 'errors', 'cariler']);
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'clients']);
   const params = useLocalSearchParams<{ cari_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -116,7 +115,7 @@ export default function CariTahsilatPage() {
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${getIslemTypeLabel('cari_tahsilat')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.cari_tahsilat')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -126,7 +125,7 @@ export default function CariTahsilatPage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('cariler:messages.scheduledCollectionCreated'), [
+        Alert.alert(t('common:status.success'), t('clients:messages.scheduledCollectionCreated'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
@@ -139,7 +138,7 @@ export default function CariTahsilatPage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('cariler:messages.collectionRecorded'), [
+        Alert.alert(t('common:status.success'), t('clients:messages.collectionRecorded'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
@@ -168,9 +167,9 @@ export default function CariTahsilatPage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">{t('cariler:transactionTitles.customerCollection')}</Text>
+                <Text variant="h2">{t('clients:transactionTitles.customerCollection')}</Text>
                 <Text variant="body" color="secondary">
-                  {t('cariler:transactionDescriptions.collection')}
+                  {t('clients:transactionDescriptions.collection')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -199,7 +198,7 @@ export default function CariTahsilatPage() {
           <View style={styles.section}>
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('cariler:transactionForm.customer')}
+                {t('clients:transactionForm.customer')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.cari && styles.pickerError]}
@@ -209,10 +208,10 @@ export default function CariTahsilatPage() {
                 }}
               >
                 <View>
-                  <Text variant="body">{selectedCari?.name || t('cariler:transactionForm.selectCustomer')}</Text>
+                  <Text variant="body">{selectedCari?.name || t('clients:transactionForm.selectCustomer')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
-                      {t('cariler:balance.receivable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('clients:balance.receivable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>
@@ -245,7 +244,7 @@ export default function CariTahsilatPage() {
 
             <View style={[styles.pickerContainer, { zIndex: 10 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('cariler:transactionForm.collectionAccount')}
+                {t('clients:transactionForm.collectionAccount')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.hesap && styles.pickerError]}
@@ -312,8 +311,8 @@ export default function CariTahsilatPage() {
             )}
 
             <Input
-              label={t('cariler:transactionForm.descriptionOptional')}
-              placeholder={t('cariler:transactionForm.collectionNote')}
+              label={t('clients:transactionForm.descriptionOptional')}
+              placeholder={t('clients:transactionForm.collectionNote')}
               multiline
               numberOfLines={3}
               value={description}
@@ -332,7 +331,7 @@ export default function CariTahsilatPage() {
               onPress={handleSubmit}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              {isIleriTarihli ? t('transactions:form.schedule') : t('cariler:transactionButtons.collect')}
+              {isIleriTarihli ? t('transactions:form.schedule') : t('clients:transactionButtons.collect')}
             </Button>
           </View>
         </ScrollView>

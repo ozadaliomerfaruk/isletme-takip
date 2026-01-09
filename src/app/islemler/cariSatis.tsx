@@ -20,12 +20,11 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { getIslemTypeLabel } from '@/lib/icons';
 import { useTranslation } from 'react-i18next';
 
 export default function CariSatisPage() {
   const router = useRouter();
-  const { t } = useTranslation(['transactions', 'common', 'errors', 'cariler']);
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'clients']);
   const params = useLocalSearchParams<{ cari_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -105,7 +104,7 @@ export default function CariSatisPage() {
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${getIslemTypeLabel('cari_satis')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.cari_satis')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -115,7 +114,7 @@ export default function CariSatisPage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('cariler:messages.scheduledSaleCreated'), [
+        Alert.alert(t('common:status.success'), t('clients:messages.scheduledSaleCreated'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
@@ -128,7 +127,7 @@ export default function CariSatisPage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('cariler:messages.saleRecorded'), [
+        Alert.alert(t('common:status.success'), t('clients:messages.saleRecorded'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
@@ -152,9 +151,9 @@ export default function CariSatisPage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">{t('cariler:transactionTitles.sale')}</Text>
+                <Text variant="h2">{t('clients:transactionTitles.sale')}</Text>
                 <Text variant="body" color="secondary">
-                  {t('cariler:transactionDescriptions.sale')}
+                  {t('clients:transactionDescriptions.sale')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -183,17 +182,17 @@ export default function CariSatisPage() {
           <View style={styles.section}>
             <View style={styles.pickerContainer}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('cariler:transactionForm.customer')}
+                {t('clients:transactionForm.customer')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.cari && styles.pickerError]}
                 onPress={() => setShowCariPicker(!showCariPicker)}
               >
                 <View>
-                  <Text variant="body">{selectedCari?.name || t('cariler:transactionForm.selectCustomer')}</Text>
+                  <Text variant="body">{selectedCari?.name || t('clients:transactionForm.selectCustomer')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
-                      {t('cariler:balance.receivable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('clients:balance.receivable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>
@@ -247,15 +246,15 @@ export default function CariSatisPage() {
             )}
 
             <CategoryPicker
-              label={t('cariler:transactionForm.categoryOptional')}
+              label={t('clients:transactionForm.categoryOptional')}
               value={kategoriId}
               onChange={setKategoriId}
               type="gelir"
             />
 
             <Input
-              label={t('cariler:transactionForm.descriptionOptional')}
-              placeholder={t('cariler:transactionForm.saleDetails')}
+              label={t('clients:transactionForm.descriptionOptional')}
+              placeholder={t('clients:transactionForm.saleDetails')}
               multiline
               numberOfLines={3}
               value={description}

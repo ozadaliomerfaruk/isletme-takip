@@ -37,7 +37,8 @@ import { TransactionTypeTabs, TransactionType, TransactionTabMode, getTransactio
 import { colors } from '@/constants/colors';
 import { CariType } from '@/types/database';
 import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
-import { formatDateForDB, formatDateTimeForDB, formatDateShort, isToday } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -46,7 +47,7 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 
 // Ödeme hedef tipi
-type OdemeHedefType = 'tedarikci' | 'personel';
+type OdemeHedefType = 'tedarikci' | 'staff';
 
 const CARD_HEIGHT = 200;
 
@@ -71,7 +72,8 @@ export function QuickTransactionBar({
   defaultPersonelId,
   onSuccess,
 }: QuickTransactionBarProps) {
-  const { t } = useTranslation(['transactions', 'common', 'cariler', 'personel', 'accounts']);
+  const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
+  const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
 
   // Cari modu: defaultCariId verilmişse aktif
@@ -361,34 +363,34 @@ export function QuickTransactionBar({
 
     if (type === 'odeme') {
       if (odemeHedefType === 'tedarikci' && !cariId) {
-        Alert.alert(t('common:status.error'), t('cariler:transactionForm.selectSupplier'));
+        Alert.alert(t('common:status.error'), t('clients:transactionForm.selectSupplier'));
         return;
       }
-      if (odemeHedefType === 'personel' && !personelId) {
-        Alert.alert(t('common:status.error'), t('personel:transactionForm.selectPersonel'));
+      if (odemeHedefType === 'staff' && !personelId) {
+        Alert.alert(t('common:status.error'), t('staff:transactionForm.selectPersonel'));
         return;
       }
     }
 
     if (type === 'tahsilat' && !cariId) {
-      Alert.alert(t('common:status.error'), t('cariler:transactionForm.selectCustomer'));
+      Alert.alert(t('common:status.error'), t('clients:transactionForm.selectCustomer'));
       return;
     }
 
     // Cari modu validasyonları
     if ((type === 'alis' || type === 'alis_iade') && !cariId) {
-      Alert.alert(t('common:status.error'), t('cariler:transactionForm.selectSupplier'));
+      Alert.alert(t('common:status.error'), t('clients:transactionForm.selectSupplier'));
       return;
     }
 
     if ((type === 'satis' || type === 'satis_iade') && !cariId) {
-      Alert.alert(t('common:status.error'), t('cariler:transactionForm.selectCustomer'));
+      Alert.alert(t('common:status.error'), t('clients:transactionForm.selectCustomer'));
       return;
     }
 
     // Personel modu validasyonları
     if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'].includes(type) && !personelId) {
-      Alert.alert(t('common:status.error'), t('personel:transactionForm.selectPersonel'));
+      Alert.alert(t('common:status.error'), t('staff:transactionForm.selectPersonel'));
       return;
     }
 
@@ -404,7 +406,7 @@ export function QuickTransactionBar({
       // Determine actual type for API
       let apiType: string = type;
       if (type === 'odeme') {
-        apiType = odemeHedefType === 'personel' ? 'personel_odeme' : 'cari_odeme';
+        apiType = odemeHedefType === 'staff' ? 'personel_odeme' : 'cari_odeme';
       }
       if (type === 'tahsilat') apiType = 'cari_tahsilat';
       if (type === 'alis') apiType = 'cari_alis';
@@ -515,8 +517,8 @@ export function QuickTransactionBar({
     tahsilat: t('transactions:tabs.tahsilat'),
     alis: t('transactions:tabs.alis'),
     satis: t('transactions:tabs.satis'),
-    alis_iade: t('cariler:actions.return'),
-    satis_iade: t('cariler:actions.return'),
+    alis_iade: t('clients:actions.return'),
+    satis_iade: t('clients:actions.return'),
     personel_odeme_tab: t('transactions:tabs.odeme'),
     personel_gider_tab: t('transactions:tabs.gider'),
     personel_tahsilat_tab: t('transactions:tabs.tahsilat'),
@@ -578,7 +580,7 @@ export function QuickTransactionBar({
           >
             <Calendar size={18} color={isScheduled ? colors.warning : colors.textMuted} />
             <Text style={[styles.dateText, isScheduled && styles.dateTextScheduled]}>
-              {isToday(date) ? t('common:date.today') : formatDateShort(date)}
+              {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
             </Text>
           </TouchableOpacity>
 
@@ -661,7 +663,7 @@ export function QuickTransactionBar({
                 <UserCheck size={18} color={colors.orange} />
               )}
               <Text style={styles.pickerButtonText}>
-                {odemeHedefType === 'tedarikci' ? t('cariler:transactionTitles.supplierPayment') : t('personel:transactionTitles.payment')}
+                {odemeHedefType === 'tedarikci' ? t('clients:transactionTitles.supplierPayment') : t('staff:transactionTitles.payment')}
               </Text>
               <ChevronDown size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -674,7 +676,7 @@ export function QuickTransactionBar({
               >
                 <Building2 size={18} color={colors.orange} />
                 <Text style={styles.pickerButtonText}>
-                  {selectedCari ? selectedCari.name : t('cariler:transactionForm.selectSupplier')}
+                  {selectedCari ? selectedCari.name : t('clients:transactionForm.selectSupplier')}
                 </Text>
                 <ChevronDown size={18} color={colors.textMuted} />
               </TouchableOpacity>
@@ -685,7 +687,7 @@ export function QuickTransactionBar({
               >
                 <UserCheck size={18} color={colors.orange} />
                 <Text style={styles.pickerButtonText}>
-                  {selectedPersonel ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}` : t('personel:transactionForm.selectPersonel')}
+                  {selectedPersonel ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}` : t('staff:transactionForm.selectPersonel')}
                 </Text>
                 <ChevronDown size={18} color={colors.textMuted} />
               </TouchableOpacity>
@@ -701,7 +703,7 @@ export function QuickTransactionBar({
           >
             <Users size={18} color={colors.primary} />
             <Text style={styles.pickerButtonText}>
-              {selectedCari ? selectedCari.name : t('cariler:transactionForm.selectCustomer')}
+              {selectedCari ? selectedCari.name : t('clients:transactionForm.selectCustomer')}
             </Text>
             <ChevronDown size={18} color={colors.textMuted} />
           </TouchableOpacity>
@@ -805,7 +807,7 @@ export function QuickTransactionBar({
                           setDate(newDate);
                         }
                       }}
-                      locale="tr-TR"
+                      locale={locale}
                       textColor={colors.text}
                       themeVariant="light"
                       style={styles.datePickerStyle}
@@ -835,7 +837,7 @@ export function QuickTransactionBar({
                           setDate(newDate);
                         }
                       }}
-                      locale="tr-TR"
+                      locale={locale}
                       textColor={colors.text}
                       themeVariant="light"
                       style={styles.timePickerStyle}
@@ -929,7 +931,7 @@ export function QuickTransactionBar({
             <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
               <View style={styles.bottomSheetHeader}>
                 <Text style={styles.bottomSheetTitle}>
-                  {type === 'tahsilat' ? t('cariler:transactionForm.selectCustomer') : t('cariler:transactionForm.selectSupplier')}
+                  {type === 'tahsilat' ? t('clients:transactionForm.selectCustomer') : t('clients:transactionForm.selectSupplier')}
                 </Text>
                 <TouchableOpacity onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
@@ -941,7 +943,7 @@ export function QuickTransactionBar({
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder={type === 'tahsilat' ? t('cariler:search.searchCustomers') : t('cariler:search.searchSuppliers')}
+                  placeholder={type === 'tahsilat' ? t('clients:search.searchCustomers') : t('clients:search.searchSuppliers')}
                   placeholderTextColor={colors.textMuted}
                   value={cariSearchQuery}
                   onChangeText={setCariSearchQuery}
@@ -999,7 +1001,7 @@ export function QuickTransactionBar({
                       <Building2 size={48} color={colors.textMuted} />
                     )}
                     <Text style={styles.emptySearchText}>
-                      {type === 'tahsilat' ? t('cariler:messages.noCustomers') : t('cariler:messages.noSuppliers')}
+                      {type === 'tahsilat' ? t('clients:messages.noCustomers') : t('clients:messages.noSuppliers')}
                     </Text>
                   </View>
                 )}
@@ -1036,9 +1038,9 @@ export function QuickTransactionBar({
                   </View>
                   <View style={styles.odemeTypeContent}>
                     <Text style={[styles.odemeTypeTitle, odemeHedefType === 'tedarikci' && { color: colors.orange }]}>
-                      {t('cariler:transactionTitles.supplierPayment')}
+                      {t('clients:transactionTitles.supplierPayment')}
                     </Text>
-                    <Text style={styles.odemeTypeSubtext}>{t('cariler:transactionDescriptions.supplierPayment')}</Text>
+                    <Text style={styles.odemeTypeSubtext}>{t('clients:transactionDescriptions.supplierPayment')}</Text>
                   </View>
                   {odemeHedefType === 'tedarikci' && (
                     <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
@@ -1048,9 +1050,9 @@ export function QuickTransactionBar({
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  style={[styles.odemeTypeItem, odemeHedefType === 'personel' && styles.odemeTypeItemSelected]}
+                  style={[styles.odemeTypeItem, odemeHedefType === 'staff' && styles.odemeTypeItemSelected]}
                   onPress={() => {
-                    setOdemeHedefType('personel');
+                    setOdemeHedefType('staff');
                     setCariId(null);
                     setPersonelId(null);
                     setShowOdemeHedefTypePicker(false);
@@ -1060,12 +1062,12 @@ export function QuickTransactionBar({
                     <UserCheck size={24} color={colors.orange} />
                   </View>
                   <View style={styles.odemeTypeContent}>
-                    <Text style={[styles.odemeTypeTitle, odemeHedefType === 'personel' && { color: colors.orange }]}>
-                      {t('personel:transactionTitles.payment')}
+                    <Text style={[styles.odemeTypeTitle, odemeHedefType === 'staff' && { color: colors.orange }]}>
+                      {t('staff:transactionTitles.payment')}
                     </Text>
-                    <Text style={styles.odemeTypeSubtext}>{t('personel:transactionDescriptions.personnelPayment')}</Text>
+                    <Text style={styles.odemeTypeSubtext}>{t('staff:transactionDescriptions.personnelPayment')}</Text>
                   </View>
-                  {odemeHedefType === 'personel' && (
+                  {odemeHedefType === 'staff' && (
                     <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
                       <Check size={14} color="#FFFFFF" />
                     </View>
@@ -1083,7 +1085,7 @@ export function QuickTransactionBar({
           <View style={styles.bottomSheetOverlay}>
             <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
               <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>{t('personel:transactionForm.selectPersonel')}</Text>
+                <Text style={styles.bottomSheetTitle}>{t('staff:transactionForm.selectPersonel')}</Text>
                 <TouchableOpacity onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
@@ -1094,7 +1096,7 @@ export function QuickTransactionBar({
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder={t('personel:search.searchPersonnel')}
+                  placeholder={t('staff:search.searchPersonnel')}
                   placeholderTextColor={colors.textMuted}
                   value={personelSearchQuery}
                   onChangeText={setPersonelSearchQuery}
@@ -1143,7 +1145,7 @@ export function QuickTransactionBar({
                 {filteredPersonel.length === 0 && !personelSearchQuery.trim() && (
                   <View style={styles.emptySearchState}>
                     <UserCheck size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>{t('personel:messages.noPersonnel')}</Text>
+                    <Text style={styles.emptySearchText}>{t('staff:messages.noPersonnel')}</Text>
                   </View>
                 )}
               </ScrollView>

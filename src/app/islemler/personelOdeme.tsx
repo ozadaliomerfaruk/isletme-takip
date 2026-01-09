@@ -21,12 +21,11 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { getIslemTypeLabel } from '@/lib/icons';
 import { useTranslation } from 'react-i18next';
 
 export default function PersonelOdemePage() {
   const router = useRouter();
-  const { t } = useTranslation(['transactions', 'common', 'errors', 'personel']);
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'staff']);
   const params = useLocalSearchParams<{ personel_id?: string; hesap_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -118,7 +117,7 @@ export default function PersonelOdemePage() {
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${getIslemTypeLabel('personel_odeme')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.personel_odeme')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -128,7 +127,7 @@ export default function PersonelOdemePage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('personel:messages.scheduledPaymentCreated'), [
+        Alert.alert(t('common:status.success'), t('staff:messages.scheduledPaymentCreated'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
@@ -142,7 +141,7 @@ export default function PersonelOdemePage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('personel:messages.paymentRecorded'), [
+        Alert.alert(t('common:status.success'), t('staff:messages.paymentRecorded'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
@@ -171,9 +170,9 @@ export default function PersonelOdemePage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">{t('personel:transactionTitles.payment')}</Text>
+                <Text variant="h2">{t('staff:transactionTitles.payment')}</Text>
                 <Text variant="body" color="secondary">
-                  {t('personel:transactionDescriptions.payment')}
+                  {t('staff:transactionDescriptions.payment')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -202,7 +201,7 @@ export default function PersonelOdemePage() {
           <View style={styles.section}>
             <View style={[styles.pickerContainer, { zIndex: 30 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('personel:transactionForm.personel')}
+                {t('staff:transactionForm.personel')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.personel && styles.pickerError]}
@@ -215,11 +214,11 @@ export default function PersonelOdemePage() {
                   <Text variant="body">
                     {selectedPersonel
                       ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
-                      : t('personel:transactionForm.selectPersonel')}
+                      : t('staff:transactionForm.selectPersonel')}
                   </Text>
                   {selectedPersonel && (
                     <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'success'}>
-                      {t('personel:balance.weOwe')}: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                      {t('staff:balance.weOwe')}: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
                     </Text>
                   )}
                 </View>
@@ -252,7 +251,7 @@ export default function PersonelOdemePage() {
 
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('personel:transactionForm.paymentAccount')}
+                {t('staff:transactionForm.paymentAccount')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.hesap && styles.pickerError]}
@@ -326,8 +325,8 @@ export default function PersonelOdemePage() {
             )}
 
             <Input
-              label={t('personel:transactionForm.descriptionOptional')}
-              placeholder={t('personel:transactionForm.paymentNote')}
+              label={t('staff:transactionForm.descriptionOptional')}
+              placeholder={t('staff:transactionForm.paymentNote')}
               multiline
               numberOfLines={3}
               value={description}
@@ -346,7 +345,7 @@ export default function PersonelOdemePage() {
               onPress={handleSubmit}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              {isIleriTarihli ? t('transactions:form.schedule') : t('personel:actions.makePayment')}
+              {isIleriTarihli ? t('transactions:form.schedule') : t('staff:actions.makePayment')}
             </Button>
           </View>
         </ScrollView>

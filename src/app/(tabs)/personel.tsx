@@ -17,13 +17,12 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
-import { getPersonelBalanceLabel } from '@/lib/icons';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 
 export default function PersonelPage() {
   const router = useRouter();
-  const { t } = useTranslation(['personel', 'common', 'navigation']);
+  const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPersonelId, setExpandedPersonelId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
@@ -46,7 +45,7 @@ export default function PersonelPage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="h2">{t('personel:titles.personnel')}</Text>
+          <Text variant="h2">{t('staff:titles.personnel')}</Text>
           <Button
             variant="primary"
             size="sm"
@@ -60,11 +59,11 @@ export default function PersonelPage() {
         {/* Özet Kartları */}
         <View style={styles.summaryContainer}>
           <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">{t('personel:balance.weOwe')}</Text>
+            <Text variant="caption" color="secondary">{t('staff:balance.weOwe')}</Text>
             <Text variant="h3" color="error">{formatCurrency(payables.personel)}</Text>
           </Card>
           <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">{t('personel:balance.theyOwe')}</Text>
+            <Text variant="caption" color="secondary">{t('staff:balance.theyOwe')}</Text>
             <Text variant="h3" color="success">{formatCurrency(receivables.personel)}</Text>
           </Card>
         </View>
@@ -74,7 +73,7 @@ export default function PersonelPage() {
           <SearchInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder={t('personel:search.searchPersonnel')}
+            placeholder={t('staff:search.searchPersonnel')}
           />
         </View>
 
@@ -85,13 +84,13 @@ export default function PersonelPage() {
           ) : !filteredPersonel || filteredPersonel.length === 0 ? (
             <EmptyState
               icon={<UserCircle size={48} color={colors.textMuted} />}
-              title={searchQuery ? t('personel:search.noResults') : t('personel:messages.noPersonnel')}
+              title={searchQuery ? t('staff:search.noResults') : t('staff:messages.noPersonnel')}
               description={
                 searchQuery
                   ? t('common:search.tryDifferent')
-                  : t('personel:messages.addFirstPersonnel')
+                  : t('staff:messages.addFirstPersonnel')
               }
-              actionLabel={searchQuery ? undefined : t('personel:titles.addPersonnel')}
+              actionLabel={searchQuery ? undefined : t('staff:titles.addPersonnel')}
               onAction={searchQuery ? undefined : () => router.push('/personel/ekle')}
             />
           ) : (
@@ -132,7 +131,11 @@ export default function PersonelPage() {
                     </View>
                     <View style={styles.personelBalance}>
                       <Text variant="caption" color="secondary">
-                        {getPersonelBalanceLabel(toNumber(personel.balance))}
+                        {toNumber(personel.balance) === 0
+                          ? t('staff:balance.noBalance')
+                          : toNumber(personel.balance) < 0
+                          ? t('staff:balance.weOwe')
+                          : t('staff:balance.theyOwe')}
                       </Text>
                       <Text
                         variant="h3"
@@ -161,7 +164,7 @@ export default function PersonelPage() {
                     }}
                     style={styles.actionButton}
                   >
-                    {t('personel:details.newTransaction')}
+                    {t('staff:details.newTransaction')}
                   </Button>
                   <Button
                     variant="outline"
@@ -170,7 +173,7 @@ export default function PersonelPage() {
                     onPress={() => router.push(`/personel/${personel.id}`)}
                     style={styles.actionButton}
                   >
-                    {t('personel:details.hareketler')}
+                    {t('staff:details.transactions')}
                   </Button>
                 </View>
               </ExpandableCard>

@@ -1,4 +1,5 @@
 import { CURRENCY_SYMBOL } from '@/constants';
+import { getLocale } from '@/lib/date';
 
 /**
  * Türkçe para formatından sayıya dönüştür
@@ -67,7 +68,7 @@ export const formatCurrencyWithSign = (amount: number): string => {
  */
 export const formatDate = (date: string | Date): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('tr-TR', {
+  return new Intl.DateTimeFormat(getLocale(), {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -79,7 +80,7 @@ export const formatDate = (date: string | Date): string => {
  */
 export const formatDateShort = (date: string | Date): string => {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return new Intl.DateTimeFormat('tr-TR', {
+  return new Intl.DateTimeFormat(getLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',

@@ -20,10 +20,12 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreatePersonel } from '@/hooks/usePersonel';
 import { formatDateForDB } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 export default function PersonelEklePage() {
   const router = useRouter();
-  const { t } = useTranslation(['personel', 'common', 'errors']);
+  const { t } = useTranslation(['staff', 'common', 'errors']);
+  const { locale, formatDateNative } = useDateFormat();
   const createPersonel = useCreatePersonel();
 
   const [firstName, setFirstName] = useState('');
@@ -39,7 +41,7 @@ export default function PersonelEklePage() {
     const newErrors: { firstName?: string } = {};
 
     if (!firstName.trim()) {
-      newErrors.firstName = t('personel:validation.firstNameRequired');
+      newErrors.firstName = t('staff:validation.firstNameRequired');
     }
 
     setErrors(newErrors);
@@ -59,7 +61,7 @@ export default function PersonelEklePage() {
         start_date: startDate ? formatDateForDB(startDate) : null,
       });
 
-      Alert.alert(t('common:status.success'), t('personel:messages.createSuccess'), [
+      Alert.alert(t('common:status.success'), t('staff:messages.createSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
@@ -81,44 +83,44 @@ export default function PersonelEklePage() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text variant="h2">{t('personel:titles.addPersonnel')}</Text>
+            <Text variant="h2">{t('staff:titles.addPersonnel')}</Text>
           </View>
 
           {/* Form */}
           <View style={styles.section}>
             <Input
-              label={t('personel:form.firstName')}
-              placeholder={t('personel:form.firstNamePlaceholder')}
+              label={t('staff:form.firstName')}
+              placeholder={t('staff:form.firstNamePlaceholder')}
               value={firstName}
               onChangeText={setFirstName}
               error={errors.firstName}
             />
 
             <Input
-              label={t('personel:form.lastNameOptional')}
-              placeholder={t('personel:form.lastNamePlaceholder')}
+              label={t('staff:form.lastNameOptional')}
+              placeholder={t('staff:form.lastNamePlaceholder')}
               value={lastName}
               onChangeText={setLastName}
             />
 
             <Input
-              label={t('personel:form.phoneOptional')}
-              placeholder={t('personel:form.phoneExample')}
+              label={t('staff:form.phoneOptional')}
+              placeholder={t('staff:form.phoneExample')}
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
             />
 
             <Input
-              label={t('personel:form.positionOptional')}
-              placeholder={t('personel:form.positionPlaceholder')}
+              label={t('staff:form.positionOptional')}
+              placeholder={t('staff:form.positionPlaceholder')}
               value={position}
               onChangeText={setPosition}
             />
 
             <Input
-              label={t('personel:form.salaryOptional')}
-              placeholder={t('personel:form.salaryPlaceholder')}
+              label={t('staff:form.salaryOptional')}
+              placeholder={t('staff:form.salaryPlaceholder')}
               keyboardType="decimal-pad"
               value={salary}
               onChangeText={setSalary}
@@ -127,7 +129,7 @@ export default function PersonelEklePage() {
             {/* İşe Başlama Tarihi */}
             <View style={styles.dateField}>
               <Text variant="label" style={styles.dateLabel}>
-                {t('personel:form.startDateOptional')}
+                {t('staff:form.startDateOptional')}
               </Text>
               <TouchableOpacity
                 style={styles.dateButton}
@@ -140,8 +142,8 @@ export default function PersonelEklePage() {
                   style={styles.dateText}
                 >
                   {startDate
-                    ? startDate.toLocaleDateString('tr-TR')
-                    : t('personel:form.selectDate')}
+                    ? formatDateNative(startDate)
+                    : t('staff:form.selectDate')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -158,7 +160,7 @@ export default function PersonelEklePage() {
                     onPress={(e) => e.stopPropagation()}
                   >
                     <View style={styles.datePickerModalHeader}>
-                      <Text variant="h3">{t('personel:form.startDate')}</Text>
+                      <Text variant="h3">{t('staff:form.startDate')}</Text>
                       <TouchableOpacity onPress={() => setShowDatePicker(false)}>
                         <X size={24} color={colors.text} />
                       </TouchableOpacity>
@@ -173,7 +175,7 @@ export default function PersonelEklePage() {
                         }
                       }}
                       maximumDate={new Date()}
-                      locale="tr-TR"
+                      locale={locale}
                       themeVariant="light"
                       accentColor={colors.primary}
                       style={{ height: 350 }}

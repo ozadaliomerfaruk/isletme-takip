@@ -26,7 +26,7 @@ function RootLayoutNav() {
   const { user, initialized } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
-  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'cariler', 'personel', 'reports', 'categories', 'settings']);
+  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);
@@ -166,7 +166,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('cariler:titles.clientTransactions'),
+            headerTitle: t('clients:titles.clientTransactions'),
             headerShadowVisible: false,
           }}
         />
@@ -177,7 +177,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('personel:titles.personnelTransactions'),
+            headerTitle: t('staff:titles.personnelTransactions'),
             headerShadowVisible: false,
           }}
         />
@@ -210,7 +210,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('cariler:titles.addClient'),
+            headerTitle: t('clients:titles.addClient'),
             headerShadowVisible: false,
           }}
         />
@@ -221,7 +221,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('personel:titles.addPersonnel'),
+            headerTitle: t('staff:titles.addPersonnel'),
             headerShadowVisible: false,
           }}
         />
@@ -458,7 +458,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('cariler:titles.editClient'),
+            headerTitle: t('clients:titles.editClient'),
             headerShadowVisible: false,
           }}
         />
@@ -469,7 +469,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('personel:titles.editPersonnel'),
+            headerTitle: t('staff:titles.editPersonnel'),
             headerShadowVisible: false,
           }}
         />

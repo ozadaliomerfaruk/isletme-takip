@@ -81,7 +81,7 @@
     "accountCount": "{{count}} Hesap"
   },
   "details": {
-    "hareketler": "Hareketler",
+    "transactions": "Hareketler",
     "initialBalance": "Başlangıç Bakiyesi",
     "accountOpening": "Hesap açılışı",
     "notFoundDescription": "Bu hesap mevcut değil veya silinmiş olabilir.",
@@ -91,10 +91,10 @@
     "gelir": "Gelir",
     "gider": "Gider",
     "transfer": "Transfer",
-    "cari_odeme": "Cari Ödeme",
-    "cari_tahsilat": "Cari Tahsilat",
-    "personel_odeme": "Personel Ödeme",
-    "personel_gider": "Personel Gider"
+    "cariOdeme": "Cari Ödeme",
+    "cariTahsilat": "Cari Tahsilat",
+    "personelOdeme": "Personel Ödeme",
+    "personelGider": "Personel Gider"
   },
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",

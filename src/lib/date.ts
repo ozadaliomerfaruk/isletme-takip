@@ -10,12 +10,81 @@
  * - Tüm tarih formatlamaları bu dosyadan yapılmalı
  */
 
+import i18n from 'i18next';
+
 // ============================================================================
-// SABITLER
+// LOCALE YARDIMCI FONKSİYONLARI
 // ============================================================================
 
 /**
- * Türkçe ay isimleri (tam)
+ * i18n dil kodunu native API'ler için locale string'e dönüştür
+ * Kullanım: toLocaleDateString, Intl.NumberFormat, DateTimePicker vb.
+ */
+export function getLocale(): string {
+  const localeMap: Record<string, string> = {
+    tr: 'tr-TR',
+    en: 'en-US',
+    de: 'de-DE',
+    fr: 'fr-FR',
+    es: 'es-ES',
+  };
+  return localeMap[i18n.language] || 'en-US';
+}
+
+// ============================================================================
+// ÇEVIRI YARDIMCI FONKSİYONLARI
+// ============================================================================
+
+/**
+ * Çevirilmiş ay isimlerini al (tam)
+ */
+function getMonths(): string[] {
+  const months = i18n.t('date.months', { ns: 'common', returnObjects: true });
+  if (Array.isArray(months) && months.every((m) => typeof m === 'string')) {
+    return months as string[];
+  }
+  return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+}
+
+/**
+ * Çevirilmiş ay isimlerini al (kısa)
+ */
+function getMonthsShort(): string[] {
+  const months = i18n.t('date.monthsShort', { ns: 'common', returnObjects: true });
+  if (Array.isArray(months) && months.every((m) => typeof m === 'string')) {
+    return months as string[];
+  }
+  return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+}
+
+/**
+ * Çevirilmiş gün isimlerini al (tam)
+ */
+function getDays(): string[] {
+  const days = i18n.t('date.days', { ns: 'common', returnObjects: true });
+  if (Array.isArray(days) && days.every((d) => typeof d === 'string')) {
+    return days as string[];
+  }
+  return ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+}
+
+/**
+ * Çevirilmiş gün isimlerini al (kısa)
+ */
+function getDaysShort(): string[] {
+  const days = i18n.t('date.daysShort', { ns: 'common', returnObjects: true });
+  if (Array.isArray(days) && days.every((d) => typeof d === 'string')) {
+    return days as string[];
+  }
+  return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+}
+
+// ============================================================================
+// SABITLER (Deprecated - geriye uyumluluk için)
+// ============================================================================
+
+/**
+ * @deprecated Çeviriler için useDateFormat hook'unu kullanın
  */
 export const MONTHS_FULL = [
   'Ocak',
@@ -33,7 +102,7 @@ export const MONTHS_FULL = [
 ] as const;
 
 /**
- * Türkçe ay isimleri (kısa - 3 harf)
+ * @deprecated Çeviriler için useDateFormat hook'unu kullanın
  */
 export const MONTHS_SHORT = [
   'Oca',
@@ -51,7 +120,7 @@ export const MONTHS_SHORT = [
 ] as const;
 
 /**
- * Türkçe gün isimleri
+ * @deprecated Çeviriler için useDateFormat hook'unu kullanın
  */
 export const DAYS_FULL = [
   'Pazar',
@@ -64,7 +133,7 @@ export const DAYS_FULL = [
 ] as const;
 
 /**
- * Türkçe gün isimleri (kısa - 3 harf)
+ * @deprecated Çeviriler için useDateFormat hook'unu kullanın
  */
 export const DAYS_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'] as const;
 
@@ -126,21 +195,23 @@ export function parseDateFromDB(dateStr: string): Date {
 // ============================================================================
 
 /**
- * Tarih formatla: "19 Aralık 2024"
+ * Tarih formatla: "19 Aralık 2024" / "19 December 2024"
  * Kullanım: İşlem detayları, form gösterimleri
  */
 export function formatDateLong(date: string | Date): string {
   const d = typeof date === 'string' ? parseDateFromDB(date) : date;
-  return `${d.getDate()} ${MONTHS_FULL[d.getMonth()]} ${d.getFullYear()}`;
+  const months = getMonths();
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /**
- * Tarih formatla: "19 Ara 2024"
+ * Tarih formatla: "19 Ara 2024" / "19 Dec 2024"
  * Kullanım: Kart başlıkları, özet gösterimleri
  */
 export function formatDateMedium(date: string | Date): string {
   const d = typeof date === 'string' ? parseDateFromDB(date) : date;
-  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+  const months = getMonthsShort();
+  return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /**
@@ -155,18 +226,20 @@ export function formatDateShort(date: string | Date): string {
 }
 
 /**
- * Ay ve yıl formatla: "Aralık 2024"
+ * Ay ve yıl formatla: "Aralık 2024" / "December 2024"
  * Kullanım: Dönem seçiciler, rapor başlıkları
  */
 export function formatMonthYear(date: Date): string {
-  return `${MONTHS_FULL[date.getMonth()]} ${date.getFullYear()}`;
+  const months = getMonths();
+  return `${months[date.getMonth()]} ${date.getFullYear()}`;
 }
 
 /**
- * Sadece ay formatla: "Aralık"
+ * Sadece ay formatla: "Aralık" / "December"
  */
 export function formatMonth(date: Date): string {
-  return MONTHS_FULL[date.getMonth()];
+  const months = getMonths();
+  return months[date.getMonth()];
 }
 
 /**
@@ -182,7 +255,7 @@ export function formatDateTime(date: string | Date): string {
 }
 
 /**
- * Göreceli tarih formatla: "Bugün", "Dün", "2 gün önce"
+ * Göreceli tarih formatla: "Bugün"/"Today", "Dün"/"Yesterday", "2 gün önce"/"2 days ago"
  * Kullanım: Bildirimler, son aktiviteler
  */
 export function formatRelativeDate(date: string | Date): string {
@@ -194,12 +267,12 @@ export function formatRelativeDate(date: string | Date): string {
   const diffTime = today.getTime() - target.getTime();
   const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays === 0) return 'Bugün';
-  if (diffDays === 1) return 'Dün';
-  if (diffDays < 7) return `${diffDays} gün önce`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} hafta önce`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} ay önce`;
-  return `${Math.floor(diffDays / 365)} yıl önce`;
+  if (diffDays === 0) return i18n.t('date.relative.today', { ns: 'common' }) || 'Today';
+  if (diffDays === 1) return i18n.t('date.relative.yesterday', { ns: 'common' }) || 'Yesterday';
+  if (diffDays < 7) return i18n.t('date.relative.daysAgo', { ns: 'common', count: diffDays }) || `${diffDays} days ago`;
+  if (diffDays < 30) return i18n.t('date.relative.weeksAgo', { ns: 'common', count: Math.floor(diffDays / 7) }) || `${Math.floor(diffDays / 7)} weeks ago`;
+  if (diffDays < 365) return i18n.t('date.relative.monthsAgo', { ns: 'common', count: Math.floor(diffDays / 30) }) || `${Math.floor(diffDays / 30)} months ago`;
+  return i18n.t('date.relative.yearsAgo', { ns: 'common', count: Math.floor(diffDays / 365) }) || `${Math.floor(diffDays / 365)} years ago`;
 }
 
 // ============================================================================
@@ -263,10 +336,12 @@ export function getDateRange(
       endDate.setDate(startDate.getDate() + 6);
 
       // Hafta etiketi
+      const monthsFull = getMonths();
+      const monthsShort = getMonthsShort();
       if (startDate.getMonth() === endDate.getMonth()) {
-        label = `${startDate.getDate()}-${endDate.getDate()} ${MONTHS_FULL[startDate.getMonth()]}`;
+        label = `${startDate.getDate()}-${endDate.getDate()} ${monthsFull[startDate.getMonth()]}`;
       } else {
-        label = `${startDate.getDate()} ${MONTHS_SHORT[startDate.getMonth()]} - ${endDate.getDate()} ${MONTHS_SHORT[endDate.getMonth()]}`;
+        label = `${startDate.getDate()} ${monthsShort[startDate.getMonth()]} - ${endDate.getDate()} ${monthsShort[endDate.getMonth()]}`;
       }
       break;
     }
@@ -291,7 +366,7 @@ export function getDateRange(
       // Varsayılan: bu ay
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      label = 'Tarih Seçin';
+      label = i18n.t('date.selectDate', { ns: 'common' }) || 'Select Date';
       break;
     }
   }
@@ -380,13 +455,14 @@ export function formatTime(date: string | Date): string {
 
 /**
  * Akıllı tarih formatı:
- * - Aynı yıl: "19 Ara 14:30" (yıl yok, saat var)
- * - Farklı yıl: "19 Ara 2025" (yıl var, saat yok)
+ * - Aynı yıl: "19 Ara 14:30" / "19 Dec 14:30" (yıl yok, saat var)
+ * - Farklı yıl: "19 Ara 2025" / "19 Dec 2025" (yıl var, saat yok)
  */
 export function formatDateSmart(date: string | Date): string {
   const d = typeof date === 'string' ? parseDateFromDB(date) : date;
   const day = d.getDate();
-  const month = MONTHS_SHORT[d.getMonth()];
+  const months = getMonthsShort();
+  const month = months[d.getMonth()];
 
   if (isSameYear(d)) {
     // Aynı yıl: gün ay saat

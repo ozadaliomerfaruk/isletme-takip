@@ -20,12 +20,11 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { getIslemTypeLabel } from '@/lib/icons';
 import { useTranslation } from 'react-i18next';
 
 export default function PersonelGiderPage() {
   const router = useRouter();
-  const { t } = useTranslation(['transactions', 'common', 'errors', 'personel']);
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'staff']);
   const params = useLocalSearchParams<{ personel_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -105,7 +104,7 @@ export default function PersonelGiderPage() {
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${getIslemTypeLabel('personel_gider')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.personel_gider')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -115,7 +114,7 @@ export default function PersonelGiderPage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('personel:messages.scheduledExpenseCreated'), [
+        Alert.alert(t('common:status.success'), t('staff:messages.scheduledExpenseCreated'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
@@ -128,7 +127,7 @@ export default function PersonelGiderPage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('personel:messages.expenseRecorded'), [
+        Alert.alert(t('common:status.success'), t('staff:messages.expenseRecorded'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
@@ -152,9 +151,9 @@ export default function PersonelGiderPage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">{t('personel:transactionTitles.expense')}</Text>
+                <Text variant="h2">{t('staff:transactionTitles.expense')}</Text>
                 <Text variant="body" color="secondary">
-                  {t('personel:transactionDescriptions.expense')}
+                  {t('staff:transactionDescriptions.expense')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -183,7 +182,7 @@ export default function PersonelGiderPage() {
           <View style={styles.section}>
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('personel:transactionForm.personel')}
+                {t('staff:transactionForm.personel')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.personel && styles.pickerError]}
@@ -195,11 +194,11 @@ export default function PersonelGiderPage() {
                   <Text variant="body">
                     {selectedPersonel
                       ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
-                      : t('personel:transactionForm.selectPersonel')}
+                      : t('staff:transactionForm.selectPersonel')}
                   </Text>
                   {selectedPersonel && (
                     <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
-                      {t('personel:balance.weOwe')}: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                      {t('staff:balance.weOwe')}: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
                     </Text>
                   )}
                 </View>
@@ -260,8 +259,8 @@ export default function PersonelGiderPage() {
             )}
 
             <Input
-              label={t('personel:transactionForm.descriptionOptional')}
-              placeholder={t('personel:transactionForm.expenseNote')}
+              label={t('staff:transactionForm.descriptionOptional')}
+              placeholder={t('staff:transactionForm.expenseNote')}
               multiline
               numberOfLines={3}
               value={description}

@@ -15,7 +15,6 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { IleriTarihliIslemWithRelations } from '@/types/database';
-import { getIslemTypeLabel } from '@/lib/icons';
 import {
   useCompleteIleriTarihliIslem,
   useDeleteIleriTarihliIslem,
@@ -71,7 +70,7 @@ export function IleriTarihliIslemlerSection({
   const handleComplete = (item: IleriTarihliIslemWithRelations) => {
     Alert.alert(
       t('transactions:scheduled.execute'),
-      t('transactions:scheduled.executeConfirm', { amount: formatCurrency(item.amount), type: getIslemTypeLabel(item.type).toLowerCase() }),
+      t('transactions:scheduled.executeConfirm', { amount: formatCurrency(item.amount), type: t(`transactions:types.${item.type}`).toLowerCase() }),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -153,7 +152,7 @@ export function IleriTarihliIslemlerSection({
                 <View style={styles.itemContent}>
                   <View style={styles.itemTitleRow}>
                     <Text variant="body" numberOfLines={1} style={styles.itemTitle}>
-                      {item.description || getIslemTypeLabel(item.type)}
+                      {item.description || t(`transactions:types.${item.type}`)}
                     </Text>
                     <Text
                       variant="caption"
@@ -167,7 +166,7 @@ export function IleriTarihliIslemlerSection({
                   </View>
                   <View style={styles.itemSubRow}>
                     <Text variant="caption" color="secondary">
-                      {item.kategori?.name || getIslemTypeLabel(item.type)}
+                      {item.kategori?.name || t(`transactions:types.${item.type}`)}
                     </Text>
                     <Text
                       variant="body"

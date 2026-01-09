@@ -1,6 +1,9 @@
 /**
  * İşlem String'leri
  * Gelir, gider, transfer ve tüm işlem tipleri için string'ler
+ *
+ * @deprecated Bu dosya i18n geçişi için kullanılmamaktadır.
+ * Çeviriler için src/i18n/locales/{lang}/transactions.json dosyalarını kullanın.
  */
 
 import { IslemType, HesapType, CariType } from '@/types/database';

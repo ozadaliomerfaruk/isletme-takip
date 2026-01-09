@@ -68,11 +68,11 @@
     "nameRequired": "Client name is required"
   },
   "personel": {
-    "createFailed": "Could not create personnel",
-    "updateFailed": "Could not update personnel",
-    "deleteFailed": "Could not delete personnel",
-    "notFound": "Personnel not found",
-    "hasTransactions": "This personnel has transactions. Delete them first.",
+    "createFailed": "Could not create staff member",
+    "updateFailed": "Could not update staff member",
+    "deleteFailed": "Could not delete staff member",
+    "notFound": "Staff member not found",
+    "hasTransactions": "This staff member has transactions. Delete them first.",
     "nameRequired": "Name is required"
   },
   "category": {

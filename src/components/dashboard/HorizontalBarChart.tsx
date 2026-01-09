@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Rect } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -19,6 +20,7 @@ export function HorizontalBarChart({
   showLabels = true,
   compact = false,
 }: HorizontalBarChartProps) {
+  const { t } = useTranslation('common');
   const displayData = data.slice(0, maxItems);
   const maxValue = Math.max(...displayData.map(d => d.total), 1);
 
@@ -30,7 +32,7 @@ export function HorizontalBarChart({
     return (
       <View style={styles.emptyContainer}>
         <Text variant="caption" color="secondary">
-          Veri bulunamadı
+          {t('empty.noData')}
         </Text>
       </View>
     );
@@ -40,7 +42,7 @@ export function HorizontalBarChart({
     <View style={styles.container}>
       {displayData.map((item, index) => {
         const barWidthPercent = Math.max((item.total / maxValue) * 100, 2);
-        const categoryName = item.kategori?.name || 'Diğer';
+        const categoryName = item.kategori?.name || t('labels.other');
         const truncatedName = categoryName.length > (compact ? 10 : 12)
           ? categoryName.substring(0, compact ? 10 : 12) + '...'
           : categoryName;

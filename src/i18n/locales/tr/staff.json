@@ -37,6 +37,7 @@
     "currentBalance": "Mevcut Bakiye",
     "weOwe": "Borcumuz",
     "theyOwe": "Alacağımız",
+    "noBalance": "Bakiye Yok",
     "salary": "Maaş",
     "advance": "Avans",
     "bonus": "Prim",
@@ -116,8 +117,7 @@
   "details": {
     "contactInfo": "İletişim Bilgileri",
     "workInfo": "İş Bilgileri",
-    "transactions": "İşlemler",
-    "hareketler": "Hareketler",
+    "transactions": "Hareketler",
     "statistics": "İstatistikler",
     "lastTransaction": "Son İşlem",
     "transactionCount": "İşlem Sayısı",
@@ -135,8 +135,8 @@
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",
     "transactionMessage": "Bu işlemi silmek istediğinizden emin misiniz?",
-    "personelTitle": "Personeli Sil",
-    "personelMessage": "Bu personeli silmek istediğinizden emin misiniz?\n\nDikkat: Bu personele ait tüm gider ve ödeme işlemleri de silinecektir. Bu işlem geri alınamaz."
+    "staffTitle": "Personeli Sil",
+    "staffMessage": "Bu personeli silmek istediğinizden emin misiniz?\n\nDikkat: Bu personele ait tüm gider ve ödeme işlemleri de silinecektir. Bu işlem geri alınamaz."
   },
   "validation": {
     "firstNameRequired": "Ad gerekli"

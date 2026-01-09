@@ -20,12 +20,11 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { getIslemTypeLabel } from '@/lib/icons';
 import { useTranslation } from 'react-i18next';
 
 export default function CariAlisPage() {
   const router = useRouter();
-  const { t } = useTranslation(['transactions', 'common', 'errors', 'cariler']);
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'clients']);
   const params = useLocalSearchParams<{ cari_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -105,7 +104,7 @@ export default function CariAlisPage() {
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${getIslemTypeLabel('cari_alis')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.cari_alis')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -115,7 +114,7 @@ export default function CariAlisPage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('cariler:messages.scheduledPurchaseCreated'), [
+        Alert.alert(t('common:status.success'), t('clients:messages.scheduledPurchaseCreated'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
@@ -128,7 +127,7 @@ export default function CariAlisPage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('cariler:messages.purchaseRecorded'), [
+        Alert.alert(t('common:status.success'), t('clients:messages.purchaseRecorded'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
@@ -152,9 +151,9 @@ export default function CariAlisPage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">{t('cariler:transactionTitles.purchase')}</Text>
+                <Text variant="h2">{t('clients:transactionTitles.purchase')}</Text>
                 <Text variant="body" color="secondary">
-                  {t('cariler:transactionDescriptions.purchase')}
+                  {t('clients:transactionDescriptions.purchase')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -183,7 +182,7 @@ export default function CariAlisPage() {
           <View style={styles.section}>
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('cariler:transactionForm.supplier')}
+                {t('clients:transactionForm.supplier')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.cari && styles.pickerError]}
@@ -192,10 +191,10 @@ export default function CariAlisPage() {
                 }}
               >
                 <View>
-                  <Text variant="body">{selectedCari?.name || t('cariler:transactionForm.selectSupplier')}</Text>
+                  <Text variant="body">{selectedCari?.name || t('clients:transactionForm.selectSupplier')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
-                      {t('cariler:balance.payable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>
@@ -224,7 +223,7 @@ export default function CariAlisPage() {
                         {cari.name}
                       </Text>
                       <Text variant="caption" color="secondary">
-                        {t('cariler:balance.payable')}: {formatCurrency(Math.abs(Number(cari.balance)))}
+                        {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(cari.balance)))}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -262,8 +261,8 @@ export default function CariAlisPage() {
             )}
 
             <Input
-              label={t('cariler:transactionForm.descriptionOptional')}
-              placeholder={t('cariler:transactionForm.purchaseDetails')}
+              label={t('clients:transactionForm.descriptionOptional')}
+              placeholder={t('clients:transactionForm.purchaseDetails')}
               multiline
               numberOfLines={3}
               value={description}

@@ -1,154 +1,143 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 
 export default function GizlilikPolitikasiPage() {
+  const { t } = useTranslation('legal');
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text variant="h3" style={styles.title}>
-            Gizlilik Politikası
+            {t('privacy.title')}
           </Text>
           <Text variant="caption" color="secondary" style={styles.date}>
-            Son Güncelleme: 22 Aralık 2025
+            {t('privacy.lastUpdated')}
           </Text>
 
           <View style={styles.section}>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              İşletme Takip olarak gizliliğinize önem veriyoruz. Bu Gizlilik Politikası, mobil uygulamamız aracılığıyla toplanan kişisel verilerin hangi amaçlarla işlendiğini, nasıl korunduğunu ve kullanıcıların haklarını açıklamaktadır.
+              {t('privacy.intro')}
             </Text>
           </View>
 
+          {/* Section 1: Collected Data */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              1. Toplanan Veriler
-            </Text>
-            <Text variant="body" style={styles.subTitle}>
-              1.1 Kimlik ve Hesap Bilgileri
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              • E-posta adresi{'\n'}
-              • Kimlik doğrulama bilgileri (şifreler uygulama geliştiricisi tarafından görülmez veya saklanmaz, güvenli kimlik doğrulama altyapıları üzerinden işlenir)
+              {t('privacy.sections.collectedData.title')}
             </Text>
 
             <Text variant="body" style={styles.subTitle}>
-              1.2 Kullanıcı Tarafından Girilen İçerikler
+              {t('privacy.sections.collectedData.identity.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Aşağıdaki bilgiler tamamen kullanıcının isteğiyle ve manuel olarak girilir:{'\n'}
-              • Finansal kayıtlar (banka hesapları, kasa, gelir-gider kayıtları){'\n'}
-              • Cari hesap bilgileri (müşteri ve tedarikçi bilgileri){'\n'}
-              • Personel bilgileri{'\n'}
-              • Açıklamalar, notlar ve benzeri içerikler
+              {t('privacy.sections.collectedData.identity.content').split('\n').map((item, i) => `• ${item}`).join('\n')}
             </Text>
 
             <Text variant="body" style={styles.subTitle}>
-              1.3 Opsiyonel Bilgiler
+              {t('privacy.sections.collectedData.userContent.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Vergi numarası ve benzeri alanlar zorunlu değildir ve kullanıcı tarafından isteğe bağlı olarak girilir.
+              {t('privacy.sections.collectedData.userContent.intro')}{'\n'}
+              {t('privacy.sections.collectedData.userContent.content').split('\n').map((item, i) => `• ${item}`).join('\n')}
+            </Text>
+
+            <Text variant="body" style={styles.subTitle}>
+              {t('privacy.sections.collectedData.optional.title')}
+            </Text>
+            <Text variant="body" color="secondary" style={styles.paragraph}>
+              {t('privacy.sections.collectedData.optional.content')}
             </Text>
           </View>
 
+          {/* Section 2: Data Usage */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              2. Verilerin Kullanım Amaçları
+              {t('privacy.sections.dataUsage.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Toplanan veriler aşağıdaki amaçlarla işlenir:{'\n\n'}
-              • Uygulama fonksiyonlarının sağlanması{'\n'}
-              • Hesap ve oturum yönetimi{'\n'}
-              • Finansal kayıt ve raporların oluşturulması{'\n'}
-              • Teknik sorunların giderilmesi{'\n'}
-              • Yasal yükümlülüklerin yerine getirilmesi{'\n\n'}
-              Veriler reklam, pazarlama veya kullanıcı takibi amacıyla kullanılmaz.
+              {t('privacy.sections.dataUsage.intro')}{'\n\n'}
+              {t('privacy.sections.dataUsage.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('privacy.sections.dataUsage.outro')}
             </Text>
           </View>
 
+          {/* Section 3: App Store */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              3. Verilerin Kullanıcıyla İlişkisi (Apple App Store Açısından)
+              {t('privacy.sections.appStore.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              • Kimlik ve hesap bilgileri, kullanıcı hesabı ile ilişkilidir.{'\n'}
-              • Kullanıcı tarafından girilen finansal kayıtlar, cari ve personel bilgileri kullanıcının kendisine değil, kullanıcının hesabı kapsamında oluşturulan içeriklere aittir.{'\n'}
-              • Bu veriler yalnızca ilgili kullanıcı tarafından erişilebilir.
+              {t('privacy.sections.appStore.content').split('\n').map((item, i) => `• ${item}`).join('\n')}
             </Text>
           </View>
 
+          {/* Section 4: Data Security */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              4. Veri Güvenliği
+              {t('privacy.sections.dataSecurity.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kişisel verilerin güvenliği için aşağıdaki önlemler alınmaktadır:{'\n\n'}
-              • SSL/TLS ile şifrelenmiş veri iletimi{'\n'}
-              • Güvenli sunucu altyapıları{'\n'}
-              • Yetkilendirme ve erişim kontrol mekanizmaları{'\n'}
-              • Yetkisiz erişimi önlemeye yönelik teknik tedbirler
+              {t('privacy.sections.dataSecurity.intro')}{'\n\n'}
+              {t('privacy.sections.dataSecurity.items').split('\n').map((item, i) => `• ${item}`).join('\n')}
             </Text>
           </View>
 
+          {/* Section 5: Third Party */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              5. Üçüncü Taraf Hizmet Sağlayıcılar
+              {t('privacy.sections.thirdParty.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Uygulama aşağıdaki hizmet sağlayıcılardan faydalanabilir:{'\n\n'}
-              • Kimlik doğrulama servisleri (Apple Kimliği, Google Hesabı){'\n'}
-              • Veritabanı ve kimlik doğrulama altyapısı (Supabase){'\n'}
-              • Bulut barındırma (hosting) hizmetleri{'\n\n'}
-              Bu hizmet sağlayıcılar, verilere yalnızca uygulamanın işlevlerini yerine getirebilmek amacıyla ve sınırlı ölçüde erişebilir.{'\n\n'}
-              Tüm üçüncü taraf hizmet sağlayıcılar, kullanıcı verilerine bu Gizlilik Politikası'nda belirtilen koruma düzeyine eşit veya daha yüksek düzeyde koruma sağlamakla yükümlüdür.
+              {t('privacy.sections.thirdParty.intro')}{'\n\n'}
+              {t('privacy.sections.thirdParty.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('privacy.sections.thirdParty.outro')}
             </Text>
           </View>
 
+          {/* Section 6: Retention */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              6. Veri Saklama Süresi ve Hesap Silme
+              {t('privacy.sections.retention.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              • Veriler, kullanıcı hesabı aktif olduğu sürece saklanır.{'\n'}
-              • Kullanıcı, uygulama içinden hesabını silebilir.{'\n'}
-              • Hesap silme talebinden sonra 7 gün bekleme süresi uygulanır.{'\n'}
-              • Bekleme süresi sonunda hesap ve hesaba bağlı tüm veriler otomatik olarak kalıcı şekilde silinir.{'\n'}
-              • Apple Kimliği ile giriş yapan kullanıcılar için, hesap silme işlemi sırasında Apple kimlik doğrulama token'ları da iptal edilir.
+              {t('privacy.sections.retention.content').split('\n').map((item, i) => `• ${item}`).join('\n')}
             </Text>
           </View>
 
+          {/* Section 7: Children */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              7. Çocukların Gizliliği
+              {t('privacy.sections.children.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Uygulama 13 yaş altındaki çocuklara yönelik değildir. Bilerek çocuklara ait kişisel veriler toplanmaz.
+              {t('privacy.sections.children.content')}
             </Text>
           </View>
 
+          {/* Section 8: User Rights */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              8. Kullanıcı Hakları
+              {t('privacy.sections.userRights.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kullanıcılar, yürürlükteki mevzuat kapsamında:{'\n\n'}
-              • Verilerine erişim hakkı{'\n'}
-              • Düzeltme talep etme hakkı{'\n'}
-              • Silinmesini isteme hakkı{'\n'}
-              • İşlemeye itiraz etme hakkı{'\n\n'}
-              haklarına sahiptir.
+              {t('privacy.sections.userRights.intro')}{'\n\n'}
+              {t('privacy.sections.userRights.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('privacy.sections.userRights.outro')}
             </Text>
           </View>
 
+          {/* Section 9: Contact */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              9. İletişim
+              {t('privacy.sections.contact.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Gizlilik politikası ile ilgili sorular için:{'\n'}
-              ozadaliomerfaruk@gmail.com
+              {t('privacy.sections.contact.content')}
             </Text>
           </View>
         </View>

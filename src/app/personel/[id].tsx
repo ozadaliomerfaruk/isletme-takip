@@ -20,7 +20,8 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateShort, formatDateMedium } from '@/lib/date';
+import { formatDateShort } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { getInitials } from '@/lib/utils';
 import { usePersonelById, useDeletePersonel } from '@/hooks/usePersonel';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
@@ -30,7 +31,8 @@ import { IslemWithRelations } from '@/types/database';
 export default function PersonelHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useTranslation(['personel', 'common', 'errors']);
+  const { t } = useTranslation(['staff', 'common', 'errors']);
+  const { formatDateMedium } = useDateFormat();
 
   const { data: personel, isLoading: personelLoading } = usePersonelById(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByPersonel(id!);
@@ -41,7 +43,7 @@ export default function PersonelHareketleriPage() {
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
 
-  const fullName = personel ? `${personel.first_name} ${personel.last_name}` : 'Yükleniyor...';
+  const fullName = personel ? `${personel.first_name} ${personel.last_name}` : t('common:status.loading');
 
   // Başlangıç bakiyesini hesapla
   const calculateInitialBalance = () => {
@@ -80,11 +82,11 @@ export default function PersonelHareketleriPage() {
   const getHareketLabel = (type: string) => {
     switch (type) {
       case 'personel_gider':
-        return t('personel:transactionLabels.gider');
+        return t('staff:transactionLabels.gider');
       case 'personel_odeme':
-        return t('personel:transactionLabels.odeme');
+        return t('staff:transactionLabels.odeme');
       case 'personel_tahsilat':
-        return t('personel:transactionLabels.tahsilat');
+        return t('staff:transactionLabels.tahsilat');
       default:
         return type;
     }
@@ -92,8 +94,8 @@ export default function PersonelHareketleriPage() {
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
-      t('personel:deleteConfirm.transactionTitle'),
-      t('personel:deleteConfirm.transactionMessage'),
+      t('staff:deleteConfirm.transactionTitle'),
+      t('staff:deleteConfirm.transactionMessage'),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -113,8 +115,8 @@ export default function PersonelHareketleriPage() {
 
   const handleDeletePersonel = () => {
     Alert.alert(
-      t('personel:deleteConfirm.personelTitle'),
-      t('personel:deleteConfirm.personelMessage'),
+      t('staff:deleteConfirm.staffTitle'),
+      t('staff:deleteConfirm.staffMessage'),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -149,7 +151,7 @@ export default function PersonelHareketleriPage() {
         <EmptyState
           icon={<UserCircle size={48} color={colors.textMuted} />}
           title={t('errors:personel.notFound')}
-          description={t('personel:details.notFoundDescription')}
+          description={t('staff:details.notFoundDescription')}
         />
       </SafeAreaView>
     );
@@ -192,7 +194,7 @@ export default function PersonelHareketleriPage() {
               </View>
               <View style={styles.balanceInfo}>
                 <Text variant="caption" color="secondary">
-                  {Number(personel.balance) < 0 ? t('personel:balance.weOwe') : t('personel:balance.theyOwe')}
+                  {Number(personel.balance) < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
                 </Text>
                 <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
                   {formatCurrency(Math.abs(Number(personel.balance)))}
@@ -230,7 +232,7 @@ export default function PersonelHareketleriPage() {
               onPress={() => setQuickBarVisible(true)}
               style={styles.actionBtn}
             >
-              {t('personel:details.newTransaction')}
+              {t('staff:details.newTransaction')}
             </Button>
           </View>
 
@@ -242,7 +244,7 @@ export default function PersonelHareketleriPage() {
             />
 
             <Text variant="h3" style={styles.sectionTitle}>
-              {t('personel:details.hareketler')}
+              {t('staff:details.transactions')}
             </Text>
 
             {islemlerLoading ? (
@@ -318,9 +320,9 @@ export default function PersonelHareketleriPage() {
                       <CircleDollarSign size={20} color={colors.primary} />
                     </View>
                     <View style={styles.hareketInfo}>
-                      <Text variant="body">{t('personel:details.initialBalance')}</Text>
+                      <Text variant="body">{t('staff:details.initialBalance')}</Text>
                       <Text variant="caption" color="secondary">
-                        {t('personel:details.personelRecord')} • {formatDateShort(personel.created_at)}
+                        {t('staff:details.personelRecord')} • {formatDateShort(personel.created_at)}
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>

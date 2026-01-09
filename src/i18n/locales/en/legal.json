@@ -1,0 +1,169 @@
+{
+  "kvkk": {
+    "title": "KVKK Privacy Notice",
+    "subtitle": "Turkish Personal Data Protection Law No. 6698",
+    "intro": "This Privacy Notice has been prepared in accordance with Turkish Personal Data Protection Law No. 6698 (\"KVKK\") in our capacity as data controller.",
+    "sections": {
+      "dataController": {
+        "title": "1. Data Controller",
+        "content": "Omer Faruk Ozadali\nAddress: Istanbul, Turkey\nEmail: ozadaliomerfaruk@gmail.com"
+      },
+      "processedData": {
+        "title": "2. Personal Data Processed",
+        "intro": "The following personal data may be processed within the scope of the application:",
+        "identity": "Identity and Account Information:",
+        "identityItems": "Email address",
+        "contact": "Contact Information (if provided by user):",
+        "contactItems": "Phone number",
+        "auth": "Authentication and Session Information:",
+        "authItems": "Session and authorization data",
+        "financial": "Financial Information:",
+        "financialItems": "Business account records manually entered by user",
+        "technical": "Transaction and Technical Security Information:",
+        "technicalItems": "Technical records created for system security and service provision"
+      },
+      "purposes": {
+        "title": "3. Purposes of Processing Personal Data",
+        "intro": "Your personal data is processed for the following purposes:",
+        "items": "Managing membership and account operations\nProviding application services\nEnabling financial recording and reporting functions\nManaging information security processes\nFulfilling legal obligations"
+      },
+      "legalBasis": {
+        "title": "4. Legal Grounds",
+        "intro": "Your personal data is processed based on the following legal grounds pursuant to Article 5 of KVKK:",
+        "items": "Direct relevance to the establishment or performance of a contract\nFulfillment of data controller's legal obligations\nEstablishment, exercise, or protection of a right\nLegitimate interests of the data controller",
+        "consent": "Explicit consent is obtained only when necessary."
+      },
+      "transfer": {
+        "title": "5. Transfer of Personal Data",
+        "intro": "Your personal data may be transferred to:",
+        "items": "Authorized public institutions and organizations in cases of legal obligation\nTechnical infrastructure and cloud service providers",
+        "outro": "in accordance with Articles 8 and 9 of KVKK."
+      },
+      "rights": {
+        "title": "6. Data Subject Rights",
+        "intro": "As data subjects pursuant to Article 11 of KVKK, you have the right to:",
+        "items": "a) Learn whether your personal data is processed\nb) Request information about processing if processed\nc) Learn the purpose of processing and whether data is used accordingly\nd) Know third parties to whom data is transferred\ne) Request correction if data is incomplete or incorrect\nf) Request deletion or destruction\ng) Request notification of these operations to third parties\nh) Object to results that arise against you\ni) Request compensation for damages",
+        "outro": ""
+      },
+      "application": {
+        "title": "7. Application Method",
+        "intro": "To exercise your rights, you may apply via:",
+        "email": "Email: ozadaliomerfaruk@gmail.com\nSubject: KVKK Information Request",
+        "outro": "Your applications will be concluded free of charge within 30 days at the latest."
+      }
+    }
+  },
+  "terms": {
+    "title": "Terms of Service",
+    "lastUpdated": "Last Updated: December 22, 2025",
+    "intro": "By using the Business Tracker application, you agree to the following terms.",
+    "sections": {
+      "serviceDescription": {
+        "title": "1. Service Description",
+        "content": "Business Tracker is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
+      },
+      "usageTerms": {
+        "title": "2. Usage Terms and Age Restriction",
+        "content": "You must be at least 13 years old to use this application. Use of the application by individuals under 13 is prohibited.\n\nUsers are responsible for the accuracy, currency, and legal compliance of all data entered into the application. Business Tracker cannot be held responsible for consequences arising from incorrect or incomplete data entry."
+      },
+      "accountSecurity": {
+        "title": "3. Account Security",
+        "content": "Users are obligated to keep account information confidential and prevent unauthorized access. Users are responsible for all transactions performed through their account."
+      },
+      "dataSecurity": {
+        "title": "4. Data Security",
+        "content": "User data is stored on secure servers with reasonable technical security measures. However, it is acknowledged that data transmission over the internet is not completely risk-free."
+      },
+      "accountDeletion": {
+        "title": "5. Account Deletion",
+        "content": "Users can delete their account through Settings > Delete My Account menu within the application. A 7-day waiting period applies after account deletion request. Users can cancel the deletion during this period. After the waiting period, the account and all associated data are permanently deleted and cannot be recovered."
+      },
+      "thirdParty": {
+        "title": "6. Third-Party Services",
+        "content": "The application may use third-party services such as Apple ID and Google Account for authentication. Use of these services is subject to the respective service providers' own terms of use."
+      },
+      "serviceChanges": {
+        "title": "7. Service Changes",
+        "content": "Business Tracker reserves the right to change the application's service content, features, and pricing without prior notice."
+      },
+      "intellectualProperty": {
+        "title": "8. Intellectual Property",
+        "content": "The design, software, and brand elements of Business Tracker application belong to Business Tracker. Ownership of all data entered into the application by users belongs to the users."
+      },
+      "liability": {
+        "title": "9. Limitation of Liability",
+        "content": "Business Tracker cannot be held liable for indirect damages arising from use of the application. The application is provided \"as is.\""
+      },
+      "disputes": {
+        "title": "10. Dispute Resolution",
+        "content": "Turkish Republic law applies to disputes arising from these terms of use, and Istanbul Courts have jurisdiction."
+      },
+      "contact": {
+        "title": "11. Contact",
+        "content": "For questions about terms of use:\nozadaliomerfaruk@gmail.com"
+      }
+    }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdated": "Last Updated: December 22, 2025",
+    "intro": "At Business Tracker, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
+    "sections": {
+      "collectedData": {
+        "title": "1. Data Collected",
+        "identity": {
+          "title": "1.1 Identity and Account Information",
+          "content": "Email address\nAuthentication information (passwords are not visible to or stored by the application developer; they are processed through secure authentication infrastructure)"
+        },
+        "userContent": {
+          "title": "1.2 User-Entered Content",
+          "intro": "The following information is entered entirely at user's discretion and manually:",
+          "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information\nDescriptions, notes, and similar content"
+        },
+        "optional": {
+          "title": "1.3 Optional Information",
+          "content": "Tax number and similar fields are not mandatory and are entered optionally by users."
+        }
+      },
+      "dataUsage": {
+        "title": "2. Data Usage Purposes",
+        "intro": "Collected data is processed for the following purposes:",
+        "items": "Providing application functions\nAccount and session management\nCreating financial records and reports\nResolving technical issues\nFulfilling legal obligations",
+        "outro": "Data is not used for advertising, marketing, or user tracking purposes."
+      },
+      "appStore": {
+        "title": "3. Data Relationship with User (Apple App Store Perspective)",
+        "content": "Identity and account information is associated with user account.\nFinancial records, client, and staff information entered by users belong to content created within user's account, not to users themselves.\nThis data is accessible only by the relevant user."
+      },
+      "dataSecurity": {
+        "title": "4. Data Security",
+        "intro": "The following measures are taken for personal data security:",
+        "items": "SSL/TLS encrypted data transmission\nSecure server infrastructure\nAuthorization and access control mechanisms\nTechnical measures to prevent unauthorized access"
+      },
+      "thirdParty": {
+        "title": "5. Third-Party Service Providers",
+        "intro": "The application may utilize the following service providers:",
+        "items": "Authentication services (Apple ID, Google Account)\nDatabase and authentication infrastructure (Supabase)\nCloud hosting services",
+        "outro": "These service providers can access data only for the purpose of fulfilling application functions and to a limited extent.\n\nAll third-party service providers are obligated to provide protection equal to or higher than the level specified in this Privacy Policy for user data."
+      },
+      "retention": {
+        "title": "6. Data Retention Period and Account Deletion",
+        "content": "Data is retained as long as user account is active.\nUsers can delete their account from within the application.\nA 7-day waiting period applies after account deletion request.\nAfter the waiting period, account and all associated data are automatically and permanently deleted.\nFor users signing in with Apple ID, Apple authentication tokens are also revoked during account deletion."
+      },
+      "children": {
+        "title": "7. Children's Privacy",
+        "content": "The application is not intended for children under 13. Personal data from children is not knowingly collected."
+      },
+      "userRights": {
+        "title": "8. User Rights",
+        "intro": "Users have the following rights under applicable regulations:",
+        "items": "Right to access their data\nRight to request correction\nRight to request deletion\nRight to object to processing",
+        "outro": ""
+      },
+      "contact": {
+        "title": "9. Contact",
+        "content": "For questions about privacy policy:\nozadaliomerfaruk@gmail.com"
+      }
+    }
+  }
+}

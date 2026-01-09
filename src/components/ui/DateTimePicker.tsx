@@ -7,6 +7,7 @@ import { Text } from './Text';
 import { Button } from './Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 interface DateTimePickerProps {
   label?: string;
@@ -24,23 +25,17 @@ export function DateTimePicker({
   error,
 }: DateTimePickerProps) {
   const { t } = useTranslation('common');
+  const { locale, formatDateNative, formatTimeNative } = useDateFormat();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempDate, setTempDate] = useState(value);
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('tr-TR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    });
+    return formatDateNative(date);
   };
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('tr-TR', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatTimeNative(date);
   };
 
   const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -122,7 +117,7 @@ export function DateTimePicker({
               mode={pickerType}
               display="spinner"
               onChange={pickerType === 'date' ? handleDateChange : handleTimeChange}
-              locale="tr-TR"
+              locale={locale}
               textColor={colors.text}
               themeVariant="light"
             />

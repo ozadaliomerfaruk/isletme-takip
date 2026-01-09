@@ -2,7 +2,7 @@
   "tabs": {
     "home": "Home",
     "clients": "Clients",
-    "personnel": "Personnel",
+    "personnel": "Staff",
     "more": "More"
   },
   "screens": {
@@ -25,16 +25,16 @@
     "clientDetails": "Client Details",
     "clientTransactions": "Client History",
     "clientPayment": "Client Payment",
-    "clientCollection": "Client Collection",
+    "clientCollection": "Payment from Client",
     "clientPurchase": "Purchase from Supplier",
     "clientSale": "Sale to Customer",
-    "personnel": "Personnel",
-    "addPersonnel": "Add Personnel",
-    "editPersonnel": "Edit Personnel",
-    "personnelDetails": "Personnel Details",
-    "personnelTransactions": "Personnel History",
-    "personnelPayment": "Personnel Payment",
-    "personnelExpense": "Personnel Expense",
+    "personnel": "Staff",
+    "addPersonnel": "Add Staff Member",
+    "editPersonnel": "Edit Staff Member",
+    "personnelDetails": "Staff Details",
+    "personnelTransactions": "Staff History",
+    "personnelPayment": "Staff Payment",
+    "personnelExpense": "Staff Expense",
     "categories": "Categories",
     "addCategory": "Add Category",
     "editCategory": "Edit Category",
@@ -82,6 +82,6 @@
     "expense": "Expense",
     "transfer": "Transfer",
     "client": "Client",
-    "personnel": "Personnel"
+    "personnel": "Staff"
   }
 }

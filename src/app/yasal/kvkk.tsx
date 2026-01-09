@@ -1,125 +1,109 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 
 export default function KVKKPage() {
+  const { t } = useTranslation('legal');
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text variant="h3" style={styles.title}>
-            KVKK Aydınlatma Metni
+            {t('kvkk.title')}
           </Text>
           <Text variant="caption" color="secondary" style={styles.date}>
-            6698 Sayılı Kişisel Verilerin Korunması Kanunu
+            {t('kvkk.subtitle')}
           </Text>
 
           <View style={styles.section}>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Bu Aydınlatma Metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca veri sorumlusu sıfatıyla hazırlanmıştır.
+              {t('kvkk.intro')}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              1. Veri Sorumlusu
+              {t('kvkk.sections.dataController.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Ömer Faruk Özadalı{'\n'}
-              Adres: İstanbul, Türkiye{'\n'}
-              E-posta: ozadaliomerfaruk@gmail.com
+              {t('kvkk.sections.dataController.content')}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              2. İşlenen Kişisel Veriler
+              {t('kvkk.sections.processedData.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Uygulama kapsamında aşağıdaki kişisel veriler işlenebilmektedir:{'\n\n'}
-              <Text style={styles.bold}>Kimlik ve Hesap Bilgileri:</Text>{'\n'}
-              E-posta adresi{'\n\n'}
-              <Text style={styles.bold}>İletişim Bilgileri</Text> (kullanıcı tarafından girilmesi halinde):{'\n'}
-              Telefon numarası{'\n\n'}
-              <Text style={styles.bold}>Kimlik Doğrulama ve Oturum Bilgileri:</Text>{'\n'}
-              Oturum ve yetkilendirme bilgileri{'\n\n'}
-              <Text style={styles.bold}>Finansal Bilgiler:</Text>{'\n'}
-              Kullanıcı tarafından manuel olarak girilen işletme hesap kayıtları{'\n\n'}
-              <Text style={styles.bold}>İşlem ve Teknik Güvenlik Bilgileri:</Text>{'\n'}
-              Sistem güvenliği ve hizmetin sağlanması amacıyla oluşturulan teknik kayıtlar
+              {t('kvkk.sections.processedData.intro')}{'\n\n'}
+              <Text style={styles.bold}>{t('kvkk.sections.processedData.identity')}</Text>{'\n'}
+              {t('kvkk.sections.processedData.identityItems')}{'\n\n'}
+              <Text style={styles.bold}>{t('kvkk.sections.processedData.contact')}</Text>{'\n'}
+              {t('kvkk.sections.processedData.contactItems')}{'\n\n'}
+              <Text style={styles.bold}>{t('kvkk.sections.processedData.auth')}</Text>{'\n'}
+              {t('kvkk.sections.processedData.authItems')}{'\n\n'}
+              <Text style={styles.bold}>{t('kvkk.sections.processedData.financial')}</Text>{'\n'}
+              {t('kvkk.sections.processedData.financialItems')}{'\n\n'}
+              <Text style={styles.bold}>{t('kvkk.sections.processedData.technical')}</Text>{'\n'}
+              {t('kvkk.sections.processedData.technicalItems')}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              3. Kişisel Verilerin İşlenme Amaçları
+              {t('kvkk.sections.purposes.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:{'\n\n'}
-              • Üyelik ve hesap işlemlerinin yürütülmesi{'\n'}
-              • Uygulama hizmetlerinin sunulması{'\n'}
-              • Finansal kayıt ve raporlama fonksiyonlarının sağlanması{'\n'}
-              • Bilgi güvenliği süreçlerinin yürütülmesi{'\n'}
-              • Yasal yükümlülüklerin yerine getirilmesi
+              {t('kvkk.sections.purposes.intro')}{'\n\n'}
+              {t('kvkk.sections.purposes.items').split('\n').map((item, i) => `• ${item}`).join('\n')}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              4. Hukuki Sebepler
+              {t('kvkk.sections.legalBasis.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kişisel verileriniz, KVKK'nın 5. maddesi uyarınca aşağıdaki hukuki sebeplere dayanılarak işlenmektedir:{'\n\n'}
-              • Bir sözleşmenin kurulması veya ifasıyla doğrudan ilgili olması{'\n'}
-              • Veri sorumlusunun hukuki yükümlülüklerini yerine getirebilmesi{'\n'}
-              • Bir hakkın tesisi, kullanılması veya korunması{'\n'}
-              • Veri sorumlusunun meşru menfaatleri{'\n\n'}
-              Açık rıza, yalnızca gerekli hallerde alınmaktadır.
+              {t('kvkk.sections.legalBasis.intro')}{'\n\n'}
+              {t('kvkk.sections.legalBasis.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('kvkk.sections.legalBasis.consent')}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              5. Kişisel Verilerin Aktarılması
+              {t('kvkk.sections.transfer.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Kişisel verileriniz;{'\n\n'}
-              • Yasal zorunluluk hallerinde yetkili kamu kurum ve kuruluşlarına{'\n'}
-              • Teknik altyapı ve bulut hizmet sağlayıcılarına{'\n\n'}
-              KVKK'nın 8. ve 9. maddelerine uygun olarak aktarılabilir.
+              {t('kvkk.sections.transfer.intro')}{'\n\n'}
+              {t('kvkk.sections.transfer.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('kvkk.sections.transfer.outro')}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              6. Veri Sahibi Hakları
+              {t('kvkk.sections.rights.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              KVKK'nın 11. maddesi uyarınca veri sahipleri olarak:{'\n\n'}
-              a) Kişisel verilerinizin işlenip işlenmediğini öğrenme{'\n'}
-              b) İşlenmişse buna ilişkin bilgi talep etme{'\n'}
-              c) İşlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme{'\n'}
-              d) Aktarıldığı üçüncü kişileri bilme{'\n'}
-              e) Eksik veya yanlış işlenmişse düzeltilmesini isteme{'\n'}
-              f) Silinmesini veya yok edilmesini isteme{'\n'}
-              g) Bu işlemlerin üçüncü kişilere bildirilmesini isteme{'\n'}
-              h) Aleyhinize bir sonucun ortaya çıkmasına itiraz etme{'\n'}
-              i) Zarara uğramanız halinde giderilmesini talep etme{'\n\n'}
-              haklarına sahipsiniz.
+              {t('kvkk.sections.rights.intro')}{'\n\n'}
+              {t('kvkk.sections.rights.items')}{'\n\n'}
+              {t('kvkk.sections.rights.outro')}
             </Text>
           </View>
 
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
-              7. Başvuru Yöntemi
+              {t('kvkk.sections.application.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              Haklarınızı kullanmak için aşağıdaki yöntemle başvurabilirsiniz:{'\n\n'}
-              E-posta: ozadaliomerfaruk@gmail.com{'\n'}
-              Konu: KVKK Bilgi Talebi{'\n\n'}
-              Başvurularınız, en geç 30 gün içinde ücretsiz olarak sonuçlandırılır.
+              {t('kvkk.sections.application.intro')}{'\n\n'}
+              {t('kvkk.sections.application.email')}{'\n\n'}
+              {t('kvkk.sections.application.outro')}
             </Text>
           </View>
         </View>

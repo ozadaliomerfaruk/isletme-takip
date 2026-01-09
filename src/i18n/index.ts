@@ -19,11 +19,12 @@ import trNavigation from './locales/tr/navigation.json';
 import trAuth from './locales/tr/auth.json';
 import trTransactions from './locales/tr/transactions.json';
 import trAccounts from './locales/tr/accounts.json';
-import trCariler from './locales/tr/cariler.json';
-import trPersonel from './locales/tr/personel.json';
+import trClients from './locales/tr/clients.json';
+import trStaff from './locales/tr/staff.json';
 import trReports from './locales/tr/reports.json';
 import trSettings from './locales/tr/settings.json';
 import trCategories from './locales/tr/categories.json';
+import trLegal from './locales/tr/legal.json';
 
 // Import English locales
 import enCommon from './locales/en/common.json';
@@ -32,11 +33,12 @@ import enNavigation from './locales/en/navigation.json';
 import enAuth from './locales/en/auth.json';
 import enTransactions from './locales/en/transactions.json';
 import enAccounts from './locales/en/accounts.json';
-import enCariler from './locales/en/cariler.json';
-import enPersonel from './locales/en/personel.json';
+import enClients from './locales/en/clients.json';
+import enStaff from './locales/en/staff.json';
 import enReports from './locales/en/reports.json';
 import enSettings from './locales/en/settings.json';
 import enCategories from './locales/en/categories.json';
+import enLegal from './locales/en/legal.json';
 
 // Resource bundle
 export const resources = {
@@ -47,11 +49,12 @@ export const resources = {
     auth: trAuth,
     transactions: trTransactions,
     accounts: trAccounts,
-    cariler: trCariler,
-    personel: trPersonel,
+    clients: trClients,
+    staff: trStaff,
     reports: trReports,
     settings: trSettings,
     categories: trCategories,
+    legal: trLegal,
   },
   en: {
     common: enCommon,
@@ -60,11 +63,12 @@ export const resources = {
     auth: enAuth,
     transactions: enTransactions,
     accounts: enAccounts,
-    cariler: enCariler,
-    personel: enPersonel,
+    clients: enClients,
+    staff: enStaff,
     reports: enReports,
     settings: enSettings,
     categories: enCategories,
+    legal: enLegal,
   },
 } as const;
 
@@ -84,11 +88,12 @@ export const namespaces = [
   'auth',
   'transactions',
   'accounts',
-  'cariler',
-  'personel',
+  'clients',
+  'staff',
   'reports',
   'settings',
   'categories',
+  'legal',
 ] as const;
 
 export type Namespace = (typeof namespaces)[number];

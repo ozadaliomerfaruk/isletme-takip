@@ -27,9 +27,8 @@ import {
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { getIslemTypeLabel } from '@/constants/islemTypes';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateMedium } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
 import { IslemWithRelations, KategoriType } from '@/types/database';
 import { useTranslation } from 'react-i18next';
@@ -75,7 +74,8 @@ export default function KategoriDetayPage() {
     startDate: string;
     endDate: string;
   }>();
-  const { t } = useTranslation(['reports', 'common', 'errors']);
+  const { t } = useTranslation(['reports', 'common', 'errors', 'transactions']);
+  const { formatDateMedium } = useDateFormat();
 
   const isUncategorized = id === 'uncategorized';
   const kategoriId = isUncategorized ? null : id;
@@ -199,10 +199,10 @@ export default function KategoriDetayPage() {
             </View>
             <View style={styles.islemInfo}>
               <Text variant="body" numberOfLines={1} style={styles.islemTitle}>
-                {item.description || getIslemTypeLabel(item.type)}
+                {item.description || t(`transactions:types.${item.type}`)}
               </Text>
               <Text variant="caption" color="secondary">
-                {formatDateMedium(item.date)} • {getIslemTypeLabel(item.type)}
+                {formatDateMedium(item.date)} • {t(`transactions:types.${item.type}`)}
               </Text>
               {item.hesap && (
                 <Text variant="caption" color="secondary">

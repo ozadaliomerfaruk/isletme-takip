@@ -10,19 +10,22 @@ import {
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Bell, CalendarClock, TrendingUp, TrendingDown, X } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useIleriTarihliIslemler } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency } from '@/lib/currency';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { IleriTarihliIslemWithRelations } from '@/types/database';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export function NotificationBell() {
   const router = useRouter();
+  const { t } = useTranslation(['transactions', 'common']);
+  const { monthsShort } = useDateFormat();
   const [isOpen, setIsOpen] = useState(false);
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -76,8 +79,7 @@ export function NotificationBell() {
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
     const day = date.getDate();
-    const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
-    return `${day} ${months[date.getMonth()]}`;
+    return `${day} ${monthsShort[date.getMonth()]}`;
   };
 
   const isOverdue = (dateStr: string) => {
@@ -135,7 +137,7 @@ export function NotificationBell() {
             <View style={styles.dropdownHeader}>
               <View style={styles.dropdownHeaderLeft}>
                 <CalendarClock size={20} color={colors.primary} />
-                <Text variant="h3">İleri Tarihli İşlemler</Text>
+                <Text variant="h3">{t('transactions:scheduled.title')}</Text>
               </View>
               <TouchableOpacity onPress={() => setIsOpen(false)}>
                 <X size={24} color={colors.textMuted} />
@@ -149,13 +151,13 @@ export function NotificationBell() {
             >
               {isLoading ? (
                 <View style={styles.emptyState}>
-                  <Text color="secondary">Yükleniyor...</Text>
+                  <Text color="secondary">{t('common:status.loading')}</Text>
                 </View>
               ) : count === 0 ? (
                 <View style={styles.emptyState}>
                   <CalendarClock size={40} color={colors.textMuted} />
                   <Text color="secondary" style={styles.emptyText}>
-                    Henüz ileri tarihli işlem yok
+                    {t('common:empty.noItems')}
                   </Text>
                 </View>
               ) : (
@@ -190,7 +192,7 @@ export function NotificationBell() {
                         </View>
                         <View style={styles.itemContent}>
                           <Text variant="body" numberOfLines={1}>
-                            {item.description || ISLEM_TYPE_LABELS[item.type]}
+                            {item.description || t(`transactions:types.${item.type}`)}
                           </Text>
                           <Text variant="caption" color="secondary">
                             {item.hesap?.name || item.cari?.name ||
@@ -211,7 +213,7 @@ export function NotificationBell() {
                             color: overdue ? colors.error : today ? colors.warning : colors.textMuted,
                           }}
                         >
-                          {overdue ? 'Gecikmiş' : today ? 'Bugün' : formatDate(item.scheduled_date)}
+                          {overdue ? t('transactions:scheduled.overdue') : today ? t('transactions:scheduled.dueToday') : formatDate(item.scheduled_date)}
                         </Text>
                       </View>
                     </TouchableOpacity>

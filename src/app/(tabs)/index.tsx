@@ -32,13 +32,15 @@ import { formatDateForDB } from '@/lib/date';
 import { getHesapIcon } from '@/lib/icons';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
-import { useMonthSummary, PeriodType, getPeriodDateRange } from '@/hooks/useIslemler';
+import { useMonthSummary, PeriodType } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function HomePage() {
   const router = useRouter();
-  const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'cariler', 'personel']);
+  const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff']);
+  const { getDateRangeLabel, locale, formatDateNative } = useDateFormat();
 
   const periodOptions = [
     { label: t('reports:period.yearly'), value: 'yearly' },
@@ -81,7 +83,7 @@ export default function HomePage() {
     setQuickBarVisible(true);
   };
 
-  const handleOdemeSelect = (type: 'cari' | 'personel') => {
+  const handleOdemeSelect = (type: 'cari' | 'staff') => {
     setOdemeModalVisible(false);
     // Eğer hesap seçili değilse ilk hesabı kullan
     const hesapIdToUse = selectedHesapId || (hesaplar && hesaplar.length > 0 ? hesaplar[0].id : null);
@@ -98,10 +100,10 @@ export default function HomePage() {
     startDate: formatDateForDB(customStartDate),
     endDate: formatDateForDB(customEndDate),
   } : undefined;
-  const { data: monthSummary, periodLabel } = useMonthSummary(period, periodOffset, customRange);
+  const { data: monthSummary } = useMonthSummary(period, periodOffset, customRange);
 
-  // Nakit akışı için tarih aralığını hesapla
-  const { startDate: periodStartDate, endDate: periodEndDate } = getPeriodDateRange(period, periodOffset, customRange);
+  // Nakit akışı için tarih aralığını hesapla (i18n periodLabel buradan gelir)
+  const { startDate: periodStartDate, endDate: periodEndDate, label: periodLabel } = getDateRangeLabel(period, periodOffset, customRange);
 
   // Nakit akışı hook'u
   const {
@@ -220,7 +222,7 @@ export default function HomePage() {
                 onPress={() => setShowStartPicker(true)}
               >
                 <Text variant="caption" color="secondary">{t('reports:period.startDate')}</Text>
-                <Text variant="body">{customStartDate.toLocaleDateString('tr-TR')}</Text>
+                <Text variant="body">{formatDateNative(customStartDate)}</Text>
               </TouchableOpacity>
               <Text variant="body" color="secondary">-</Text>
               <TouchableOpacity
@@ -228,7 +230,7 @@ export default function HomePage() {
                 onPress={() => setShowEndPicker(true)}
               >
                 <Text variant="caption" color="secondary">{t('reports:period.endDate')}</Text>
-                <Text variant="body">{customEndDate.toLocaleDateString('tr-TR')}</Text>
+                <Text variant="body">{formatDateNative(customEndDate)}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -279,7 +281,7 @@ export default function HomePage() {
                       }}
                       minimumDate={showEndPicker ? customStartDate : undefined}
                       maximumDate={new Date()}
-                      locale="tr-TR"
+                      locale={locale}
                       themeVariant="light"
                       accentColor={colors.primary}
                       style={{ height: 350 }}
@@ -416,7 +418,7 @@ export default function HomePage() {
               }}
               style={styles.quickActionBtn}
             >
-              {t('cariler:actions.payment')}
+              {t('clients:actions.payment')}
             </Button>
           </View>
 
@@ -460,7 +462,7 @@ export default function HomePage() {
                     onPress={() => openQuickBar('gelir', hesap.id)}
                     style={styles.actionButton}
                   >
-                    {t('cariler:details.newTransaction')}
+                    {t('clients:details.newTransaction')}
                   </Button>
                   <Button
                     variant="outline"
@@ -469,7 +471,7 @@ export default function HomePage() {
                     onPress={() => router.push(`/hesaplar/${hesap.id}`)}
                     style={styles.actionButton}
                   >
-                    {t('accounts:details.hareketler')}
+                    {t('accounts:details.transactions')}
                   </Button>
                 </View>
               </ExpandableCard>
@@ -505,21 +507,21 @@ export default function HomePage() {
                 <Users size={24} color={colors.orange} />
               </View>
               <View style={styles.modalOptionText}>
-                <Text variant="body">{t('cariler:transactionTitles.payment')}</Text>
-                <Text variant="caption" color="secondary">{t('cariler:transactionDescriptions.payment')}</Text>
+                <Text variant="body">{t('clients:transactionTitles.payment')}</Text>
+                <Text variant="caption" color="secondary">{t('clients:transactionDescriptions.payment')}</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.modalOption}
-              onPress={() => handleOdemeSelect('personel')}
+              onPress={() => handleOdemeSelect('staff')}
             >
               <View style={[styles.modalOptionIcon, { backgroundColor: colors.orangeLight }]}>
                 <UserCheck size={24} color={colors.orange} />
               </View>
               <View style={styles.modalOptionText}>
-                <Text variant="body">{t('personel:transactionTitles.payment')}</Text>
-                <Text variant="caption" color="secondary">{t('personel:transactionDescriptions.payment')}</Text>
+                <Text variant="body">{t('staff:transactionTitles.payment')}</Text>
+                <Text variant="caption" color="secondary">{t('staff:transactionDescriptions.payment')}</Text>
               </View>
             </TouchableOpacity>
           </Pressable>

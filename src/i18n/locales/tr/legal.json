@@ -1,0 +1,169 @@
+{
+  "kvkk": {
+    "title": "KVKK Aydinlatma Metni",
+    "subtitle": "6698 Sayili Kisisel Verilerin Korunmasi Kanunu",
+    "intro": "Bu Aydinlatma Metni, 6698 sayili Kisisel Verilerin Korunmasi Kanunu (\"KVKK\") uyarinca veri sorumlusu sifatiyla hazirlanmistir.",
+    "sections": {
+      "dataController": {
+        "title": "1. Veri Sorumlusu",
+        "content": "Omer Faruk Ozadali\nAdres: Istanbul, Turkiye\nE-posta: ozadaliomerfaruk@gmail.com"
+      },
+      "processedData": {
+        "title": "2. Islenen Kisisel Veriler",
+        "intro": "Uygulama kapsaminda asagidaki kisisel veriler islenebilmektedir:",
+        "identity": "Kimlik ve Hesap Bilgileri:",
+        "identityItems": "E-posta adresi",
+        "contact": "Iletisim Bilgileri (kullanici tarafindan girilmesi halinde):",
+        "contactItems": "Telefon numarasi",
+        "auth": "Kimlik Dogrulama ve Oturum Bilgileri:",
+        "authItems": "Oturum ve yetkilendirme bilgileri",
+        "financial": "Finansal Bilgiler:",
+        "financialItems": "Kullanici tarafindan manuel olarak girilen isletme hesap kayitlari",
+        "technical": "Islem ve Teknik Guvenlik Bilgileri:",
+        "technicalItems": "Sistem guvenligi ve hizmetin saglanmasi amaciyla olusturulan teknik kayitlar"
+      },
+      "purposes": {
+        "title": "3. Kisisel Verilerin Islenme Amaclari",
+        "intro": "Kisisel verileriniz asagidaki amaclarla islenmektedir:",
+        "items": "Uyelik ve hesap islemlerinin yurutulmesi\nUygulama hizmetlerinin sunulmasi\nFinansal kayit ve raporlama fonksiyonlarinin saglanmasi\nBilgi guvenligi sureclerinin yurutulmesi\nYasal yukumluluklerin yerine getirilmesi"
+      },
+      "legalBasis": {
+        "title": "4. Hukuki Sebepler",
+        "intro": "Kisisel verileriniz, KVKK'nin 5. maddesi uyarinca asagidaki hukuki sebeplere dayanilarak islenmektedir:",
+        "items": "Bir sozlesmenin kurulmasi veya ifasiyla dogrudan ilgili olmasi\nVeri sorumlusunun hukuki yukumluluklerini yerine getirebilmesi\nBir hakkin tesisi, kullanilmasi veya korunmasi\nVeri sorumlusunun mesru menfaatleri",
+        "consent": "Acik riza, yalnizca gerekli hallerde alinmaktadir."
+      },
+      "transfer": {
+        "title": "5. Kisisel Verilerin Aktarilmasi",
+        "intro": "Kisisel verileriniz;",
+        "items": "Yasal zorunluluk hallerinde yetkili kamu kurum ve kuruluslarina\nTeknik altyapi ve bulut hizmet saglayicilarina",
+        "outro": "KVKK'nin 8. ve 9. maddelerine uygun olarak aktarilabilir."
+      },
+      "rights": {
+        "title": "6. Veri Sahibi Haklari",
+        "intro": "KVKK'nin 11. maddesi uyarinca veri sahipleri olarak:",
+        "items": "a) Kisisel verilerinizin islenip islenmedigini ogrenme\nb) Islenmisse buna iliskin bilgi talep etme\nc) Islenme amacini ve amacina uygun kullanilip kullanilmadigini ogrenme\nd) Aktarildigi ucuncu kisileri bilme\ne) Eksik veya yanlis islenmisse duzeltilmesini isteme\nf) Silinmesini veya yok edilmesini isteme\ng) Bu islemlerin ucuncu kisilere bildirilmesini isteme\nh) Aleyhinize bir sonucun ortaya cikmasina itiraz etme\ni) Zarara ugramaniz halinde giderilmesini talep etme",
+        "outro": "haklarina sahipsiniz."
+      },
+      "application": {
+        "title": "7. Basvuru Yontemi",
+        "intro": "Haklarinizi kullanmak icin asagidaki yontemle basvurabilirsiniz:",
+        "email": "E-posta: ozadaliomerfaruk@gmail.com\nKonu: KVKK Bilgi Talebi",
+        "outro": "Basvurulariniz, en gec 30 gun icinde ucretsiz olarak sonuclandirilir."
+      }
+    }
+  },
+  "terms": {
+    "title": "Kullanim Kosullari",
+    "lastUpdated": "Son Guncelleme: 22 Aralik 2025",
+    "intro": "Isletme Takip uygulamasini kullanarak asagidaki kosullari kabul etmis sayilirsiniz.",
+    "sections": {
+      "serviceDescription": {
+        "title": "1. Hizmet Tanimi",
+        "content": "Isletme Takip, kucuk ve orta olcekli isletmeler icin gelistirilmis bir finansal takip ve yonetim uygulamasidir. Uygulama; gelir-gider takibi, cari hesap yonetimi, personel kayit ve odeme takibi ile finansal raporlama araclari sunar.\n\nUygulama, resmi muhasebe, bordro, vergi veya hukuki danismanlik hizmeti sunmaz."
+      },
+      "usageTerms": {
+        "title": "2. Kullanim Sartlari ve Yas Siniri",
+        "content": "Bu uygulamayi kullanabilmek icin en az 13 yasinda olmaniz gerekmektedir. 13 yasindan kucuk bireylerin uygulamayi kullanmasi yasaktir.\n\nKullanici, uygulamaya girdigi tum verilerin dogrulugu, guncelligi ve mevzuata uygunlugundan sorumludur. Yanlis veya eksik veri girisindan kaynaklanan sonuclardan Isletme Takip sorumlu tutulamaz."
+      },
+      "accountSecurity": {
+        "title": "3. Hesap Guvenligi",
+        "content": "Kullanici, hesap bilgilerini gizli tutmak ve yetkisiz erisimi onlemekle yukumludur. Hesap uzerinden gerceklestirilen tum islemlerden kullanici sorumludur."
+      },
+      "dataSecurity": {
+        "title": "4. Veri Guvenligi",
+        "content": "Kullanici verileri, guvenli sunucular uzerinde ve makul teknik guvenlik onlemleri uygulanarak saklanir. Bununla birlikte, internet uzerinden gerceklestirilen veri iletimlerinin tamamen risksiz olmadigi kabul edilir."
+      },
+      "accountDeletion": {
+        "title": "5. Hesap Silme",
+        "content": "Kullanici, hesabini uygulama icerisindeki Ayarlar > Hesabimi Sil menusu uzerinden silebilir. Hesap silme talebi sonrasinda 7 gunluk bekleme suresi uygulanir. Bu sure icerisinde kullanici silme islemini iptal edebilir. Bekleme suresinin sonunda hesap ve hesaba bagli tum veriler kalici olarak silinir ve geri alinamaz."
+      },
+      "thirdParty": {
+        "title": "6. Ucuncu Taraf Hizmetler",
+        "content": "Uygulama, kimlik dogrulama amaciyla Apple Kimligi ve Google Hesabi gibi ucuncu taraf hizmetleri kullanabilir. Bu hizmetlerin kullanimi, ilgili hizmet saglayicilarin kendi kullanim kosullarina tabidir."
+      },
+      "serviceChanges": {
+        "title": "7. Hizmet Degisiklikleri",
+        "content": "Isletme Takip, uygulamanin hizmet icerigini, ozelliklerini ve fiyatlandirmasini onceden bildirimde bulunmaksizin degistirme hakkini sakli tutar."
+      },
+      "intellectualProperty": {
+        "title": "8. Fikri Mulkiyet",
+        "content": "Isletme Takip uygulamasinin tasarimi, yazilimi ve marka unsurlari Isletme Takip'e aittir. Kullanici tarafindan uygulamaya girilen tum verilerin mulkiyeti kullaniciya aittir."
+      },
+      "liability": {
+        "title": "9. Sorumlulugn Sinirlandirilmasi",
+        "content": "Isletme Takip, uygulamanin kullanimindan dogabilecek dolayli zararlardan sorumlu tutulamaz. Uygulama, mevcut haliyle (\"oldugu gibi\") sunulmaktadir."
+      },
+      "disputes": {
+        "title": "10. Uyusmazliklarin Cozumu",
+        "content": "Bu kullanim kosullarindan dogabilecek uyusmazliklarda Turkiye Cumhuriyeti hukuku uygulanir ve Istanbul Mahkemeleri yetkilidir."
+      },
+      "contact": {
+        "title": "11. Iletisim",
+        "content": "Kullanim kosullari ile ilgili sorulariniz icin:\nozadaliomerfaruk@gmail.com"
+      }
+    }
+  },
+  "privacy": {
+    "title": "Gizlilik Politikasi",
+    "lastUpdated": "Son Guncelleme: 22 Aralik 2025",
+    "intro": "Isletme Takip olarak gizliiliginize onem veriyoruz. Bu Gizlilik Politikasi, mobil uygulamamiz araciligiyla toplanan kisisel verilerin hangi amaclarla islendigi, nasil korundugunu ve kullanicilarin haklarini aciklamaktadir.",
+    "sections": {
+      "collectedData": {
+        "title": "1. Toplanan Veriler",
+        "identity": {
+          "title": "1.1 Kimlik ve Hesap Bilgileri",
+          "content": "E-posta adresi\nKimlik dogrulama bilgileri (sifreler uygulama gelistiricisi tarafindan gorulmez veya saklanmaz, guvenli kimlik dogrulama altyapilari uzerinden islenir)"
+        },
+        "userContent": {
+          "title": "1.2 Kullanici Tarafindan Girilen Icerikler",
+          "intro": "Asagidaki bilgiler tamamen kullanicinin istegiyle ve manuel olarak girilir:",
+          "content": "Finansal kayitlar (banka hesaplari, kasa, gelir-gider kayitlari)\nCari hesap bilgileri (musteri ve tedarikci bilgileri)\nPersonel bilgileri\nAciklamalar, notlar ve benzeri icerikler"
+        },
+        "optional": {
+          "title": "1.3 Opsiyonel Bilgiler",
+          "content": "Vergi numarasi ve benzeri alanlar zorunlu degildir ve kullanici tarafindan istege bagli olarak girilir."
+        }
+      },
+      "dataUsage": {
+        "title": "2. Verilerin Kullanim Amaclari",
+        "intro": "Toplanan veriler asagidaki amaclarla islenir:",
+        "items": "Uygulama fonksiyonlarinin saglanmasi\nHesap ve oturum yonetimi\nFinansal kayit ve raporlarin olusturulmasi\nTeknik sorunlarin giderilmesi\nYasal yukumluluklerin yerine getirilmesi",
+        "outro": "Veriler reklam, pazarlama veya kullanici takibi amaciyla kullanilmaz."
+      },
+      "appStore": {
+        "title": "3. Verilerin Kullaniciyla Iliskisi (Apple App Store Acisindan)",
+        "content": "Kimlik ve hesap bilgileri, kullanici hesabi ile iliskilidir.\nKullanici tarafindan girilen finansal kayitlar, cari ve personel bilgileri kullanicinin kendisine degil, kullanicinin hesabi kapsaminda olusturulan iceriklere aittir.\nBu veriler yalnizca ilgili kullanici tarafindan erisilebilir."
+      },
+      "dataSecurity": {
+        "title": "4. Veri Guvenligi",
+        "intro": "Kisisel verilerin guvenligi icin asagidaki onlemler alinmaktadir:",
+        "items": "SSL/TLS ile sifrelenmis veri iletimi\nGuvenli sunucu altyapilari\nYetkilendirme ve erisim kontrol mekanizmalari\nYetkisiz erisimi onlemeye yonelik teknik tedbirler"
+      },
+      "thirdParty": {
+        "title": "5. Ucuncu Taraf Hizmet Saglayicilar",
+        "intro": "Uygulama asagidaki hizmet saglayicilardan faydalanabilir:",
+        "items": "Kimlik dogrulama servisleri (Apple Kimligi, Google Hesabi)\nVeritabani ve kimlik dogrulama altyapisi (Supabase)\nBulut barindirma (hosting) hizmetleri",
+        "outro": "Bu hizmet saglayicilar, verilere yalnizca uygulamanin islevlerini yerine getirebilmek amaciyla ve sinirli olcude erisebilir.\n\nTum ucuncu taraf hizmet saglayicilar, kullanici verilerine bu Gizlilik Politikasi'nda belirtilen koruma duzeyine esit veya daha yuksek duzeyde koruma saglamakla yukumludur."
+      },
+      "retention": {
+        "title": "6. Veri Saklama Suresi ve Hesap Silme",
+        "content": "Veriler, kullanici hesabi aktif oldugu surece saklanir.\nKullanici, uygulama icinden hesabini silebilir.\nHesap silme talebinden sonra 7 gun bekleme suresi uygulanir.\nBekleme suresi sonunda hesap ve hesaba bagli tum veriler otomatik olarak kalici sekilde silinir.\nApple Kimligi ile giris yapan kullanicilar icin, hesap silme islemi sirasinda Apple kimlik dogrulama token'lari da iptal edilir."
+      },
+      "children": {
+        "title": "7. Cocuklarin Gizliligi",
+        "content": "Uygulama 13 yas altindaki cocuklara yonelik degildir. Bilerek cocuklara ait kisisel veriler toplanmaz."
+      },
+      "userRights": {
+        "title": "8. Kullanici Haklari",
+        "intro": "Kullanicilar, yururlukteki mevzuat kapsaminda:",
+        "items": "Verilerine erisim hakki\nDuzeltme talep etme hakki\nSilinmesini isteme hakki\nIslemeye itiraz etme hakki",
+        "outro": "haklarina sahiptir."
+      },
+      "contact": {
+        "title": "9. Iletisim",
+        "content": "Gizlilik politikasi ile ilgili sorular icin:\nozadaliomerfaruk@gmail.com"
+      }
+    }
+  }
+}

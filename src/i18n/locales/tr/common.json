@@ -47,13 +47,18 @@
     "noData": "Veri bulunamadı",
     "noResults": "Sonuç bulunamadı",
     "noItems": "Henüz kayıt yok",
-    "noTransactions": "Henüz işlem yok"
+    "noTransactions": "Henüz işlem yok",
+    "noCategory": "Kategori yok",
+    "noCategoriesYet": "Henüz kategori yok"
   },
   "search": {
     "search": "Ara",
     "searchPlaceholder": "Ara...",
     "noResults": "Sonuç bulunamadı",
-    "clearSearch": "Aramayı Temizle"
+    "noResultsFor": "\"{{query}}\" için sonuç bulunamadı",
+    "clearSearch": "Aramayı Temizle",
+    "searchIcons": "İkon ara...",
+    "searchCategories": "Kategori ara..."
   },
   "select": {
     "selectCategory": "Kategori seç",
@@ -64,7 +69,8 @@
     "selectIcon": "İkon Seç",
     "selectColor": "Renk Seç",
     "selectAll": "Tümünü Seç",
-    "noneSelected": "Seçilmedi"
+    "noneSelected": "Seçilmedi",
+    "selectLabel": "{{label}} Seç"
   },
   "confirm": {
     "deleteTitle": "Silme Onayı",
@@ -90,7 +96,22 @@
     "time": "Saat",
     "selectDate": "Tarih Seç",
     "selectTime": "Saat Seç",
-    "months": ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+    "months": ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
+    "monthsShort": ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
+    "days": ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"],
+    "daysShort": ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"],
+    "relative": {
+      "today": "Bugün",
+      "yesterday": "Dün",
+      "daysAgo": "{{count}} gün önce",
+      "daysAgo_plural": "{{count}} gün önce",
+      "weeksAgo": "{{count}} hafta önce",
+      "weeksAgo_plural": "{{count}} hafta önce",
+      "monthsAgo": "{{count}} ay önce",
+      "monthsAgo_plural": "{{count}} ay önce",
+      "yearsAgo": "{{count}} yıl önce",
+      "yearsAgo_plural": "{{count}} yıl önce"
+    }
   },
   "currency": {
     "amount": "Tutar",
@@ -112,6 +133,7 @@
     "notes": "Notlar",
     "type": "Tip",
     "category": "Kategori",
+    "subCategory": "Alt kategori",
     "date": "Tarih",
     "time": "Saat",
     "status": "Durum",
@@ -121,6 +143,7 @@
     "none": "Hiçbiri",
     "other": "Diğer",
     "optional": "İsteğe Bağlı",
+    "optionalSuffix": "(Opsiyonel)",
     "required": "Zorunlu",
     "phone": "Telefon",
     "email": "E-posta",

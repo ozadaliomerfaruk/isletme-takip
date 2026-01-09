@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="tr">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Isletme Takip</title>
+    <title>Business Tracker</title>
     <style>
       * {
         margin: 0;
@@ -16,6 +16,23 @@
         background: linear-gradient(135deg, #0d5c4d 0%, #0a4a3d 100%);
         min-height: 100vh;
         color: #333;
+      }
+      .lang-switcher {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+      }
+      .lang-switcher a {
+        color: white;
+        text-decoration: none;
+        padding: 8px 16px;
+        border: 1px solid rgba(255,255,255,0.3);
+        border-radius: 20px;
+        font-size: 0.875rem;
+        transition: background 0.2s;
+      }
+      .lang-switcher a:hover {
+        background: rgba(255,255,255,0.1);
       }
       .container {
         max-width: 800px;
@@ -120,23 +137,6 @@
         font-size: 0.875rem;
         color: #666;
       }
-      .lang-switcher {
-        position: absolute;
-        top: 20px;
-        right: 20px;
-      }
-      .lang-switcher a {
-        color: white;
-        text-decoration: none;
-        padding: 8px 16px;
-        border: 1px solid rgba(255,255,255,0.3);
-        border-radius: 20px;
-        font-size: 0.875rem;
-        transition: background 0.2s;
-      }
-      .lang-switcher a:hover {
-        background: rgba(255,255,255,0.1);
-      }
       footer {
         text-align: center;
         padding: 40px 20px;
@@ -154,26 +154,26 @@
   <body>
     <div class="hero">
       <div class="lang-switcher">
-        <a href="index-en.html">EN</a>
+        <a href="index.html">TR</a>
       </div>
-      <div class="badge">App Store'da Yakinda</div>
-      <h1>Isletme Takip</h1>
-      <p>Isletmenizi kolayca yonetin. Gelir, gider, cari ve personel takibi tek uygulamada.</p>
+      <div class="badge">Coming Soon to App Store</div>
+      <h1>Business Tracker</h1>
+      <p>Easily manage your business. Income, expenses, clients, and staff tracking all in one app.</p>
       <div class="links">
-        <a href="privacy-policy.html">Gizlilik Politikasi</a>
-        <a href="terms-of-service.html">Kullanim Kosullari</a>
-        <a href="kvkk.html">KVKK</a>
-        <a href="support.html">Destek</a>
+        <a href="privacy-policy-en.html">Privacy Policy</a>
+        <a href="terms-of-service-en.html">Terms of Service</a>
+        <a href="kvkk-en.html">KVKK</a>
+        <a href="support-en.html">Support</a>
       </div>
     </div>
 
     <div class="container">
       <div class="card">
-        <h2>Uygulama Hakkinda</h2>
+        <h2>About the App</h2>
         <p>
-          Isletme Takip, kucuk ve orta olcekli isletmeler icin gelistirilmis kapsamli bir finansal
-          yonetim uygulamasidir. Gelir ve giderlerinizi takip edin, cari hesaplarinizi yonetin,
-          personel odemelerini izleyin ve isletmenizin finansal durumunu tek bakista gorun.
+          Business Tracker is a comprehensive financial management application developed for small and
+          medium-sized businesses. Track your income and expenses, manage client accounts, monitor
+          staff payments, and view your business's financial status at a glance.
         </p>
 
         <div class="features">
@@ -183,8 +183,8 @@
                 <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
               </svg>
             </div>
-            <h3>Gelir/Gider</h3>
-            <p>Tum finansal hareketlerinizi kaydedin</p>
+            <h3>Income/Expense</h3>
+            <p>Record all your financial transactions</p>
           </div>
           <div class="feature">
             <div class="feature-icon">
@@ -195,8 +195,8 @@
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
             </div>
-            <h3>Cari Takip</h3>
-            <p>Musteri ve tedarikci hesaplari</p>
+            <h3>Client Tracking</h3>
+            <p>Customer and supplier accounts</p>
           </div>
           <div class="feature">
             <div class="feature-icon">
@@ -205,8 +205,8 @@
                 <circle cx="12" cy="7" r="4" />
               </svg>
             </div>
-            <h3>Personel</h3>
-            <p>Odeme ve avans takibi</p>
+            <h3>Staff</h3>
+            <p>Payment and advance tracking</p>
           </div>
           <div class="feature">
             <div class="feature-icon">
@@ -216,25 +216,25 @@
                 <line x1="6" y1="20" x2="6" y2="14" />
               </svg>
             </div>
-            <h3>Raporlar</h3>
-            <p>Detayli finansal analizler</p>
+            <h3>Reports</h3>
+            <p>Detailed financial analysis</p>
           </div>
         </div>
       </div>
 
       <div class="card">
-        <h2>Iletisim</h2>
-        <p>Sorulariniz veya geri bildirimleriniz icin bizimle iletisime gecin:</p>
-        <p style="margin-top: 12px"><strong>E-posta:</strong> ozadaliomerfaruk@gmail.com</p>
+        <h2>Contact</h2>
+        <p>For questions or feedback, contact us:</p>
+        <p style="margin-top: 12px"><strong>Email:</strong> ozadaliomerfaruk@gmail.com</p>
       </div>
     </div>
 
     <footer>
-      <p>&copy; 2025 Isletme Takip. Tum haklari saklidir.</p>
+      <p>&copy; 2025 Business Tracker. All rights reserved.</p>
       <p style="margin-top: 8px">
-        <a href="privacy-policy.html">Gizlilik Politikasi</a> |
-        <a href="terms-of-service.html">Kullanim Kosullari</a> |
-        <a href="kvkk.html">KVKK</a>
+        <a href="privacy-policy-en.html">Privacy Policy</a> |
+        <a href="terms-of-service-en.html">Terms of Service</a> |
+        <a href="kvkk-en.html">KVKK</a>
       </p>
     </footer>
   </body>

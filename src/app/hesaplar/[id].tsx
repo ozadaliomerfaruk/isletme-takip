@@ -344,7 +344,7 @@ export default function HesapHareketleriPage() {
 
             {/* Hareketler */}
             <Text variant="h3" style={styles.sectionTitle}>
-              {t('accounts:details.hareketler')}
+              {t('accounts:details.transactions')}
             </Text>
 
             {islemlerLoading ? (

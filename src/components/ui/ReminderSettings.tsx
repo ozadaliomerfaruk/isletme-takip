@@ -16,6 +16,7 @@ import { Card } from './Card';
 import { Button } from './Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 export interface ReminderConfig {
   enabled: boolean;
@@ -45,6 +46,7 @@ function dateToTimeString(date: Date): string {
 
 export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
   const { t } = useTranslation(['settings', 'common']);
+  const { locale } = useDateFormat();
   const [showDaysPicker, setShowDaysPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -181,7 +183,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
                 mode="time"
                 display="spinner"
                 onChange={handleTimeChange}
-                locale="tr-TR"
+                locale={locale}
                 themeVariant="light"
                 style={{ height: 200 }}
               />

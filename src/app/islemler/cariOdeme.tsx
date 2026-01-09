@@ -21,12 +21,11 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { getIslemTypeLabel } from '@/lib/icons';
 import { useTranslation } from 'react-i18next';
 
 export default function CariOdemePage() {
   const router = useRouter();
-  const { t } = useTranslation(['transactions', 'common', 'errors', 'cariler']);
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'clients']);
   const params = useLocalSearchParams<{ cari_id?: string; hesap_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -118,7 +117,7 @@ export default function CariOdemePage() {
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${getIslemTypeLabel('cari_odeme')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.cari_odeme')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -128,7 +127,7 @@ export default function CariOdemePage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('cariler:messages.scheduledPaymentCreated'), [
+        Alert.alert(t('common:status.success'), t('clients:messages.scheduledPaymentCreated'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
@@ -142,7 +141,7 @@ export default function CariOdemePage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('cariler:messages.paymentRecorded'), [
+        Alert.alert(t('common:status.success'), t('clients:messages.paymentRecorded'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
@@ -171,9 +170,9 @@ export default function CariOdemePage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">{t('cariler:transactionTitles.supplierPayment')}</Text>
+                <Text variant="h2">{t('clients:transactionTitles.supplierPayment')}</Text>
                 <Text variant="body" color="secondary">
-                  {t('cariler:transactionDescriptions.payment')}
+                  {t('clients:transactionDescriptions.payment')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -202,7 +201,7 @@ export default function CariOdemePage() {
           <View style={styles.section}>
             <View style={[styles.pickerContainer, { zIndex: 30 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('cariler:transactionForm.supplier')}
+                {t('clients:transactionForm.supplier')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.cari && styles.pickerError]}
@@ -212,10 +211,10 @@ export default function CariOdemePage() {
                 }}
               >
                 <View>
-                  <Text variant="body">{selectedCari?.name || t('cariler:transactionForm.selectSupplier')}</Text>
+                  <Text variant="body">{selectedCari?.name || t('clients:transactionForm.selectSupplier')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'success'}>
-                      {t('cariler:balance.payable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>
@@ -248,7 +247,7 @@ export default function CariOdemePage() {
 
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                {t('cariler:transactionForm.paymentAccount')}
+                {t('clients:transactionForm.paymentAccount')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.hesap && styles.pickerError]}
@@ -322,8 +321,8 @@ export default function CariOdemePage() {
             )}
 
             <Input
-              label={t('cariler:transactionForm.descriptionOptional')}
-              placeholder={t('cariler:transactionForm.paymentNote')}
+              label={t('clients:transactionForm.descriptionOptional')}
+              placeholder={t('clients:transactionForm.paymentNote')}
               multiline
               numberOfLines={3}
               value={description}
@@ -342,7 +341,7 @@ export default function CariOdemePage() {
               onPress={handleSubmit}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              {isIleriTarihli ? t('transactions:form.schedule') : t('cariler:transactionButtons.makePayment')}
+              {isIleriTarihli ? t('transactions:form.schedule') : t('clients:transactionButtons.makePayment')}
             </Button>
           </View>
         </ScrollView>

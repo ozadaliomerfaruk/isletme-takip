@@ -1,17 +1,17 @@
 {
   "titles": {
-    "personnel": "Personnel",
-    "addPersonnel": "Add Personnel",
-    "editPersonnel": "Edit Personnel",
-    "personnelDetails": "Personnel Details",
-    "personnelTransactions": "Personnel History"
+    "personnel": "Staff",
+    "addPersonnel": "Add Staff Member",
+    "editPersonnel": "Edit Staff Member",
+    "personnelDetails": "Staff Details",
+    "personnelTransactions": "Staff History"
   },
   "form": {
     "firstName": "First Name",
-    "firstNamePlaceholder": "Personnel's first name",
+    "firstNamePlaceholder": "Staff member's first name",
     "lastName": "Last Name",
     "lastNameOptional": "Last Name (Optional)",
-    "lastNamePlaceholder": "Personnel's last name",
+    "lastNamePlaceholder": "Staff member's last name",
     "position": "Position",
     "positionOptional": "Position (Optional)",
     "positionPlaceholder": "E.g., Chef, Waiter, Cashier",
@@ -37,6 +37,7 @@
     "currentBalance": "Current Balance",
     "weOwe": "We Owe",
     "theyOwe": "They Owe",
+    "noBalance": "No Balance",
     "salary": "Salary",
     "advance": "Advance",
     "bonus": "Bonus",
@@ -45,58 +46,58 @@
   "actions": {
     "addExpense": "Add Expense",
     "makePayment": "Make Payment",
-    "getCollection": "Collect",
+    "getCollection": "Receive Payment",
     "viewTransactions": "View History",
-    "editPersonnel": "Edit Personnel",
-    "deletePersonnel": "Delete Personnel",
+    "editPersonnel": "Edit Staff Member",
+    "deletePersonnel": "Delete Staff Member",
     "call": "Call",
     "sendEmail": "Send Email"
   },
   "transactionTypes": {
-    "expense": "Personnel Expense",
-    "payment": "Personnel Payment",
-    "collection": "Personnel Collection",
+    "expense": "Staff Expense",
+    "payment": "Staff Payment",
+    "collection": "Payment from Staff",
     "salary": "Salary",
     "advance": "Advance",
     "bonus": "Bonus",
     "deduction": "Deduction"
   },
   "transactionTitles": {
-    "addExpense": "Add Personnel Expense",
-    "makePayment": "Personnel Payment",
-    "getCollection": "Personnel Collection",
-    "expense": "Personnel Expense",
-    "payment": "Personnel Payment"
+    "addExpense": "Add Staff Expense",
+    "makePayment": "Staff Payment",
+    "getCollection": "Payment from Staff",
+    "expense": "Staff Expense",
+    "payment": "Staff Payment"
   },
   "transactionDescriptions": {
-    "expense": "This transaction increases your debt to the personnel (salary accrual, etc.)",
-    "payment": "This transaction decreases your debt to the personnel (salary payment, etc.)",
-    "personnelPayment": "Payment will be made to personnel"
+    "expense": "This transaction increases your debt to the staff member (salary accrual, etc.)",
+    "payment": "This transaction decreases your debt to the staff member (salary payment, etc.)",
+    "personnelPayment": "Payment will be made to staff member"
   },
   "transactionForm": {
-    "personel": "Personnel",
-    "selectPersonel": "Select personnel",
+    "personel": "Staff Member",
+    "selectPersonel": "Select staff member",
     "paymentAccount": "Payment Account",
     "expenseNote": "Expense note...",
     "paymentNote": "Payment note...",
     "descriptionOptional": "Description (Optional)"
   },
   "messages": {
-    "createSuccess": "Personnel created",
-    "updateSuccess": "Personnel updated",
-    "deleteSuccess": "Personnel deleted",
-    "deleteConfirm": "Are you sure you want to delete this personnel?",
-    "deleteWarning": "All expense and payment transactions for this personnel will also be deleted.",
-    "noPersonnel": "No personnel yet",
-    "addFirstPersonnel": "Start by adding your first personnel",
-    "noTransactions": "No transactions for this personnel",
+    "createSuccess": "Staff member added",
+    "updateSuccess": "Staff member updated",
+    "deleteSuccess": "Staff member removed",
+    "deleteConfirm": "Are you sure you want to remove this staff member?",
+    "deleteWarning": "All expense and payment transactions for this staff member will also be deleted.",
+    "noPersonnel": "No staff members yet",
+    "addFirstPersonnel": "Start by adding your first team member",
+    "noTransactions": "No transactions for this staff member",
     "expenseRecorded": "Expense recorded",
     "paymentRecorded": "Payment recorded",
     "scheduledExpenseCreated": "Scheduled expense created",
     "scheduledPaymentCreated": "Scheduled payment created"
   },
   "search": {
-    "searchPersonnel": "Search personnel...",
+    "searchPersonnel": "Search staff...",
     "noResults": "No results found"
   },
   "filters": {
@@ -107,8 +108,8 @@
     "byPosition": "By Position"
   },
   "summary": {
-    "totalPersonnel": "Total Personnel",
-    "personnelCount": "{{count}} Personnel",
+    "totalPersonnel": "Total Staff",
+    "personnelCount": "{{count}} Staff",
     "totalDebt": "Total Debt",
     "totalCredit": "Total Credit",
     "monthlySalary": "Monthly Salary Expense"
@@ -117,26 +118,25 @@
     "contactInfo": "Contact Info",
     "workInfo": "Work Info",
     "transactions": "Transactions",
-    "hareketler": "Transactions",
     "statistics": "Statistics",
     "lastTransaction": "Last Transaction",
     "transactionCount": "Transaction Count",
     "startingBalance": "Opening Balance",
     "initialBalance": "Opening Balance",
-    "personelRecord": "Personnel record",
+    "personelRecord": "Staff record",
     "newTransaction": "New Transaction",
-    "notFoundDescription": "This personnel does not exist or may have been deleted."
+    "notFoundDescription": "This staff member does not exist or may have been deleted."
   },
   "transactionLabels": {
     "gider": "Expense",
     "odeme": "Payment",
-    "tahsilat": "Collection"
+    "tahsilat": "Payment Received"
   },
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",
     "transactionMessage": "Are you sure you want to delete this transaction?",
-    "personelTitle": "Delete Personnel",
-    "personelMessage": "Are you sure you want to delete this personnel?\n\nWarning: All expense and payment transactions for this personnel will also be deleted. This action cannot be undone."
+    "staffTitle": "Delete Staff",
+    "staffMessage": "Are you sure you want to delete this staff member?\n\nWarning: All expense and payment transactions for this staff member will also be deleted. This action cannot be undone."
   },
   "validation": {
     "firstNameRequired": "First name is required"

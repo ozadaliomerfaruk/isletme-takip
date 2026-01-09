@@ -31,7 +31,8 @@ import { toNumber } from '@/lib/currency';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
 import { useCariler, useCariSummary } from '@/hooks/useCariler';
 import { usePersonelList, usePersonelSummary } from '@/hooks/usePersonel';
-import { PeriodType, getPeriodDateRange } from '@/hooks/useIslemler';
+import { PeriodType } from '@/hooks/useIslemler';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
 import { useTranslation } from 'react-i18next';
 
@@ -41,6 +42,7 @@ export default function RaporlarPage() {
   const router = useRouter();
   const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { t } = useTranslation(['reports', 'common', 'errors']);
+  const { getDateRangeLabel, locale, formatDateNative } = useDateFormat();
 
   const TAB_OPTIONS = [
     { label: t('reports:tabs.general'), value: 'genel' },
@@ -92,7 +94,7 @@ export default function RaporlarPage() {
     startDate,
     endDate,
     label: periodLabel,
-  } = getPeriodDateRange(period, periodOffset, customRange);
+  } = getDateRangeLabel(period, periodOffset, customRange);
 
   // Kategori raporları
   const giderRaporu = useCategoryReport('gider', {
@@ -471,7 +473,7 @@ export default function RaporlarPage() {
                 <Text variant="caption" color="secondary">
                   {t('reports:period.startDate')}
                 </Text>
-                <Text variant="body">{customStartDate.toLocaleDateString('tr-TR')}</Text>
+                <Text variant="body">{formatDateNative(customStartDate)}</Text>
               </TouchableOpacity>
               <Text variant="body" color="secondary">
                 -
@@ -483,7 +485,7 @@ export default function RaporlarPage() {
                 <Text variant="caption" color="secondary">
                   {t('reports:period.endDate')}
                 </Text>
-                <Text variant="body">{customEndDate.toLocaleDateString('tr-TR')}</Text>
+                <Text variant="body">{formatDateNative(customEndDate)}</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -533,7 +535,7 @@ export default function RaporlarPage() {
                       }}
                       minimumDate={showEndPicker ? customStartDate : undefined}
                       maximumDate={new Date()}
-                      locale="tr-TR"
+                      locale={locale}
                       themeVariant="light"
                       accentColor={colors.primary}
                       style={{ height: 350 }}

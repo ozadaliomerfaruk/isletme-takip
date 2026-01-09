@@ -14,22 +14,22 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { getCariIcon, getCariBalanceLabel } from '@/lib/icons';
+import { getCariIcon } from '@/lib/icons';
 import { useCariler } from '@/hooks/useCariler';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { Cari, CariType } from '@/types/database';
 
 export default function CarilerPage() {
   const router = useRouter();
-  const { t } = useTranslation(['cariler', 'common', 'navigation']);
+  const { t } = useTranslation(['clients', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCariId, setExpandedCariId] = useState<string | null>(null);
 
   const filterOptions = [
-    { label: t('cariler:filters.all'), value: 'all' },
-    { label: t('cariler:titles.suppliers'), value: 'tedarikci' },
-    { label: t('cariler:titles.customers'), value: 'musteri' },
+    { label: t('clients:filters.all'), value: 'all' },
+    { label: t('clients:titles.suppliers'), value: 'tedarikci' },
+    { label: t('clients:titles.customers'), value: 'musteri' },
   ];
 
   // QuickTransactionBar için state
@@ -53,7 +53,7 @@ export default function CarilerPage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="h2">{t('cariler:titles.clients')}</Text>
+          <Text variant="h2">{t('clients:titles.clients')}</Text>
           <Button
             variant="primary"
             size="sm"
@@ -67,11 +67,11 @@ export default function CarilerPage() {
         {/* Özet Kartları */}
         <View style={styles.summaryContainer}>
           <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">{t('cariler:balance.weOwe')}</Text>
+            <Text variant="caption" color="secondary">{t('clients:balance.weOwe')}</Text>
             <Text variant="h3" color="error">{formatCurrency(payables.cari)}</Text>
           </Card>
           <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">{t('cariler:balance.theyOwe')}</Text>
+            <Text variant="caption" color="secondary">{t('clients:balance.theyOwe')}</Text>
             <Text variant="h3" color="success">{formatCurrency(receivables.cari)}</Text>
           </Card>
         </View>
@@ -81,7 +81,7 @@ export default function CarilerPage() {
           <SearchInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder={t('cariler:search.searchClients')}
+            placeholder={t('clients:search.searchClients')}
           />
         </View>
 
@@ -97,13 +97,13 @@ export default function CarilerPage() {
           ) : !filteredCariler || filteredCariler.length === 0 ? (
             <EmptyState
               icon={<Users size={48} color={colors.textMuted} />}
-              title={searchQuery ? t('cariler:search.noResults') : t('cariler:messages.noClients')}
+              title={searchQuery ? t('clients:search.noResults') : t('clients:messages.noClients')}
               description={
                 searchQuery
                   ? t('common:search.tryDifferent')
-                  : t('cariler:messages.addFirstClient')
+                  : t('clients:messages.addFirstClient')
               }
-              actionLabel={searchQuery ? undefined : t('cariler:titles.addClient')}
+              actionLabel={searchQuery ? undefined : t('clients:titles.addClient')}
               onAction={searchQuery ? undefined : () => router.push('/cariler/ekle')}
             />
           ) : (
@@ -118,13 +118,21 @@ export default function CarilerPage() {
                     <View style={styles.cariInfo}>
                       <Text variant="body">{cari.name}</Text>
                       <Text variant="caption" color="secondary">
-                        {cari.type === 'tedarikci' ? t('cariler:types.tedarikci') : t('cariler:types.musteri')}
+                        {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
                         {cari.phone ? ` • ${cari.phone}` : ''}
                       </Text>
                     </View>
                     <View style={styles.cariBalance}>
                       <Text variant="caption" color="secondary">
-                        {getCariBalanceLabel(cari.type, toNumber(cari.balance))}
+                        {toNumber(cari.balance) === 0
+                          ? t('clients:balance.noBalance')
+                          : cari.type === 'tedarikci'
+                          ? toNumber(cari.balance) < 0
+                            ? t('clients:balance.weOwe')
+                            : t('clients:balance.theyOwe')
+                          : toNumber(cari.balance) > 0
+                          ? t('clients:balance.theyOwe')
+                          : t('clients:balance.weOwe')}
                       </Text>
                       <Text
                         variant="h3"
@@ -153,7 +161,7 @@ export default function CarilerPage() {
                     }}
                     style={styles.actionButton}
                   >
-                    {t('cariler:details.newTransaction')}
+                    {t('clients:details.newTransaction')}
                   </Button>
                   <Button
                     variant="outline"
@@ -162,7 +170,7 @@ export default function CarilerPage() {
                     onPress={() => router.push(`/cariler/${cari.id}`)}
                     style={styles.actionButton}
                   >
-                    {t('cariler:details.hareketler')}
+                    {t('clients:details.transactions')}
                   </Button>
                 </View>
               </ExpandableCard>

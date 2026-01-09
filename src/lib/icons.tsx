@@ -184,8 +184,10 @@ export function getIslemIconBg(type: IslemType): string {
 
 /**
  * İşlem tipi için etiket döndür
+ * @deprecated Çeviriler için t('transactions:types.${type}') kullanın
  */
 export function getIslemTypeLabel(type: IslemType): string {
+  console.warn('getIslemTypeLabel is deprecated. Use t("transactions:types." + type) instead.');
   switch (type) {
     case 'gelir':
       return 'Gelir';
@@ -333,8 +335,10 @@ export function getCariIcon(type: CariType, size: number = 24): React.ReactNode 
 
 /**
  * Cari bakiye etiketi döndür
+ * @deprecated Çeviriler için clients:balance namespace'ini kullanın
  */
 export function getCariBalanceLabel(type: CariType, balance: number): string {
+  console.warn('getCariBalanceLabel is deprecated. Use translations from clients:balance namespace.');
   if (balance === 0) return 'Bakiye yok';
   if (type === 'tedarikci') {
     return balance < 0 ? 'Borcumuz' : 'Alacağımız';
@@ -345,8 +349,10 @@ export function getCariBalanceLabel(type: CariType, balance: number): string {
 
 /**
  * Personel bakiye etiketi döndür
+ * @deprecated Çeviriler için staff:balance namespace'ini kullanın
  */
 export function getPersonelBalanceLabel(balance: number): string {
+  console.warn('getPersonelBalanceLabel is deprecated. Use translations from staff:balance namespace.');
   if (balance === 0) return 'Bakiye yok';
   return balance < 0 ? 'Borcumuz' : 'Alacağımız';
 }

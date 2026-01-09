@@ -57,7 +57,8 @@
     "totalPayables": "Toplam Borçlar",
     "netBalance": "Net Bakiye",
     "weOwe": "Borcumuz",
-    "theyOwe": "Alacağımız"
+    "theyOwe": "Alacağımız",
+    "noBalance": "Bakiye Yok"
   },
   "actions": {
     "payment": "Ödeme Yap",
@@ -151,8 +152,7 @@
   "details": {
     "contactInfo": "İletişim Bilgileri",
     "taxInfo": "Vergi Bilgileri",
-    "transactions": "İşlemler",
-    "hareketler": "Hareketler",
+    "transactions": "Hareketler",
     "statistics": "İstatistikler",
     "lastTransaction": "Son İşlem",
     "transactionCount": "İşlem Sayısı",
@@ -172,8 +172,8 @@
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",
     "transactionMessage": "Bu işlemi silmek istediğinizden emin misiniz?",
-    "cariTitle": "Cariyi Sil",
-    "cariMessage": "Bu cariyi silmek istediğinizden emin misiniz?\n\nDikkat: Bu cariye ait tüm alış, satış, ödeme ve tahsilat işlemleri de silinecektir. Bu işlem geri alınamaz."
+    "clientTitle": "Cariyi Sil",
+    "clientMessage": "Bu cariyi silmek istediğinizden emin misiniz?\n\nDikkat: Bu cariye ait tüm alış, satış, ödeme ve tahsilat işlemleri de silinecektir. Bu işlem geri alınamaz."
   },
   "validation": {
     "nameRequired": "Cari adı gerekli"

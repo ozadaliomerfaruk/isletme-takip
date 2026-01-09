@@ -17,14 +17,15 @@ import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { formatDateMedium } from '@/lib/date';
-import { getIslemIcon, getIslemIconBg, getIslemTypeLabel, getIslemAmountColor, getIslemAmountPrefix } from '@/lib/icons';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { getIslemIcon, getIslemIconBg, getIslemAmountColor, getIslemAmountPrefix } from '@/lib/icons';
 import { useIslemler, useDeleteIslem } from '@/hooks/useIslemler';
 import { IslemType, IslemWithRelations } from '@/types/database';
 
 export default function IslemlerPage() {
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common', 'errors']);
+  const { formatDateMedium } = useDateFormat();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
@@ -93,7 +94,7 @@ export default function IslemlerPage() {
 
   // İşlem tipi + ilgili kişi/hesap bilgisi
   const getIslemSecondLine = (islem: IslemWithRelations) => {
-    const parts = [getIslemTypeLabel(islem.type)];
+    const parts = [t(`transactions:types.${islem.type}`)];
 
     // Transfer için hesaplar
     if (islem.type === 'transfer') {
@@ -193,7 +194,7 @@ export default function IslemlerPage() {
                       variant="outline"
                       size="sm"
                       icon={<Trash2 size={16} color={colors.error} />}
-                      onPress={() => handleDelete(islem.id, islem.description || getIslemTypeLabel(islem.type))}
+                      onPress={() => handleDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`))}
                       style={styles.actionButton}
                     >
                       {t('common:buttons.delete')}

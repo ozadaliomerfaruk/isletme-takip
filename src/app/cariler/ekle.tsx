@@ -19,12 +19,12 @@ import { CariType } from '@/types/database';
 
 export default function CariEklePage() {
   const router = useRouter();
-  const { t } = useTranslation(['cariler', 'common', 'errors']);
+  const { t } = useTranslation(['clients', 'common', 'errors']);
   const createCari = useCreateCari();
 
   const cariTypes: { type: CariType; label: string; icon: React.ReactNode }[] = [
-    { type: 'tedarikci', label: t('cariler:types.tedarikci'), icon: <Building2 size={24} color={colors.warning} /> },
-    { type: 'musteri', label: t('cariler:types.musteri'), icon: <User size={24} color={colors.info} /> },
+    { type: 'tedarikci', label: t('clients:types.tedarikci'), icon: <Building2 size={24} color={colors.warning} /> },
+    { type: 'musteri', label: t('clients:types.musteri'), icon: <User size={24} color={colors.info} /> },
   ];
 
   const [name, setName] = useState('');
@@ -40,7 +40,7 @@ export default function CariEklePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = t('cariler:validation.nameRequired');
+      newErrors.name = t('clients:validation.nameRequired');
     }
 
     setErrors(newErrors);
@@ -69,7 +69,7 @@ export default function CariEklePage() {
         notes: notes.trim() || null,
       });
 
-      Alert.alert(t('common:status.success'), t('cariler:messages.createSuccess'), [
+      Alert.alert(t('common:status.success'), t('clients:messages.createSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
@@ -91,13 +91,13 @@ export default function CariEklePage() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text variant="h2">{t('cariler:titles.addClient')}</Text>
+            <Text variant="h2">{t('clients:titles.addClient')}</Text>
           </View>
 
           {/* Cari Tipi Seçimi */}
           <View style={styles.section}>
             <Text variant="label" color="secondary" style={styles.sectionTitle}>
-              {t('cariler:form.type')}
+              {t('clients:form.type')}
             </Text>
             <View style={styles.typeGrid}>
               {cariTypes.map((item) => (
@@ -129,24 +129,24 @@ export default function CariEklePage() {
           {/* Form */}
           <View style={styles.section}>
             <Input
-              label={t('cariler:form.name')}
-              placeholder={type === 'tedarikci' ? t('cariler:form.nameSupplierPlaceholder') : t('cariler:form.nameCustomerPlaceholder')}
+              label={t('clients:form.name')}
+              placeholder={type === 'tedarikci' ? t('clients:form.nameSupplierPlaceholder') : t('clients:form.nameCustomerPlaceholder')}
               value={name}
               onChangeText={setName}
               error={errors.name}
             />
 
             <Input
-              label={t('cariler:form.phoneOptional')}
-              placeholder={t('cariler:form.phoneExample')}
+              label={t('clients:form.phoneOptional')}
+              placeholder={t('clients:form.phoneExample')}
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
             />
 
             <Input
-              label={t('cariler:form.emailOptional')}
-              placeholder={t('cariler:form.emailExample')}
+              label={t('clients:form.emailOptional')}
+              placeholder={t('clients:form.emailExample')}
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -154,8 +154,8 @@ export default function CariEklePage() {
             />
 
             <Input
-              label={t('cariler:form.addressOptional')}
-              placeholder={t('cariler:form.addressDetailPlaceholder')}
+              label={t('clients:form.addressOptional')}
+              placeholder={t('clients:form.addressDetailPlaceholder')}
               multiline
               numberOfLines={2}
               value={address}
@@ -163,7 +163,7 @@ export default function CariEklePage() {
             />
 
             <Input
-              label={type === 'tedarikci' ? t('cariler:form.openingDebtOptional') : t('cariler:form.openingReceivableOptional')}
+              label={type === 'tedarikci' ? t('clients:form.openingDebtOptional') : t('clients:form.openingReceivableOptional')}
               placeholder="0"
               keyboardType="decimal-pad"
               value={balance}
@@ -171,8 +171,8 @@ export default function CariEklePage() {
             />
 
             <Input
-              label={t('cariler:form.noteOptional')}
-              placeholder={t('cariler:form.noteDetailPlaceholder')}
+              label={t('clients:form.noteOptional')}
+              placeholder={t('clients:form.noteDetailPlaceholder')}
               multiline
               numberOfLines={3}
               value={notes}

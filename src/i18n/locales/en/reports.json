@@ -36,12 +36,12 @@
     "totalExpense": "Total Expense",
     "totalAmount": "Total Amount",
     "transactionCount": "Transaction Count",
-    "totalPersonnelDebt": "Total personnel debt"
+    "totalPersonnelDebt": "Total staff debt"
   },
   "sections": {
     "accountBalances": "ACCOUNT BALANCES",
     "clientStatus": "CLIENT STATUS",
-    "personnelStatus": "PERSONNEL STATUS",
+    "personnelStatus": "STAFF STATUS",
     "categoryDistribution": "CATEGORY DISTRIBUTION",
     "categoryFilter": "CATEGORY FILTER",
     "selectedTransactions": "SELECTED TRANSACTIONS",
@@ -50,7 +50,7 @@
   "counts": {
     "account": "{{count}} Accounts",
     "client": "{{count}} Clients",
-    "personnel": "{{count}} Personnel",
+    "personnel": "{{count}} Staff",
     "transaction": "{{count}} transactions"
   },
   "period": {

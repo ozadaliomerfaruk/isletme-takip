@@ -316,7 +316,7 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
-              <Text variant="h3">İkon Seç</Text>
+              <Text variant="h3">{t('common:select.selectIcon')}</Text>
               <TouchableOpacity
                 onPress={handleClose}
                 style={styles.closeButton}
@@ -330,7 +330,7 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
               <Search size={20} color={colors.textMuted} style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="İkon ara..."
+                placeholder={t('common:search.searchIcons')}
                 placeholderTextColor={colors.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -354,7 +354,7 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
                 <View style={styles.emptyState}>
                   <Search size={48} color={colors.textMuted} />
                   <Text variant="body" color="secondary" style={styles.emptyText}>
-                    "{searchQuery}" için sonuç bulunamadı
+                    {t('common:search.noResultsFor', { query: searchQuery })}
                   </Text>
                 </View>
               ) : (

@@ -81,7 +81,7 @@
     "accountCount": "{{count}} Accounts"
   },
   "details": {
-    "hareketler": "Transactions",
+    "transactions": "Transactions",
     "initialBalance": "Opening Balance",
     "accountOpening": "Account opening",
     "notFoundDescription": "This account does not exist or may have been deleted.",
@@ -91,10 +91,10 @@
     "gelir": "Income",
     "gider": "Expense",
     "transfer": "Transfer",
-    "cari_odeme": "Client Payment",
-    "cari_tahsilat": "Client Collection",
-    "personel_odeme": "Personnel Payment",
-    "personel_gider": "Personnel Expense"
+    "cariOdeme": "Client Payment",
+    "cariTahsilat": "Payment Received",
+    "personelOdeme": "Staff Payment",
+    "personelGider": "Staff Expense"
   },
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",
