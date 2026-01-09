@@ -1,6 +1,7 @@
 import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions, TextInput } from 'react-native';
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   Tag,
   Search,
@@ -260,6 +261,7 @@ interface IconPickerProps {
 }
 
 export function IconPicker({ value, onChange, color = colors.primary }: IconPickerProps) {
+  const { t } = useTranslation(['common']);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
@@ -301,7 +303,7 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
           <SelectedIconComponent size={24} color={color} />
         </View>
         <Text variant="body" style={styles.triggerText}>
-          {value ? CATEGORY_ICONS.find(i => i.name === value)?.label || 'İkon Seç' : 'İkon Seç'}
+          {value ? CATEGORY_ICONS.find(i => i.name === value)?.label || t('common:select.selectIcon') : t('common:select.selectIcon')}
         </Text>
       </TouchableOpacity>
 

@@ -162,7 +162,7 @@ export function TransactionSheet({
   // Handle save
   const handleSave = useCallback(async () => {
     if (!selectedHesapId) {
-      Alert.alert('Hata', 'Lütfen bir hesap seçin');
+      Alert.alert(t('common:status.error'), t('transactions:messages.selectAccountRequired'));
       return;
     }
 
@@ -216,8 +216,8 @@ export function TransactionSheet({
           if (reminderDate > new Date()) {
             await scheduleTransactionReminder(
               result.id,
-              type === 'gelir' ? 'Gelir Hatırlatması' : 'Gider Hatırlatması',
-              `${formatCurrency(parsedAmount)} tutarında ${type} işlemi planlanmış`,
+              type === 'gelir' ? t('transactions:notifications.incomeReminderTitle') : t('transactions:notifications.expenseReminderTitle'),
+              t('transactions:notifications.scheduledTransactionBody', { amount: formatCurrency(parsedAmount), type }),
               reminderDate,
               {
                 type,
@@ -251,8 +251,7 @@ export function TransactionSheet({
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      // TODO i18n: transactions:messages.saveFailedRetry
-      Alert.alert(t('common:status.error'), 'İşlem kaydedilemedi. Lütfen tekrar deneyin.');
+      Alert.alert(t('common:status.error'), t('transactions:messages.saveFailedRetry'));
     }
   }, [
     selectedHesapId,
@@ -307,7 +306,7 @@ export function TransactionSheet({
                 )}
               </View>
               <Text style={styles.headerTitle}>
-                {isGelir ? 'Gelir Ekle' : 'Gider Ekle'}
+                {isGelir ? t('transactions:titles.addIncome') : t('transactions:titles.addExpense')}
               </Text>
             </View>
 
@@ -341,7 +340,7 @@ export function TransactionSheet({
                     editable
                   />
                   <Text style={styles.hint}>
-                    {isGelir ? 'Gelir olarak ekle' : 'Gider olarak ekle'}
+                    {isGelir ? t('transactions:messages.addAsIncome') : t('transactions:messages.addAsExpense')}
                   </Text>
                 </View>
               </View>
@@ -373,9 +372,9 @@ export function TransactionSheet({
                   {/* Account Selection */}
                   <OptionRow
                     icon={<Wallet size={22} color="#86868B" />}
-                    label="Hesap"
+                    label={t('transactions:form.account')}
                     value={selectedHesap?.name}
-                    placeholder="Hesap seç..."
+                    placeholder={t('transactions:form.accountPlaceholder')}
                     onPress={() => setShowHesapPicker(true)}
                     showChevron
                   />
@@ -383,10 +382,10 @@ export function TransactionSheet({
                   {/* Date Selection */}
                   <OptionRow
                     icon={<Calendar size={22} color="#86868B" />}
-                    label="Tarih"
+                    label={t('transactions:form.date')}
                     value={
                       isToday(selectedDate)
-                        ? 'Bugün'
+                        ? t('common:date.today')
                         : formatDateLong(selectedDate)
                     }
                     onPress={() => setShowDatePicker(true)}
@@ -398,8 +397,8 @@ export function TransactionSheet({
                     value={selectedKategoriId}
                     onChange={setSelectedKategoriId}
                     type={type}
-                    label="Kategori"
-                    placeholder="Kategori seç..."
+                    label={t('transactions:form.category')}
+                    placeholder={t('transactions:form.categoryPlaceholder')}
                     optional
                   />
 
@@ -410,7 +409,7 @@ export function TransactionSheet({
                     </View>
                     <TextInput
                       style={styles.descriptionInput}
-                      placeholder="Not ekle..."
+                      placeholder={t('transactions:form.notePlaceholder')}
                       placeholderTextColor="#C7C7CC"
                       value={description}
                       onChangeText={setDescription}
@@ -446,7 +445,7 @@ export function TransactionSheet({
                   disabled={!isValidAmount(amount)}
                   activeOpacity={0.8}
                 >
-                  <Text style={styles.primaryButtonText}>Devam Et</Text>
+                  <Text style={styles.primaryButtonText}>{t('common:buttons.continue')}</Text>
                 </TouchableOpacity>
               </Animated.View>
             ) : (
@@ -458,7 +457,7 @@ export function TransactionSheet({
                   onPress={goBackToAmount}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.secondaryButtonText}>Geri</Text>
+                  <Text style={styles.secondaryButtonText}>{t('common:buttons.back')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -472,7 +471,7 @@ export function TransactionSheet({
                   activeOpacity={0.8}
                 >
                   <Text style={styles.primaryButtonText}>
-                    {state === 'saving' ? 'Kaydediliyor...' : 'Kaydet'}
+                    {state === 'saving' ? t('common:status.saving') : t('common:buttons.save')}
                   </Text>
                 </TouchableOpacity>
               </Animated.View>
@@ -492,6 +491,7 @@ export function TransactionSheet({
             setShowHesapPicker(false);
           }}
           onClose={() => setShowHesapPicker(false)}
+          t={t}
         />
       )}
 
@@ -505,6 +505,7 @@ export function TransactionSheet({
             setShowDatePicker(false);
           }}
           onClose={() => setShowDatePicker(false)}
+          t={t}
         />
       )}
     </>
@@ -518,6 +519,7 @@ interface HesapPickerModalProps {
   selectedId: string | null;
   onSelect: (hesap: Hesap) => void;
   onClose: () => void;
+  t: (key: string, options?: any) => any;
 }
 
 function HesapPickerModal({
@@ -526,6 +528,7 @@ function HesapPickerModal({
   selectedId,
   onSelect,
   onClose,
+  t,
 }: HesapPickerModalProps) {
   return (
     <BottomSheet
@@ -537,7 +540,7 @@ function HesapPickerModal({
     >
       <View style={pickerStyles.container}>
         <View style={pickerStyles.header}>
-          <Text style={pickerStyles.title}>Hesap Seç</Text>
+          <Text style={pickerStyles.title}>{t('common:select.selectAccount')}</Text>
           <TouchableOpacity onPress={onClose}>
             <X size={24} color="#86868B" />
           </TouchableOpacity>
@@ -582,6 +585,7 @@ interface DatePickerModalProps {
   value: Date;
   onChange: (date: Date) => void;
   onClose: () => void;
+  t: (key: string, options?: any) => any;
 }
 
 function DatePickerModal({
@@ -589,6 +593,7 @@ function DatePickerModal({
   value,
   onChange,
   onClose,
+  t,
 }: DatePickerModalProps) {
   return (
     <BottomSheet
@@ -600,7 +605,7 @@ function DatePickerModal({
     >
       <View style={pickerStyles.container}>
         <View style={pickerStyles.header}>
-          <Text style={pickerStyles.title}>Tarih Seç</Text>
+          <Text style={pickerStyles.title}>{t('common:date.selectDate')}</Text>
           <TouchableOpacity onPress={onClose}>
             <X size={24} color="#86868B" />
           </TouchableOpacity>

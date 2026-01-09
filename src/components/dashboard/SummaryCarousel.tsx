@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
 import { CashFlowCard } from './CashFlowCard';
@@ -54,6 +55,7 @@ export function SummaryCarousel({
   startDate,
   endDate,
 }: SummaryCarouselProps) {
+  const { t } = useTranslation(['common']);
   const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -113,8 +115,8 @@ export function SummaryCarousel({
           >
             {/* Header */}
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Genel Durum</Text>
-              <Text style={styles.periodBadge}>Anlık</Text>
+              <Text style={styles.cardTitle}>{t('common:dashboard.generalStatus')}</Text>
+              <Text style={styles.periodBadge}>{t('common:period.instant')}</Text>
             </View>
 
             {/* Main Value */}
@@ -125,7 +127,7 @@ export function SummaryCarousel({
               ]}>
                 {generalStatus >= 0 ? '+' : ''}{formatCurrency(generalStatus)}
               </Text>
-              <Text style={styles.mainLabel}>Net Varlık</Text>
+              <Text style={styles.mainLabel}>{t('common:dashboard.netWorth')}</Text>
             </View>
 
             {/* Progress Bar */}
@@ -141,7 +143,7 @@ export function SummaryCarousel({
               <View style={styles.detailItemThree}>
                 <View style={styles.detailHeader}>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.success }]} />
-                  <Text style={styles.detailLabel}>Varlıklar</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.assets')}</Text>
                 </View>
                 <Text style={[styles.detailValueSmall, { color: colors.success }]}>
                   {formatCurrency(assets)}
@@ -153,7 +155,7 @@ export function SummaryCarousel({
               <View style={styles.detailItemThree}>
                 <View style={styles.detailHeader}>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.info }]} />
-                  <Text style={styles.detailLabel}>Alacaklar</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.receivables')}</Text>
                 </View>
                 <Text style={[styles.detailValueSmall, { color: colors.info }]}>
                   {formatCurrency(receivables)}
@@ -164,7 +166,7 @@ export function SummaryCarousel({
 
               <View style={[styles.detailItemThree, styles.detailItemRight]}>
                 <View style={styles.detailHeader}>
-                  <Text style={styles.detailLabel}>Borçlar</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.payables')}</Text>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.error }]} />
                 </View>
                 <Text style={[styles.detailValueSmall, { color: colors.error }]}>
@@ -184,7 +186,7 @@ export function SummaryCarousel({
           >
             {/* Header */}
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Gelir/Gider</Text>
+              <Text style={styles.cardTitle}>{t('common:dashboard.incomeExpense')}</Text>
               <Text style={styles.periodBadge}>{periodLabel}</Text>
             </View>
 
@@ -196,7 +198,7 @@ export function SummaryCarousel({
               ]}>
                 {netProfit >= 0 ? '+' : ''}{formatCurrency(netProfit)}
               </Text>
-              <Text style={styles.mainLabel}>Net Kar/Zarar</Text>
+              <Text style={styles.mainLabel}>{t('common:dashboard.netProfitLoss')}</Text>
             </View>
 
             {/* Progress Bar */}
@@ -212,7 +214,7 @@ export function SummaryCarousel({
               <View style={styles.detailItem}>
                 <View style={styles.detailHeader}>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.success }]} />
-                  <Text style={styles.detailLabel}>Gelir</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.income')}</Text>
                 </View>
                 <Text style={[styles.detailValue, { color: colors.success }]}>
                   {formatCurrency(income)}
@@ -223,7 +225,7 @@ export function SummaryCarousel({
 
               <View style={[styles.detailItem, styles.detailItemRight]}>
                 <View style={styles.detailHeader}>
-                  <Text style={styles.detailLabel}>Gider</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.expense')}</Text>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.error }]} />
                 </View>
                 <Text style={[styles.detailValue, { color: colors.error }]}>
@@ -243,8 +245,8 @@ export function SummaryCarousel({
           >
             {/* Header */}
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Cari Durum</Text>
-              <Text style={styles.periodBadge}>Toplam</Text>
+              <Text style={styles.cardTitle}>{t('common:dashboard.clientStatus')}</Text>
+              <Text style={styles.periodBadge}>{t('common:dashboard.total')}</Text>
             </View>
 
             {/* Main Value */}
@@ -255,7 +257,7 @@ export function SummaryCarousel({
               ]}>
                 {netBalance >= 0 ? '+' : ''}{formatCurrency(netBalance)}
               </Text>
-              <Text style={styles.mainLabel}>Net Bakiye</Text>
+              <Text style={styles.mainLabel}>{t('common:dashboard.netBalance')}</Text>
             </View>
 
             {/* Progress Bar */}
@@ -271,7 +273,7 @@ export function SummaryCarousel({
               <View style={styles.detailItem}>
                 <View style={styles.detailHeader}>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.info }]} />
-                  <Text style={styles.detailLabel}>Alacaklar</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.receivables')}</Text>
                 </View>
                 <Text style={[styles.detailValue, { color: colors.info }]}>
                   {formatCurrency(receivables)}
@@ -282,7 +284,7 @@ export function SummaryCarousel({
 
               <View style={[styles.detailItem, styles.detailItemRight]}>
                 <View style={styles.detailHeader}>
-                  <Text style={styles.detailLabel}>Borçlar</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.payables')}</Text>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.warning }]} />
                 </View>
                 <Text style={[styles.detailValue, { color: colors.warning }]}>
@@ -293,7 +295,7 @@ export function SummaryCarousel({
           </TouchableOpacity>
         </View>
 
-        {/* Page 4: Nakit Akışı */}
+        {/* Page 4: Cash Flow */}
         <View style={[styles.page, { width: CARD_WIDTH }]}>
           <CashFlowCard
             totalInflow={totalInflow}

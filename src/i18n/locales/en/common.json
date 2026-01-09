@@ -74,6 +74,8 @@
     "selectAccount": "Select account",
     "selectDate": "Select date",
     "selectTime": "Select time",
+    "selectIcon": "Select Icon",
+    "selectColor": "Select Color",
     "selectAll": "Select all",
     "noneSelected": "None selected",
     "itemsSelected": "{{count}} selected"
@@ -165,7 +167,8 @@
     "monthly": "Monthly",
     "yearly": "Yearly",
     "custom": "Custom",
-    "allTime": "All Time"
+    "allTime": "All Time",
+    "instant": "Current"
   },
   "messages": {
     "savedSuccessfully": "Saved successfully",
@@ -173,5 +176,33 @@
     "updatedSuccessfully": "Updated successfully",
     "operationFailed": "Operation failed",
     "pleaseTryAgain": "Please try again"
+  },
+  "dashboard": {
+    "generalStatus": "Financial Overview",
+    "netWorth": "Net Worth",
+    "assets": "Assets",
+    "receivables": "Receivables",
+    "payables": "Payables",
+    "incomeExpense": "Income/Expense",
+    "income": "Income",
+    "expense": "Expense",
+    "netProfitLoss": "Net Profit/Loss",
+    "clientStatus": "Client Status",
+    "total": "Total",
+    "netBalance": "Net Balance",
+    "cashFlow": "Cash Flow",
+    "netCashFlow": "Net Cash Flow",
+    "inflow": "Inflow",
+    "outflow": "Outflow",
+    "cashInflow": "Cash Inflow",
+    "cashOutflow": "Cash Outflow",
+    "inflowDistribution": "Inflow Distribution",
+    "outflowDistribution": "Outflow Distribution",
+    "inflowDistributionCount": "CASH INFLOW DISTRIBUTION ({{count}} CATEGORIES)",
+    "outflowDistributionCount": "CASH OUTFLOW DISTRIBUTION ({{count}} CATEGORIES)",
+    "noInflowInPeriod": "No cash inflow in this period",
+    "noOutflowInPeriod": "No cash outflow in this period",
+    "uncategorized": "Uncategorized",
+    "category": "Category"
   }
 }

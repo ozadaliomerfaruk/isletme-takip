@@ -36,6 +36,7 @@
     "accountPlaceholder": "Hesap seç",
     "sourceAccount": "Kaynak Hesap",
     "targetAccount": "Hedef Hesap",
+    "selectPaymentType": "Ödeme Türü Seç",
     "description": "Açıklama",
     "descriptionPlaceholder": "Açıklama ekle (isteğe bağlı)",
     "note": "Not",
@@ -80,11 +81,18 @@
     "scheduledCreated": "İleri tarihli işlem oluşturuldu",
     "incomeAdded": "Gelir eklendi",
     "expenseAdded": "Gider eklendi",
-    "transferCompleted": "Transfer tamamlandı"
+    "transferCompleted": "Transfer tamamlandı",
+    "selectAccountRequired": "Lütfen bir hesap seçin",
+    "saveFailedRetry": "İşlem kaydedilemedi. Lütfen tekrar deneyin.",
+    "addAsIncome": "Gelir olarak ekle",
+    "addAsExpense": "Gider olarak ekle"
   },
   "notifications": {
     "reminderTitle": "Yaklaşan İşlem Hatırlatması",
-    "scheduledReminder": "Planlı işlem hatırlatması"
+    "scheduledReminder": "Planlı işlem hatırlatması",
+    "incomeReminderTitle": "Gelir Hatırlatması",
+    "expenseReminderTitle": "Gider Hatırlatması",
+    "scheduledTransactionBody": "{{amount}} tutarında {{type}} işlemi planlanmış"
   },
   "filters": {
     "all": "Tümü",
@@ -139,5 +147,8 @@
     "personel_odeme": "Ödeme",
     "personel_gider": "Gider",
     "personel_tahsilat": "Tahsilat"
+  },
+  "validation": {
+    "selectTargetAccount": "Hedef hesap seçin"
   }
 }

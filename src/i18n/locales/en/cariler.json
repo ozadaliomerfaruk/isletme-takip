@@ -86,7 +86,8 @@
     "purchase": "This transaction increases your debt to the supplier",
     "sale": "This transaction increases your receivable from the customer",
     "payment": "This transaction decreases your debt to the supplier",
-    "collection": "This transaction decreases your receivable from the customer"
+    "collection": "This transaction decreases your receivable from the customer",
+    "supplierPayment": "Payment will be made to supplier"
   },
   "transactionForm": {
     "supplier": "Supplier",

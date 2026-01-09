@@ -130,9 +130,8 @@ export function ParentCategoryPicker({
             <View style={[styles.iconPreview, { backgroundColor: colors.surfaceLighter }]}>
               <FolderOpen size={24} color={colors.textMuted} />
             </View>
-            {/* TODO i18n: categories:form.parentCategoryPlaceholder */}
             <Text variant="body" color="secondary" style={styles.triggerText}>
-              Üst Kategori Seç
+              {t('categories:form.parentCategoryPlaceholder')}
             </Text>
           </>
         )}
@@ -147,8 +146,7 @@ export function ParentCategoryPicker({
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
-              {/* TODO i18n: categories:form.parentCategory */}
-              <Text variant="h3">Üst Kategori Seç</Text>
+              <Text variant="h3">{t('categories:form.parentCategory')}</Text>
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
                 style={styles.closeButton}
@@ -177,14 +175,13 @@ export function ParentCategoryPicker({
                 ]}>
                   <FolderOpen size={24} color={value === null ? colors.primary : colors.textMuted} />
                 </View>
-                {/* TODO i18n: categories:form.noParent */}
                 <Text
                   variant="caption"
                   color={value === null ? 'primary' : 'secondary'}
                   numberOfLines={2}
                   style={styles.categoryLabel}
                 >
-                  Yok
+                  {t('categories:form.noParent')}
                 </Text>
                 {value === null && (
                   <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
@@ -235,13 +232,11 @@ export function ParentCategoryPicker({
               {availableCategories.length === 0 && !isLoading && (
                 <View style={styles.emptyState}>
                   <Folder size={48} color={colors.textMuted} />
-                  {/* TODO i18n: categories:messages.noParentCategories */}
                   <Text variant="body" color="secondary" style={styles.emptyText}>
-                    Henüz ana kategori yok
+                    {t('categories:messages.noParentCategories')}
                   </Text>
-                  {/* TODO i18n: categories:messages.createParentFirst */}
                   <Text variant="caption" color="secondary" style={styles.emptySubtext}>
-                    Önce bir ana kategori oluşturun
+                    {t('categories:messages.createParentFirst')}
                   </Text>
                 </View>
               )}

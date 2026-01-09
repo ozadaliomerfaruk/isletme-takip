@@ -36,6 +36,7 @@
     "accountPlaceholder": "Select account",
     "sourceAccount": "Source Account",
     "targetAccount": "Target Account",
+    "selectPaymentType": "Select Payment Type",
     "description": "Description",
     "descriptionPlaceholder": "Add description (optional)",
     "note": "Note",
@@ -80,11 +81,18 @@
     "scheduledCreated": "Scheduled transaction created",
     "incomeAdded": "Income added",
     "expenseAdded": "Expense added",
-    "transferCompleted": "Transfer completed"
+    "transferCompleted": "Transfer completed",
+    "selectAccountRequired": "Please select an account",
+    "saveFailedRetry": "Transaction could not be saved. Please try again.",
+    "addAsIncome": "Add as income",
+    "addAsExpense": "Add as expense"
   },
   "notifications": {
     "reminderTitle": "Upcoming Transaction Reminder",
-    "scheduledReminder": "Scheduled transaction reminder"
+    "scheduledReminder": "Scheduled transaction reminder",
+    "incomeReminderTitle": "Income Reminder",
+    "expenseReminderTitle": "Expense Reminder",
+    "scheduledTransactionBody": "{{type}} transaction of {{amount}} is scheduled"
   },
   "filters": {
     "all": "All",
@@ -139,5 +147,8 @@
     "personel_odeme": "Payment",
     "personel_gider": "Expense",
     "personel_tahsilat": "Collection"
+  },
+  "validation": {
+    "selectTargetAccount": "Select target account"
   }
 }

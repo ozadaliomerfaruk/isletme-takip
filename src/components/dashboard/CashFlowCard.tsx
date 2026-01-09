@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
@@ -19,7 +20,8 @@ export function CashFlowCard({
   periodLabel,
   onPress,
 }: CashFlowCardProps) {
-  // Progress bar hesaplama
+  const { t } = useTranslation(['common']);
+  // Progress bar calculation
   const total = totalInflow + totalOutflow;
   const inflowPercent = total > 0 ? (totalInflow / total) * 100 : 50;
 
@@ -30,7 +32,7 @@ export function CashFlowCard({
     <Wrapper {...wrapperProps}>
       {/* Header */}
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>Nakit Akışı</Text>
+        <Text style={styles.cardTitle}>{t('common:dashboard.cashFlow')}</Text>
         <Text style={styles.periodBadge}>{periodLabel}</Text>
       </View>
 
@@ -42,7 +44,7 @@ export function CashFlowCard({
         ]}>
           {netCashFlow >= 0 ? '+' : ''}{formatCurrency(netCashFlow)}
         </Text>
-        <Text style={styles.mainLabel}>Net Nakit Akışı</Text>
+        <Text style={styles.mainLabel}>{t('common:dashboard.netCashFlow')}</Text>
       </View>
 
       {/* Progress Bar */}
@@ -58,7 +60,7 @@ export function CashFlowCard({
         <View style={styles.detailItem}>
           <View style={styles.detailHeader}>
             <View style={[styles.dotIndicator, { backgroundColor: colors.success }]} />
-            <Text style={styles.detailLabel}>Giriş</Text>
+            <Text style={styles.detailLabel}>{t('common:dashboard.inflow')}</Text>
           </View>
           <Text style={[styles.detailValue, { color: colors.success }]}>
             {formatCurrency(totalInflow)}
@@ -69,7 +71,7 @@ export function CashFlowCard({
 
         <View style={[styles.detailItem, styles.detailItemRight]}>
           <View style={styles.detailHeader}>
-            <Text style={styles.detailLabel}>Çıkış</Text>
+            <Text style={styles.detailLabel}>{t('common:dashboard.outflow')}</Text>
             <View style={[styles.dotIndicator, { backgroundColor: colors.error }]} />
           </View>
           <Text style={[styles.detailValue, { color: colors.error }]}>

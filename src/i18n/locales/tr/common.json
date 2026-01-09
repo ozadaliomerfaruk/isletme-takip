@@ -61,6 +61,8 @@
     "selectDate": "Tarih seç",
     "selectPerson": "Kişi seç",
     "selectType": "Tip seç",
+    "selectIcon": "İkon Seç",
+    "selectColor": "Renk Seç",
     "selectAll": "Tümünü Seç",
     "noneSelected": "Seçilmedi"
   },
@@ -155,6 +157,35 @@
     "monthly": "Aylık",
     "yearly": "Yıllık",
     "custom": "Özel",
-    "allTime": "Tüm Zamanlar"
+    "allTime": "Tüm Zamanlar",
+    "instant": "Anlık"
+  },
+  "dashboard": {
+    "generalStatus": "Genel Durum",
+    "netWorth": "Net Varlık",
+    "assets": "Varlıklar",
+    "receivables": "Alacaklar",
+    "payables": "Borçlar",
+    "incomeExpense": "Gelir/Gider",
+    "income": "Gelir",
+    "expense": "Gider",
+    "netProfitLoss": "Net Kar/Zarar",
+    "clientStatus": "Cari Durum",
+    "total": "Toplam",
+    "netBalance": "Net Bakiye",
+    "cashFlow": "Nakit Akışı",
+    "netCashFlow": "Net Nakit Akışı",
+    "inflow": "Giriş",
+    "outflow": "Çıkış",
+    "cashInflow": "Nakit Giriş",
+    "cashOutflow": "Nakit Çıkış",
+    "inflowDistribution": "Nakit Giriş Dağılımı",
+    "outflowDistribution": "Nakit Çıkış Dağılımı",
+    "inflowDistributionCount": "NAKİT GİRİŞ DAĞILIMI ({{count}} KATEGORİ)",
+    "outflowDistributionCount": "NAKİT ÇIKIŞ DAĞILIMI ({{count}} KATEGORİ)",
+    "noInflowInPeriod": "Bu dönemde nakit girişi bulunamadı",
+    "noOutflowInPeriod": "Bu dönemde nakit çıkışı bulunamadı",
+    "uncategorized": "Kategorisiz",
+    "category": "Kategori"
   }
 }

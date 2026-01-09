@@ -86,7 +86,8 @@
     "purchase": "Bu işlem tedarikçiye borcunuzu artırır",
     "sale": "Bu işlem müşteriden alacağınızı artırır",
     "payment": "Bu işlem tedarikçiye olan borcunuzu azaltır",
-    "collection": "Bu işlem müşteriden alacağınızı azaltır"
+    "collection": "Bu işlem müşteriden alacağınızı azaltır",
+    "supplierPayment": "Tedarikçiye ödeme yapılacak"
   },
   "transactionForm": {
     "supplier": "Tedarikçi",

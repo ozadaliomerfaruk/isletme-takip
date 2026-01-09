@@ -354,42 +354,41 @@ export function QuickTransactionBar({
     }
 
     // Validate additional fields based on type
-    // TODO i18n: validation messages missing in EN
     if (type === 'transfer' && !hedefHesapId) {
-      Alert.alert(t('common:status.error'), 'Hesap seçin');
+      Alert.alert(t('common:status.error'), t('transactions:validation.selectTargetAccount'));
       return;
     }
 
     if (type === 'odeme') {
       if (odemeHedefType === 'tedarikci' && !cariId) {
-        Alert.alert(t('common:status.error'), 'Tedarikçi seçin');
+        Alert.alert(t('common:status.error'), t('cariler:transactionForm.selectSupplier'));
         return;
       }
       if (odemeHedefType === 'personel' && !personelId) {
-        Alert.alert(t('common:status.error'), 'Personel seçin');
+        Alert.alert(t('common:status.error'), t('personel:transactionForm.selectPersonel'));
         return;
       }
     }
 
     if (type === 'tahsilat' && !cariId) {
-      Alert.alert(t('common:status.error'), 'Müşteri seçin');
+      Alert.alert(t('common:status.error'), t('cariler:transactionForm.selectCustomer'));
       return;
     }
 
     // Cari modu validasyonları
     if ((type === 'alis' || type === 'alis_iade') && !cariId) {
-      Alert.alert(t('common:status.error'), 'Tedarikçi seçin');
+      Alert.alert(t('common:status.error'), t('cariler:transactionForm.selectSupplier'));
       return;
     }
 
     if ((type === 'satis' || type === 'satis_iade') && !cariId) {
-      Alert.alert(t('common:status.error'), 'Müşteri seçin');
+      Alert.alert(t('common:status.error'), t('cariler:transactionForm.selectCustomer'));
       return;
     }
 
     // Personel modu validasyonları
     if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'].includes(type) && !personelId) {
-      Alert.alert(t('common:status.error'), 'Personel seçin');
+      Alert.alert(t('common:status.error'), t('personel:transactionForm.selectPersonel'));
       return;
     }
 
@@ -516,8 +515,8 @@ export function QuickTransactionBar({
     tahsilat: t('transactions:tabs.tahsilat'),
     alis: t('transactions:tabs.alis'),
     satis: t('transactions:tabs.satis'),
-    alis_iade: t('cariler:actions.return'), // TODO i18n - verify key exists
-    satis_iade: t('cariler:actions.return'), // TODO i18n - verify key exists
+    alis_iade: t('cariler:actions.return'),
+    satis_iade: t('cariler:actions.return'),
     personel_odeme_tab: t('transactions:tabs.odeme'),
     personel_gider_tab: t('transactions:tabs.gider'),
     personel_tahsilat_tab: t('transactions:tabs.tahsilat'),
@@ -567,9 +566,8 @@ export function QuickTransactionBar({
           </View>
         )}
 
-        {/* Date label when scheduled - TODO i18n */}
         {isScheduled && (
-          <Text style={styles.dateLabel}>Planlanmış:</Text>
+          <Text style={styles.dateLabel}>{t('transactions:future.scheduled')}:</Text>
         )}
 
         {/* Row 1: Date + Bell + Close */}
@@ -662,9 +660,8 @@ export function QuickTransactionBar({
               ) : (
                 <UserCheck size={18} color={colors.orange} />
               )}
-              {/* TODO i18n: paymentToSupplier / paymentToPersonnel */}
               <Text style={styles.pickerButtonText}>
-                {odemeHedefType === 'tedarikci' ? 'Tedarikçiye Ödeme' : 'Personele Ödeme'}
+                {odemeHedefType === 'tedarikci' ? t('cariler:transactionTitles.supplierPayment') : t('personel:transactionTitles.payment')}
               </Text>
               <ChevronDown size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -1017,9 +1014,8 @@ export function QuickTransactionBar({
         <Modal visible transparent animationType="slide" onRequestClose={() => setShowOdemeHedefTypePicker(false)}>
           <View style={styles.bottomSheetOverlay}>
             <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
-              {/* TODO i18n: selectPaymentType, paymentToSupplier, paymentToPersonnel, descriptions */}
               <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>Ödeme Türü Seç</Text>
+                <Text style={styles.bottomSheetTitle}>{t('transactions:form.selectPaymentType')}</Text>
                 <TouchableOpacity onPress={() => setShowOdemeHedefTypePicker(false)} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
@@ -1040,9 +1036,9 @@ export function QuickTransactionBar({
                   </View>
                   <View style={styles.odemeTypeContent}>
                     <Text style={[styles.odemeTypeTitle, odemeHedefType === 'tedarikci' && { color: colors.orange }]}>
-                      Tedarikçiye Ödeme
+                      {t('cariler:transactionTitles.supplierPayment')}
                     </Text>
-                    <Text style={styles.odemeTypeSubtext}>Tedarikçiye ödeme yapılacak</Text>
+                    <Text style={styles.odemeTypeSubtext}>{t('cariler:transactionDescriptions.supplierPayment')}</Text>
                   </View>
                   {odemeHedefType === 'tedarikci' && (
                     <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
@@ -1065,9 +1061,9 @@ export function QuickTransactionBar({
                   </View>
                   <View style={styles.odemeTypeContent}>
                     <Text style={[styles.odemeTypeTitle, odemeHedefType === 'personel' && { color: colors.orange }]}>
-                      Personele Ödeme
+                      {t('personel:transactionTitles.payment')}
                     </Text>
-                    <Text style={styles.odemeTypeSubtext}>Personele ödeme yapılacak</Text>
+                    <Text style={styles.odemeTypeSubtext}>{t('personel:transactionDescriptions.personnelPayment')}</Text>
                   </View>
                   {odemeHedefType === 'personel' && (
                     <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>

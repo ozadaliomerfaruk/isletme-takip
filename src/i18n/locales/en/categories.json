@@ -19,7 +19,10 @@
     "categoryNamePlaceholder": "E.g., Food, Transportation, Rent...",
     "iconAndParent": "Icon and Parent Category",
     "color": "Color",
-    "exampleCategories": "Example Categories"
+    "exampleCategories": "Example Categories",
+    "parentCategory": "Select Parent Category",
+    "parentCategoryPlaceholder": "Select Parent Category",
+    "noParent": "None"
   },
   "examples": {
     "income": ["Sales", "Service", "Interest", "Rental Income", "Other Income"],
@@ -32,7 +35,9 @@
     "noIncomeCategory": "No income category",
     "noExpenseCategory": "No expense category",
     "addFirst": "Start by adding a new category",
-    "infoText": "Categories are used to group your income and expense transactions."
+    "infoText": "Categories are used to group your income and expense transactions.",
+    "noParentCategories": "No parent categories yet",
+    "createParentFirst": "Create a parent category first"
   },
   "deleteConfirm": {
     "title": "Delete Category",

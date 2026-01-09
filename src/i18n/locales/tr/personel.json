@@ -70,7 +70,8 @@
   },
   "transactionDescriptions": {
     "expense": "Bu işlem personele olan borcunuzu artırır (maaş tahakkuku vb.)",
-    "payment": "Bu işlem personele olan borcunuzu azaltır (maaş ödemesi vb.)"
+    "payment": "Bu işlem personele olan borcunuzu azaltır (maaş ödemesi vb.)",
+    "personnelPayment": "Personele ödeme yapılacak"
   },
   "transactionForm": {
     "personel": "Personel",

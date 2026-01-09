@@ -70,7 +70,8 @@
   },
   "transactionDescriptions": {
     "expense": "This transaction increases your debt to the personnel (salary accrual, etc.)",
-    "payment": "This transaction decreases your debt to the personnel (salary payment, etc.)"
+    "payment": "This transaction decreases your debt to the personnel (salary payment, etc.)",
+    "personnelPayment": "Payment will be made to personnel"
   },
   "transactionForm": {
     "personel": "Personnel",

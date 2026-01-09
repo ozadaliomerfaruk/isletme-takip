@@ -2,6 +2,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { ChevronRight, ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -9,6 +10,7 @@ import { formatCurrency } from '@/lib/currency';
 import { useCashFlowByCategory, CashFlowItem } from '@/hooks/useCashFlowByCategory';
 
 export default function NakitAkisiPage() {
+  const { t } = useTranslation(['common']);
   const router = useRouter();
   const { startDate, endDate } = useLocalSearchParams<{
     startDate: string;
@@ -45,7 +47,7 @@ export default function NakitAkisiPage() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ title: 'Nakit Akışı' }} />
+        <Stack.Screen options={{ title: t('common:dashboard.cashFlow') }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -65,7 +67,7 @@ export default function NakitAkisiPage() {
         <View style={[styles.colorDot, { backgroundColor: item.color }]} />
         <View style={styles.categoryInfo}>
           <Text variant="body" numberOfLines={1}>
-            {item.kategori?.name || 'Kategorisiz'}
+            {item.kategori?.name || t('common:dashboard.uncategorized')}
           </Text>
           <Text variant="caption" color="secondary">
             %{item.percentage.toFixed(1)}
@@ -96,8 +98,8 @@ export default function NakitAkisiPage() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <Stack.Screen
         options={{
-          title: 'Nakit Akışı',
-          headerBackTitle: 'Geri',
+          title: t('common:dashboard.cashFlow'),
+          headerBackTitle: t('common:buttons.back'),
         }}
       />
 
@@ -109,7 +111,7 @@ export default function NakitAkisiPage() {
         {/* Ana Özet Kartı */}
         <Card style={styles.summaryCard}>
           <Text variant="caption" color="secondary" style={styles.summaryLabel}>
-            Net Nakit Akışı
+            {t('common:dashboard.netCashFlow')}
           </Text>
           <Text
             variant="h1"
@@ -146,7 +148,7 @@ export default function NakitAkisiPage() {
                 <ArrowDownLeft size={18} color={colors.success} />
               </View>
               <View>
-                <Text variant="caption" color="secondary">Nakit Giriş</Text>
+                <Text variant="caption" color="secondary">{t('common:dashboard.cashInflow')}</Text>
                 <Text variant="body" color="success" style={styles.summaryDetailValue}>
                   {formatCurrency(totalInflow)}
                 </Text>
@@ -157,7 +159,7 @@ export default function NakitAkisiPage() {
 
             <View style={[styles.summaryDetailItem, { alignItems: 'flex-end' }]}>
               <View>
-                <Text variant="caption" color="secondary" style={{ textAlign: 'right' }}>Nakit Çıkış</Text>
+                <Text variant="caption" color="secondary" style={{ textAlign: 'right' }}>{t('common:dashboard.cashOutflow')}</Text>
                 <Text variant="body" color="error" style={styles.summaryDetailValue}>
                   {formatCurrency(totalOutflow)}
                 </Text>
@@ -169,9 +171,9 @@ export default function NakitAkisiPage() {
           </View>
         </Card>
 
-        {/* Nakit Giriş Dağılımı */}
+        {/* Cash Inflow Distribution */}
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          NAKİT GİRİŞ DAĞILIMI ({allInflowItems.length} KATEGORİ)
+          {t('common:dashboard.inflowDistributionCount', { count: allInflowItems.length })}
         </Text>
 
         {allInflowItems.length > 0 ? (
@@ -179,14 +181,14 @@ export default function NakitAkisiPage() {
         ) : (
           <View style={styles.emptyContainer}>
             <Text variant="body" color="secondary">
-              Bu dönemde nakit girişi bulunamadı
+              {t('common:dashboard.noInflowInPeriod')}
             </Text>
           </View>
         )}
 
-        {/* Nakit Çıkış Dağılımı */}
+        {/* Cash Outflow Distribution */}
         <Text variant="label" color="secondary" style={[styles.sectionTitle, { marginTop: spacing.xl }]}>
-          NAKİT ÇIKIŞ DAĞILIMI ({allOutflowItems.length} KATEGORİ)
+          {t('common:dashboard.outflowDistributionCount', { count: allOutflowItems.length })}
         </Text>
 
         {allOutflowItems.length > 0 ? (
@@ -194,7 +196,7 @@ export default function NakitAkisiPage() {
         ) : (
           <View style={styles.emptyContainer}>
             <Text variant="body" color="secondary">
-              Bu dönemde nakit çıkışı bulunamadı
+              {t('common:dashboard.noOutflowInPeriod')}
             </Text>
           </View>
         )}

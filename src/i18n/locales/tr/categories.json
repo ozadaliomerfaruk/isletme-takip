@@ -19,7 +19,10 @@
     "categoryNamePlaceholder": "Örn: Yemek, Ulaşım, Kira...",
     "iconAndParent": "İkon ve Üst Kategori",
     "color": "Renk",
-    "exampleCategories": "Örnek Kategoriler"
+    "exampleCategories": "Örnek Kategoriler",
+    "parentCategory": "Üst Kategori Seç",
+    "parentCategoryPlaceholder": "Üst Kategori Seç",
+    "noParent": "Yok"
   },
   "examples": {
     "income": ["Satış", "Hizmet", "Faiz", "Kira Geliri", "Diğer Gelir"],
@@ -32,7 +35,9 @@
     "noIncomeCategory": "Gelir kategorisi yok",
     "noExpenseCategory": "Gider kategorisi yok",
     "addFirst": "Yeni kategori ekleyerek başlayın",
-    "infoText": "Kategoriler, gelir ve gider işlemlerinizi gruplamak için kullanılır."
+    "infoText": "Kategoriler, gelir ve gider işlemlerinizi gruplamak için kullanılır.",
+    "noParentCategories": "Henüz ana kategori yok",
+    "createParentFirst": "Önce bir ana kategori oluşturun"
   },
   "deleteConfirm": {
     "title": "Kategoriyi Sil",
