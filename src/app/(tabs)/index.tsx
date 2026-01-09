@@ -8,14 +8,8 @@ import {
   TrendingDown,
   Wallet,
   Plus,
-  ArrowUpRight,
-  ArrowDownLeft,
-  ArrowLeftRight,
   History,
   AlertTriangle,
-  Send,
-  Users,
-  UserCheck,
   X,
   ChevronLeft,
   ChevronRight,
@@ -23,6 +17,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Text, Card, TabFilter, ExpandableCard, Button, EmptyState, NotificationBell } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { DailyCashModal } from '@/components/transaction/DailyCashModal';
 import { TransactionType } from '@/components/transaction/TransactionTypeTabs';
 import { SummaryCarousel } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
@@ -52,8 +47,7 @@ export default function HomePage() {
   const [period, setPeriod] = useState<PeriodType>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
   const [isCancelling, setIsCancelling] = useState(false);
-  const [odemeModalVisible, setOdemeModalVisible] = useState(false);
-  const [selectedHesapId, setSelectedHesapId] = useState<string | null>(null);
+  const [dailyCashModalVisible, setDailyCashModalVisible] = useState(false);
   const [expandedHesapId, setExpandedHesapId] = useState<string | null>(null);
 
   // QuickTransactionBar state
@@ -72,27 +66,10 @@ export default function HomePage() {
   // Gerçek veriler
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
 
-  const handleOdemePress = (hesapId: string) => {
-    setSelectedHesapId(hesapId);
-    setOdemeModalVisible(true);
-  };
-
   const openQuickBar = (type: TransactionType, hesapId: string) => {
     setQuickBarType(type);
     setQuickBarHesapId(hesapId);
     setQuickBarVisible(true);
-  };
-
-  const handleOdemeSelect = (type: 'cari' | 'staff') => {
-    setOdemeModalVisible(false);
-    // Eğer hesap seçili değilse ilk hesabı kullan
-    const hesapIdToUse = selectedHesapId || (hesaplar && hesaplar.length > 0 ? hesaplar[0].id : null);
-    const hesapParam = hesapIdToUse ? `?hesap_id=${hesapIdToUse}` : '';
-    if (type === 'cari') {
-      router.push(`/islemler/cariOdeme${hesapParam}` as any);
-    } else {
-      router.push(`/islemler/personelOdeme${hesapParam}` as any);
-    }
   };
   const totalBalance = useTotalBalance();
   const { assets, payables, receivables, generalStatus } = useFinancialSummary();
@@ -377,50 +354,16 @@ export default function HomePage() {
             </Text>
           </Card>
 
-          {/* Hizli Islem Butonlari */}
-          <View style={styles.quickActions}>
-            <Button
-              variant="primary"
-              size="md"
-              icon={<ArrowDownLeft size={18} color={colors.surface} />}
-              onPress={() => router.push('/islemler/gelir')}
-              style={styles.quickActionBtn}
-            >
-              {t('transactions:types.gelir')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={<ArrowUpRight size={18} color={colors.text} />}
-              onPress={() => router.push('/islemler/gider')}
-              style={styles.quickActionBtn}
-            >
-              {t('transactions:types.gider')}
-            </Button>
-          </View>
-          <View style={styles.quickActionsSecondRow}>
-            <Button
-              variant="outline"
-              size="md"
-              icon={<ArrowLeftRight size={18} color={colors.warning} />}
-              onPress={() => router.push('/islemler/transfer')}
-              style={styles.quickActionBtn}
-            >
-              {t('transactions:types.transfer')}
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              icon={<Send size={18} color={colors.orange} />}
-              onPress={() => {
-                setSelectedHesapId(null);
-                setOdemeModalVisible(true);
-              }}
-              style={styles.quickActionBtn}
-            >
-              {t('clients:actions.payment')}
-            </Button>
-          </View>
+          {/* Günlük Ciro Gir Butonu */}
+          <Button
+            variant="primary"
+            size="lg"
+            icon={<Plus size={20} color={colors.surface} />}
+            onPress={() => setDailyCashModalVisible(true)}
+            style={styles.dailyCashButton}
+          >
+            {t('transactions:dailyCash.enterButton')}
+          </Button>
 
           {/* Hesap Listesi */}
           {hesaplarLoading ? (
@@ -480,53 +423,11 @@ export default function HomePage() {
         </View>
       </ScrollView>
 
-      {/* Ödeme Seçim Modalı */}
-      <Modal
-        visible={odemeModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setOdemeModalVisible(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setOdemeModalVisible(false)}
-        >
-          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.modalHeader}>
-              <Text variant="h3">{t('common:select.selectOption')}</Text>
-              <TouchableOpacity onPress={() => setOdemeModalVisible(false)}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleOdemeSelect('cari')}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: colors.orangeLight }]}>
-                <Users size={24} color={colors.orange} />
-              </View>
-              <View style={styles.modalOptionText}>
-                <Text variant="body">{t('clients:transactionTitles.payment')}</Text>
-                <Text variant="caption" color="secondary">{t('clients:transactionDescriptions.payment')}</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleOdemeSelect('staff')}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: colors.orangeLight }]}>
-                <UserCheck size={24} color={colors.orange} />
-              </View>
-              <View style={styles.modalOptionText}>
-                <Text variant="body">{t('staff:transactionTitles.payment')}</Text>
-                <Text variant="caption" color="secondary">{t('staff:transactionDescriptions.payment')}</Text>
-              </View>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* DailyCashModal */}
+      <DailyCashModal
+        visible={dailyCashModalVisible}
+        onDismiss={() => setDailyCashModalVisible(false)}
+      />
 
       {/* QuickTransactionBar */}
       <QuickTransactionBar
@@ -650,18 +551,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     alignItems: 'center',
   },
-  quickActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
-  },
-  quickActionBtn: {
-    flex: 1,
-  },
-  quickActionsSecondRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
+  dailyCashButton: {
+    marginBottom: spacing.lg,
   },
   hesapHeader: {
     flexDirection: 'row',
@@ -676,45 +567,6 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   actionButton: {
-    flex: 1,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  modalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: 16,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 400,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: 12,
-    backgroundColor: colors.surfaceLight,
-    marginBottom: spacing.sm,
-  },
-  modalOptionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalOptionText: {
     flex: 1,
   },
 });

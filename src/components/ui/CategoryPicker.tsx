@@ -1,6 +1,7 @@
 import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions, TextInput } from 'react-native';
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import {
   X,
   Check,
@@ -8,6 +9,7 @@ import {
   Search,
   Tag,
   Folder,
+  Plus,
   type LucideIcon,
   Star, Heart, Gift, Briefcase, Archive, Bookmark, Flag, Layers,
   Wallet, CreditCard, DollarSign, Landmark, Banknote, Coins, PiggyBank, Receipt,
@@ -75,6 +77,7 @@ interface CategoryPickerProps {
   placeholder?: string;
   optional?: boolean;
   error?: string;
+  onNavigateAway?: () => void;
 }
 
 export function CategoryPicker({
@@ -85,7 +88,9 @@ export function CategoryPicker({
   placeholder,
   optional = true,
   error,
+  onNavigateAway,
 }: CategoryPickerProps) {
+  const router = useRouter();
   const { t } = useTranslation(['common', 'categories']);
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,6 +122,13 @@ export function CategoryPicker({
   const handleCloseModal = () => {
     setModalVisible(false);
     setSearchQuery('');
+  };
+
+  const handleAddCategory = () => {
+    setModalVisible(false);
+    setSearchQuery('');
+    onNavigateAway?.();
+    router.push(`/kategoriler/ekle?type=${type}`);
   };
 
   const getCategoryIcon = (category: FlattenedCategory, size: number = 20) => {
@@ -186,12 +198,24 @@ export function CategoryPicker({
           <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
               <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
-              <TouchableOpacity
-                onPress={handleCloseModal}
-                style={styles.closeButton}
-              >
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  onPress={handleAddCategory}
+                  style={styles.addButton}
+                  activeOpacity={0.7}
+                >
+                  <Plus size={18} color={colors.primary} />
+                  <Text variant="caption" color="primary" style={styles.addButtonText}>
+                    {t('categories:titles.addCategory')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleCloseModal}
+                  style={styles.closeButton}
+                >
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Search Bar */}
@@ -378,6 +402,23 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  addButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.primaryLight + '30',
+    borderRadius: borderRadius.md,
+  },
+  addButtonText: {
+    fontWeight: '600',
   },
   closeButton: {
     padding: spacing.xs,

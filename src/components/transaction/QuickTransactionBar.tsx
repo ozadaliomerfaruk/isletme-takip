@@ -126,6 +126,7 @@ export function QuickTransactionBar({
   // Keyboard
   const keyboardHeightRef = useRef(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Data
   const { data: hesaplar } = useHesaplar();
@@ -246,10 +247,12 @@ export function QuickTransactionBar({
       const height = e.endCoordinates.height;
       keyboardHeightRef.current = height;
       setKeyboardHeight(height);
+      setIsKeyboardVisible(true);
     };
 
     const handleHide = () => {
-      // Don't reset - keep the last known height for positioning
+      // Don't reset height - keep the last known height for positioning
+      setIsKeyboardVisible(false);
     };
 
     const showSub = Keyboard.addListener(showEvent, handleShow);
@@ -331,13 +334,20 @@ export function QuickTransactionBar({
     });
   }, [animateClose, onDismiss]);
 
-  // Handle backdrop press
+  // Handle backdrop press - two-step dismiss
   const handleBackdropPress = useCallback(() => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    handleDismiss();
-  }, [handleDismiss]);
+
+    if (isKeyboardVisible) {
+      // First tap: just dismiss keyboard, keep bar open
+      Keyboard.dismiss();
+    } else {
+      // Second tap: dismiss the bar
+      handleDismiss();
+    }
+  }, [handleDismiss, isKeyboardVisible]);
 
   // Handle save
   const handleSave = useCallback(async () => {

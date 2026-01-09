@@ -150,5 +150,16 @@
   },
   "validation": {
     "selectTargetAccount": "Select target account"
+  },
+  "dailyCash": {
+    "enterButton": "Enter Daily Revenue",
+    "title": "Daily Revenue Entry",
+    "selectDate": "Select Date",
+    "amount": "Amount",
+    "category": "Category",
+    "save": "Save All",
+    "success": "Daily revenue saved",
+    "noEntries": "Enter amount for at least one account",
+    "saving": "Saving..."
   }
 }

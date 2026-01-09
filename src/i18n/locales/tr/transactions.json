@@ -150,5 +150,16 @@
   },
   "validation": {
     "selectTargetAccount": "Hedef hesap seçin"
+  },
+  "dailyCash": {
+    "enterButton": "Günlük Ciro Gir",
+    "title": "Günlük Ciro Girişi",
+    "selectDate": "Tarih Seç",
+    "amount": "Tutar",
+    "category": "Kategori",
+    "save": "Tümünü Kaydet",
+    "success": "Günlük ciro kaydedildi",
+    "noEntries": "En az bir hesap için tutar girin",
+    "saving": "Kaydediliyor..."
   }
 }

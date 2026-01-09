@@ -106,6 +106,7 @@ export function TransactionTypeTabs({ value, onChange, mode = 'normal' }: Transa
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="always"
     >
       {visibleTabs.map((tab) => {
         const isActive = value === tab.type;
