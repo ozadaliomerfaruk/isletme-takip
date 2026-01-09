@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Building2 } from 'lucide-react-native';
 import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -18,6 +19,7 @@ import { useUpdateIsletme } from '@/hooks/useIsletme';
 
 export default function IsletmeBilgileriPage() {
   const router = useRouter();
+  const { t } = useTranslation(['settings', 'common', 'errors']);
   const { isletme, user } = useAuthContext();
   const updateIsletme = useUpdateIsletme();
 
@@ -40,7 +42,7 @@ export default function IsletmeBilgileriPage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'İşletme adı gerekli';
+      newErrors.name = t('settings:validation.businessNameRequired');
     }
 
     setErrors(newErrors);
@@ -58,11 +60,11 @@ export default function IsletmeBilgileriPage() {
         tax_number: taxNumber.trim() || null,
       });
 
-      Alert.alert('Başarılı', 'İşletme bilgileri güncellendi', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('settings:messages.businessInfoUpdated'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'İşletme bilgileri güncellenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('settings:messages.businessUpdateFailed'));
     }
   };
 
@@ -70,7 +72,7 @@ export default function IsletmeBilgileriPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yükleniyor...</Text>
+          <Text>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -97,38 +99,38 @@ export default function IsletmeBilgileriPage() {
 
             {/* Hesap Bilgisi */}
             <Card style={styles.infoCard}>
-              <Text variant="label" color="secondary">Hesap E-posta</Text>
+              <Text variant="label" color="secondary">{t('settings:business.accountEmail')}</Text>
               <Text variant="body">{user?.email}</Text>
               <Text variant="caption" color="muted" style={{ marginTop: spacing.xs }}>
-                E-posta adresi değiştirilemez
+                {t('settings:business.emailCannotChange')}
               </Text>
             </Card>
 
             {/* Form */}
             <View style={styles.section}>
               <Text variant="h3" style={styles.sectionTitle}>
-                İşletme Bilgileri
+                {t('settings:business.title')}
               </Text>
 
               <Input
-                label="İşletme Adı"
-                placeholder="İşletmenizin adı"
+                label={t('settings:business.businessName')}
+                placeholder={t('settings:business.businessNamePlaceholder')}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
               />
 
               <Input
-                label="Telefon (Opsiyonel)"
-                placeholder="0532 123 4567"
+                label={t('settings:business.phone')}
+                placeholder={t('settings:business.phonePlaceholder')}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
               />
 
               <Input
-                label="Adres (Opsiyonel)"
-                placeholder="İşletme adresi"
+                label={t('settings:business.address')}
+                placeholder={t('settings:business.addressPlaceholder')}
                 value={address}
                 onChangeText={setAddress}
                 multiline
@@ -136,8 +138,8 @@ export default function IsletmeBilgileriPage() {
               />
 
               <Input
-                label="Vergi Numarası (Opsiyonel)"
-                placeholder="Vergi numarası"
+                label={t('settings:business.taxNumber')}
+                placeholder={t('settings:business.taxNumberPlaceholder')}
                 keyboardType="number-pad"
                 value={taxNumber}
                 onChangeText={setTaxNumber}
@@ -146,7 +148,7 @@ export default function IsletmeBilgileriPage() {
 
             {/* Kayıt Bilgisi */}
             <Card style={styles.infoCard}>
-              <Text variant="label" color="secondary">Kayıt Tarihi</Text>
+              <Text variant="label" color="secondary">{t('settings:business.registrationDate')}</Text>
               <Text variant="body">
                 {new Date(isletme.created_at).toLocaleDateString('tr-TR', {
                   year: 'numeric',
@@ -164,7 +166,7 @@ export default function IsletmeBilgileriPage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                İptal
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -173,7 +175,7 @@ export default function IsletmeBilgileriPage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Kaydet
+                {t('common:buttons.save')}
               </Button>
             </View>
           </ScrollView>

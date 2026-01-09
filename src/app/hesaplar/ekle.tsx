@@ -15,17 +15,19 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCreateHesap } from '@/hooks/useHesaplar';
 import { HesapType } from '@/types/database';
-
-const hesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
-  { type: 'nakit', label: 'Nakit', icon: <Wallet size={24} color={colors.primary} /> },
-  { type: 'banka', label: 'Banka', icon: <Building2 size={24} color={colors.info} /> },
-  { type: 'kredi_karti', label: 'Kredi Kartı', icon: <CreditCard size={24} color={colors.warning} /> },
-  { type: 'diger', label: 'Diğer', icon: <Banknote size={24} color={colors.textSecondary} /> },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function HesapEklePage() {
   const router = useRouter();
+  const { t } = useTranslation(['accounts', 'common', 'errors']);
   const createHesap = useCreateHesap();
+
+  const hesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
+    { type: 'nakit', label: t('accounts:typeLabels.nakit'), icon: <Wallet size={24} color={colors.primary} /> },
+    { type: 'banka', label: t('accounts:typeLabels.banka'), icon: <Building2 size={24} color={colors.info} /> },
+    { type: 'kredi_karti', label: t('accounts:typeLabels.krediKarti'), icon: <CreditCard size={24} color={colors.warning} /> },
+    { type: 'diger', label: t('accounts:typeLabels.diger'), icon: <Banknote size={24} color={colors.textSecondary} /> },
+  ];
 
   const [name, setName] = useState('');
   const [type, setType] = useState<HesapType>('nakit');
@@ -37,7 +39,7 @@ export default function HesapEklePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Hesap adı gerekli';
+      newErrors.name = t('accounts:validation.nameRequired');
     }
 
     setErrors(newErrors);
@@ -55,11 +57,11 @@ export default function HesapEklePage() {
         description: description.trim() || null,
       });
 
-      Alert.alert('Başarılı', 'Hesap oluşturuldu', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('accounts:messages.createSuccess'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Hesap oluşturulamadı');
+      Alert.alert(t('common:status.error'), error.message || t('errors:account.createFailed'));
     }
   };
 
@@ -77,13 +79,13 @@ export default function HesapEklePage() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text variant="h2">Hesap Ekle</Text>
+            <Text variant="h2">{t('accounts:titles.addAccount')}</Text>
           </View>
 
           {/* Hesap Tipi Seçimi */}
           <View style={styles.section}>
             <Text variant="label" color="secondary" style={styles.sectionTitle}>
-              Hesap Tipi
+              {t('accounts:form.type')}
             </Text>
             <View style={styles.typeGrid}>
               {hesapTypes.map((item) => (
@@ -115,15 +117,15 @@ export default function HesapEklePage() {
           {/* Form */}
           <View style={styles.section}>
             <Input
-              label="Hesap Adı"
-              placeholder="Örn: Nakit Kasa, Ziraat Bankası"
+              label={t('accounts:form.name')}
+              placeholder={t('accounts:form.namePlaceholder')}
               value={name}
               onChangeText={setName}
               error={errors.name}
             />
 
             <Input
-              label="Açılış Bakiyesi (Opsiyonel)"
+              label={t('accounts:form.openingBalanceOptional')}
               placeholder="0"
               keyboardType="decimal-pad"
               value={balance}
@@ -131,8 +133,8 @@ export default function HesapEklePage() {
             />
 
             <Input
-              label="Açıklama (Opsiyonel)"
-              placeholder="Hesap hakkında not..."
+              label={t('accounts:form.descriptionOptional')}
+              placeholder={t('accounts:form.descriptionPlaceholder')}
               multiline
               numberOfLines={3}
               value={description}
@@ -148,7 +150,7 @@ export default function HesapEklePage() {
               onPress={() => router.back()}
               style={styles.button}
             >
-              İptal
+              {t('common:buttons.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -157,7 +159,7 @@ export default function HesapEklePage() {
               onPress={handleSubmit}
               style={styles.button}
             >
-              Kaydet
+              {t('common:buttons.save')}
             </Button>
           </View>
         </ScrollView>

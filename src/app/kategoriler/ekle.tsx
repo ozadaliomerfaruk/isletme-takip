@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
 import { Text, Input, Button, Card, IconPicker, ColorPicker, ParentCategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -20,6 +21,7 @@ import { KategoriType } from '@/types/database';
 
 export default function KategoriEklePage() {
   const router = useRouter();
+  const { t } = useTranslation(['categories', 'common', 'errors']);
   const createKategori = useCreateKategori();
 
   const [name, setName] = useState('');
@@ -33,7 +35,7 @@ export default function KategoriEklePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Kategori adı gerekli';
+      newErrors.name = t('categories:validation.nameRequired');
     }
 
     setErrors(newErrors);
@@ -52,11 +54,11 @@ export default function KategoriEklePage() {
         parent_id: parentId,
       });
 
-      Alert.alert('Başarılı', 'Kategori eklendi', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('categories:messages.createSuccess'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Kategori eklenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:category.createFailed'));
     }
   };
 
@@ -81,7 +83,7 @@ export default function KategoriEklePage() {
             {/* Tip Seçimi */}
             <View style={styles.section}>
               <Text variant="label" style={styles.sectionTitle}>
-                Kategori Tipi
+                {t('categories:form.categoryType')}
               </Text>
               <View style={styles.typeGrid}>
                 <TouchableOpacity
@@ -105,7 +107,7 @@ export default function KategoriEklePage() {
                     variant="body"
                     style={type === 'gelir' && { color: colors.success }}
                   >
-                    Gelir
+                    {t('categories:types.gelir')}
                   </Text>
                 </TouchableOpacity>
 
@@ -130,7 +132,7 @@ export default function KategoriEklePage() {
                     variant="body"
                     style={type === 'gider' && { color: colors.error }}
                   >
-                    Gider
+                    {t('categories:types.gider')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -139,8 +141,8 @@ export default function KategoriEklePage() {
             {/* Kategori Adı */}
             <View style={styles.section}>
               <Input
-                label="Kategori Adı"
-                placeholder="Örn: Yemek, Ulaşım, Kira..."
+                label={t('categories:form.categoryName')}
+                placeholder={t('categories:form.categoryNamePlaceholder')}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
@@ -150,7 +152,7 @@ export default function KategoriEklePage() {
             {/* İkon ve Üst Kategori */}
             <View style={styles.section}>
               <Text variant="label" style={styles.sectionTitle}>
-                İkon ve Üst Kategori
+                {t('categories:form.iconAndParent')}
               </Text>
               <View style={styles.pickerRow}>
                 <View style={styles.pickerItem}>
@@ -173,7 +175,7 @@ export default function KategoriEklePage() {
             {/* Renk Seçimi */}
             <View style={styles.section}>
               <ColorPicker
-                label="Renk"
+                label={t('categories:form.color')}
                 value={color}
                 onChange={setColor}
               />
@@ -182,13 +184,13 @@ export default function KategoriEklePage() {
             {/* Ornek Kategoriler */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                Örnek Kategoriler
+                {t('categories:form.exampleCategories')}
               </Text>
               <Card>
                 <View style={styles.examplesGrid}>
-                  {(type === 'gelir'
-                    ? ['Satış', 'Hizmet', 'Faiz', 'Kira Geliri', 'Diğer Gelir']
-                    : ['Kira', 'Maaş', 'Fatura', 'Malzeme', 'Ulaşım', 'Yemek', 'Reklam', 'Diğer Gider']
+                  {(t(type === 'gelir'
+                    ? 'categories:examples.income'
+                    : 'categories:examples.expense', { returnObjects: true }) as string[]
                   ).map((example) => (
                     <TouchableOpacity
                       key={example}
@@ -212,7 +214,7 @@ export default function KategoriEklePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                İptal
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -221,7 +223,7 @@ export default function KategoriEklePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Ekle
+                {t('common:buttons.add')}
               </Button>
             </View>
           </ScrollView>

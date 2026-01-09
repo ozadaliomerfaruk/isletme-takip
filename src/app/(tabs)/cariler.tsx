@@ -4,35 +4,37 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Users,
-  Building2,
-  User,
   Plus,
-  ShoppingCart,
-  CreditCard,
-  Receipt,
-  Banknote,
   History,
+  Zap,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getCariIcon, getCariBalanceLabel } from '@/lib/icons';
 import { useCariler } from '@/hooks/useCariler';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
-import { CariType } from '@/types/database';
-
-const filterOptions = [
-  { label: 'Tümü', value: 'all' },
-  { label: 'Tedarikçiler', value: 'tedarikci' },
-  { label: 'Müşteriler', value: 'musteri' },
-];
+import { Cari, CariType } from '@/types/database';
 
 export default function CarilerPage() {
   const router = useRouter();
+  const { t } = useTranslation(['cariler', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCariId, setExpandedCariId] = useState<string | null>(null);
+
+  const filterOptions = [
+    { label: t('cariler:filters.all'), value: 'all' },
+    { label: t('cariler:titles.suppliers'), value: 'tedarikci' },
+    { label: t('cariler:titles.customers'), value: 'musteri' },
+  ];
+
+  // QuickTransactionBar için state
+  const [quickBarVisible, setQuickBarVisible] = useState(false);
+  const [selectedCari, setSelectedCari] = useState<Cari | null>(null);
 
   // Gerçek veriler
   const { data: cariler, isLoading } = useCariler(
@@ -51,25 +53,25 @@ export default function CarilerPage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="h2">Cariler</Text>
+          <Text variant="h2">{t('cariler:titles.clients')}</Text>
           <Button
             variant="primary"
             size="sm"
             icon={<Plus size={18} color={colors.white} />}
             onPress={() => router.push('/cariler/ekle')}
           >
-            Ekle
+            {t('common:buttons.add')}
           </Button>
         </View>
 
         {/* Özet Kartları */}
         <View style={styles.summaryContainer}>
           <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">Toplam Borcumuz</Text>
+            <Text variant="caption" color="secondary">{t('cariler:balance.weOwe')}</Text>
             <Text variant="h3" color="error">{formatCurrency(payables.cari)}</Text>
           </Card>
           <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">Toplam Alacağımız</Text>
+            <Text variant="caption" color="secondary">{t('cariler:balance.theyOwe')}</Text>
             <Text variant="h3" color="success">{formatCurrency(receivables.cari)}</Text>
           </Card>
         </View>
@@ -79,7 +81,7 @@ export default function CarilerPage() {
           <SearchInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Cari ara..."
+            placeholder={t('cariler:search.searchClients')}
           />
         </View>
 
@@ -95,13 +97,13 @@ export default function CarilerPage() {
           ) : !filteredCariler || filteredCariler.length === 0 ? (
             <EmptyState
               icon={<Users size={48} color={colors.textMuted} />}
-              title={searchQuery ? 'Cari bulunamadı' : 'Henüz cari yok'}
+              title={searchQuery ? t('cariler:search.noResults') : t('cariler:messages.noClients')}
               description={
                 searchQuery
-                  ? 'Arama kriterlerinize uygun cari bulunmamaktadır.'
-                  : 'İlk carinizi ekleyerek başlayın'
+                  ? t('common:search.tryDifferent')
+                  : t('cariler:messages.addFirstClient')
               }
-              actionLabel={searchQuery ? undefined : 'Cari Ekle'}
+              actionLabel={searchQuery ? undefined : t('cariler:titles.addClient')}
               onAction={searchQuery ? undefined : () => router.push('/cariler/ekle')}
             />
           ) : (
@@ -116,7 +118,7 @@ export default function CarilerPage() {
                     <View style={styles.cariInfo}>
                       <Text variant="body">{cari.name}</Text>
                       <Text variant="caption" color="secondary">
-                        {cari.type === 'tedarikci' ? 'Tedarikçi' : 'Müşteri'}
+                        {cari.type === 'tedarikci' ? t('cariler:types.tedarikci') : t('cariler:types.musteri')}
                         {cari.phone ? ` • ${cari.phone}` : ''}
                       </Text>
                     </View>
@@ -141,49 +143,18 @@ export default function CarilerPage() {
                 }
               >
                 <View style={styles.cariActions}>
-                  {cari.type === 'tedarikci' ? (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<ShoppingCart size={16} color={colors.error} />}
-                        onPress={() => router.push({ pathname: '/islemler/cariAlis', params: { cari_id: cari.id } })}
-                        style={styles.actionButton}
-                      >
-                        Alış
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Banknote size={16} color={colors.success} />}
-                        onPress={() => router.push({ pathname: '/islemler/cariOdeme', params: { cari_id: cari.id } })}
-                        style={styles.actionButton}
-                      >
-                        Ödeme
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Receipt size={16} color={colors.success} />}
-                        onPress={() => router.push({ pathname: '/islemler/cariSatis', params: { cari_id: cari.id } })}
-                        style={styles.actionButton}
-                      >
-                        Satış
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<CreditCard size={16} color={colors.info} />}
-                        onPress={() => router.push({ pathname: '/islemler/cariTahsilat', params: { cari_id: cari.id } })}
-                        style={styles.actionButton}
-                      >
-                        Tahsilat
-                      </Button>
-                    </>
-                  )}
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={<Zap size={16} color={colors.white} />}
+                    onPress={() => {
+                      setSelectedCari(cari);
+                      setQuickBarVisible(true);
+                    }}
+                    style={styles.actionButton}
+                  >
+                    {t('cariler:details.newTransaction')}
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -191,7 +162,7 @@ export default function CarilerPage() {
                     onPress={() => router.push(`/cariler/${cari.id}`)}
                     style={styles.actionButton}
                   >
-                    Hareketler
+                    {t('cariler:details.hareketler')}
                   </Button>
                 </View>
               </ExpandableCard>
@@ -199,6 +170,21 @@ export default function CarilerPage() {
           )}
         </View>
       </ScrollView>
+
+      {/* Quick Transaction Bar */}
+      <QuickTransactionBar
+        visible={quickBarVisible}
+        onDismiss={() => {
+          setQuickBarVisible(false);
+          setSelectedCari(null);
+        }}
+        defaultCariId={selectedCari?.id}
+        defaultCariType={selectedCari?.type}
+        onSuccess={() => {
+          setQuickBarVisible(false);
+          setSelectedCari(null);
+        }}
+      />
     </SafeAreaView>
   );
 }

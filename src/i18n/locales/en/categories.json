@@ -1,0 +1,45 @@
+{
+  "titles": {
+    "categories": "Categories",
+    "addCategory": "Add Category",
+    "editCategory": "Edit Category"
+  },
+  "types": {
+    "gelir": "Income",
+    "gider": "Expense"
+  },
+  "typeLabels": {
+    "incomeCategory": "Income Category",
+    "expenseCategory": "Expense Category",
+    "subCategory": "Sub Category"
+  },
+  "form": {
+    "categoryType": "Category Type",
+    "categoryName": "Category Name",
+    "categoryNamePlaceholder": "E.g., Food, Transportation, Rent...",
+    "iconAndParent": "Icon and Parent Category",
+    "color": "Color",
+    "exampleCategories": "Example Categories"
+  },
+  "examples": {
+    "income": ["Sales", "Service", "Interest", "Rental Income", "Other Income"],
+    "expense": ["Rent", "Salary", "Utilities", "Materials", "Transportation", "Food", "Advertising", "Other Expense"]
+  },
+  "messages": {
+    "createSuccess": "Category added",
+    "updateSuccess": "Category updated",
+    "deleteSuccess": "Category deleted",
+    "noIncomeCategory": "No income category",
+    "noExpenseCategory": "No expense category",
+    "addFirst": "Start by adding a new category",
+    "infoText": "Categories are used to group your income and expense transactions."
+  },
+  "deleteConfirm": {
+    "title": "Delete Category",
+    "messageWithChildren": "\"{{name}}\" category and all its subcategories will be deleted. Do you want to continue?",
+    "messageSimple": "Are you sure you want to delete the \"{{name}}\" category?"
+  },
+  "validation": {
+    "nameRequired": "Category name is required"
+  }
+}

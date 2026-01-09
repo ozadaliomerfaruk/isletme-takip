@@ -21,10 +21,12 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
+import { getIslemTypeLabel } from '@/lib/icons';
+import { useTranslation } from 'react-i18next';
 
 export default function CariTahsilatPage() {
   const router = useRouter();
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'cariler']);
   const params = useLocalSearchParams<{ cari_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -63,15 +65,15 @@ export default function CariTahsilatPage() {
     const newErrors: { amount?: string; cari?: string; hesap?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
-      newErrors.amount = 'Geçerli bir tutar girin';
+      newErrors.amount = t('errors:validation.invalidAmount');
     }
 
     if (!cariId) {
-      newErrors.cari = 'Müşteri seçin';
+      newErrors.cari = t('errors:cari.selectCustomer');
     }
 
     if (!hesapId) {
-      newErrors.hesap = 'Tahsilat yapılacak hesabı seçin';
+      newErrors.hesap = t('errors:cari.selectCollectionAccount');
     }
 
     if (isIleriTarihli) {
@@ -81,7 +83,7 @@ export default function CariTahsilatPage() {
       selected.setHours(0, 0, 0, 0);
 
       if (selected <= today) {
-        newErrors.date = 'İleri tarihli işlem için bugünden sonraki bir tarih seçin';
+        newErrors.date = t('errors:transaction.futureDateRequired');
       }
     }
 
@@ -104,7 +106,6 @@ export default function CariTahsilatPage() {
           scheduled_date: scheduledDate,
         });
 
-        // Hatırlatıcı aktifse bildirim planla
         if (reminderConfig.enabled && result?.id) {
           const reminderDate = calculateReminderDate(
             scheduledDate,
@@ -114,8 +115,8 @@ export default function CariTahsilatPage() {
 
           await scheduleTransactionReminder(
             result.id,
-            'Yaklaşan İşlem Hatırlatması',
-            `${ISLEM_TYPE_LABELS.cari_tahsilat}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            t('transactions:notifications.reminderTitle'),
+            `${getIslemTypeLabel('cari_tahsilat')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -125,8 +126,8 @@ export default function CariTahsilatPage() {
           );
         }
 
-        Alert.alert('Başarılı', 'İleri tarihli tahsilat oluşturuldu', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('cariler:messages.scheduledCollectionCreated'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
         await createIslem.mutateAsync({
@@ -138,12 +139,12 @@ export default function CariTahsilatPage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert('Başarılı', 'Tahsilat kaydedildi', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('cariler:messages.collectionRecorded'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'İşlem eklenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:transaction.addFailed'));
     }
   };
 
@@ -167,9 +168,9 @@ export default function CariTahsilatPage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">Müşteriden Tahsilat</Text>
+                <Text variant="h2">{t('cariler:transactionTitles.customerCollection')}</Text>
                 <Text variant="body" color="secondary">
-                  Bu işlem müşteriden alacağınızı azaltır
+                  {t('cariler:transactionDescriptions.collection')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -189,7 +190,7 @@ export default function CariTahsilatPage() {
             {isIleriTarihli && (
               <View style={styles.ileriTarihliIndicator}>
                 <Text variant="caption" style={styles.ileriTarihliText}>
-                  İleri Tarihli İşlem
+                  {t('transactions:scheduled.title')}
                 </Text>
               </View>
             )}
@@ -198,7 +199,7 @@ export default function CariTahsilatPage() {
           <View style={styles.section}>
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Müşteri
+                {t('cariler:transactionForm.customer')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.cari && styles.pickerError]}
@@ -208,10 +209,10 @@ export default function CariTahsilatPage() {
                 }}
               >
                 <View>
-                  <Text variant="body">{selectedCari?.name || 'Müşteri seçin'}</Text>
+                  <Text variant="body">{selectedCari?.name || t('cariler:transactionForm.selectCustomer')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
-                      Alacak: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('cariler:balance.receivable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>
@@ -244,7 +245,7 @@ export default function CariTahsilatPage() {
 
             <View style={[styles.pickerContainer, { zIndex: 10 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Tahsilat Yapılacak Hesap
+                {t('cariler:transactionForm.collectionAccount')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.hesap && styles.pickerError]}
@@ -254,10 +255,10 @@ export default function CariTahsilatPage() {
                 }}
               >
                 <View>
-                  <Text variant="body">{selectedHesap?.name || 'Hesap seçin'}</Text>
+                  <Text variant="body">{selectedHesap?.name || t('transactions:form.accountPlaceholder')}</Text>
                   {selectedHesap && (
                     <Text variant="caption" color="secondary">
-                      Bakiye: {formatCurrency(Number(selectedHesap.balance))}
+                      {t('common:currency.balance')}: {formatCurrency(Number(selectedHesap.balance))}
                     </Text>
                   )}
                 </View>
@@ -289,14 +290,14 @@ export default function CariTahsilatPage() {
             </View>
 
             <CurrencyInput
-              label="Tutar"
+              label={t('transactions:form.amount')}
               value={amount}
               onChangeText={setAmount}
               error={errors.amount}
             />
 
             <DateTimePicker
-              label={isIleriTarihli ? "İşlem Tarihi" : "Tarih ve Saat"}
+              label={isIleriTarihli ? t('transactions:form.transactionDate') : t('transactions:form.dateTime')}
               value={selectedDate}
               onChange={setSelectedDate}
               mode={isIleriTarihli ? "date" : "datetime"}
@@ -311,8 +312,8 @@ export default function CariTahsilatPage() {
             )}
 
             <Input
-              label="Açıklama (Opsiyonel)"
-              placeholder="Tahsilat notu..."
+              label={t('cariler:transactionForm.descriptionOptional')}
+              placeholder={t('cariler:transactionForm.collectionNote')}
               multiline
               numberOfLines={3}
               value={description}
@@ -322,7 +323,7 @@ export default function CariTahsilatPage() {
 
           <View style={styles.buttons}>
             <Button variant="outline" size="lg" onPress={() => router.back()} style={styles.button}>
-              İptal
+              {t('common:buttons.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -331,7 +332,7 @@ export default function CariTahsilatPage() {
               onPress={handleSubmit}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              {isIleriTarihli ? 'Planla' : 'Tahsil Et'}
+              {isIleriTarihli ? t('transactions:form.schedule') : t('cariler:transactionButtons.collect')}
             </Button>
           </View>
         </ScrollView>

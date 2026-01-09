@@ -20,6 +20,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, Card, TabFilter, ExpandableCard, Button, EmptyState, NotificationBell } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { TransactionType } from '@/components/transaction/TransactionTypeTabs';
@@ -31,19 +32,21 @@ import { formatDateForDB } from '@/lib/date';
 import { getHesapIcon } from '@/lib/icons';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
-import { useMonthSummary, PeriodType } from '@/hooks/useIslemler';
+import { useMonthSummary, PeriodType, getPeriodDateRange } from '@/hooks/useIslemler';
+import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
 import { useAuthContext } from '@/contexts/AuthContext';
-
-const periodOptions = [
-  { label: 'Yıllık', value: 'yearly' },
-  { label: 'Aylık', value: 'monthly' },
-  { label: 'Haftalık', value: 'weekly' },
-  { label: 'Günlük', value: 'daily' },
-  { label: 'Özel', value: 'custom' },
-];
 
 export default function HomePage() {
   const router = useRouter();
+  const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'cariler', 'personel']);
+
+  const periodOptions = [
+    { label: t('reports:period.yearly'), value: 'yearly' },
+    { label: t('reports:period.monthly'), value: 'monthly' },
+    { label: t('reports:period.weekly'), value: 'weekly' },
+    { label: t('reports:period.daily'), value: 'daily' },
+    { label: t('reports:period.custom'), value: 'custom' },
+  ];
   const [period, setPeriod] = useState<PeriodType>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -97,6 +100,19 @@ export default function HomePage() {
   } : undefined;
   const { data: monthSummary, periodLabel } = useMonthSummary(period, periodOffset, customRange);
 
+  // Nakit akışı için tarih aralığını hesapla
+  const { startDate: periodStartDate, endDate: periodEndDate } = getPeriodDateRange(period, periodOffset, customRange);
+
+  // Nakit akışı hook'u
+  const {
+    totalInflow,
+    totalOutflow,
+    netCashFlow,
+  } = useCashFlowByCategory({
+    startDate: periodStartDate,
+    endDate: periodEndDate,
+  });
+
   const totalIncome = monthSummary?.income ?? 0;
   const totalExpense = monthSummary?.expense ?? 0;
 
@@ -109,19 +125,19 @@ export default function HomePage() {
 
   const handleCancelDeletion = () => {
     Alert.alert(
-      'Silme Talebini İptal Et',
-      'Hesap silme talebinizi iptal etmek istediğinize emin misiniz?',
+      t('settings:account.cancelDeletion'),
+      t('common:confirm.areYouSure'),
       [
-        { text: 'Vazgeç', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Evet, İptal Et',
+          text: t('common:buttons.yes'),
           onPress: async () => {
             setIsCancelling(true);
             try {
               await cancelAccountDeletion();
-              Alert.alert('Başarılı', 'Hesap silme talebi iptal edildi.');
+              Alert.alert(t('common:status.success'), t('settings:account.deleteRequestCreatedMessage'));
             } catch (error) {
-              Alert.alert('Hata', 'İşlem sırasında bir hata oluştu.');
+              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
             } finally {
               setIsCancelling(false);
             }
@@ -137,7 +153,7 @@ export default function HomePage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="h2">Ana Sayfa</Text>
+          <Text variant="h2">{t('navigation:tabs.home')}</Text>
           <NotificationBell />
         </View>
 
@@ -148,10 +164,10 @@ export default function HomePage() {
               <AlertTriangle size={20} color={colors.surface} />
               <View style={styles.deletionWarningText}>
                 <Text variant="body" style={{ color: colors.surface, fontWeight: '600' }}>
-                  Hesabınız {daysRemaining} gün içinde silinecek
+                  {t('transactions:future.daysRemaining', { days: daysRemaining })}
                 </Text>
                 <Text variant="caption" style={{ color: colors.surface, opacity: 0.9 }}>
-                  Vazgeçmek için aşağıdaki butona basın
+                  {t('settings:account.cancelDeletion')}
                 </Text>
               </View>
             </View>
@@ -162,7 +178,7 @@ export default function HomePage() {
               loading={isCancelling}
               style={styles.cancelDeletionBtn}
             >
-              İptal Et
+              {t('common:buttons.cancel')}
             </Button>
           </View>
         )}
@@ -203,7 +219,7 @@ export default function HomePage() {
                 style={styles.datePickerButton}
                 onPress={() => setShowStartPicker(true)}
               >
-                <Text variant="caption" color="secondary">Başlangıç</Text>
+                <Text variant="caption" color="secondary">{t('reports:period.startDate')}</Text>
                 <Text variant="body">{customStartDate.toLocaleDateString('tr-TR')}</Text>
               </TouchableOpacity>
               <Text variant="body" color="secondary">-</Text>
@@ -211,7 +227,7 @@ export default function HomePage() {
                 style={styles.datePickerButton}
                 onPress={() => setShowEndPicker(true)}
               >
-                <Text variant="caption" color="secondary">Bitiş</Text>
+                <Text variant="caption" color="secondary">{t('reports:period.endDate')}</Text>
                 <Text variant="body">{customEndDate.toLocaleDateString('tr-TR')}</Text>
               </TouchableOpacity>
             </View>
@@ -233,7 +249,7 @@ export default function HomePage() {
                 <Pressable style={styles.datePickerModalContent} onPress={(e) => e.stopPropagation()}>
                   <View style={styles.datePickerModalHeader}>
                     <Text variant="h3">
-                      {showStartPicker ? 'Başlangıç Tarihi' : 'Bitiş Tarihi'}
+                      {showStartPicker ? t('reports:period.startDateTitle') : t('reports:period.endDateTitle')}
                     </Text>
                     <TouchableOpacity
                       onPress={() => {
@@ -277,7 +293,7 @@ export default function HomePage() {
                     }}
                     style={{ marginTop: spacing.md }}
                   >
-                    Tamam
+                    {t('common:buttons.ok')}
                   </Button>
                 </Pressable>
               </Pressable>
@@ -327,19 +343,24 @@ export default function HomePage() {
           income={totalIncome}
           expense={totalExpense}
           periodLabel={periodLabel}
+          totalInflow={totalInflow}
+          totalOutflow={totalOutflow}
+          netCashFlow={netCashFlow}
+          startDate={periodStartDate}
+          endDate={periodEndDate}
         />
 
         {/* Hesaplar Bölümü */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text variant="h3">Hesaplar</Text>
+            <Text variant="h3">{t('accounts:titles.accounts')}</Text>
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => router.push('/hesaplar/ekle')}
             >
               <Plus size={20} color={colors.primary} />
               <Text variant="label" style={{ color: colors.primary }}>
-                Ekle
+                {t('common:buttons.add')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -347,7 +368,7 @@ export default function HomePage() {
           {/* Toplam Bakiye */}
           <Card style={styles.totalCard}>
             <Text variant="caption" color="secondary">
-              Toplam Bakiye
+              {t('accounts:titles.totalBalance')}
             </Text>
             <Text variant="h2" color={totalBalance >= 0 ? 'primary' : 'error'}>
               {formatCurrency(totalBalance)}
@@ -363,7 +384,7 @@ export default function HomePage() {
               onPress={() => router.push('/islemler/gelir')}
               style={styles.quickActionBtn}
             >
-              Gelir
+              {t('transactions:types.gelir')}
             </Button>
             <Button
               variant="secondary"
@@ -372,7 +393,7 @@ export default function HomePage() {
               onPress={() => router.push('/islemler/gider')}
               style={styles.quickActionBtn}
             >
-              Gider
+              {t('transactions:types.gider')}
             </Button>
           </View>
           <View style={styles.quickActionsSecondRow}>
@@ -383,7 +404,7 @@ export default function HomePage() {
               onPress={() => router.push('/islemler/transfer')}
               style={styles.quickActionBtn}
             >
-              Transfer
+              {t('transactions:types.transfer')}
             </Button>
             <Button
               variant="outline"
@@ -395,7 +416,7 @@ export default function HomePage() {
               }}
               style={styles.quickActionBtn}
             >
-              Ödeme
+              {t('cariler:actions.payment')}
             </Button>
           </View>
 
@@ -405,9 +426,9 @@ export default function HomePage() {
           ) : !hesaplar || hesaplar.length === 0 ? (
             <EmptyState
               icon={<Wallet size={48} color={colors.textMuted} />}
-              title="Henüz hesap yok"
-              description="İlk hesabınızı ekleyerek başlayın"
-              actionLabel="Hesap Ekle"
+              title={t('accounts:messages.noAccounts')}
+              description={t('accounts:messages.addFirstAccount')}
+              actionLabel={t('accounts:titles.addAccount')}
               onAction={() => router.push('/hesaplar/ekle')}
             />
           ) : (
@@ -439,7 +460,7 @@ export default function HomePage() {
                     onPress={() => openQuickBar('gelir', hesap.id)}
                     style={styles.actionButton}
                   >
-                    İşlem Yap
+                    {t('cariler:details.newTransaction')}
                   </Button>
                   <Button
                     variant="outline"
@@ -448,7 +469,7 @@ export default function HomePage() {
                     onPress={() => router.push(`/hesaplar/${hesap.id}`)}
                     style={styles.actionButton}
                   >
-                    Hareketler
+                    {t('accounts:details.hareketler')}
                   </Button>
                 </View>
               </ExpandableCard>
@@ -470,7 +491,7 @@ export default function HomePage() {
         >
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
-              <Text variant="h3">Ödeme Türü Seçin</Text>
+              <Text variant="h3">{t('common:select.selectOption')}</Text>
               <TouchableOpacity onPress={() => setOdemeModalVisible(false)}>
                 <X size={24} color={colors.text} />
               </TouchableOpacity>
@@ -484,8 +505,8 @@ export default function HomePage() {
                 <Users size={24} color={colors.orange} />
               </View>
               <View style={styles.modalOptionText}>
-                <Text variant="body">Cari Ödeme</Text>
-                <Text variant="caption" color="secondary">Tedarikçiye ödeme yapın</Text>
+                <Text variant="body">{t('cariler:transactionTitles.payment')}</Text>
+                <Text variant="caption" color="secondary">{t('cariler:transactionDescriptions.payment')}</Text>
               </View>
             </TouchableOpacity>
 
@@ -497,8 +518,8 @@ export default function HomePage() {
                 <UserCheck size={24} color={colors.orange} />
               </View>
               <View style={styles.modalOptionText}>
-                <Text variant="body">Personel Ödeme</Text>
-                <Text variant="caption" color="secondary">Personele maaş/avans ödeyin</Text>
+                <Text variant="body">{t('personel:transactionTitles.payment')}</Text>
+                <Text variant="caption" color="secondary">{t('personel:transactionDescriptions.payment')}</Text>
               </View>
             </TouchableOpacity>
           </Pressable>

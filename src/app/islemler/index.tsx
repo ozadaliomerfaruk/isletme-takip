@@ -12,6 +12,7 @@ import {
   Users,
   UserCheck,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -21,23 +22,24 @@ import { getIslemIcon, getIslemIconBg, getIslemTypeLabel, getIslemAmountColor, g
 import { useIslemler, useDeleteIslem } from '@/hooks/useIslemler';
 import { IslemType, IslemWithRelations } from '@/types/database';
 
-const filterOptions = [
-  { label: 'Tümü', value: 'all' },
-  { label: 'Gelir', value: 'gelir' },
-  { label: 'Gider', value: 'gider' },
-  { label: 'Transfer', value: 'transfer' },
-  { label: 'Cari', value: 'cari' },
-  { label: 'Personel', value: 'personel' },
-];
-
 export default function IslemlerPage() {
   const router = useRouter();
+  const { t } = useTranslation(['transactions', 'common', 'errors']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
 
   const { data: islemler, isLoading } = useIslemler();
   const deleteIslem = useDeleteIslem();
+
+  const filterOptions = [
+    { label: t('transactions:filters.all'), value: 'all' },
+    { label: t('transactions:filters.income'), value: 'gelir' },
+    { label: t('transactions:filters.expense'), value: 'gider' },
+    { label: t('transactions:filters.transfer'), value: 'transfer' },
+    { label: t('transactions:filters.client'), value: 'cari' },
+    { label: t('transactions:filters.personnel'), value: 'personel' },
+  ];
 
   const filteredIslemler = (islemler || []).filter((islem) => {
     let matchesFilter = filter === 'all';
@@ -69,19 +71,19 @@ export default function IslemlerPage() {
 
   const handleDelete = (id: string, description: string) => {
     Alert.alert(
-      'İşlemi Sil',
-      `"${description}" işlemini silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`,
+      t('common:confirm.deleteTitle'),
+      t('common:confirm.deleteMessage', { item: description }),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteIslem.mutateAsync(id);
-              Alert.alert('Başarılı', 'İşlem silindi');
+              Alert.alert(t('common:status.success'), t('transactions:messages.deleteSuccess'));
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'İşlem silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('transactions:messages.deleteFailed'));
             }
           },
         },
@@ -117,7 +119,6 @@ export default function IslemlerPage() {
             <SearchInput
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="İşlem ara..."
             />
           </View>
 
@@ -133,10 +134,10 @@ export default function IslemlerPage() {
             ) : filteredIslemler.length === 0 ? (
               <EmptyState
                 icon={<Receipt size={48} color={colors.textMuted} />}
-                title="İşlem bulunamadı"
+                title={t('common:search.noResults')}
                 description={searchQuery || filter !== 'all'
-                  ? "Arama kriterlerinize uygun işlem bulunmamaktadır."
-                  : "Henüz işlem kaydedilmemiş. İlk işleminizi ekleyin."}
+                  ? t('transactions:messages.noTransactionsInPeriod')
+                  : t('transactions:messages.noTransactions')}
               />
             ) : (
               filteredIslemler.map((islem) => (
@@ -186,7 +187,7 @@ export default function IslemlerPage() {
                       onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
                       style={styles.actionButton}
                     >
-                      Düzenle
+                      {t('common:buttons.edit')}
                     </Button>
                     <Button
                       variant="outline"
@@ -195,7 +196,7 @@ export default function IslemlerPage() {
                       onPress={() => handleDelete(islem.id, islem.description || getIslemTypeLabel(islem.type))}
                       style={styles.actionButton}
                     >
-                      Sil
+                      {t('common:buttons.delete')}
                     </Button>
                   </View>
                 </ExpandableCard>

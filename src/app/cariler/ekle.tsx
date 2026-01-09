@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
 import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -16,14 +17,15 @@ import { spacing } from '@/constants/spacing';
 import { useCreateCari } from '@/hooks/useCariler';
 import { CariType } from '@/types/database';
 
-const cariTypes: { type: CariType; label: string; icon: React.ReactNode }[] = [
-  { type: 'tedarikci', label: 'Tedarikçi', icon: <Building2 size={24} color={colors.warning} /> },
-  { type: 'musteri', label: 'Müşteri', icon: <User size={24} color={colors.info} /> },
-];
-
 export default function CariEklePage() {
   const router = useRouter();
+  const { t } = useTranslation(['cariler', 'common', 'errors']);
   const createCari = useCreateCari();
+
+  const cariTypes: { type: CariType; label: string; icon: React.ReactNode }[] = [
+    { type: 'tedarikci', label: t('cariler:types.tedarikci'), icon: <Building2 size={24} color={colors.warning} /> },
+    { type: 'musteri', label: t('cariler:types.musteri'), icon: <User size={24} color={colors.info} /> },
+  ];
 
   const [name, setName] = useState('');
   const [type, setType] = useState<CariType>('tedarikci');
@@ -38,7 +40,7 @@ export default function CariEklePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Cari adı gerekli';
+      newErrors.name = t('cariler:validation.nameRequired');
     }
 
     setErrors(newErrors);
@@ -67,11 +69,11 @@ export default function CariEklePage() {
         notes: notes.trim() || null,
       });
 
-      Alert.alert('Başarılı', 'Cari oluşturuldu', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('cariler:messages.createSuccess'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Cari oluşturulamadı');
+      Alert.alert(t('common:status.error'), error.message || t('errors:cari.createFailed'));
     }
   };
 
@@ -89,13 +91,13 @@ export default function CariEklePage() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <Text variant="h2">Cari Ekle</Text>
+            <Text variant="h2">{t('cariler:titles.addClient')}</Text>
           </View>
 
           {/* Cari Tipi Seçimi */}
           <View style={styles.section}>
             <Text variant="label" color="secondary" style={styles.sectionTitle}>
-              Cari Tipi
+              {t('cariler:form.type')}
             </Text>
             <View style={styles.typeGrid}>
               {cariTypes.map((item) => (
@@ -127,24 +129,24 @@ export default function CariEklePage() {
           {/* Form */}
           <View style={styles.section}>
             <Input
-              label="Cari Adı"
-              placeholder={type === 'tedarikci' ? 'Örn: Metro Market' : 'Örn: Mehmet Bey'}
+              label={t('cariler:form.name')}
+              placeholder={type === 'tedarikci' ? t('cariler:form.nameSupplierPlaceholder') : t('cariler:form.nameCustomerPlaceholder')}
               value={name}
               onChangeText={setName}
               error={errors.name}
             />
 
             <Input
-              label="Telefon (Opsiyonel)"
-              placeholder="0532 123 4567"
+              label={t('cariler:form.phoneOptional')}
+              placeholder={t('cariler:form.phoneExample')}
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
             />
 
             <Input
-              label="E-posta (Opsiyonel)"
-              placeholder="ornek@email.com"
+              label={t('cariler:form.emailOptional')}
+              placeholder={t('cariler:form.emailExample')}
               keyboardType="email-address"
               autoCapitalize="none"
               value={email}
@@ -152,8 +154,8 @@ export default function CariEklePage() {
             />
 
             <Input
-              label="Adres (Opsiyonel)"
-              placeholder="Adres bilgisi..."
+              label={t('cariler:form.addressOptional')}
+              placeholder={t('cariler:form.addressDetailPlaceholder')}
               multiline
               numberOfLines={2}
               value={address}
@@ -161,7 +163,7 @@ export default function CariEklePage() {
             />
 
             <Input
-              label={type === 'tedarikci' ? 'Açılış Borcu (Opsiyonel)' : 'Açılış Alacağı (Opsiyonel)'}
+              label={type === 'tedarikci' ? t('cariler:form.openingDebtOptional') : t('cariler:form.openingReceivableOptional')}
               placeholder="0"
               keyboardType="decimal-pad"
               value={balance}
@@ -169,8 +171,8 @@ export default function CariEklePage() {
             />
 
             <Input
-              label="Not (Opsiyonel)"
-              placeholder="Cari hakkında not..."
+              label={t('cariler:form.noteOptional')}
+              placeholder={t('cariler:form.noteDetailPlaceholder')}
               multiline
               numberOfLines={3}
               value={notes}
@@ -186,7 +188,7 @@ export default function CariEklePage() {
               onPress={() => router.back()}
               style={styles.button}
             >
-              İptal
+              {t('common:buttons.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -195,7 +197,7 @@ export default function CariEklePage() {
               onPress={handleSubmit}
               style={styles.button}
             >
-              Kaydet
+              {t('common:buttons.save')}
             </Button>
           </View>
         </ScrollView>

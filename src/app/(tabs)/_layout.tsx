@@ -1,8 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Home, Users, UserCircle, MoreHorizontal } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { colors } from '@/constants/colors';
 
 export default function TabsLayout() {
+  const { t } = useTranslation('navigation');
+
   return (
     <Tabs
       screenOptions={{
@@ -26,28 +29,28 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Ana Sayfa',
+          title: t('tabs.home'),
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="cariler"
         options={{
-          title: 'Cariler',
+          title: t('tabs.clients'),
           tabBarIcon: ({ color, size }) => <Users size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="personel"
         options={{
-          title: 'Personel',
+          title: t('tabs.personnel'),
           tabBarIcon: ({ color, size }) => <UserCircle size={size} color={color} />,
         }}
       />
       <Tabs.Screen
         name="daha"
         options={{
-          title: 'Daha',
+          title: t('tabs.more'),
           tabBarIcon: ({ color, size }) => <MoreHorizontal size={size} color={color} />,
         }}
       />

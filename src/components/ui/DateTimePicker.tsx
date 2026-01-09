@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Calendar, Clock } from 'lucide-react-native';
 import { Text } from './Text';
@@ -22,6 +23,7 @@ export function DateTimePicker({
   mode = 'datetime',
   error,
 }: DateTimePickerProps) {
+  const { t } = useTranslation('common');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [tempDate, setTempDate] = useState(value);
@@ -106,13 +108,13 @@ export function DateTimePicker({
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => handleIOSCancel(pickerType)}>
-                <Text variant="body" color="secondary">İptal</Text>
+                <Text variant="body" color="secondary">{t('common:buttons.cancel')}</Text>
               </TouchableOpacity>
               <Text variant="label">
-                {pickerType === 'date' ? 'Tarih Seç' : 'Saat Seç'}
+                {pickerType === 'date' ? t('common:date.selectDate') : t('common:date.selectTime')}
               </Text>
               <TouchableOpacity onPress={() => handleIOSConfirm(pickerType)}>
-                <Text variant="body" color="primary">Tamam</Text>
+                <Text variant="body" color="primary">{t('common:buttons.done')}</Text>
               </TouchableOpacity>
             </View>
             <DateTimePickerRN

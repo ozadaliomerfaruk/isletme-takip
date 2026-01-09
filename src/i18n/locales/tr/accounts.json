@@ -1,0 +1,108 @@
+{
+  "titles": {
+    "accounts": "Hesaplar",
+    "addAccount": "Hesap Ekle",
+    "editAccount": "Hesap Düzenle",
+    "accountDetails": "Hesap Detayı",
+    "accountTransactions": "Hesap Hareketleri",
+    "totalBalance": "Toplam Bakiye"
+  },
+  "types": {
+    "nakit": "Nakit",
+    "banka": "Banka Hesabı",
+    "kredi_karti": "Kredi Kartı",
+    "diger": "Diğer"
+  },
+  "typeDescriptions": {
+    "nakit": "Elde tutulan nakit para",
+    "banka": "Banka hesabındaki para",
+    "kredi_karti": "Kredi kartı borç takibi",
+    "diger": "Diğer para kaynakları"
+  },
+  "typeLabels": {
+    "nakit": "Nakit",
+    "banka": "Banka",
+    "kredi_karti": "Kredi Kartı",
+    "diger": "Diğer"
+  },
+  "form": {
+    "name": "Hesap Adı",
+    "namePlaceholder": "Örn: Nakit Kasa, Ziraat Bankası",
+    "type": "Hesap Tipi",
+    "typePlaceholder": "Hesap tipi seçin",
+    "balance": "Başlangıç Bakiyesi",
+    "balancePlaceholder": "Başlangıç bakiyesi girin",
+    "openingBalanceOptional": "Açılış Bakiyesi (Opsiyonel)",
+    "description": "Açıklama",
+    "descriptionOptional": "Açıklama (Opsiyonel)",
+    "descriptionPlaceholder": "Hesap hakkında not...",
+    "color": "Renk",
+    "icon": "İkon"
+  },
+  "balance": {
+    "balance": "Bakiye",
+    "currentBalance": "Mevcut Bakiye",
+    "availableBalance": "Kullanılabilir Bakiye",
+    "positiveBalance": "Alacak",
+    "negativeBalance": "Borç",
+    "creditLimit": "Kredi Limiti",
+    "usedCredit": "Kullanılan Kredi",
+    "remainingCredit": "Kalan Limit"
+  },
+  "actions": {
+    "deposit": "Para Yatır",
+    "withdraw": "Para Çek",
+    "transfer": "Transfer Yap",
+    "viewTransactions": "Hareketleri Gör",
+    "editAccount": "Hesabı Düzenle",
+    "deleteAccount": "Hesabı Sil"
+  },
+  "messages": {
+    "createSuccess": "Hesap oluşturuldu",
+    "updateSuccess": "Hesap güncellendi",
+    "deleteSuccess": "Hesap silindi",
+    "deleteConfirm": "Bu hesabı silmek istediğinize emin misiniz?",
+    "deleteWarning": "Bu hesaba ait tüm işlemler de silinecektir.",
+    "noAccounts": "Henüz hesap yok",
+    "addFirstAccount": "İlk hesabınızı ekleyerek başlayın"
+  },
+  "creditCard": {
+    "statement": "Ekstre",
+    "dueDate": "Son Ödeme Tarihi",
+    "minimumPayment": "Minimum Ödeme",
+    "fullPayment": "Tam Ödeme",
+    "paymentToCard": "Kart Ödemesi",
+    "currentDebt": "Mevcut Borç"
+  },
+  "summary": {
+    "totalAssets": "Toplam Varlıklar",
+    "totalLiabilities": "Toplam Borçlar",
+    "netWorth": "Net Değer",
+    "accountCount": "{{count}} Hesap"
+  },
+  "details": {
+    "hareketler": "Hareketler",
+    "initialBalance": "Başlangıç Bakiyesi",
+    "accountOpening": "Hesap açılışı",
+    "notFoundDescription": "Bu hesap mevcut değil veya silinmiş olabilir.",
+    "time": "Saat:"
+  },
+  "transactionLabels": {
+    "gelir": "Gelir",
+    "gider": "Gider",
+    "transfer": "Transfer",
+    "cari_odeme": "Cari Ödeme",
+    "cari_tahsilat": "Cari Tahsilat",
+    "personel_odeme": "Personel Ödeme",
+    "personel_gider": "Personel Gider"
+  },
+  "deleteConfirm": {
+    "transactionTitle": "İşlemi Sil",
+    "transactionMessage": "Bu işlemi silmek istediğinizden emin misiniz?",
+    "accountTitle": "Hesabı Sil",
+    "accountMessage": "Bu hesabı silmek istediğinizden emin misiniz?\n\nDikkat: Bu hesaba ait tüm gelir, gider ve transfer işlemleri de silinecektir. Bu işlem geri alınamaz."
+  },
+  "validation": {
+    "nameRequired": "Hesap adı gerekli"
+  }
+}

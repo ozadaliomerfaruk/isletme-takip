@@ -5,13 +5,14 @@ import { useRouter } from 'expo-router';
 import {
   UserCircle,
   Plus,
-  MinusCircle,
-  Banknote,
+  Zap,
   History,
   Phone,
   Briefcase,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
@@ -22,8 +23,11 @@ import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 
 export default function PersonelPage() {
   const router = useRouter();
+  const { t } = useTranslation(['personel', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPersonelId, setExpandedPersonelId] = useState<string | null>(null);
+  const [quickBarVisible, setQuickBarVisible] = useState(false);
+  const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
 
   // Gerçek veriler
   const { data: personelList, isLoading } = usePersonelList();
@@ -42,25 +46,25 @@ export default function PersonelPage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="h2">Personel</Text>
+          <Text variant="h2">{t('personel:titles.personnel')}</Text>
           <Button
             variant="primary"
             size="sm"
             icon={<Plus size={18} color={colors.white} />}
             onPress={() => router.push('/personel/ekle')}
           >
-            Ekle
+            {t('common:buttons.add')}
           </Button>
         </View>
 
         {/* Özet Kartları */}
         <View style={styles.summaryContainer}>
           <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">Toplam Borcumuz</Text>
+            <Text variant="caption" color="secondary">{t('personel:balance.weOwe')}</Text>
             <Text variant="h3" color="error">{formatCurrency(payables.personel)}</Text>
           </Card>
           <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">Toplam Alacağımız</Text>
+            <Text variant="caption" color="secondary">{t('personel:balance.theyOwe')}</Text>
             <Text variant="h3" color="success">{formatCurrency(receivables.personel)}</Text>
           </Card>
         </View>
@@ -70,7 +74,7 @@ export default function PersonelPage() {
           <SearchInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Personel ara..."
+            placeholder={t('personel:search.searchPersonnel')}
           />
         </View>
 
@@ -81,13 +85,13 @@ export default function PersonelPage() {
           ) : !filteredPersonel || filteredPersonel.length === 0 ? (
             <EmptyState
               icon={<UserCircle size={48} color={colors.textMuted} />}
-              title={searchQuery ? 'Personel bulunamadı' : 'Henüz personel yok'}
+              title={searchQuery ? t('personel:search.noResults') : t('personel:messages.noPersonnel')}
               description={
                 searchQuery
-                  ? 'Arama kriterlerinize uygun personel bulunmamaktadır.'
-                  : 'İlk personelinizi ekleyerek başlayın'
+                  ? t('common:search.tryDifferent')
+                  : t('personel:messages.addFirstPersonnel')
               }
-              actionLabel={searchQuery ? undefined : 'Personel Ekle'}
+              actionLabel={searchQuery ? undefined : t('personel:titles.addPersonnel')}
               onAction={searchQuery ? undefined : () => router.push('/personel/ekle')}
             />
           ) : (
@@ -148,22 +152,16 @@ export default function PersonelPage() {
               >
                 <View style={styles.personelActions}>
                   <Button
-                    variant="secondary"
+                    variant="primary"
                     size="sm"
-                    icon={<MinusCircle size={16} color={colors.error} />}
-                    onPress={() => router.push({ pathname: '/islemler/personelGider', params: { personel_id: personel.id } })}
+                    icon={<Zap size={16} color={colors.surface} />}
+                    onPress={() => {
+                      setSelectedPersonelId(personel.id);
+                      setQuickBarVisible(true);
+                    }}
                     style={styles.actionButton}
                   >
-                    Gider Ekle
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    icon={<Banknote size={16} color={colors.success} />}
-                    onPress={() => router.push({ pathname: '/islemler/personelOdeme', params: { personel_id: personel.id } })}
-                    style={styles.actionButton}
-                  >
-                    Ödeme Yap
+                    {t('personel:details.newTransaction')}
                   </Button>
                   <Button
                     variant="outline"
@@ -172,7 +170,7 @@ export default function PersonelPage() {
                     onPress={() => router.push(`/personel/${personel.id}`)}
                     style={styles.actionButton}
                   >
-                    Hareketler
+                    {t('personel:details.hareketler')}
                   </Button>
                 </View>
               </ExpandableCard>
@@ -180,6 +178,20 @@ export default function PersonelPage() {
           )}
         </View>
       </ScrollView>
+
+      {/* Quick Transaction Bar */}
+      <QuickTransactionBar
+        visible={quickBarVisible}
+        onDismiss={() => {
+          setQuickBarVisible(false);
+          setSelectedPersonelId(null);
+        }}
+        defaultPersonelId={selectedPersonelId || undefined}
+        onSuccess={() => {
+          setQuickBarVisible(false);
+          setSelectedPersonelId(null);
+        }}
+      />
     </SafeAreaView>
   );
 }

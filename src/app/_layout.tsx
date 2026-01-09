@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { colors } from '@/constants/colors';
@@ -15,17 +16,22 @@ import {
   addNotificationListeners,
 } from '@/lib/notifications';
 
+// Initialize i18n
+import '@/i18n';
+import { loadSavedLanguage } from '@/i18n';
+
 const ONBOARDING_KEY = '@defter_onboarding_completed';
 
 function RootLayoutNav() {
   const { user, initialized } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
+  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'cariler', 'personel', 'reports', 'categories', 'settings']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);
 
-  // Onboarding durumunu kontrol et
+  // Onboarding durumunu kontrol et ve dil tercihini yükle
   useEffect(() => {
     const checkOnboarding = async () => {
       try {
@@ -36,6 +42,10 @@ function RootLayoutNav() {
       }
       setOnboardingChecked(true);
     };
+
+    // Load saved language preference
+    loadSavedLanguage();
+
     checkOnboarding();
   }, []);
 
@@ -132,7 +142,7 @@ function RootLayoutNav() {
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
           animation: 'slide_from_right',
-          headerBackTitle: 'Geri',
+          headerBackTitle: t('common:buttons.back'),
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -145,7 +155,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Hesap Hareketleri',
+            headerTitle: t('accounts:titles.accountTransactions'),
             headerShadowVisible: false,
           }}
         />
@@ -156,7 +166,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Cari Hareketleri',
+            headerTitle: t('cariler:titles.clientTransactions'),
             headerShadowVisible: false,
           }}
         />
@@ -167,7 +177,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Personel Hareketleri',
+            headerTitle: t('personel:titles.personnelTransactions'),
             headerShadowVisible: false,
           }}
         />
@@ -178,7 +188,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Tüm İşlemler',
+            headerTitle: t('transactions:titles.allTransactions'),
             headerShadowVisible: false,
           }}
         />
@@ -189,7 +199,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Hesap Ekle',
+            headerTitle: t('accounts:titles.addAccount'),
             headerShadowVisible: false,
           }}
         />
@@ -200,7 +210,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Cari Ekle',
+            headerTitle: t('cariler:titles.addClient'),
             headerShadowVisible: false,
           }}
         />
@@ -211,7 +221,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Personel Ekle',
+            headerTitle: t('personel:titles.addPersonnel'),
             headerShadowVisible: false,
           }}
         />
@@ -223,7 +233,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Gelir Ekle',
+            headerTitle: t('transactions:titles.addIncome'),
             headerShadowVisible: false,
           }}
         />
@@ -234,7 +244,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Gider Ekle',
+            headerTitle: t('transactions:titles.addExpense'),
             headerShadowVisible: false,
           }}
         />
@@ -245,7 +255,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Hesaplar Arası Transfer',
+            headerTitle: t('transactions:titles.transferBetweenAccounts'),
             headerShadowVisible: false,
           }}
         />
@@ -256,7 +266,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Tedarikçiden Alış',
+            headerTitle: t('transactions:types.cari_alis'),
             headerShadowVisible: false,
           }}
         />
@@ -267,7 +277,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Tedarikçiye Ödeme',
+            headerTitle: t('transactions:types.cari_odeme'),
             headerShadowVisible: false,
           }}
         />
@@ -278,7 +288,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Müşteriye Satış',
+            headerTitle: t('transactions:types.cari_satis'),
             headerShadowVisible: false,
           }}
         />
@@ -289,7 +299,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Müşteriden Tahsilat',
+            headerTitle: t('transactions:types.cari_tahsilat'),
             headerShadowVisible: false,
           }}
         />
@@ -300,7 +310,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Personel Gideri',
+            headerTitle: t('transactions:types.personel_gider'),
             headerShadowVisible: false,
           }}
         />
@@ -311,7 +321,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Personel Ödemesi',
+            headerTitle: t('transactions:types.personel_odeme'),
             headerShadowVisible: false,
           }}
         />
@@ -322,7 +332,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'İşlemi Düzenle',
+            headerTitle: t('transactions:titles.editTransaction'),
             headerShadowVisible: false,
           }}
         />
@@ -334,7 +344,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Raporlar',
+            headerTitle: t('reports:titles.reports'),
             headerShadowVisible: false,
           }}
         />
@@ -345,7 +355,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Kategori Detayı',
+            headerTitle: t('reports:titles.categoryDetail'),
             headerShadowVisible: false,
           }}
         />
@@ -357,7 +367,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Kategoriler',
+            headerTitle: t('categories:titles.categories'),
             headerShadowVisible: false,
           }}
         />
@@ -368,7 +378,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Kategori Ekle',
+            headerTitle: t('categories:titles.addCategory'),
             headerShadowVisible: false,
           }}
         />
@@ -379,7 +389,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Kategori Düzenle',
+            headerTitle: t('categories:titles.editCategory'),
             headerShadowVisible: false,
           }}
         />
@@ -391,7 +401,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'İşletme Bilgileri',
+            headerTitle: t('settings:business.title'),
             headerShadowVisible: false,
           }}
         />
@@ -403,7 +413,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Kullanım Koşulları',
+            headerTitle: t('navigation:menu.termsOfService'),
             headerShadowVisible: false,
           }}
         />
@@ -414,7 +424,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Gizlilik Politikası',
+            headerTitle: t('navigation:menu.privacyPolicy'),
             headerShadowVisible: false,
           }}
         />
@@ -425,7 +435,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'KVKK Aydınlatma Metni',
+            headerTitle: t('navigation:menu.kvkk'),
             headerShadowVisible: false,
           }}
         />
@@ -437,7 +447,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Hesap Düzenle',
+            headerTitle: t('accounts:titles.editAccount'),
             headerShadowVisible: false,
           }}
         />
@@ -448,7 +458,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Cari Düzenle',
+            headerTitle: t('cariler:titles.editClient'),
             headerShadowVisible: false,
           }}
         />
@@ -459,7 +469,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: 'Personel Düzenle',
+            headerTitle: t('personel:titles.editPersonnel'),
             headerShadowVisible: false,
           }}
         />

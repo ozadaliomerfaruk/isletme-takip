@@ -1,0 +1,102 @@
+{
+  "general": {
+    "generic": "An error occurred",
+    "unexpected": "An unexpected error occurred",
+    "somethingWrong": "Something went wrong",
+    "tryAgain": "Please try again",
+    "contactSupport": "If the problem persists, contact support"
+  },
+  "network": {
+    "noConnection": "No internet connection",
+    "connectionLost": "Connection lost",
+    "timeout": "Request timed out",
+    "serverError": "Server error",
+    "serverUnavailable": "Server is unavailable. Please try again later.",
+    "requestFailed": "Request failed"
+  },
+  "auth": {
+    "invalidEmail": "Please enter a valid email address",
+    "invalidPassword": "Password must be at least 6 characters",
+    "passwordMismatch": "Passwords do not match",
+    "emailInUse": "This email is already registered",
+    "invalidCredentials": "Invalid email or password",
+    "accountNotFound": "Account not found",
+    "accountDisabled": "This account has been disabled",
+    "sessionExpired": "Your session has expired. Please log in again.",
+    "unauthorized": "You are not authorized for this operation",
+    "tooManyAttempts": "Too many login attempts. Please try again later.",
+    "weakPassword": "Please enter a stronger password"
+  },
+  "validation": {
+    "required": "This field is required",
+    "minLength": "Must be at least {{min}} characters",
+    "maxLength": "Must be at most {{max}} characters",
+    "invalidFormat": "Invalid format",
+    "invalidNumber": "Please enter a valid number",
+    "invalidDate": "Please enter a valid date",
+    "positiveNumber": "Please enter a positive number",
+    "minValue": "Must be at least {{min}}",
+    "maxValue": "Must be at most {{max}}",
+    "invalidPhone": "Please enter a valid phone number",
+    "invalidEmailFormat": "Please enter a valid email address"
+  },
+  "transaction": {
+    "saveFailed": "Could not save transaction",
+    "deleteFailed": "Could not delete transaction",
+    "notFound": "Transaction not found",
+    "invalidAmount": "Please enter a valid amount",
+    "insufficientBalance": "Insufficient balance",
+    "accountRequired": "Please select an account",
+    "categoryRequired": "Please select a category",
+    "sameAccount": "Source and target accounts cannot be the same"
+  },
+  "account": {
+    "createFailed": "Could not create account",
+    "updateFailed": "Could not update account",
+    "deleteFailed": "Could not delete account",
+    "notFound": "Account not found",
+    "hasTransactions": "This account has transactions. Delete them first.",
+    "nameRequired": "Account name is required",
+    "duplicateName": "An account with this name already exists"
+  },
+  "cari": {
+    "createFailed": "Could not create client",
+    "updateFailed": "Could not update client",
+    "deleteFailed": "Could not delete client",
+    "notFound": "Client not found",
+    "hasTransactions": "This client has transactions. Delete them first.",
+    "nameRequired": "Client name is required"
+  },
+  "personel": {
+    "createFailed": "Could not create personnel",
+    "updateFailed": "Could not update personnel",
+    "deleteFailed": "Could not delete personnel",
+    "notFound": "Personnel not found",
+    "hasTransactions": "This personnel has transactions. Delete them first.",
+    "nameRequired": "Name is required"
+  },
+  "category": {
+    "createFailed": "Could not create category",
+    "updateFailed": "Could not update category",
+    "deleteFailed": "Could not delete category",
+    "notFound": "Category not found",
+    "hasChildren": "This category has sub-categories",
+    "nameRequired": "Category name is required"
+  },
+  "file": {
+    "uploadFailed": "File upload failed",
+    "downloadFailed": "File download failed",
+    "fileTooLarge": "File is too large",
+    "invalidFileType": "Invalid file type",
+    "exportFailed": "Export failed",
+    "importFailed": "Import failed"
+  },
+  "permission": {
+    "denied": "Permission denied",
+    "camera": "Camera permission is required",
+    "gallery": "Gallery permission is required",
+    "storage": "Storage permission is required",
+    "notification": "Notification permission is required",
+    "location": "Location permission is required"
+  }
+}

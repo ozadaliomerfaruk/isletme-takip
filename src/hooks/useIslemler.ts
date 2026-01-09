@@ -233,6 +233,30 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
         await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       break;
+
+    case 'cari_alis_iade':
+      // Tedarikçiye alış iadesi - cari bakiyesi artar (borcumuz azalır), hesap değişmez
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
+      }
+      break;
+
+    case 'cari_satis_iade':
+      // Müşteriden satış iadesi - cari bakiyesi azalır (alacağımız azalır), hesap değişmez
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
+      }
+      break;
+
+    case 'personel_tahsilat':
+      // Personelden tahsilat - personel bakiyesi azalır (alacağımız azalır), hesap bakiyesi artar
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, -amount);
+      }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      }
+      break;
   }
 }
 
@@ -497,6 +521,30 @@ async function reverseBalances(islem: Islem) {
       }
       if (islem.hesap_id) {
         await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      }
+      break;
+
+    case 'cari_alis_iade':
+      // Alış iadesi geri al - cari bakiyesi azalır (borcumuz geri artar)
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
+      }
+      break;
+
+    case 'cari_satis_iade':
+      // Satış iadesi geri al - cari bakiyesi artar (alacağımız geri artar)
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
+      }
+      break;
+
+    case 'personel_tahsilat':
+      // Personel tahsilatı geri al - personel bakiyesi artar, hesap azalır
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, amount);
+      }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       break;
   }

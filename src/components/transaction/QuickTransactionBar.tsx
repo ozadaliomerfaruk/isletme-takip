@@ -30,10 +30,12 @@ import {
   Check,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { useTranslation } from 'react-i18next';
 
 import { Text, CategoryPicker } from '@/components/ui';
-import { TransactionTypeTabs, TransactionType, getTransactionTypeColor } from './TransactionTypeTabs';
+import { TransactionTypeTabs, TransactionType, TransactionTabMode, getTransactionTypeColor } from './TransactionTypeTabs';
 import { colors } from '@/constants/colors';
+import { CariType } from '@/types/database';
 import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB, formatDateShort, isToday } from '@/lib/date';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -53,6 +55,9 @@ export interface QuickTransactionBarProps {
   onDismiss: () => void;
   defaultType?: TransactionType;
   defaultHesapId?: string;
+  defaultCariId?: string;
+  defaultCariType?: CariType;
+  defaultPersonelId?: string;
   onSuccess?: () => void;
 }
 
@@ -61,9 +66,25 @@ export function QuickTransactionBar({
   onDismiss,
   defaultType = 'gelir',
   defaultHesapId,
+  defaultCariId,
+  defaultCariType,
+  defaultPersonelId,
   onSuccess,
 }: QuickTransactionBarProps) {
+  const { t } = useTranslation(['transactions', 'common', 'cariler', 'personel', 'accounts']);
   const insets = useSafeAreaInsets();
+
+  // Cari modu: defaultCariId verilmişse aktif
+  const isCariMode = !!defaultCariId;
+  // Personel modu: defaultPersonelId verilmişse aktif
+  const isPersonelMode = !!defaultPersonelId;
+
+  // Tab modunu belirle
+  const tabMode: TransactionTabMode = isPersonelMode
+    ? 'personel'
+    : isCariMode
+    ? (defaultCariType === 'tedarikci' ? 'tedarikci' : 'musteri')
+    : 'normal';
 
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType);
@@ -121,7 +142,16 @@ export function QuickTransactionBar({
   // Get selected entities
   const selectedHesap = hesaplar?.find(h => h.id === hesapId);
   const selectedHedefHesap = hesaplar?.find(h => h.id === hedefHesapId);
-  const carilerForType = type === 'odeme' ? tedarikciCariler : musteriCariler;
+
+  // Cari listesi: cari modunda cari tipine göre, normal modda işlem tipine göre
+  const carilerForType = useMemo(() => {
+    if (isCariMode) {
+      return defaultCariType === 'tedarikci' ? tedarikciCariler : musteriCariler;
+    }
+    // Normal mod: odeme için tedarikçi, tahsilat için müşteri
+    return type === 'odeme' ? tedarikciCariler : musteriCariler;
+  }, [isCariMode, defaultCariType, type, tedarikciCariler, musteriCariler]);
+
   const selectedCari = carilerForType?.find(c => c.id === cariId);
   const selectedPersonel = personelList?.find(p => p.id === personelId);
 
@@ -172,19 +202,38 @@ export function QuickTransactionBar({
     }
   }, [visible]);
 
-  // Update type when defaultType changes
+  // Update type and cari/personel when modal opens
   useEffect(() => {
     if (visible) {
-      setType(defaultType);
+      // Personel modu için varsayılan tip ve personel ayarla
+      if (isPersonelMode && defaultPersonelId) {
+        setPersonelId(defaultPersonelId);
+        setType('personel_odeme_tab');
+      }
+      // Cari modu için varsayılan tip ve cari ayarla
+      else if (isCariMode && defaultCariId) {
+        setCariId(defaultCariId);
+        // Cari tipine göre varsayılan işlem tipi
+        if (defaultCariType === 'tedarikci') {
+          setType('odeme');
+          setOdemeHedefType('tedarikci');
+        } else {
+          setType('tahsilat');
+        }
+      } else {
+        setType(defaultType);
+      }
     }
-  }, [defaultType, visible]);
+  }, [visible, isPersonelMode, defaultPersonelId, isCariMode, defaultCariId, defaultCariType, defaultType]);
 
-  // Reset cariId and personelId when type changes
+  // Reset cariId and personelId when type changes (only in normal mode)
   useEffect(() => {
-    setCariId(null);
-    setPersonelId(null);
-    setOdemeHedefType('tedarikci');
-  }, [type]);
+    if (!isCariMode && !isPersonelMode) {
+      setCariId(null);
+      setPersonelId(null);
+      setOdemeHedefType('tedarikci');
+    }
+  }, [type, isCariMode, isPersonelMode]);
 
   // Keyboard listeners - capture height ONCE
   useEffect(() => {
@@ -290,8 +339,10 @@ export function QuickTransactionBar({
 
   // Handle save
   const handleSave = useCallback(async () => {
-    if (!hesapId) {
-      Alert.alert('Hata', 'Hesap bulunamadı');
+    // Alış/Satış/İade ve Personel Gider işlemlerinde hesap gerekmez
+    const needsHesap = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab'].includes(type);
+    if (needsHesap && !hesapId) {
+      Alert.alert(t('common:status.error'), t('accounts:messages.noAccounts'));
       return;
     }
 
@@ -303,24 +354,42 @@ export function QuickTransactionBar({
     }
 
     // Validate additional fields based on type
+    // TODO i18n: validation messages missing in EN
     if (type === 'transfer' && !hedefHesapId) {
-      Alert.alert('Hata', 'Hedef hesap seçiniz');
+      Alert.alert(t('common:status.error'), 'Hesap seçin');
       return;
     }
 
     if (type === 'odeme') {
       if (odemeHedefType === 'tedarikci' && !cariId) {
-        Alert.alert('Hata', 'Tedarikçi seçiniz');
+        Alert.alert(t('common:status.error'), 'Tedarikçi seçin');
         return;
       }
       if (odemeHedefType === 'personel' && !personelId) {
-        Alert.alert('Hata', 'Personel seçiniz');
+        Alert.alert(t('common:status.error'), 'Personel seçin');
         return;
       }
     }
 
     if (type === 'tahsilat' && !cariId) {
-      Alert.alert('Hata', 'Müşteri seçiniz');
+      Alert.alert(t('common:status.error'), 'Müşteri seçin');
+      return;
+    }
+
+    // Cari modu validasyonları
+    if ((type === 'alis' || type === 'alis_iade') && !cariId) {
+      Alert.alert(t('common:status.error'), 'Tedarikçi seçin');
+      return;
+    }
+
+    if ((type === 'satis' || type === 'satis_iade') && !cariId) {
+      Alert.alert(t('common:status.error'), 'Müşteri seçin');
+      return;
+    }
+
+    // Personel modu validasyonları
+    if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'].includes(type) && !personelId) {
+      Alert.alert(t('common:status.error'), 'Personel seçin');
       return;
     }
 
@@ -339,13 +408,23 @@ export function QuickTransactionBar({
         apiType = odemeHedefType === 'personel' ? 'personel_odeme' : 'cari_odeme';
       }
       if (type === 'tahsilat') apiType = 'cari_tahsilat';
+      if (type === 'alis') apiType = 'cari_alis';
+      if (type === 'satis') apiType = 'cari_satis';
+      if (type === 'alis_iade') apiType = 'cari_alis_iade';
+      if (type === 'satis_iade') apiType = 'cari_satis_iade';
+      // Personel tab type mappings
+      if (type === 'personel_odeme_tab') apiType = 'personel_odeme';
+      if (type === 'personel_gider_tab') apiType = 'personel_gider';
+      if (type === 'personel_tahsilat_tab') apiType = 'personel_tahsilat';
 
       // Build transaction data
+      // Alış/Satış/İade ve Personel Gider işlemlerinde hesap_id gerekmez (nakit akışı yok)
+      const needsHesapForData = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab'].includes(type);
       const transactionData: any = {
         type: apiType,
         amount: parsedAmount,
         description: description.trim() || null,
-        hesap_id: hesapId,
+        hesap_id: needsHesapForData ? hesapId : null,
         kategori_id: kategoriId,
       };
 
@@ -362,6 +441,14 @@ export function QuickTransactionBar({
       }
       if (type === 'tahsilat') {
         transactionData.cari_id = cariId;
+      }
+      // Cari modu işlem tipleri
+      if (type === 'alis' || type === 'satis' || type === 'alis_iade' || type === 'satis_iade') {
+        transactionData.cari_id = cariId;
+      }
+      // Personel modu işlem tipleri
+      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'].includes(type)) {
+        transactionData.personel_id = personelId;
       }
 
       if (isScheduled) {
@@ -390,9 +477,10 @@ export function QuickTransactionBar({
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      Alert.alert('Hata', 'İşlem kaydedilemedi');
+      Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
     }
   }, [
+    t,
     hesapId,
     amount,
     type,
@@ -421,18 +509,31 @@ export function QuickTransactionBar({
 
   const buttonColor = getTransactionTypeColor(type);
   const buttonLabels: Record<TransactionType, string> = {
-    gelir: 'GELİR',
-    gider: 'GİDER',
-    transfer: 'TRANSFER',
-    odeme: 'ÖDEME',
-    tahsilat: 'TAHSİLAT',
+    gelir: t('transactions:tabs.gelir'),
+    gider: t('transactions:tabs.gider'),
+    transfer: t('transactions:tabs.transfer'),
+    odeme: t('transactions:tabs.odeme'),
+    tahsilat: t('transactions:tabs.tahsilat'),
+    alis: t('transactions:tabs.alis'),
+    satis: t('transactions:tabs.satis'),
+    alis_iade: t('cariler:actions.return'), // TODO i18n - verify key exists
+    satis_iade: t('cariler:actions.return'), // TODO i18n - verify key exists
+    personel_odeme_tab: t('transactions:tabs.odeme'),
+    personel_gider_tab: t('transactions:tabs.gider'),
+    personel_tahsilat_tab: t('transactions:tabs.tahsilat'),
   };
   const buttonLabel = buttonLabels[type];
 
   // Category picker type mapping
   const getCategoryType = (): 'gelir' | 'gider' | undefined => {
-    if (type === 'gelir' || type === 'tahsilat') return 'gelir';
-    if (type === 'gider' || type === 'odeme' || type === 'transfer') return 'gider';
+    if (type === 'gelir' || type === 'tahsilat' || type === 'satis') return 'gelir';
+    if (type === 'gider' || type === 'odeme' || type === 'transfer' || type === 'alis') return 'gider';
+    // İade tipleri için kategori
+    if (type === 'satis_iade') return 'gelir';
+    if (type === 'alis_iade') return 'gider';
+    // Personel tipleri için kategori
+    if (type === 'personel_odeme_tab' || type === 'personel_tahsilat_tab') return 'gelir';
+    if (type === 'personel_gider_tab') return 'gider';
     return undefined;
   };
   const categoryType = getCategoryType();
@@ -462,13 +563,13 @@ export function QuickTransactionBar({
         {isScheduled && (
           <View style={styles.scheduledLabel}>
             <Bell size={14} color={colors.warning} />
-            <Text style={styles.scheduledLabelText}>İleri Tarihli İşlem</Text>
+            <Text style={styles.scheduledLabelText}>{t('transactions:scheduled.title')}</Text>
           </View>
         )}
 
-        {/* Date label when scheduled */}
+        {/* Date label when scheduled - TODO i18n */}
         {isScheduled && (
-          <Text style={styles.dateLabel}>İşlemin gerçekleşeceği tarih</Text>
+          <Text style={styles.dateLabel}>Planlanmış:</Text>
         )}
 
         {/* Row 1: Date + Bell + Close */}
@@ -479,7 +580,7 @@ export function QuickTransactionBar({
           >
             <Calendar size={18} color={isScheduled ? colors.warning : colors.textMuted} />
             <Text style={[styles.dateText, isScheduled && styles.dateTextScheduled]}>
-              {isToday(date) ? 'Bugün' : formatDateShort(date)}
+              {isToday(date) ? t('common:date.today') : formatDateShort(date)}
             </Text>
           </TouchableOpacity>
 
@@ -501,6 +602,30 @@ export function QuickTransactionBar({
           </TouchableOpacity>
         </View>
 
+        {/* Cari Modu: Seçili cari bilgisi */}
+        {isCariMode && selectedCari && (
+          <View style={[styles.sourceAccountRow, { backgroundColor: defaultCariType === 'tedarikci' ? colors.orangeLight : colors.primaryLight }]}>
+            {defaultCariType === 'tedarikci' ? (
+              <Building2 size={16} color={colors.orange} />
+            ) : (
+              <Users size={16} color={colors.primary} />
+            )}
+            <Text style={styles.sourceAccountText}>
+              {selectedCari.name}
+            </Text>
+          </View>
+        )}
+
+        {/* Personel Modu: Seçili personel bilgisi */}
+        {isPersonelMode && selectedPersonel && (
+          <View style={[styles.sourceAccountRow, { backgroundColor: colors.successLight }]}>
+            <UserCheck size={16} color={colors.success} />
+            <Text style={styles.sourceAccountText}>
+              {selectedPersonel.first_name} {selectedPersonel.last_name}
+            </Text>
+          </View>
+        )}
+
         {/* Transfer: Kaynak ve Hedef Hesap */}
         {type === 'transfer' && (
           <>
@@ -508,7 +633,7 @@ export function QuickTransactionBar({
             <View style={styles.sourceAccountRow}>
               <Wallet size={16} color={colors.textMuted} />
               <Text style={styles.sourceAccountText}>
-                {selectedHesap?.name || 'Hesap'}
+                {selectedHesap?.name || t('accounts:titles.accounts')}
               </Text>
               <ArrowRight size={16} color={colors.info} />
               <TouchableOpacity
@@ -516,7 +641,7 @@ export function QuickTransactionBar({
                 onPress={() => setShowHesapPicker(true)}
               >
                 <Text style={styles.targetAccountText}>
-                  {selectedHedefHesap ? selectedHedefHesap.name : 'Hedef hesap seç'}
+                  {selectedHedefHesap ? selectedHedefHesap.name : t('transactions:form.targetAccount')}
                 </Text>
                 <ChevronDown size={16} color={colors.info} />
               </TouchableOpacity>
@@ -524,8 +649,8 @@ export function QuickTransactionBar({
           </>
         )}
 
-        {/* Ödeme: Tedarikçi/Personel Seçimi */}
-        {type === 'odeme' && (
+        {/* Ödeme: Tedarikçi/Personel Seçimi (sadece normal modda) */}
+        {type === 'odeme' && !isCariMode && (
           <>
             {/* Hedef Tip Seçici */}
             <TouchableOpacity
@@ -537,6 +662,7 @@ export function QuickTransactionBar({
               ) : (
                 <UserCheck size={18} color={colors.orange} />
               )}
+              {/* TODO i18n: paymentToSupplier / paymentToPersonnel */}
               <Text style={styles.pickerButtonText}>
                 {odemeHedefType === 'tedarikci' ? 'Tedarikçiye Ödeme' : 'Personele Ödeme'}
               </Text>
@@ -551,7 +677,7 @@ export function QuickTransactionBar({
               >
                 <Building2 size={18} color={colors.orange} />
                 <Text style={styles.pickerButtonText}>
-                  {selectedCari ? selectedCari.name : 'Tedarikçi seç'}
+                  {selectedCari ? selectedCari.name : t('cariler:transactionForm.selectSupplier')}
                 </Text>
                 <ChevronDown size={18} color={colors.textMuted} />
               </TouchableOpacity>
@@ -562,7 +688,7 @@ export function QuickTransactionBar({
               >
                 <UserCheck size={18} color={colors.orange} />
                 <Text style={styles.pickerButtonText}>
-                  {selectedPersonel ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}` : 'Personel seç'}
+                  {selectedPersonel ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}` : t('personel:transactionForm.selectPersonel')}
                 </Text>
                 <ChevronDown size={18} color={colors.textMuted} />
               </TouchableOpacity>
@@ -570,15 +696,15 @@ export function QuickTransactionBar({
           </>
         )}
 
-        {/* Tahsilat: Müşteri Seçici */}
-        {type === 'tahsilat' && (
+        {/* Tahsilat: Müşteri Seçici (sadece normal modda) */}
+        {type === 'tahsilat' && !isCariMode && (
           <TouchableOpacity
             style={styles.pickerButton}
             onPress={() => setShowCariPicker(true)}
           >
             <Users size={18} color={colors.primary} />
             <Text style={styles.pickerButtonText}>
-              {selectedCari ? selectedCari.name : 'Müşteri seç'}
+              {selectedCari ? selectedCari.name : t('cariler:transactionForm.selectCustomer')}
             </Text>
             <ChevronDown size={18} color={colors.textMuted} />
           </TouchableOpacity>
@@ -592,7 +718,7 @@ export function QuickTransactionBar({
               onChange={setKategoriId}
               type={categoryType}
               label=""
-              placeholder="Kategori seç"
+              placeholder={t('common:select.selectCategory')}
             />
           </View>
         )}
@@ -600,7 +726,7 @@ export function QuickTransactionBar({
         {/* Description */}
         <TextInput
           style={styles.descriptionInput}
-          placeholder="Not ekle..."
+          placeholder={t('common:placeholders.enterNote')}
           placeholderTextColor={colors.textMuted}
           value={description}
           onChangeText={setDescription}
@@ -645,6 +771,7 @@ export function QuickTransactionBar({
         <TransactionTypeTabs
           value={type}
           onChange={setType}
+          mode={tabMode}
         />
       </Animated.View>
 
@@ -655,11 +782,11 @@ export function QuickTransactionBar({
             <View style={styles.pickerBackdrop}>
               <TouchableWithoutFeedback onPress={() => {}}>
                 <View style={styles.pickerContainer}>
-                  <Text style={styles.pickerTitle}>Tarih ve Saat Seç</Text>
+                  <Text style={styles.pickerTitle}>{t('transactions:form.dateTime')}</Text>
 
                   {/* Date Picker */}
                   <View style={styles.pickerSection}>
-                    <Text style={styles.pickerSectionTitle}>Tarih</Text>
+                    <Text style={styles.pickerSectionTitle}>{t('common:date.date')}</Text>
                     <DateTimePickerRN
                       value={date}
                       mode="date"
@@ -690,7 +817,7 @@ export function QuickTransactionBar({
 
                   {/* Time Picker */}
                   <View style={styles.pickerSection}>
-                    <Text style={styles.pickerSectionTitle}>Saat</Text>
+                    <Text style={styles.pickerSectionTitle}>{t('common:date.time')}</Text>
                     <DateTimePickerRN
                       value={date}
                       mode="time"
@@ -722,7 +849,7 @@ export function QuickTransactionBar({
                     style={styles.pickerDoneButton}
                     onPress={() => setShowDatePicker(false)}
                   >
-                    <Text style={styles.pickerDoneText}>Tamam</Text>
+                    <Text style={styles.pickerDoneText}>{t('common:buttons.done')}</Text>
                   </TouchableOpacity>
                 </View>
               </TouchableWithoutFeedback>
@@ -737,7 +864,7 @@ export function QuickTransactionBar({
           <View style={styles.bottomSheetOverlay}>
             <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
               <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>Hedef Hesap Seç</Text>
+                <Text style={styles.bottomSheetTitle}>{t('transactions:form.targetAccount')}</Text>
                 <TouchableOpacity onPress={() => { setShowHesapPicker(false); setHesapSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
@@ -748,7 +875,7 @@ export function QuickTransactionBar({
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Hesap ara..."
+                  placeholder={t('common:search.searchPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   value={hesapSearchQuery}
                   onChangeText={setHesapSearchQuery}
@@ -789,7 +916,7 @@ export function QuickTransactionBar({
                 {filteredHesaplar.length === 0 && hesapSearchQuery.trim() && (
                   <View style={styles.emptySearchState}>
                     <Search size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>"{hesapSearchQuery}" için sonuç bulunamadı</Text>
+                    <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
                   </View>
                 )}
               </ScrollView>
@@ -805,7 +932,7 @@ export function QuickTransactionBar({
             <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
               <View style={styles.bottomSheetHeader}>
                 <Text style={styles.bottomSheetTitle}>
-                  {type === 'tahsilat' ? 'Müşteri Seç' : 'Tedarikçi Seç'}
+                  {type === 'tahsilat' ? t('cariler:transactionForm.selectCustomer') : t('cariler:transactionForm.selectSupplier')}
                 </Text>
                 <TouchableOpacity onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
@@ -817,7 +944,7 @@ export function QuickTransactionBar({
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder={type === 'tahsilat' ? 'Müşteri ara...' : 'Tedarikçi ara...'}
+                  placeholder={type === 'tahsilat' ? t('cariler:search.searchCustomers') : t('cariler:search.searchSuppliers')}
                   placeholderTextColor={colors.textMuted}
                   value={cariSearchQuery}
                   onChangeText={setCariSearchQuery}
@@ -864,7 +991,7 @@ export function QuickTransactionBar({
                 {filteredCariler.length === 0 && cariSearchQuery.trim() && (
                   <View style={styles.emptySearchState}>
                     <Search size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>"{cariSearchQuery}" için sonuç bulunamadı</Text>
+                    <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
                   </View>
                 )}
                 {filteredCariler.length === 0 && !cariSearchQuery.trim() && (
@@ -875,7 +1002,7 @@ export function QuickTransactionBar({
                       <Building2 size={48} color={colors.textMuted} />
                     )}
                     <Text style={styles.emptySearchText}>
-                      {type === 'tahsilat' ? 'Henüz müşteri yok' : 'Henüz tedarikçi yok'}
+                      {type === 'tahsilat' ? t('cariler:messages.noCustomers') : t('cariler:messages.noSuppliers')}
                     </Text>
                   </View>
                 )}
@@ -890,6 +1017,7 @@ export function QuickTransactionBar({
         <Modal visible transparent animationType="slide" onRequestClose={() => setShowOdemeHedefTypePicker(false)}>
           <View style={styles.bottomSheetOverlay}>
             <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
+              {/* TODO i18n: selectPaymentType, paymentToSupplier, paymentToPersonnel, descriptions */}
               <View style={styles.bottomSheetHeader}>
                 <Text style={styles.bottomSheetTitle}>Ödeme Türü Seç</Text>
                 <TouchableOpacity onPress={() => setShowOdemeHedefTypePicker(false)} style={styles.bottomSheetCloseBtn}>
@@ -914,7 +1042,7 @@ export function QuickTransactionBar({
                     <Text style={[styles.odemeTypeTitle, odemeHedefType === 'tedarikci' && { color: colors.orange }]}>
                       Tedarikçiye Ödeme
                     </Text>
-                    <Text style={styles.odemeTypeSubtext}>Tedarikçilere yapılan ödemeler</Text>
+                    <Text style={styles.odemeTypeSubtext}>Tedarikçiye ödeme yapılacak</Text>
                   </View>
                   {odemeHedefType === 'tedarikci' && (
                     <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
@@ -939,7 +1067,7 @@ export function QuickTransactionBar({
                     <Text style={[styles.odemeTypeTitle, odemeHedefType === 'personel' && { color: colors.orange }]}>
                       Personele Ödeme
                     </Text>
-                    <Text style={styles.odemeTypeSubtext}>Maaş, avans ve diğer ödemeler</Text>
+                    <Text style={styles.odemeTypeSubtext}>Personele ödeme yapılacak</Text>
                   </View>
                   {odemeHedefType === 'personel' && (
                     <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
@@ -959,7 +1087,7 @@ export function QuickTransactionBar({
           <View style={styles.bottomSheetOverlay}>
             <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
               <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>Personel Seç</Text>
+                <Text style={styles.bottomSheetTitle}>{t('personel:transactionForm.selectPersonel')}</Text>
                 <TouchableOpacity onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
@@ -970,7 +1098,7 @@ export function QuickTransactionBar({
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
-                  placeholder="Personel ara..."
+                  placeholder={t('personel:search.searchPersonnel')}
                   placeholderTextColor={colors.textMuted}
                   value={personelSearchQuery}
                   onChangeText={setPersonelSearchQuery}
@@ -1013,13 +1141,13 @@ export function QuickTransactionBar({
                 {filteredPersonel.length === 0 && personelSearchQuery.trim() && (
                   <View style={styles.emptySearchState}>
                     <Search size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>"{personelSearchQuery}" için sonuç bulunamadı</Text>
+                    <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
                   </View>
                 )}
                 {filteredPersonel.length === 0 && !personelSearchQuery.trim() && (
                   <View style={styles.emptySearchState}>
                     <UserCheck size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>Henüz personel yok</Text>
+                    <Text style={styles.emptySearchText}>{t('personel:messages.noPersonnel')}</Text>
                   </View>
                 )}
               </ScrollView>

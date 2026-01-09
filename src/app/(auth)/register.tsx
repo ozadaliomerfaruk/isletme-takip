@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, Building2 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, Input, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -18,6 +19,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useTranslation(['auth', 'common', 'errors']);
   const { signUp, loading } = useAuthContext();
 
   const [isletmeName, setIsletmeName] = useState('');
@@ -35,27 +37,27 @@ export default function RegisterPage() {
     const newErrors: typeof errors = {};
 
     if (!isletmeName) {
-      newErrors.isletmeName = 'İşletme adı gerekli';
+      newErrors.isletmeName = t('errors:validation.required');
     } else if (isletmeName.length < 2) {
-      newErrors.isletmeName = 'İşletme adı en az 2 karakter olmalı';
+      newErrors.isletmeName = t('errors:validation.minLength', { min: 2 });
     }
 
     if (!email) {
-      newErrors.email = 'E-posta gerekli';
+      newErrors.email = t('errors:validation.required');
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Geçerli bir e-posta girin';
+      newErrors.email = t('errors:auth.invalidEmail');
     }
 
     if (!password) {
-      newErrors.password = 'Şifre gerekli';
+      newErrors.password = t('errors:validation.required');
     } else if (password.length < 6) {
-      newErrors.password = 'Şifre en az 6 karakter olmalı';
+      newErrors.password = t('errors:auth.invalidPassword');
     }
 
     if (!passwordConfirm) {
-      newErrors.passwordConfirm = 'Şifre tekrarı gerekli';
+      newErrors.passwordConfirm = t('errors:validation.required');
     } else if (password !== passwordConfirm) {
-      newErrors.passwordConfirm = 'Şifreler eşleşmiyor';
+      newErrors.passwordConfirm = t('errors:auth.passwordMismatch');
     }
 
     setErrors(newErrors);
@@ -70,10 +72,10 @@ export default function RegisterPage() {
       // Auth context router'ı yönlendirecek
     } catch (error: any) {
       Alert.alert(
-        'Kayıt Hatası',
+        t('common:status.error'),
         error.message === 'User already registered'
-          ? 'Bu e-posta zaten kayıtlı'
-          : error.message || 'Bir hata oluştu'
+          ? t('errors:auth.emailInUse')
+          : error.message || t('errors:general.generic')
       );
     }
   };
@@ -92,18 +94,18 @@ export default function RegisterPage() {
           {/* Logo / Başlık */}
           <View style={styles.header}>
             <Text variant="h1" style={styles.logo}>
-              İşletme Takip
+              Defter
             </Text>
             <Text variant="body" color="secondary" center>
-              Yeni hesap oluşturun
+              {t('auth:register.subtitle')}
             </Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
             <Input
-              label="İşletme Adı"
-              placeholder="Örn: Cafe Merhaba"
+              label={t('auth:register.businessName')}
+              placeholder={t('auth:register.businessNamePlaceholder')}
               autoCapitalize="words"
               value={isletmeName}
               onChangeText={setIsletmeName}
@@ -112,8 +114,8 @@ export default function RegisterPage() {
             />
 
             <Input
-              label="E-posta"
-              placeholder="ornek@email.com"
+              label={t('auth:login.email')}
+              placeholder={t('auth:login.emailPlaceholder')}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -124,8 +126,8 @@ export default function RegisterPage() {
             />
 
             <Input
-              label="Şifre"
-              placeholder="En az 6 karakter"
+              label={t('auth:login.password')}
+              placeholder={t('auth:login.passwordPlaceholder')}
               secureTextEntry
               value={password}
               onChangeText={setPassword}
@@ -134,8 +136,8 @@ export default function RegisterPage() {
             />
 
             <Input
-              label="Şifre Tekrar"
-              placeholder="Şifrenizi tekrar girin"
+              label={t('auth:register.confirmPassword')}
+              placeholder={t('auth:register.confirmPasswordPlaceholder')}
               secureTextEntry
               value={passwordConfirm}
               onChangeText={setPasswordConfirm}
@@ -151,18 +153,18 @@ export default function RegisterPage() {
               onPress={handleRegister}
               style={styles.registerButton}
             >
-              Kayıt Ol
+              {t('auth:register.registerButton')}
             </Button>
           </View>
 
           {/* Giriş Yap */}
           <View style={styles.footer}>
             <Text variant="body" color="secondary">
-              Zaten hesabınız var mı?{' '}
+              {t('auth:register.hasAccount')}{' '}
             </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
               <Text variant="body" style={{ color: colors.primary }}>
-                Giriş Yap
+                {t('auth:login.loginButton')}
               </Text>
             </TouchableOpacity>
           </View>

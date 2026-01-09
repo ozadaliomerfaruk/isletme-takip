@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
 import { Text, Input, Button, IconPicker, ColorPicker, ParentCategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -21,6 +22,7 @@ import { KategoriType } from '@/types/database';
 export default function KategoriDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation(['categories', 'common', 'errors']);
   const { data: kategoriler } = useKategoriler();
   const updateKategori = useUpdateKategori();
 
@@ -47,7 +49,7 @@ export default function KategoriDuzenlePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Kategori adı gerekli';
+      newErrors.name = t('categories:validation.nameRequired');
     }
 
     setErrors(newErrors);
@@ -67,11 +69,11 @@ export default function KategoriDuzenlePage() {
         parent_id: parentId,
       });
 
-      Alert.alert('Başarılı', 'Kategori güncellendi', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('categories:messages.updateSuccess'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Kategori güncellenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:category.updateFailed'));
     }
   };
 
@@ -85,7 +87,7 @@ export default function KategoriDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yükleniyor...</Text>
+          <Text>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -106,7 +108,7 @@ export default function KategoriDuzenlePage() {
             {/* Tip Seçimi */}
             <View style={styles.section}>
               <Text variant="label" style={styles.sectionTitle}>
-                Kategori Tipi
+                {t('categories:form.categoryType')}
               </Text>
               <View style={styles.typeGrid}>
                 <TouchableOpacity
@@ -130,7 +132,7 @@ export default function KategoriDuzenlePage() {
                     variant="body"
                     style={type === 'gelir' && { color: colors.success }}
                   >
-                    Gelir
+                    {t('categories:types.gelir')}
                   </Text>
                 </TouchableOpacity>
 
@@ -155,7 +157,7 @@ export default function KategoriDuzenlePage() {
                     variant="body"
                     style={type === 'gider' && { color: colors.error }}
                   >
-                    Gider
+                    {t('categories:types.gider')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -164,8 +166,8 @@ export default function KategoriDuzenlePage() {
             {/* Kategori Adı */}
             <View style={styles.section}>
               <Input
-                label="Kategori Adı"
-                placeholder="Örn: Yemek, Ulaşım, Kira..."
+                label={t('categories:form.categoryName')}
+                placeholder={t('categories:form.categoryNamePlaceholder')}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
@@ -175,7 +177,7 @@ export default function KategoriDuzenlePage() {
             {/* İkon ve Üst Kategori */}
             <View style={styles.section}>
               <Text variant="label" style={styles.sectionTitle}>
-                İkon ve Üst Kategori
+                {t('categories:form.iconAndParent')}
               </Text>
               <View style={styles.pickerRow}>
                 <View style={styles.pickerItem}>
@@ -199,7 +201,7 @@ export default function KategoriDuzenlePage() {
             {/* Renk Seçimi */}
             <View style={styles.section}>
               <ColorPicker
-                label="Renk"
+                label={t('categories:form.color')}
                 value={color}
                 onChange={setColor}
               />
@@ -213,7 +215,7 @@ export default function KategoriDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                İptal
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -222,7 +224,7 @@ export default function KategoriDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Güncelle
+                {t('common:buttons.update')}
               </Button>
             </View>
           </ScrollView>

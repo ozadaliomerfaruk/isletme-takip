@@ -1,0 +1,223 @@
+/**
+ * Cari String'leri
+ * Müşteri ve tedarikçi yönetimi için string'ler
+ */
+
+export const CARILER = {
+  // Başlıklar
+  titles: {
+    clients: 'Cariler',
+    addClient: 'Cari Ekle',
+    editClient: 'Cari Düzenle',
+    clientDetails: 'Cari Detayı',
+    clientTransactions: 'Cari Hareketleri',
+    customers: 'Müşteriler',
+    suppliers: 'Tedarikçiler',
+  },
+
+  // Cari tipleri
+  types: {
+    tedarikci: 'Tedarikçi',
+    musteri: 'Müşteri',
+  },
+
+  // Tip açıklamaları
+  typeDescriptions: {
+    tedarikci: 'Ürün/hizmet satın aldığınız firma veya kişi',
+    musteri: 'Ürün/hizmet sattığınız firma veya kişi',
+  },
+
+  // Form etiketleri
+  form: {
+    name: 'Cari Adı',
+    namePlaceholder: 'Cari adı girin',
+    nameSupplierPlaceholder: 'Örn: Metro Market',
+    nameCustomerPlaceholder: 'Örn: Mehmet Bey',
+    type: 'Cari Tipi',
+    typePlaceholder: 'Cari tipi seçin',
+    phone: 'Telefon',
+    phoneOptional: 'Telefon (Opsiyonel)',
+    phonePlaceholder: 'Telefon numarası girin',
+    phoneExample: '0532 123 4567',
+    email: 'E-posta',
+    emailOptional: 'E-posta (Opsiyonel)',
+    emailPlaceholder: 'E-posta adresi girin',
+    emailExample: 'ornek@email.com',
+    address: 'Adres',
+    addressOptional: 'Adres (Opsiyonel)',
+    addressPlaceholder: 'Adres girin',
+    addressDetailPlaceholder: 'Adres bilgisi...',
+    taxNumber: 'Vergi No',
+    taxNumberPlaceholder: 'Vergi numarası girin',
+    taxOffice: 'Vergi Dairesi',
+    taxOfficePlaceholder: 'Vergi dairesi girin',
+    note: 'Not',
+    noteOptional: 'Not (Opsiyonel)',
+    notePlaceholder: 'Not ekle...',
+    noteDetailPlaceholder: 'Cari hakkında not...',
+    initialBalance: 'Başlangıç Bakiyesi',
+    initialBalancePlaceholder: 'Başlangıç bakiyesi girin',
+    openingDebtOptional: 'Açılış Borcu (Opsiyonel)',
+    openingReceivableOptional: 'Açılış Alacağı (Opsiyonel)',
+  },
+
+  // Bakiye durumları
+  balance: {
+    balance: 'Bakiye',
+    currentBalance: 'Mevcut Bakiye',
+    receivable: 'Alacak',
+    payable: 'Borç',
+    totalReceivables: 'Toplam Alacaklar',
+    totalPayables: 'Toplam Borçlar',
+    netBalance: 'Net Bakiye',
+    weOwe: 'Borcumuz',
+    theyOwe: 'Alacağımız',
+  },
+
+  // İşlemler
+  actions: {
+    payment: 'Ödeme Yap',
+    collection: 'Tahsilat Al',
+    purchase: 'Alış Ekle',
+    sale: 'Satış Ekle',
+    return: 'İade',
+    viewTransactions: 'Hareketleri Gör',
+    editClient: 'Cariyi Düzenle',
+    deleteClient: 'Cariyi Sil',
+    call: 'Ara',
+    sendEmail: 'E-posta Gönder',
+    getDirections: 'Yol Tarifi Al',
+  },
+
+  // İşlem başlıkları
+  transactionTitles: {
+    payment: 'Cari Ödeme',
+    collection: 'Cari Tahsilat',
+    purchase: 'Tedarikçiden Alış',
+    sale: 'Müşteriye Satış',
+    purchaseReturn: 'Alış İadesi',
+    saleReturn: 'Satış İadesi',
+    supplierPayment: 'Tedarikçiye Ödeme',
+    customerCollection: 'Müşteriden Tahsilat',
+  },
+
+  // İşlem açıklamaları
+  transactionDescriptions: {
+    purchase: 'Bu işlem tedarikçiye borcunuzu artırır',
+    sale: 'Bu işlem müşteriden alacağınızı artırır',
+    payment: 'Bu işlem tedarikçiye olan borcunuzu azaltır',
+    collection: 'Bu işlem müşteriden alacağınızı azaltır',
+  },
+
+  // Form placeholderları (cari işlemler için)
+  transactionForm: {
+    supplier: 'Tedarikçi',
+    customer: 'Müşteri',
+    selectSupplier: 'Tedarikçi seçin',
+    selectCustomer: 'Müşteri seçin',
+    paymentAccount: 'Ödeme Yapılacak Hesap',
+    collectionAccount: 'Tahsilat Yapılacak Hesap',
+    purchaseDetails: 'Alış detayları...',
+    saleDetails: 'Satış detayları...',
+    paymentNote: 'Ödeme notu...',
+    collectionNote: 'Tahsilat notu...',
+    categoryOptional: 'Kategori (Opsiyonel)',
+    descriptionOptional: 'Açıklama (Opsiyonel)',
+  },
+
+  // İşlem butonları
+  transactionButtons: {
+    makePayment: 'Ödeme Yap',
+    collect: 'Tahsil Et',
+  },
+
+  // Mesajlar
+  messages: {
+    createSuccess: 'Cari oluşturuldu',
+    updateSuccess: 'Cari güncellendi',
+    deleteSuccess: 'Cari silindi',
+    deleteConfirm: 'Bu cariyi silmek istediğinize emin misiniz?',
+    deleteWarning: 'Bu cariye ait tüm işlemler de silinecektir.',
+    noClients: 'Henüz cari yok',
+    addFirstClient: 'İlk carinizi ekleyerek başlayın',
+    noCustomers: 'Henüz müşteri yok',
+    noSuppliers: 'Henüz tedarikçi yok',
+    noTransactions: 'Bu cariye ait işlem yok',
+    // İşlem sonuç mesajları
+    purchaseRecorded: 'Alış kaydedildi',
+    saleRecorded: 'Satış kaydedildi',
+    paymentRecorded: 'Ödeme kaydedildi',
+    collectionRecorded: 'Tahsilat kaydedildi',
+    scheduledPurchaseCreated: 'İleri tarihli alış oluşturuldu',
+    scheduledSaleCreated: 'İleri tarihli satış oluşturuldu',
+    scheduledPaymentCreated: 'İleri tarihli ödeme oluşturuldu',
+    scheduledCollectionCreated: 'İleri tarihli tahsilat oluşturuldu',
+  },
+
+  // Arama
+  search: {
+    searchClients: 'Cari ara...',
+    searchCustomers: 'Müşteri ara...',
+    searchSuppliers: 'Tedarikçi ara...',
+    noResults: 'Sonuç bulunamadı',
+  },
+
+  // Filtreler
+  filters: {
+    all: 'Tümü',
+    customers: 'Müşteriler',
+    suppliers: 'Tedarikçiler',
+    withReceivables: 'Alacaklılar',
+    withPayables: 'Borçlular',
+    noBalance: 'Bakiyesi Olmayanlar',
+  },
+
+  // Özet
+  summary: {
+    totalClients: 'Toplam Cari',
+    customerCount: (count: number) => `${count} Müşteri`,
+    supplierCount: (count: number) => `${count} Tedarikçi`,
+    totalReceivables: 'Toplam Alacak',
+    totalPayables: 'Toplam Borç',
+  },
+
+  // Detay sayfası
+  details: {
+    contactInfo: 'İletişim Bilgileri',
+    taxInfo: 'Vergi Bilgileri',
+    transactions: 'İşlemler',
+    hareketler: 'Hareketler',
+    statistics: 'İstatistikler',
+    lastTransaction: 'Son İşlem',
+    transactionCount: 'İşlem Sayısı',
+    newTransaction: 'Yeni İşlem',
+    initialBalance: 'Başlangıç Bakiyesi',
+    cariOpening: 'Cari açılışı',
+    notFoundDescription: 'Bu cari mevcut değil veya silinmiş olabilir.',
+  },
+
+  // İşlem etiketleri (kısa)
+  transactionLabels: {
+    alis: 'Alış',
+    odeme: 'Ödeme',
+    satis: 'Satış',
+    tahsilat: 'Tahsilat',
+    alisIade: 'Alış İade',
+    satisIade: 'Satış İade',
+  },
+
+  // Silme onayları
+  deleteConfirm: {
+    transactionTitle: 'İşlemi Sil',
+    transactionMessage: 'Bu işlemi silmek istediğinizden emin misiniz?',
+    cariTitle: 'Cariyi Sil',
+    cariMessage: 'Bu cariyi silmek istediğinizden emin misiniz?\n\nDikkat: Bu cariye ait tüm alış, satış, ödeme ve tahsilat işlemleri de silinecektir. Bu işlem geri alınamaz.',
+  },
+
+  // Doğrulama
+  validation: {
+    nameRequired: 'Cari adı gerekli',
+  },
+} as const;
+
+export type CarilerStrings = typeof CARILER;

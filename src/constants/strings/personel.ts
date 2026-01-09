@@ -1,0 +1,192 @@
+/**
+ * Personel String'leri
+ * Personel yönetimi için string'ler
+ */
+
+export const PERSONEL = {
+  // Başlıklar
+  titles: {
+    personnel: 'Personel',
+    addPersonnel: 'Personel Ekle',
+    editPersonnel: 'Personel Düzenle',
+    personnelDetails: 'Personel Detayı',
+    personnelTransactions: 'Personel Hareketleri',
+  },
+
+  // Form etiketleri
+  form: {
+    firstName: 'Ad',
+    firstNamePlaceholder: 'Personelin adı',
+    lastName: 'Soyad',
+    lastNameOptional: 'Soyad (Opsiyonel)',
+    lastNamePlaceholder: 'Personelin soyadı',
+    position: 'Pozisyon',
+    positionOptional: 'Pozisyon (Opsiyonel)',
+    positionPlaceholder: 'Örn: Şef, Garson, Kasiyer',
+    phone: 'Telefon',
+    phoneOptional: 'Telefon (Opsiyonel)',
+    phonePlaceholder: 'Telefon numarası girin',
+    phoneExample: '0532 123 4567',
+    email: 'E-posta',
+    emailPlaceholder: 'E-posta adresi girin',
+    startDate: 'İşe Başlama Tarihi',
+    startDateOptional: 'İşe Başlama Tarihi (Opsiyonel)',
+    salary: 'Maaş',
+    salaryOptional: 'Maaş (Opsiyonel)',
+    salaryPlaceholder: 'Aylık maaş tutarı',
+    note: 'Not',
+    notePlaceholder: 'Not ekle...',
+    initialBalance: 'Başlangıç Bakiyesi',
+    initialBalancePlaceholder: 'Başlangıç bakiyesi girin',
+    selectDate: 'Tarih seçin',
+  },
+
+  // Bakiye durumları
+  balance: {
+    balance: 'Bakiye',
+    currentBalance: 'Mevcut Bakiye',
+    weOwe: 'Borcumuz',
+    theyOwe: 'Alacağımız',
+    salary: 'Maaş',
+    advance: 'Avans',
+    bonus: 'Prim',
+    deduction: 'Kesinti',
+  },
+
+  // İşlemler
+  actions: {
+    addExpense: 'Gider Ekle',
+    makePayment: 'Ödeme Yap',
+    getCollection: 'Tahsilat Al',
+    viewTransactions: 'Hareketleri Gör',
+    editPersonnel: 'Personeli Düzenle',
+    deletePersonnel: 'Personeli Sil',
+    call: 'Ara',
+    sendEmail: 'E-posta Gönder',
+  },
+
+  // İşlem tipleri
+  transactionTypes: {
+    expense: 'Personel Gideri',
+    payment: 'Personel Ödemesi',
+    collection: 'Personelden Tahsilat',
+    salary: 'Maaş',
+    advance: 'Avans',
+    bonus: 'Prim',
+    deduction: 'Kesinti',
+  },
+
+  // İşlem başlıkları
+  transactionTitles: {
+    addExpense: 'Personel Gideri Ekle',
+    makePayment: 'Personel Ödemesi',
+    getCollection: 'Personelden Tahsilat',
+    expense: 'Personel Gideri',
+    payment: 'Personel Ödemesi',
+  },
+
+  // İşlem açıklamaları
+  transactionDescriptions: {
+    expense: 'Bu işlem personele olan borcunuzu artırır (maaş tahakkuku vb.)',
+    payment: 'Bu işlem personele olan borcunuzu azaltır (maaş ödemesi vb.)',
+  },
+
+  // Form etiketleri (işlem formları için)
+  transactionForm: {
+    personel: 'Personel',
+    selectPersonel: 'Personel seçin',
+    paymentAccount: 'Ödeme Yapılacak Hesap',
+    expenseNote: 'Gider notu...',
+    paymentNote: 'Ödeme notu...',
+    descriptionOptional: 'Açıklama (Opsiyonel)',
+  },
+
+  // Mesajlar
+  messages: {
+    createSuccess: 'Personel oluşturuldu',
+    updateSuccess: 'Personel güncellendi',
+    deleteSuccess: 'Personel silindi',
+    deleteConfirm: 'Bu personeli silmek istediğinize emin misiniz?',
+    deleteWarning: 'Bu personele ait tüm gider ve ödeme işlemleri de silinecektir.',
+    noPersonnel: 'Henüz personel yok',
+    addFirstPersonnel: 'İlk personelinizi ekleyerek başlayın',
+    noTransactions: 'Bu personele ait işlem yok',
+    // İşlem sonuç mesajları
+    expenseRecorded: 'Gider kaydedildi',
+    paymentRecorded: 'Ödeme kaydedildi',
+    scheduledExpenseCreated: 'İleri tarihli gider oluşturuldu',
+    scheduledPaymentCreated: 'İleri tarihli ödeme oluşturuldu',
+  },
+
+  // Arama
+  search: {
+    searchPersonnel: 'Personel ara...',
+    noResults: 'Sonuç bulunamadı',
+  },
+
+  // Filtreler
+  filters: {
+    all: 'Tümü',
+    withDebt: 'Borçlu',
+    withCredit: 'Alacaklı',
+    noBalance: 'Bakiyesi Olmayanlar',
+    byPosition: 'Pozisyona Göre',
+  },
+
+  // Özet
+  summary: {
+    totalPersonnel: 'Toplam Personel',
+    personnelCount: (count: number) => `${count} Personel`,
+    totalDebt: 'Toplam Borç',
+    totalCredit: 'Toplam Alacak',
+    monthlySalary: 'Aylık Maaş Gideri',
+  },
+
+  // Detay sayfası
+  details: {
+    contactInfo: 'İletişim Bilgileri',
+    workInfo: 'İş Bilgileri',
+    transactions: 'İşlemler',
+    hareketler: 'Hareketler',
+    statistics: 'İstatistikler',
+    lastTransaction: 'Son İşlem',
+    transactionCount: 'İşlem Sayısı',
+    startingBalance: 'Başlangıç Bakiyesi',
+    initialBalance: 'Başlangıç Bakiyesi',
+    personelRecord: 'Personel kaydı',
+    newTransaction: 'Yeni İşlem',
+    notFoundDescription: 'Bu personel mevcut değil veya silinmiş olabilir.',
+  },
+
+  // İşlem etiketleri (kısa)
+  transactionLabels: {
+    gider: 'Gider',
+    odeme: 'Ödeme',
+    tahsilat: 'Tahsilat',
+  },
+
+  // Silme onayları
+  deleteConfirm: {
+    transactionTitle: 'İşlemi Sil',
+    transactionMessage: 'Bu işlemi silmek istediğinizden emin misiniz?',
+    personelTitle: 'Personeli Sil',
+    personelMessage: 'Bu personeli silmek istediğinizden emin misiniz?\n\nDikkat: Bu personele ait tüm gider ve ödeme işlemleri de silinecektir. Bu işlem geri alınamaz.',
+  },
+
+  // Doğrulama
+  validation: {
+    firstNameRequired: 'Ad gerekli',
+  },
+
+  // Gider kategorileri
+  expenseCategories: {
+    salary: 'Maaş',
+    advance: 'Avans',
+    bonus: 'Prim',
+    insurance: 'Sigorta',
+    tax: 'Vergi',
+    other: 'Diğer',
+  },
+} as const;
+
+export type PersonelStrings = typeof PERSONEL;

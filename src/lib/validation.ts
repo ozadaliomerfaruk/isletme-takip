@@ -236,11 +236,13 @@ export const personelValidators = {
       (v) => required(v, 'Ad'),
       (v) => minLength(v, 2, 'Ad'),
     ]),
-  lastName: (value: string) =>
-    validate(value, [
-      (v) => required(v, 'Soyad'),
-      (v) => minLength(v, 2, 'Soyad'),
-    ]),
+  lastName: (value: string) => {
+    // Soyad opsiyonel, ama girilmişse en az 2 karakter olmalı
+    if (!value?.trim()) {
+      return { isValid: true };
+    }
+    return minLength(value, 2, 'Soyad');
+  },
   phone: validPhone,
 };
 

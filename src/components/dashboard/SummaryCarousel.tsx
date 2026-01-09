@@ -9,9 +9,11 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { Text } from '@/components/ui';
+import { CashFlowCard } from './CashFlowCard';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
 
@@ -25,10 +27,17 @@ interface SummaryCarouselProps {
   receivables: number;
   payables: number;
   generalStatus: number;
-  // Nakit Akışı
+  // Gelir/Gider
   income: number;
   expense: number;
   periodLabel: string;
+  // Nakit Akışı (4. kart)
+  totalInflow?: number;
+  totalOutflow?: number;
+  netCashFlow?: number;
+  // Tarih parametreleri (nakit akışı detay sayfası için)
+  startDate?: string;
+  endDate?: string;
 }
 
 export function SummaryCarousel({
@@ -39,7 +48,13 @@ export function SummaryCarousel({
   income,
   expense,
   periodLabel,
+  totalInflow = 0,
+  totalOutflow = 0,
+  netCashFlow = 0,
+  startDate,
+  endDate,
 }: SummaryCarouselProps) {
+  const router = useRouter();
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -60,7 +75,7 @@ export function SummaryCarousel({
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const newIndex = Math.round(offsetX / CARD_WIDTH);
-    if (newIndex !== activeIndex && newIndex >= 0 && newIndex <= 2) {
+    if (newIndex !== activeIndex && newIndex >= 0 && newIndex <= 3) {
       setActiveIndex(newIndex);
       if (Platform.OS !== 'web') {
         Haptics.selectionAsync();
@@ -91,7 +106,11 @@ export function SummaryCarousel({
       >
         {/* Page 1: Genel Durum */}
         <View style={[styles.page, { width: CARD_WIDTH }]}>
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push('/raporlar')}
+            activeOpacity={0.8}
+          >
             {/* Header */}
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Genel Durum</Text>
@@ -153,12 +172,16 @@ export function SummaryCarousel({
                 </Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Page 2: Nakit Akışı (Gelir & Gider) */}
         <View style={[styles.page, { width: CARD_WIDTH }]}>
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push('/raporlar?tab=gider')}
+            activeOpacity={0.8}
+          >
             {/* Header */}
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Gelir/Gider</Text>
@@ -208,12 +231,16 @@ export function SummaryCarousel({
                 </Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         </View>
 
         {/* Page 3: Cari Durum (Alacaklar & Borçlar) */}
         <View style={[styles.page, { width: CARD_WIDTH }]}>
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => router.push('/(tabs)/cariler')}
+            activeOpacity={0.8}
+          >
             {/* Header */}
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Cari Durum</Text>
@@ -263,13 +290,27 @@ export function SummaryCarousel({
                 </Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* Page 4: Nakit Akışı */}
+        <View style={[styles.page, { width: CARD_WIDTH }]}>
+          <CashFlowCard
+            totalInflow={totalInflow}
+            totalOutflow={totalOutflow}
+            netCashFlow={netCashFlow}
+            periodLabel={periodLabel}
+            onPress={() => router.push({
+              pathname: '/nakit-akisi',
+              params: startDate && endDate ? { startDate, endDate } : undefined,
+            } as any)}
+          />
         </View>
       </ScrollView>
 
       {/* Dot Indicators */}
       <View style={styles.pagination}>
-        {[0, 1, 2].map((index) => (
+        {[0, 1, 2, 3].map((index) => (
           <TouchableOpacity
             key={index}
             onPress={() => scrollToIndex(index)}

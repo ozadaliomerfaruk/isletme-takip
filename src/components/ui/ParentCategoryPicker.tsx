@@ -1,6 +1,7 @@
 import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions } from 'react-native';
 import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   X,
   Check,
@@ -78,6 +79,7 @@ export function ParentCategoryPicker({
   type,
   excludeId,
 }: ParentCategoryPickerProps) {
+  const { t } = useTranslation(['categories', 'common']);
   const [modalVisible, setModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
@@ -128,6 +130,7 @@ export function ParentCategoryPicker({
             <View style={[styles.iconPreview, { backgroundColor: colors.surfaceLighter }]}>
               <FolderOpen size={24} color={colors.textMuted} />
             </View>
+            {/* TODO i18n: categories:form.parentCategoryPlaceholder */}
             <Text variant="body" color="secondary" style={styles.triggerText}>
               Üst Kategori Seç
             </Text>
@@ -144,6 +147,7 @@ export function ParentCategoryPicker({
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
             <View style={styles.modalHeader}>
+              {/* TODO i18n: categories:form.parentCategory */}
               <Text variant="h3">Üst Kategori Seç</Text>
               <TouchableOpacity
                 onPress={() => setModalVisible(false)}
@@ -173,6 +177,7 @@ export function ParentCategoryPicker({
                 ]}>
                   <FolderOpen size={24} color={value === null ? colors.primary : colors.textMuted} />
                 </View>
+                {/* TODO i18n: categories:form.noParent */}
                 <Text
                   variant="caption"
                   color={value === null ? 'primary' : 'secondary'}
@@ -230,9 +235,11 @@ export function ParentCategoryPicker({
               {availableCategories.length === 0 && !isLoading && (
                 <View style={styles.emptyState}>
                   <Folder size={48} color={colors.textMuted} />
+                  {/* TODO i18n: categories:messages.noParentCategories */}
                   <Text variant="body" color="secondary" style={styles.emptyText}>
                     Henüz ana kategori yok
                   </Text>
+                  {/* TODO i18n: categories:messages.createParentFirst */}
                   <Text variant="caption" color="secondary" style={styles.emptySubtext}>
                     Önce bir ana kategori oluşturun
                   </Text>

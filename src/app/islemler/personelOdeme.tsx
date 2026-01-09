@@ -21,10 +21,12 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
+import { getIslemTypeLabel } from '@/lib/icons';
+import { useTranslation } from 'react-i18next';
 
 export default function PersonelOdemePage() {
   const router = useRouter();
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'personel']);
   const params = useLocalSearchParams<{ personel_id?: string; hesap_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -64,15 +66,15 @@ export default function PersonelOdemePage() {
     const newErrors: { amount?: string; personel?: string; hesap?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
-      newErrors.amount = 'Geçerli bir tutar girin';
+      newErrors.amount = t('errors:validation.invalidAmount');
     }
 
     if (!personelId) {
-      newErrors.personel = 'Personel seçin';
+      newErrors.personel = t('errors:personel.selectPersonel');
     }
 
     if (!hesapId) {
-      newErrors.hesap = 'Ödeme yapılacak hesabı seçin';
+      newErrors.hesap = t('errors:personel.selectPaymentAccount');
     }
 
     if (isIleriTarihli) {
@@ -82,7 +84,7 @@ export default function PersonelOdemePage() {
       selected.setHours(0, 0, 0, 0);
 
       if (selected <= today) {
-        newErrors.date = 'İleri tarihli işlem için bugünden sonraki bir tarih seçin';
+        newErrors.date = t('errors:transaction.futureDateRequired');
       }
     }
 
@@ -106,7 +108,6 @@ export default function PersonelOdemePage() {
           scheduled_date: scheduledDate,
         });
 
-        // Hatırlatıcı aktifse bildirim planla
         if (reminderConfig.enabled && result?.id) {
           const reminderDate = calculateReminderDate(
             scheduledDate,
@@ -116,8 +117,8 @@ export default function PersonelOdemePage() {
 
           await scheduleTransactionReminder(
             result.id,
-            'Yaklaşan İşlem Hatırlatması',
-            `${ISLEM_TYPE_LABELS.personel_odeme}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            t('transactions:notifications.reminderTitle'),
+            `${getIslemTypeLabel('personel_odeme')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -127,8 +128,8 @@ export default function PersonelOdemePage() {
           );
         }
 
-        Alert.alert('Başarılı', 'İleri tarihli ödeme oluşturuldu', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('personel:messages.scheduledPaymentCreated'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
         await createIslem.mutateAsync({
@@ -141,12 +142,12 @@ export default function PersonelOdemePage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert('Başarılı', 'Ödeme kaydedildi', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('personel:messages.paymentRecorded'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'İşlem eklenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:transaction.addFailed'));
     }
   };
 
@@ -170,9 +171,9 @@ export default function PersonelOdemePage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">Personel Ödemesi</Text>
+                <Text variant="h2">{t('personel:transactionTitles.payment')}</Text>
                 <Text variant="body" color="secondary">
-                  Bu işlem personele olan borcunuzu azaltır (maaş ödemesi vb.)
+                  {t('personel:transactionDescriptions.payment')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -192,7 +193,7 @@ export default function PersonelOdemePage() {
             {isIleriTarihli && (
               <View style={styles.ileriTarihliIndicator}>
                 <Text variant="caption" style={styles.ileriTarihliText}>
-                  İleri Tarihli İşlem
+                  {t('transactions:scheduled.title')}
                 </Text>
               </View>
             )}
@@ -201,7 +202,7 @@ export default function PersonelOdemePage() {
           <View style={styles.section}>
             <View style={[styles.pickerContainer, { zIndex: 30 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Personel
+                {t('personel:transactionForm.personel')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.personel && styles.pickerError]}
@@ -214,11 +215,11 @@ export default function PersonelOdemePage() {
                   <Text variant="body">
                     {selectedPersonel
                       ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
-                      : 'Personel seçin'}
+                      : t('personel:transactionForm.selectPersonel')}
                   </Text>
                   {selectedPersonel && (
                     <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'success'}>
-                      Borç: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                      {t('personel:balance.weOwe')}: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
                     </Text>
                   )}
                 </View>
@@ -251,7 +252,7 @@ export default function PersonelOdemePage() {
 
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Ödeme Yapılacak Hesap
+                {t('personel:transactionForm.paymentAccount')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.hesap && styles.pickerError]}
@@ -261,10 +262,10 @@ export default function PersonelOdemePage() {
                 }}
               >
                 <View>
-                  <Text variant="body">{selectedHesap?.name || 'Hesap seçin'}</Text>
+                  <Text variant="body">{selectedHesap?.name || t('transactions:form.accountPlaceholder')}</Text>
                   {selectedHesap && (
                     <Text variant="caption" color="secondary">
-                      Bakiye: {formatCurrency(Number(selectedHesap.balance))}
+                      {t('common:currency.balance')}: {formatCurrency(Number(selectedHesap.balance))}
                     </Text>
                   )}
                 </View>
@@ -299,18 +300,18 @@ export default function PersonelOdemePage() {
               value={kategoriId}
               onChange={setKategoriId}
               type="gider"
-              label="Kategori"
+              label={t('transactions:form.category')}
             />
 
             <CurrencyInput
-              label="Tutar"
+              label={t('transactions:form.amount')}
               value={amount}
               onChangeText={setAmount}
               error={errors.amount}
             />
 
             <DateTimePicker
-              label={isIleriTarihli ? "İşlem Tarihi" : "Tarih ve Saat"}
+              label={isIleriTarihli ? t('transactions:form.transactionDate') : t('transactions:form.dateTime')}
               value={selectedDate}
               onChange={setSelectedDate}
               mode={isIleriTarihli ? "date" : "datetime"}
@@ -325,8 +326,8 @@ export default function PersonelOdemePage() {
             )}
 
             <Input
-              label="Açıklama (Opsiyonel)"
-              placeholder="Ödeme notu..."
+              label={t('personel:transactionForm.descriptionOptional')}
+              placeholder={t('personel:transactionForm.paymentNote')}
               multiline
               numberOfLines={3}
               value={description}
@@ -336,7 +337,7 @@ export default function PersonelOdemePage() {
 
           <View style={styles.buttons}>
             <Button variant="outline" size="lg" onPress={() => router.back()} style={styles.button}>
-              İptal
+              {t('common:buttons.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -345,7 +346,7 @@ export default function PersonelOdemePage() {
               onPress={handleSubmit}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              {isIleriTarihli ? 'Planla' : 'Ödeme Yap'}
+              {isIleriTarihli ? t('transactions:form.schedule') : t('personel:actions.makePayment')}
             </Button>
           </View>
         </ScrollView>

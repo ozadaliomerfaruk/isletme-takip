@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   TrendingUp,
   TrendingDown,
@@ -20,43 +20,51 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
-  PieChart,
   X,
 } from 'lucide-react-native';
 import { Text, Card, TabFilter, CategoryReportCard, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { calculateIncomeSummary } from '@/constants/islemTypes';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { toNumber } from '@/lib/currency';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
 import { useCariler, useCariSummary } from '@/hooks/useCariler';
 import { usePersonelList, usePersonelSummary } from '@/hooks/usePersonel';
-import { useIslemler, PeriodType, getPeriodDateRange } from '@/hooks/useIslemler';
+import { PeriodType, getPeriodDateRange } from '@/hooks/useIslemler';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
+import { useTranslation } from 'react-i18next';
 
 type TabType = 'genel' | 'gider' | 'gelir';
 
-const TAB_OPTIONS = [
-  { label: 'Genel', value: 'genel' },
-  { label: 'Gider Analizi', value: 'gider' },
-  { label: 'Gelir Analizi', value: 'gelir' },
-];
-
-const PERIOD_OPTIONS = [
-  { label: 'Yıllık', value: 'yearly' },
-  { label: 'Aylık', value: 'monthly' },
-  { label: 'Haftalık', value: 'weekly' },
-  { label: 'Günlük', value: 'daily' },
-  { label: 'Özel', value: 'custom' },
-];
-
 export default function RaporlarPage() {
   const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const { t } = useTranslation(['reports', 'common', 'errors']);
+
+  const TAB_OPTIONS = [
+    { label: t('reports:tabs.general'), value: 'genel' },
+    { label: t('reports:tabs.expenseAnalysis'), value: 'gider' },
+    { label: t('reports:tabs.incomeAnalysis'), value: 'gelir' },
+  ];
+
+  const PERIOD_OPTIONS = [
+    { label: t('reports:period.yearly'), value: 'yearly' },
+    { label: t('reports:period.monthly'), value: 'monthly' },
+    { label: t('reports:period.weekly'), value: 'weekly' },
+    { label: t('reports:period.daily'), value: 'daily' },
+    { label: t('reports:period.custom'), value: 'custom' },
+  ];
+
   const [activeTab, setActiveTab] = useState<TabType>('genel');
   const [period, setPeriod] = useState<PeriodType>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
+
+  // URL parametresinden tab ayarla
+  useEffect(() => {
+    if (tab === 'gider') setActiveTab('gider');
+    else if (tab === 'gelir') setActiveTab('gelir');
+  }, [tab]);
 
   // Özel tarih aralığı için state'ler
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
@@ -86,11 +94,6 @@ export default function RaporlarPage() {
     label: periodLabel,
   } = getPeriodDateRange(period, periodOffset, customRange);
 
-  const { data: islemler } = useIslemler({
-    startDate,
-    endDate,
-  });
-
   // Kategori raporları
   const giderRaporu = useCategoryReport('gider', {
     startDate,
@@ -101,24 +104,6 @@ export default function RaporlarPage() {
     startDate,
     endDate,
   });
-
-  // Aylik ozet hesapla - merkezi fonksiyon kullan
-  const monthlyStats = islemler ? calculateIncomeSummary(islemler) : { income: 0, expense: 0 };
-
-  const netProfit = monthlyStats.income - monthlyStats.expense;
-
-  // Islem sayilari
-  const transactionCounts = islemler?.reduce(
-    (acc, islem) => {
-      if (islem.type === 'gelir') acc.gelir++;
-      else if (islem.type === 'gider') acc.gider++;
-      else if (islem.type === 'transfer') acc.transfer++;
-      else if (islem.type.startsWith('cari_')) acc.cari++;
-      else if (islem.type.startsWith('personel_')) acc.personel++;
-      return acc;
-    },
-    { gelir: 0, gider: 0, transfer: 0, cari: 0, personel: 0 }
-  ) ?? { gelir: 0, gider: 0, transfer: 0, cari: 0, personel: 0 };
 
   // Kategori detay sayfasına git
   const handleCategoryPress = (kategoriId: string | null, type: 'gelir' | 'gider') => {
@@ -134,98 +119,90 @@ export default function RaporlarPage() {
     });
   };
 
+  // Hesaplamalar - Genel sekmesi için
+  const totalAssets = totalBalance + totalReceivables;
+  const totalLiabilities = totalPayables + personelDebt;
+  const netValue = totalAssets - totalLiabilities;
+  const totalAll = totalAssets + totalLiabilities;
+  const assetsPercent = totalAll > 0 ? (totalAssets / totalAll) * 100 : 50;
+
   // Genel Sekme İçeriği
   const renderGenelTab = () => (
     <>
-      {/* Dönem Özeti */}
+      {/* Genel Durum Özet Kartı - En Üstte */}
       <View style={styles.section}>
-        <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          DÖNEM ÖZETİ
-        </Text>
-        <Card style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <View style={[styles.iconContainer, { backgroundColor: colors.successLight }]}>
-                <TrendingUp size={20} color={colors.success} />
-              </View>
-              <Text variant="caption" color="secondary">
-                Gelir
-              </Text>
-              <Text variant="h3" color="success">
-                {formatCurrency(monthlyStats.income)}
-              </Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <View style={[styles.iconContainer, { backgroundColor: colors.errorLight }]}>
-                <TrendingDown size={20} color={colors.error} />
-              </View>
-              <Text variant="caption" color="secondary">
-                Gider
-              </Text>
-              <Text variant="h3" color="error">
-                {formatCurrency(monthlyStats.expense)}
-              </Text>
+        <Card style={styles.heroCard}>
+          {/* Header */}
+          <View style={styles.heroHeader}>
+            <Text variant="label" color="secondary">
+              {t('reports:summary.generalStatus')}
+            </Text>
+            <View style={styles.heroBadge}>
+              <Text style={styles.heroBadgeText}>{t('reports:period.instant')}</Text>
             </View>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.netProfitRow}>
-            <Text variant="body" color="secondary">
-              Net Kar/Zarar
-            </Text>
-            <Text variant="h2" color={netProfit >= 0 ? 'success' : 'error'}>
-              {formatCurrency(netProfit)}
-            </Text>
-          </View>
-        </Card>
-      </View>
 
-      {/* İşlem Dağılımı */}
-      <View style={styles.section}>
-        <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          İŞLEM DAĞILIMI
-        </Text>
-        <Card>
-          <View style={styles.distributionHeader}>
-            <PieChart size={20} color={colors.primary} />
-            <Text variant="body" style={{ marginLeft: spacing.sm }}>
-              Toplam {islemler?.length ?? 0} işlem
+          {/* Main Value */}
+          <View style={styles.heroMainValue}>
+            <Text
+              style={[
+                styles.heroBigNumber,
+                { color: netValue >= 0 ? colors.success : colors.error },
+              ]}
+            >
+              {netValue >= 0 ? '+' : ''}{formatCurrency(netValue)}
+            </Text>
+            <Text variant="caption" color="secondary">
+              {t('reports:summary.netValue')}
             </Text>
           </View>
-          <View style={styles.distributionGrid}>
-            <View style={styles.distributionItem}>
-              <View style={[styles.distributionDot, { backgroundColor: colors.success }]} />
-              <Text variant="caption" color="secondary">
-                Gelir
-              </Text>
-              <Text variant="label">{transactionCounts.gelir}</Text>
+
+          {/* Progress Bar */}
+          <View style={styles.heroProgressContainer}>
+            <View style={styles.heroProgressBar}>
+              <View
+                style={[
+                  styles.heroProgressFill,
+                  styles.heroProgressGreen,
+                  { width: `${assetsPercent}%` },
+                ]}
+              />
+              <View
+                style={[
+                  styles.heroProgressFill,
+                  styles.heroProgressRed,
+                  { width: `${100 - assetsPercent}%` },
+                ]}
+              />
             </View>
-            <View style={styles.distributionItem}>
-              <View style={[styles.distributionDot, { backgroundColor: colors.error }]} />
-              <Text variant="caption" color="secondary">
-                Gider
+          </View>
+
+          {/* Details Row */}
+          <View style={styles.heroDetailsRow}>
+            <View style={styles.heroDetailItem}>
+              <View style={styles.heroDetailHeader}>
+                <View style={[styles.heroDotIndicator, { backgroundColor: colors.success }]} />
+                <Text variant="caption" color="secondary">
+                  {t('reports:summary.assets')}
+                </Text>
+              </View>
+              <Text variant="h3" color="success">
+                {formatCurrency(totalAssets)}
               </Text>
-              <Text variant="label">{transactionCounts.gider}</Text>
             </View>
-            <View style={styles.distributionItem}>
-              <View style={[styles.distributionDot, { backgroundColor: colors.info }]} />
-              <Text variant="caption" color="secondary">
-                Transfer
+
+            <View style={styles.heroDetailDivider} />
+
+            <View style={[styles.heroDetailItem, { alignItems: 'flex-end' }]}>
+              <View style={styles.heroDetailHeader}>
+                <Text variant="caption" color="secondary">
+                  {t('reports:summary.liabilities')}
+                </Text>
+                <View style={[styles.heroDotIndicator, { backgroundColor: colors.error }]} />
+              </View>
+              <Text variant="h3" color="error">
+                {formatCurrency(totalLiabilities)}
               </Text>
-              <Text variant="label">{transactionCounts.transfer}</Text>
-            </View>
-            <View style={styles.distributionItem}>
-              <View style={[styles.distributionDot, { backgroundColor: colors.warning }]} />
-              <Text variant="caption" color="secondary">
-                Cari
-              </Text>
-              <Text variant="label">{transactionCounts.cari}</Text>
-            </View>
-            <View style={styles.distributionItem}>
-              <View style={[styles.distributionDot, { backgroundColor: colors.primary }]} />
-              <Text variant="caption" color="secondary">
-                Personel
-              </Text>
-              <Text variant="label">{transactionCounts.personel}</Text>
             </View>
           </View>
         </Card>
@@ -234,13 +211,13 @@ export default function RaporlarPage() {
       {/* Hesap Bakiyeleri */}
       <View style={styles.section}>
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          HESAP BAKIYELERI
+          {t('reports:sections.accountBalances')}
         </Text>
         <Card>
           <View style={styles.accountHeader}>
             <Wallet size={20} color={colors.primary} />
             <Text variant="body" style={{ marginLeft: spacing.sm }}>
-              {hesaplar?.length ?? 0} Hesap
+              {t('reports:counts.account', { count: hesaplar?.length ?? 0 })}
             </Text>
             <View style={{ flex: 1 }} />
             <Text variant="h3" color={totalBalance >= 0 ? 'primary' : 'error'}>
@@ -261,100 +238,69 @@ export default function RaporlarPage() {
       {/* Cari Durum */}
       <View style={styles.section}>
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          CARİ DURUM
+          {t('reports:sections.clientStatus')}
         </Text>
-        <Card>
-          <View style={styles.accountHeader}>
-            <Building2 size={20} color={colors.warning} />
-            <Text variant="body" style={{ marginLeft: spacing.sm }}>
-              {cariler?.length ?? 0} Cari
-            </Text>
-          </View>
-          <View style={styles.cariSummaryRow}>
-            <View style={styles.cariSummaryItem}>
-              <Text variant="caption" color="secondary">
-                Alacaklar
-              </Text>
-              <Text variant="h3" color="success">
-                {formatCurrency(totalReceivables)}
+        <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/cariler')}>
+          <Card>
+            <View style={styles.accountHeader}>
+              <Building2 size={20} color={colors.warning} />
+              <Text variant="body" style={{ marginLeft: spacing.sm }}>
+                {t('reports:counts.client', { count: cariler?.length ?? 0 })}
               </Text>
             </View>
-            <View style={styles.cariSummaryItem}>
-              <Text variant="caption" color="secondary">
-                Borçlar
+            <View style={styles.cariSummaryRow}>
+              <View style={styles.cariSummaryItem}>
+                <Text variant="caption" color="secondary">
+                  {t('reports:summary.receivables')}
+                </Text>
+                <Text variant="h3" color="success">
+                  {formatCurrency(totalReceivables)}
+                </Text>
+              </View>
+              <View style={styles.cariSummaryItem}>
+                <Text variant="caption" color="secondary">
+                  {t('reports:summary.payables')}
+                </Text>
+                <Text variant="h3" color="error">
+                  {formatCurrency(totalPayables)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.netRow}>
+              <Text variant="body" color="secondary">
+                {t('reports:summary.netStatus')}
               </Text>
-              <Text variant="h3" color="error">
-                {formatCurrency(totalPayables)}
+              <Text variant="h3" color={totalReceivables - totalPayables >= 0 ? 'success' : 'error'}>
+                {formatCurrency(totalReceivables - totalPayables)}
               </Text>
             </View>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.netRow}>
-            <Text variant="body" color="secondary">
-              Net Durum
-            </Text>
-            <Text variant="h3" color={totalReceivables - totalPayables >= 0 ? 'success' : 'error'}>
-              {formatCurrency(totalReceivables - totalPayables)}
-            </Text>
-          </View>
-        </Card>
+          </Card>
+        </TouchableOpacity>
       </View>
 
       {/* Personel Durum */}
-      <View style={styles.section}>
-        <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          PERSONEL DURUM
-        </Text>
-        <Card>
-          <View style={styles.accountHeader}>
-            <Users size={20} color={colors.info} />
-            <Text variant="body" style={{ marginLeft: spacing.sm }}>
-              {personelList?.length ?? 0} Personel
-            </Text>
-            <View style={{ flex: 1 }} />
-            <Text variant="h3" color="error">
-              {formatCurrency(personelDebt)}
-            </Text>
-          </View>
-          <Text variant="caption" color="secondary" style={{ marginTop: spacing.xs }}>
-            Toplam personel borcu
-          </Text>
-        </Card>
-      </View>
-
-      {/* Genel Bakis */}
       <View style={[styles.section, { marginBottom: spacing['3xl'] }]}>
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          GENEL BAKIŞ
+          {t('reports:sections.personnelStatus')}
         </Text>
-        <Card style={styles.overviewCard}>
-          <View style={styles.overviewRow}>
-            <Text variant="body">Toplam Varlıklar</Text>
-            <Text variant="h3" color="success">
-              {formatCurrency(totalBalance + totalReceivables)}
+        <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/personel')}>
+          <Card>
+            <View style={styles.accountHeader}>
+              <Users size={20} color={colors.info} />
+              <Text variant="body" style={{ marginLeft: spacing.sm }}>
+                {t('reports:counts.personnel', { count: personelList?.length ?? 0 })}
+              </Text>
+              <View style={{ flex: 1 }} />
+              <Text variant="h3" color="error">
+                {formatCurrency(personelDebt)}
+              </Text>
+            </View>
+            <Text variant="caption" color="secondary" style={{ marginTop: spacing.xs }}>
+              {t('reports:summary.totalPersonnelDebt')}
             </Text>
-          </View>
-          <View style={styles.overviewRow}>
-            <Text variant="body">Toplam Yükümlülükler</Text>
-            <Text variant="h3" color="error">
-              {formatCurrency(totalPayables + personelDebt)}
-            </Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.overviewRow}>
-            <Text variant="h3">Net Değer</Text>
-            <Text
-              variant="h2"
-              color={
-                totalBalance + totalReceivables - totalPayables - personelDebt >= 0
-                  ? 'primary'
-                  : 'error'
-              }
-            >
-              {formatCurrency(totalBalance + totalReceivables - totalPayables - personelDebt)}
-            </Text>
-          </View>
-        </Card>
+          </Card>
+        </TouchableOpacity>
       </View>
     </>
   );
@@ -374,13 +320,13 @@ export default function RaporlarPage() {
             <TrendingDown size={24} color={colors.error} />
           </View>
           <Text variant="caption" color="secondary" style={styles.totalLabel}>
-            Toplam Gider
+            {t('reports:summary.totalExpense')}
           </Text>
           <Text variant="h1" color="error" style={styles.totalAmount}>
             {formatCurrency(giderRaporu.totalAmount)}
           </Text>
           <Text variant="caption" color="secondary">
-            {giderRaporu.items.reduce((acc, item) => acc + item.count, 0)} işlem
+            {t('reports:counts.transaction', { count: giderRaporu.items.reduce((acc, item) => acc + item.count, 0) })}
           </Text>
         </Card>
       </View>
@@ -388,7 +334,7 @@ export default function RaporlarPage() {
       {/* Kategori Dağılımı */}
       <View style={styles.section}>
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          KATEGORİ DAĞILIMI
+          {t('reports:sections.categoryDistribution')}
         </Text>
 
         {giderRaporu.isLoading ? (
@@ -398,7 +344,7 @@ export default function RaporlarPage() {
         ) : giderRaporu.items.length === 0 ? (
           <Card style={styles.emptyCard}>
             <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
-              Bu dönemde gider işlemi bulunmuyor
+              {t('reports:empty.noExpenseTransactions')}
             </Text>
           </Card>
         ) : (
@@ -431,13 +377,13 @@ export default function RaporlarPage() {
             <TrendingUp size={24} color={colors.success} />
           </View>
           <Text variant="caption" color="secondary" style={styles.totalLabel}>
-            Toplam Gelir
+            {t('reports:summary.totalIncome')}
           </Text>
           <Text variant="h1" color="success" style={styles.totalAmount}>
             {formatCurrency(gelirRaporu.totalAmount)}
           </Text>
           <Text variant="caption" color="secondary">
-            {gelirRaporu.items.reduce((acc, item) => acc + item.count, 0)} işlem
+            {t('reports:counts.transaction', { count: gelirRaporu.items.reduce((acc, item) => acc + item.count, 0) })}
           </Text>
         </Card>
       </View>
@@ -445,7 +391,7 @@ export default function RaporlarPage() {
       {/* Kategori Dağılımı */}
       <View style={styles.section}>
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          KATEGORİ DAĞILIMI
+          {t('reports:sections.categoryDistribution')}
         </Text>
 
         {gelirRaporu.isLoading ? (
@@ -455,7 +401,7 @@ export default function RaporlarPage() {
         ) : gelirRaporu.items.length === 0 ? (
           <Card style={styles.emptyCard}>
             <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
-              Bu dönemde gelir işlemi bulunmuyor
+              {t('reports:empty.noIncomeTransactions')}
             </Text>
           </Card>
         ) : (
@@ -485,7 +431,8 @@ export default function RaporlarPage() {
           />
         </View>
 
-        {/* Dönem Seçici */}
+        {/* Dönem Seçici - Sadece Gider ve Gelir sekmelerinde göster */}
+        {activeTab !== 'genel' && (
         <View style={styles.periodFilter}>
           <TabFilter
             options={PERIOD_OPTIONS}
@@ -522,7 +469,7 @@ export default function RaporlarPage() {
                 onPress={() => setShowStartPicker(true)}
               >
                 <Text variant="caption" color="secondary">
-                  Başlangıç
+                  {t('reports:period.startDate')}
                 </Text>
                 <Text variant="body">{customStartDate.toLocaleDateString('tr-TR')}</Text>
               </TouchableOpacity>
@@ -534,7 +481,7 @@ export default function RaporlarPage() {
                 onPress={() => setShowEndPicker(true)}
               >
                 <Text variant="caption" color="secondary">
-                  Bitiş
+                  {t('reports:period.endDate')}
                 </Text>
                 <Text variant="body">{customEndDate.toLocaleDateString('tr-TR')}</Text>
               </TouchableOpacity>
@@ -556,7 +503,7 @@ export default function RaporlarPage() {
                 >
                   <View style={styles.datePickerModalHeader}>
                     <Text variant="h3">
-                      {showStartPicker ? 'Başlangıç Tarihi' : 'Bitiş Tarihi'}
+                      {showStartPicker ? t('reports:period.startDateTitle') : t('reports:period.endDateTitle')}
                     </Text>
                     <TouchableOpacity
                       onPress={() => {
@@ -600,7 +547,7 @@ export default function RaporlarPage() {
                     }}
                     style={{ marginTop: spacing.md }}
                   >
-                    Tamam
+                    {t('common:buttons.ok')}
                   </Button>
                 </Pressable>
               </Pressable>
@@ -640,6 +587,7 @@ export default function RaporlarPage() {
             />
           )}
         </View>
+        )}
 
         {/* Aktif Sekme İçeriği */}
         {activeTab === 'genel' && renderGenelTab()}
@@ -828,5 +776,83 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: spacing.xl,
+  },
+  // Hero Card (Genel Durum Özet) stilleri
+  heroCard: {
+    padding: spacing.xl,
+  },
+  heroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  heroBadge: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+  },
+  heroBadgeText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.primary,
+  },
+  heroMainValue: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  heroBigNumber: {
+    fontSize: 32,
+    fontWeight: '700',
+    letterSpacing: -1,
+    marginBottom: 4,
+  },
+  heroProgressContainer: {
+    marginBottom: spacing.lg,
+  },
+  heroProgressBar: {
+    flexDirection: 'row',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: colors.border,
+  },
+  heroProgressFill: {
+    height: '100%',
+  },
+  heroProgressGreen: {
+    backgroundColor: colors.success,
+    borderTopLeftRadius: 4,
+    borderBottomLeftRadius: 4,
+  },
+  heroProgressRed: {
+    backgroundColor: colors.error,
+    borderTopRightRadius: 4,
+    borderBottomRightRadius: 4,
+  },
+  heroDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroDetailItem: {
+    flex: 1,
+  },
+  heroDetailHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: spacing.xs,
+  },
+  heroDotIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  heroDetailDivider: {
+    width: 1,
+    height: 50,
+    backgroundColor: colors.border,
+    marginHorizontal: spacing.md,
   },
 });

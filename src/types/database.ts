@@ -11,8 +11,11 @@ export type IslemType =
   | 'cari_satis'
   | 'cari_odeme'
   | 'cari_tahsilat'
+  | 'cari_alis_iade'
+  | 'cari_satis_iade'
   | 'personel_gider'
-  | 'personel_odeme';
+  | 'personel_odeme'
+  | 'personel_tahsilat';
 
 // Veritabanı tabloları
 export interface Database {
@@ -200,7 +203,7 @@ export interface Personel {
   id: string;
   isletme_id: string;
   first_name: string;
-  last_name: string;
+  last_name: string | null;
   phone: string | null;
   position: string | null;
   salary: number | null;
@@ -215,7 +218,7 @@ export interface PersonelInsert {
   id?: string;
   isletme_id: string;
   first_name: string;
-  last_name: string;
+  last_name?: string | null;
   phone?: string | null;
   position?: string | null;
   salary?: number | null;
@@ -226,7 +229,7 @@ export interface PersonelInsert {
 
 export interface PersonelUpdate {
   first_name?: string;
-  last_name?: string;
+  last_name?: string | null;
   phone?: string | null;
   position?: string | null;
   salary?: number | null;

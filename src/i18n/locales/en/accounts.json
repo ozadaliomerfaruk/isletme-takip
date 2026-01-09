@@ -1,0 +1,108 @@
+{
+  "titles": {
+    "accounts": "Accounts",
+    "addAccount": "Add Account",
+    "editAccount": "Edit Account",
+    "accountDetails": "Account Details",
+    "accountTransactions": "Account History",
+    "totalBalance": "Total Balance"
+  },
+  "types": {
+    "nakit": "Cash",
+    "banka": "Bank Account",
+    "kredi_karti": "Credit Card",
+    "diger": "Other"
+  },
+  "typeDescriptions": {
+    "nakit": "Cash on hand",
+    "banka": "Money in bank account",
+    "kredi_karti": "Credit card debt tracking",
+    "diger": "Other money sources"
+  },
+  "typeLabels": {
+    "nakit": "Cash",
+    "banka": "Bank",
+    "kredi_karti": "Credit Card",
+    "diger": "Other"
+  },
+  "form": {
+    "name": "Account Name",
+    "namePlaceholder": "E.g., Cash Register, Ziraat Bank",
+    "type": "Account Type",
+    "typePlaceholder": "Select account type",
+    "balance": "Opening Balance",
+    "balancePlaceholder": "Enter opening balance",
+    "openingBalanceOptional": "Opening Balance (Optional)",
+    "description": "Description",
+    "descriptionOptional": "Description (Optional)",
+    "descriptionPlaceholder": "Note about account...",
+    "color": "Color",
+    "icon": "Icon"
+  },
+  "balance": {
+    "balance": "Balance",
+    "currentBalance": "Current Balance",
+    "availableBalance": "Available Balance",
+    "positiveBalance": "Credit",
+    "negativeBalance": "Debit",
+    "creditLimit": "Credit Limit",
+    "usedCredit": "Used Credit",
+    "remainingCredit": "Remaining Limit"
+  },
+  "actions": {
+    "deposit": "Deposit",
+    "withdraw": "Withdraw",
+    "transfer": "Transfer",
+    "viewTransactions": "View History",
+    "editAccount": "Edit Account",
+    "deleteAccount": "Delete Account"
+  },
+  "messages": {
+    "createSuccess": "Account created",
+    "updateSuccess": "Account updated",
+    "deleteSuccess": "Account deleted",
+    "deleteConfirm": "Are you sure you want to delete this account?",
+    "deleteWarning": "All transactions for this account will also be deleted.",
+    "noAccounts": "No accounts yet",
+    "addFirstAccount": "Start by adding your first account"
+  },
+  "creditCard": {
+    "statement": "Statement",
+    "dueDate": "Due Date",
+    "minimumPayment": "Minimum Payment",
+    "fullPayment": "Full Payment",
+    "paymentToCard": "Card Payment",
+    "currentDebt": "Current Debt"
+  },
+  "summary": {
+    "totalAssets": "Total Assets",
+    "totalLiabilities": "Total Liabilities",
+    "netWorth": "Net Worth",
+    "accountCount": "{{count}} Accounts"
+  },
+  "details": {
+    "hareketler": "Transactions",
+    "initialBalance": "Opening Balance",
+    "accountOpening": "Account opening",
+    "notFoundDescription": "This account does not exist or may have been deleted.",
+    "time": "Time:"
+  },
+  "transactionLabels": {
+    "gelir": "Income",
+    "gider": "Expense",
+    "transfer": "Transfer",
+    "cari_odeme": "Client Payment",
+    "cari_tahsilat": "Client Collection",
+    "personel_odeme": "Personnel Payment",
+    "personel_gider": "Personnel Expense"
+  },
+  "deleteConfirm": {
+    "transactionTitle": "Delete Transaction",
+    "transactionMessage": "Are you sure you want to delete this transaction?",
+    "accountTitle": "Delete Account",
+    "accountMessage": "Are you sure you want to delete this account?\n\nWarning: All income, expense and transfer transactions for this account will also be deleted. This action cannot be undone."
+  },
+  "validation": {
+    "nameRequired": "Account name is required"
+  }
+}

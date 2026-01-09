@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   CalendarClock,
   TrendingUp,
@@ -14,7 +15,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { IleriTarihliIslemWithRelations } from '@/types/database';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
+import { getIslemTypeLabel } from '@/lib/icons';
 import {
   useCompleteIleriTarihliIslem,
   useDeleteIleriTarihliIslem,
@@ -29,13 +30,16 @@ interface IleriTarihliIslemlerSectionProps {
 export function IleriTarihliIslemlerSection({
   ileriTarihliIslemler,
   isLoading,
-  title = 'İleri Tarihli İşlemler',
+  title,
 }: IleriTarihliIslemlerSectionProps) {
+  const { t } = useTranslation(['transactions', 'common']);
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const completeIslem = useCompleteIleriTarihliIslem();
   const deleteIslem = useDeleteIleriTarihliIslem();
+
+  const displayTitle = title ?? t('transactions:scheduled.title');
 
   if (isLoading || !ileriTarihliIslemler || ileriTarihliIslemler.length === 0) {
     return null;
@@ -44,10 +48,8 @@ export function IleriTarihliIslemlerSection({
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
     const day = date.getDate();
-    const months = [
-      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık',
-    ];
+    const monthsResult = t('common:date.months', { returnObjects: true });
+    const months = Array.isArray(monthsResult) ? monthsResult : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${day} ${months[date.getMonth()]}`;
   };
 
@@ -68,18 +70,18 @@ export function IleriTarihliIslemlerSection({
 
   const handleComplete = (item: IleriTarihliIslemWithRelations) => {
     Alert.alert(
-      'İşlemi Gerçekleştir',
-      `${formatCurrency(item.amount)} tutarındaki ${ISLEM_TYPE_LABELS[item.type].toLowerCase()} işlemi gerçekleştirmek istiyor musunuz?`,
+      t('transactions:scheduled.execute'),
+      t('transactions:scheduled.executeConfirm', { amount: formatCurrency(item.amount), type: getIslemTypeLabel(item.type).toLowerCase() }),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Gerçekleştir',
+          text: t('transactions:scheduled.execute'),
           onPress: async () => {
             try {
               await completeIslem.mutateAsync(item.id);
-              Alert.alert('Başarılı', 'İşleminiz başarıyla kaydedildi');
+              Alert.alert(t('common:status.success'), t('transactions:messages.saveSuccess'));
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'İşlem gerçekleştirilemedi');
+              Alert.alert(t('common:status.error'), error.message || t('transactions:messages.saveFailed'));
             }
           },
         },
@@ -89,19 +91,19 @@ export function IleriTarihliIslemlerSection({
 
   const handleDelete = (item: IleriTarihliIslemWithRelations) => {
     Alert.alert(
-      'İşlemi Sil',
-      'Bu ileri tarihli işlemi silmek istediğinize emin misiniz?',
+      t('transactions:scheduled.delete'),
+      t('transactions:scheduled.deleteConfirm'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteIslem.mutateAsync(item.id);
-              Alert.alert('Başarılı', 'İleri tarihli işlem silindi');
+              Alert.alert(t('common:status.success'), t('transactions:messages.deleteSuccess'));
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'İşlem silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('transactions:messages.deleteFailed'));
             }
           },
         },
@@ -111,14 +113,14 @@ export function IleriTarihliIslemlerSection({
 
   const handleEdit = (item: IleriTarihliIslemWithRelations) => {
     // TODO: Düzenleme sayfasına yönlendir
-    Alert.alert('Bilgi', 'Düzenleme özelliği yakında eklenecek');
+    Alert.alert(t('common:status.info'), t('transactions:scheduled.comingSoon'));
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <CalendarClock size={20} color={colors.primary} />
-        <Text variant="h3">{title}</Text>
+        <Text variant="h3">{displayTitle}</Text>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{ileriTarihliIslemler.length}</Text>
         </View>
@@ -151,7 +153,7 @@ export function IleriTarihliIslemlerSection({
                 <View style={styles.itemContent}>
                   <View style={styles.itemTitleRow}>
                     <Text variant="body" numberOfLines={1} style={styles.itemTitle}>
-                      {item.description || ISLEM_TYPE_LABELS[item.type]}
+                      {item.description || getIslemTypeLabel(item.type)}
                     </Text>
                     <Text
                       variant="caption"
@@ -160,12 +162,12 @@ export function IleriTarihliIslemlerSection({
                         fontWeight: overdue || today ? '600' : '400',
                       }}
                     >
-                      {overdue ? 'Gecikmiş' : today ? 'Bugün' : formatDate(item.scheduled_date)}
+                      {overdue ? t('transactions:scheduled.overdue') : today ? t('transactions:scheduled.dueToday') : formatDate(item.scheduled_date)}
                     </Text>
                   </View>
                   <View style={styles.itemSubRow}>
                     <Text variant="caption" color="secondary">
-                      {item.kategori?.name || ISLEM_TYPE_LABELS[item.type]}
+                      {item.kategori?.name || getIslemTypeLabel(item.type)}
                     </Text>
                     <Text
                       variant="body"
@@ -190,7 +192,7 @@ export function IleriTarihliIslemlerSection({
                 loading={completeIslem.isPending}
                 style={styles.actionButton}
               >
-                Gerçekleşti
+                {t('transactions:scheduled.executed')}
               </Button>
               <Button
                 variant="outline"
@@ -199,7 +201,7 @@ export function IleriTarihliIslemlerSection({
                 onPress={() => handleEdit(item)}
                 style={styles.actionButton}
               >
-                Düzenle
+                {t('common:buttons.edit')}
               </Button>
               <Button
                 variant="outline"
@@ -209,7 +211,7 @@ export function IleriTarihliIslemlerSection({
                 loading={deleteIslem.isPending}
                 style={[styles.actionButton, styles.deleteButton]}
               >
-                Sil
+                {t('common:buttons.delete')}
               </Button>
             </View>
           </ExpandableCard>

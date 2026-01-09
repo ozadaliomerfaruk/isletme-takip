@@ -1,0 +1,276 @@
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { Kategori, IslemType, HesapType } from '@/types/database';
+
+/**
+ * Nakit akışına dahil hesap tipleri (kredi kartı HARİÇ)
+ */
+const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'diger'];
+
+/**
+ * Nakit girişi yapan işlem tipleri (hesaba para GİREN)
+ */
+const CASH_INFLOW_TYPES: IslemType[] = ['gelir', 'cari_tahsilat'];
+
+/**
+ * Nakit çıkışı yapan işlem tipleri (hesaptan para ÇIKAN)
+ */
+const CASH_OUTFLOW_TYPES: IslemType[] = ['gider', 'cari_odeme', 'personel_gider', 'personel_odeme'];
+
+/**
+ * Nakit akışı kategori item'ı
+ */
+export interface CashFlowItem {
+  kategori: Kategori | null;
+  total: number;
+  percentage: number;
+  color: string;
+}
+
+/**
+ * Nakit akışı hook sonucu
+ */
+export interface CashFlowByCategoryResult {
+  outflowItems: CashFlowItem[];        // Top N + Diğer (çıkışlar)
+  allOutflowItems: CashFlowItem[];     // Tüm çıkış kategorileri
+  inflowItems: CashFlowItem[];         // Top N + Diğer (girişler)
+  allInflowItems: CashFlowItem[];      // Tüm giriş kategorileri
+  totalInflow: number;                 // Toplam nakit girişi
+  totalOutflow: number;                // Toplam nakit çıkışı
+  netCashFlow: number;                 // Net nakit akışı (giriş - çıkış)
+  isLoading: boolean;
+  error: Error | null;
+}
+
+interface UseCashFlowByCategoryOptions {
+  startDate: string;
+  endDate: string;
+  limit?: number;  // Varsayılan 10
+}
+
+// Varsayılan renk paleti
+const COLORS = [
+  '#EF4444', '#F97316', '#EAB308', '#22C55E', '#10B981',
+  '#14B8A6', '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6',
+  '#A855F7', '#D946EF', '#EC4899', '#F43F5E',
+];
+
+/**
+ * Kategorilere göre nakit akışını hesaplayan hook.
+ *
+ * Önemli: Nakit akışı hesap tipine göre belirlenir.
+ * - Kredi kartı HARİÇ tüm hesaplara yapılan girişler = Nakit Girişi
+ * - Kredi kartı HARİÇ tüm hesaplardan yapılan çıkışlar = Nakit Çıkışı
+ */
+export function useCashFlowByCategory(
+  options: UseCashFlowByCategoryOptions
+): CashFlowByCategoryResult {
+  const { isletme } = useAuthContext();
+  const { startDate, endDate, limit = 10 } = options;
+
+  // İşlemleri çek (hesap ve kategori bilgisi dahil)
+  const {
+    data: islemler,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['cash-flow-by-category', isletme?.id, startDate, endDate],
+    queryFn: async () => {
+      if (!isletme) return [];
+
+      // Transfer işlemlerini de dahil et (kredi kartına ödeme için)
+      const allTypes = [...CASH_INFLOW_TYPES, ...CASH_OUTFLOW_TYPES, 'transfer'];
+
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          id,
+          type,
+          amount,
+          kategori_id,
+          hesap_id,
+          hedef_hesap_id,
+          kategori:kategoriler(*),
+          hesap:hesaplar!hesap_id(id, type),
+          hedef_hesap:hesaplar!hedef_hesap_id(id, type)
+        `)
+        .eq('isletme_id', isletme.id)
+        .in('type', allTypes)
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (error) throw error;
+
+      // Supabase bazen array döndürüyor, normalize et
+      return data.map((item: any) => ({
+        ...item,
+        kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
+        hesap: Array.isArray(item.hesap) ? item.hesap[0] || null : item.hesap,
+        hedef_hesap: Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] || null : item.hedef_hesap,
+      }));
+    },
+    enabled: !!isletme && !!startDate && !!endDate,
+  });
+
+  // Gruplama ve hesaplama
+  const result = useMemo(() => {
+    if (!islemler || islemler.length === 0) {
+      return {
+        outflowItems: [],
+        allOutflowItems: [],
+        inflowItems: [],
+        allInflowItems: [],
+        totalInflow: 0,
+        totalOutflow: 0,
+        netCashFlow: 0,
+      };
+    }
+
+    let totalInflow = 0;
+    let totalOutflow = 0;
+    const outflowByCategory = new Map<string, { kategori: Kategori | null; total: number }>();
+    const inflowByCategory = new Map<string, { kategori: Kategori | null; total: number }>();
+
+    islemler.forEach((islem: any) => {
+      const amount = Number(islem.amount);
+      const hesapType = islem.hesap?.type as HesapType | undefined;
+      const hedefHesapType = islem.hedef_hesap?.type as HesapType | undefined;
+      const islemType = islem.type as IslemType;
+
+      // Transfer işlemi için özel kontrol
+      if (islemType === 'transfer') {
+        // Kaynak hesap nakit hesabı ise (kredi kartı değil) → nakit çıkışı
+        if (hesapType && CASH_ACCOUNT_TYPES.includes(hesapType)) {
+          // Hedef hesap kredi kartı ise bu bir kredi kartı ödemesi
+          // Hedef hesap da nakit hesabı ise net etki 0 (hesaplar arası transfer)
+          if (hedefHesapType === 'kredi_karti') {
+            // Nakit hesaptan kredi kartına ödeme = nakit çıkışı
+            totalOutflow += amount;
+
+            // Kategoriye ekle
+            const kategoriKey = islem.kategori?.id || 'uncategorized';
+            const existing = outflowByCategory.get(kategoriKey);
+            if (existing) {
+              existing.total += amount;
+            } else {
+              outflowByCategory.set(kategoriKey, {
+                kategori: islem.kategori || null,
+                total: amount
+              });
+            }
+          }
+          // Else: Nakit hesaplar arası transfer, net etki 0 - dahil etme
+        }
+        return; // Transfer işlemini işledik, devam et
+      }
+
+      // Nakit girişi kontrolü
+      if (CASH_INFLOW_TYPES.includes(islemType)) {
+        // Hesap tipi kredi kartı değilse nakit girişi
+        if (hesapType && CASH_ACCOUNT_TYPES.includes(hesapType)) {
+          totalInflow += amount;
+
+          // Kategoriye ekle
+          const kategoriKey = islem.kategori?.id || 'uncategorized';
+          const existing = inflowByCategory.get(kategoriKey);
+          if (existing) {
+            existing.total += amount;
+          } else {
+            inflowByCategory.set(kategoriKey, {
+              kategori: islem.kategori || null,
+              total: amount
+            });
+          }
+        }
+      }
+
+      // Nakit çıkışı kontrolü
+      if (CASH_OUTFLOW_TYPES.includes(islemType)) {
+        // Hesap tipi kredi kartı değilse nakit çıkışı
+        if (hesapType && CASH_ACCOUNT_TYPES.includes(hesapType)) {
+          totalOutflow += amount;
+
+          // Kategoriye ekle
+          const kategoriKey = islem.kategori?.id || 'uncategorized';
+          const existing = outflowByCategory.get(kategoriKey);
+          if (existing) {
+            existing.total += amount;
+          } else {
+            outflowByCategory.set(kategoriKey, {
+              kategori: islem.kategori || null,
+              total: amount
+            });
+          }
+        }
+      }
+    });
+
+    // Çıkışlar - Sırayla (büyükten küçüğe)
+    const allOutflowItems: CashFlowItem[] = Array.from(outflowByCategory.values())
+      .sort((a, b) => b.total - a.total)
+      .map((value, index) => ({
+        kategori: value.kategori,
+        total: value.total,
+        percentage: totalOutflow > 0 ? (value.total / totalOutflow) * 100 : 0,
+        color: value.kategori?.color || COLORS[index % COLORS.length],
+      }));
+
+    // Çıkışlar - Top N + Diğer
+    const topOutflowItems = allOutflowItems.slice(0, limit);
+    const otherOutflowItems = allOutflowItems.slice(limit);
+    const otherOutflowTotal = otherOutflowItems.reduce((acc, item) => acc + item.total, 0);
+
+    let outflowItems = [...topOutflowItems];
+    if (otherOutflowTotal > 0) {
+      outflowItems.push({
+        kategori: null,
+        total: otherOutflowTotal,
+        percentage: totalOutflow > 0 ? (otherOutflowTotal / totalOutflow) * 100 : 0,
+        color: '#9CA3AF', // Gri
+      });
+    }
+
+    // Girişler - Sırayla (büyükten küçüğe)
+    const allInflowItems: CashFlowItem[] = Array.from(inflowByCategory.values())
+      .sort((a, b) => b.total - a.total)
+      .map((value, index) => ({
+        kategori: value.kategori,
+        total: value.total,
+        percentage: totalInflow > 0 ? (value.total / totalInflow) * 100 : 0,
+        color: value.kategori?.color || COLORS[index % COLORS.length],
+      }));
+
+    // Girişler - Top N + Diğer
+    const topInflowItems = allInflowItems.slice(0, limit);
+    const otherInflowItems = allInflowItems.slice(limit);
+    const otherInflowTotal = otherInflowItems.reduce((acc, item) => acc + item.total, 0);
+
+    let inflowItems = [...topInflowItems];
+    if (otherInflowTotal > 0) {
+      inflowItems.push({
+        kategori: null,
+        total: otherInflowTotal,
+        percentage: totalInflow > 0 ? (otherInflowTotal / totalInflow) * 100 : 0,
+        color: '#9CA3AF', // Gri
+      });
+    }
+
+    return {
+      outflowItems,
+      allOutflowItems,
+      inflowItems,
+      allInflowItems,
+      totalInflow,
+      totalOutflow,
+      netCashFlow: totalInflow - totalOutflow,
+    };
+  }, [islemler, limit]);
+
+  return {
+    ...result,
+    isLoading,
+    error: error as Error | null,
+  };
+}

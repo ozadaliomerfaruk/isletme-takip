@@ -1,0 +1,180 @@
+{
+  "titles": {
+    "clients": "Clients",
+    "addClient": "Add Client",
+    "editClient": "Edit Client",
+    "clientDetails": "Client Details",
+    "clientTransactions": "Client History",
+    "customers": "Customers",
+    "suppliers": "Suppliers"
+  },
+  "types": {
+    "tedarikci": "Supplier",
+    "musteri": "Customer"
+  },
+  "typeDescriptions": {
+    "tedarikci": "Company or person you purchase products/services from",
+    "musteri": "Company or person you sell products/services to"
+  },
+  "form": {
+    "name": "Client Name",
+    "namePlaceholder": "Enter client name",
+    "nameSupplierPlaceholder": "E.g., Metro Market",
+    "nameCustomerPlaceholder": "E.g., John Smith",
+    "type": "Client Type",
+    "typePlaceholder": "Select client type",
+    "phone": "Phone",
+    "phoneOptional": "Phone (Optional)",
+    "phonePlaceholder": "Enter phone number",
+    "phoneExample": "555 123 4567",
+    "email": "Email",
+    "emailOptional": "Email (Optional)",
+    "emailPlaceholder": "Enter email address",
+    "emailExample": "example@email.com",
+    "address": "Address",
+    "addressOptional": "Address (Optional)",
+    "addressPlaceholder": "Enter address",
+    "addressDetailPlaceholder": "Address details...",
+    "taxNumber": "Tax Number",
+    "taxNumberPlaceholder": "Enter tax number",
+    "taxOffice": "Tax Office",
+    "taxOfficePlaceholder": "Enter tax office",
+    "note": "Note",
+    "noteOptional": "Note (Optional)",
+    "notePlaceholder": "Add note...",
+    "noteDetailPlaceholder": "Note about client...",
+    "initialBalance": "Opening Balance",
+    "initialBalancePlaceholder": "Enter opening balance",
+    "openingDebtOptional": "Opening Debt (Optional)",
+    "openingReceivableOptional": "Opening Receivable (Optional)"
+  },
+  "balance": {
+    "balance": "Balance",
+    "currentBalance": "Current Balance",
+    "receivable": "Receivable",
+    "payable": "Payable",
+    "totalReceivables": "Total Receivables",
+    "totalPayables": "Total Payables",
+    "netBalance": "Net Balance",
+    "weOwe": "We Owe",
+    "theyOwe": "They Owe"
+  },
+  "actions": {
+    "payment": "Make Payment",
+    "collection": "Collect",
+    "purchase": "Add Purchase",
+    "sale": "Add Sale",
+    "return": "Return",
+    "viewTransactions": "View History",
+    "editClient": "Edit Client",
+    "deleteClient": "Delete Client",
+    "call": "Call",
+    "sendEmail": "Send Email",
+    "getDirections": "Get Directions"
+  },
+  "transactionTitles": {
+    "payment": "Client Payment",
+    "collection": "Client Collection",
+    "purchase": "Supplier Purchase",
+    "sale": "Customer Sale",
+    "purchaseReturn": "Purchase Return",
+    "saleReturn": "Sale Return",
+    "supplierPayment": "Supplier Payment",
+    "customerCollection": "Customer Collection"
+  },
+  "transactionDescriptions": {
+    "purchase": "This transaction increases your debt to the supplier",
+    "sale": "This transaction increases your receivable from the customer",
+    "payment": "This transaction decreases your debt to the supplier",
+    "collection": "This transaction decreases your receivable from the customer"
+  },
+  "transactionForm": {
+    "supplier": "Supplier",
+    "customer": "Customer",
+    "selectSupplier": "Select supplier",
+    "selectCustomer": "Select customer",
+    "paymentAccount": "Payment Account",
+    "collectionAccount": "Collection Account",
+    "purchaseDetails": "Purchase details...",
+    "saleDetails": "Sale details...",
+    "paymentNote": "Payment note...",
+    "collectionNote": "Collection note...",
+    "categoryOptional": "Category (Optional)",
+    "descriptionOptional": "Description (Optional)"
+  },
+  "transactionButtons": {
+    "makePayment": "Make Payment",
+    "collect": "Collect"
+  },
+  "messages": {
+    "createSuccess": "Client created",
+    "updateSuccess": "Client updated",
+    "deleteSuccess": "Client deleted",
+    "deleteConfirm": "Are you sure you want to delete this client?",
+    "deleteWarning": "All transactions for this client will also be deleted.",
+    "noClients": "No clients yet",
+    "addFirstClient": "Start by adding your first client",
+    "noCustomers": "No customers yet",
+    "noSuppliers": "No suppliers yet",
+    "noTransactions": "No transactions for this client",
+    "purchaseRecorded": "Purchase recorded",
+    "saleRecorded": "Sale recorded",
+    "paymentRecorded": "Payment recorded",
+    "collectionRecorded": "Collection recorded",
+    "scheduledPurchaseCreated": "Scheduled purchase created",
+    "scheduledSaleCreated": "Scheduled sale created",
+    "scheduledPaymentCreated": "Scheduled payment created",
+    "scheduledCollectionCreated": "Scheduled collection created"
+  },
+  "search": {
+    "searchClients": "Search clients...",
+    "searchCustomers": "Search customers...",
+    "searchSuppliers": "Search suppliers...",
+    "noResults": "No results found"
+  },
+  "filters": {
+    "all": "All",
+    "customers": "Customers",
+    "suppliers": "Suppliers",
+    "withReceivables": "With Receivables",
+    "withPayables": "With Payables",
+    "noBalance": "No Balance"
+  },
+  "summary": {
+    "totalClients": "Total Clients",
+    "customerCount": "{{count}} Customers",
+    "supplierCount": "{{count}} Suppliers",
+    "totalReceivables": "Total Receivables",
+    "totalPayables": "Total Payables"
+  },
+  "details": {
+    "contactInfo": "Contact Info",
+    "taxInfo": "Tax Info",
+    "transactions": "Transactions",
+    "hareketler": "Transactions",
+    "statistics": "Statistics",
+    "lastTransaction": "Last Transaction",
+    "transactionCount": "Transaction Count",
+    "newTransaction": "New Transaction",
+    "initialBalance": "Opening Balance",
+    "cariOpening": "Client opening",
+    "notFoundDescription": "This client does not exist or may have been deleted."
+  },
+  "transactionLabels": {
+    "alis": "Purchase",
+    "odeme": "Payment",
+    "satis": "Sale",
+    "tahsilat": "Collection",
+    "alisIade": "Purchase Return",
+    "satisIade": "Sale Return"
+  },
+  "deleteConfirm": {
+    "transactionTitle": "Delete Transaction",
+    "transactionMessage": "Are you sure you want to delete this transaction?",
+    "cariTitle": "Delete Client",
+    "cariMessage": "Are you sure you want to delete this client?\n\nWarning: All purchases, sales, payments and collections for this client will also be deleted. This action cannot be undone."
+  },
+  "validation": {
+    "nameRequired": "Client name is required"
+  }
+}

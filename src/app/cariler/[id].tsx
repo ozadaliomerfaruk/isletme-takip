@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   ShoppingCart,
   Banknote,
@@ -9,12 +10,14 @@ import {
   Building2,
   User,
   Phone,
-  CreditCard,
   CircleDollarSign,
   Pencil,
   Trash2,
+  Zap,
+  RotateCcw,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -27,6 +30,7 @@ import { IslemWithRelations } from '@/types/database';
 export default function CariHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useTranslation(['cariler', 'common', 'errors']);
 
   const { data: cari, isLoading: cariLoading } = useCari(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
@@ -35,6 +39,7 @@ export default function CariHareketleriPage() {
   const deleteCari = useDeleteCari();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
+  const [quickBarVisible, setQuickBarVisible] = useState(false);
 
   // Başlangıç bakiyesini hesapla
   const calculateInitialBalance = () => {
@@ -51,6 +56,10 @@ export default function CariHareketleriPage() {
         totalEffect += amount; // Alacak artar
       } else if (islem.type === 'cari_tahsilat') {
         totalEffect -= amount; // Alacak azalır
+      } else if (islem.type === 'cari_alis_iade') {
+        totalEffect += amount; // Alış iadesi borcu azaltır
+      } else if (islem.type === 'cari_satis_iade') {
+        totalEffect -= amount; // Satış iadesi alacağı azaltır
       }
     });
 
@@ -69,6 +78,10 @@ export default function CariHareketleriPage() {
         return <Receipt size={20} color={colors.success} />;
       case 'cari_tahsilat':
         return <Banknote size={20} color={colors.info} />;
+      case 'cari_alis_iade':
+        return <RotateCcw size={20} color={colors.warning} />;
+      case 'cari_satis_iade':
+        return <RotateCcw size={20} color={colors.warning} />;
       default:
         return <Receipt size={20} color={colors.textMuted} />;
     }
@@ -77,13 +90,17 @@ export default function CariHareketleriPage() {
   const getHareketLabel = (type: string) => {
     switch (type) {
       case 'cari_alis':
-        return 'Alış';
+        return t('cariler:transactionLabels.alis');
       case 'cari_odeme':
-        return 'Ödeme';
+        return t('cariler:transactionLabels.odeme');
       case 'cari_satis':
-        return 'Satış';
+        return t('cariler:transactionLabels.satis');
       case 'cari_tahsilat':
-        return 'Tahsilat';
+        return t('cariler:transactionLabels.tahsilat');
+      case 'cari_alis_iade':
+        return t('cariler:transactionLabels.alisIade');
+      case 'cari_satis_iade':
+        return t('cariler:transactionLabels.satisIade');
       default:
         return type;
     }
@@ -92,18 +109,18 @@ export default function CariHareketleriPage() {
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
-      'İşlemi Sil',
-      'Bu işlemi silmek istediğinizden emin misiniz?',
+      t('cariler:deleteConfirm.transactionTitle'),
+      t('cariler:deleteConfirm.transactionMessage'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteIslem.mutateAsync(islemId);
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'İşlem silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('errors:transaction.deleteFailed'));
             }
           },
         },
@@ -113,19 +130,19 @@ export default function CariHareketleriPage() {
 
   const handleDeleteCari = () => {
     Alert.alert(
-      'Cariyi Sil',
-      'Bu cariyi silmek istediğinizden emin misiniz?\n\nDikkat: Bu cariye ait tüm alış, satış, ödeme ve tahsilat işlemleri de silinecektir. Bu işlem geri alınamaz.',
+      t('cariler:deleteConfirm.cariTitle'),
+      t('cariler:deleteConfirm.cariMessage'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteCari.mutateAsync(id!);
               router.replace('/(tabs)/cariler');
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'Cari silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('errors:cari.deleteFailed'));
             }
           },
         },
@@ -137,7 +154,7 @@ export default function CariHareketleriPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yükleniyor...</Text>
+          <Text>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -148,8 +165,8 @@ export default function CariHareketleriPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <EmptyState
           icon={<Building2 size={48} color={colors.textMuted} />}
-          title="Cari bulunamadı"
-          description="Bu cari mevcut değil veya silinmiş olabilir."
+          title={t('errors:cari.notFound')}
+          description={t('cariler:details.notFoundDescription')}
         />
       </SafeAreaView>
     );
@@ -178,7 +195,7 @@ export default function CariHareketleriPage() {
               </View>
               <View style={styles.summaryInfo}>
                 <Text variant="body" color="secondary">
-                  {isTedarikci ? 'Tedarikçi' : 'Müşteri'}
+                  {isTedarikci ? t('cariler:types.tedarikci') : t('cariler:types.musteri')}
                 </Text>
                 {cari.phone && (
                   <View style={styles.phoneRow}>
@@ -191,7 +208,7 @@ export default function CariHareketleriPage() {
               </View>
               <View style={styles.balanceInfo}>
                 <Text variant="caption" color="secondary">
-                  {Number(cari.balance) < 0 ? 'Borcumuz' : 'Alacağımız'}
+                  {Number(cari.balance) < 0 ? t('cariler:balance.weOwe') : t('cariler:balance.theyOwe')}
                 </Text>
                 <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
                   {formatCurrency(Math.abs(Number(cari.balance)))}
@@ -206,7 +223,7 @@ export default function CariHareketleriPage() {
                 onPress={() => router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } })}
                 style={styles.cariActionBtn}
               >
-                Düzenle
+                {t('common:buttons.edit')}
               </Button>
               <Button
                 variant="outline"
@@ -215,56 +232,22 @@ export default function CariHareketleriPage() {
                 onPress={handleDeleteCari}
                 style={styles.cariActionBtn}
               >
-                Sil
+                {t('common:buttons.delete')}
               </Button>
             </View>
           </Card>
 
           {/* Aksiyon Butonlari */}
           <View style={styles.actionButtons}>
-            {isTedarikci ? (
-              <>
-                <Button
-                  variant="primary"
-                  size="md"
-                  icon={<ShoppingCart size={18} color={colors.surface} />}
-                  onPress={() => router.push({ pathname: '/islemler/cariAlis', params: { cari_id: id } })}
-                  style={styles.actionBtn}
-                >
-                  Alış
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="md"
-                  icon={<CreditCard size={18} color={colors.text} />}
-                  onPress={() => router.push({ pathname: '/islemler/cariOdeme', params: { cari_id: id } })}
-                  style={styles.actionBtn}
-                >
-                  Ödeme
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="primary"
-                  size="md"
-                  icon={<Receipt size={18} color={colors.surface} />}
-                  onPress={() => router.push({ pathname: '/islemler/cariSatis', params: { cari_id: id } })}
-                  style={styles.actionBtn}
-                >
-                  Satış
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="md"
-                  icon={<Banknote size={18} color={colors.text} />}
-                  onPress={() => router.push({ pathname: '/islemler/cariTahsilat', params: { cari_id: id } })}
-                  style={styles.actionBtn}
-                >
-                  Tahsilat
-                </Button>
-              </>
-            )}
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Zap size={18} color={colors.surface} />}
+              onPress={() => setQuickBarVisible(true)}
+              style={styles.actionBtn}
+            >
+              {t('cariler:details.newTransaction')}
+            </Button>
           </View>
 
           {/* İleri Tarihli İşlemler ve Hareketler */}
@@ -275,11 +258,11 @@ export default function CariHareketleriPage() {
             />
 
             <Text variant="h3" style={styles.sectionTitle}>
-              Hareketler
+              {t('cariler:details.hareketler')}
             </Text>
 
             {islemlerLoading ? (
-              <Text color="secondary">Yükleniyor...</Text>
+              <Text color="secondary">{t('common:status.loading')}</Text>
             ) : (
               <>
                 {islemler && islemler.length > 0 && islemler.map((islem) => (
@@ -292,9 +275,12 @@ export default function CariHareketleriPage() {
                         <View style={[
                           styles.hareketIcon,
                           {
-                            backgroundColor: islem.type === 'cari_alis' || islem.type === 'cari_satis'
-                              ? colors.errorLight
-                              : colors.successLight
+                            backgroundColor:
+                              islem.type === 'cari_alis' || islem.type === 'cari_satis'
+                                ? colors.errorLight
+                                : islem.type === 'cari_alis_iade' || islem.type === 'cari_satis_iade'
+                                ? colors.warningLight
+                                : colors.successLight
                           }
                         ]}>
                           {getHareketIcon(islem.type)}
@@ -317,9 +303,17 @@ export default function CariHareketleriPage() {
                         </View>
                         <Text
                           variant="h3"
-                          color={islem.type === 'cari_alis' || islem.type === 'cari_satis' ? 'error' : 'success'}
+                          color={
+                            islem.type === 'cari_alis' || islem.type === 'cari_satis'
+                              ? 'error'
+                              : islem.type === 'cari_alis_iade' || islem.type === 'cari_satis_iade'
+                              ? 'warning'
+                              : 'success'
+                          }
                         >
-                          {islem.type === 'cari_alis' || islem.type === 'cari_satis' ? '-' : '+'}
+                          {islem.type === 'cari_alis' || islem.type === 'cari_satis' ? '-' : ''}
+                          {islem.type === 'cari_alis_iade' || islem.type === 'cari_satis_iade' ? '↩ ' : ''}
+                          {islem.type === 'cari_odeme' || islem.type === 'cari_tahsilat' ? '+' : ''}
                           {formatCurrency(Number(islem.amount))}
                         </Text>
                       </View>
@@ -333,7 +327,7 @@ export default function CariHareketleriPage() {
                         onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
                         style={styles.actionButton}
                       >
-                        Düzenle
+                        {t('common:buttons.edit')}
                       </Button>
                       <Button
                         variant="outline"
@@ -342,7 +336,7 @@ export default function CariHareketleriPage() {
                         onPress={() => handleDelete(islem.id)}
                         style={styles.actionButton}
                       >
-                        Sil
+                        {t('common:buttons.delete')}
                       </Button>
                     </View>
                   </ExpandableCard>
@@ -355,9 +349,9 @@ export default function CariHareketleriPage() {
                       <CircleDollarSign size={20} color={colors.primary} />
                     </View>
                     <View style={styles.hareketInfo}>
-                      <Text variant="body">Başlangıç Bakiyesi</Text>
+                      <Text variant="body">{t('cariler:details.initialBalance')}</Text>
                       <Text variant="caption" color="secondary">
-                        Cari açılışı • {formatDateShort(cari.created_at)}
+                        {t('cariler:details.cariOpening')} • {formatDateShort(cari.created_at)}
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
@@ -369,6 +363,15 @@ export default function CariHareketleriPage() {
             )}
           </View>
         </ScrollView>
+
+        {/* Quick Transaction Bar */}
+        <QuickTransactionBar
+          visible={quickBarVisible}
+          onDismiss={() => setQuickBarVisible(false)}
+          defaultCariId={cari?.id}
+          defaultCariType={cari?.type}
+          onSuccess={() => setQuickBarVisible(false)}
+        />
       </SafeAreaView>
     </>
   );

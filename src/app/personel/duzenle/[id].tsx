@@ -6,17 +6,25 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  TouchableOpacity,
+  Modal,
+  Pressable,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { Calendar, X } from 'lucide-react-native';
 import { Text, Input, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
+import { formatDateForDB } from '@/lib/date';
 
 export default function PersonelDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation(['personel', 'common', 'errors']);
   const { data: personel, isLoading } = usePersonelById(id);
   const updatePersonel = useUpdatePersonel();
 
@@ -25,27 +33,26 @@ export default function PersonelDuzenlePage() {
   const [phone, setPhone] = useState('');
   const [position, setPosition] = useState('');
   const [salary, setSalary] = useState('');
-  const [errors, setErrors] = useState<{ firstName?: string; lastName?: string }>({});
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [errors, setErrors] = useState<{ firstName?: string }>({});
 
   useEffect(() => {
     if (personel) {
       setFirstName(personel.first_name);
-      setLastName(personel.last_name);
+      setLastName(personel.last_name || '');
       setPhone(personel.phone || '');
       setPosition(personel.position || '');
       setSalary(personel.salary ? String(personel.salary) : '');
+      setStartDate(personel.start_date ? new Date(personel.start_date) : null);
     }
   }, [personel]);
 
   const validate = () => {
-    const newErrors: { firstName?: string; lastName?: string } = {};
+    const newErrors: { firstName?: string } = {};
 
     if (!firstName.trim()) {
-      newErrors.firstName = 'Ad gerekli';
-    }
-
-    if (!lastName.trim()) {
-      newErrors.lastName = 'Soyad gerekli';
+      newErrors.firstName = t('personel:validation.firstNameRequired');
     }
 
     setErrors(newErrors);
@@ -59,17 +66,18 @@ export default function PersonelDuzenlePage() {
       await updatePersonel.mutateAsync({
         id,
         first_name: firstName.trim(),
-        last_name: lastName.trim(),
+        last_name: lastName.trim() || null,
         phone: phone.trim() || null,
         position: position.trim() || null,
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
+        start_date: startDate ? formatDateForDB(startDate) : null,
       });
 
-      Alert.alert('Başarılı', 'Personel güncellendi', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('personel:messages.updateSuccess'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Personel güncellenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:personel.updateFailed'));
     }
   };
 
@@ -77,7 +85,7 @@ export default function PersonelDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Yükleniyor...</Text>
+          <Text>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -87,7 +95,7 @@ export default function PersonelDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Personel bulunamadı</Text>
+          <Text>{t('errors:personel.notFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -108,43 +116,124 @@ export default function PersonelDuzenlePage() {
             {/* Form */}
             <View style={styles.section}>
               <Input
-                label="Ad"
-                placeholder="Personelin adi"
+                label={t('personel:form.firstName')}
+                placeholder={t('personel:form.firstNamePlaceholder')}
                 value={firstName}
                 onChangeText={setFirstName}
                 error={errors.firstName}
               />
 
               <Input
-                label="Soyad"
-                placeholder="Personelin soyadi"
+                label={t('personel:form.lastNameOptional')}
+                placeholder={t('personel:form.lastNamePlaceholder')}
                 value={lastName}
                 onChangeText={setLastName}
-                error={errors.lastName}
               />
 
               <Input
-                label="Telefon (Opsiyonel)"
-                placeholder="0532 123 4567"
+                label={t('personel:form.phoneOptional')}
+                placeholder={t('personel:form.phoneExample')}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
               />
 
               <Input
-                label="Pozisyon (Opsiyonel)"
-                placeholder="Orn: Sef, Garson, Kasiyer"
+                label={t('personel:form.positionOptional')}
+                placeholder={t('personel:form.positionPlaceholder')}
                 value={position}
                 onChangeText={setPosition}
               />
 
               <Input
-                label="Maas (Opsiyonel)"
-                placeholder="Aylik maas tutari"
+                label={t('personel:form.salaryOptional')}
+                placeholder={t('personel:form.salaryPlaceholder')}
                 keyboardType="decimal-pad"
                 value={salary}
                 onChangeText={setSalary}
               />
+
+              {/* İşe Başlama Tarihi */}
+              <View style={styles.dateField}>
+                <Text variant="label" style={styles.dateLabel}>
+                  {t('personel:form.startDateOptional')}
+                </Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowDatePicker(true)}
+                >
+                  <Calendar size={20} color={colors.textMuted} />
+                  <Text
+                    variant="body"
+                    color={startDate ? 'primary' : 'secondary'}
+                    style={styles.dateText}
+                  >
+                    {startDate
+                      ? startDate.toLocaleDateString('tr-TR')
+                      : t('personel:form.selectDate')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* iOS için DateTimePicker Modal */}
+              {Platform.OS === 'ios' && showDatePicker && (
+                <Modal visible={showDatePicker} transparent animationType="slide">
+                  <Pressable
+                    style={styles.datePickerModalOverlay}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Pressable
+                      style={styles.datePickerModalContent}
+                      onPress={(e) => e.stopPropagation()}
+                    >
+                      <View style={styles.datePickerModalHeader}>
+                        <Text variant="h3">{t('personel:form.startDate')}</Text>
+                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                          <X size={24} color={colors.text} />
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={startDate || new Date()}
+                        mode="date"
+                        display="inline"
+                        onChange={(event, date) => {
+                          if (date) {
+                            setStartDate(date);
+                          }
+                        }}
+                        maximumDate={new Date()}
+                        locale="tr-TR"
+                        themeVariant="light"
+                        accentColor={colors.primary}
+                        style={{ height: 350 }}
+                      />
+                      <Button
+                        variant="primary"
+                        onPress={() => setShowDatePicker(false)}
+                        style={{ marginTop: spacing.md }}
+                      >
+                        {t('common:buttons.ok')}
+                      </Button>
+                    </Pressable>
+                  </Pressable>
+                </Modal>
+              )}
+
+              {/* Android için DateTimePicker */}
+              {Platform.OS === 'android' && showDatePicker && (
+                <DateTimePicker
+                  value={startDate || new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={(event, date) => {
+                    setShowDatePicker(false);
+                    if (event.type === 'set' && date) {
+                      setStartDate(date);
+                    }
+                  }}
+                  maximumDate={new Date()}
+                />
+              )}
             </View>
 
             {/* Buttons */}
@@ -155,7 +244,7 @@ export default function PersonelDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                İptal
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -164,7 +253,7 @@ export default function PersonelDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Güncelle
+                {t('common:buttons.update')}
               </Button>
             </View>
           </ScrollView>
@@ -205,5 +294,44 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  // Date picker styles
+  dateField: {
+    marginBottom: spacing.md,
+  },
+  dateLabel: {
+    marginBottom: spacing.xs,
+    color: colors.text,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  dateText: {
+    flex: 1,
+  },
+  datePickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  datePickerModalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.lg,
+  },
+  datePickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
 });

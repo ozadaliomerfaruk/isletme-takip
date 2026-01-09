@@ -1,0 +1,143 @@
+{
+  "types": {
+    "gelir": "Gelir",
+    "gider": "Gider",
+    "transfer": "Transfer",
+    "cari_alis": "Tedarikçiden Alış",
+    "cari_satis": "Müşteriye Satış",
+    "cari_odeme": "Tedarikçiye Ödeme",
+    "cari_tahsilat": "Müşteriden Tahsilat",
+    "cari_alis_iade": "Alış İade",
+    "cari_satis_iade": "Satış İade",
+    "personel_gider": "Personel Gideri",
+    "personel_odeme": "Personel Ödemesi",
+    "personel_tahsilat": "Personelden Tahsilat",
+    "kredi_karti_harcama": "Kredi Kartı Harcaması"
+  },
+  "accountTypes": {
+    "nakit": "Nakit",
+    "banka": "Banka Hesabı",
+    "kredi_karti": "Kredi Kartı",
+    "diger": "Diğer"
+  },
+  "clientTypes": {
+    "tedarikci": "Tedarikçi",
+    "musteri": "Müşteri"
+  },
+  "form": {
+    "amount": "Tutar",
+    "amountPlaceholder": "Tutar girin",
+    "date": "Tarih",
+    "dateTime": "Tarih ve Saat",
+    "transactionDate": "İşlem Tarihi",
+    "category": "Kategori",
+    "categoryPlaceholder": "Kategori seç",
+    "account": "Hesap",
+    "accountPlaceholder": "Hesap seç",
+    "sourceAccount": "Kaynak Hesap",
+    "targetAccount": "Hedef Hesap",
+    "description": "Açıklama",
+    "descriptionPlaceholder": "Açıklama ekle (isteğe bağlı)",
+    "note": "Not",
+    "notePlaceholder": "Not ekle...",
+    "client": "Cari",
+    "clientPlaceholder": "Cari seç",
+    "personnel": "Personel",
+    "personnelPlaceholder": "Personel seç",
+    "recurring": "Tekrarlayan",
+    "futureDate": "İleri Tarihli",
+    "schedule": "Planla"
+  },
+  "titles": {
+    "addIncome": "Gelir Ekle",
+    "addExpense": "Gider Ekle",
+    "addTransfer": "Transfer Yap",
+    "transferBetweenAccounts": "Hesaplar Arası Transfer",
+    "doTransfer": "Transfer Yap",
+    "editTransaction": "İşlem Düzenle",
+    "transactionDetails": "İşlem Detayı",
+    "allTransactions": "Tüm İşlemler",
+    "recentTransactions": "Son İşlemler",
+    "clientPayment": "Cari Ödeme",
+    "clientCollection": "Cari Tahsilat",
+    "clientPurchase": "Tedarikçiden Alış",
+    "clientSale": "Müşteriye Satış",
+    "clientReturn": "İade",
+    "personnelExpense": "Personel Gideri",
+    "personnelPayment": "Personel Ödemesi",
+    "personnelCollection": "Personelden Tahsilat"
+  },
+  "messages": {
+    "createSuccess": "İşlem kaydedildi",
+    "updateSuccess": "İşlem güncellendi",
+    "deleteSuccess": "İşlem silindi",
+    "deleteConfirm": "Bu işlemi silmek istediğinize emin misiniz?",
+    "noTransactions": "Henüz işlem yok",
+    "noTransactionsInPeriod": "Bu dönemde işlem bulunamadı",
+    "saveSuccess": "İşleminiz başarıyla kaydedildi",
+    "saveFailed": "İşlem gerçekleştirilemedi",
+    "deleteFailed": "İşlem silinemedi",
+    "scheduledCreated": "İleri tarihli işlem oluşturuldu",
+    "incomeAdded": "Gelir eklendi",
+    "expenseAdded": "Gider eklendi",
+    "transferCompleted": "Transfer tamamlandı"
+  },
+  "notifications": {
+    "reminderTitle": "Yaklaşan İşlem Hatırlatması",
+    "scheduledReminder": "Planlı işlem hatırlatması"
+  },
+  "filters": {
+    "all": "Tümü",
+    "income": "Gelir",
+    "expense": "Gider",
+    "transfer": "Transfer",
+    "client": "Cari",
+    "personnel": "Personel",
+    "byDate": "Tarihe Göre",
+    "byAmount": "Tutara Göre",
+    "byCategory": "Kategoriye Göre"
+  },
+  "summary": {
+    "totalIncome": "Toplam Gelir",
+    "totalExpense": "Toplam Gider",
+    "netProfit": "Net Kar",
+    "netLoss": "Net Zarar",
+    "balance": "Bakiye",
+    "transactionCount": "İşlem Sayısı"
+  },
+  "future": {
+    "title": "İleri Tarihli İşlemler",
+    "scheduled": "Planlanmış",
+    "pending": "Bekleyen",
+    "dueDate": "Vade Tarihi",
+    "daysRemaining": "{{days}} gün kaldı",
+    "overdue": "Vadesi Geçmiş",
+    "process": "İşle",
+    "cancel": "İptal Et"
+  },
+  "scheduled": {
+    "title": "İleri Tarihli İşlemler",
+    "overdue": "Gecikmiş",
+    "dueToday": "Bugün",
+    "execute": "Gerçekleştir",
+    "executed": "Gerçekleşti",
+    "delete": "İşlemi Sil",
+    "deleteConfirm": "Bu ileri tarihli işlemi silmek istediğinize emin misiniz?",
+    "executeConfirm": "{{amount}} tutarındaki {{type}} işlemi gerçekleştirmek istiyor musunuz?",
+    "comingSoon": "Bu özellik yakında eklenecek"
+  },
+  "tabs": {
+    "gelir": "Gelir",
+    "gider": "Gider",
+    "transfer": "Transfer",
+    "odeme": "Ödeme",
+    "tahsilat": "Tahsilat",
+    "alis": "Alış",
+    "satis": "Satış",
+    "alis_iade": "Alış İade",
+    "satis_iade": "Satış İade",
+    "personel_odeme": "Ödeme",
+    "personel_gider": "Gider",
+    "personel_tahsilat": "Tahsilat"
+  }
+}

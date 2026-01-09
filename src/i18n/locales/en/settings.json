@@ -1,0 +1,159 @@
+{
+  "sections": {
+    "transactionsReports": "TRANSACTIONS & REPORTS",
+    "legal": "LEGAL"
+  },
+  "titles": {
+    "settings": "Settings",
+    "profile": "Profile",
+    "businessInfo": "Business Info",
+    "notifications": "Notifications",
+    "reminders": "Reminders",
+    "security": "Security",
+    "appearance": "Appearance",
+    "language": "Language",
+    "about": "About"
+  },
+  "profile": {
+    "title": "Profile",
+    "editProfile": "Edit Profile",
+    "fullName": "Full Name",
+    "email": "Email",
+    "phone": "Phone",
+    "changePassword": "Change Password",
+    "currentPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password"
+  },
+  "business": {
+    "title": "Business Info",
+    "businessName": "Business Name",
+    "businessNamePlaceholder": "Your business name",
+    "businessType": "Business Type",
+    "taxNumber": "Tax Number (Optional)",
+    "taxNumberPlaceholder": "Tax number",
+    "taxOffice": "Tax Office",
+    "address": "Address (Optional)",
+    "addressPlaceholder": "Business address",
+    "phone": "Phone (Optional)",
+    "phonePlaceholder": "555 123 4567",
+    "email": "Email",
+    "website": "Website",
+    "logo": "Logo",
+    "changeLogo": "Change Logo",
+    "accountEmail": "Account Email",
+    "emailCannotChange": "Email address cannot be changed",
+    "registrationDate": "Registration Date"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "pushNotifications": "Push Notifications",
+    "emailNotifications": "Email Notifications",
+    "reminderNotifications": "Reminder Notifications",
+    "transactionAlerts": "Transaction Alerts",
+    "lowBalanceAlert": "Low Balance Alert",
+    "dueDateReminders": "Due Date Reminders"
+  },
+  "reminders": {
+    "title": "Reminders",
+    "enabled": "Reminders On",
+    "disabled": "Reminders Off",
+    "reminderTime": "Reminder Time",
+    "daysBefore": "Days Before",
+    "sameDay": "Same Day",
+    "oneDayBefore": "1 Day Before",
+    "twoDaysBefore": "2 Days Before",
+    "threeDaysBefore": "3 Days Before",
+    "oneWeekBefore": "1 Week Before"
+  },
+  "security": {
+    "title": "Security",
+    "changePassword": "Change Password",
+    "biometricLogin": "Biometric Login",
+    "faceId": "Face ID",
+    "touchId": "Touch ID",
+    "pinCode": "PIN Code",
+    "autoLock": "Auto Lock",
+    "lockTimeout": "Lock Timeout"
+  },
+  "appearance": {
+    "title": "Appearance",
+    "theme": "Theme",
+    "lightMode": "Light Mode",
+    "darkMode": "Dark Mode",
+    "systemDefault": "System Default",
+    "fontSize": "Font Size",
+    "small": "Small",
+    "medium": "Medium",
+    "large": "Large"
+  },
+  "language": {
+    "title": "Language",
+    "selectLanguage": "Select Language",
+    "turkish": "Türkçe",
+    "english": "English",
+    "languageChanged": "Language changed"
+  },
+  "about": {
+    "title": "About",
+    "version": "Version",
+    "appName": "Defter",
+    "developer": "Developer",
+    "website": "Website",
+    "support": "Support",
+    "feedback": "Feedback",
+    "rateApp": "Rate App",
+    "shareApp": "Share App",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "licenses": "Licenses"
+  },
+  "data": {
+    "title": "Data Management",
+    "exportData": "Export Data",
+    "importData": "Import Data",
+    "backup": "Backup",
+    "restore": "Restore",
+    "clearCache": "Clear Cache",
+    "clearAllData": "Delete All Data"
+  },
+  "account": {
+    "title": "Account",
+    "logout": "Logout",
+    "deleteAccount": "Delete Account",
+    "accountDeletion": "Account Deletion",
+    "deletionWarning": "Your account will be permanently deleted within 7 days.",
+    "cancelDeletion": "Cancel Deletion Request",
+    "deleteTitle": "Delete Account",
+    "deleteDescription": "When you delete your account, a 7-day waiting period begins. You can cancel by logging in during this time. After 7 days, all your data below will be permanently deleted:",
+    "deleteWarnings": {
+      "transactions": "• All your transactions (income, expense, transfer)",
+      "accounts": "• All your accounts and balances",
+      "clients": "• All your client accounts",
+      "personnel": "• All your personnel records",
+      "categories": "• All your categories",
+      "business": "• Your business information"
+    },
+    "confirmLabel": "Type your business name to confirm:",
+    "confirmPlaceholder": "Enter business name",
+    "confirmDeleteButton": "Yes, Create Deletion Request",
+    "deleteRequestTitle": "Account Deletion Request",
+    "deleteRequestDescription": "Your account will be deleted within 7 days. You can cancel the deletion by logging in during this time.\n\nDo you want to continue?",
+    "deleteRequestCreated": "Request Created",
+    "deleteRequestCreatedMessage": "Your account will be deleted within 7 days. You can cancel by logging in during this time."
+  },
+  "messages": {
+    "saveSuccess": "Settings saved",
+    "changesSaved": "Changes saved",
+    "passwordChanged": "Password changed",
+    "profileUpdated": "Profile updated",
+    "businessInfoUpdated": "Business info updated",
+    "cacheCleared": "Cache cleared",
+    "businessUpdateFailed": "Could not update business info",
+    "deleteRequestFailed": "An error occurred while creating the deletion request. Please try again.",
+    "confirmBusinessName": "Please enter the correct business name and try again."
+  },
+  "validation": {
+    "businessNameRequired": "Business name is required"
+  }
+}

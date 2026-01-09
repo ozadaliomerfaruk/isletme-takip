@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Trash2, AlertTriangle, Clock } from 'lucide-react-native';
 import { Text, Button, Input, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -10,6 +11,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function HesapSilPage() {
   const router = useRouter();
+  const { t } = useTranslation(['settings', 'common', 'errors']);
   const { isletme, deleteAccount, loading } = useAuthContext();
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -19,30 +21,30 @@ export default function HesapSilPage() {
 
   const handleDelete = async () => {
     if (!isConfirmValid) {
-      Alert.alert('Hata', 'Lütfen işletme adını doğru yazıp tekrar deneyin.');
+      Alert.alert(t('common:status.error'), t('settings:messages.confirmBusinessName'));
       return;
     }
 
     Alert.alert(
-      'Hesap Silme Talebi',
-      'Hesabınız 7 gün içinde silinecektir. Bu süre içinde giriş yaparak silme işlemini iptal edebilirsiniz.\n\nDevam etmek istiyor musunuz?',
+      t('settings:account.deleteRequestTitle'),
+      t('settings:account.deleteRequestDescription'),
       [
-        { text: 'Vazgeç', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Evet, Silme Talebi Oluştur',
+          text: t('settings:account.confirmDeleteButton'),
           style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
             try {
               await deleteAccount();
               Alert.alert(
-                'Talep Oluşturuldu',
-                'Hesabınız 7 gün içinde silinecektir. Bu süre içinde giriş yaparak iptal edebilirsiniz.'
+                t('settings:account.deleteRequestCreated'),
+                t('settings:account.deleteRequestCreatedMessage')
               );
             } catch (error) {
               console.error('Delete account error:', error);
               setIsDeleting(false);
-              Alert.alert('Hata', 'Hesap silme talebi oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.');
+              Alert.alert(t('common:status.error'), t('settings:messages.deleteRequestFailed'));
             }
           },
         },
@@ -62,36 +64,36 @@ export default function HesapSilPage() {
           </View>
 
           <Text variant="h2" style={styles.title}>
-            Hesabı Sil
+            {t('settings:account.deleteTitle')}
           </Text>
 
           <Text variant="body" color="secondary" style={styles.description}>
-            Hesabınızı silmek istediğinizde 7 günlük bekleme süresi başlar. Bu süre içinde giriş yaparak vazgeçebilirsiniz. 7 gün sonunda aşağıdaki tüm verileriniz kalıcı olarak silinecektir:
+            {t('settings:account.deleteDescription')}
           </Text>
 
           <Card style={styles.warningCard}>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tüm işlemleriniz (gelir, gider, transfer)</Text>
+              <Text variant="body" color="error">{t('settings:account.deleteWarnings.transactions')}</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tüm hesaplarınız ve bakiyeler</Text>
+              <Text variant="body" color="error">{t('settings:account.deleteWarnings.accounts')}</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tüm cari hesaplarınız</Text>
+              <Text variant="body" color="error">{t('settings:account.deleteWarnings.clients')}</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tüm personel kayıtlarınız</Text>
+              <Text variant="body" color="error">{t('settings:account.deleteWarnings.personnel')}</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• Tüm kategorileriniz</Text>
+              <Text variant="body" color="error">{t('settings:account.deleteWarnings.categories')}</Text>
             </View>
             <View style={styles.warningItem}>
-              <Text variant="body" color="error">• İşletme bilgileriniz</Text>
+              <Text variant="body" color="error">{t('settings:account.deleteWarnings.business')}</Text>
             </View>
           </Card>
 
           <Text variant="body" color="secondary" style={styles.confirmLabel}>
-            Onaylamak için işletme adınızı yazın:
+            {t('settings:account.confirmLabel')}
           </Text>
 
           <Text variant="h3" color="primary" style={styles.isletmeAdi}>
@@ -99,7 +101,7 @@ export default function HesapSilPage() {
           </Text>
 
           <Input
-            placeholder="İşletme adını yazın"
+            placeholder={t('settings:account.confirmPlaceholder')}
             value={confirmText}
             onChangeText={setConfirmText}
             autoCapitalize="none"
@@ -113,7 +115,7 @@ export default function HesapSilPage() {
               style={styles.cancelButton}
               disabled={isDeleting}
             >
-              Vazgeç
+              {t('common:buttons.cancel')}
             </Button>
 
             <Button
@@ -124,7 +126,7 @@ export default function HesapSilPage() {
               style={[styles.deleteButton, { backgroundColor: isConfirmValid ? colors.error : colors.textMuted }]}
               icon={<Trash2 size={18} color={colors.surface} />}
             >
-              Hesabı Sil
+              {t('settings:account.deleteAccount')}
             </Button>
           </View>
         </View>

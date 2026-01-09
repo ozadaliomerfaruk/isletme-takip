@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   Plus,
   TrendingUp,
@@ -65,36 +66,37 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'spray-can': SprayCan, 'construction': Construction,
 };
 
-const typeOptions = [
-  { label: 'Gelir', value: 'gelir' },
-  { label: 'Gider', value: 'gider' },
-];
-
 export default function KategorilerPage() {
   const router = useRouter();
+  const { t } = useTranslation(['categories', 'common', 'errors']);
   const [selectedType, setSelectedType] = useState<KategoriType>('gelir');
+
+  const typeOptions = [
+    { label: t('categories:types.gelir'), value: 'gelir' },
+    { label: t('categories:types.gider'), value: 'gider' },
+  ];
 
   const { flatList, isLoading } = useKategorilerHierarchical(selectedType);
   const deleteKategori = useDeleteKategori();
 
   const handleDelete = (id: string, name: string, hasChildren: boolean) => {
     const message = hasChildren
-      ? `"${name}" kategorisi ve tüm alt kategorileri silinecek. Devam etmek istiyor musunuz?`
-      : `"${name}" kategorisini silmek istediğinizden emin misiniz?`;
+      ? t('categories:deleteConfirm.messageWithChildren', { name })
+      : t('categories:deleteConfirm.messageSimple', { name });
 
     Alert.alert(
-      'Kategoriyi Sil',
+      t('categories:deleteConfirm.title'),
       message,
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteKategori.mutateAsync(id);
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'Kategori silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('errors:category.deleteFailed'));
             }
           },
         },
@@ -144,7 +146,7 @@ export default function KategorilerPage() {
               icon={<Plus size={18} color={colors.surface} />}
               onPress={() => router.push('/kategoriler/ekle')}
             >
-              Kategori Ekle
+              {t('categories:titles.addCategory')}
             </Button>
           </View>
 
@@ -152,14 +154,14 @@ export default function KategorilerPage() {
           <View style={styles.content}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <Text color="secondary">Yükleniyor...</Text>
+                <Text color="secondary">{t('common:status.loading')}</Text>
               </View>
             ) : !flatList || flatList.length === 0 ? (
               <EmptyState
                 icon={<Tag size={48} color={colors.textMuted} />}
-                title={`${selectedType === 'gelir' ? 'Gelir' : 'Gider'} kategorisi yok`}
-                description="Yeni kategori ekleyerek başlayın"
-                actionLabel="Kategori Ekle"
+                title={selectedType === 'gelir' ? t('categories:messages.noIncomeCategory') : t('categories:messages.noExpenseCategory')}
+                description={t('categories:messages.addFirst')}
+                actionLabel={t('categories:titles.addCategory')}
                 onAction={() => router.push('/kategoriler/ekle')}
               />
             ) : (
@@ -186,7 +188,7 @@ export default function KategorilerPage() {
                           )}
                         </View>
                         <Text variant="caption" color="secondary">
-                          {kategori.level > 0 ? 'Alt Kategori' : (kategori.type === 'gelir' ? 'Gelir Kategorisi' : 'Gider Kategorisi')}
+                          {kategori.level > 0 ? t('categories:typeLabels.subCategory') : (kategori.type === 'gelir' ? t('categories:typeLabels.incomeCategory') : t('categories:typeLabels.expenseCategory'))}
                         </Text>
                       </View>
                       <View style={styles.kategoriActions}>
@@ -218,7 +220,7 @@ export default function KategorilerPage() {
           {/* Bilgi */}
           <View style={styles.infoContainer}>
             <Text variant="caption" color="muted" style={styles.infoText}>
-              Kategoriler, gelir ve gider işlemlerinizi gruplamak için kullanılır.
+              {t('categories:messages.infoText')}
             </Text>
           </View>
         </ScrollView>

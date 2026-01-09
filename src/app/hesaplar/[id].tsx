@@ -26,11 +26,13 @@ import { useHesap, useDeleteHesap } from '@/hooks/useHesaplar';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
+import { useTranslation } from 'react-i18next';
 
 export default function HesapHareketleriPage() {
   console.log('=== HESAP DETAY SAYFASI YUKLENDI ===');
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useTranslation(['accounts', 'common', 'errors']);
 
   const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByHesap(id!);
@@ -137,19 +139,19 @@ export default function HesapHareketleriPage() {
   const getHareketLabel = (type: string) => {
     switch (type) {
       case 'gelir':
-        return 'Gelir';
+        return t('accounts:transactionLabels.gelir');
       case 'gider':
-        return 'Gider';
+        return t('accounts:transactionLabels.gider');
       case 'transfer':
-        return 'Transfer';
+        return t('accounts:transactionLabels.transfer');
       case 'cari_odeme':
-        return 'Cari Ödeme';
+        return t('accounts:transactionLabels.cariOdeme');
       case 'cari_tahsilat':
-        return 'Cari Tahsilat';
+        return t('accounts:transactionLabels.cariTahsilat');
       case 'personel_odeme':
-        return 'Personel Ödeme';
+        return t('accounts:transactionLabels.personelOdeme');
       case 'personel_gider':
-        return 'Personel Gider';
+        return t('accounts:transactionLabels.personelGider');
       default:
         return type;
     }
@@ -180,18 +182,18 @@ export default function HesapHareketleriPage() {
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
-      'İşlemi Sil',
-      'Bu işlemi silmek istediğinizden emin misiniz?',
+      t('accounts:deleteConfirm.transactionTitle'),
+      t('accounts:deleteConfirm.transactionMessage'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteIslem.mutateAsync(islemId);
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'İşlem silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('errors:transaction.deleteFailed'));
             }
           },
         },
@@ -201,19 +203,19 @@ export default function HesapHareketleriPage() {
 
   const handleDeleteHesap = () => {
     Alert.alert(
-      'Hesabı Sil',
-      'Bu hesabı silmek istediğinizden emin misiniz?\n\nDikkat: Bu hesaba ait tüm gelir, gider ve transfer işlemleri de silinecektir. Bu işlem geri alınamaz.',
+      t('accounts:deleteConfirm.accountTitle'),
+      t('accounts:deleteConfirm.accountMessage'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteHesap.mutateAsync(id!);
               router.replace('/(tabs)');
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'Hesap silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('errors:account.deleteFailed'));
             }
           },
         },
@@ -238,7 +240,7 @@ export default function HesapHareketleriPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yükleniyor...</Text>
+          <Text>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -249,8 +251,8 @@ export default function HesapHareketleriPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <EmptyState
           icon={<Wallet size={48} color={colors.textMuted} />}
-          title="Hesap bulunamadı"
-          description="Bu hesap mevcut değil veya silinmiş olabilir."
+          title={t('errors:account.notFound')}
+          description={t('accounts:details.notFoundDescription')}
         />
       </SafeAreaView>
     );
@@ -273,7 +275,7 @@ export default function HesapHareketleriPage() {
               </View>
               <View style={styles.summaryInfo}>
                 <Text variant="caption" color="secondary">
-                  Mevcut Bakiye
+                  {t('accounts:balance.currentBalance')}
                 </Text>
                 <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
                   {formatCurrency(Number(hesap.balance))}
@@ -288,7 +290,7 @@ export default function HesapHareketleriPage() {
                 onPress={() => router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } })}
                 style={styles.hesapActionBtn}
               >
-                Düzenle
+                {t('common:buttons.edit')}
               </Button>
               <Button
                 variant="outline"
@@ -297,7 +299,7 @@ export default function HesapHareketleriPage() {
                 onPress={handleDeleteHesap}
                 style={styles.hesapActionBtn}
               >
-                Sil
+                {t('common:buttons.delete')}
               </Button>
             </View>
           </Card>
@@ -311,7 +313,7 @@ export default function HesapHareketleriPage() {
               onPress={() => openTransaction('gelir')}
               style={styles.actionBtn}
             >
-              Gelir
+              {t('accounts:transactionLabels.gelir')}
             </Button>
             <Button
               variant="secondary"
@@ -320,7 +322,7 @@ export default function HesapHareketleriPage() {
               onPress={() => openTransaction('gider')}
               style={styles.actionBtn}
             >
-              Gider
+              {t('accounts:transactionLabels.gider')}
             </Button>
             <Button
               variant="outline"
@@ -329,7 +331,7 @@ export default function HesapHareketleriPage() {
               onPress={() => router.push({ pathname: '/islemler/transfer', params: { hesap_id: id } })}
               style={styles.actionBtn}
             >
-              Transfer
+              {t('accounts:transactionLabels.transfer')}
             </Button>
           </View>
 
@@ -342,11 +344,11 @@ export default function HesapHareketleriPage() {
 
             {/* Hareketler */}
             <Text variant="h3" style={styles.sectionTitle}>
-              Hareketler
+              {t('accounts:details.hareketler')}
             </Text>
 
             {islemlerLoading ? (
-              <Text color="secondary">Yükleniyor...</Text>
+              <Text color="secondary">{t('common:status.loading')}</Text>
             ) : (
               <>
                 {islemler && islemler.length > 0 && islemler.map((islem) => {
@@ -407,7 +409,7 @@ export default function HesapHareketleriPage() {
                         <View style={styles.timeRow}>
                           <Clock size={14} color={colors.textMuted} />
                           <Text variant="caption" color="secondary">
-                            Saat: {formatTime(islem.date)}
+                            {t('accounts:details.time')} {formatTime(islem.date)}
                           </Text>
                         </View>
                       )}
@@ -419,7 +421,7 @@ export default function HesapHareketleriPage() {
                           onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
                           style={styles.actionButton}
                         >
-                          Düzenle
+                          {t('common:buttons.edit')}
                         </Button>
                         <Button
                           variant="outline"
@@ -428,7 +430,7 @@ export default function HesapHareketleriPage() {
                           onPress={() => handleDelete(islem.id)}
                           style={styles.actionButton}
                         >
-                          Sil
+                          {t('common:buttons.delete')}
                         </Button>
                       </View>
                     </ExpandableCard>
@@ -442,9 +444,9 @@ export default function HesapHareketleriPage() {
                       <CircleDollarSign size={20} color={colors.primary} />
                     </View>
                     <View style={styles.hareketInfo}>
-                      <Text variant="body">Başlangıç Bakiyesi</Text>
+                      <Text variant="body">{t('accounts:details.initialBalance')}</Text>
                       <Text variant="caption" color="secondary">
-                        Hesap açılışı • {formatDateShort(hesap?.created_at || '')}
+                        {t('accounts:details.accountOpening')} • {formatDateShort(hesap?.created_at || '')}
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'primary' : 'error'}>

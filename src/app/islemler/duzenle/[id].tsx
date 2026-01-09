@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -23,10 +24,12 @@ import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
+import { getIslemTypeLabel } from '@/lib/icons';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'cariler', 'personel']);
 
   const { data: islem, isLoading: islemLoading } = useIslem(id);
   const updateIslem = useUpdateIslem();
@@ -83,11 +86,11 @@ export default function IslemDuzenlePage() {
     const newErrors: { amount?: string; hesap?: string } = {};
 
     if (!isValidAmount(amount)) {
-      newErrors.amount = 'Geçerli bir tutar girin';
+      newErrors.amount = t('errors:validation.invalidAmount');
     }
 
     if (needsHesap && !hesapId) {
-      newErrors.hesap = 'Hesap seçin';
+      newErrors.hesap = t('errors:account.selectAccount');
     }
 
     setErrors(newErrors);
@@ -112,11 +115,11 @@ export default function IslemDuzenlePage() {
         },
       });
 
-      Alert.alert('Başarılı', 'İşlem güncellendi', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('transactions:messages.transactionUpdated'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'İşlem güncellenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:transaction.updateFailed'));
     }
   };
 
@@ -125,7 +128,7 @@ export default function IslemDuzenlePage() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text color="secondary" style={{ marginTop: spacing.md }}>Yükleniyor...</Text>
+          <Text color="secondary" style={{ marginTop: spacing.md }}>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -135,9 +138,9 @@ export default function IslemDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text color="error">İşlem bulunamadı</Text>
+          <Text color="error">{t('transactions:messages.transactionNotFound')}</Text>
           <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
-            Geri Dön
+            {t('common:buttons.back')}
           </Button>
         </View>
       </SafeAreaView>
@@ -148,7 +151,7 @@ export default function IslemDuzenlePage() {
     <>
       <Stack.Screen
         options={{
-          headerTitle: 'İşlemi Düzenle',
+          headerTitle: t('transactions:titles.editTransaction'),
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -164,9 +167,9 @@ export default function IslemDuzenlePage() {
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text variant="h2">{ISLEM_TYPE_LABELS[islemType!]} Düzenle</Text>
+              <Text variant="h2">{getIslemTypeLabel(islemType!)} {t('common:buttons.edit')}</Text>
               <Text variant="caption" color="secondary">
-                İşlem tipi değiştirilemez
+                {t('transactions:messages.typeCannotChange')}
               </Text>
             </View>
 
@@ -174,7 +177,7 @@ export default function IslemDuzenlePage() {
             <View style={styles.section}>
               {/* Tutar */}
               <CurrencyInput
-                label="Tutar"
+                label={t('transactions:form.amount')}
                 value={amount}
                 onChangeText={setAmount}
                 error={errors.amount}
@@ -184,7 +187,7 @@ export default function IslemDuzenlePage() {
               {needsHesap && (
                 <View style={[styles.pickerContainer, { zIndex: 50 }]}>
                   <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                    Hesap
+                    {t('transactions:form.account')}
                   </Text>
                   <TouchableOpacity
                     style={[styles.picker, errors.hesap && styles.pickerError]}
@@ -196,7 +199,7 @@ export default function IslemDuzenlePage() {
                     }}
                   >
                     <Text variant="body">
-                      {selectedHesap?.name || 'Hesap seçin'}
+                      {selectedHesap?.name || t('transactions:form.accountPlaceholder')}
                     </Text>
                     <ChevronDown size={20} color={colors.textMuted} />
                   </TouchableOpacity>
@@ -233,7 +236,7 @@ export default function IslemDuzenlePage() {
               {needsHedefHesap && (
                 <View style={[styles.pickerContainer, { zIndex: 45 }]}>
                   <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                    Hedef Hesap
+                    {t('transactions:form.targetAccount')}
                   </Text>
                   <TouchableOpacity
                     style={styles.picker}
@@ -245,7 +248,7 @@ export default function IslemDuzenlePage() {
                     }}
                   >
                     <Text variant="body">
-                      {selectedHedefHesap?.name || 'Hedef hesap seçin'}
+                      {selectedHedefHesap?.name || t('transactions:form.selectTargetAccount')}
                     </Text>
                     <ChevronDown size={20} color={colors.textMuted} />
                   </TouchableOpacity>
@@ -279,7 +282,7 @@ export default function IslemDuzenlePage() {
                   value={kategoriId}
                   onChange={setKategoriId}
                   type={islemType === 'gelir' || islemType === 'cari_satis' ? 'gelir' : 'gider'}
-                  label="Kategori"
+                  label={t('transactions:form.category')}
                 />
               )}
 
@@ -287,7 +290,7 @@ export default function IslemDuzenlePage() {
               {needsCari && (
                 <View style={[styles.pickerContainer, { zIndex: 35 }]}>
                   <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                    Cari
+                    {t('cariler:titles.client')}
                   </Text>
                   <TouchableOpacity
                     style={styles.picker}
@@ -300,11 +303,11 @@ export default function IslemDuzenlePage() {
                   >
                     <View>
                       <Text variant="body">
-                        {selectedCari?.name || 'Cari seçin'}
+                        {selectedCari?.name || t('cariler:form.selectClient')}
                       </Text>
                       {selectedCari && (
                         <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
-                          Bakiye: {formatCurrency(Number(selectedCari.balance))}
+                          {t('common:currency.balance')} {formatCurrency(Number(selectedCari.balance))}
                         </Text>
                       )}
                     </View>
@@ -338,7 +341,7 @@ export default function IslemDuzenlePage() {
               {needsPersonel && (
                 <View style={[styles.pickerContainer, { zIndex: 30 }]}>
                   <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                    Personel
+                    {t('personel:titles.personnel')}
                   </Text>
                   <TouchableOpacity
                     style={styles.picker}
@@ -353,11 +356,11 @@ export default function IslemDuzenlePage() {
                       <Text variant="body">
                         {selectedPersonel
                           ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
-                          : 'Personel seçin'}
+                          : t('personel:form.selectPersonnel')}
                       </Text>
                       {selectedPersonel && (
                         <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
-                          Borc: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                          {t('personel:balance.debt')} {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
                         </Text>
                       )}
                     </View>
@@ -389,15 +392,15 @@ export default function IslemDuzenlePage() {
 
               {/* Tarih ve Saat */}
               <DateTimePicker
-                label="Tarih ve Saat"
+                label={t('transactions:form.dateTime')}
                 value={date ? parseDateFromDB(date) : new Date()}
                 onChange={(newDate) => setDate(formatDateTimeForDB(newDate))}
               />
 
               {/* Açıklama */}
               <Input
-                label="Açıklama (Opsiyonel)"
-                placeholder="İşlem hakkında not..."
+                label={t('transactions:form.descriptionOptional')}
+                placeholder={t('transactions:form.transactionNote')}
                 multiline
                 numberOfLines={3}
                 value={description}
@@ -413,7 +416,7 @@ export default function IslemDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                İptal
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -422,7 +425,7 @@ export default function IslemDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Güncelle
+                {t('common:buttons.update')}
               </Button>
             </View>
           </ScrollView>

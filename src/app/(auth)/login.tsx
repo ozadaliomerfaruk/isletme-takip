@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Mail, Lock } from 'lucide-react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
+import { useTranslation } from 'react-i18next';
 import { Text, Input, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -26,6 +27,7 @@ const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useTranslation(['auth', 'common', 'errors']);
   const { signIn, signInWithApple, signInWithGoogle, isAppleSignInAvailable, loading } = useAuthContext();
 
   const [email, setEmail] = useState('');
@@ -59,7 +61,7 @@ export default function LoginPage() {
           try {
             await signInWithGoogle(id_token);
           } catch (error: any) {
-            Alert.alert('Hata', error.message || 'Google ile giriş başarısız oldu');
+            Alert.alert(t('common:status.error'), error.message || t('errors:auth.invalidCredentials'));
           } finally {
             setSocialLoading(null);
           }
@@ -67,16 +69,16 @@ export default function LoginPage() {
       }
     } else if (response.type === 'error') {
       setSocialLoading(null);
-      Alert.alert('Hata', 'Google ile giriş başarısız oldu');
+      Alert.alert(t('common:status.error'), t('errors:auth.invalidCredentials'));
     }
-  }, [response, signInWithGoogle]);
+  }, [response, signInWithGoogle, t]);
 
   const handleAppleSignIn = async () => {
     try {
       setSocialLoading('apple');
       await signInWithApple();
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Apple ile giriş başarısız oldu');
+      Alert.alert(t('common:status.error'), error.message || t('errors:auth.invalidCredentials'));
     } finally {
       setSocialLoading(null);
     }
@@ -91,15 +93,15 @@ export default function LoginPage() {
     const newErrors: { email?: string; password?: string } = {};
 
     if (!email) {
-      newErrors.email = 'E-posta gerekli';
+      newErrors.email = t('errors:validation.required');
     } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Geçerli bir e-posta girin';
+      newErrors.email = t('errors:auth.invalidEmail');
     }
 
     if (!password) {
-      newErrors.password = 'Şifre gerekli';
+      newErrors.password = t('errors:validation.required');
     } else if (password.length < 6) {
-      newErrors.password = 'Şifre en az 6 karakter olmalı';
+      newErrors.password = t('errors:auth.invalidPassword');
     }
 
     setErrors(newErrors);
@@ -114,10 +116,10 @@ export default function LoginPage() {
       // Auth context router'ı yönlendirecek
     } catch (error: any) {
       Alert.alert(
-        'Giriş Hatası',
+        t('common:status.error'),
         error.message === 'Invalid login credentials'
-          ? 'E-posta veya şifre hatalı'
-          : error.message || 'Bir hata oluştu'
+          ? t('errors:auth.invalidCredentials')
+          : error.message || t('errors:general.generic')
       );
     }
   };
@@ -136,10 +138,10 @@ export default function LoginPage() {
           {/* Logo / Başlık */}
           <View style={styles.header}>
             <Text variant="h1" style={styles.logo}>
-              İşletme Takip
+              Defter
             </Text>
             <Text variant="body" color="secondary" center>
-              İşletmenizi kolayca yönetin
+              {t('auth:login.subtitle')}
             </Text>
           </View>
 
@@ -169,7 +171,7 @@ export default function LoginPage() {
                   <View style={styles.googleIconContainer}>
                     <Text style={styles.googleIcon}>G</Text>
                   </View>
-                  <Text style={styles.googleButtonText}>Google ile Giriş Yap</Text>
+                  <Text style={styles.googleButtonText}>Google {t('auth:login.orContinueWith')}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -178,15 +180,15 @@ export default function LoginPage() {
           {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>veya</Text>
+            <Text style={styles.dividerText}>{t('auth:login.orContinueWith')}</Text>
             <View style={styles.dividerLine} />
           </View>
 
           {/* Email/Password Form */}
           <View style={styles.form}>
             <Input
-              label="E-posta"
-              placeholder="ornek@email.com"
+              label={t('auth:login.email')}
+              placeholder={t('auth:login.emailPlaceholder')}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -197,8 +199,8 @@ export default function LoginPage() {
             />
 
             <Input
-              label="Şifre"
-              placeholder="Şifrenizi girin"
+              label={t('auth:login.password')}
+              placeholder={t('auth:login.passwordPlaceholder')}
               secureTextEntry
               value={password}
               onChangeText={setPassword}
@@ -214,18 +216,18 @@ export default function LoginPage() {
               onPress={handleLogin}
               style={styles.loginButton}
             >
-              Giriş Yap
+              {t('auth:login.loginButton')}
             </Button>
           </View>
 
           {/* Kayıt Ol */}
           <View style={styles.footer}>
             <Text variant="body" color="secondary">
-              Hesabınız yok mu?{' '}
+              {t('auth:login.noAccount')}{' '}
             </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/register')}>
               <Text variant="body" style={{ color: colors.primary }}>
-                Kayıt Ol
+                {t('auth:login.register')}
               </Text>
             </TouchableOpacity>
           </View>

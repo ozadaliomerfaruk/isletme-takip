@@ -11,6 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import {
   Wallet,
   Calendar,
@@ -60,6 +61,7 @@ export function TransactionSheet({
   onSuccess,
 }: TransactionSheetProps) {
   console.log('TransactionSheet render, visible:', visible);
+  const { t } = useTranslation(['transactions', 'common']);
   const insets = useSafeAreaInsets();
 
   // State Machine
@@ -249,7 +251,8 @@ export function TransactionSheet({
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      Alert.alert('Hata', 'İşlem kaydedilemedi. Lütfen tekrar deneyin.');
+      // TODO i18n: transactions:messages.saveFailedRetry
+      Alert.alert(t('common:status.error'), 'İşlem kaydedilemedi. Lütfen tekrar deneyin.');
     }
   }, [
     selectedHesapId,

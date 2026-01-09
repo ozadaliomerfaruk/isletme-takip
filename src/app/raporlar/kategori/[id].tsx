@@ -32,6 +32,7 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateMedium } from '@/lib/date';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
 import { IslemWithRelations, KategoriType } from '@/types/database';
+import { useTranslation } from 'react-i18next';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -74,6 +75,7 @@ export default function KategoriDetayPage() {
     startDate: string;
     endDate: string;
   }>();
+  const { t } = useTranslation(['reports', 'common', 'errors']);
 
   const isUncategorized = id === 'uncategorized';
   const kategoriId = isUncategorized ? null : id;
@@ -158,18 +160,15 @@ export default function KategoriDetayPage() {
   const filteredCount = filteredIslemler?.length ?? 0;
 
   // Sayfa başlığı
-  const pageTitle = isUncategorized ? 'Kategorisiz' : (subCategoryReport.parentKategori?.name || 'Kategori Detayı');
+  const pageTitle = isUncategorized ? t('reports:titles.uncategorized') : (subCategoryReport.parentKategori?.name || t('reports:titles.categoryDetail'));
 
   // Tarih aralığını formatla
   const formatDateRange = () => {
     if (!startDate || !endDate) return '';
     const start = new Date(startDate + 'T00:00:00');
     const end = new Date(endDate + 'T00:00:00');
-    const months = [
-      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
-    ];
 
+    const months = t('reports:months', { returnObjects: true }) as string[];
     if (start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear()) {
       return `${months[start.getMonth()]} ${start.getFullYear()}`;
     }
@@ -285,7 +284,7 @@ export default function KategoriDetayPage() {
         <Text variant="body" style={styles.checkboxLabel}>{label}</Text>
       </View>
       <View style={styles.checkboxRight}>
-        <Text variant="caption" color="secondary">{count} işlem</Text>
+        <Text variant="caption" color="secondary">{t('reports:counts.transaction', { count })}</Text>
         <Text variant="label" color={type === 'gelir' ? 'success' : 'error'}>
           {formatCurrency(amount)}
         </Text>
@@ -310,7 +309,7 @@ export default function KategoriDetayPage() {
         <View style={styles.summaryDivider} />
         <View style={styles.summaryStats}>
           <View style={styles.statItem}>
-            <Text variant="caption" color="secondary">Toplam Tutar</Text>
+            <Text variant="caption" color="secondary">{t('reports:summary.totalAmount')}</Text>
             <Text
               variant="h2"
               color={type === 'gelir' ? 'success' : 'error'}
@@ -319,7 +318,7 @@ export default function KategoriDetayPage() {
             </Text>
           </View>
           <View style={styles.statItem}>
-            <Text variant="caption" color="secondary">İşlem Sayısı</Text>
+            <Text variant="caption" color="secondary">{t('reports:summary.transactionCount')}</Text>
             <Text variant="h2">{subCategoryReport.totalCount}</Text>
           </View>
         </View>
@@ -329,10 +328,10 @@ export default function KategoriDetayPage() {
       {subCategoryReport.subCategories.length > 0 && (
         <Card style={styles.filterCard}>
           <View style={styles.filterHeader}>
-            <Text variant="label" color="secondary">KATEGORİ FİLTRESİ</Text>
+            <Text variant="label" color="secondary">{t('reports:sections.categoryFilter')}</Text>
             <TouchableOpacity onPress={toggleAllSubCategories}>
               <Text variant="caption" color="primary">
-                {allSubCategoriesSelected ? 'Hiçbirini Seçme' : 'Tümünü Seç'}
+                {allSubCategoriesSelected ? t('reports:categoryDetail.selectNone') : t('reports:categoryDetail.selectAll')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -342,7 +341,7 @@ export default function KategoriDetayPage() {
             <Checkbox
               checked={includeParentCategory}
               onPress={() => setIncludeParentCategory(!includeParentCategory)}
-              label={`${pageTitle} (doğrudan)`}
+              label={`${pageTitle} ${t('reports:categoryDetail.direct')}`}
               amount={subCategoryReport.parentTotal}
               count={subCategoryReport.parentCount}
             />
@@ -366,7 +365,7 @@ export default function KategoriDetayPage() {
       {selectedKategoriIds.length > 0 && (
         <View style={styles.selectedHeader}>
           <Text variant="label" color="secondary">
-            SEÇİLEN İŞLEMLER ({filteredCount})
+            {t('reports:sections.selectedTransactions')} ({filteredCount})
           </Text>
           <Text variant="label" color={type === 'gelir' ? 'success' : 'error'}>
             {formatCurrency(filteredTotal)}
@@ -381,8 +380,8 @@ export default function KategoriDetayPage() {
     <Card style={styles.emptyCard}>
       <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
         {selectedKategoriIds.length === 0
-          ? 'Lütfen görmek istediğiniz kategorileri seçin'
-          : 'Seçili kategorilerde işlem bulunmuyor'}
+          ? t('reports:empty.selectCategories')
+          : t('reports:empty.noSelectedCategoryTransactions')}
       </Text>
     </Card>
   );
@@ -396,7 +395,7 @@ export default function KategoriDetayPage() {
     if (uncategorizedLoading) {
       return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-          <Stack.Screen options={{ title: 'Kategorisiz' }} />
+          <Stack.Screen options={{ title: t('reports:titles.uncategorized') }} />
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
@@ -408,8 +407,8 @@ export default function KategoriDetayPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <Stack.Screen
           options={{
-            title: 'Kategorisiz',
-            headerBackTitle: 'Raporlar',
+            title: t('reports:titles.uncategorized'),
+            headerBackTitle: t('reports:titles.reports'),
           }}
         />
 
@@ -423,7 +422,7 @@ export default function KategoriDetayPage() {
                 <View style={styles.summaryHeader}>
                   {getCategoryIcon()}
                   <View style={styles.summaryInfo}>
-                    <Text variant="h3">Kategorisiz</Text>
+                    <Text variant="h3">{t('reports:titles.uncategorized')}</Text>
                     <Text variant="caption" color="secondary">
                       {formatDateRange()}
                     </Text>
@@ -432,7 +431,7 @@ export default function KategoriDetayPage() {
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryStats}>
                   <View style={styles.statItem}>
-                    <Text variant="caption" color="secondary">Toplam Tutar</Text>
+                    <Text variant="caption" color="secondary">{t('reports:summary.totalAmount')}</Text>
                     <Text
                       variant="h2"
                       color={type === 'gelir' ? 'success' : 'error'}
@@ -441,21 +440,21 @@ export default function KategoriDetayPage() {
                     </Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text variant="caption" color="secondary">İşlem Sayısı</Text>
+                    <Text variant="caption" color="secondary">{t('reports:summary.transactionCount')}</Text>
                     <Text variant="h2">{uncategorizedCount}</Text>
                   </View>
                 </View>
               </Card>
 
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                İŞLEMLER
+                {t('reports:sections.transactions')}
               </Text>
             </View>
           )}
           ListEmptyComponent={() => (
             <Card style={styles.emptyCard}>
               <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
-                Kategorisiz işlem bulunmuyor
+                {t('reports:empty.noUncategorizedTransactions')}
               </Text>
             </Card>
           )}
@@ -485,7 +484,7 @@ export default function KategoriDetayPage() {
         <Stack.Screen options={{ title: pageTitle }} />
         <View style={styles.errorContainer}>
           <Text variant="body" color="error">
-            Veriler yüklenirken bir hata oluştu
+            {t('reports:empty.dataLoadError')}
           </Text>
         </View>
       </SafeAreaView>
@@ -499,7 +498,7 @@ export default function KategoriDetayPage() {
         <Stack.Screen
           options={{
             title: pageTitle,
-            headerBackTitle: 'Raporlar',
+            headerBackTitle: t('reports:titles.reports'),
           }}
         />
 
@@ -522,7 +521,7 @@ export default function KategoriDetayPage() {
                 <View style={styles.summaryDivider} />
                 <View style={styles.summaryStats}>
                   <View style={styles.statItem}>
-                    <Text variant="caption" color="secondary">Toplam Tutar</Text>
+                    <Text variant="caption" color="secondary">{t('reports:summary.totalAmount')}</Text>
                     <Text
                       variant="h2"
                       color={type === 'gelir' ? 'success' : 'error'}
@@ -531,21 +530,21 @@ export default function KategoriDetayPage() {
                     </Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text variant="caption" color="secondary">İşlem Sayısı</Text>
+                    <Text variant="caption" color="secondary">{t('reports:summary.transactionCount')}</Text>
                     <Text variant="h2">{subCategoryReport.totalCount}</Text>
                   </View>
                 </View>
               </Card>
 
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                İŞLEMLER
+                {t('reports:sections.transactions')}
               </Text>
             </View>
           )}
           ListEmptyComponent={() => (
             <Card style={styles.emptyCard}>
               <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
-                Bu kategoride işlem bulunmuyor
+                {t('reports:empty.noCategoryTransactions')}
               </Text>
             </Card>
           )}
@@ -561,7 +560,7 @@ export default function KategoriDetayPage() {
       <Stack.Screen
         options={{
           title: pageTitle,
-          headerBackTitle: 'Raporlar',
+          headerBackTitle: t('reports:titles.reports'),
         }}
       />
 

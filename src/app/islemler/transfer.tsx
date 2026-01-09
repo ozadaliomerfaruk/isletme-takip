@@ -20,10 +20,12 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
+import { getIslemTypeLabel } from '@/lib/icons';
+import { useTranslation } from 'react-i18next';
 
 export default function TransferPage() {
   const router = useRouter();
+  const { t } = useTranslation(['transactions', 'common', 'errors']);
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
 
@@ -58,19 +60,19 @@ export default function TransferPage() {
     const newErrors: { amount?: string; kaynak?: string; hedef?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
-      newErrors.amount = 'Geçerli bir tutar girin';
+      newErrors.amount = t('errors:validation.invalidAmount');
     }
 
     if (!kaynakHesapId) {
-      newErrors.kaynak = 'Kaynak hesap seçin';
+      newErrors.kaynak = t('errors:account.selectSourceAccount');
     }
 
     if (!hedefHesapId) {
-      newErrors.hedef = 'Hedef hesap seçin';
+      newErrors.hedef = t('errors:account.selectTargetAccount');
     }
 
     if (kaynakHesapId === hedefHesapId) {
-      newErrors.hedef = 'Kaynak ve hedef hesap aynı olamaz';
+      newErrors.hedef = t('errors:account.sameAccountError');
     }
 
     if (isIleriTarihli) {
@@ -80,7 +82,7 @@ export default function TransferPage() {
       selected.setHours(0, 0, 0, 0);
 
       if (selected <= today) {
-        newErrors.date = 'İleri tarihli işlem için bugünden sonraki bir tarih seçin';
+        newErrors.date = t('errors:transaction.futureDateRequired');
       }
     }
 
@@ -103,7 +105,6 @@ export default function TransferPage() {
           scheduled_date: scheduledDate,
         });
 
-        // Hatırlatıcı aktifse bildirim planla
         if (reminderConfig.enabled && result?.id) {
           const reminderDate = calculateReminderDate(
             scheduledDate,
@@ -113,8 +114,8 @@ export default function TransferPage() {
 
           await scheduleTransactionReminder(
             result.id,
-            'Yaklaşan İşlem Hatırlatması',
-            `${ISLEM_TYPE_LABELS.transfer}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            t('transactions:notifications.reminderTitle'),
+            `${getIslemTypeLabel('transfer')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -124,8 +125,8 @@ export default function TransferPage() {
           );
         }
 
-        Alert.alert('Başarılı', 'İleri tarihli transfer oluşturuldu', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('transactions:messages.scheduledCreated'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
         await createIslem.mutateAsync({
@@ -137,12 +138,12 @@ export default function TransferPage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert('Başarılı', 'Transfer yapıldı', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('transactions:messages.transferCompleted'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Transfer yapılamadı');
+      Alert.alert(t('common:status.error'), error.message || t('errors:account.transferFailed'));
     }
   };
 
@@ -165,7 +166,7 @@ export default function TransferPage() {
         >
           <View style={styles.header}>
             <View style={styles.headerRow}>
-              <Text variant="h2" style={styles.headerTitle}>Hesaplar Arası Transfer</Text>
+              <Text variant="h2" style={styles.headerTitle}>{t('transactions:titles.transferBetweenAccounts')}</Text>
               <TouchableOpacity
                 style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
                 onPress={() => {
@@ -183,7 +184,7 @@ export default function TransferPage() {
             {isIleriTarihli && (
               <View style={styles.ileriTarihliIndicator}>
                 <Text variant="caption" style={styles.ileriTarihliText}>
-                  İleri Tarihli İşlem
+                  {t('transactions:scheduled.title')}
                 </Text>
               </View>
             )}
@@ -191,7 +192,7 @@ export default function TransferPage() {
 
           <View style={styles.section}>
             <CurrencyInput
-              label="Tutar"
+              label={t('transactions:form.amount')}
               value={amount}
               onChangeText={setAmount}
               error={errors.amount}
@@ -200,7 +201,7 @@ export default function TransferPage() {
             {/* Kaynak Hesap */}
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Kaynak Hesap
+                {t('transactions:form.sourceAccount')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.kaynak && styles.pickerError]}
@@ -210,10 +211,10 @@ export default function TransferPage() {
                 }}
               >
                 <View>
-                  <Text variant="body">{kaynakHesap?.name || 'Hesap seçin'}</Text>
+                  <Text variant="body">{kaynakHesap?.name || t('transactions:form.accountPlaceholder')}</Text>
                   {kaynakHesap && (
                     <Text variant="caption" color="secondary">
-                      Bakiye: {formatCurrency(Number(kaynakHesap.balance))}
+                      {t('common:currency.balance')}: {formatCurrency(Number(kaynakHesap.balance))}
                     </Text>
                   )}
                 </View>
@@ -258,7 +259,7 @@ export default function TransferPage() {
             {/* Hedef Hesap */}
             <View style={[styles.pickerContainer, { zIndex: 10 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Hedef Hesap
+                {t('transactions:form.targetAccount')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.hedef && styles.pickerError]}
@@ -268,10 +269,10 @@ export default function TransferPage() {
                 }}
               >
                 <View>
-                  <Text variant="body">{hedefHesap?.name || 'Hesap seçin'}</Text>
+                  <Text variant="body">{hedefHesap?.name || t('transactions:form.accountPlaceholder')}</Text>
                   {hedefHesap && (
                     <Text variant="caption" color="secondary">
-                      Bakiye: {formatCurrency(Number(hedefHesap.balance))}
+                      {t('common:currency.balance')}: {formatCurrency(Number(hedefHesap.balance))}
                     </Text>
                   )}
                 </View>
@@ -309,7 +310,7 @@ export default function TransferPage() {
             </View>
 
             <DateTimePicker
-              label={isIleriTarihli ? "İşlem Tarihi" : "Tarih ve Saat"}
+              label={isIleriTarihli ? t('transactions:form.date') : t('common:labels.date')}
               value={selectedDate}
               onChange={setSelectedDate}
               mode={isIleriTarihli ? "date" : "datetime"}
@@ -324,8 +325,8 @@ export default function TransferPage() {
             )}
 
             <Input
-              label="Açıklama (Opsiyonel)"
-              placeholder="Transfer notu..."
+              label={t('transactions:form.description')}
+              placeholder={t('transactions:form.notePlaceholder')}
               multiline
               numberOfLines={2}
               value={description}
@@ -340,7 +341,7 @@ export default function TransferPage() {
               onPress={() => router.back()}
               style={styles.button}
             >
-              İptal
+              {t('common:buttons.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -349,7 +350,7 @@ export default function TransferPage() {
               onPress={handleSubmit}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              {isIleriTarihli ? 'Planla' : 'Transfer Yap'}
+              {isIleriTarihli ? t('transactions:form.schedule') : t('transactions:titles.doTransfer')}
             </Button>
           </View>
         </ScrollView>

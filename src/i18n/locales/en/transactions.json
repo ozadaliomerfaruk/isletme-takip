@@ -1,0 +1,143 @@
+{
+  "types": {
+    "gelir": "Income",
+    "gider": "Expense",
+    "transfer": "Transfer",
+    "cari_alis": "Supplier Purchase",
+    "cari_satis": "Customer Sale",
+    "cari_odeme": "Supplier Payment",
+    "cari_tahsilat": "Customer Collection",
+    "cari_alis_iade": "Purchase Return",
+    "cari_satis_iade": "Sale Return",
+    "personel_gider": "Personnel Expense",
+    "personel_odeme": "Personnel Payment",
+    "personel_tahsilat": "Personnel Collection",
+    "kredi_karti_harcama": "Credit Card Expense"
+  },
+  "accountTypes": {
+    "nakit": "Cash",
+    "banka": "Bank Account",
+    "kredi_karti": "Credit Card",
+    "diger": "Other"
+  },
+  "clientTypes": {
+    "tedarikci": "Supplier",
+    "musteri": "Customer"
+  },
+  "form": {
+    "amount": "Amount",
+    "amountPlaceholder": "Enter amount",
+    "date": "Date",
+    "dateTime": "Date and Time",
+    "transactionDate": "Transaction Date",
+    "category": "Category",
+    "categoryPlaceholder": "Select category",
+    "account": "Account",
+    "accountPlaceholder": "Select account",
+    "sourceAccount": "Source Account",
+    "targetAccount": "Target Account",
+    "description": "Description",
+    "descriptionPlaceholder": "Add description (optional)",
+    "note": "Note",
+    "notePlaceholder": "Add note...",
+    "client": "Client",
+    "clientPlaceholder": "Select client",
+    "personnel": "Personnel",
+    "personnelPlaceholder": "Select personnel",
+    "recurring": "Recurring",
+    "futureDate": "Future Date",
+    "schedule": "Schedule"
+  },
+  "titles": {
+    "addIncome": "Add Income",
+    "addExpense": "Add Expense",
+    "addTransfer": "Make Transfer",
+    "transferBetweenAccounts": "Transfer Between Accounts",
+    "doTransfer": "Transfer",
+    "editTransaction": "Edit Transaction",
+    "transactionDetails": "Transaction Details",
+    "allTransactions": "All Transactions",
+    "recentTransactions": "Recent Transactions",
+    "clientPayment": "Client Payment",
+    "clientCollection": "Client Collection",
+    "clientPurchase": "Supplier Purchase",
+    "clientSale": "Customer Sale",
+    "clientReturn": "Return",
+    "personnelExpense": "Personnel Expense",
+    "personnelPayment": "Personnel Payment",
+    "personnelCollection": "Personnel Collection"
+  },
+  "messages": {
+    "createSuccess": "Transaction saved",
+    "updateSuccess": "Transaction updated",
+    "deleteSuccess": "Transaction deleted",
+    "deleteConfirm": "Are you sure you want to delete this transaction?",
+    "noTransactions": "No transactions yet",
+    "noTransactionsInPeriod": "No transactions found in this period",
+    "saveSuccess": "Your transaction has been saved successfully",
+    "saveFailed": "Transaction could not be completed",
+    "deleteFailed": "Transaction could not be deleted",
+    "scheduledCreated": "Scheduled transaction created",
+    "incomeAdded": "Income added",
+    "expenseAdded": "Expense added",
+    "transferCompleted": "Transfer completed"
+  },
+  "notifications": {
+    "reminderTitle": "Upcoming Transaction Reminder",
+    "scheduledReminder": "Scheduled transaction reminder"
+  },
+  "filters": {
+    "all": "All",
+    "income": "Income",
+    "expense": "Expense",
+    "transfer": "Transfer",
+    "client": "Client",
+    "personnel": "Personnel",
+    "byDate": "By Date",
+    "byAmount": "By Amount",
+    "byCategory": "By Category"
+  },
+  "summary": {
+    "totalIncome": "Total Income",
+    "totalExpense": "Total Expense",
+    "netProfit": "Net Profit",
+    "netLoss": "Net Loss",
+    "balance": "Balance",
+    "transactionCount": "Transaction Count"
+  },
+  "future": {
+    "title": "Scheduled Transactions",
+    "scheduled": "Scheduled",
+    "pending": "Pending",
+    "dueDate": "Due Date",
+    "daysRemaining": "{{days}} days remaining",
+    "overdue": "Overdue",
+    "process": "Process",
+    "cancel": "Cancel"
+  },
+  "scheduled": {
+    "title": "Scheduled Transactions",
+    "overdue": "Overdue",
+    "dueToday": "Due Today",
+    "execute": "Execute",
+    "executed": "Executed",
+    "delete": "Delete Transaction",
+    "deleteConfirm": "Are you sure you want to delete this scheduled transaction?",
+    "executeConfirm": "Do you want to execute the {{type}} transaction of {{amount}}?",
+    "comingSoon": "This feature is coming soon"
+  },
+  "tabs": {
+    "gelir": "Income",
+    "gider": "Expense",
+    "transfer": "Transfer",
+    "odeme": "Payment",
+    "tahsilat": "Collection",
+    "alis": "Purchase",
+    "satis": "Sale",
+    "alis_iade": "Purchase Return",
+    "satis_iade": "Sale Return",
+    "personel_odeme": "Payment",
+    "personel_gider": "Expense",
+    "personel_tahsilat": "Collection"
+  }
+}

@@ -20,10 +20,12 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
+import { getIslemTypeLabel } from '@/lib/icons';
+import { useTranslation } from 'react-i18next';
 
 export default function CariSatisPage() {
   const router = useRouter();
+  const { t } = useTranslation(['transactions', 'common', 'errors', 'cariler']);
   const params = useLocalSearchParams<{ cari_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -56,11 +58,11 @@ export default function CariSatisPage() {
     const newErrors: { amount?: string; cari?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
-      newErrors.amount = 'Geçerli bir tutar girin';
+      newErrors.amount = t('errors:validation.invalidAmount');
     }
 
     if (!cariId) {
-      newErrors.cari = 'Müşteri seçin';
+      newErrors.cari = t('errors:cari.selectCustomer');
     }
 
     if (isIleriTarihli) {
@@ -70,7 +72,7 @@ export default function CariSatisPage() {
       selected.setHours(0, 0, 0, 0);
 
       if (selected <= today) {
-        newErrors.date = 'İleri tarihli işlem için bugünden sonraki bir tarih seçin';
+        newErrors.date = t('errors:transaction.futureDateRequired');
       }
     }
 
@@ -102,8 +104,8 @@ export default function CariSatisPage() {
 
           await scheduleTransactionReminder(
             result.id,
-            'Yaklaşan İşlem Hatırlatması',
-            `${ISLEM_TYPE_LABELS.cari_satis}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            t('transactions:notifications.reminderTitle'),
+            `${getIslemTypeLabel('cari_satis')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -113,8 +115,8 @@ export default function CariSatisPage() {
           );
         }
 
-        Alert.alert('Başarılı', 'İleri tarihli satış oluşturuldu', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('cariler:messages.scheduledSaleCreated'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
         await createIslem.mutateAsync({
@@ -126,12 +128,12 @@ export default function CariSatisPage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert('Başarılı', 'Satış kaydedildi', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('cariler:messages.saleRecorded'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'İşlem eklenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:transaction.addFailed'));
     }
   };
 
@@ -150,9 +152,9 @@ export default function CariSatisPage() {
           <View style={styles.header}>
             <View style={styles.headerRow}>
               <View style={styles.headerTitleContainer}>
-                <Text variant="h2">Müşteriye Satış</Text>
+                <Text variant="h2">{t('cariler:transactionTitles.sale')}</Text>
                 <Text variant="body" color="secondary">
-                  Bu işlem müşteriden alacağınızı artırır
+                  {t('cariler:transactionDescriptions.sale')}
                 </Text>
               </View>
               <TouchableOpacity
@@ -172,7 +174,7 @@ export default function CariSatisPage() {
             {isIleriTarihli && (
               <View style={styles.ileriTarihliIndicator}>
                 <Text variant="caption" style={styles.ileriTarihliText}>
-                  İleri Tarihli İşlem
+                  {t('transactions:scheduled.title')}
                 </Text>
               </View>
             )}
@@ -181,17 +183,17 @@ export default function CariSatisPage() {
           <View style={styles.section}>
             <View style={styles.pickerContainer}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Müşteri
+                {t('cariler:transactionForm.customer')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.cari && styles.pickerError]}
                 onPress={() => setShowCariPicker(!showCariPicker)}
               >
                 <View>
-                  <Text variant="body">{selectedCari?.name || 'Müşteri seçin'}</Text>
+                  <Text variant="body">{selectedCari?.name || t('cariler:transactionForm.selectCustomer')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
-                      Alacak: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('cariler:balance.receivable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
                     </Text>
                   )}
                 </View>
@@ -223,14 +225,14 @@ export default function CariSatisPage() {
             </View>
 
             <CurrencyInput
-              label="Tutar"
+              label={t('transactions:form.amount')}
               value={amount}
               onChangeText={setAmount}
               error={errors.amount}
             />
 
             <DateTimePicker
-              label={isIleriTarihli ? "İşlem Tarihi" : "Tarih ve Saat"}
+              label={isIleriTarihli ? t('transactions:form.transactionDate') : t('transactions:form.dateTime')}
               value={selectedDate}
               onChange={setSelectedDate}
               mode={isIleriTarihli ? "date" : "datetime"}
@@ -245,15 +247,15 @@ export default function CariSatisPage() {
             )}
 
             <CategoryPicker
-              label="Kategori (Opsiyonel)"
+              label={t('cariler:transactionForm.categoryOptional')}
               value={kategoriId}
               onChange={setKategoriId}
               type="gelir"
             />
 
             <Input
-              label="Açıklama (Opsiyonel)"
-              placeholder="Satış detayları..."
+              label={t('cariler:transactionForm.descriptionOptional')}
+              placeholder={t('cariler:transactionForm.saleDetails')}
               multiline
               numberOfLines={3}
               value={description}
@@ -263,7 +265,7 @@ export default function CariSatisPage() {
 
           <View style={styles.buttons}>
             <Button variant="outline" size="lg" onPress={() => router.back()} style={styles.button}>
-              İptal
+              {t('common:buttons.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -272,7 +274,7 @@ export default function CariSatisPage() {
               onPress={handleSubmit}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              {isIleriTarihli ? 'Planla' : 'Kaydet'}
+              {isIleriTarihli ? t('transactions:form.schedule') : t('common:buttons.save')}
             </Button>
           </View>
         </ScrollView>

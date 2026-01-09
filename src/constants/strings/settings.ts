@@ -1,0 +1,188 @@
+/**
+ * Ayarlar String'leri
+ * Uygulama ayarları için string'ler
+ */
+
+export const SETTINGS = {
+  // Başlıklar
+  titles: {
+    settings: 'Ayarlar',
+    profile: 'Profil',
+    businessInfo: 'İşletme Bilgileri',
+    notifications: 'Bildirimler',
+    reminders: 'Hatırlatıcılar',
+    security: 'Güvenlik',
+    appearance: 'Görünüm',
+    language: 'Dil',
+    about: 'Hakkında',
+  },
+
+  // Profil
+  profile: {
+    title: 'Profil',
+    editProfile: 'Profili Düzenle',
+    fullName: 'Ad Soyad',
+    email: 'E-posta',
+    phone: 'Telefon',
+    changePassword: 'Şifre Değiştir',
+    currentPassword: 'Mevcut Şifre',
+    newPassword: 'Yeni Şifre',
+    confirmPassword: 'Şifre Tekrar',
+  },
+
+  // İşletme bilgileri
+  business: {
+    title: 'İşletme Bilgileri',
+    businessName: 'İşletme Adı',
+    businessNamePlaceholder: 'İşletmenizin adı',
+    businessType: 'İşletme Türü',
+    taxNumber: 'Vergi Numarası (Opsiyonel)',
+    taxNumberPlaceholder: 'Vergi numarası',
+    taxOffice: 'Vergi Dairesi',
+    address: 'Adres (Opsiyonel)',
+    addressPlaceholder: 'İşletme adresi',
+    phone: 'Telefon (Opsiyonel)',
+    phonePlaceholder: '0532 123 4567',
+    email: 'E-posta',
+    website: 'Web Sitesi',
+    logo: 'Logo',
+    changeLogo: 'Logo Değiştir',
+    accountEmail: 'Hesap E-posta',
+    emailCannotChange: 'E-posta adresi değiştirilemez',
+    registrationDate: 'Kayıt Tarihi',
+  },
+
+  // Bildirimler
+  notifications: {
+    title: 'Bildirimler',
+    pushNotifications: 'Anlık Bildirimler',
+    emailNotifications: 'E-posta Bildirimleri',
+    reminderNotifications: 'Hatırlatıcı Bildirimleri',
+    transactionAlerts: 'İşlem Uyarıları',
+    lowBalanceAlert: 'Düşük Bakiye Uyarısı',
+    dueDateReminders: 'Vade Tarihi Hatırlatmaları',
+  },
+
+  // Hatırlatıcılar
+  reminders: {
+    title: 'Hatırlatıcılar',
+    enabled: 'Hatırlatıcılar Açık',
+    disabled: 'Hatırlatıcılar Kapalı',
+    reminderTime: 'Hatırlatma Zamanı',
+    daysBefore: 'Gün Önce',
+    sameDay: 'Aynı Gün',
+    oneDayBefore: '1 Gün Önce',
+    twoDaysBefore: '2 Gün Önce',
+    threeDaysBefore: '3 Gün Önce',
+    oneWeekBefore: '1 Hafta Önce',
+  },
+
+  // Güvenlik
+  security: {
+    title: 'Güvenlik',
+    changePassword: 'Şifre Değiştir',
+    biometricLogin: 'Biyometrik Giriş',
+    faceId: 'Face ID',
+    touchId: 'Touch ID',
+    pinCode: 'PIN Kodu',
+    autoLock: 'Otomatik Kilitleme',
+    lockTimeout: 'Kilitleme Süresi',
+  },
+
+  // Görünüm
+  appearance: {
+    title: 'Görünüm',
+    theme: 'Tema',
+    lightMode: 'Açık Mod',
+    darkMode: 'Koyu Mod',
+    systemDefault: 'Sistem Varsayılanı',
+    fontSize: 'Yazı Boyutu',
+    small: 'Küçük',
+    medium: 'Orta',
+    large: 'Büyük',
+  },
+
+  // Dil
+  language: {
+    title: 'Dil',
+    selectLanguage: 'Dil Seçin',
+    turkish: 'Türkçe',
+    english: 'English',
+    languageChanged: 'Dil değiştirildi',
+  },
+
+  // Hakkında
+  about: {
+    title: 'Hakkında',
+    version: 'Sürüm',
+    appName: 'Defter',
+    developer: 'Geliştirici',
+    website: 'Web Sitesi',
+    support: 'Destek',
+    feedback: 'Geri Bildirim',
+    rateApp: 'Uygulamayı Değerlendir',
+    shareApp: 'Uygulamayı Paylaş',
+    privacyPolicy: 'Gizlilik Politikası',
+    termsOfService: 'Kullanım Koşulları',
+    licenses: 'Lisanslar',
+  },
+
+  // Veri yönetimi
+  data: {
+    title: 'Veri Yönetimi',
+    exportData: 'Verileri Dışa Aktar',
+    importData: 'Verileri İçe Aktar',
+    backup: 'Yedekle',
+    restore: 'Geri Yükle',
+    clearCache: 'Önbelleği Temizle',
+    clearAllData: 'Tüm Verileri Sil',
+  },
+
+  // Hesap
+  account: {
+    title: 'Hesap',
+    logout: 'Çıkış Yap',
+    deleteAccount: 'Hesabı Sil',
+    accountDeletion: 'Hesap Silme',
+    deletionWarning: 'Hesabınız 7 gün içinde kalıcı olarak silinecektir.',
+    cancelDeletion: 'Silme Talebini İptal Et',
+    // Hesap silme sayfası
+    deleteTitle: 'Hesabı Sil',
+    deleteDescription: 'Hesabınızı silmek istediğinizde 7 günlük bekleme süresi başlar. Bu süre içinde giriş yaparak vazgeçebilirsiniz. 7 gün sonunda aşağıdaki tüm verileriniz kalıcı olarak silinecektir:',
+    deleteWarnings: {
+      transactions: '• Tüm işlemleriniz (gelir, gider, transfer)',
+      accounts: '• Tüm hesaplarınız ve bakiyeler',
+      clients: '• Tüm cari hesaplarınız',
+      personnel: '• Tüm personel kayıtlarınız',
+      categories: '• Tüm kategorileriniz',
+      business: '• İşletme bilgileriniz',
+    },
+    confirmLabel: 'Onaylamak için işletme adınızı yazın:',
+    confirmPlaceholder: 'İşletme adını yazın',
+    confirmDeleteButton: 'Evet, Silme Talebi Oluştur',
+    deleteRequestTitle: 'Hesap Silme Talebi',
+    deleteRequestDescription: 'Hesabınız 7 gün içinde silinecektir. Bu süre içinde giriş yaparak silme işlemini iptal edebilirsiniz.\n\nDevam etmek istiyor musunuz?',
+    deleteRequestCreated: 'Talep Oluşturuldu',
+    deleteRequestCreatedMessage: 'Hesabınız 7 gün içinde silinecektir. Bu süre içinde giriş yaparak iptal edebilirsiniz.',
+  },
+
+  // Mesajlar
+  messages: {
+    saveSuccess: 'Ayarlar kaydedildi',
+    changesSaved: 'Değişiklikler kaydedildi',
+    passwordChanged: 'Şifre değiştirildi',
+    profileUpdated: 'Profil güncellendi',
+    businessInfoUpdated: 'İşletme bilgileri güncellendi',
+    cacheCleared: 'Önbellek temizlendi',
+    businessUpdateFailed: 'İşletme bilgileri güncellenemedi',
+    deleteRequestFailed: 'Hesap silme talebi oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.',
+    confirmBusinessName: 'Lütfen işletme adını doğru yazıp tekrar deneyin.',
+  },
+
+  // Validasyon
+  validation: {
+    businessNameRequired: 'İşletme adı gerekli',
+  },
+} as const;
+
+export type SettingsStrings = typeof SETTINGS;

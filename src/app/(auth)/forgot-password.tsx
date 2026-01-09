@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, ArrowLeft } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, Input, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -18,6 +19,7 @@ import { supabase } from '@/lib/supabase';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
+  const { t } = useTranslation(['auth', 'common', 'errors']);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -25,11 +27,11 @@ export default function ForgotPasswordPage() {
 
   const validate = () => {
     if (!email) {
-      setError('E-posta gerekli');
+      setError(t('errors:validation.required'));
       return false;
     }
     if (!/\S+@\S+\.\S+/.test(email)) {
-      setError('Gecerli bir e-posta girin');
+      setError(t('errors:auth.invalidEmail'));
       return false;
     }
     setError('');
@@ -49,7 +51,7 @@ export default function ForgotPasswordPage() {
 
       setSent(true);
     } catch (err: any) {
-      Alert.alert('Hata', err.message || 'Bir hata oluştu');
+      Alert.alert(t('common:status.error'), err.message || t('errors:general.generic'));
     } finally {
       setLoading(false);
     }
@@ -60,10 +62,10 @@ export default function ForgotPasswordPage() {
       <SafeAreaView style={styles.container}>
         <View style={styles.sentContainer}>
           <Text variant="h2" center style={styles.sentTitle}>
-            E-posta Gönderildi
+            {t('auth:forgotPassword.checkEmail')}
           </Text>
           <Text variant="body" color="secondary" center style={styles.sentText}>
-            Şifre sıfırlama bağlantısı {email} adresine gönderildi. Lütfen e-postanızı kontrol edin.
+            {t('auth:forgotPassword.emailSent')}
           </Text>
           <Button
             variant="primary"
@@ -72,7 +74,7 @@ export default function ForgotPasswordPage() {
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            Giriş Sayfasına Dön
+            {t('auth:forgotPassword.backToLogin')}
           </Button>
         </View>
       </SafeAreaView>
@@ -101,18 +103,18 @@ export default function ForgotPasswordPage() {
           {/* Başlık */}
           <View style={styles.header}>
             <Text variant="h1" style={styles.title}>
-              Şifremi Unuttum
+              {t('auth:forgotPassword.title')}
             </Text>
             <Text variant="body" color="secondary" center>
-              E-posta adresinizi girin, size şifre sıfırlama bağlantısı gönderelim.
+              {t('auth:forgotPassword.subtitle')}
             </Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
             <Input
-              label="E-posta"
-              placeholder="ornek@email.com"
+              label={t('auth:forgotPassword.email')}
+              placeholder={t('auth:forgotPassword.emailPlaceholder')}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -130,7 +132,7 @@ export default function ForgotPasswordPage() {
               onPress={handleResetPassword}
               style={styles.submitButton}
             >
-              Sıfırlama Bağlantısı Gönder
+              {t('auth:forgotPassword.sendButton')}
             </Button>
           </View>
         </ScrollView>

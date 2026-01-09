@@ -1,4 +1,5 @@
 import { View, TextInput, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
@@ -12,8 +13,11 @@ interface SearchInputProps {
 export function SearchInput({
   value,
   onChangeText,
-  placeholder = 'Ara...',
+  placeholder,
 }: SearchInputProps) {
+  const { t } = useTranslation('common');
+  const displayPlaceholder = placeholder ?? t('common:search.searchPlaceholder');
+
   return (
     <View style={styles.container}>
       <Search size={20} color={colors.textMuted} />
@@ -21,7 +25,7 @@ export function SearchInput({
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder={placeholder}
+        placeholder={displayPlaceholder}
         placeholderTextColor={colors.textMuted}
       />
     </View>

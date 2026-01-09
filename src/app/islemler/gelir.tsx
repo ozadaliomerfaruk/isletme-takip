@@ -11,20 +11,21 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, Bell } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput, ReminderSettings, type ReminderConfig } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { parseCurrency, isValidAmount } from '@/lib/currency';
+import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
-import { formatCurrency } from '@/lib/currency';
+import { getIslemTypeLabel } from '@/lib/icons';
 
 export default function GelirEklePage() {
   const router = useRouter();
+  const { t } = useTranslation(['transactions', 'common', 'errors']);
   const params = useLocalSearchParams<{ hesap_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -58,11 +59,11 @@ export default function GelirEklePage() {
     const newErrors: { amount?: string; hesap?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
-      newErrors.amount = 'Geçerli bir tutar girin';
+      newErrors.amount = t('errors:validation.invalidAmount');
     }
 
     if (!hesapId) {
-      newErrors.hesap = 'Hesap seçin';
+      newErrors.hesap = t('errors:account.selectAccount');
     }
 
     if (isIleriTarihli) {
@@ -72,7 +73,7 @@ export default function GelirEklePage() {
       selected.setHours(0, 0, 0, 0);
 
       if (selected <= today) {
-        newErrors.date = 'İleri tarihli işlem için bugünden sonraki bir tarih seçin';
+        newErrors.date = t('errors:transaction.futureDateRequired');
       }
     }
 
@@ -105,8 +106,8 @@ export default function GelirEklePage() {
 
           await scheduleTransactionReminder(
             result.id,
-            'Yaklaşan İşlem Hatırlatması',
-            `${ISLEM_TYPE_LABELS.gelir}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            t('transactions:notifications.reminderTitle'),
+            `${getIslemTypeLabel('gelir')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
@@ -116,8 +117,8 @@ export default function GelirEklePage() {
           );
         }
 
-        Alert.alert('Başarılı', 'İleri tarihli gelir oluşturuldu', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('transactions:messages.scheduledCreated'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       } else {
         await createIslem.mutateAsync({
@@ -129,12 +130,12 @@ export default function GelirEklePage() {
           date: formatDateTimeForDB(selectedDate),
         });
 
-        Alert.alert('Başarılı', 'Gelir eklendi', [
-          { text: 'Tamam', onPress: () => router.back() },
+        Alert.alert(t('common:status.success'), t('transactions:messages.incomeAdded'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'İşlem eklenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:transaction.addFailed'));
     }
   };
 
@@ -152,7 +153,7 @@ export default function GelirEklePage() {
         >
           <View style={styles.header}>
             <View style={styles.headerRow}>
-              <Text variant="h2" style={styles.headerTitle}>Gelir Ekle</Text>
+              <Text variant="h2" style={styles.headerTitle}>{t('transactions:titles.addIncome')}</Text>
               <TouchableOpacity
                 style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
                 onPress={() => {
@@ -170,7 +171,7 @@ export default function GelirEklePage() {
             {isIleriTarihli && (
               <View style={styles.ileriTarihliIndicator}>
                 <Text variant="caption" style={styles.ileriTarihliText}>
-                  İleri Tarihli İşlem
+                  {t('transactions:scheduled.title')}
                 </Text>
               </View>
             )}
@@ -178,7 +179,7 @@ export default function GelirEklePage() {
 
           <View style={styles.section}>
             <CurrencyInput
-              label="Tutar"
+              label={t('transactions:form.amount')}
               value={amount}
               onChangeText={setAmount}
               error={errors.amount}
@@ -186,7 +187,7 @@ export default function GelirEklePage() {
 
             <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
-                Hesap
+                {t('transactions:form.account')}
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.hesap && styles.pickerError]}
@@ -195,7 +196,7 @@ export default function GelirEklePage() {
                 }}
               >
                 <Text variant="body">
-                  {selectedHesap?.name || 'Hesap seçin'}
+                  {selectedHesap?.name || t('transactions:form.accountPlaceholder')}
                 </Text>
                 <ChevronDown size={20} color={colors.textMuted} />
               </TouchableOpacity>
@@ -231,11 +232,11 @@ export default function GelirEklePage() {
               value={kategoriId}
               onChange={setKategoriId}
               type="gelir"
-              label="Kategori"
+              label={t('transactions:form.category')}
             />
 
             <DateTimePicker
-              label={isIleriTarihli ? "İşlem Tarihi" : "Tarih ve Saat"}
+              label={isIleriTarihli ? t('transactions:form.date') : t('common:labels.date')}
               value={selectedDate}
               onChange={setSelectedDate}
               mode={isIleriTarihli ? "date" : "datetime"}
@@ -250,8 +251,8 @@ export default function GelirEklePage() {
             )}
 
             <Input
-              label="Açıklama (Opsiyonel)"
-              placeholder="İşlem hakkında not..."
+              label={t('transactions:form.description')}
+              placeholder={t('transactions:form.descriptionPlaceholder')}
               multiline
               numberOfLines={3}
               value={description}
@@ -266,7 +267,7 @@ export default function GelirEklePage() {
               onPress={() => router.back()}
               style={styles.button}
             >
-              İptal
+              {t('common:buttons.cancel')}
             </Button>
             <Button
               variant="primary"
@@ -275,7 +276,7 @@ export default function GelirEklePage() {
               onPress={handleSubmit}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
-              {isIleriTarihli ? 'Planla' : 'Kaydet'}
+              {isIleriTarihli ? t('transactions:form.schedule') : t('common:buttons.save')}
             </Button>
           </View>
         </ScrollView>

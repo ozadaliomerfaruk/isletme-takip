@@ -2,19 +2,21 @@ import { useState } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   MinusCircle,
   Banknote,
   UserCircle,
   Phone,
   Briefcase,
-  Plus,
-  CreditCard,
+  Zap,
   CircleDollarSign,
   Pencil,
   Trash2,
+  ArrowDownCircle,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -28,6 +30,7 @@ import { IslemWithRelations } from '@/types/database';
 export default function PersonelHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useTranslation(['personel', 'common', 'errors']);
 
   const { data: personel, isLoading: personelLoading } = usePersonelById(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByPersonel(id!);
@@ -36,6 +39,7 @@ export default function PersonelHareketleriPage() {
   const deletePersonel = useDeletePersonel();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
+  const [quickBarVisible, setQuickBarVisible] = useState(false);
 
   const fullName = personel ? `${personel.first_name} ${personel.last_name}` : 'Yükleniyor...';
 
@@ -50,6 +54,8 @@ export default function PersonelHareketleriPage() {
         totalEffect -= amount; // Borç artar
       } else if (islem.type === 'personel_odeme') {
         totalEffect += amount; // Borç azalır
+      } else if (islem.type === 'personel_tahsilat') {
+        totalEffect -= amount; // Tahsilat: Alacak azalır
       }
     });
 
@@ -64,6 +70,8 @@ export default function PersonelHareketleriPage() {
         return <MinusCircle size={20} color={colors.error} />;
       case 'personel_odeme':
         return <Banknote size={20} color={colors.success} />;
+      case 'personel_tahsilat':
+        return <ArrowDownCircle size={20} color={colors.info} />;
       default:
         return <UserCircle size={20} color={colors.textMuted} />;
     }
@@ -72,9 +80,11 @@ export default function PersonelHareketleriPage() {
   const getHareketLabel = (type: string) => {
     switch (type) {
       case 'personel_gider':
-        return 'Gider';
+        return t('personel:transactionLabels.gider');
       case 'personel_odeme':
-        return 'Ödeme';
+        return t('personel:transactionLabels.odeme');
+      case 'personel_tahsilat':
+        return t('personel:transactionLabels.tahsilat');
       default:
         return type;
     }
@@ -82,18 +92,18 @@ export default function PersonelHareketleriPage() {
 
   const handleDelete = (islemId: string) => {
     Alert.alert(
-      'İşlemi Sil',
-      'Bu işlemi silmek istediğinizden emin misiniz?',
+      t('personel:deleteConfirm.transactionTitle'),
+      t('personel:deleteConfirm.transactionMessage'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deleteIslem.mutateAsync(islemId);
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'İşlem silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('errors:transaction.deleteFailed'));
             }
           },
         },
@@ -103,19 +113,19 @@ export default function PersonelHareketleriPage() {
 
   const handleDeletePersonel = () => {
     Alert.alert(
-      'Personeli Sil',
-      'Bu personeli silmek istediğinizden emin misiniz?\n\nDikkat: Bu personele ait tüm gider ve ödeme işlemleri de silinecektir. Bu işlem geri alınamaz.',
+      t('personel:deleteConfirm.personelTitle'),
+      t('personel:deleteConfirm.personelMessage'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Sil',
+          text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
             try {
               await deletePersonel.mutateAsync(id!);
               router.replace('/(tabs)/personel');
             } catch (error: any) {
-              Alert.alert('Hata', error.message || 'Personel silinemedi');
+              Alert.alert(t('common:status.error'), error.message || t('errors:personel.deleteFailed'));
             }
           },
         },
@@ -127,7 +137,7 @@ export default function PersonelHareketleriPage() {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
-          <Text>Yükleniyor...</Text>
+          <Text>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -138,8 +148,8 @@ export default function PersonelHareketleriPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <EmptyState
           icon={<UserCircle size={48} color={colors.textMuted} />}
-          title="Personel bulunamadı"
-          description="Bu personel mevcut değil veya silinmiş olabilir."
+          title={t('errors:personel.notFound')}
+          description={t('personel:details.notFoundDescription')}
         />
       </SafeAreaView>
     );
@@ -182,7 +192,7 @@ export default function PersonelHareketleriPage() {
               </View>
               <View style={styles.balanceInfo}>
                 <Text variant="caption" color="secondary">
-                  {Number(personel.balance) < 0 ? 'Borcumuz' : 'Alacağımız'}
+                  {Number(personel.balance) < 0 ? t('personel:balance.weOwe') : t('personel:balance.theyOwe')}
                 </Text>
                 <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
                   {formatCurrency(Math.abs(Number(personel.balance)))}
@@ -197,7 +207,7 @@ export default function PersonelHareketleriPage() {
                 onPress={() => router.push({ pathname: '/personel/duzenle/[id]', params: { id: id } })}
                 style={styles.personelActionBtn}
               >
-                Düzenle
+                {t('common:buttons.edit')}
               </Button>
               <Button
                 variant="outline"
@@ -206,7 +216,7 @@ export default function PersonelHareketleriPage() {
                 onPress={handleDeletePersonel}
                 style={styles.personelActionBtn}
               >
-                Sil
+                {t('common:buttons.delete')}
               </Button>
             </View>
           </Card>
@@ -216,20 +226,11 @@ export default function PersonelHareketleriPage() {
             <Button
               variant="primary"
               size="md"
-              icon={<Plus size={18} color={colors.surface} />}
-              onPress={() => router.push({ pathname: '/islemler/personelGider', params: { personel_id: id } })}
+              icon={<Zap size={18} color={colors.surface} />}
+              onPress={() => setQuickBarVisible(true)}
               style={styles.actionBtn}
             >
-              Gider Ekle
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={<CreditCard size={18} color={colors.text} />}
-              onPress={() => router.push({ pathname: '/islemler/personelOdeme', params: { personel_id: id } })}
-              style={styles.actionBtn}
-            >
-              Ödeme Yap
+              {t('personel:details.newTransaction')}
             </Button>
           </View>
 
@@ -241,11 +242,11 @@ export default function PersonelHareketleriPage() {
             />
 
             <Text variant="h3" style={styles.sectionTitle}>
-              Hareketler
+              {t('personel:details.hareketler')}
             </Text>
 
             {islemlerLoading ? (
-              <Text color="secondary">Yükleniyor...</Text>
+              <Text color="secondary">{t('common:status.loading')}</Text>
             ) : (
               <>
                 {islemler && islemler.length > 0 && islemler.map((islem) => (
@@ -257,7 +258,7 @@ export default function PersonelHareketleriPage() {
                       <View style={styles.hareketHeader}>
                         <View style={[
                           styles.hareketIcon,
-                          { backgroundColor: islem.type === 'personel_odeme' ? colors.successLight : colors.errorLight }
+                          { backgroundColor: islem.type === 'personel_odeme' ? colors.successLight : islem.type === 'personel_tahsilat' ? colors.infoLight : colors.errorLight }
                         ]}>
                           {getHareketIcon(islem.type)}
                         </View>
@@ -279,9 +280,9 @@ export default function PersonelHareketleriPage() {
                         </View>
                         <Text
                           variant="h3"
-                          color={islem.type === 'personel_odeme' ? 'success' : 'error'}
+                          color={islem.type === 'personel_odeme' ? 'success' : islem.type === 'personel_tahsilat' ? 'info' : 'error'}
                         >
-                          {islem.type === 'personel_odeme' ? '+' : '-'}
+                          {islem.type === 'personel_odeme' ? '+' : islem.type === 'personel_tahsilat' ? '↓ ' : '-'}
                           {formatCurrency(Number(islem.amount))}
                         </Text>
                       </View>
@@ -295,7 +296,7 @@ export default function PersonelHareketleriPage() {
                         onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
                         style={styles.actionButton}
                       >
-                        Düzenle
+                        {t('common:buttons.edit')}
                       </Button>
                       <Button
                         variant="outline"
@@ -304,7 +305,7 @@ export default function PersonelHareketleriPage() {
                         onPress={() => handleDelete(islem.id)}
                         style={styles.actionButton}
                       >
-                        Sil
+                        {t('common:buttons.delete')}
                       </Button>
                     </View>
                   </ExpandableCard>
@@ -317,9 +318,9 @@ export default function PersonelHareketleriPage() {
                       <CircleDollarSign size={20} color={colors.primary} />
                     </View>
                     <View style={styles.hareketInfo}>
-                      <Text variant="body">Başlangıç Bakiyesi</Text>
+                      <Text variant="body">{t('personel:details.initialBalance')}</Text>
                       <Text variant="caption" color="secondary">
-                        Personel kaydı • {formatDateShort(personel.created_at)}
+                        {t('personel:details.personelRecord')} • {formatDateShort(personel.created_at)}
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
@@ -331,6 +332,14 @@ export default function PersonelHareketleriPage() {
             )}
           </View>
         </ScrollView>
+
+        {/* Quick Transaction Bar */}
+        <QuickTransactionBar
+          visible={quickBarVisible}
+          onDismiss={() => setQuickBarVisible(false)}
+          defaultPersonelId={personel?.id}
+          onSuccess={() => setQuickBarVisible(false)}
+        />
       </SafeAreaView>
     </>
   );

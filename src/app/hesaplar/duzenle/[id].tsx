@@ -15,16 +15,18 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { HesapType } from '@/types/database';
-
-const hesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
-  { type: 'nakit', label: 'Nakit', icon: <Wallet size={24} color={colors.primary} /> },
-  { type: 'banka', label: 'Banka', icon: <Building2 size={24} color={colors.info} /> },
-  { type: 'kredi_karti', label: 'Kredi Kartı', icon: <CreditCard size={24} color={colors.warning} /> },
-  { type: 'diger', label: 'Diğer', icon: <Banknote size={24} color={colors.textSecondary} /> },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function HesapDuzenlePage() {
   const router = useRouter();
+  const { t } = useTranslation(['accounts', 'common', 'errors']);
+
+  const hesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
+    { type: 'nakit', label: t('accounts:typeLabels.nakit'), icon: <Wallet size={24} color={colors.primary} /> },
+    { type: 'banka', label: t('accounts:typeLabels.banka'), icon: <Building2 size={24} color={colors.info} /> },
+    { type: 'kredi_karti', label: t('accounts:typeLabels.krediKarti'), icon: <CreditCard size={24} color={colors.warning} /> },
+    { type: 'diger', label: t('accounts:typeLabels.diger'), icon: <Banknote size={24} color={colors.textSecondary} /> },
+  ];
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: hesap, isLoading } = useHesap(id);
   const updateHesap = useUpdateHesap();
@@ -46,7 +48,7 @@ export default function HesapDuzenlePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Hesap adı gerekli';
+      newErrors.name = t('accounts:validation.nameRequired');
     }
 
     setErrors(newErrors);
@@ -64,11 +66,11 @@ export default function HesapDuzenlePage() {
         description: description.trim() || null,
       });
 
-      Alert.alert('Başarılı', 'Hesap güncellendi', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('accounts:messages.updateSuccess'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Hesap güncellenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:account.updateFailed'));
     }
   };
 
@@ -76,7 +78,7 @@ export default function HesapDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Yükleniyor...</Text>
+          <Text>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -86,7 +88,7 @@ export default function HesapDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Hesap bulunamadı</Text>
+          <Text>{t('errors:account.notFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -107,7 +109,7 @@ export default function HesapDuzenlePage() {
             {/* Hesap Tipi Seçimi */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                Hesap Tipi
+                {t('accounts:form.type')}
               </Text>
               <View style={styles.typeGrid}>
                 {hesapTypes.map((item) => (
@@ -139,16 +141,16 @@ export default function HesapDuzenlePage() {
             {/* Form */}
             <View style={styles.section}>
               <Input
-                label="Hesap Adı"
-                placeholder="Örn: Nakit Kasa, Ziraat Bankası"
+                label={t('accounts:form.name')}
+                placeholder={t('accounts:form.namePlaceholder')}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
               />
 
               <Input
-                label="Açıklama (Opsiyonel)"
-                placeholder="Hesap hakkında not..."
+                label={t('accounts:form.descriptionOptional')}
+                placeholder={t('accounts:form.descriptionPlaceholder')}
                 multiline
                 numberOfLines={3}
                 value={description}
@@ -164,7 +166,7 @@ export default function HesapDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                İptal
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -173,7 +175,7 @@ export default function HesapDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Güncelle
+                {t('common:buttons.update')}
               </Button>
             </View>
           </ScrollView>

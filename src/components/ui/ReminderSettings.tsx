@@ -8,6 +8,7 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Bell, ChevronDown, Clock, X } from 'lucide-react-native';
 import { Text } from './Text';
@@ -27,13 +28,6 @@ interface ReminderSettingsProps {
   onChange: (config: ReminderConfig) => void;
 }
 
-const DAYS_OPTIONS = [
-  { value: 0, label: 'Aynı gün' },
-  { value: 1, label: '1 gün önce' },
-  { value: 2, label: '2 gün önce' },
-  { value: 3, label: '3 gün önce' },
-];
-
 // HH:mm string'ini Date'e çevir
 function timeStringToDate(timeStr: string): Date {
   const [hours, minutes] = timeStr.split(':').map(Number);
@@ -50,8 +44,16 @@ function dateToTimeString(date: Date): string {
 }
 
 export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
+  const { t } = useTranslation(['settings', 'common']);
   const [showDaysPicker, setShowDaysPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const DAYS_OPTIONS = [
+    { value: 0, label: t('settings:reminders.sameDay') },
+    { value: 1, label: t('settings:reminders.oneDayBefore') },
+    { value: 2, label: t('settings:reminders.twoDaysBefore') },
+    { value: 3, label: t('settings:reminders.threeDaysBefore') },
+  ];
 
   const selectedDaysOption = DAYS_OPTIONS.find(opt => opt.value === value.daysBefore);
 
@@ -82,7 +84,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
         <View style={styles.headerLeft}>
           <Bell size={20} color={value.enabled ? colors.warning : colors.textMuted} />
           <Text variant="body" style={styles.headerText}>
-            Hatırlatıcı
+            {t('settings:reminders.title')}
           </Text>
         </View>
         <Switch
@@ -99,7 +101,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
           {/* Days Before Picker */}
           <View style={[styles.pickerContainer, { zIndex: 20 }]}>
             <Text variant="caption" color="secondary" style={styles.pickerLabel}>
-              Ne zaman?
+              {t('settings:reminders.reminderTime')}
             </Text>
             <TouchableOpacity
               style={styles.picker}
@@ -110,7 +112,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
             >
               <Clock size={18} color={colors.textMuted} />
               <Text variant="body" style={styles.pickerText}>
-                {selectedDaysOption?.label || 'Seç'}
+                {selectedDaysOption?.label || t('common:labels.select')}
               </Text>
               <ChevronDown size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -137,7 +139,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
           {/* Time Picker - Native */}
           <View style={[styles.pickerContainer, { zIndex: 10 }]}>
             <Text variant="caption" color="secondary" style={styles.pickerLabel}>
-              Saat
+              {t('common:date.time')}
             </Text>
             <TouchableOpacity
               style={styles.picker}
@@ -169,7 +171,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
           >
             <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
               <View style={styles.modalHeader}>
-                <Text variant="h3">Saat Seçin</Text>
+                <Text variant="h3">{t('common:date.selectTime')}</Text>
                 <TouchableOpacity onPress={() => setShowTimePicker(false)}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
@@ -188,7 +190,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
                 onPress={() => setShowTimePicker(false)}
                 style={{ marginTop: spacing.md }}
               >
-                Tamam
+                {t('common:buttons.done')}
               </Button>
             </Pressable>
           </Pressable>

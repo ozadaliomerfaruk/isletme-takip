@@ -1,0 +1,147 @@
+{
+  "titles": {
+    "reports": "Reports",
+    "overview": "Overview",
+    "incomeExpense": "Income/Expense",
+    "cashFlow": "Cash Flow",
+    "categoryAnalysis": "Category Analysis",
+    "clientReport": "Client Report",
+    "expenseAnalysis": "Expense Analysis",
+    "incomeAnalysis": "Income Analysis",
+    "categoryDetail": "Category Detail",
+    "uncategorized": "Uncategorized"
+  },
+  "tabs": {
+    "general": "General",
+    "expenseAnalysis": "Expense Analysis",
+    "incomeAnalysis": "Income Analysis"
+  },
+  "summary": {
+    "generalStatus": "General Status",
+    "netValue": "Net Value",
+    "netAssets": "Net Assets",
+    "assets": "Assets",
+    "liabilities": "Liabilities",
+    "receivables": "Receivables",
+    "payables": "Payables",
+    "netStatus": "Net Status",
+    "netProfit": "Net Profit/Loss",
+    "income": "Income",
+    "expense": "Expense",
+    "netCashFlow": "Net Cash Flow",
+    "cashInflow": "Cash Inflow",
+    "cashOutflow": "Cash Outflow",
+    "netBalance": "Net Balance",
+    "totalIncome": "Total Income",
+    "totalExpense": "Total Expense",
+    "totalAmount": "Total Amount",
+    "transactionCount": "Transaction Count",
+    "totalPersonnelDebt": "Total personnel debt"
+  },
+  "sections": {
+    "accountBalances": "ACCOUNT BALANCES",
+    "clientStatus": "CLIENT STATUS",
+    "personnelStatus": "PERSONNEL STATUS",
+    "categoryDistribution": "CATEGORY DISTRIBUTION",
+    "categoryFilter": "CATEGORY FILTER",
+    "selectedTransactions": "SELECTED TRANSACTIONS",
+    "transactions": "TRANSACTIONS"
+  },
+  "counts": {
+    "account": "{{count}} Accounts",
+    "client": "{{count}} Clients",
+    "personnel": "{{count}} Personnel",
+    "transaction": "{{count}} transactions"
+  },
+  "period": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "custom": "Custom",
+    "instant": "Instant",
+    "total": "Total",
+    "selectPeriod": "Select Period",
+    "startDate": "Start",
+    "endDate": "End",
+    "startDateTitle": "Start Date",
+    "endDateTitle": "End Date"
+  },
+  "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  "categoryDetail": {
+    "direct": "(direct)",
+    "selectAll": "Select All",
+    "selectNone": "Select None"
+  },
+  "cashFlow": {
+    "title": "Cash Flow",
+    "inflow": "Inflow",
+    "outflow": "Outflow",
+    "netFlow": "Net Flow",
+    "inflowDistribution": "Cash Inflow Distribution",
+    "outflowDistribution": "Cash Outflow Distribution",
+    "categoryCount": "{{count}} Categories",
+    "noInflow": "No cash inflow found in this period",
+    "noOutflow": "No cash outflow found in this period"
+  },
+  "category": {
+    "title": "By Category",
+    "topCategories": "Top Spending",
+    "categoryDistribution": "Category Distribution",
+    "percentage": "Percentage",
+    "amount": "Amount",
+    "transactionCount": "Transaction Count",
+    "average": "Average",
+    "uncategorized": "Uncategorized",
+    "other": "Other"
+  },
+  "client": {
+    "title": "Client Report",
+    "topCustomers": "Top Sellers",
+    "topSuppliers": "Top Purchases",
+    "receivablesReport": "Receivables Report",
+    "payablesReport": "Payables Report"
+  },
+  "chart": {
+    "barChart": "Bar Chart",
+    "pieChart": "Pie Chart",
+    "lineChart": "Line Chart",
+    "trend": "Trend",
+    "comparison": "Comparison"
+  },
+  "filters": {
+    "all": "All",
+    "income": "Income",
+    "expense": "Expense",
+    "byCategory": "By Category",
+    "byAccount": "By Account",
+    "byClient": "By Client"
+  },
+  "export": {
+    "export": "Export",
+    "exportPDF": "Download as PDF",
+    "exportExcel": "Download as Excel",
+    "share": "Share",
+    "print": "Print"
+  },
+  "empty": {
+    "noData": "No data found in this period",
+    "noTransactions": "No transactions in this period",
+    "noExpenseTransactions": "No expense transactions in this period",
+    "noIncomeTransactions": "No income transactions in this period",
+    "noCategoryTransactions": "No transactions in this category",
+    "noUncategorizedTransactions": "No uncategorized transactions",
+    "noSelectedCategoryTransactions": "No transactions in selected categories",
+    "selectCategories": "Please select the categories you want to see",
+    "selectPeriod": "Start by selecting a period",
+    "dataLoadError": "An error occurred while loading data"
+  },
+  "comparison": {
+    "vsLastPeriod": "vs previous period",
+    "vsLastMonth": "vs last month",
+    "vsLastYear": "vs last year",
+    "increase": "Increase",
+    "decrease": "Decrease",
+    "noChange": "No change"
+  }
+}

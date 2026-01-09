@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
 import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -16,14 +17,15 @@ import { spacing } from '@/constants/spacing';
 import { useCari, useUpdateCari } from '@/hooks/useCariler';
 import { CariType } from '@/types/database';
 
-const cariTypes: { type: CariType; label: string; icon: React.ReactNode }[] = [
-  { type: 'tedarikci', label: 'Tedarikçi', icon: <Building2 size={24} color={colors.warning} /> },
-  { type: 'musteri', label: 'Müşteri', icon: <User size={24} color={colors.info} /> },
-];
-
 export default function CariDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { t } = useTranslation(['cariler', 'common', 'errors']);
+
+  const cariTypes: { type: CariType; label: string; icon: React.ReactNode }[] = [
+    { type: 'tedarikci', label: t('cariler:types.tedarikci'), icon: <Building2 size={24} color={colors.warning} /> },
+    { type: 'musteri', label: t('cariler:types.musteri'), icon: <User size={24} color={colors.info} /> },
+  ];
   const { data: cari, isLoading } = useCari(id);
   const updateCari = useUpdateCari();
 
@@ -50,7 +52,7 @@ export default function CariDuzenlePage() {
     const newErrors: { name?: string } = {};
 
     if (!name.trim()) {
-      newErrors.name = 'Cari adı gerekli';
+      newErrors.name = t('cariler:validation.nameRequired');
     }
 
     setErrors(newErrors);
@@ -71,11 +73,11 @@ export default function CariDuzenlePage() {
         notes: notes.trim() || null,
       });
 
-      Alert.alert('Başarılı', 'Cari güncellendi', [
-        { text: 'Tamam', onPress: () => router.back() },
+      Alert.alert(t('common:status.success'), t('cariler:messages.updateSuccess'), [
+        { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
     } catch (error: any) {
-      Alert.alert('Hata', error.message || 'Cari güncellenemedi');
+      Alert.alert(t('common:status.error'), error.message || t('errors:cari.updateFailed'));
     }
   };
 
@@ -83,7 +85,7 @@ export default function CariDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Yükleniyor...</Text>
+          <Text>{t('common:status.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -93,7 +95,7 @@ export default function CariDuzenlePage() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <Text>Cari bulunamadı</Text>
+          <Text>{t('errors:cari.notFound')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -114,7 +116,7 @@ export default function CariDuzenlePage() {
             {/* Cari Tipi Seçimi */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                Cari Tipi
+                {t('cariler:form.type')}
               </Text>
               <View style={styles.typeGrid}>
                 {cariTypes.map((item) => (
@@ -146,24 +148,24 @@ export default function CariDuzenlePage() {
             {/* Form */}
             <View style={styles.section}>
               <Input
-                label="Cari Adı"
-                placeholder={type === 'tedarikci' ? 'Örn: Metro Market' : 'Örn: Mehmet Bey'}
+                label={t('cariler:form.name')}
+                placeholder={type === 'tedarikci' ? t('cariler:form.nameSupplierPlaceholder') : t('cariler:form.nameCustomerPlaceholder')}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
               />
 
               <Input
-                label="Telefon (Opsiyonel)"
-                placeholder="0532 123 4567"
+                label={t('cariler:form.phoneOptional')}
+                placeholder={t('cariler:form.phoneExample')}
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
               />
 
               <Input
-                label="E-posta (Opsiyonel)"
-                placeholder="ornek@email.com"
+                label={t('cariler:form.emailOptional')}
+                placeholder={t('cariler:form.emailExample')}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
@@ -171,8 +173,8 @@ export default function CariDuzenlePage() {
               />
 
               <Input
-                label="Adres (Opsiyonel)"
-                placeholder="Adres bilgisi..."
+                label={t('cariler:form.addressOptional')}
+                placeholder={t('cariler:form.addressDetailPlaceholder')}
                 multiline
                 numberOfLines={2}
                 value={address}
@@ -180,8 +182,8 @@ export default function CariDuzenlePage() {
               />
 
               <Input
-                label="Not (Opsiyonel)"
-                placeholder="Cari hakkında not..."
+                label={t('cariler:form.noteOptional')}
+                placeholder={t('cariler:form.noteDetailPlaceholder')}
                 multiline
                 numberOfLines={3}
                 value={notes}
@@ -197,7 +199,7 @@ export default function CariDuzenlePage() {
                 onPress={() => router.back()}
                 style={styles.button}
               >
-                İptal
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="primary"
@@ -206,7 +208,7 @@ export default function CariDuzenlePage() {
                 onPress={handleSubmit}
                 style={styles.button}
               >
-                Güncelle
+                {t('common:buttons.update')}
               </Button>
             </View>
           </ScrollView>

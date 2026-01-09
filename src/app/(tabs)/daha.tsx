@@ -1,4 +1,5 @@
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { useState } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -12,11 +13,17 @@ import {
   LogOut,
   ChevronRight,
   Trash2,
+  Languages,
+  Check,
+  X,
 } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { changeLanguage, getCurrentLanguage } from '@/i18n';
+import type { SupportedLanguage } from '@/i18n/types';
 
 interface MenuItemProps {
   icon: React.ReactNode;
@@ -37,25 +44,44 @@ function MenuItem({ icon, label, onPress, danger }: MenuItemProps) {
   );
 }
 
+const languageOptions: { code: SupportedLanguage; label: string; flag: string }[] = [
+  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+];
+
 export default function DahaPage() {
   const router = useRouter();
   const { signOut } = useAuthContext();
+  const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors']);
+  const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [currentLang, setCurrentLang] = useState(getCurrentLanguage());
+
+  const handleLanguageChange = async (langCode: SupportedLanguage) => {
+    await changeLanguage(langCode);
+    setCurrentLang(langCode);
+    setLanguageModalVisible(false);
+  };
+
+  const getCurrentLanguageLabel = () => {
+    const lang = languageOptions.find((l) => l.code === currentLang);
+    return lang ? `${lang.flag} ${lang.label}` : 'Türkçe';
+  };
 
   const handleLogout = () => {
     Alert.alert(
-      'Çıkış Yap',
-      'Çıkmak istediğinizden emin misiniz?',
+      t('auth:logout.title'),
+      t('auth:logout.message'),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Çıkış Yap',
+          text: t('auth:logout.confirm'),
           style: 'destructive',
           onPress: async () => {
             try {
               await signOut();
             } catch (error) {
               console.error('Logout error:', error);
-              Alert.alert('Hata', 'Çıkış yapılırken bir sorun oluştu. Lütfen tekrar deneyin.');
+              Alert.alert(t('common:status.error'), t('errors:general.tryAgain'));
             }
           },
         },
@@ -68,24 +94,24 @@ export default function DahaPage() {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text variant="h2">Daha</Text>
+          <Text variant="h2">{t('navigation:tabs.more')}</Text>
         </View>
 
         {/* İşlemler & Raporlar */}
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            İŞLEMLER & RAPORLAR
+            {t('settings:sections.transactionsReports')}
           </Text>
           <Card padding="none">
             <MenuItem
               icon={<Receipt size={22} color={colors.primary} />}
-              label="Tüm İşlemler"
+              label={t('navigation:menu.allTransactions')}
               onPress={() => router.push('/islemler')}
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<BarChart3 size={22} color={colors.info} />}
-              label="Raporlar"
+              label={t('navigation:menu.reports')}
               onPress={() => router.push('/raporlar')}
             />
           </Card>
@@ -94,44 +120,61 @@ export default function DahaPage() {
         {/* Ayarlar */}
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            AYARLAR
+            {t('settings:titles.settings').toUpperCase()}
           </Text>
           <Card padding="none">
             <MenuItem
               icon={<Building2 size={22} color={colors.warning} />}
-              label="İşletme Bilgileri"
+              label={t('navigation:menu.businessInfo')}
               onPress={() => router.push('/ayarlar/isletme')}
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<Tag size={22} color={colors.success} />}
-              label="Kategoriler"
+              label={t('navigation:menu.categories')}
               onPress={() => router.push('/kategoriler')}
             />
+            <View style={styles.divider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => setLanguageModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuIcon}>
+                <Languages size={22} color={colors.info} />
+              </View>
+              <View style={styles.languageRow}>
+                <Text variant="body">{t('settings:language.title')}</Text>
+                <Text variant="caption" color="muted">
+                  {getCurrentLanguageLabel()}
+                </Text>
+              </View>
+              <ChevronRight size={20} color={colors.textMuted} />
+            </TouchableOpacity>
           </Card>
         </View>
 
         {/* Yasal */}
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            YASAL
+            {t('settings:sections.legal')}
           </Text>
           <Card padding="none">
             <MenuItem
               icon={<FileText size={22} color={colors.textSecondary} />}
-              label="Kullanım Koşulları"
+              label={t('navigation:menu.termsOfService')}
               onPress={() => router.push('/yasal/kullanim-kosullari')}
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<Shield size={22} color={colors.textSecondary} />}
-              label="Gizlilik Politikası"
+              label={t('navigation:menu.privacyPolicy')}
               onPress={() => router.push('/yasal/gizlilik-politikasi')}
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<ScrollText size={22} color={colors.textSecondary} />}
-              label="KVKK Aydınlatma Metni"
+              label={t('navigation:menu.kvkk')}
               onPress={() => router.push('/yasal/kvkk')}
             />
           </Card>
@@ -140,19 +183,19 @@ export default function DahaPage() {
         {/* Hesap */}
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            HESAP
+            {t('settings:account.title').toUpperCase()}
           </Text>
           <Card padding="none">
             <MenuItem
               icon={<LogOut size={22} color={colors.error} />}
-              label="Çıkış Yap"
+              label={t('navigation:menu.logout')}
               onPress={handleLogout}
               danger
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<Trash2 size={22} color={colors.error} />}
-              label="Hesabı Sil"
+              label={t('navigation:menu.deleteAccount')}
               onPress={() => router.push('/ayarlar/hesap-sil' as any)}
               danger
             />
@@ -162,10 +205,54 @@ export default function DahaPage() {
         {/* Versiyon */}
         <View style={styles.versionContainer}>
           <Text variant="caption" color="muted">
-            İşletme Takip v1.0.0
+            Defter v1.0.0
           </Text>
         </View>
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={languageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLanguageModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setLanguageModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text variant="h3">{t('settings:language.selectLanguage')}</Text>
+              <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
+                <X size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {languageOptions.map((lang) => (
+              <TouchableOpacity
+                key={lang.code}
+                style={[
+                  styles.languageOption,
+                  currentLang === lang.code && styles.languageOptionSelected,
+                ]}
+                onPress={() => handleLanguageChange(lang.code)}
+              >
+                <Text style={styles.languageFlag}>{lang.flag}</Text>
+                <Text
+                  variant="body"
+                  style={currentLang === lang.code && { color: colors.primary, fontWeight: '600' }}
+                >
+                  {lang.label}
+                </Text>
+                {currentLang === lang.code && (
+                  <Check size={20} color={colors.primary} style={styles.checkIcon} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -215,5 +302,48 @@ const styles = StyleSheet.create({
   versionContainer: {
     alignItems: 'center',
     paddingVertical: spacing['3xl'],
+  },
+  languageRow: {
+    flex: 1,
+    gap: 2,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 320,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.md,
+  },
+  languageOptionSelected: {
+    backgroundColor: colors.primaryLight,
+  },
+  languageFlag: {
+    fontSize: 24,
+  },
+  checkIcon: {
+    marginLeft: 'auto',
   },
 });
