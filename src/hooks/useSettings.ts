@@ -73,7 +73,9 @@ async function initializeSettings() {
     isInitialized = true;
     notifyListeners();
   } catch (error) {
-    console.error('Failed to load settings:', error);
+    if (__DEV__) {
+      console.error('Failed to load settings:', error);
+    }
   }
 }
 
@@ -121,7 +123,9 @@ export function useSettings() {
       globalCurrency = newCurrency;
       notifyListeners();
     } catch (error) {
-      console.error('Failed to save currency:', error);
+      if (__DEV__) {
+        console.error('Failed to save currency:', error);
+      }
     }
   }, []);
 
@@ -132,7 +136,9 @@ export function useSettings() {
       globalDateFormat = newFormat;
       notifyListeners();
     } catch (error) {
-      console.error('Failed to save date format:', error);
+      if (__DEV__) {
+        console.error('Failed to save date format:', error);
+      }
     }
   }, []);
 

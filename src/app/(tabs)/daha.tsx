@@ -106,7 +106,9 @@ export default function DahaPage() {
             try {
               await signOut();
             } catch (error) {
-              console.error('Logout error:', error);
+              if (__DEV__) {
+                console.error('Logout error:', error);
+              }
               Alert.alert(t('common:status.error'), t('errors:general.tryAgain'));
             }
           },

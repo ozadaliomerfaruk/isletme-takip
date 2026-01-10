@@ -346,7 +346,9 @@ function PayTaksitModal({ taksit, avans, onClose }: PayTaksitModalProps) {
       );
       onClose();
     } catch (error) {
-      console.error('Pay taksit error:', error);
+      if (__DEV__) {
+        console.error('Pay taksit error:', error);
+      }
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }

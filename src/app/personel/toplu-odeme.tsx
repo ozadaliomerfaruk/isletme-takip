@@ -198,7 +198,9 @@ export default function TopluOdemePage() {
         [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
       );
     } catch (error: any) {
-      console.error('Toplu ödeme hatası:', error);
+      if (__DEV__) {
+        console.error('Toplu ödeme hatası:', error);
+      }
       Alert.alert(t('common:status.error'), error.message || t('transactions:messages.saveFailed'));
     } finally {
       setIsSaving(false);

@@ -30,6 +30,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { getHesapIconConfig } from '@/lib/icons';
 import { Hesap } from '@/types/database';
+import { supabase } from '@/lib/supabase';
 
 interface DailyCashEntry {
   hesapId: string;
@@ -253,10 +254,13 @@ export function DailyCashModal({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
+    // Track created islem IDs for rollback
+    const createdIslemIds: string[] = [];
+
     try {
       // Create transactions for each valid entry
       for (const entry of validEntries) {
-        await createIslem.mutateAsync({
+        const result = await createIslem.mutateAsync({
           type: 'gelir',
           amount: parseCurrency(entry.amount),
           hesap_id: entry.hesapId,
@@ -264,6 +268,11 @@ export function DailyCashModal({
           description: entry.description || null,
           date: formatDateTimeForDB(date),
         });
+
+        // Track created islem ID for potential rollback
+        if (result?.id) {
+          createdIslemIds.push(result.id);
+        }
       }
 
       if (Platform.OS !== 'web') {
@@ -274,6 +283,24 @@ export function DailyCashModal({
       onSuccess?.();
       handleDismiss();
     } catch (error: any) {
+      // Rollback: delete any successfully created islemler
+      if (createdIslemIds.length > 0) {
+        try {
+          const { error: deleteError } = await supabase
+            .from('islemler')
+            .delete()
+            .in('id', createdIslemIds);
+
+          if (deleteError && __DEV__) {
+            console.error('Rollback işlem silme başarısız:', deleteError);
+          }
+        } catch (rollbackError) {
+          if (__DEV__) {
+            console.error('Rollback tamamen başarısız:', rollbackError);
+          }
+        }
+      }
+
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }

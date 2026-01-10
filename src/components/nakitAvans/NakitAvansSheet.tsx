@@ -374,7 +374,9 @@ export function NakitAvansSheet({
       onSuccess?.();
       handleDismiss();
     } catch (error: any) {
-      console.error('NakitAvans error:', error);
+      if (__DEV__) {
+        console.error('NakitAvans error:', error);
+      }
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }

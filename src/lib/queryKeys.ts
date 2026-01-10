@@ -94,6 +94,21 @@ export const queryKeys = {
     today: (isletmeId: string) =>
       ['ileri-tarihli-islemler', 'today', isletmeId] as const,
   },
+
+  // Çekler
+  cekler: {
+    all: () => ['cekler'] as const,
+    list: (isletmeId: string) => ['cekler', isletmeId] as const,
+    detail: (id: string) => ['cek', id] as const,
+    byHesap: (hesapId: string, isletmeId: string) =>
+      ['cekler', 'hesap', hesapId, isletmeId] as const,
+    byCari: (cariId: string, isletmeId: string) =>
+      ['cekler', 'cari', cariId, isletmeId] as const,
+    bekleyen: (isletmeId: string) =>
+      ['cekler', 'bekleyen', isletmeId] as const,
+    today: (isletmeId: string) =>
+      ['cekler', 'today', isletmeId] as const,
+  },
 } as const;
 
 // ============================================================================
@@ -124,6 +139,13 @@ const invalidationMap = {
   ileriTarihliIslem: [
     'ileri-tarihli-islemler',
     'ileri-tarihli-islem',
+  ],
+
+  // Çek değişikliği
+  cek: [
+    'cekler',
+    'cek',
+    'ileri-tarihli-islemler', // Çekler ileri tarihli işlemlerle birlikte gösteriliyor
   ],
 
   // Hesap değişikliği
@@ -259,4 +281,9 @@ export const createInvalidators = (queryClient: QueryClient) => ({
    * İleri tarihli işlem mutation'ları için
    */
   onIleriTarihliIslemMutation: () => invalidateRelatedQueries(queryClient, 'ileriTarihliIslem'),
+
+  /**
+   * Çek mutation'ları için
+   */
+  onCekMutation: () => invalidateRelatedQueries(queryClient, 'cek'),
 });

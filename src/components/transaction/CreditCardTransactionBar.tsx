@@ -388,7 +388,9 @@ export function CreditCardTransactionBar({
       onSuccess?.();
       handleDismiss();
     } catch (error) {
-      console.error('Transaction error:', error);
+      if (__DEV__) {
+        console.error('Transaction error:', error);
+      }
       setIsSaving(false);
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

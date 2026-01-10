@@ -25,7 +25,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
   // Fiziksel cihaz kontrolü
   if (!Device.isDevice) {
-    console.log('Push notifications sadece fiziksel cihazlarda çalışır');
+    if (__DEV__) {
+      console.log('Push notifications sadece fiziksel cihazlarda çalışır');
+    }
     return null;
   }
 
@@ -57,7 +59,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   }
 
   if (finalStatus !== 'granted') {
-    console.log('Bildirim izni alınamadı');
+    if (__DEV__) {
+      console.log('Bildirim izni alınamadı');
+    }
     return null;
   }
 
@@ -66,7 +70,9 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
     if (!projectId) {
-      console.error('EAS project ID bulunamadı');
+      if (__DEV__) {
+        console.error('EAS project ID bulunamadı');
+      }
       return null;
     }
 
@@ -75,9 +81,13 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     });
 
     token = pushToken.data;
-    console.log('Push token alındı:', token);
+    if (__DEV__) {
+      console.log('Push token alındı:', token);
+    }
   } catch (error) {
-    console.error('Push token alınamadı:', error);
+    if (__DEV__) {
+      console.error('Push token alınamadı:', error);
+    }
     return null;
   }
 
@@ -102,12 +112,18 @@ export async function savePushToken(userId: string, token: string): Promise<void
       );
 
     if (error) {
-      console.error('Push token kaydetme hatası:', error);
+      if (__DEV__) {
+        console.error('Push token kaydetme hatası:', error);
+      }
     } else {
-      console.log('Push token kaydedildi');
+      if (__DEV__) {
+        console.log('Push token kaydedildi');
+      }
     }
   } catch (error) {
-    console.error('Push token kaydetme hatası:', error);
+    if (__DEV__) {
+      console.error('Push token kaydetme hatası:', error);
+    }
   }
 }
 
@@ -120,10 +136,14 @@ export async function removePushToken(userId: string): Promise<void> {
       .eq('user_id', userId);
 
     if (error) {
-      console.error('Push token silme hatası:', error);
+      if (__DEV__) {
+        console.error('Push token silme hatası:', error);
+      }
     }
   } catch (error) {
-    console.error('Push token silme hatası:', error);
+    if (__DEV__) {
+      console.error('Push token silme hatası:', error);
+    }
   }
 }
 
@@ -133,12 +153,16 @@ export function addNotificationListeners(
   onNotificationResponse?: (response: Notifications.NotificationResponse) => void
 ) {
   const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
-    console.log('Bildirim alındı:', notification);
+    if (__DEV__) {
+      console.log('Bildirim alındı:', notification);
+    }
     onNotificationReceived?.(notification);
   });
 
   const responseSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
-    console.log('Bildirime tıklandı:', response);
+    if (__DEV__) {
+      console.log('Bildirime tıklandı:', response);
+    }
     onNotificationResponse?.(response);
   });
 
@@ -165,7 +189,9 @@ export async function scheduleTransactionReminder(
   try {
     // Geçmiş tarih kontrolü
     if (triggerDate <= new Date()) {
-      console.log('Hatırlatma tarihi geçmiş, bildirim planlanmadı');
+      if (__DEV__) {
+        console.log('Hatırlatma tarihi geçmiş, bildirim planlanmadı');
+      }
       return null;
     }
 
@@ -193,10 +219,14 @@ export async function scheduleTransactionReminder(
       notificationId
     );
 
-    console.log(`Hatırlatma planlandı: ${transactionId} -> ${notificationId} (${triggerDate.toISOString()})`);
+    if (__DEV__) {
+      console.log(`Hatırlatma planlandı: ${transactionId} -> ${notificationId} (${triggerDate.toISOString()})`);
+    }
     return notificationId;
   } catch (error) {
-    console.error('Hatırlatma planlama hatası:', error);
+    if (__DEV__) {
+      console.error('Hatırlatma planlama hatası:', error);
+    }
     return null;
   }
 }
@@ -210,10 +240,14 @@ export async function cancelTransactionReminder(transactionId: string): Promise<
     if (notificationId) {
       await Notifications.cancelScheduledNotificationAsync(notificationId);
       await AsyncStorage.removeItem(storageKey);
-      console.log(`Hatırlatma iptal edildi: ${transactionId}`);
+      if (__DEV__) {
+        console.log(`Hatırlatma iptal edildi: ${transactionId}`);
+      }
     }
   } catch (error) {
-    console.error('Hatırlatma iptal hatası:', error);
+    if (__DEV__) {
+      console.error('Hatırlatma iptal hatası:', error);
+    }
   }
 }
 

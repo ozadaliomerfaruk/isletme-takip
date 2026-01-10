@@ -25,6 +25,7 @@ import trReports from './locales/tr/reports.json';
 import trSettings from './locales/tr/settings.json';
 import trCategories from './locales/tr/categories.json';
 import trLegal from './locales/tr/legal.json';
+import trChecks from './locales/tr/checks.json';
 
 // Import English locales
 import enCommon from './locales/en/common.json';
@@ -39,6 +40,7 @@ import enReports from './locales/en/reports.json';
 import enSettings from './locales/en/settings.json';
 import enCategories from './locales/en/categories.json';
 import enLegal from './locales/en/legal.json';
+import enChecks from './locales/en/checks.json';
 
 // Resource bundle
 export const resources = {
@@ -55,6 +57,7 @@ export const resources = {
     settings: trSettings,
     categories: trCategories,
     legal: trLegal,
+    checks: trChecks,
   },
   en: {
     common: enCommon,
@@ -69,6 +72,7 @@ export const resources = {
     settings: enSettings,
     categories: enCategories,
     legal: enLegal,
+    checks: enChecks,
   },
 } as const;
 
@@ -94,6 +98,7 @@ export const namespaces = [
   'settings',
   'categories',
   'legal',
+  'checks',
 ] as const;
 
 export type Namespace = (typeof namespaces)[number];
@@ -122,7 +127,9 @@ export const changeLanguage = async (lang: 'tr' | 'en') => {
   try {
     await AsyncStorage.setItem(LANGUAGE_KEY, lang);
   } catch (error) {
-    console.warn('Failed to save language preference:', error);
+    if (__DEV__) {
+      console.warn('Failed to save language preference:', error);
+    }
   }
 };
 
@@ -138,7 +145,9 @@ export const loadSavedLanguage = async () => {
       return savedLang as 'tr' | 'en';
     }
   } catch (error) {
-    console.warn('Failed to load language preference:', error);
+    if (__DEV__) {
+      console.warn('Failed to load language preference:', error);
+    }
   }
   return null;
 };

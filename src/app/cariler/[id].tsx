@@ -16,8 +16,10 @@ import {
   Zap,
   RotateCcw,
   MoreVertical,
+  FileCheck,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
+import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -27,23 +29,26 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCari, useDeleteCari } from '@/hooks/useCariler';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
+import { useCeklerByCari } from '@/hooks/useCekler';
 import { IslemWithRelations } from '@/types/database';
 
 export default function CariHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useTranslation(['clients', 'common', 'errors']);
+  const { t } = useTranslation(['clients', 'common', 'errors', 'checks']);
   const { formatDateSmart } = useDateFormat();
 
   const { data: cari, isLoading: cariLoading } = useCari(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
+  const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showCekKesSheet, setShowCekKesSheet] = useState(false);
 
   // Başlangıç bakiyesini hesapla
   const calculateInitialBalance = () => {
@@ -245,6 +250,18 @@ export default function CariHareketleriPage() {
             >
               {t('clients:details.newTransaction')}
             </Button>
+            {/* Çek Kes - Sadece tedarikçiler için */}
+            {cari.type === 'tedarikci' && (
+              <Button
+                variant="outline"
+                size="md"
+                icon={<FileCheck size={18} color={colors.info} />}
+                onPress={() => setShowCekKesSheet(true)}
+                style={[styles.actionBtn, { borderColor: colors.info }]}
+              >
+                {t('checks:create')}
+              </Button>
+            )}
           </View>
 
           {/* İleri Tarihli İşlemler ve Hareketler */}
@@ -253,6 +270,14 @@ export default function CariHareketleriPage() {
               ileriTarihliIslemler={ileriTarihliIslemler}
               isLoading={ileriTarihliLoading}
             />
+
+            {/* Bekleyen Çekler - Sadece tedarikçiler için */}
+            {cari?.type === 'tedarikci' && (
+              <BekleyenCeklerSection
+                cekler={bekleyenCekler}
+                isLoading={ceklerLoading}
+              />
+            )}
 
             <Text variant="h3" style={styles.sectionTitle}>
               {t('clients:details.transactions')}
@@ -400,6 +425,13 @@ export default function CariHareketleriPage() {
           defaultCariId={cari?.id}
           defaultCariType={cari?.type}
           onSuccess={() => setQuickBarVisible(false)}
+        />
+
+        {/* Çek Kes Sheet */}
+        <CekKesSheet
+          visible={showCekKesSheet}
+          onDismiss={() => setShowCekKesSheet(false)}
+          defaultCariId={cari?.id}
         />
       </SafeAreaView>
     </>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useRouter, useSegments, Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -69,7 +69,9 @@ function RootLayoutNav() {
     const cleanup = addNotificationListeners(
       (notification) => {
         // Bildirim alındığında (uygulama açıkken)
-        console.log('Bildirim alındı:', notification.request.content.title);
+        if (__DEV__) {
+          console.log('Bildirim alındı:', notification.request.content.title);
+        }
       },
       (response) => {
         // Bildirime tıklandığında
@@ -85,17 +87,17 @@ function RootLayoutNav() {
         // İleri tarihli işlem hatırlatması
         if (data?.type === 'scheduled_transaction_reminder') {
           if (data.hesap_id) {
-            router.push(`/hesaplar/${data.hesap_id}` as any);
+            router.push(`/hesaplar/${data.hesap_id}` as Href);
           } else if (data.cari_id) {
-            router.push(`/cariler/${data.cari_id}` as any);
+            router.push(`/cariler/${data.cari_id}` as Href);
           } else if (data.personel_id) {
-            router.push(`/personel/${data.personel_id}` as any);
+            router.push(`/personel/${data.personel_id}` as Href);
           } else {
             // Varsayılan olarak ana sayfaya git
-            router.push('/(tabs)' as any);
+            router.push('/(tabs)' as Href);
           }
         } else if (data?.screen) {
-          router.push(data.screen as any);
+          router.push(data.screen as Href);
         }
       }
     );

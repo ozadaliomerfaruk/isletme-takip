@@ -59,7 +59,9 @@ export default function ResetPasswordPage() {
             });
 
             if (error) {
-              console.error('Session error:', error);
+              if (__DEV__) {
+                console.error('Session error:', error);
+              }
               Alert.alert(
                 t('common:status.error'),
                 t('errors:auth.linkExpired'),
@@ -83,7 +85,9 @@ export default function ResetPasswordPage() {
         return;
       }
     } catch (error) {
-      console.error('Deep link error:', error);
+      if (__DEV__) {
+        console.error('Deep link error:', error);
+      }
     } finally {
       setInitializing(false);
     }

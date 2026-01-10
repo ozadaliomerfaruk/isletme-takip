@@ -61,7 +61,9 @@ export function TransactionSheet({
   defaultHesapId,
   onSuccess,
 }: TransactionSheetProps) {
-  console.log('TransactionSheet render, visible:', visible);
+  if (__DEV__) {
+    console.log('TransactionSheet render, visible:', visible);
+  }
   const { t } = useTranslation(['transactions', 'common']);
   const { formatDateLong } = useDateFormat();
   const insets = useSafeAreaInsets();
@@ -248,7 +250,9 @@ export function TransactionSheet({
       onSuccess?.();
       onDismiss();
     } catch (error) {
-      console.error('Transaction error:', error);
+      if (__DEV__) {
+        console.error('Transaction error:', error);
+      }
       setState('details');
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

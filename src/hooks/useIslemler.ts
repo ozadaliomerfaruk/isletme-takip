@@ -163,7 +163,9 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
   });
 
   if (error) {
-    console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
+    if (__DEV__) {
+      console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
+    }
     throw new Error(`Bakiye güncellenemedi: ${error.message}`);
   }
 }
@@ -398,7 +400,9 @@ export function useUpdateIslem() {
         await updateBalances({ ...oldIslem, ...updates });
       } catch (balanceError) {
         // Bakiye güncellemesi başarısız olursa işlemi geri al
-        console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
+        if (__DEV__) {
+          console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
+        }
         try {
           await supabase
             .from('islemler')
@@ -406,7 +410,9 @@ export function useUpdateIslem() {
             .eq('id', id)
             .eq('isletme_id', isletme.id);
         } catch (rollbackError) {
-          console.error('İşlem geri alma hatası:', rollbackError);
+          if (__DEV__) {
+            console.error('İşlem geri alma hatası:', rollbackError);
+          }
         }
         throw balanceError;
       }
@@ -455,7 +461,9 @@ export function useDeleteIslem() {
         try {
           await updateBalances(islem);
         } catch (rollbackError) {
-          console.error('Bakiye geri yükleme hatası:', rollbackError);
+          if (__DEV__) {
+            console.error('Bakiye geri yükleme hatası:', rollbackError);
+          }
         }
         throw error;
       }

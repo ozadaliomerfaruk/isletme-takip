@@ -16,8 +16,10 @@ import {
   Trash2,
   Clock,
   MoreVertical,
+  FileCheck,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
+import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType } from '@/components/transaction';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -26,18 +28,22 @@ import { formatDateShort, formatDateSmart, formatTime, isSameYear } from '@/lib/
 import { useHesap, useDeleteHesap } from '@/hooks/useHesaplar';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
+import { useCeklerByHesap } from '@/hooks/useCekler';
 import { IslemWithRelations } from '@/types/database';
 import { useTranslation } from 'react-i18next';
 
 export default function HesapHareketleriPage() {
-  console.log('=== HESAP DETAY SAYFASI YUKLENDI ===');
+  if (__DEV__) {
+    console.log('=== HESAP DETAY SAYFASI YUKLENDI ===');
+  }
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { t } = useTranslation(['accounts', 'common', 'errors']);
+  const { t } = useTranslation(['accounts', 'common', 'errors', 'checks']);
 
   const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByHesap(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
+  const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByHesap(id!);
   const deleteIslem = useDeleteIslem();
   const deleteHesap = useDeleteHesap();
 
@@ -45,6 +51,7 @@ export default function HesapHareketleriPage() {
   const [showTransactionBar, setShowTransactionBar] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
   const [showMenu, setShowMenu] = useState(false);
+  const [showCekKesSheet, setShowCekKesSheet] = useState(false);
   const isOpeningRef = useRef(false);
 
   // Debounced transaction opener to prevent race conditions
@@ -321,52 +328,30 @@ export default function HesapHareketleriPage() {
             )}
           </Card>
 
-          {/* Hızlı İşlemler */}
-          {hesap.type === 'kredi_karti' ? (
-            /* Kredi kartı için tek buton */
-            <View style={styles.actionButtons}>
-              <Button
-                variant="primary"
-                size="md"
-                icon={<CreditCard size={18} color={colors.surface} />}
-                onPress={() => openTransaction('kredi_karti_gider' as TransactionType)}
-                style={styles.actionBtn}
-              >
-                {t('accounts:actions.addTransaction')}
-              </Button>
-            </View>
-          ) : (
-            /* Normal hesaplar için butonlar */
-            <View style={styles.actionButtons}>
-              <Button
-                variant="primary"
-                size="md"
-                icon={<TrendingUp size={18} color={colors.surface} />}
-                onPress={() => openTransaction('gelir')}
-                style={styles.actionBtn}
-              >
-                {t('accounts:transactionLabels.gelir')}
-              </Button>
-              <Button
-                variant="secondary"
-                size="md"
-                icon={<TrendingDown size={18} color={colors.text} />}
-                onPress={() => openTransaction('gider')}
-                style={styles.actionBtn}
-              >
-                {t('accounts:transactionLabels.gider')}
-              </Button>
+          {/* Hızlı İşlem Butonları */}
+          <View style={styles.actionButtons}>
+            <Button
+              variant="primary"
+              size="md"
+              icon={hesap.type === 'kredi_karti' ? <CreditCard size={18} color={colors.surface} /> : <CircleDollarSign size={18} color={colors.surface} />}
+              onPress={() => openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir')}
+              style={styles.actionBtn}
+            >
+              {t('accounts:actions.addTransaction')}
+            </Button>
+            {/* Çek Kes - Sadece banka hesapları için */}
+            {hesap.type === 'banka' && (
               <Button
                 variant="outline"
                 size="md"
-                icon={<ArrowLeftRight size={18} color={colors.text} />}
-                onPress={() => router.push({ pathname: '/islemler/transfer', params: { hesap_id: id } })}
-                style={styles.actionBtn}
+                icon={<FileCheck size={18} color={colors.info} />}
+                onPress={() => setShowCekKesSheet(true)}
+                style={[styles.actionBtn, { borderColor: colors.info }]}
               >
-                {t('accounts:transactionLabels.transfer')}
+                {t('checks:create')}
               </Button>
-            </View>
-          )}
+            )}
+          </View>
 
           {/* İleri Tarihli İşlemler */}
           <View style={styles.section}>
@@ -374,6 +359,15 @@ export default function HesapHareketleriPage() {
               ileriTarihliIslemler={ileriTarihliIslemler}
               isLoading={ileriTarihliLoading}
             />
+
+            {/* Bekleyen Çekler - Sadece banka hesapları için */}
+            {hesap?.type === 'banka' && (
+              <BekleyenCeklerSection
+                cekler={bekleyenCekler}
+                isLoading={ceklerLoading}
+                hesapId={id}
+              />
+            )}
 
             {/* Hareketler */}
             <Text variant="h3" style={styles.sectionTitle}>
@@ -555,6 +549,13 @@ export default function HesapHareketleriPage() {
           defaultHesapId={id}
         />
       )}
+
+      {/* Çek Kes Sheet */}
+      <CekKesSheet
+        visible={showCekKesSheet}
+        onDismiss={() => setShowCekKesSheet(false)}
+        defaultHesapId={id}
+      />
 
     </>
   );

@@ -405,7 +405,9 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
   });
 
   if (error) {
-    console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
+    if (__DEV__) {
+      console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
+    }
     throw new Error(`Bakiye güncellenemedi: ${error.message}`);
   }
 }

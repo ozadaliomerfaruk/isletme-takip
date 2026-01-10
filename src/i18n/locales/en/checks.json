@@ -1,0 +1,87 @@
+{
+  "title": "Checks",
+  "create": "Issue Check",
+  "createTitle": "Issue New Check",
+  "list": "Check List",
+  "pending": "Pending Checks",
+  "sections": {
+    "pending": "Pending Checks",
+    "all": "All Checks",
+    "overdue": "Overdue Checks"
+  },
+  "status": {
+    "beklemede": "Pending",
+    "odendi": "Paid",
+    "iptal": "Cancelled",
+    "overdue": "Overdue",
+    "dueToday": "Due Today"
+  },
+  "labels": {
+    "checkNo": "Check No",
+    "checkNoPlaceholder": "ABC 123456",
+    "amount": "Amount",
+    "amountPlaceholder": "0.00",
+    "issueDate": "Issue Date",
+    "dueDate": "Due Date",
+    "account": "Bank Account",
+    "accountPlaceholder": "Select account",
+    "cari": "Client (Supplier)",
+    "cariPlaceholder": "Select supplier",
+    "category": "Category",
+    "categoryPlaceholder": "Select category (optional)",
+    "description": "Description",
+    "descriptionPlaceholder": "Add description (optional)",
+    "unknownCari": "Unknown Client",
+    "totalPending": "Total Pending",
+    "overdueCount": "Overdue",
+    "todayCount": "Due Today"
+  },
+  "actions": {
+    "create": "Issue Check",
+    "complete": "Pay",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete"
+  },
+  "messages": {
+    "createSuccess": "Check created successfully",
+    "createFailed": "Failed to create check",
+    "completeSuccess": "Check payment completed",
+    "completeFailed": "Check payment failed",
+    "completeConfirm": "Do you want to pay check {{cekNo}} for {{amount}}? This will decrease account balance and update client balance.",
+    "cancelSuccess": "Check cancelled",
+    "cancelFailed": "Failed to cancel check",
+    "cancelConfirm": "Are you sure you want to cancel this check?",
+    "deleteSuccess": "Check deleted",
+    "deleteFailed": "Failed to delete check",
+    "deleteConfirm": "Are you sure you want to delete this check?",
+    "noChecks": "No checks yet",
+    "noPendingChecks": "No pending checks",
+    "comingSoon": "This feature is coming soon",
+    "futureInfo": "This check will appear as a future transaction on the due date"
+  },
+  "notifications": {
+    "dueReminder": "Check Due Date Approaching",
+    "dueReminderBody": "Check {{cekNo}} due date is approaching. Amount: {{tutar}}"
+  },
+  "filters": {
+    "all": "All",
+    "pending": "Pending",
+    "paid": "Paid",
+    "cancelled": "Cancelled"
+  },
+  "form": {
+    "selectAccount": "Select Bank Account",
+    "selectCari": "Select Supplier",
+    "selectCategory": "Select Category"
+  },
+  "validation": {
+    "checkNoRequired": "Check number is required",
+    "amountRequired": "Amount is required",
+    "amountPositive": "Amount must be greater than zero",
+    "accountRequired": "Bank account is required",
+    "cariRequired": "Client (supplier) is required",
+    "dueDateRequired": "Due date is required",
+    "dueDateFuture": "Due date must be today or later"
+  }
+}

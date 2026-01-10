@@ -42,7 +42,9 @@ export default function HesapSilPage() {
                 t('settings:account.deleteRequestCreatedMessage')
               );
             } catch (error) {
-              console.error('Delete account error:', error);
+              if (__DEV__) {
+                console.error('Delete account error:', error);
+              }
               setIsDeleting(false);
               Alert.alert(t('common:status.error'), t('settings:messages.deleteRequestFailed'));
             }

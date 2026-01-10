@@ -1,0 +1,87 @@
+{
+  "title": "Çekler",
+  "create": "Çek Kes",
+  "createTitle": "Yeni Çek Kes",
+  "list": "Çek Listesi",
+  "pending": "Bekleyen Çekler",
+  "sections": {
+    "pending": "Bekleyen Çekler",
+    "all": "Tüm Çekler",
+    "overdue": "Vadesi Geçmiş Çekler"
+  },
+  "status": {
+    "beklemede": "Beklemede",
+    "odendi": "Ödendi",
+    "iptal": "İptal",
+    "overdue": "Gecikmiş",
+    "dueToday": "Bugün"
+  },
+  "labels": {
+    "checkNo": "Çek No",
+    "checkNoPlaceholder": "ABC 123456",
+    "amount": "Tutar",
+    "amountPlaceholder": "0,00",
+    "issueDate": "Kesim Tarihi",
+    "dueDate": "Vade Tarihi",
+    "account": "Banka Hesabı",
+    "accountPlaceholder": "Hesap seçin",
+    "cari": "Cari (Tedarikçi)",
+    "cariPlaceholder": "Tedarikçi seçin",
+    "category": "Kategori",
+    "categoryPlaceholder": "Kategori seçin (isteğe bağlı)",
+    "description": "Açıklama",
+    "descriptionPlaceholder": "Açıklama ekle (isteğe bağlı)",
+    "unknownCari": "Bilinmeyen Cari",
+    "totalPending": "Toplam Bekleyen",
+    "overdueCount": "Gecikmiş",
+    "todayCount": "Bugün Vadeli"
+  },
+  "actions": {
+    "create": "Çek Kes",
+    "complete": "Öde",
+    "cancel": "İptal Et",
+    "edit": "Düzenle",
+    "delete": "Sil"
+  },
+  "messages": {
+    "createSuccess": "Çek başarıyla oluşturuldu",
+    "createFailed": "Çek oluşturulamadı",
+    "completeSuccess": "Çek ödemesi tamamlandı",
+    "completeFailed": "Çek ödemesi başarısız",
+    "completeConfirm": "{{cekNo}} numaralı {{amount}} tutarındaki çeki ödemek istiyor musunuz? Bu işlem hesap bakiyesini düşürecek ve cari bakiyesini güncelleyecek.",
+    "cancelSuccess": "Çek iptal edildi",
+    "cancelFailed": "Çek iptal edilemedi",
+    "cancelConfirm": "Bu çeki iptal etmek istediğinize emin misiniz?",
+    "deleteSuccess": "Çek silindi",
+    "deleteFailed": "Çek silinemedi",
+    "deleteConfirm": "Bu çeki silmek istediğinize emin misiniz?",
+    "noChecks": "Henüz çek yok",
+    "noPendingChecks": "Bekleyen çek yok",
+    "comingSoon": "Bu özellik yakında eklenecek",
+    "futureInfo": "Bu çek vade tarihinde ileri tarihli işlem olarak görünecek"
+  },
+  "notifications": {
+    "dueReminder": "Çek Vadesi Yaklaşıyor",
+    "dueReminderBody": "{{cekNo}} numaralı çekin vadesi yaklaşıyor. Tutar: {{tutar}}"
+  },
+  "filters": {
+    "all": "Tümü",
+    "pending": "Bekleyen",
+    "paid": "Ödenen",
+    "cancelled": "İptal"
+  },
+  "form": {
+    "selectAccount": "Banka Hesabı Seç",
+    "selectCari": "Tedarikçi Seç",
+    "selectCategory": "Kategori Seç"
+  },
+  "validation": {
+    "checkNoRequired": "Çek numarası zorunludur",
+    "amountRequired": "Tutar zorunludur",
+    "amountPositive": "Tutar sıfırdan büyük olmalıdır",
+    "accountRequired": "Banka hesabı zorunludur",
+    "cariRequired": "Cari (tedarikçi) zorunludur",
+    "dueDateRequired": "Vade tarihi zorunludur",
+    "dueDateFuture": "Vade tarihi bugün veya sonrası olmalıdır"
+  }
+}

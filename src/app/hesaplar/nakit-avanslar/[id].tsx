@@ -90,7 +90,9 @@ export default function NakitAvanslarPage() {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }
             } catch (error) {
-              console.error('Delete avans error:', error);
+              if (__DEV__) {
+                console.error('Delete avans error:', error);
+              }
               Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
             }
           },

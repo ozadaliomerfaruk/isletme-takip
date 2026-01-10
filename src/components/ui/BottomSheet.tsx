@@ -128,7 +128,9 @@ export function BottomSheet({
   useEffect(() => {
     const handleKeyboardShow = (e: KeyboardEvent) => {
       const kbHeight = e.endCoordinates.height;
-      console.log('[BottomSheet] Keyboard SHOW, height:', kbHeight);
+      if (__DEV__) {
+        console.log('[BottomSheet] Keyboard SHOW, height:', kbHeight);
+      }
       isKeyboardVisibleRef.current = true;
       setKeyboardHeight(kbHeight);
 
@@ -146,7 +148,9 @@ export function BottomSheet({
     };
 
     const handleKeyboardHide = () => {
-      console.log('[BottomSheet] Keyboard HIDE');
+      if (__DEV__) {
+        console.log('[BottomSheet] Keyboard HIDE');
+      }
       isKeyboardVisibleRef.current = false;
       setKeyboardHeight(0);
 
@@ -249,7 +253,9 @@ export function BottomSheet({
   if (!visible) return null;
 
   const sheetHeight = getHeightForSnap(currentSnapIndex);
-  console.log('[BottomSheet] Render - height:', sheetHeight, 'kbHeight:', keyboardHeight);
+  if (__DEV__) {
+    console.log('[BottomSheet] Render - height:', sheetHeight, 'kbHeight:', keyboardHeight);
+  }
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>

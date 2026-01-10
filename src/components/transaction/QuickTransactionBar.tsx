@@ -528,7 +528,9 @@ export function QuickTransactionBar({
       onSuccess?.();
       handleDismiss();
     } catch (error) {
-      console.error('Transaction error:', error);
+      if (__DEV__) {
+        console.error('Transaction error:', error);
+      }
       setIsSaving(false);
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -591,8 +593,8 @@ export function QuickTransactionBar({
     if (type === 'satis_iade') return 'gelir';
     if (type === 'alis_iade') return 'gider';
     // Personel tipleri için kategori
-    if (type === 'personel_odeme_tab' || type === 'personel_tahsilat_tab') return 'gelir';
-    if (type === 'personel_gider_tab') return 'gider';
+    if (type === 'personel_tahsilat_tab') return 'gelir';
+    if (type === 'personel_odeme_tab' || type === 'personel_gider_tab') return 'gider';
     return undefined;
   };
   const categoryType = getCategoryType();
@@ -1042,6 +1044,7 @@ export function QuickTransactionBar({
                         <Wallet size={20} color={colors.info} />
                       </View>
                       <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{hesap.name}</Text>
+                      <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(hesap.balance)}</Text>
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: colors.info }]}>
                           <Check size={14} color="#FFFFFF" />
@@ -1121,6 +1124,7 @@ export function QuickTransactionBar({
                         )}
                       </View>
                       <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{cari.name}</Text>
+                      <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(cari.balance)}</Text>
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: iconColor }]}>
                           <Check size={14} color="#FFFFFF" />
@@ -1283,6 +1287,7 @@ export function QuickTransactionBar({
                         <CreditCard size={20} color={colors.orange} />
                       </View>
                       <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{hesap.name}</Text>
+                      <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(hesap.balance)}</Text>
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
                           <Check size={14} color="#FFFFFF" />
@@ -1356,6 +1361,7 @@ export function QuickTransactionBar({
                       <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>
                         {personel.first_name} {personel.last_name}
                       </Text>
+                      <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(personel.balance)}</Text>
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
                           <Check size={14} color="#FFFFFF" />
@@ -1713,10 +1719,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
+  bottomSheetItemContent: {
+    flex: 1,
+  },
   bottomSheetItemText: {
     flex: 1,
     fontSize: 16,
     color: colors.text,
+  },
+  bottomSheetItemBalance: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginRight: 8,
+  },
+  bottomSheetItemSubtext: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   searchContainer: {
     flexDirection: 'row',

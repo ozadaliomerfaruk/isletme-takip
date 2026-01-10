@@ -145,7 +145,9 @@ export function useCreateNakitAvans() {
             .insert(taksitIslemleri);
 
           if (islemError) {
-            console.error('Taksit işlemleri eklenirken hata:', islemError);
+            if (__DEV__) {
+              console.error('Taksit işlemleri eklenirken hata:', islemError);
+            }
           }
         }
       } else {
@@ -163,7 +165,9 @@ export function useCreateNakitAvans() {
           });
 
         if (islemError) {
-          console.error('Nakit avans işlemi eklenirken hata:', islemError);
+          if (__DEV__) {
+            console.error('Nakit avans işlemi eklenirken hata:', islemError);
+          }
         }
       }
 

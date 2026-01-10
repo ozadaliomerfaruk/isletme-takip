@@ -35,6 +35,7 @@ export function useAuth() {
 
   // Race condition önleme - eşzamanlı fetchIsletme çağrılarını engelle
   const fetchIsletmeInProgress = useRef<string | null>(null);
+  const fetchIsletmePromise = useRef<Promise<Isletme | null> | null>(null);
   // İşletme oluşturma lock'u - duplicate oluşturmayı engelle
   const createIsletmeInProgress = useRef<boolean>(false);
 
@@ -44,10 +45,14 @@ export function useAuth() {
       const { data: { session }, error } = await supabase.auth.refreshSession();
 
       if (error) {
-        console.error('Session yenileme hatası:', error);
+        if (__DEV__) {
+          console.error('Session yenileme hatası:', error);
+        }
         // Refresh token da geçersizse kullanıcıyı çıkış yaptır
         if (error.message?.includes('refresh_token') || error.message?.includes('Invalid')) {
-          console.log('Refresh token geçersiz, çıkış yapılıyor...');
+          if (__DEV__) {
+            console.log('Refresh token geçersiz, çıkış yapılıyor...');
+          }
           setState({
             session: null,
             user: null,
@@ -63,7 +68,9 @@ export function useAuth() {
       lastRefreshTime.current = Date.now();
       return session;
     } catch (error) {
-      console.error('Session yenileme exception:', error);
+      if (__DEV__) {
+        console.error('Session yenileme exception:', error);
+      }
       return null;
     }
   }, []);
@@ -92,95 +99,98 @@ export function useAuth() {
     userName?: string | null,
     isletmeName?: string | null
   ): Promise<Isletme | null> => {
-    // Aynı userId için zaten bir istek varsa, bekle ve sonucu bekle
-    if (fetchIsletmeInProgress.current === userId) {
-      // Zaten devam eden bir istek var, biraz bekle ve mevcut işletmeyi getir
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const { data } = await supabase
-        .from('isletmeler')
-        .select('*')
-        .eq('user_id', userId)
-        .limit(1)
-        .single();
-      return data as Isletme | null;
+    // Aynı userId için zaten bir istek varsa, mevcut Promise'i bekle
+    if (fetchIsletmeInProgress.current === userId && fetchIsletmePromise.current) {
+      return fetchIsletmePromise.current;
     }
 
     fetchIsletmeInProgress.current = userId;
 
-    try {
-      // Önce mevcut işletmeyi kontrol et
-      const { data, error } = await supabase
-        .from('isletmeler')
-        .select('*')
-        .eq('user_id', userId)
-        .limit(1)
-        .single();
-
-      if (data) {
-        return data as Isletme;
-      }
-
-      // İşletme bulunamadı (PGRST116 = no rows)
-      if (error && error.code !== 'PGRST116') {
-        console.error('İşletme getirme hatası:', error);
-        return null;
-      }
-
-      // İşletme yoksa ve oluşturma işlemi devam etmiyorsa, oluştur
-      if (createIsletmeInProgress.current) {
-        // Başka bir oluşturma işlemi devam ediyor, biraz bekle ve tekrar dene
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const { data: retryData } = await supabase
+    // Promise'i oluştur ve sakla
+    const executeRequest = async (): Promise<Isletme | null> => {
+      try {
+        // Önce mevcut işletmeyi kontrol et
+        const { data, error } = await supabase
           .from('isletmeler')
           .select('*')
           .eq('user_id', userId)
           .limit(1)
           .single();
-        return retryData as Isletme | null;
-      }
 
-      // Lock'u al ve işletme oluştur
-      createIsletmeInProgress.current = true;
+        if (data) {
+          return data as Isletme;
+        }
 
-      try {
-        const finalIsletmeName = isletmeName
-          || (userName ? `${userName}'in İşletmesi` : 'İşletmem');
+        // İşletme bulunamadı (PGRST116 = no rows)
+        if (error && error.code !== 'PGRST116') {
+          if (__DEV__) {
+            console.error('İşletme getirme hatası:', error);
+          }
+          return null;
+        }
 
-        // Upsert kullan - conflict durumunda mevcut kaydı döndür
-        const { data: newIsletme, error: insertError } = await supabase
-          .from('isletmeler')
-          .upsert(
-            {
-              user_id: userId,
-              name: finalIsletmeName,
-            },
-            {
-              onConflict: 'user_id',
-              ignoreDuplicates: true,
-            }
-          )
-          .select()
-          .single();
-
-        if (insertError) {
-          // Duplicate key hatası veya başka hata - mevcut kaydı getir
-          console.log('İşletme oluşturma/upsert hatası, mevcut kaydı getiriliyor:', insertError);
-          const { data: existingIsletme } = await supabase
+        // İşletme yoksa ve oluşturma işlemi devam etmiyorsa, oluştur
+        if (createIsletmeInProgress.current) {
+          // Başka bir oluşturma işlemi devam ediyor, biraz bekle ve tekrar dene
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const { data: retryData } = await supabase
             .from('isletmeler')
             .select('*')
             .eq('user_id', userId)
             .limit(1)
             .single();
-          return existingIsletme as Isletme | null;
+          return retryData as Isletme | null;
         }
 
-        return newIsletme as Isletme;
+        // Lock'u al ve işletme oluştur
+        createIsletmeInProgress.current = true;
+
+        try {
+          const finalIsletmeName = isletmeName
+            || (userName ? `${userName}'in İşletmesi` : 'İşletmem');
+
+          // Upsert kullan - conflict durumunda mevcut kaydı döndür
+          const { data: newIsletme, error: insertError } = await supabase
+            .from('isletmeler')
+            .upsert(
+              {
+                user_id: userId,
+                name: finalIsletmeName,
+              },
+              {
+                onConflict: 'user_id',
+                ignoreDuplicates: true,
+              }
+            )
+            .select()
+            .single();
+
+          if (insertError) {
+            // Duplicate key hatası veya başka hata - mevcut kaydı getir
+            if (__DEV__) {
+              console.log('İşletme oluşturma/upsert hatası, mevcut kaydı getiriliyor:', insertError);
+            }
+            const { data: existingIsletme } = await supabase
+              .from('isletmeler')
+              .select('*')
+              .eq('user_id', userId)
+              .limit(1)
+              .single();
+            return existingIsletme as Isletme | null;
+          }
+
+          return newIsletme as Isletme;
+        } finally {
+          createIsletmeInProgress.current = false;
+        }
       } finally {
-        createIsletmeInProgress.current = false;
+        fetchIsletmeInProgress.current = null;
+        fetchIsletmePromise.current = null;
       }
-    } finally {
-      fetchIsletmeInProgress.current = null;
-    }
+    };
+
+    fetchIsletmePromise.current = executeRequest();
+    return fetchIsletmePromise.current;
   }, []);
 
   // Sadece işletme getir (oluşturma yapma) - read-only işlemler için
@@ -193,7 +203,9 @@ export function useAuth() {
       .single();
 
     if (error && error.code !== 'PGRST116') {
-      console.error('İşletme getirme hatası:', error);
+      if (__DEV__) {
+        console.error('İşletme getirme hatası:', error);
+      }
     }
 
     return data as Isletme | null;
@@ -211,7 +223,9 @@ export function useAuth() {
         if (!isMounted) return;
 
         if (error) {
-          console.error('Session getirme hatası:', error);
+          if (__DEV__) {
+            console.error('Session getirme hatası:', error);
+          }
           setState({
             session: null,
             user: null,
@@ -250,7 +264,9 @@ export function useAuth() {
               isletmeLoading: false,
             }));
           } catch (e) {
-            console.error('İşletme getirme/oluşturma hatası:', e);
+            if (__DEV__) {
+              console.error('İşletme getirme/oluşturma hatası:', e);
+            }
             if (!isMounted) return;
             setState((prev) => ({
               ...prev,
@@ -269,7 +285,9 @@ export function useAuth() {
           });
         }
       } catch (error) {
-        console.error('Auth başlatma hatası:', error);
+        if (__DEV__) {
+          console.error('Auth başlatma hatası:', error);
+        }
         if (isMounted) {
           setState({
             session: null,
@@ -291,7 +309,9 @@ export function useAuth() {
       // Timeout'u başlat - 30 saniye
       timeoutId = setTimeout(() => {
         if (isMounted && !authInitialized) {
-          console.warn('Auth başlatma zaman aşımı');
+          if (__DEV__) {
+            console.warn('Auth başlatma zaman aşımı');
+          }
           // Session'ı sıfırlamak yerine, sadece loading'i kapat
           // Mevcut session varsa koruyalım
           setState((prev) => ({
@@ -373,7 +393,9 @@ export function useAuth() {
             isletmeLoading: false,
           }));
         } catch (e) {
-          console.error('İşletme getirme/oluşturma hatası:', e);
+          if (__DEV__) {
+            console.error('İşletme getirme/oluşturma hatası:', e);
+          }
           if (!isMounted) return;
           setState((prev) => ({
             ...prev,
@@ -492,7 +514,9 @@ export function useAuth() {
       .single();
 
     if (isletmeError) {
-      console.error('İşletme oluşturma hatası:', isletmeError);
+      if (__DEV__) {
+        console.error('İşletme oluşturma hatası:', isletmeError);
+      }
       // Auth'u geri almak zor, bu yüzden kullanıcıya hata göster
       setState((prev) => ({ ...prev, loading: false }));
       throw new Error('İşletme oluşturulamadı. Lütfen tekrar deneyin.');

@@ -454,3 +454,61 @@ export interface NakitAvansWithRelations extends NakitAvans {
   kategori?: Kategori | null;
   taksitler?: NakitAvansTaksit[];
 }
+
+// Çek (Verilen Çekler)
+export type CekDurum = 'beklemede' | 'odendi' | 'iptal';
+
+export interface Cek {
+  id: string;
+  isletme_id: string;
+  hesap_id: string;
+  cari_id: string;
+  cek_no: string;
+  tutar: number;
+  kesim_tarihi: string;
+  vade_tarihi: string;
+  durum: CekDurum;
+  odeme_tarihi: string | null;
+  kategori_id: string | null;
+  aciklama: string | null;
+  notification_id: string | null;
+  islem_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CekInsert {
+  id?: string;
+  isletme_id: string;
+  hesap_id: string;
+  cari_id: string;
+  cek_no: string;
+  tutar: number;
+  kesim_tarihi?: string;
+  vade_tarihi: string;
+  durum?: CekDurum;
+  odeme_tarihi?: string | null;
+  kategori_id?: string | null;
+  aciklama?: string | null;
+  notification_id?: string | null;
+  islem_id?: string | null;
+}
+
+export interface CekUpdate {
+  cek_no?: string;
+  tutar?: number;
+  kesim_tarihi?: string;
+  vade_tarihi?: string;
+  durum?: CekDurum;
+  odeme_tarihi?: string | null;
+  kategori_id?: string | null;
+  aciklama?: string | null;
+  notification_id?: string | null;
+  islem_id?: string | null;
+}
+
+export interface CekWithRelations extends Cek {
+  hesap: Hesap;
+  cari: Cari;
+  kategori?: Kategori | null;
+}
