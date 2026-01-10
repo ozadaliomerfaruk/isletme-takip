@@ -7,18 +7,23 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  TouchableWithoutFeedback,
+  Modal,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Check, Wallet, ChevronDown } from 'lucide-react-native';
-import { Text, Button, Card, CategoryPicker, DateTimePicker, CurrencyInput } from '@/components/ui';
+import DateTimePickerRN from '@react-native-community/datetimepicker';
+import { Check, Wallet, ChevronDown, X, Calendar } from 'lucide-react-native';
+import { Text, Button, Card, CategoryPicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatDateTimeForDB } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { formatDateTimeForDB, isToday } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 
@@ -26,6 +31,9 @@ export default function TopluOdemePage() {
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'transactions', 'accounts']);
   const createIslem = useCreateIslem();
+  const insets = useSafeAreaInsets();
+  const windowHeight = Dimensions.get('window').height;
+  const { locale, formatDateMedium } = useDateFormat();
 
   // Varsayılan tarih: Bu ayın son günü 23:59
   const getDefaultDate = () => {
@@ -36,6 +44,7 @@ export default function TopluOdemePage() {
   };
 
   const [date, setDate] = useState(getDefaultDate());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [hesapId, setHesapId] = useState<string | null>(null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [selectedPersonel, setSelectedPersonel] = useState<Set<string>>(new Set());
@@ -221,7 +230,7 @@ export default function TopluOdemePage() {
               </Text>
               <TouchableOpacity
                 style={styles.hesapPicker}
-                onPress={() => setShowHesapPicker(!showHesapPicker)}
+                onPress={() => setShowHesapPicker(true)}
               >
                 <Wallet size={20} color={colors.textMuted} />
                 <Text variant="body" style={styles.hesapText}>
@@ -229,42 +238,22 @@ export default function TopluOdemePage() {
                 </Text>
                 <ChevronDown size={20} color={colors.textMuted} />
               </TouchableOpacity>
-              {showHesapPicker && (
-                <Card style={styles.hesapDropdown}>
-                  {availableHesaplar.map(hesap => (
-                    <TouchableOpacity
-                      key={hesap.id}
-                      style={[
-                        styles.hesapOption,
-                        hesap.id === hesapId && styles.hesapOptionSelected,
-                      ]}
-                      onPress={() => {
-                        setHesapId(hesap.id);
-                        setShowHesapPicker(false);
-                      }}
-                    >
-                      <Text
-                        variant="body"
-                        style={hesap.id === hesapId && { color: colors.primary }}
-                      >
-                        {hesap.name}
-                      </Text>
-                      <Text variant="caption" color="secondary">
-                        {formatCurrency(toNumber(hesap.balance))}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </Card>
-              )}
             </View>
 
             {/* Tarih/Saat Seçici */}
             <View style={styles.section}>
-              <DateTimePicker
-                label={t('transactions:form.dateTime')}
-                value={date}
-                onChange={setDate}
-              />
+              <Text variant="label" color="secondary" style={styles.label}>
+                {t('transactions:form.dateTime')}
+              </Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Calendar size={20} color={colors.textMuted} />
+                <Text variant="body" style={styles.dateText}>
+                  {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Kategori Seçici */}
@@ -373,6 +362,133 @@ export default function TopluOdemePage() {
             </Button>
           </View>
         </KeyboardAvoidingView>
+
+        {/* Hesap Picker Modal - Bottom Sheet */}
+        {showHesapPicker && (
+          <Modal
+            visible
+            transparent
+            animationType="slide"
+            onRequestClose={() => setShowHesapPicker(false)}
+          >
+            <TouchableWithoutFeedback onPress={() => setShowHesapPicker(false)}>
+              <View style={styles.bottomSheetOverlay}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>
+                    <View style={styles.bottomSheetHeader}>
+                      <Text style={styles.bottomSheetTitle}>{t('accounts:titles.selectAccount')}</Text>
+                      <TouchableOpacity onPress={() => setShowHesapPicker(false)} style={styles.bottomSheetCloseBtn}>
+                        <X size={24} color={colors.text} />
+                      </TouchableOpacity>
+                    </View>
+                    <ScrollView style={styles.bottomSheetList}>
+                      {availableHesaplar.map((hesap) => (
+                        <TouchableOpacity
+                          key={hesap.id}
+                          style={[styles.bottomSheetItem, hesap.id === hesapId && styles.bottomSheetItemSelected]}
+                          onPress={() => {
+                            setHesapId(hesap.id);
+                            setShowHesapPicker(false);
+                          }}
+                        >
+                          <Wallet size={20} color={colors.primary} />
+                          <View style={styles.bottomSheetItemContent}>
+                            <Text style={styles.bottomSheetItemText}>{hesap.name}</Text>
+                            <Text style={styles.bottomSheetItemBalance}>{formatCurrency(toNumber(hesap.balance))}</Text>
+                          </View>
+                          {hesap.id === hesapId && <Check size={20} color={colors.primary} />}
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+        )}
+
+        {/* Date Picker Modal */}
+        {showDatePicker && (
+          <Modal visible transparent animationType="fade">
+            <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
+              <View style={styles.pickerBackdrop}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View style={styles.pickerContainer}>
+                    <Text style={styles.pickerTitle}>{t('transactions:form.dateTime')}</Text>
+
+                    {/* Date Picker */}
+                    <View style={styles.pickerSection}>
+                      <Text style={styles.pickerSectionTitle}>{t('common:date.date')}</Text>
+                      <DateTimePickerRN
+                        value={date}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={(event, selectedDate) => {
+                          if (Platform.OS === 'android') {
+                            if (event.type === 'set' && selectedDate) {
+                              const newDate = new Date(date);
+                              newDate.setFullYear(selectedDate.getFullYear());
+                              newDate.setMonth(selectedDate.getMonth());
+                              newDate.setDate(selectedDate.getDate());
+                              setDate(newDate);
+                            }
+                          } else if (selectedDate) {
+                            const newDate = new Date(date);
+                            newDate.setFullYear(selectedDate.getFullYear());
+                            newDate.setMonth(selectedDate.getMonth());
+                            newDate.setDate(selectedDate.getDate());
+                            setDate(newDate);
+                          }
+                        }}
+                        locale={locale}
+                        textColor={colors.text}
+                        themeVariant="light"
+                        style={styles.datePickerStyle}
+                      />
+                    </View>
+
+                    {/* Time Picker */}
+                    <View style={styles.pickerSection}>
+                      <Text style={styles.pickerSectionTitle}>{t('common:date.time')}</Text>
+                      <DateTimePickerRN
+                        value={date}
+                        mode="time"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        is24Hour={true}
+                        onChange={(event, selectedDate) => {
+                          if (Platform.OS === 'android') {
+                            if (event.type === 'set' && selectedDate) {
+                              const newDate = new Date(date);
+                              newDate.setHours(selectedDate.getHours());
+                              newDate.setMinutes(selectedDate.getMinutes());
+                              setDate(newDate);
+                            }
+                          } else if (selectedDate) {
+                            const newDate = new Date(date);
+                            newDate.setHours(selectedDate.getHours());
+                            newDate.setMinutes(selectedDate.getMinutes());
+                            setDate(newDate);
+                          }
+                        }}
+                        locale={locale}
+                        textColor={colors.text}
+                        themeVariant="light"
+                        style={styles.timePickerStyle}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.pickerDoneButton}
+                      onPress={() => setShowDatePicker(false)}
+                    >
+                      <Text style={styles.pickerDoneText}>{t('common:buttons.done')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+        )}
       </SafeAreaView>
     </>
   );
@@ -413,27 +529,6 @@ const styles = StyleSheet.create({
   },
   hesapText: {
     flex: 1,
-  },
-  hesapDropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: spacing.lg,
-    right: spacing.lg,
-    marginTop: spacing.xs,
-    zIndex: 100,
-    maxHeight: 200,
-  },
-  hesapOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  hesapOptionSelected: {
-    backgroundColor: colors.primaryLight,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -499,5 +594,124 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     minWidth: 120,
+  },
+  // Bottom Sheet Modal Styles
+  bottomSheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  bottomSheetContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+  },
+  bottomSheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  bottomSheetTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  bottomSheetCloseBtn: {
+    padding: spacing.xs,
+  },
+  bottomSheetList: {
+    flex: 1,
+  },
+  bottomSheetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  bottomSheetItemSelected: {
+    backgroundColor: colors.primaryLight,
+  },
+  bottomSheetItemContent: {
+    flex: 1,
+  },
+  bottomSheetItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  bottomSheetItemBalance: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  // Date Button Styles
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  dateText: {
+    flex: 1,
+  },
+  // Date Picker Modal Styles
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  pickerSection: {
+    marginBottom: 8,
+  },
+  pickerSectionTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textMuted,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  datePickerStyle: {
+    height: 150,
+  },
+  timePickerStyle: {
+    height: 120,
+  },
+  pickerDoneButton: {
+    marginTop: 16,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  pickerDoneText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

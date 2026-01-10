@@ -10,7 +10,10 @@ import {
   Pencil,
   Trash2,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button } from '@/components/ui';
+import { Text } from './Text';
+import { Card } from './Card';
+import { ExpandableCard } from './ExpandableCard';
+import { Button } from './Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';

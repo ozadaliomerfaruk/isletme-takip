@@ -12,7 +12,8 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Bell, CalendarClock, TrendingUp, TrendingDown, X } from 'lucide-react-native';
-import { Text, Card } from '@/components/ui';
+import { Text } from './Text';
+import { Card } from './Card';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useIleriTarihliIslemler } from '@/hooks/useIleriTarihliIslemler';

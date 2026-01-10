@@ -742,17 +742,19 @@ export function CreditCardTransactionBar({
       {/* Hesap Picker Modal - Bottom Sheet */}
       {showHesapPicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => { setShowHesapPicker(false); setHesapSearchQuery(''); }}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>{t('accounts:titles.selectAccount')}</Text>
-                <TouchableOpacity onPress={() => { setShowHesapPicker(false); setHesapSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback onPress={() => { setShowHesapPicker(false); setHesapSearchQuery(''); }}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>{t('accounts:titles.selectAccount')}</Text>
+                    <TouchableOpacity onPress={() => { setShowHesapPicker(false); setHesapSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
+                  {/* Search Bar */}
+                  <View style={styles.searchContainer}>
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
@@ -800,30 +802,34 @@ export function CreditCardTransactionBar({
                     <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
                   </View>
                 )}
-              </ScrollView>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
 
       {/* Cari Picker Modal - Bottom Sheet */}
       {showCariPicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => { setShowCariPicker(false); setCariSearchQuery(''); }}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>{t('clients:transactionForm.selectSupplier')}</Text>
-                <TouchableOpacity onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); }}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>{t('clients:transactionForm.selectSupplier')}</Text>
+                    <TouchableOpacity onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('clients:search.searchSuppliers')}
+                  {/* Search Bar */}
+                  <View style={styles.searchContainer}>
+                    <Search size={20} color={colors.textMuted} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder={t('clients:search.searchSuppliers')}
                   placeholderTextColor={colors.textMuted}
                   value={cariSearchQuery}
                   onChangeText={setCariSearchQuery}
@@ -873,25 +879,29 @@ export function CreditCardTransactionBar({
                     <Text style={styles.emptySearchText}>{t('clients:messages.noSuppliers')}</Text>
                   </View>
                 )}
-              </ScrollView>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
 
       {/* Ödeme Hedef Tipi Picker Modal - Bottom Sheet */}
       {showOdemeHedefTypePicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => setShowOdemeHedefTypePicker(false)}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>{t('transactions:form.selectPaymentType')}</Text>
-                <TouchableOpacity onPress={() => setShowOdemeHedefTypePicker(false)} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback onPress={() => setShowOdemeHedefTypePicker(false)}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>{t('transactions:form.selectPaymentType')}</Text>
+                    <TouchableOpacity onPress={() => setShowOdemeHedefTypePicker(false)} style={styles.bottomSheetCloseBtn}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
 
-              <View style={styles.bottomSheetListContent}>
+                  <View style={styles.bottomSheetListContent}>
                 <TouchableOpacity
                   style={[styles.odemeTypeItem, odemeHedefType === 'tedarikci' && styles.odemeTypeItemSelected]}
                   onPress={() => {
@@ -940,27 +950,31 @@ export function CreditCardTransactionBar({
                       <Check size={14} color="#FFFFFF" />
                     </View>
                   )}
-                </TouchableOpacity>
-              </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
 
       {/* Personel Picker Modal - Bottom Sheet */}
       {showPersonelPicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>{t('staff:transactionForm.selectPersonel')}</Text>
-                <TouchableOpacity onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>{t('staff:transactionForm.selectPersonel')}</Text>
+                    <TouchableOpacity onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
+                  {/* Search Bar */}
+                  <View style={styles.searchContainer}>
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
@@ -1016,9 +1030,11 @@ export function CreditCardTransactionBar({
                     <Text style={styles.emptySearchText}>{t('staff:messages.noPersonnel')}</Text>
                   </View>
                 )}
-              </ScrollView>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
     </Modal>

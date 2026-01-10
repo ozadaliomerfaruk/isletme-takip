@@ -987,8 +987,10 @@ export function QuickTransactionBar({
       {/* Hesap Picker Modal - Bottom Sheet */}
       {showHesapPicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => { setShowHesapPicker(false); setHesapSearchQuery(''); }}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+          <TouchableWithoutFeedback onPress={() => { setShowHesapPicker(false); setHesapSearchQuery(''); }}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
               <View style={styles.bottomSheetHeader}>
                 <Text style={styles.bottomSheetTitle}>
                   {hesapPickerTarget === 'source' ? t('accounts:titles.selectAccount') : t('transactions:form.targetAccount')}
@@ -1054,27 +1056,31 @@ export function QuickTransactionBar({
                   </View>
                 )}
               </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
 
       {/* Cari Picker Modal (for ödeme tedarikçi/tahsilat) - Bottom Sheet */}
       {showCariPicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => { setShowCariPicker(false); setCariSearchQuery(''); }}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>
-                  {type === 'tahsilat' ? t('clients:transactionForm.selectCustomer') : t('clients:transactionForm.selectSupplier')}
-                </Text>
-                <TouchableOpacity onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); }}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>
+                      {type === 'tahsilat' ? t('clients:transactionForm.selectCustomer') : t('clients:transactionForm.selectSupplier')}
+                    </Text>
+                    <TouchableOpacity onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
+                  {/* Search Bar */}
+                  <View style={styles.searchContainer}>
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
@@ -1140,25 +1146,29 @@ export function QuickTransactionBar({
                     </Text>
                   </View>
                 )}
-              </ScrollView>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
 
       {/* Ödeme Hedef Tipi Picker Modal - Bottom Sheet */}
       {showOdemeHedefTypePicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => setShowOdemeHedefTypePicker(false)}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>{t('transactions:form.selectPaymentType')}</Text>
-                <TouchableOpacity onPress={() => setShowOdemeHedefTypePicker(false)} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback onPress={() => setShowOdemeHedefTypePicker(false)}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>{t('transactions:form.selectPaymentType')}</Text>
+                    <TouchableOpacity onPress={() => setShowOdemeHedefTypePicker(false)} style={styles.bottomSheetCloseBtn}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
 
-              <View style={styles.bottomSheetListContent}>
+                  <View style={styles.bottomSheetListContent}>
                 <TouchableOpacity
                   style={[styles.odemeTypeItem, odemeHedefType === 'tedarikci' && styles.odemeTypeItemSelected]}
                   onPress={() => {
@@ -1233,26 +1243,30 @@ export function QuickTransactionBar({
                       <Check size={14} color="#FFFFFF" />
                     </View>
                   )}
-                </TouchableOpacity>
-              </View>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
 
       {/* Kredi Kartı Picker Modal - Bottom Sheet */}
       {showKrediKartiPicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => setShowKrediKartiPicker(false)}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>{t('accounts:titles.selectCreditCard')}</Text>
-                <TouchableOpacity onPress={() => setShowKrediKartiPicker(false)} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback onPress={() => setShowKrediKartiPicker(false)}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>{t('accounts:titles.selectCreditCard')}</Text>
+                    <TouchableOpacity onPress={() => setShowKrediKartiPicker(false)} style={styles.bottomSheetCloseBtn}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
 
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
+                  <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
                 {krediKartiHesaplari.map((hesap) => {
                   const isSelected = hedefHesapId === hesap.id;
                   return (
@@ -1282,26 +1296,30 @@ export function QuickTransactionBar({
                     <Text style={styles.emptySearchText}>{t('accounts:messages.noCreditCards')}</Text>
                   </View>
                 )}
-              </ScrollView>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
 
       {/* Personel Picker Modal - Bottom Sheet */}
       {showPersonelPicker && (
         <Modal visible transparent animationType="slide" onRequestClose={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }}>
-          <View style={styles.bottomSheetOverlay}>
-            <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>{t('staff:transactionForm.selectPersonel')}</Text>
-                <TouchableOpacity onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
+          <TouchableWithoutFeedback onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>{t('staff:transactionForm.selectPersonel')}</Text>
+                    <TouchableOpacity onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); }} style={styles.bottomSheetCloseBtn}>
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
+                  {/* Search Bar */}
+                  <View style={styles.searchContainer}>
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
                   style={styles.searchInput}
@@ -1357,9 +1375,11 @@ export function QuickTransactionBar({
                     <Text style={styles.emptySearchText}>{t('staff:messages.noPersonnel')}</Text>
                   </View>
                 )}
-              </ScrollView>
+                  </ScrollView>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
-          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       )}
     </Modal>

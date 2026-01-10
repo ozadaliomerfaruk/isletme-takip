@@ -7,17 +7,22 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  TouchableWithoutFeedback,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Check } from 'lucide-react-native';
-import { Text, Button, Card, CategoryPicker, DateTimePicker, CurrencyInput } from '@/components/ui';
+import DateTimePickerRN from '@react-native-community/datetimepicker';
+import { Check, Calendar } from 'lucide-react-native';
+import { Text, Button, Card, CategoryPicker, CurrencyInput } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
-import { formatDateTimeForDB } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { formatDateTimeForDB, isToday } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 
@@ -25,6 +30,8 @@ export default function TopluGiderPage() {
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'transactions']);
   const createIslem = useCreateIslem();
+  const { locale, formatDateMedium } = useDateFormat();
+  const windowHeight = Dimensions.get('window').height;
 
   // Varsayılan tarih: Bu ayın son günü 23:59
   const getDefaultDate = () => {
@@ -35,6 +42,7 @@ export default function TopluGiderPage() {
   };
 
   const [date, setDate] = useState(getDefaultDate());
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [selectedPersonel, setSelectedPersonel] = useState<Set<string>>(new Set());
   const [amounts, setAmounts] = useState<Record<string, string>>({});
@@ -173,11 +181,18 @@ export default function TopluGiderPage() {
           >
             {/* Tarih/Saat Seçici */}
             <View style={styles.section}>
-              <DateTimePicker
-                label={t('transactions:form.dateTime')}
-                value={date}
-                onChange={setDate}
-              />
+              <Text variant="label" color="secondary" style={styles.label}>
+                {t('transactions:form.dateTime')}
+              </Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowDatePicker(true)}
+              >
+                <Calendar size={20} color={colors.textMuted} />
+                <Text variant="body" style={styles.dateText}>
+                  {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Kategori Seçici */}
@@ -277,6 +292,89 @@ export default function TopluGiderPage() {
             </Button>
           </View>
         </KeyboardAvoidingView>
+
+        {/* Date Picker Modal */}
+        {showDatePicker && (
+          <Modal visible transparent animationType="fade">
+            <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
+              <View style={styles.pickerBackdrop}>
+                <TouchableWithoutFeedback onPress={() => {}}>
+                  <View style={styles.pickerContainer}>
+                    <Text style={styles.pickerTitle}>{t('transactions:form.dateTime')}</Text>
+
+                    {/* Date Picker */}
+                    <View style={styles.pickerSection}>
+                      <Text style={styles.pickerSectionTitle}>{t('common:date.date')}</Text>
+                      <DateTimePickerRN
+                        value={date}
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        onChange={(event, selectedDate) => {
+                          if (Platform.OS === 'android') {
+                            if (event.type === 'set' && selectedDate) {
+                              const newDate = new Date(date);
+                              newDate.setFullYear(selectedDate.getFullYear());
+                              newDate.setMonth(selectedDate.getMonth());
+                              newDate.setDate(selectedDate.getDate());
+                              setDate(newDate);
+                            }
+                          } else if (selectedDate) {
+                            const newDate = new Date(date);
+                            newDate.setFullYear(selectedDate.getFullYear());
+                            newDate.setMonth(selectedDate.getMonth());
+                            newDate.setDate(selectedDate.getDate());
+                            setDate(newDate);
+                          }
+                        }}
+                        locale={locale}
+                        textColor={colors.text}
+                        themeVariant="light"
+                        style={styles.datePickerStyle}
+                      />
+                    </View>
+
+                    {/* Time Picker */}
+                    <View style={styles.pickerSection}>
+                      <Text style={styles.pickerSectionTitle}>{t('common:date.time')}</Text>
+                      <DateTimePickerRN
+                        value={date}
+                        mode="time"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        is24Hour={true}
+                        onChange={(event, selectedDate) => {
+                          if (Platform.OS === 'android') {
+                            if (event.type === 'set' && selectedDate) {
+                              const newDate = new Date(date);
+                              newDate.setHours(selectedDate.getHours());
+                              newDate.setMinutes(selectedDate.getMinutes());
+                              setDate(newDate);
+                            }
+                          } else if (selectedDate) {
+                            const newDate = new Date(date);
+                            newDate.setHours(selectedDate.getHours());
+                            newDate.setMinutes(selectedDate.getMinutes());
+                            setDate(newDate);
+                          }
+                        }}
+                        locale={locale}
+                        textColor={colors.text}
+                        themeVariant="light"
+                        style={styles.timePickerStyle}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.pickerDoneButton}
+                      onPress={() => setShowDatePicker(false)}
+                    >
+                      <Text style={styles.pickerDoneText}>{t('common:buttons.done')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+        )}
       </SafeAreaView>
     </>
   );
@@ -362,5 +460,71 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     minWidth: 120,
+  },
+  label: {
+    marginBottom: spacing.sm,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  dateText: {
+    flex: 1,
+  },
+  // Date Picker Modal Styles
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  pickerSection: {
+    marginBottom: 8,
+  },
+  pickerSectionTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textMuted,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  datePickerStyle: {
+    height: 150,
+  },
+  timePickerStyle: {
+    height: 120,
+  },
+  pickerDoneButton: {
+    marginTop: 16,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  pickerDoneText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text } from './Text';
 import { colors } from '@/constants/colors';
 
 export type BalanceDirection = 'debt' | 'credit';
