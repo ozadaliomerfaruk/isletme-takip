@@ -484,6 +484,28 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen
+          name="personel/toplu-gider"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('staff:bulkSalary.title'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="personel/toplu-odeme"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('staff:bulkPayment.title'),
+            headerShadowVisible: false,
+          }}
+        />
       </Stack>
     </>
   );

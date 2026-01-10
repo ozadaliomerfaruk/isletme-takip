@@ -165,7 +165,7 @@ export default function LoginPage() {
               disabled={socialLoading === 'google' || !request}
             >
               {socialLoading === 'google' ? (
-                <ActivityIndicator color="#757575" />
+                <ActivityIndicator color={colors.textMuted} />
               ) : (
                 <>
                   <View style={styles.googleIconContainer}>
@@ -280,9 +280,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: '#DADCE0',
+    borderColor: colors.border,
     borderRadius: 12,
     height: 50,
     paddingHorizontal: spacing.lg,
@@ -297,12 +297,12 @@ const styles = StyleSheet.create({
     marginRight: spacing.sm,
   },
   googleIcon: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 14,
     fontWeight: '700',
   },
   googleButtonText: {
-    color: '#757575',
+    color: colors.textMuted,
     fontSize: 16,
     fontWeight: '500',
   },

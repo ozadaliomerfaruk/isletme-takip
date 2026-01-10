@@ -195,18 +195,41 @@ export function formatDateTimeForDB(date: Date): string {
  * Veritabanı tarih string'ini Date objesine çevir
  * Timezone-safe: Gün kayması olmaz
  * ISO timestamp formatını da destekler (created_at gibi alanlar için)
+ * Geçersiz veya boş string için bugünü döndürür
  *
  * @example
  * parseDateFromDB("2024-12-31") // Date object at local midnight
  * parseDateFromDB("2024-12-31T14:30:00.000Z") // ISO timestamp
+ * parseDateFromDB("") // Bugün (fallback)
  */
 export function parseDateFromDB(dateStr: string): Date {
+  // Boş string kontrolü
+  if (!dateStr || dateStr.trim() === '') {
+    return new Date();
+  }
+
+  let result: Date;
+
   // ISO timestamp formatı ise (T içeriyorsa) direkt parse et
   if (dateStr.includes('T')) {
-    return new Date(dateStr);
+    result = new Date(dateStr);
+  } else {
+    // YYYY-MM-DD formatı için 'T00:00:00' ekleyerek yerel timezone'da parse et
+    result = new Date(dateStr + 'T00:00:00');
   }
-  // YYYY-MM-DD formatı için 'T00:00:00' ekleyerek yerel timezone'da parse et
-  return new Date(dateStr + 'T00:00:00');
+
+  // Invalid Date kontrolü
+  if (isNaN(result.getTime())) {
+    return new Date();
+  }
+
+  // 1970 veya çok eski/gelecek tarihler kontrolü
+  const year = result.getFullYear();
+  if (year < 1900 || year > 2100) {
+    return new Date();
+  }
+
+  return result;
 }
 
 // ============================================================================
@@ -552,4 +575,35 @@ export function addDays(date: Date | string, days: number): Date {
   const result = new Date(d);
   result.setDate(result.getDate() + days);
   return result;
+}
+
+/**
+ * Tarih objesinin geçerli olup olmadığını kontrol et
+ * Geçersiz tarihler (Invalid Date, 1970 öncesi) için bugünü döndür
+ * DateTimePicker gibi bileşenlerde güvenli kullanım için
+ *
+ * @example
+ * ensureValidDate(new Date()) // Bugün
+ * ensureValidDate(new Date('invalid')) // Bugün (fallback)
+ * ensureValidDate(new Date(0)) // Bugün (1970 epoch - fallback)
+ */
+export function ensureValidDate(date: Date | null | undefined): Date {
+  // null veya undefined kontrolü
+  if (!date) {
+    return new Date();
+  }
+
+  // Invalid Date kontrolü
+  if (isNaN(date.getTime())) {
+    return new Date();
+  }
+
+  // 1970 öncesi veya çok eski tarihler kontrolü (1900'den önce)
+  // Bu genellikle hatalı tarih parse'ından kaynaklanır
+  const year = date.getFullYear();
+  if (year < 1900 || year > 2100) {
+    return new Date();
+  }
+
+  return date;
 }

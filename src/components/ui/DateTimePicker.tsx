@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -8,6 +8,7 @@ import { Button } from './Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { ensureValidDate } from '@/lib/date';
 
 interface DateTimePickerProps {
   label?: string;
@@ -28,7 +29,10 @@ export function DateTimePicker({
   const { locale, formatDateNative, formatTimeNative } = useDateFormat();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [tempDate, setTempDate] = useState(value);
+
+  // Geçersiz tarih koruması - 1970 ve benzeri sorunları önle
+  const safeValue = useMemo(() => ensureValidDate(value), [value]);
+  const [tempDate, setTempDate] = useState(safeValue);
 
   const formatDate = (date: Date) => {
     return formatDateNative(date);
@@ -42,7 +46,7 @@ export function DateTimePicker({
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
       if (event.type === 'set' && selectedDate) {
-        const newDate = new Date(value);
+        const newDate = new Date(safeValue);
         newDate.setFullYear(selectedDate.getFullYear());
         newDate.setMonth(selectedDate.getMonth());
         newDate.setDate(selectedDate.getDate());
@@ -59,7 +63,7 @@ export function DateTimePicker({
     if (Platform.OS === 'android') {
       setShowTimePicker(false);
       if (event.type === 'set' && selectedDate) {
-        const newDate = new Date(value);
+        const newDate = new Date(safeValue);
         newDate.setHours(selectedDate.getHours());
         newDate.setMinutes(selectedDate.getMinutes());
         onChange(newDate);
@@ -81,7 +85,7 @@ export function DateTimePicker({
   };
 
   const handleIOSCancel = (pickerType: 'date' | 'time') => {
-    setTempDate(value);
+    setTempDate(safeValue);
     if (pickerType === 'date') {
       setShowDatePicker(false);
     } else {
@@ -140,13 +144,13 @@ export function DateTimePicker({
           <TouchableOpacity
             style={[styles.picker, error && styles.pickerError, mode === 'datetime' && styles.pickerHalf]}
             onPress={() => {
-              setTempDate(value);
+              setTempDate(safeValue);
               setShowDatePicker(true);
             }}
           >
             <Calendar size={20} color={colors.textMuted} />
             <Text variant="body" style={styles.pickerText}>
-              {formatDate(value)}
+              {formatDate(safeValue)}
             </Text>
           </TouchableOpacity>
         )}
@@ -155,13 +159,13 @@ export function DateTimePicker({
           <TouchableOpacity
             style={[styles.picker, error && styles.pickerError, mode === 'datetime' && styles.pickerHalf]}
             onPress={() => {
-              setTempDate(value);
+              setTempDate(safeValue);
               setShowTimePicker(true);
             }}
           >
             <Clock size={20} color={colors.textMuted} />
             <Text variant="body" style={styles.pickerText}>
-              {formatTime(value)}
+              {formatTime(safeValue)}
             </Text>
           </TouchableOpacity>
         )}
@@ -176,7 +180,7 @@ export function DateTimePicker({
       {/* Android DatePicker */}
       {Platform.OS === 'android' && showDatePicker && (
         <DateTimePickerRN
-          value={value}
+          value={safeValue}
           mode="date"
           display="default"
           onChange={handleDateChange}
@@ -186,7 +190,7 @@ export function DateTimePicker({
       {/* Android TimePicker */}
       {Platform.OS === 'android' && showTimePicker && (
         <DateTimePickerRN
-          value={value}
+          value={safeValue}
           mode="time"
           display="default"
           onChange={handleTimeChange}

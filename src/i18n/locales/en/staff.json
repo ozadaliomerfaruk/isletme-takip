@@ -154,5 +154,23 @@
     "insurance": "Insurance",
     "tax": "Tax",
     "other": "Other"
+  },
+  "bulkActions": {
+    "addExpense": "Add Bulk Expense",
+    "addPayment": "Add Bulk Payment"
+  },
+  "bulkSalary": {
+    "title": "Bulk Salary Entry",
+    "selectAll": "Select All",
+    "selectNone": "Select None",
+    "description": "Salary accrual",
+    "success": "Expense recorded for {{count}} staff"
+  },
+  "bulkPayment": {
+    "title": "Bulk Payment",
+    "fillSalaries": "Fill Salaries",
+    "selectAccount": "Please select an account",
+    "description": "Salary payment",
+    "success": "Payment recorded for {{count}} staff"
   }
 }

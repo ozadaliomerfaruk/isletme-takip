@@ -26,7 +26,7 @@ import type { Hesap } from '@/types/database';
 import { TransactionType } from '@/components/transaction/TransactionTypeTabs';
 import { SummaryCarousel } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { getHesapIcon } from '@/lib/icons';
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     gap: spacing.md,
   },
   deletionWarningContent: {
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
   },
   periodNavButton: {
     padding: spacing.xs,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     backgroundColor: colors.surfaceLight,
   },
   periodLabel: {
@@ -612,7 +612,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceLight,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
   },
   datePickerModalOverlay: {
@@ -622,8 +622,8 @@ const styles = StyleSheet.create({
   },
   datePickerModalContent: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
     padding: spacing.lg,
     paddingBottom: spacing['2xl'],
   },
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
   },
   datePickerWrapper: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
   },
   section: {

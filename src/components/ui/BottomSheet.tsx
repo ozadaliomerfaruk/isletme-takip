@@ -12,6 +12,8 @@ import {
   KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colors } from '@/constants/colors';
+import { borderRadius } from '@/constants/spacing';
 import * as Haptics from 'expo-haptics';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -105,7 +107,7 @@ export function BottomSheet({
   const open = useCallback(() => {
     translateY.setValue(SCREEN_HEIGHT);
     animateToSnap(currentSnapIndex, 0, keyboardHeight);
-    animateBackdrop(0.3);
+    animateBackdrop(0.5);
   }, [translateY, animateToSnap, animateBackdrop, currentSnapIndex, keyboardHeight]);
 
   // Close sheet
@@ -199,7 +201,7 @@ export function BottomSheet({
         lastGestureDy.current = gestureState.dy;
 
         const progress = Math.min(1, Math.max(0, 1 - gestureState.dy / currentHeight));
-        backdropOpacity.setValue(progress * 0.3);
+        backdropOpacity.setValue(progress * 0.5);
       },
       onPanResponderRelease: (_, gestureState) => {
         const { dy, vy } = gestureState;
@@ -218,7 +220,7 @@ export function BottomSheet({
           animateToSnap(currentSnapIndexRef.current);
         }
 
-        animateBackdrop(0.3);
+        animateBackdrop(0.5);
       },
     })
   ).current;
@@ -284,18 +286,18 @@ export function BottomSheet({
 const styles = StyleSheet.create({
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#000000',
+    backgroundColor: colors.black,
   },
   sheet: {
     position: 'absolute',
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
     minHeight: 200,
     maxHeight: SCREEN_HEIGHT * 0.92,
-    shadowColor: '#000',
+    shadowColor: colors.black,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -309,8 +311,8 @@ const styles = StyleSheet.create({
   handle: {
     width: 36,
     height: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.15)',
-    borderRadius: 2,
+    backgroundColor: colors.border,
+    borderRadius: borderRadius.sm,
   },
   content: {
     flex: 1,

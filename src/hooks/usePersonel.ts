@@ -136,10 +136,10 @@ export function useDeletePersonel() {
 
       if (islemError) throw islemError;
 
-      // Sonra personeli sil (soft delete) - ownership kontrolü ile
+      // Sonra personeli sil - ownership kontrolü ile
       const { error } = await supabase
         .from('personel')
-        .update({ is_active: false })
+        .delete()
         .eq('id', id)
         .eq('isletme_id', isletme.id);
 

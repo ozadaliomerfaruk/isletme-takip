@@ -44,12 +44,23 @@ interface UseCategoryReportOptions {
   endDate: string;
 }
 
+/**
+ * Tarih string'ini tam gun formatina normalize eder
+ * YYYY-MM-DD -> YYYY-MM-DDTHH:MM:SS formatina cevirir
+ */
+function normalizeDateRange(startDate: string, endDate: string): { startDateTime: string; endDateTime: string } {
+  const startDateTime = startDate.includes('T') ? startDate : `${startDate}T00:00:00`;
+  const endDateTime = endDate.includes('T') ? endDate : `${endDate}T23:59:59`;
+  return { startDateTime, endDateTime };
+}
+
 export function useCategoryReport(
   type: KategoriType,
   options: UseCategoryReportOptions
 ): CategoryReportResult {
   const { isletme } = useAuthContext();
   const { startDate, endDate } = options;
+  const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
@@ -78,7 +89,7 @@ export function useCategoryReport(
     isLoading: islemlerLoading,
     error: islemlerError,
   } = useQuery({
-    queryKey: ['category-report', isletme?.id, type, startDate, endDate],
+    queryKey: ['category-report', isletme?.id, type, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -93,8 +104,8 @@ export function useCategoryReport(
         `)
         .eq('isletme_id', isletme.id)
         .in('type', islemTypes)
-        .gte('date', startDate)
-        .lte('date', endDate);
+        .gte('date', startDateTime)
+        .lte('date', endDateTime);
 
       if (error) throw error;
 
@@ -226,6 +237,7 @@ export function useHierarchicalCategoryReport(
 ): HierarchicalCategoryReportResult {
   const { isletme } = useAuthContext();
   const { startDate, endDate } = options;
+  const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
@@ -236,7 +248,7 @@ export function useHierarchicalCategoryReport(
     isLoading: islemlerLoading,
     error: islemlerError,
   } = useQuery({
-    queryKey: ['hierarchical-category-report', isletme?.id, type, startDate, endDate],
+    queryKey: ['hierarchical-category-report', isletme?.id, type, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -251,8 +263,8 @@ export function useHierarchicalCategoryReport(
         `)
         .eq('isletme_id', isletme.id)
         .in('type', islemTypes)
-        .gte('date', startDate)
-        .lte('date', endDate);
+        .gte('date', startDateTime)
+        .lte('date', endDateTime);
 
       if (error) throw error;
 
@@ -442,12 +454,13 @@ export function useCategoryTransactions(
 ) {
   const { isletme } = useAuthContext();
   const { startDate, endDate } = options;
+  const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
 
   return useQuery({
-    queryKey: ['category-transactions', isletme?.id, kategoriId, type, startDate, endDate],
+    queryKey: ['category-transactions', isletme?.id, kategoriId, type, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -462,8 +475,8 @@ export function useCategoryTransactions(
         `)
         .eq('isletme_id', isletme.id)
         .in('type', islemTypes)
-        .gte('date', startDate)
-        .lte('date', endDate)
+        .gte('date', startDateTime)
+        .lte('date', endDateTime)
         .order('date', { ascending: false });
 
       // Kategorisiz işlemler için null kontrolü
@@ -490,12 +503,13 @@ export function useMultiCategoryTransactions(
 ) {
   const { isletme } = useAuthContext();
   const { startDate, endDate } = options;
+  const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
 
   return useQuery({
-    queryKey: ['multi-category-transactions', isletme?.id, kategoriIds.sort().join(','), type, startDate, endDate],
+    queryKey: ['multi-category-transactions', isletme?.id, kategoriIds.sort().join(','), type, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme || kategoriIds.length === 0) return [];
 
@@ -511,8 +525,8 @@ export function useMultiCategoryTransactions(
         .eq('isletme_id', isletme.id)
         .in('type', islemTypes)
         .in('kategori_id', kategoriIds)
-        .gte('date', startDate)
-        .lte('date', endDate)
+        .gte('date', startDateTime)
+        .lte('date', endDateTime)
         .order('date', { ascending: false });
 
       if (error) throw error;
@@ -548,6 +562,7 @@ export function useSubCategoryReport(
 ): SubCategoryReportResult {
   const { isletme } = useAuthContext();
   const { startDate, endDate } = options;
+  const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
@@ -603,7 +618,7 @@ export function useSubCategoryReport(
     isLoading: islemlerLoading,
     error: islemlerError,
   } = useQuery({
-    queryKey: ['sub-category-transactions', isletme?.id, allKategoriIds.sort().join(','), type, startDate, endDate],
+    queryKey: ['sub-category-transactions', isletme?.id, allKategoriIds.sort().join(','), type, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme || allKategoriIds.length === 0) return [];
 
@@ -619,8 +634,8 @@ export function useSubCategoryReport(
         .eq('isletme_id', isletme.id)
         .in('type', islemTypes)
         .in('kategori_id', allKategoriIds)
-        .gte('date', startDate)
-        .lte('date', endDate);
+        .gte('date', startDateTime)
+        .lte('date', endDateTime);
 
       if (error) throw error;
       return data;

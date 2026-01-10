@@ -137,10 +137,10 @@ export function useDeleteCari() {
 
       if (islemError) throw islemError;
 
-      // Sonra cariyi sil (soft delete) - ownership kontrolü ile
+      // Sonra cariyi sil - ownership kontrolü ile
       const { error } = await supabase
         .from('cariler')
-        .update({ is_active: false })
+        .delete()
         .eq('id', id)
         .eq('isletme_id', isletme.id);
 

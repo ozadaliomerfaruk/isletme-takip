@@ -39,7 +39,9 @@
     "targetAccount": "Target Account",
     "selectPaymentType": "Select Payment Type",
     "description": "Description",
+    "descriptionOptional": "Description (Optional)",
     "descriptionPlaceholder": "Add description (optional)",
+    "transactionNote": "Transaction note...",
     "note": "Note",
     "notePlaceholder": "Add note...",
     "client": "Client",
@@ -72,6 +74,8 @@
   "messages": {
     "createSuccess": "Transaction saved",
     "updateSuccess": "Transaction updated",
+    "transactionUpdated": "Transaction updated",
+    "typeCannotChange": "Transaction type cannot be changed",
     "deleteSuccess": "Transaction deleted",
     "deleteConfirm": "Are you sure you want to delete this transaction?",
     "noTransactions": "No transactions yet",

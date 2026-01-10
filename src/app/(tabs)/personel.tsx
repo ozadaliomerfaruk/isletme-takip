@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { useState, useRef, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -10,12 +10,15 @@ import {
   Phone,
   Briefcase,
   EyeOff,
+  MinusCircle,
+  Banknote,
+  X,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -28,6 +31,52 @@ export default function PersonelPage() {
   const [expandedPersonelId, setExpandedPersonelId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
+  const [fabMenuVisible, setFabMenuVisible] = useState(false);
+
+  // FAB animation
+  const fabRotation = useRef(new Animated.Value(0)).current;
+  const menuOpacity = useRef(new Animated.Value(0)).current;
+  const menuTranslateY = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    if (fabMenuVisible) {
+      Animated.parallel([
+        Animated.timing(fabRotation, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(menuOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(menuTranslateY, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(fabRotation, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(menuOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(menuTranslateY, {
+          toValue: 20,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [fabMenuVisible]);
 
   // Gerçek veriler - pasif personeli de dahil et
   const { data: personelList, isLoading } = usePersonelList(true);
@@ -46,6 +95,19 @@ export default function PersonelPage() {
       // Aynı durumda olanları alfabetik sırala
       return a.first_name.localeCompare(b.first_name, 'tr');
     });
+
+  // Helper fonksiyonlar - nested ternary yerine daha okunabilir
+  function getBalanceLabel(balance: number): string {
+    if (balance === 0) return t('staff:balance.noBalance');
+    if (balance < 0) return t('staff:balance.weOwe');
+    return t('staff:balance.theyOwe');
+  }
+
+  function getBalanceColor(balance: number): 'secondary' | 'error' | 'success' {
+    if (balance === 0) return 'secondary';
+    if (balance < 0) return 'error';
+    return 'success';
+  }
 
 
   return (
@@ -144,21 +206,11 @@ export default function PersonelPage() {
                     </View>
                     <View style={styles.personelBalance}>
                       <Text variant="caption" color="secondary">
-                        {toNumber(personel.balance) === 0
-                          ? t('staff:balance.noBalance')
-                          : toNumber(personel.balance) < 0
-                          ? t('staff:balance.weOwe')
-                          : t('staff:balance.theyOwe')}
+                        {getBalanceLabel(toNumber(personel.balance))}
                       </Text>
                       <Text
                         variant="h3"
-                        color={
-                          toNumber(personel.balance) === 0
-                            ? 'secondary'
-                            : toNumber(personel.balance) < 0
-                            ? 'error'
-                            : 'success'
-                        }
+                        color={getBalanceColor(toNumber(personel.balance))}
                       >
                         {formatCurrency(Math.abs(toNumber(personel.balance)))}
                       </Text>
@@ -195,6 +247,70 @@ export default function PersonelPage() {
           )}
         </View>
       </ScrollView>
+
+      {/* FAB Menu */}
+      <View style={styles.fabContainer}>
+        {fabMenuVisible && (
+          <Animated.View
+            style={[
+              styles.fabMenu,
+              {
+                opacity: menuOpacity,
+                transform: [{ translateY: menuTranslateY }],
+              },
+            ]}
+          >
+            <TouchableOpacity
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabMenuVisible(false);
+                router.push('/personel/toplu-gider');
+              }}
+            >
+              <View style={[styles.fabMenuIcon, { backgroundColor: colors.errorLight }]}>
+                <MinusCircle size={20} color={colors.error} />
+              </View>
+              <Text variant="body">{t('staff:bulkActions.addExpense')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.fabMenuItem}
+              onPress={() => {
+                setFabMenuVisible(false);
+                router.push('/personel/toplu-odeme');
+              }}
+            >
+              <View style={[styles.fabMenuIcon, { backgroundColor: colors.successLight }]}>
+                <Banknote size={20} color={colors.success} />
+              </View>
+              <Text variant="body">{t('staff:bulkActions.addPayment')}</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => setFabMenuVisible(!fabMenuVisible)}
+          activeOpacity={0.8}
+        >
+          <Animated.View
+            style={{
+              transform: [
+                {
+                  rotate: fabRotation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '45deg'],
+                  }),
+                },
+              ],
+            }}
+          >
+            {fabMenuVisible ? (
+              <X size={24} color={colors.surface} />
+            ) : (
+              <Plus size={24} color={colors.surface} />
+            )}
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
 
       {/* Quick Transaction Bar */}
       <QuickTransactionBar
@@ -286,5 +402,51 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  // FAB Styles
+  fabContainer: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing.lg,
+    alignItems: 'flex-end',
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  fabMenu: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+    minWidth: 200,
+  },
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  fabMenuIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

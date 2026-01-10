@@ -358,7 +358,7 @@ export default function IslemDuzenlePage() {
                       </Text>
                       {selectedPersonel && (
                         <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'secondary'}>
-                          {t('staff:balance.debt')} {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                          {t('staff:balance.weOwe')}: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
                         </Text>
                       )}
                     </View>

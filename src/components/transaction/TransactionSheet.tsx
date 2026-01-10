@@ -294,7 +294,7 @@ export function TransactionSheet({
               style={styles.closeButton}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <X size={24} color="#86868B" />
+              <X size={24} color={colors.textMuted} />
             </TouchableOpacity>
 
             <View style={styles.headerCenter}>
@@ -322,7 +322,7 @@ export function TransactionSheet({
             >
               <Bell
                 size={20}
-                color={isScheduled ? colors.warning : '#86868B'}
+                color={isScheduled ? colors.warning : colors.textMuted}
               />
             </TouchableOpacity>
           </View>
@@ -373,7 +373,7 @@ export function TransactionSheet({
 
                   {/* Account Selection */}
                   <OptionRow
-                    icon={<Wallet size={22} color="#86868B" />}
+                    icon={<Wallet size={22} color={colors.textMuted} />}
                     label={t('transactions:form.account')}
                     value={selectedHesap?.name}
                     placeholder={t('transactions:form.accountPlaceholder')}
@@ -383,7 +383,7 @@ export function TransactionSheet({
 
                   {/* Date Selection */}
                   <OptionRow
-                    icon={<Calendar size={22} color="#86868B" />}
+                    icon={<Calendar size={22} color={colors.textMuted} />}
                     label={t('transactions:form.date')}
                     value={
                       isToday(selectedDate)
@@ -407,12 +407,12 @@ export function TransactionSheet({
                   {/* Description */}
                   <View style={styles.descriptionContainer}>
                     <View style={styles.descriptionIcon}>
-                      <FileText size={22} color="#86868B" />
+                      <FileText size={22} color={colors.textMuted} />
                     </View>
                     <TextInput
                       style={styles.descriptionInput}
                       placeholder={t('transactions:form.notePlaceholder')}
-                      placeholderTextColor="#C7C7CC"
+                      placeholderTextColor={colors.textMuted}
                       value={description}
                       onChangeText={setDescription}
                       multiline
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1D1D1F',
+    color: colors.text,
   },
   scheduleButton: {
     width: 40,
@@ -690,11 +690,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginBottom: 8,
     borderRadius: 12,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: colors.surfaceLight,
   },
   hint: {
     fontSize: 14,
-    color: '#86868B',
+    color: colors.textMuted,
     marginTop: 8,
   },
   detailsSection: {
@@ -707,7 +707,7 @@ const styles = StyleSheet.create({
   descriptionContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#F5F5F7',
+    backgroundColor: colors.surfaceLight,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -724,7 +724,7 @@ const styles = StyleSheet.create({
   descriptionInput: {
     flex: 1,
     fontSize: 17,
-    color: '#1D1D1F',
+    color: colors.text,
     padding: 0,
     minHeight: 24,
     maxHeight: 80,
@@ -749,12 +749,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryButtonDisabled: {
-    backgroundColor: '#E5E5E5',
+    backgroundColor: colors.border,
   },
   primaryButtonText: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   secondaryButton: {
     paddingVertical: 16,
@@ -783,12 +783,12 @@ const pickerStyles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
-    color: '#1D1D1F',
+    color: colors.text,
   },
   list: {
     flex: 1,
@@ -820,11 +820,11 @@ const pickerStyles = StyleSheet.create({
   itemTitle: {
     fontSize: 17,
     fontWeight: '500',
-    color: '#1D1D1F',
+    color: colors.text,
   },
   itemSubtitle: {
     fontSize: 14,
-    color: '#86868B',
+    color: colors.textMuted,
     marginTop: 2,
   },
   datePickerWrapper: {

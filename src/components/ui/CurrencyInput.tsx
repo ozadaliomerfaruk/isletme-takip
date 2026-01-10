@@ -41,7 +41,7 @@ export function CurrencyInput({
     } else {
       setDisplayValue('');
     }
-  }, []);
+  }, [value]);
 
   const handleChangeText = (text: string) => {
     // Formatla ve göster

@@ -39,7 +39,9 @@
     "targetAccount": "Hedef Hesap",
     "selectPaymentType": "Ödeme Türü Seç",
     "description": "Açıklama",
+    "descriptionOptional": "Açıklama (İsteğe Bağlı)",
     "descriptionPlaceholder": "Açıklama ekle (isteğe bağlı)",
+    "transactionNote": "İşlem notu...",
     "note": "Not",
     "notePlaceholder": "Not ekle...",
     "client": "Cari",
@@ -72,6 +74,8 @@
   "messages": {
     "createSuccess": "İşlem kaydedildi",
     "updateSuccess": "İşlem güncellendi",
+    "transactionUpdated": "İşlem güncellendi",
+    "typeCannotChange": "İşlem türü değiştirilemez",
     "deleteSuccess": "İşlem silindi",
     "deleteConfirm": "Bu işlemi silmek istediğinize emin misiniz?",
     "noTransactions": "Henüz işlem yok",

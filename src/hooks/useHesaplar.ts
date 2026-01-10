@@ -141,10 +141,10 @@ export function useDeleteHesap() {
 
       if (islemError2) throw islemError2;
 
-      // Sonra hesabı sil (soft delete) - ownership kontrolü ile
+      // Sonra hesabı sil - ownership kontrolü ile
       const { error } = await supabase
         .from('hesaplar')
-        .update({ is_active: false })
+        .delete()
         .eq('id', id)
         .eq('isletme_id', isletme.id);
 
