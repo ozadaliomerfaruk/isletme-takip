@@ -18,7 +18,7 @@
     "phone": "Phone",
     "phoneOptional": "Phone (Optional)",
     "phonePlaceholder": "Enter phone number",
-    "phoneExample": "555 123 4567",
+    "phoneExample": "(555) 123-4567",
     "email": "Email",
     "emailPlaceholder": "Enter email address",
     "startDate": "Start Date",

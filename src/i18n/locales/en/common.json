@@ -130,9 +130,9 @@
     }
   },
   "currency": {
-    "symbol": "₺",
-    "code": "TRY",
-    "format": "{{amount}} ₺"
+    "symbol": "$",
+    "code": "USD",
+    "format": "${{amount}}"
   },
   "labels": {
     "name": "Name",
@@ -141,7 +141,7 @@
     "notes": "Notes",
     "type": "Type",
     "category": "Category",
-    "subCategory": "Sub category",
+    "subCategory": "Subcategory",
     "amount": "Amount",
     "total": "Total",
     "balance": "Balance",

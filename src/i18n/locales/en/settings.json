@@ -36,7 +36,7 @@
     "address": "Address (Optional)",
     "addressPlaceholder": "Business address",
     "phone": "Phone (Optional)",
-    "phonePlaceholder": "555 123 4567",
+    "phonePlaceholder": "(555) 123-4567",
     "email": "Email",
     "website": "Website",
     "logo": "Logo",

@@ -19,7 +19,7 @@
     "nakit": "Cash on hand",
     "banka": "Money in bank account",
     "kredi_karti": "Credit card debt tracking",
-    "diger": "Savings account (piggy bank, etc.)"
+    "diger": "Savings or emergency fund"
   },
   "typeLabels": {
     "nakit": "Cash",

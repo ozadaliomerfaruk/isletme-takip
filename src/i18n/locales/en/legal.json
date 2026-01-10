@@ -1,8 +1,8 @@
 {
   "kvkk": {
-    "title": "KVKK Privacy Notice",
-    "subtitle": "Turkish Personal Data Protection Law No. 6698",
-    "intro": "This Privacy Notice has been prepared in accordance with Turkish Personal Data Protection Law No. 6698 (\"KVKK\") in our capacity as data controller.",
+    "title": "Data Protection Notice",
+    "subtitle": "Personal Data Protection Compliance",
+    "intro": "This Data Protection Notice outlines how we handle your personal data in compliance with applicable data protection laws and regulations.",
     "sections": {
       "dataController": {
         "title": "1. Data Controller",
@@ -29,7 +29,7 @@
       },
       "legalBasis": {
         "title": "4. Legal Grounds",
-        "intro": "Your personal data is processed based on the following legal grounds pursuant to Article 5 of KVKK:",
+        "intro": "Your personal data is processed based on the following legal grounds under applicable data protection laws:",
         "items": "Direct relevance to the establishment or performance of a contract\nFulfillment of data controller's legal obligations\nEstablishment, exercise, or protection of a right\nLegitimate interests of the data controller",
         "consent": "Explicit consent is obtained only when necessary."
       },
@@ -37,18 +37,18 @@
         "title": "5. Transfer of Personal Data",
         "intro": "Your personal data may be transferred to:",
         "items": "Authorized public institutions and organizations in cases of legal obligation\nTechnical infrastructure and cloud service providers",
-        "outro": "in accordance with Articles 8 and 9 of KVKK."
+        "outro": "in accordance with applicable data protection regulations."
       },
       "rights": {
         "title": "6. Data Subject Rights",
-        "intro": "As data subjects pursuant to Article 11 of KVKK, you have the right to:",
+        "intro": "Under applicable data protection laws, you have the right to:",
         "items": "a) Learn whether your personal data is processed\nb) Request information about processing if processed\nc) Learn the purpose of processing and whether data is used accordingly\nd) Know third parties to whom data is transferred\ne) Request correction if data is incomplete or incorrect\nf) Request deletion or destruction\ng) Request notification of these operations to third parties\nh) Object to results that arise against you\ni) Request compensation for damages",
         "outro": ""
       },
       "application": {
         "title": "7. Application Method",
         "intro": "To exercise your rights, you may apply via:",
-        "email": "Email: ozadaliomerfaruk@gmail.com\nSubject: KVKK Information Request",
+        "email": "Email: ozadaliomerfaruk@gmail.com\nSubject: Data Protection Request",
         "outro": "Your applications will be concluded free of charge within 30 days at the latest."
       }
     }

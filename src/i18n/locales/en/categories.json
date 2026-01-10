@@ -11,7 +11,7 @@
   "typeLabels": {
     "incomeCategory": "Income Category",
     "expenseCategory": "Expense Category",
-    "subCategory": "Sub Category"
+    "subCategory": "Subcategory"
   },
   "form": {
     "categoryType": "Category Type",
