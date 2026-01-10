@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Wallet, Building2, CreditCard, Banknote } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCreateHesap } from '@/hooks/useHesaplar';
@@ -25,13 +25,15 @@ export default function HesapEklePage() {
   const hesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
     { type: 'nakit', label: t('accounts:typeLabels.nakit'), icon: <Wallet size={24} color={colors.primary} /> },
     { type: 'banka', label: t('accounts:typeLabels.banka'), icon: <Building2 size={24} color={colors.info} /> },
-    { type: 'kredi_karti', label: t('accounts:typeLabels.krediKarti'), icon: <CreditCard size={24} color={colors.warning} /> },
+    { type: 'kredi_karti', label: t('accounts:typeLabels.kredi_karti'), icon: <CreditCard size={24} color={colors.warning} /> },
     { type: 'diger', label: t('accounts:typeLabels.diger'), icon: <Banknote size={24} color={colors.textSecondary} /> },
   ];
 
   const [name, setName] = useState('');
   const [type, setType] = useState<HesapType>('nakit');
   const [balance, setBalance] = useState('');
+  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
+  const [creditLimit, setCreditLimit] = useState('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<{ name?: string }>({});
 
@@ -49,12 +51,23 @@ export default function HesapEklePage() {
   const handleSubmit = async () => {
     if (!validate()) return;
 
+    // Bakiye hesaplama
+    // debt (artı bakiye) = pozitif
+    // credit (eksi bakiye) = negatif
+    let finalBalance = balance ? parseFloat(balance.replace(',', '.')) : 0;
+    if (balanceDirection === 'credit' && finalBalance > 0) {
+      finalBalance = -finalBalance;
+    }
+
     try {
       await createHesap.mutateAsync({
         name: name.trim(),
         type,
-        balance: balance ? parseFloat(balance.replace(',', '.')) : 0,
+        balance: finalBalance,
         description: description.trim() || null,
+        credit_limit: type === 'kredi_karti' && creditLimit
+          ? parseFloat(creditLimit.replace(',', '.'))
+          : null,
       });
 
       Alert.alert(t('common:status.success'), t('accounts:messages.createSuccess'), [
@@ -131,6 +144,31 @@ export default function HesapEklePage() {
               value={balance}
               onChangeText={setBalance}
             />
+
+            {/* Bakiye Yönü - sadece bakiye girilmişse göster */}
+            {balance.trim() !== '' && (
+              <View style={styles.balanceDirectionContainer}>
+                <Text variant="label" style={styles.balanceDirectionLabel}>
+                  {t('accounts:balanceDirection.label')}
+                </Text>
+                <BalanceDirectionSelector
+                  value={balanceDirection}
+                  onChange={setBalanceDirection}
+                  variant="account"
+                />
+              </View>
+            )}
+
+            {/* Kredi Limiti - sadece kredi kartı seçiliyse göster */}
+            {type === 'kredi_karti' && (
+              <Input
+                label={t('accounts:form.creditLimitOptional')}
+                placeholder={t('accounts:form.creditLimitPlaceholder')}
+                keyboardType="decimal-pad"
+                value={creditLimit}
+                onChangeText={setCreditLimit}
+              />
+            )}
 
             <Input
               label={t('accounts:form.descriptionOptional')}
@@ -215,5 +253,13 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  // Balance direction styles
+  balanceDirectionContainer: {
+    marginBottom: spacing.md,
+  },
+  balanceDirectionLabel: {
+    marginBottom: spacing.xs,
+    color: colors.text,
   },
 });

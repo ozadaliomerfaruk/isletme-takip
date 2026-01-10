@@ -10,7 +10,7 @@
  * - Balance alanları için toNumber() kullan
  */
 
-import { CURRENCY_SYMBOL } from '@/constants';
+import { getCurrentCurrency } from '@/hooks/useSettings';
 
 // ============================================================================
 // PARSE FONKSİYONLARI (String → Number)
@@ -78,15 +78,18 @@ export function toNumber(value: string | number | null | undefined): number {
 // ============================================================================
 
 /**
- * Para formatla: "₺1.234,56"
+ * Para formatla: "₺1.234,56" veya "$1,234.56"
  * Her zaman mutlak değer kullanır (negatif işareti göstermez)
+ * Kullanıcının seçtiği para birimi ve locale'e göre formatlar
  *
  * @example
- * formatCurrency(1234.56)  // "₺1.234,56"
+ * formatCurrency(1234.56)  // "₺1.234,56" (TRY seçiliyken)
+ * formatCurrency(1234.56)  // "$1,234.56" (USD seçiliyken)
  * formatCurrency(-1234.56) // "₺1.234,56"
  */
 export function formatCurrency(amount: number): string {
-  return `${CURRENCY_SYMBOL}${new Intl.NumberFormat('tr-TR', {
+  const currencyConfig = getCurrentCurrency();
+  return `${currencyConfig.symbol}${new Intl.NumberFormat(currencyConfig.locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Math.abs(amount))}`;
@@ -105,13 +108,16 @@ export function formatCurrencyWithSign(amount: number): string {
 }
 
 /**
- * Para formatla (sembol olmadan): "1.234,56"
+ * Para formatla (sembol olmadan): "1.234,56" veya "1,234.56"
+ * Kullanıcının seçtiği locale'e göre formatlar
  *
  * @example
- * formatNumber(1234.56) // "1.234,56"
+ * formatNumber(1234.56) // "1.234,56" (TRY seçiliyken)
+ * formatNumber(1234.56) // "1,234.56" (USD seçiliyken)
  */
 export function formatNumber(amount: number): string {
-  return new Intl.NumberFormat('tr-TR', {
+  const currencyConfig = getCurrentCurrency();
+  return new Intl.NumberFormat(currencyConfig.locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Math.abs(amount));
@@ -128,22 +134,26 @@ export function formatPercentage(value: number, decimals: number = 1): string {
 }
 
 /**
- * Kompakt para formatı (büyük sayılar için): "₺1,2M", "₺500K"
+ * Kompakt para formatı (büyük sayılar için): "₺1,2M", "$1.2M"
+ * Kullanıcının seçtiği para birimi ve locale'e göre formatlar
  *
  * @example
- * formatCurrencyCompact(1234567) // "₺1,2M"
+ * formatCurrencyCompact(1234567) // "₺1,2M" (TRY seçiliyken)
+ * formatCurrencyCompact(1234567) // "$1.2M" (USD seçiliyken)
  * formatCurrencyCompact(12345)   // "₺12,3K"
  * formatCurrencyCompact(1234)    // "₺1.234"
  */
 export function formatCurrencyCompact(amount: number): string {
   const abs = Math.abs(amount);
+  const currencyConfig = getCurrentCurrency();
+  const decimalSeparator = currencyConfig.locale.startsWith('tr') ? ',' : '.';
 
   if (abs >= 1_000_000) {
-    return `${CURRENCY_SYMBOL}${(abs / 1_000_000).toFixed(1).replace('.', ',')}M`;
+    return `${currencyConfig.symbol}${(abs / 1_000_000).toFixed(1).replace('.', decimalSeparator)}M`;
   }
 
   if (abs >= 10_000) {
-    return `${CURRENCY_SYMBOL}${(abs / 1_000).toFixed(1).replace('.', ',')}K`;
+    return `${currencyConfig.symbol}${(abs / 1_000).toFixed(1).replace('.', decimalSeparator)}K`;
   }
 
   return formatCurrency(amount);

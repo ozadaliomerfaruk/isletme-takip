@@ -175,6 +175,11 @@
     "clientTitle": "Delete Client",
     "clientMessage": "Are you sure you want to delete this client?\n\nWarning: All purchases, sales, payments and collections for this client will also be deleted. This action cannot be undone."
   },
+  "balanceDirection": {
+    "label": "Balance Direction",
+    "debt": "They Owe Us",
+    "credit": "We Owe Them"
+  },
   "validation": {
     "nameRequired": "Client name is required"
   }

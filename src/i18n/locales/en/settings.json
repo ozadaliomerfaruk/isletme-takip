@@ -94,6 +94,19 @@
     "english": "English",
     "languageChanged": "Language changed"
   },
+  "currency": {
+    "title": "Currency",
+    "selectCurrency": "Select Currency",
+    "TRY": "Turkish Lira (₺)",
+    "USD": "US Dollar ($)",
+    "EUR": "Euro (€)"
+  },
+  "dateFormat": {
+    "title": "Date Format",
+    "selectDateFormat": "Select Date Format",
+    "DMY": "Day/Month/Year",
+    "MDY": "Month/Day/Year"
+  },
   "about": {
     "title": "About",
     "version": "Version",

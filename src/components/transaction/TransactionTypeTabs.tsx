@@ -7,9 +7,10 @@ import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 
 // Normal mod: gelir, gider, transfer, odeme, tahsilat
-// Cari mod (tedarikci): odeme, alis, alis_iade
-// Cari mod (musteri): tahsilat, satis, satis_iade
-// Personel mod: personel_odeme_tab, personel_gider_tab, personel_tahsilat_tab
+// Cari mod (tedarikci): alis, odeme, alis_iade
+// Cari mod (musteri): satis, tahsilat, satis_iade
+// Personel mod: personel_gider_tab, personel_odeme_tab, personel_tahsilat_tab
+// Kredi kartı mod: kredi_karti_gider, kredi_karti_odeme, kredi_karti_ekstre
 export type TransactionType =
   | 'gelir'
   | 'gider'
@@ -22,9 +23,12 @@ export type TransactionType =
   | 'satis_iade'
   | 'personel_odeme_tab'
   | 'personel_gider_tab'
-  | 'personel_tahsilat_tab';
+  | 'personel_tahsilat_tab'
+  | 'kredi_karti_gider'
+  | 'kredi_karti_odeme'
+  | 'kredi_karti_ekstre';
 
-export type TransactionTabMode = 'normal' | 'tedarikci' | 'musteri' | 'personel';
+export type TransactionTabMode = 'normal' | 'tedarikci' | 'musteri' | 'personel' | 'kredi_karti';
 
 interface TransactionTypeTabsProps {
   value: TransactionType;
@@ -53,19 +57,26 @@ const ALL_TABS: TabConfig[] = [
   { type: 'personel_odeme_tab', labelKey: 'transactions:tabs.personel_odeme', color: colors.success, bgColor: colors.successLight },
   { type: 'personel_gider_tab', labelKey: 'transactions:tabs.personel_gider', color: colors.error, bgColor: colors.errorLight },
   { type: 'personel_tahsilat_tab', labelKey: 'transactions:tabs.personel_tahsilat', color: colors.info, bgColor: colors.infoLight },
+  // Kredi kartı sekmeleri
+  { type: 'kredi_karti_gider', labelKey: 'transactions:tabs.kredi_karti_gider', color: colors.error, bgColor: colors.errorLight },
+  { type: 'kredi_karti_odeme', labelKey: 'transactions:tabs.kredi_karti_odeme', color: colors.orange, bgColor: colors.orangeLight },
+  { type: 'kredi_karti_ekstre', labelKey: 'transactions:tabs.kredi_karti_ekstre', color: colors.success, bgColor: colors.successLight },
 ];
 
 // Normal mod için sekmeler
 const NORMAL_TABS: TransactionType[] = ['gelir', 'gider', 'transfer', 'odeme', 'tahsilat'];
 
 // Tedarikçi cari modu için sekmeler
-const TEDARIKCI_TABS: TransactionType[] = ['odeme', 'alis', 'alis_iade'];
+const TEDARIKCI_TABS: TransactionType[] = ['alis', 'odeme', 'alis_iade'];
 
 // Müşteri cari modu için sekmeler
-const MUSTERI_TABS: TransactionType[] = ['tahsilat', 'satis', 'satis_iade'];
+const MUSTERI_TABS: TransactionType[] = ['satis', 'tahsilat', 'satis_iade'];
 
 // Personel modu için sekmeler
-const PERSONEL_TABS: TransactionType[] = ['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'];
+const PERSONEL_TABS: TransactionType[] = ['personel_gider_tab', 'personel_odeme_tab', 'personel_tahsilat_tab'];
+
+// Kredi kartı modu için sekmeler
+const KREDI_KARTI_TABS: TransactionType[] = ['kredi_karti_gider', 'kredi_karti_odeme', 'kredi_karti_ekstre'];
 
 export function TransactionTypeTabs({ value, onChange, mode = 'normal' }: TransactionTypeTabsProps) {
   const { t } = useTranslation('transactions');
@@ -94,6 +105,9 @@ export function TransactionTypeTabs({ value, onChange, mode = 'normal' }: Transa
         break;
       case 'personel':
         tabTypes = PERSONEL_TABS;
+        break;
+      case 'kredi_karti':
+        tabTypes = KREDI_KARTI_TABS;
         break;
       default:
         tabTypes = NORMAL_TABS;

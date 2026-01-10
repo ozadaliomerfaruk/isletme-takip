@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreatePersonel } from '@/hooks/usePersonel';
@@ -35,6 +35,8 @@ export default function PersonelEklePage() {
   const [salary, setSalary] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [balance, setBalance] = useState('');
+  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
   const [errors, setErrors] = useState<{ firstName?: string }>({});
 
   const validate = () => {
@@ -51,14 +53,24 @@ export default function PersonelEklePage() {
   const handleSubmit = async () => {
     if (!validate()) return;
 
+    // Bakiye hesaplama
+    // debt (bize borç) = personelin bize borcu var = pozitif bakiye (alacağımız var)
+    // credit (bize alacak) = bizim personele borcumuz var = negatif bakiye
+    let finalBalance = balance ? parseFloat(balance.replace(',', '.')) : 0;
+    if (balanceDirection === 'credit' && finalBalance > 0) {
+      finalBalance = -finalBalance; // Bize alacak = bizim borcumuz, negatif
+    }
+    // debt durumunda pozitif kalır (bize borç = alacağımız var)
+
     try {
       await createPersonel.mutateAsync({
         first_name: firstName.trim(),
-        last_name: lastName.trim() || null,
+        last_name: lastName.trim() || '',
         phone: phone.trim() || null,
         position: position.trim() || null,
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
+        balance: finalBalance !== 0 ? finalBalance : undefined,
       });
 
       Alert.alert(t('common:status.success'), t('staff:messages.createSuccess'), [
@@ -125,6 +137,29 @@ export default function PersonelEklePage() {
               value={salary}
               onChangeText={setSalary}
             />
+
+            {/* Açılış Bakiyesi */}
+            <Input
+              label={t('staff:form.openingBalanceOptional')}
+              placeholder={t('staff:form.initialBalancePlaceholder')}
+              keyboardType="decimal-pad"
+              value={balance}
+              onChangeText={setBalance}
+            />
+
+            {/* Bakiye Yönü - sadece bakiye girilmişse göster */}
+            {balance.trim() !== '' && (
+              <View style={styles.balanceDirectionContainer}>
+                <Text variant="label" style={styles.balanceDirectionLabel}>
+                  {t('staff:form.balanceDirection.label')}
+                </Text>
+                <BalanceDirectionSelector
+                  value={balanceDirection}
+                  onChange={setBalanceDirection}
+                  variant="staff"
+                />
+              </View>
+            )}
 
             {/* İşe Başlama Tarihi */}
             <View style={styles.dateField}>
@@ -265,6 +300,14 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  // Balance direction styles
+  balanceDirectionContainer: {
+    marginBottom: spacing.md,
+  },
+  balanceDirectionLabel: {
+    marginBottom: spacing.xs,
+    color: colors.text,
   },
   // Date picker styles
   dateField: {

@@ -9,6 +9,7 @@ import {
   History,
   Phone,
   Briefcase,
+  EyeOff,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
@@ -28,16 +29,23 @@ export default function PersonelPage() {
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
 
-  // Gerçek veriler
-  const { data: personelList, isLoading } = usePersonelList();
+  // Gerçek veriler - pasif personeli de dahil et
+  const { data: personelList, isLoading } = usePersonelList(true);
   const { payables, receivables } = useFinancialSummary();
 
-  // Arama ve sıralama
+  // Arama ve sıralama (aktif önce)
   const filteredPersonel = personelList
     ?.filter((p) =>
       `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
     )
-    .sort((a, b) => a.first_name.localeCompare(b.first_name, 'tr'));
+    .sort((a, b) => {
+      // Aktif olanlar önce
+      if (a.is_active !== b.is_active) {
+        return a.is_active ? -1 : 1;
+      }
+      // Aynı durumda olanları alfabetik sırala
+      return a.first_name.localeCompare(b.first_name, 'tr');
+    });
 
 
   return (
@@ -95,22 +103,27 @@ export default function PersonelPage() {
             />
           ) : (
             filteredPersonel.map((personel) => (
-              <ExpandableCard
-                key={personel.id}
-                expanded={expandedPersonelId === personel.id}
-                onToggle={() => setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id)}
-                header={
-                  <View style={styles.personelHeader}>
-                    <View style={styles.avatar}>
-                      <Text variant="body" bold style={{ color: colors.primary }}>
-                        {getInitials(`${personel.first_name} ${personel.last_name}`)}
-                      </Text>
-                    </View>
-                    <View style={styles.personelInfo}>
-                      <Text variant="body">
-                        {personel.first_name} {personel.last_name}
-                      </Text>
-                      <View style={styles.personelMeta}>
+              <View key={personel.id} style={!personel.is_active && styles.passiveItem}>
+                <ExpandableCard
+                  expanded={expandedPersonelId === personel.id}
+                  onToggle={() => setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id)}
+                  header={
+                    <View style={styles.personelHeader}>
+                      <View style={styles.avatar}>
+                        <Text variant="body" bold style={{ color: colors.primary }}>
+                          {getInitials(`${personel.first_name} ${personel.last_name}`)}
+                        </Text>
+                      </View>
+                      <View style={styles.personelInfo}>
+                        <View style={styles.personelNameRow}>
+                          <Text variant="body">
+                            {personel.first_name} {personel.last_name}
+                          </Text>
+                          {!personel.is_active && (
+                            <EyeOff size={14} color={colors.textMuted} />
+                          )}
+                        </View>
+                        <View style={styles.personelMeta}>
                         {personel.position && (
                           <>
                             <Briefcase size={12} color={colors.textMuted} />
@@ -176,7 +189,8 @@ export default function PersonelPage() {
                     {t('staff:details.transactions')}
                   </Button>
                 </View>
-              </ExpandableCard>
+                </ExpandableCard>
+              </View>
             ))
           )}
         </View>
@@ -248,6 +262,14 @@ const styles = StyleSheet.create({
   },
   personelInfo: {
     flex: 1,
+  },
+  personelNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  passiveItem: {
+    opacity: 0.5,
   },
   personelMeta: {
     flexDirection: 'row',

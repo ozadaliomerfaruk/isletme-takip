@@ -452,6 +452,17 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
+          name="hesaplar/nakit-avanslar/[id]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('accounts:nakitAvans.title'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
           name="cariler/duzenle/[id]"
           options={{
             presentation: 'card',

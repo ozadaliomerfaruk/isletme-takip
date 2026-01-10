@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Switch,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
 import { Text, Input, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
 import { formatDateForDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -37,6 +38,7 @@ export default function PersonelDuzenlePage() {
   const [salary, setSalary] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState<{ firstName?: string }>({});
 
   useEffect(() => {
@@ -47,6 +49,7 @@ export default function PersonelDuzenlePage() {
       setPosition(personel.position || '');
       setSalary(personel.salary ? String(personel.salary) : '');
       setStartDate(personel.start_date ? new Date(personel.start_date) : null);
+      setIsActive(personel.is_active ?? true);
     }
   }, [personel]);
 
@@ -68,11 +71,12 @@ export default function PersonelDuzenlePage() {
       await updatePersonel.mutateAsync({
         id,
         first_name: firstName.trim(),
-        last_name: lastName.trim() || null,
+        last_name: lastName.trim() || '',
         phone: phone.trim() || null,
         position: position.trim() || null,
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
+        is_active: isActive,
       });
 
       Alert.alert(t('common:status.success'), t('staff:messages.updateSuccess'), [
@@ -238,6 +242,24 @@ export default function PersonelDuzenlePage() {
               )}
             </View>
 
+            {/* Pasif Mod */}
+            <View style={styles.section}>
+              <View style={styles.passiveModeContainer}>
+                <View style={styles.passiveModeHeader}>
+                  <Text variant="body">{t('common:passiveMode.title')}</Text>
+                  <Switch
+                    value={!isActive}
+                    onValueChange={(value) => setIsActive(!value)}
+                    trackColor={{ false: colors.border, true: colors.warning }}
+                    thumbColor={colors.surface}
+                  />
+                </View>
+                <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
+                  {t('common:passiveMode.description')}
+                </Text>
+              </View>
+            </View>
+
             {/* Buttons */}
             <View style={styles.buttons}>
               <Button
@@ -335,5 +357,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+  },
+  passiveModeContainer: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+  },
+  passiveModeHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  passiveModeDescription: {
+    marginTop: spacing.xs,
   },
 });

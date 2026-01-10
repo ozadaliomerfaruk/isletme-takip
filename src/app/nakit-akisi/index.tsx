@@ -1,7 +1,7 @@
 import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { ChevronRight, ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
+import { ChevronRight, ArrowDownLeft, ArrowUpRight, CreditCard } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -20,8 +20,10 @@ export default function NakitAkisiPage() {
   const {
     allOutflowItems,
     allInflowItems,
+    allCreditCardSpendingItems,
     totalInflow,
     totalOutflow,
+    totalCreditCardSpending,
     netCashFlow,
     isLoading,
   } = useCashFlowByCategory({
@@ -200,6 +202,25 @@ export default function NakitAkisiPage() {
             </Text>
           </View>
         )}
+
+        {/* Credit Card Spending Distribution */}
+        {allCreditCardSpendingItems.length > 0 && (
+          <>
+            <View style={styles.creditCardSectionHeader}>
+              <CreditCard size={20} color={colors.warning} />
+              <Text variant="label" color="secondary" style={styles.creditCardSectionTitle}>
+                {t('common:dashboard.creditCardSpendingCount', { count: allCreditCardSpendingItems.length })}
+              </Text>
+            </View>
+            <Card style={styles.creditCardSummaryCard}>
+              <Text variant="caption" color="secondary">{t('common:dashboard.totalCreditCardSpending')}</Text>
+              <Text variant="h3" color="warning" style={styles.creditCardTotal}>
+                {formatCurrency(totalCreditCardSpending)}
+              </Text>
+            </Card>
+            {allCreditCardSpendingItems.map((item, index) => renderCategoryItem(item, index, 'gider'))}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -327,5 +348,27 @@ const styles = StyleSheet.create({
   emptyContainer: {
     paddingVertical: spacing['3xl'],
     alignItems: 'center',
+  },
+  creditCardSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+    marginLeft: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  creditCardSectionTitle: {
+    flex: 1,
+  },
+  creditCardSummaryCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.warningLight + '30',
+    borderColor: colors.warning,
+    borderWidth: 1,
+  },
+  creditCardTotal: {
+    fontWeight: '600',
+    marginTop: spacing.xs,
   },
 });

@@ -30,7 +30,13 @@
     "notePlaceholder": "Not ekle...",
     "initialBalance": "Başlangıç Bakiyesi",
     "initialBalancePlaceholder": "Başlangıç bakiyesi girin",
-    "selectDate": "Tarih seçin"
+    "openingBalanceOptional": "Açılış Bakiyesi (Opsiyonel)",
+    "selectDate": "Tarih seçin",
+    "balanceDirection": {
+      "label": "Bakiye Yönü",
+      "debt": "Bize Borç",
+      "credit": "Bize Alacak"
+    }
   },
   "balance": {
     "balance": "Bakiye",

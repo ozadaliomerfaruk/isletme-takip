@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
+  CreditCard,
 } from 'lucide-react-native';
 import { Text, Card, TabFilter, CategoryReportCard, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -210,32 +211,72 @@ export default function RaporlarPage() {
         </Card>
       </View>
 
-      {/* Hesap Bakiyeleri */}
-      <View style={styles.section}>
-        <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          {t('reports:sections.accountBalances')}
-        </Text>
-        <Card>
-          <View style={styles.accountHeader}>
-            <Wallet size={20} color={colors.primary} />
-            <Text variant="body" style={{ marginLeft: spacing.sm }}>
-              {t('reports:counts.account', { count: hesaplar?.length ?? 0 })}
-            </Text>
-            <View style={{ flex: 1 }} />
-            <Text variant="h3" color={totalBalance >= 0 ? 'primary' : 'error'}>
-              {formatCurrency(totalBalance)}
-            </Text>
-          </View>
-          {hesaplar?.map((hesap) => (
-            <View key={hesap.id} style={styles.accountItem}>
-              <Text variant="body">{hesap.name}</Text>
-              <Text variant="label" color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}>
-                {formatCurrency(toNumber(hesap.balance))}
+      {/* Hesap Bakiyeleri (Kredi kartları hariç) */}
+      {(() => {
+        const normalHesaplar = hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
+        const krediKartiHesaplar = hesaplar?.filter(h => h.type === 'kredi_karti') || [];
+        const normalHesaplarToplam = normalHesaplar.reduce((acc, h) => acc + toNumber(h.balance), 0);
+        const krediKartiToplam = krediKartiHesaplar.reduce((acc, h) => acc + toNumber(h.balance), 0);
+
+        return (
+          <>
+            <View style={styles.section}>
+              <Text variant="label" color="secondary" style={styles.sectionTitle}>
+                {t('reports:sections.accountBalances')}
               </Text>
+              <Card>
+                <View style={styles.accountHeader}>
+                  <Wallet size={20} color={colors.primary} />
+                  <Text variant="body" style={{ marginLeft: spacing.sm }}>
+                    {t('reports:counts.account', { count: normalHesaplar.length })}
+                  </Text>
+                  <View style={{ flex: 1 }} />
+                  <Text variant="h3" color={normalHesaplarToplam >= 0 ? 'primary' : 'error'}>
+                    {formatCurrency(normalHesaplarToplam)}
+                  </Text>
+                </View>
+                {normalHesaplar.map((hesap) => (
+                  <View key={hesap.id} style={styles.accountItem}>
+                    <Text variant="body">{hesap.name}</Text>
+                    <Text variant="label" color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}>
+                      {formatCurrency(toNumber(hesap.balance))}
+                    </Text>
+                  </View>
+                ))}
+              </Card>
             </View>
-          ))}
-        </Card>
-      </View>
+
+            {/* Kredi Kartı Borçları */}
+            {krediKartiHesaplar.length > 0 && (
+              <View style={styles.section}>
+                <Text variant="label" color="secondary" style={styles.sectionTitle}>
+                  {t('reports:sections.creditCardBalances')}
+                </Text>
+                <Card>
+                  <View style={styles.accountHeader}>
+                    <CreditCard size={20} color={colors.error} />
+                    <Text variant="body" style={{ marginLeft: spacing.sm }}>
+                      {t('reports:counts.creditCard', { count: krediKartiHesaplar.length })}
+                    </Text>
+                    <View style={{ flex: 1 }} />
+                    <Text variant="h3" color="error">
+                      {formatCurrency(Math.abs(krediKartiToplam))}
+                    </Text>
+                  </View>
+                  {krediKartiHesaplar.map((hesap) => (
+                    <View key={hesap.id} style={styles.accountItem}>
+                      <Text variant="body">{hesap.name}</Text>
+                      <Text variant="label" color="error">
+                        {formatCurrency(Math.abs(toNumber(hesap.balance)))}
+                      </Text>
+                    </View>
+                  ))}
+                </Card>
+              </View>
+            )}
+          </>
+        );
+      })()}
 
       {/* Cari Durum */}
       <View style={styles.section}>

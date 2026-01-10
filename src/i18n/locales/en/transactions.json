@@ -12,7 +12,8 @@
     "personel_gider": "Staff Expense",
     "personel_odeme": "Staff Payment",
     "personel_tahsilat": "Staff Payment Received",
-    "kredi_karti_harcama": "Credit Card Expense"
+    "kredi_karti_harcama": "Credit Card Expense",
+    "nakit_avans_taksit": "Cash Advance Installment"
   },
   "accountTypes": {
     "nakit": "Cash",
@@ -146,7 +147,10 @@
     "satis_iade": "Sale Return",
     "personel_odeme": "Payment",
     "personel_gider": "Expense",
-    "personel_tahsilat": "Payment Received"
+    "personel_tahsilat": "Payment Received",
+    "kredi_karti_gider": "Spending",
+    "kredi_karti_odeme": "Payment",
+    "kredi_karti_ekstre": "Pay Statement"
   },
   "validation": {
     "selectTargetAccount": "Select target account"

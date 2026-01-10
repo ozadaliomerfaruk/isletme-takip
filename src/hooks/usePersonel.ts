@@ -5,20 +5,26 @@ import { Personel, PersonelInsert, PersonelUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
 
-export function usePersonelList() {
+export function usePersonelList(includePassive: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: ['personel', isletme?.id],
+    queryKey: ['personel', isletme?.id, includePassive],
     queryFn: async () => {
       if (!isletme) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('personel')
         .select('*')
         .eq('isletme_id', isletme.id)
-        .eq('is_active', true)
         .order('first_name', { ascending: true });
+
+      // Sadece aktif personeli getir (varsayılan davranış)
+      if (!includePassive) {
+        query = query.eq('is_active', true);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Personel[];

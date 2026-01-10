@@ -89,7 +89,8 @@ export function useAuth() {
   // İşletme bilgisini getir veya oluştur - race condition korumalı
   const fetchOrCreateIsletme = useCallback(async (
     userId: string,
-    userName?: string | null
+    userName?: string | null,
+    isletmeName?: string | null
   ): Promise<Isletme | null> => {
     // Aynı userId için zaten bir istek varsa, bekle ve sonucu bekle
     if (fetchIsletmeInProgress.current === userId) {
@@ -142,9 +143,8 @@ export function useAuth() {
       createIsletmeInProgress.current = true;
 
       try {
-        const isletmeName = userName
-          ? `${userName}'in İşletmesi`
-          : 'İşletmem';
+        const finalIsletmeName = isletmeName
+          || (userName ? `${userName}'in İşletmesi` : 'İşletmem');
 
         // Upsert kullan - conflict durumunda mevcut kaydı döndür
         const { data: newIsletme, error: insertError } = await supabase
@@ -152,7 +152,7 @@ export function useAuth() {
           .upsert(
             {
               user_id: userId,
-              name: isletmeName,
+              name: finalIsletmeName,
             },
             {
               onConflict: 'user_id',
@@ -239,7 +239,8 @@ export function useAuth() {
             const userName = session.user.user_metadata?.full_name?.split(' ')[0]
               || session.user.user_metadata?.name?.split(' ')[0]
               || null;
-            const isletme = await fetchOrCreateIsletme(session.user.id, userName);
+            const isletmeName = session.user.user_metadata?.isletme_name || null;
+            const isletme = await fetchOrCreateIsletme(session.user.id, userName, isletmeName);
 
             if (!isMounted) return;
 
@@ -361,7 +362,8 @@ export function useAuth() {
           const userName = session.user.user_metadata?.full_name?.split(' ')[0]
             || session.user.user_metadata?.name?.split(' ')[0]
             || null;
-          const isletme = await fetchOrCreateIsletme(session.user.id, userName);
+          const isletmeName = session.user.user_metadata?.isletme_name || null;
+          const isletme = await fetchOrCreateIsletme(session.user.id, userName, isletmeName);
 
           if (!isMounted) return;
 

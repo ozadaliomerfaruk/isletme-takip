@@ -227,6 +227,15 @@
     "noInflowInPeriod": "No cash inflow in this period",
     "noOutflowInPeriod": "No cash outflow in this period",
     "uncategorized": "Uncategorized",
-    "category": "Category"
+    "category": "Category",
+    "creditCardSpending": "Credit Card Spending",
+    "creditCardSpendingCount": "CREDIT CARD SPENDING ({{count}} CATEGORIES)",
+    "totalCreditCardSpending": "Total Credit Card Spending"
+  },
+  "passiveMode": {
+    "title": "Passive Mode",
+    "description": "Items in passive mode are not included in general calculations but you can still add transactions.",
+    "passive": "Passive",
+    "active": "Active"
   }
 }

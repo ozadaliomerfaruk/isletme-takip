@@ -5,25 +5,27 @@
     "editAccount": "Hesap Düzenle",
     "accountDetails": "Hesap Detayı",
     "accountTransactions": "Hesap Hareketleri",
-    "totalBalance": "Toplam Bakiye"
+    "totalBalance": "Toplam Bakiye",
+    "selectAccount": "Hesap Seçin",
+    "selectCreditCard": "Kredi Kartı Seçin"
   },
   "types": {
     "nakit": "Nakit",
     "banka": "Banka Hesabı",
     "kredi_karti": "Kredi Kartı",
-    "diger": "Diğer"
+    "diger": "Birikim"
   },
   "typeDescriptions": {
     "nakit": "Elde tutulan nakit para",
     "banka": "Banka hesabındaki para",
     "kredi_karti": "Kredi kartı borç takibi",
-    "diger": "Diğer para kaynakları"
+    "diger": "Birikim hesabı (yastık altı, kumbara vb.)"
   },
   "typeLabels": {
     "nakit": "Nakit",
     "banka": "Banka",
     "kredi_karti": "Kredi Kartı",
-    "diger": "Diğer"
+    "diger": "Birikim"
   },
   "form": {
     "name": "Hesap Adı",
@@ -33,6 +35,8 @@
     "balance": "Başlangıç Bakiyesi",
     "balancePlaceholder": "Başlangıç bakiyesi girin",
     "openingBalanceOptional": "Açılış Bakiyesi (Opsiyonel)",
+    "creditLimitOptional": "Kredi Limiti (Opsiyonel)",
+    "creditLimitPlaceholder": "Kredi limitini girin",
     "description": "Açıklama",
     "descriptionOptional": "Açıklama (Opsiyonel)",
     "descriptionPlaceholder": "Hesap hakkında not...",
@@ -55,7 +59,8 @@
     "transfer": "Transfer Yap",
     "viewTransactions": "Hareketleri Gör",
     "editAccount": "Hesabı Düzenle",
-    "deleteAccount": "Hesabı Sil"
+    "deleteAccount": "Hesabı Sil",
+    "addTransaction": "İşlem Ekle"
   },
   "messages": {
     "createSuccess": "Hesap oluşturuldu",
@@ -64,7 +69,14 @@
     "deleteConfirm": "Bu hesabı silmek istediğinize emin misiniz?",
     "deleteWarning": "Bu hesaba ait tüm işlemler de silinecektir.",
     "noAccounts": "Henüz hesap yok",
-    "addFirstAccount": "İlk hesabınızı ekleyerek başlayın"
+    "addFirstAccount": "İlk hesabınızı ekleyerek başlayın",
+    "noCreditCards": "Henüz kredi kartı hesabı yok"
+  },
+  "transactionTitles": {
+    "creditCardPayment": "Kredi Kartı Ödemesi"
+  },
+  "transactionDescriptions": {
+    "creditCardPayment": "Kredi kartı borcunu öde"
   },
   "creditCard": {
     "statement": "Ekstre",
@@ -72,7 +84,12 @@
     "minimumPayment": "Minimum Ödeme",
     "fullPayment": "Tam Ödeme",
     "paymentToCard": "Kart Ödemesi",
-    "currentDebt": "Mevcut Borç"
+    "currentDebt": "Mevcut Borç",
+    "creditLimit": "Kredi Limiti",
+    "usedCredit": "Kullanılan",
+    "availableCredit": "Kullanılabilir",
+    "noLimit": "Limit belirlenmemiş",
+    "selectSourceAccount": "Ödeme yapacağınız hesabı seçin"
   },
   "summary": {
     "totalAssets": "Toplam Varlıklar",
@@ -94,7 +111,8 @@
     "cariOdeme": "Cari Ödeme",
     "cariTahsilat": "Cari Tahsilat",
     "personelOdeme": "Personel Ödeme",
-    "personelGider": "Personel Gider"
+    "personelGider": "Personel Gider",
+    "nakitAvansTaksit": "Nakit Avans Taksit"
   },
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",
@@ -102,7 +120,83 @@
     "accountTitle": "Hesabı Sil",
     "accountMessage": "Bu hesabı silmek istediğinizden emin misiniz?\n\nDikkat: Bu hesaba ait tüm gelir, gider ve transfer işlemleri de silinecektir. Bu işlem geri alınamaz."
   },
+  "balanceDirection": {
+    "label": "Bakiye Yönü",
+    "debt": "Artı Bakiye",
+    "credit": "Eksi Bakiye"
+  },
   "validation": {
     "nameRequired": "Hesap adı gerekli"
+  },
+  "nakitAvans": {
+    "title": "Nakit Avanslar",
+    "addTitle": "Nakit Avans Ekle",
+    "editTitle": "Nakit Avans Düzenle",
+    "amount": "Avans Tutarı",
+    "amountPlaceholder": "Nakit avans tutarını girin",
+    "repaymentAmount": "Geri Ödeme Tutarı",
+    "repaymentAmountPlaceholder": "Toplam geri ödeme tutarı",
+    "repaymentAmountRequired": "Geri ödeme tutarı giriniz",
+    "targetAccount": "Hedef Hesap",
+    "targetAccountPlaceholder": "Paranın aktarılacağı hesabı seçin",
+    "category": "Kategori",
+    "categoryPlaceholder": "Kategori seçin (opsiyonel)",
+    "date": "Tarih",
+    "description": "Açıklama",
+    "descriptionPlaceholder": "Avans hakkında not...",
+    "simpleMode": "Basit",
+    "advancedMode": "Gelişmiş",
+    "installmentPayment": "Taksitli Ödeme",
+    "installmentCount": "Taksit Sayısı",
+    "installment": "Taksit",
+    "installmentNo": "{{no}}. Taksit",
+    "installmentAmount": "Taksit Tutarı",
+    "installmentDate": "Ödeme Tarihi",
+    "totalInstallments": "Toplam {{count}} taksit",
+    "reminder": "Hatırlatıcı",
+    "reminderEnabled": "Hatırlatıcı Aktif",
+    "reminderDaysBefore": "Gün Önce",
+    "reminderTime": "Hatırlatma Saati",
+    "status": {
+      "active": "Aktif",
+      "completed": "Tamamlandı",
+      "cancelled": "İptal Edildi"
+    },
+    "taksitStatus": {
+      "pending": "Bekliyor",
+      "paid": "Ödendi",
+      "overdue": "Gecikmiş"
+    },
+    "actions": {
+      "add": "Nakit Avans Ekle",
+      "pay": "Öde",
+      "payNow": "Şimdi Öde",
+      "payInstallment": "Taksit Öde",
+      "markAsPaid": "Ödendi Olarak İşaretle",
+      "viewDetails": "Detayları Gör"
+    },
+    "messages": {
+      "createSuccess": "Nakit avans eklendi",
+      "updateSuccess": "Nakit avans güncellendi",
+      "deleteSuccess": "Nakit avans silindi",
+      "deleteConfirm": "Bu nakit avansı silmek istediğinize emin misiniz?",
+      "installmentPaid": "Taksit ödendi",
+      "noAvans": "Henüz nakit avans yok",
+      "addFirst": "İlk nakit avansınızı ekleyin",
+      "creditLimitExceeded": "Kredi limiti aşılıyor",
+      "insufficientLimit": "Yeterli kredi limiti yok",
+      "congratulations": "Tebrikler!",
+      "allInstallmentsPaid": "Nakit avans borcunuz tamamen ödendi!"
+    },
+    "installmentDescription": "Nakit Avans Taksit ({{current}}/{{total}})",
+    "summary": {
+      "totalAvans": "Toplam Avans",
+      "totalRepayment": "Toplam Geri Ödeme",
+      "paidInstallments": "Ödenen Taksitler",
+      "remainingInstallments": "Kalan Taksitler",
+      "nextInstallment": "Sonraki Taksit"
+    },
+    "selectPaymentAccount": "Ödeme Hesabı Seçin",
+    "paymentAccountDescription": "Taksit ödemesi yapılacak hesabı seçin"
   }
 }

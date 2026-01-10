@@ -128,6 +128,7 @@ export const ISLEM_TYPE_LABELS: Record<IslemType, string> = {
   personel_gider: 'Personel Gideri',
   personel_odeme: 'Personel Ödemesi',
   personel_tahsilat: 'Personelden Tahsilat',
+  nakit_avans_taksit: 'Nakit Avans Taksit',
 };
 
 /**

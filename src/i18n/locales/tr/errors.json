@@ -25,7 +25,9 @@
     "loginRequired": "Lütfen giriş yapın",
     "unauthorized": "Bu işlem için yetkiniz yok",
     "weakPassword": "Şifre çok zayıf",
-    "tooManyRequests": "Çok fazla deneme yaptınız. Lütfen biraz bekleyin."
+    "tooManyRequests": "Çok fazla deneme yaptınız. Lütfen biraz bekleyin.",
+    "linkExpired": "Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş. Lütfen tekrar deneyin.",
+    "invalidOtp": "Geçersiz doğrulama kodu. Lütfen tekrar deneyin."
   },
   "validation": {
     "required": "Bu alan zorunludur",

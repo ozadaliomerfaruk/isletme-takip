@@ -175,6 +175,11 @@
     "clientTitle": "Cariyi Sil",
     "clientMessage": "Bu cariyi silmek istediğinizden emin misiniz?\n\nDikkat: Bu cariye ait tüm alış, satış, ödeme ve tahsilat işlemleri de silinecektir. Bu işlem geri alınamaz."
   },
+  "balanceDirection": {
+    "label": "Bakiye Yönü",
+    "debt": "Bize Borç",
+    "credit": "Bize Alacak"
+  },
   "validation": {
     "nameRequired": "Cari adı gerekli"
   }

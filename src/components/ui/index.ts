@@ -19,3 +19,4 @@ export { ReminderSettings, type ReminderConfig } from './ReminderSettings';
 export { BottomSheet } from './BottomSheet';
 export { AmountInput } from './AmountInput';
 export { OptionRow } from './OptionRow';
+export { BalanceDirectionSelector, type BalanceDirection } from './BalanceDirectionSelector';

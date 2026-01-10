@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,11 +15,12 @@ import {
   Trash2,
   Zap,
   RotateCcw,
+  MoreVertical,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -32,7 +33,7 @@ export default function CariHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation(['clients', 'common', 'errors']);
-  const { formatDateMedium } = useDateFormat();
+  const { formatDateSmart } = useDateFormat();
 
   const { data: cari, isLoading: cariLoading } = useCari(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
@@ -42,6 +43,7 @@ export default function CariHareketleriPage() {
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   // Başlangıç bakiyesini hesapla
   const calculateInitialBalance = () => {
@@ -131,6 +133,7 @@ export default function CariHareketleriPage() {
   };
 
   const handleDeleteCari = () => {
+    setShowMenu(false);
     Alert.alert(
       t('clients:deleteConfirm.clientTitle'),
       t('clients:deleteConfirm.clientMessage'),
@@ -151,6 +154,17 @@ export default function CariHareketleriPage() {
       ]
     );
   };
+
+  // Header right menu button
+  const HeaderMenuButton = () => (
+    <TouchableOpacity
+      onPress={() => setShowMenu(true)}
+      style={styles.headerMenuBtn}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <MoreVertical size={24} color={colors.text} />
+    </TouchableOpacity>
+  );
 
   if (cariLoading) {
     return (
@@ -181,6 +195,7 @@ export default function CariHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: cari.name,
+          headerRight: () => <HeaderMenuButton />,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -216,26 +231,6 @@ export default function CariHareketleriPage() {
                   {formatCurrency(Math.abs(Number(cari.balance)))}
                 </Text>
               </View>
-            </View>
-            <View style={styles.cariActions}>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Pencil size={16} color={colors.text} />}
-                onPress={() => router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } })}
-                style={styles.cariActionBtn}
-              >
-                {t('common:buttons.edit')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<Trash2 size={16} color={colors.error} />}
-                onPress={handleDeleteCari}
-                style={styles.cariActionBtn}
-              >
-                {t('common:buttons.delete')}
-              </Button>
             </View>
           </Card>
 
@@ -288,7 +283,7 @@ export default function CariHareketleriPage() {
                           {getHareketIcon(islem.type)}
                         </View>
                         <View style={styles.hareketInfo}>
-                          <Text variant="body">{formatDateMedium(islem.date)}</Text>
+                          <Text variant="body">{formatDateSmart(islem.date)}</Text>
                           <Text variant="caption" color="secondary">
                             {getHareketLabel(islem.type)}
                           </Text>
@@ -366,6 +361,38 @@ export default function CariHareketleriPage() {
           </View>
         </ScrollView>
 
+        {/* 3 Nokta Menüsü */}
+        <Modal visible={showMenu} transparent animationType="fade">
+          <TouchableOpacity
+            style={styles.menuBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowMenu(false)}
+          >
+            <View style={styles.menuContainer}>
+              {/* Düzenle */}
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } });
+                }}
+              >
+                <Pencil size={20} color={colors.text} />
+                <Text variant="body">{t('common:buttons.edit')}</Text>
+              </TouchableOpacity>
+
+              {/* Sil */}
+              <TouchableOpacity
+                style={[styles.menuItem, styles.menuItemDanger]}
+                onPress={handleDeleteCari}
+              >
+                <Trash2 size={20} color={colors.error} />
+                <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+
         {/* Quick Transaction Bar */}
         <QuickTransactionBar
           visible={quickBarVisible}
@@ -399,17 +426,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.lg,
-  },
-  cariActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  cariActionBtn: {
-    flex: 1,
   },
   summaryIcon: {
     width: 56,
@@ -470,5 +486,44 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  // Header menu button
+  headerMenuBtn: {
+    padding: spacing.xs,
+    marginRight: spacing.sm,
+  },
+  // Menu styles
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 60,
+    paddingRight: spacing.md,
+  },
+  menuContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xs,
+    minWidth: 180,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  menuItemDanger: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.xs,
+    paddingTop: spacing.md + spacing.xs,
   },
 });

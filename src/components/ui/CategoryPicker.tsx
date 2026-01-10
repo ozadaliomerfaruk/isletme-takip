@@ -1,4 +1,4 @@
-import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions, TextInput } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, TextInput } from 'react-native';
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -194,9 +194,11 @@ export function CategoryPicker({
         transparent={true}
         onRequestClose={handleCloseModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-            <View style={styles.modalHeader}>
+        <TouchableWithoutFeedback onPress={handleCloseModal}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                <View style={styles.modalHeader}>
               <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
               <View style={styles.headerActions}>
                 <TouchableOpacity
@@ -338,9 +340,11 @@ export function CategoryPicker({
                 </View>
               )}
             </ScrollView>
-          </View>
+            </View>
+          </TouchableWithoutFeedback>
         </View>
-      </Modal>
+      </TouchableWithoutFeedback>
+    </Modal>
     </>
   );
 }

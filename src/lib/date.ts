@@ -11,6 +11,7 @@
  */
 
 import i18n from 'i18next';
+import { getCurrentDateFormat } from '@/hooks/useSettings';
 
 // ============================================================================
 // LOCALE YARDIMCI FONKSİYONLARI
@@ -19,16 +20,34 @@ import i18n from 'i18next';
 /**
  * i18n dil kodunu native API'ler için locale string'e dönüştür
  * Kullanım: toLocaleDateString, Intl.NumberFormat, DateTimePicker vb.
+ * Tarih formatı tercihine göre (DMY/MDY) uygun locale döndürür
  */
 export function getLocale(): string {
-  const localeMap: Record<string, string> = {
-    tr: 'tr-TR',
-    en: 'en-US',
-    de: 'de-DE',
-    fr: 'fr-FR',
-    es: 'es-ES',
-  };
-  return localeMap[i18n.language] || 'en-US';
+  const language = i18n.language;
+  const dateFormat = getCurrentDateFormat().code;
+
+  // Tarih formatına göre locale seç
+  if (dateFormat === 'DMY') {
+    // DMY formatı için locale'ler
+    const dmyLocales: Record<string, string> = {
+      tr: 'tr-TR',
+      en: 'en-GB', // İngiliz formatı (DMY)
+      de: 'de-DE',
+      fr: 'fr-FR',
+      es: 'es-ES',
+    };
+    return dmyLocales[language] || 'en-GB';
+  } else {
+    // MDY formatı için locale'ler
+    const mdyLocales: Record<string, string> = {
+      tr: 'tr-TR', // Türkçe'de MDY kullanılmaz ama seçilirse
+      en: 'en-US', // Amerikan formatı (MDY)
+      de: 'de-DE',
+      fr: 'fr-FR',
+      es: 'es-ES',
+    };
+    return mdyLocales[language] || 'en-US';
+  }
 }
 
 // ============================================================================
@@ -215,14 +234,21 @@ export function formatDateMedium(date: string | Date): string {
 }
 
 /**
- * Tarih formatla: "19.12.2024"
+ * Tarih formatla: "19/12/2024" veya "12/19/2024"
+ * Kullanıcının seçtiği tarih formatına göre (DMY veya MDY)
  * Kullanım: Tablo hücreleri, kompakt gösterimler
  */
 export function formatDateShort(date: string | Date): string {
   const d = typeof date === 'string' ? parseDateFromDB(date) : date;
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
-  return `${day}.${month}.${d.getFullYear()}`;
+  const year = d.getFullYear();
+  const dateFormatConfig = getCurrentDateFormat();
+
+  if (dateFormatConfig.code === 'MDY') {
+    return `${month}/${day}/${year}`;
+  }
+  return `${day}/${month}/${year}`;
 }
 
 /**
@@ -243,7 +269,8 @@ export function formatMonth(date: Date): string {
 }
 
 /**
- * Tarih ve saat formatla: "19.12.2024 14:30"
+ * Tarih ve saat formatla: "19/12/2024 14:30" veya "12/19/2024 14:30"
+ * Kullanıcının seçtiği tarih formatına göre
  * Kullanım: İşlem logları, detaylı gösterimler
  */
 export function formatDateTime(date: string | Date): string {
@@ -499,4 +526,30 @@ export function isDateInRange(
   const end = typeof endDate === 'string' ? parseDateFromDB(endDate) : endDate;
 
   return d >= start && d <= end;
+}
+
+/**
+ * Tarihe belirli sayıda ay ekle
+ * @param date - Başlangıç tarihi
+ * @param months - Eklenecek ay sayısı (negatif olabilir)
+ * @returns Yeni tarih
+ */
+export function addMonths(date: Date | string, months: number): Date {
+  const d = typeof date === 'string' ? parseDateFromDB(date) : new Date(date);
+  const result = new Date(d);
+  result.setMonth(result.getMonth() + months);
+  return result;
+}
+
+/**
+ * Tarihe belirli sayıda gün ekle
+ * @param date - Başlangıç tarihi
+ * @param days - Eklenecek gün sayısı (negatif olabilir)
+ * @returns Yeni tarih
+ */
+export function addDays(date: Date | string, days: number): Date {
+  const d = typeof date === 'string' ? parseDateFromDB(date) : new Date(date);
+  const result = new Date(d);
+  result.setDate(result.getDate() + days);
+  return result;
 }

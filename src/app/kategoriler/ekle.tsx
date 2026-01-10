@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TrendingUp, TrendingDown } from 'lucide-react-native';
 import { Text, Input, Button, Card, IconPicker, ColorPicker, ParentCategoryPicker } from '@/components/ui';
@@ -21,6 +21,7 @@ import { KategoriType } from '@/types/database';
 
 export default function KategoriEklePage() {
   const router = useRouter();
+  const { type: initialType } = useLocalSearchParams<{ type?: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
   const createKategori = useCreateKategori();
 
@@ -30,6 +31,13 @@ export default function KategoriEklePage() {
   const [color, setColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
   const [parentId, setParentId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string }>({});
+
+  // URL'den gelen type parametresini uygula
+  useEffect(() => {
+    if (initialType === 'gelir' || initialType === 'gider') {
+      setType(initialType);
+    }
+  }, [initialType]);
 
   const validate = () => {
     const newErrors: { name?: string } = {};

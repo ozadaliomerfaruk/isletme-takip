@@ -8,19 +8,37 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseDateFromDB, formatDateForDB, isSameYear, formatTime } from '@/lib/date';
+import { getCurrentDateFormat } from '@/hooks/useSettings';
 
 /**
  * Map i18n language code to locale string for native date APIs
+ * Takes into account the user's date format preference (DMY vs MDY)
  */
 function getLocaleFromLanguage(language: string): string {
-  const localeMap: Record<string, string> = {
-    tr: 'tr-TR',
-    en: 'en-US',
-    de: 'de-DE',
-    fr: 'fr-FR',
-    es: 'es-ES',
-  };
-  return localeMap[language] || 'en-US';
+  const dateFormat = getCurrentDateFormat().code;
+
+  // Tarih formatına göre locale seç
+  if (dateFormat === 'DMY') {
+    // DMY formatı için locale'ler
+    const dmyLocales: Record<string, string> = {
+      tr: 'tr-TR',
+      en: 'en-GB', // İngiliz formatı (DMY)
+      de: 'de-DE',
+      fr: 'fr-FR',
+      es: 'es-ES',
+    };
+    return dmyLocales[language] || 'en-GB';
+  } else {
+    // MDY formatı için locale'ler
+    const mdyLocales: Record<string, string> = {
+      tr: 'tr-TR', // Türkçe'de MDY kullanılmaz ama seçilirse
+      en: 'en-US', // Amerikan formatı (MDY)
+      de: 'de-DE',
+      fr: 'fr-FR',
+      es: 'es-ES',
+    };
+    return mdyLocales[language] || 'en-US';
+  }
 }
 
 /**

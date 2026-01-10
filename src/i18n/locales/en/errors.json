@@ -25,7 +25,9 @@
     "sessionExpired": "Your session has expired. Please log in again.",
     "unauthorized": "You are not authorized for this operation",
     "tooManyAttempts": "Too many login attempts. Please try again later.",
-    "weakPassword": "Please enter a stronger password"
+    "weakPassword": "Please enter a stronger password",
+    "linkExpired": "Password reset link is invalid or has expired. Please try again.",
+    "invalidOtp": "Invalid verification code. Please try again."
   },
   "validation": {
     "required": "This field is required",

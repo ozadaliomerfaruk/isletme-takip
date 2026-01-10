@@ -40,6 +40,9 @@ export interface CashFlowByCategoryResult {
   totalInflow: number;                 // Toplam nakit girişi
   totalOutflow: number;                // Toplam nakit çıkışı
   netCashFlow: number;                 // Net nakit akışı (giriş - çıkış)
+  creditCardSpendingItems: CashFlowItem[];    // Kredi kartı harcamaları (kategorilere göre)
+  allCreditCardSpendingItems: CashFlowItem[]; // Tüm kredi kartı harcama kategorileri
+  totalCreditCardSpending: number;            // Toplam kredi kartı harcaması
   isLoading: boolean;
   error: Error | null;
 }
@@ -125,13 +128,18 @@ export function useCashFlowByCategory(
         totalInflow: 0,
         totalOutflow: 0,
         netCashFlow: 0,
+        creditCardSpendingItems: [],
+        allCreditCardSpendingItems: [],
+        totalCreditCardSpending: 0,
       };
     }
 
     let totalInflow = 0;
     let totalOutflow = 0;
+    let totalCreditCardSpending = 0;
     const outflowByCategory = new Map<string, { kategori: Kategori | null; total: number }>();
     const inflowByCategory = new Map<string, { kategori: Kategori | null; total: number }>();
+    const creditCardSpendingByCategory = new Map<string, { kategori: Kategori | null; total: number }>();
 
     islemler.forEach((islem: any) => {
       const amount = Number(islem.amount);
@@ -188,8 +196,24 @@ export function useCashFlowByCategory(
 
       // Nakit çıkışı kontrolü
       if (CASH_OUTFLOW_TYPES.includes(islemType)) {
+        // Hesap tipi kredi kartı ise kredi kartı harcaması olarak kaydet
+        if (hesapType === 'kredi_karti') {
+          totalCreditCardSpending += amount;
+
+          // Kategoriye ekle
+          const kategoriKey = islem.kategori?.id || 'uncategorized';
+          const existing = creditCardSpendingByCategory.get(kategoriKey);
+          if (existing) {
+            existing.total += amount;
+          } else {
+            creditCardSpendingByCategory.set(kategoriKey, {
+              kategori: islem.kategori || null,
+              total: amount
+            });
+          }
+        }
         // Hesap tipi kredi kartı değilse nakit çıkışı
-        if (hesapType && CASH_ACCOUNT_TYPES.includes(hesapType)) {
+        else if (hesapType && CASH_ACCOUNT_TYPES.includes(hesapType)) {
           totalOutflow += amount;
 
           // Kategoriye ekle
@@ -257,6 +281,31 @@ export function useCashFlowByCategory(
       });
     }
 
+    // Kredi Kartı Harcamaları - Sırayla (büyükten küçüğe)
+    const allCreditCardSpendingItems: CashFlowItem[] = Array.from(creditCardSpendingByCategory.values())
+      .sort((a, b) => b.total - a.total)
+      .map((value, index) => ({
+        kategori: value.kategori,
+        total: value.total,
+        percentage: totalCreditCardSpending > 0 ? (value.total / totalCreditCardSpending) * 100 : 0,
+        color: value.kategori?.color || COLORS[index % COLORS.length],
+      }));
+
+    // Kredi Kartı Harcamaları - Top N + Diğer
+    const topCreditCardSpendingItems = allCreditCardSpendingItems.slice(0, limit);
+    const otherCreditCardSpendingItems = allCreditCardSpendingItems.slice(limit);
+    const otherCreditCardSpendingTotal = otherCreditCardSpendingItems.reduce((acc, item) => acc + item.total, 0);
+
+    let creditCardSpendingItems = [...topCreditCardSpendingItems];
+    if (otherCreditCardSpendingTotal > 0) {
+      creditCardSpendingItems.push({
+        kategori: null,
+        total: otherCreditCardSpendingTotal,
+        percentage: totalCreditCardSpending > 0 ? (otherCreditCardSpendingTotal / totalCreditCardSpending) * 100 : 0,
+        color: '#9CA3AF', // Gri
+      });
+    }
+
     return {
       outflowItems,
       allOutflowItems,
@@ -265,6 +314,9 @@ export function useCashFlowByCategory(
       totalInflow,
       totalOutflow,
       netCashFlow: totalInflow - totalOutflow,
+      creditCardSpendingItems,
+      allCreditCardSpendingItems,
+      totalCreditCardSpending,
     };
   }, [islemler, limit]);
 

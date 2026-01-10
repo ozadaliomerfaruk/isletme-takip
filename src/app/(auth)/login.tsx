@@ -218,6 +218,16 @@ export default function LoginPage() {
             >
               {t('auth:login.loginButton')}
             </Button>
+
+            {/* Şifremi Unuttum */}
+            <TouchableOpacity
+              onPress={() => router.push('/(auth)/forgot-password')}
+              style={styles.forgotPasswordLink}
+            >
+              <Text variant="body" style={{ color: colors.primary }}>
+                {t('auth:login.forgotPassword')}
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Kayıt Ol */}
@@ -315,6 +325,10 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   loginButton: {
+    marginTop: spacing.md,
+  },
+  forgotPasswordLink: {
+    alignItems: 'center',
     marginTop: spacing.md,
   },
   footer: {

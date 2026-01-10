@@ -5,20 +5,26 @@ import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
 
-export function useHesaplar() {
+export function useHesaplar(includePassive: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const query = useQuery({
-    queryKey: ['hesaplar', isletme?.id],
+    queryKey: ['hesaplar', isletme?.id, includePassive],
     queryFn: async () => {
       if (!isletme) return [];
 
-      const { data, error } = await supabase
+      let queryBuilder = supabase
         .from('hesaplar')
         .select('*')
         .eq('isletme_id', isletme.id)
-        .eq('is_active', true)
         .order('created_at', { ascending: true });
+
+      // Sadece aktif hesapları getir (varsayılan davranış)
+      if (!includePassive) {
+        queryBuilder = queryBuilder.eq('is_active', true);
+      }
+
+      const { data, error } = await queryBuilder;
 
       if (error) throw error;
       return data as Hesap[];

@@ -94,6 +94,19 @@
     "english": "English",
     "languageChanged": "Dil değiştirildi"
   },
+  "currency": {
+    "title": "Para Birimi",
+    "selectCurrency": "Para Birimi Seçin",
+    "TRY": "Türk Lirası (₺)",
+    "USD": "Amerikan Doları ($)",
+    "EUR": "Euro (€)"
+  },
+  "dateFormat": {
+    "title": "Tarih Formatı",
+    "selectDateFormat": "Tarih Formatı Seçin",
+    "DMY": "Gün/Ay/Yıl",
+    "MDY": "Ay/Gün/Yıl"
+  },
   "about": {
     "title": "Hakkında",
     "version": "Sürüm",

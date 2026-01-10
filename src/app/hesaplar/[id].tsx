@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
@@ -15,11 +15,12 @@ import {
   Pencil,
   Trash2,
   Clock,
+  MoreVertical,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
-import { QuickTransactionBar, TransactionType } from '@/components/transaction';
+import { QuickTransactionBar, CreditCardTransactionBar, TransactionType } from '@/components/transaction';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort, formatDateSmart, formatTime, isSameYear } from '@/lib/date';
 import { useHesap, useDeleteHesap } from '@/hooks/useHesaplar';
@@ -43,6 +44,7 @@ export default function HesapHareketleriPage() {
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [showTransactionBar, setShowTransactionBar] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
+  const [showMenu, setShowMenu] = useState(false);
   const isOpeningRef = useRef(false);
 
   // Debounced transaction opener to prevent race conditions
@@ -152,6 +154,8 @@ export default function HesapHareketleriPage() {
         return t('accounts:transactionLabels.personelOdeme');
       case 'personel_gider':
         return t('accounts:transactionLabels.personelGider');
+      case 'nakit_avans_taksit':
+        return t('accounts:transactionLabels.nakitAvansTaksit');
       default:
         return type;
     }
@@ -202,6 +206,7 @@ export default function HesapHareketleriPage() {
   };
 
   const handleDeleteHesap = () => {
+    setShowMenu(false);
     Alert.alert(
       t('accounts:deleteConfirm.accountTitle'),
       t('accounts:deleteConfirm.accountMessage'),
@@ -236,6 +241,17 @@ export default function HesapHareketleriPage() {
     }
   };
 
+  // Header right menu button
+  const HeaderMenuButton = () => (
+    <TouchableOpacity
+      onPress={() => setShowMenu(true)}
+      style={styles.headerMenuBtn}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+    >
+      <MoreVertical size={24} color={colors.text} />
+    </TouchableOpacity>
+  );
+
   if (hesapLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -263,6 +279,7 @@ export default function HesapHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: hesap.name,
+          headerRight: () => <HeaderMenuButton />,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -275,65 +292,81 @@ export default function HesapHareketleriPage() {
               </View>
               <View style={styles.summaryInfo}>
                 <Text variant="caption" color="secondary">
-                  {t('accounts:balance.currentBalance')}
+                  {hesap.type === 'kredi_karti' ? t('accounts:creditCard.currentDebt') : t('accounts:balance.currentBalance')}
                 </Text>
                 <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
-                  {formatCurrency(Number(hesap.balance))}
+                  {formatCurrency(Math.abs(Number(hesap.balance)))}
                 </Text>
               </View>
             </View>
-            <View style={styles.hesapActions}>
-              <Button
-                variant="secondary"
-                size="sm"
-                icon={<Pencil size={16} color={colors.text} />}
-                onPress={() => router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } })}
-                style={styles.hesapActionBtn}
-              >
-                {t('common:buttons.edit')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<Trash2 size={16} color={colors.error} />}
-                onPress={handleDeleteHesap}
-                style={styles.hesapActionBtn}
-              >
-                {t('common:buttons.delete')}
-              </Button>
-            </View>
+
+            {/* Kredi Kartı Limit Bilgileri */}
+            {hesap.type === 'kredi_karti' && hesap.credit_limit && hesap.credit_limit > 0 && (
+              <View style={styles.creditLimitSection}>
+                <View style={styles.creditLimitRow}>
+                  <View style={styles.creditLimitItem}>
+                    <Text variant="caption" color="secondary">{t('accounts:creditCard.creditLimit')}</Text>
+                    <Text variant="body" style={styles.creditLimitValue}>{formatCurrency(hesap.credit_limit)}</Text>
+                  </View>
+                  <View style={styles.creditLimitItem}>
+                    <Text variant="caption" color="secondary">{t('accounts:creditCard.usedCredit')}</Text>
+                    <Text variant="body" style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(Math.abs(Number(hesap.balance)))}</Text>
+                  </View>
+                  <View style={styles.creditLimitItem}>
+                    <Text variant="caption" color="secondary">{t('accounts:creditCard.availableCredit')}</Text>
+                    <Text variant="body" style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(hesap.credit_limit - Math.abs(Number(hesap.balance)))}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </Card>
 
           {/* Hızlı İşlemler */}
-          <View style={styles.actionButtons}>
-            <Button
-              variant="primary"
-              size="md"
-              icon={<TrendingUp size={18} color={colors.surface} />}
-              onPress={() => openTransaction('gelir')}
-              style={styles.actionBtn}
-            >
-              {t('accounts:transactionLabels.gelir')}
-            </Button>
-            <Button
-              variant="secondary"
-              size="md"
-              icon={<TrendingDown size={18} color={colors.text} />}
-              onPress={() => openTransaction('gider')}
-              style={styles.actionBtn}
-            >
-              {t('accounts:transactionLabels.gider')}
-            </Button>
-            <Button
-              variant="outline"
-              size="md"
-              icon={<ArrowLeftRight size={18} color={colors.text} />}
-              onPress={() => router.push({ pathname: '/islemler/transfer', params: { hesap_id: id } })}
-              style={styles.actionBtn}
-            >
-              {t('accounts:transactionLabels.transfer')}
-            </Button>
-          </View>
+          {hesap.type === 'kredi_karti' ? (
+            /* Kredi kartı için tek buton */
+            <View style={styles.actionButtons}>
+              <Button
+                variant="primary"
+                size="md"
+                icon={<CreditCard size={18} color={colors.surface} />}
+                onPress={() => openTransaction('kredi_karti_gider' as TransactionType)}
+                style={styles.actionBtn}
+              >
+                {t('accounts:actions.addTransaction')}
+              </Button>
+            </View>
+          ) : (
+            /* Normal hesaplar için butonlar */
+            <View style={styles.actionButtons}>
+              <Button
+                variant="primary"
+                size="md"
+                icon={<TrendingUp size={18} color={colors.surface} />}
+                onPress={() => openTransaction('gelir')}
+                style={styles.actionBtn}
+              >
+                {t('accounts:transactionLabels.gelir')}
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                icon={<TrendingDown size={18} color={colors.text} />}
+                onPress={() => openTransaction('gider')}
+                style={styles.actionBtn}
+              >
+                {t('accounts:transactionLabels.gider')}
+              </Button>
+              <Button
+                variant="outline"
+                size="md"
+                icon={<ArrowLeftRight size={18} color={colors.text} />}
+                onPress={() => router.push({ pathname: '/islemler/transfer', params: { hesap_id: id } })}
+                style={styles.actionBtn}
+              >
+                {t('accounts:transactionLabels.transfer')}
+              </Button>
+            </View>
+          )}
 
           {/* İleri Tarihli İşlemler */}
           <View style={styles.section}>
@@ -460,13 +493,69 @@ export default function HesapHareketleriPage() {
         </ScrollView>
       </SafeAreaView>
 
-      {/* Quick Transaction Bar */}
-      <QuickTransactionBar
-        visible={showTransactionBar}
-        onDismiss={() => setShowTransactionBar(false)}
-        defaultType={transactionType}
-        defaultHesapId={id}
-      />
+      {/* 3 Nokta Menüsü */}
+      <Modal visible={showMenu} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.menuBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowMenu(false)}
+        >
+          <View style={styles.menuContainer}>
+            {/* Düzenle */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                setShowMenu(false);
+                router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } });
+              }}
+            >
+              <Pencil size={20} color={colors.text} />
+              <Text variant="body">{t('common:buttons.edit')}</Text>
+            </TouchableOpacity>
+
+            {/* Nakit Avanslar - şimdilik gizli
+            {hesap.type === 'kredi_karti' && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  router.push({ pathname: '/hesaplar/nakit-avanslar/[id]', params: { id: id } });
+                }}
+              >
+                <Banknote size={20} color={colors.warning} />
+                <Text variant="body">{t('accounts:nakitAvans.title')}</Text>
+              </TouchableOpacity>
+            )}
+            */}
+
+            {/* Sil */}
+            <TouchableOpacity
+              style={[styles.menuItem, styles.menuItemDanger]}
+              onPress={handleDeleteHesap}
+            >
+              <Trash2 size={20} color={colors.error} />
+              <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Quick Transaction Bar - kredi kartı için özel bar */}
+      {hesap.type === 'kredi_karti' ? (
+        <CreditCardTransactionBar
+          visible={showTransactionBar}
+          onDismiss={() => setShowTransactionBar(false)}
+          creditCard={hesap}
+        />
+      ) : (
+        <QuickTransactionBar
+          visible={showTransactionBar}
+          onDismiss={() => setShowTransactionBar(false)}
+          defaultType={transactionType}
+          defaultHesapId={id}
+        />
+      )}
+
     </>
   );
 }
@@ -492,17 +581,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.lg,
   },
-  hesapActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  hesapActionBtn: {
-    flex: 1,
-  },
   summaryIcon: {
     width: 56,
     height: 56,
@@ -513,6 +591,24 @@ const styles = StyleSheet.create({
   },
   summaryInfo: {
     flex: 1,
+  },
+  creditLimitSection: {
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  creditLimitRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  creditLimitItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  creditLimitValue: {
+    fontWeight: '600',
+    marginTop: spacing.xs,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -563,5 +659,44 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  // Header menu button
+  headerMenuBtn: {
+    padding: spacing.xs,
+    marginRight: spacing.sm,
+  },
+  // Menu styles
+  menuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 60,
+    paddingRight: spacing.md,
+  },
+  menuContainer: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.xs,
+    minWidth: 180,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  menuItemDanger: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.xs,
+    paddingTop: spacing.md + spacing.xs,
   },
 });

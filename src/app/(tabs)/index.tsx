@@ -1,11 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, Pressable, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
-  TrendingUp,
-  TrendingDown,
   Wallet,
   Plus,
   History,
@@ -13,11 +11,18 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Banknote,
+  Building2,
+  CreditCard,
+  PiggyBank,
+  EyeOff,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card, TabFilter, ExpandableCard, Button, EmptyState, NotificationBell } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { CreditCardTransactionBar } from '@/components/transaction/CreditCardTransactionBar';
 import { DailyCashModal } from '@/components/transaction/DailyCashModal';
+import type { Hesap } from '@/types/database';
 import { TransactionType } from '@/components/transaction/TransactionTypeTabs';
 import { SummaryCarousel } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
@@ -55,6 +60,9 @@ export default function HomePage() {
   const [quickBarType, setQuickBarType] = useState<TransactionType>('gelir');
   const [quickBarHesapId, setQuickBarHesapId] = useState<string | undefined>(undefined);
 
+  // CreditCardTransactionBar state
+  const [creditCardForTransaction, setCreditCardForTransaction] = useState<Hesap | null>(null);
+
   // Özel tarih aralığı için state'ler
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
@@ -63,13 +71,79 @@ export default function HomePage() {
 
   const { isletme, cancelAccountDeletion } = useAuthContext();
 
-  // Gerçek veriler
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
+  // Gerçek veriler - pasif hesapları da dahil et
+  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true);
 
-  const openQuickBar = (type: TransactionType, hesapId: string) => {
-    setQuickBarType(type);
-    setQuickBarHesapId(hesapId);
-    setQuickBarVisible(true);
+  // Hesapları tipe göre grupla
+  const groupedHesaplar = useMemo(() => {
+    if (!hesaplar) return {};
+
+    const groups: Record<string, Hesap[]> = {
+      nakit: [],
+      banka: [],
+      kredi_karti: [],
+      diger: [],
+    };
+
+    hesaplar.forEach((h) => {
+      const type = h.type as string;
+      if (groups[type]) {
+        groups[type].push(h);
+      } else {
+        groups.diger.push(h);
+      }
+    });
+
+    // Önce aktif, sonra pasif - her grup içinde alfabetik sırala
+    Object.keys(groups).forEach((key) => {
+      groups[key].sort((a, b) => {
+        // Aktif olanlar önce
+        if (a.is_active !== b.is_active) {
+          return a.is_active ? -1 : 1;
+        }
+        // Aynı durumda olanları alfabetik sırala
+        return a.name.localeCompare(b.name, 'tr');
+      });
+    });
+
+    return groups;
+  }, [hesaplar]);
+
+  // Kategori toplamlarını hesapla (sadece aktif hesaplar)
+  const categoryTotals = useMemo(() => {
+    const totals: Record<string, number> = {
+      nakit: 0,
+      banka: 0,
+      kredi_karti: 0,
+      diger: 0,
+    };
+
+    Object.entries(groupedHesaplar).forEach(([key, accounts]) => {
+      totals[key] = accounts
+        .filter(h => h.is_active)
+        .reduce((acc, h) => acc + toNumber(h.balance), 0);
+    });
+
+    return totals;
+  }, [groupedHesaplar]);
+
+  // Grup başlık ve ikon tanımları
+  const groupConfig: Record<string, { label: string; icon: React.ReactNode }> = {
+    nakit: { label: t('accounts:types.nakit'), icon: <Banknote size={20} color={colors.success} /> },
+    banka: { label: t('accounts:types.banka'), icon: <Building2 size={20} color={colors.primary} /> },
+    kredi_karti: { label: t('accounts:types.kredi_karti'), icon: <CreditCard size={20} color={colors.error} /> },
+    diger: { label: t('accounts:types.diger'), icon: <PiggyBank size={20} color={colors.warning} /> },
+  };
+
+  const openQuickBar = (type: TransactionType, hesap: Hesap) => {
+    // Kredi kartı için CreditCardTransactionBar kullan
+    if (hesap.type === 'kredi_karti') {
+      setCreditCardForTransaction(hesap);
+    } else {
+      setQuickBarType(type);
+      setQuickBarHesapId(hesap.id);
+      setQuickBarVisible(true);
+    }
   };
   const totalBalance = useTotalBalance();
   const { assets, payables, receivables, generalStatus } = useFinancialSummary();
@@ -344,16 +418,6 @@ export default function HomePage() {
             </TouchableOpacity>
           </View>
 
-          {/* Toplam Bakiye */}
-          <Card style={styles.totalCard}>
-            <Text variant="caption" color="secondary">
-              {t('accounts:titles.totalBalance')}
-            </Text>
-            <Text variant="h2" color={totalBalance >= 0 ? 'primary' : 'error'}>
-              {formatCurrency(totalBalance)}
-            </Text>
-          </Card>
-
           {/* Günlük Ciro Gir Butonu */}
           <Button
             variant="primary"
@@ -365,7 +429,7 @@ export default function HomePage() {
             {t('transactions:dailyCash.enterButton')}
           </Button>
 
-          {/* Hesap Listesi */}
+          {/* Hesap Listesi - Gruplandırılmış */}
           {hesaplarLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
           ) : !hesaplar || hesaplar.length === 0 ? (
@@ -377,48 +441,82 @@ export default function HomePage() {
               onAction={() => router.push('/hesaplar/ekle')}
             />
           ) : (
-            hesaplar.map((hesap) => (
-              <ExpandableCard
-                key={hesap.id}
-                expanded={expandedHesapId === hesap.id}
-                onToggle={() => setExpandedHesapId(expandedHesapId === hesap.id ? null : hesap.id)}
-                header={
-                  <View style={styles.hesapHeader}>
-                    {getHesapIcon(hesap.type, 24)}
-                    <View style={styles.hesapInfo}>
-                      <Text variant="body">{hesap.name}</Text>
-                      <Text
-                        variant="h3"
-                        color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}
-                      >
-                        {formatCurrency(toNumber(hesap.balance))}
-                      </Text>
-                    </View>
+            ['nakit', 'banka', 'kredi_karti', 'diger'].map((groupKey) => {
+              const groupHesaplar = groupedHesaplar[groupKey] || [];
+              if (groupHesaplar.length === 0) return null;
+
+              const config = groupConfig[groupKey];
+
+              return (
+                <View key={groupKey} style={styles.hesapGroup}>
+                  {/* Grup Başlığı */}
+                  <View style={styles.groupHeader}>
+                    {config.icon}
+                    <Text variant="label" color="secondary" style={styles.groupLabel}>
+                      {config.label}
+                    </Text>
+                    <View style={{ flex: 1 }} />
+                    <Text
+                      variant="label"
+                      color={categoryTotals[groupKey] >= 0 ? 'primary' : 'error'}
+                      style={styles.groupTotal}
+                    >
+                      {formatCurrency(categoryTotals[groupKey])}
+                    </Text>
                   </View>
-                }
-              >
-                <View style={styles.hesapActions}>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<Plus size={16} color={colors.surface} />}
-                    onPress={() => openQuickBar('gelir', hesap.id)}
-                    style={styles.actionButton}
-                  >
-                    {t('clients:details.newTransaction')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<History size={16} color={colors.text} />}
-                    onPress={() => router.push(`/hesaplar/${hesap.id}`)}
-                    style={styles.actionButton}
-                  >
-                    {t('accounts:details.transactions')}
-                  </Button>
+
+                  {/* Grup İçindeki Hesaplar */}
+                  {groupHesaplar.map((hesap) => (
+                    <View key={hesap.id} style={!hesap.is_active && styles.passiveItem}>
+                      <ExpandableCard
+                        expanded={expandedHesapId === hesap.id}
+                        onToggle={() => setExpandedHesapId(expandedHesapId === hesap.id ? null : hesap.id)}
+                        header={
+                          <View style={styles.hesapHeader}>
+                            {getHesapIcon(hesap.type, 24)}
+                            <View style={styles.hesapInfo}>
+                              <View style={styles.hesapNameRow}>
+                                <Text variant="body">{hesap.name}</Text>
+                                {!hesap.is_active && (
+                                  <EyeOff size={14} color={colors.textMuted} />
+                                )}
+                              </View>
+                              <Text
+                                variant="h3"
+                                color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}
+                              >
+                                {formatCurrency(toNumber(hesap.balance))}
+                              </Text>
+                            </View>
+                          </View>
+                        }
+                      >
+                      <View style={styles.hesapActions}>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={<Plus size={16} color={colors.surface} />}
+                          onPress={() => openQuickBar('gelir', hesap)}
+                          style={styles.actionButton}
+                        >
+                          {t('clients:details.newTransaction')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<History size={16} color={colors.text} />}
+                          onPress={() => router.push(`/hesaplar/${hesap.id}`)}
+                          style={styles.actionButton}
+                        >
+                          {t('accounts:details.transactions')}
+                        </Button>
+                      </View>
+                      </ExpandableCard>
+                    </View>
+                  ))}
                 </View>
-              </ExpandableCard>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -436,6 +534,15 @@ export default function HomePage() {
         defaultType={quickBarType}
         defaultHesapId={quickBarHesapId}
       />
+
+      {/* CreditCardTransactionBar */}
+      {creditCardForTransaction && (
+        <CreditCardTransactionBar
+          visible={!!creditCardForTransaction}
+          onDismiss={() => setCreditCardForTransaction(null)}
+          creditCard={creditCardForTransaction}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -547,12 +654,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  totalCard: {
-    marginBottom: spacing.lg,
-    alignItems: 'center',
-  },
   dailyCashButton: {
     marginBottom: spacing.lg,
+  },
+  hesapGroup: {
+    marginBottom: spacing.lg,
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  groupLabel: {
+    textTransform: 'uppercase',
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+  groupTotal: {
+    fontWeight: '600',
   },
   hesapHeader: {
     flexDirection: 'row',
@@ -561,6 +682,14 @@ const styles = StyleSheet.create({
   },
   hesapInfo: {
     flex: 1,
+  },
+  hesapNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  passiveItem: {
+    opacity: 0.5,
   },
   hesapActions: {
     flexDirection: 'row',

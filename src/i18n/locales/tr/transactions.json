@@ -12,7 +12,8 @@
     "personel_gider": "Personel Gideri",
     "personel_odeme": "Personel Ödemesi",
     "personel_tahsilat": "Personelden Tahsilat",
-    "kredi_karti_harcama": "Kredi Kartı Harcaması"
+    "kredi_karti_harcama": "Kredi Kartı Harcaması",
+    "nakit_avans_taksit": "Nakit Avans Taksit"
   },
   "accountTypes": {
     "nakit": "Nakit",
@@ -146,7 +147,10 @@
     "satis_iade": "Satış İade",
     "personel_odeme": "Ödeme",
     "personel_gider": "Gider",
-    "personel_tahsilat": "Tahsilat"
+    "personel_tahsilat": "Tahsilat",
+    "kredi_karti_gider": "Harcama",
+    "kredi_karti_odeme": "Ödeme",
+    "kredi_karti_ekstre": "Ekstre Öde"
   },
   "validation": {
     "selectTargetAccount": "Hedef hesap seçin"

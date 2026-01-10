@@ -16,6 +16,8 @@ import {
   Languages,
   Check,
   X,
+  Coins,
+  Calendar,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card } from '@/components/ui';
@@ -24,6 +26,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { changeLanguage, getCurrentLanguage } from '@/i18n';
 import type { SupportedLanguage } from '@/i18n/types';
+import { useSettings, type CurrencyCode, type DateFormatType } from '@/hooks/useSettings';
 
 interface MenuItemProps {
   icon: React.ReactNode;
@@ -44,9 +47,9 @@ function MenuItem({ icon, label, onPress, danger }: MenuItemProps) {
   );
 }
 
-const languageOptions: { code: SupportedLanguage; label: string; flag: string }[] = [
-  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
+const languageOptions: { code: SupportedLanguage; label: string }[] = [
+  { code: 'tr', label: 'Türkçe' },
+  { code: 'en', label: 'English' },
 ];
 
 export default function DahaPage() {
@@ -54,7 +57,20 @@ export default function DahaPage() {
   const { signOut } = useAuthContext();
   const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors']);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
+  const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
+  const [dateFormatModalVisible, setDateFormatModalVisible] = useState(false);
   const [currentLang, setCurrentLang] = useState(getCurrentLanguage());
+
+  const {
+    currency,
+    dateFormat,
+    currencyConfig,
+    dateFormatConfig,
+    setCurrency,
+    setDateFormat,
+    currencyOptions,
+    dateFormatOptions,
+  } = useSettings();
 
   const handleLanguageChange = async (langCode: SupportedLanguage) => {
     await changeLanguage(langCode);
@@ -64,7 +80,17 @@ export default function DahaPage() {
 
   const getCurrentLanguageLabel = () => {
     const lang = languageOptions.find((l) => l.code === currentLang);
-    return lang ? `${lang.flag} ${lang.label}` : 'Türkçe';
+    return lang ? lang.label : 'Türkçe';
+  };
+
+  const handleCurrencyChange = async (currencyCode: CurrencyCode) => {
+    await setCurrency(currencyCode);
+    setCurrencyModalVisible(false);
+  };
+
+  const handleDateFormatChange = async (format: DateFormatType) => {
+    await setDateFormat(format);
+    setDateFormatModalVisible(false);
   };
 
   const handleLogout = () => {
@@ -143,10 +169,44 @@ export default function DahaPage() {
               <View style={styles.menuIcon}>
                 <Languages size={22} color={colors.info} />
               </View>
-              <View style={styles.languageRow}>
+              <View style={styles.settingRow}>
                 <Text variant="body">{t('settings:language.title')}</Text>
                 <Text variant="caption" color="muted">
                   {getCurrentLanguageLabel()}
+                </Text>
+              </View>
+              <ChevronRight size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => setCurrencyModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuIcon}>
+                <Coins size={22} color={colors.success} />
+              </View>
+              <View style={styles.settingRow}>
+                <Text variant="body">{t('settings:currency.title')}</Text>
+                <Text variant="caption" color="muted">
+                  {t(`settings:currency.${currency}`)}
+                </Text>
+              </View>
+              <ChevronRight size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+            <View style={styles.divider} />
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => setDateFormatModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuIcon}>
+                <Calendar size={22} color={colors.warning} />
+              </View>
+              <View style={styles.settingRow}>
+                <Text variant="body">{t('settings:dateFormat.title')}</Text>
+                <Text variant="caption" color="muted">
+                  {dateFormatConfig.example}
                 </Text>
               </View>
               <ChevronRight size={20} color={colors.textMuted} />
@@ -233,12 +293,11 @@ export default function DahaPage() {
               <TouchableOpacity
                 key={lang.code}
                 style={[
-                  styles.languageOption,
-                  currentLang === lang.code && styles.languageOptionSelected,
+                  styles.optionItem,
+                  currentLang === lang.code && styles.optionItemSelected,
                 ]}
                 onPress={() => handleLanguageChange(lang.code)}
               >
-                <Text style={styles.languageFlag}>{lang.flag}</Text>
                 <Text
                   variant="body"
                   style={currentLang === lang.code && { color: colors.primary, fontWeight: '600' }}
@@ -246,6 +305,97 @@ export default function DahaPage() {
                   {lang.label}
                 </Text>
                 {currentLang === lang.code && (
+                  <Check size={20} color={colors.primary} style={styles.checkIcon} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Currency Selection Modal */}
+      <Modal
+        visible={currencyModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCurrencyModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setCurrencyModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text variant="h3">{t('settings:currency.selectCurrency')}</Text>
+              <TouchableOpacity onPress={() => setCurrencyModalVisible(false)}>
+                <X size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {currencyOptions.map((curr) => (
+              <TouchableOpacity
+                key={curr.code}
+                style={[
+                  styles.optionItem,
+                  currency === curr.code && styles.optionItemSelected,
+                ]}
+                onPress={() => handleCurrencyChange(curr.code)}
+              >
+                <Text
+                  variant="body"
+                  style={currency === curr.code && { color: colors.primary, fontWeight: '600' }}
+                >
+                  {t(`settings:currency.${curr.code}`)}
+                </Text>
+                {currency === curr.code && (
+                  <Check size={20} color={colors.primary} style={styles.checkIcon} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Date Format Selection Modal */}
+      <Modal
+        visible={dateFormatModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDateFormatModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setDateFormatModalVisible(false)}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text variant="h3">{t('settings:dateFormat.selectDateFormat')}</Text>
+              <TouchableOpacity onPress={() => setDateFormatModalVisible(false)}>
+                <X size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {dateFormatOptions.map((fmt) => (
+              <TouchableOpacity
+                key={fmt.code}
+                style={[
+                  styles.optionItem,
+                  dateFormat === fmt.code && styles.optionItemSelected,
+                ]}
+                onPress={() => handleDateFormatChange(fmt.code)}
+              >
+                <View style={styles.dateFormatOption}>
+                  <Text
+                    variant="body"
+                    style={dateFormat === fmt.code && { color: colors.primary, fontWeight: '600' }}
+                  >
+                    {t(`settings:dateFormat.${fmt.code}`)}
+                  </Text>
+                  <Text variant="caption" color="muted">
+                    {fmt.example}
+                  </Text>
+                </View>
+                {dateFormat === fmt.code && (
                   <Check size={20} color={colors.primary} style={styles.checkIcon} />
                 )}
               </TouchableOpacity>
@@ -303,7 +453,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing['3xl'],
   },
-  languageRow: {
+  settingRow: {
     flex: 1,
     gap: 2,
   },
@@ -330,20 +480,21 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  languageOption: {
+  optionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
     borderRadius: borderRadius.md,
     gap: spacing.md,
   },
-  languageOptionSelected: {
+  optionItemSelected: {
     backgroundColor: colors.primaryLight,
-  },
-  languageFlag: {
-    fontSize: 24,
   },
   checkIcon: {
     marginLeft: 'auto',
+  },
+  dateFormatOption: {
+    flex: 1,
+    gap: 2,
   },
 });

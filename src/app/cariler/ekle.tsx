@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreateCari } from '@/hooks/useCariler';
@@ -33,8 +33,16 @@ export default function CariEklePage() {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [balance, setBalance] = useState('');
+  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<{ name?: string }>({});
+
+  // Cari tipi değiştiğinde varsayılan yönü güncelle
+  useEffect(() => {
+    // Tedarikçi: genelde biz borçlu oluruz (credit = bize alacak)
+    // Müşteri: genelde onlar borçlu olur (debt = bize borç)
+    setBalanceDirection(type === 'tedarikci' ? 'credit' : 'debt');
+  }, [type]);
 
   const validate = () => {
     const newErrors: { name?: string } = {};
@@ -52,12 +60,13 @@ export default function CariEklePage() {
 
     try {
       // Bakiye mantığı:
-      // Tedarikçi için negatif bakiye = borcumuz var
-      // Müşteri için pozitif bakiye = alacağımız var
+      // debt (bize borç) = onların bize borcu var = pozitif bakiye (alacağımız var)
+      // credit (bize alacak) = bizim onlara borcumuz var = negatif bakiye
       let finalBalance = balance ? parseFloat(balance.replace(',', '.')) : 0;
-      if (type === 'tedarikci' && finalBalance > 0) {
-        finalBalance = -finalBalance; // Tedarikçiye borç negatif
+      if (balanceDirection === 'credit' && finalBalance > 0) {
+        finalBalance = -finalBalance; // Bize alacak = bizim borcumuz, negatif
       }
+      // debt durumunda pozitif kalır (bize borç = alacağımız var)
 
       await createCari.mutateAsync({
         name: name.trim(),
@@ -163,12 +172,26 @@ export default function CariEklePage() {
             />
 
             <Input
-              label={type === 'tedarikci' ? t('clients:form.openingDebtOptional') : t('clients:form.openingReceivableOptional')}
+              label={t('accounts:form.openingBalanceOptional')}
               placeholder="0"
               keyboardType="decimal-pad"
               value={balance}
               onChangeText={setBalance}
             />
+
+            {/* Bakiye Yönü - sadece bakiye girilmişse göster */}
+            {balance.trim() !== '' && (
+              <View style={styles.balanceDirectionContainer}>
+                <Text variant="label" style={styles.balanceDirectionLabel}>
+                  {t('clients:balanceDirection.label')}
+                </Text>
+                <BalanceDirectionSelector
+                  value={balanceDirection}
+                  onChange={setBalanceDirection}
+                  variant={type === 'tedarikci' ? 'supplier' : 'customer'}
+                />
+              </View>
+            )}
 
             <Input
               label={t('clients:form.noteOptional')}
@@ -252,5 +275,13 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  // Balance direction styles
+  balanceDirectionContainer: {
+    marginBottom: spacing.md,
+  },
+  balanceDirectionLabel: {
+    marginBottom: spacing.xs,
+    color: colors.text,
   },
 });

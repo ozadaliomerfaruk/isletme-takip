@@ -23,7 +23,7 @@ export const TRANSACTIONS = {
     personel_gider: 'Personel Gideri',
     personel_odeme: 'Personel Ödemesi',
     personel_tahsilat: 'Personelden Tahsilat',
-    kredi_karti_harcama: 'Kredi Kartı Harcaması',
+    nakit_avans_taksit: 'Nakit Avans Taksit',
   } as Record<IslemType, string>,
 
   // Hesap tipleri

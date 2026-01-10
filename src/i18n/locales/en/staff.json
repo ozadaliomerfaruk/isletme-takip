@@ -30,7 +30,13 @@
     "notePlaceholder": "Add note...",
     "initialBalance": "Opening Balance",
     "initialBalancePlaceholder": "Enter opening balance",
-    "selectDate": "Select date"
+    "openingBalanceOptional": "Opening Balance (Optional)",
+    "selectDate": "Select date",
+    "balanceDirection": {
+      "label": "Balance Direction",
+      "debt": "They Owe Us",
+      "credit": "We Owe Them"
+    }
   },
   "balance": {
     "balance": "Balance",

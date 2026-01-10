@@ -209,6 +209,15 @@
     "noInflowInPeriod": "Bu dönemde nakit girişi bulunamadı",
     "noOutflowInPeriod": "Bu dönemde nakit çıkışı bulunamadı",
     "uncategorized": "Kategorisiz",
-    "category": "Kategori"
+    "category": "Kategori",
+    "creditCardSpending": "Kredi Kartı Harcamaları",
+    "creditCardSpendingCount": "KREDİ KARTI HARCAMALARI ({{count}} KATEGORİ)",
+    "totalCreditCardSpending": "Toplam Kredi Kartı Harcaması"
+  },
+  "passiveMode": {
+    "title": "Pasif Mod",
+    "description": "Pasif moddaki öğeler genel duruma dahil edilmez ancak işlem yapmaya devam edebilirsiniz.",
+    "passive": "Pasif",
+    "active": "Aktif"
   }
 }

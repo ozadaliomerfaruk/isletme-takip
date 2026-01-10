@@ -7,6 +7,7 @@ import {
   Plus,
   History,
   Zap,
+  EyeOff,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
@@ -36,16 +37,24 @@ export default function CarilerPage() {
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedCari, setSelectedCari] = useState<Cari | null>(null);
 
-  // Gerçek veriler
+  // Gerçek veriler - pasif carileri de dahil et
   const { data: cariler, isLoading } = useCariler(
-    filter === 'all' ? undefined : (filter as CariType)
+    filter === 'all' ? undefined : (filter as CariType),
+    true // includePassive
   );
   const { payables, receivables } = useFinancialSummary();
 
-  // Arama filtresi
-  const filteredCariler = cariler?.filter((cari) =>
-    cari.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Arama filtresi ve sıralama (aktif önce)
+  const filteredCariler = cariler
+    ?.filter((cari) => cari.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      // Aktif olanlar önce
+      if (a.is_active !== b.is_active) {
+        return a.is_active ? -1 : 1;
+      }
+      // Aynı durumda olanları alfabetik sırala
+      return a.name.localeCompare(b.name, 'tr');
+    });
 
 
   return (
@@ -108,20 +117,25 @@ export default function CarilerPage() {
             />
           ) : (
             filteredCariler.map((cari) => (
-              <ExpandableCard
-                key={cari.id}
-                expanded={expandedCariId === cari.id}
-                onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
-                header={
-                  <View style={styles.cariHeader}>
-                    {getCariIcon(cari.type, 24)}
-                    <View style={styles.cariInfo}>
-                      <Text variant="body">{cari.name}</Text>
-                      <Text variant="caption" color="secondary">
-                        {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-                        {cari.phone ? ` • ${cari.phone}` : ''}
-                      </Text>
-                    </View>
+              <View key={cari.id} style={!cari.is_active && styles.passiveItem}>
+                <ExpandableCard
+                  expanded={expandedCariId === cari.id}
+                  onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
+                  header={
+                    <View style={styles.cariHeader}>
+                      {getCariIcon(cari.type, 24)}
+                      <View style={styles.cariInfo}>
+                        <View style={styles.cariNameRow}>
+                          <Text variant="body">{cari.name}</Text>
+                          {!cari.is_active && (
+                            <EyeOff size={14} color={colors.textMuted} />
+                          )}
+                        </View>
+                        <Text variant="caption" color="secondary">
+                          {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
+                          {cari.phone ? ` • ${cari.phone}` : ''}
+                        </Text>
+                      </View>
                     <View style={styles.cariBalance}>
                       <Text variant="caption" color="secondary">
                         {toNumber(cari.balance) === 0
@@ -173,7 +187,8 @@ export default function CarilerPage() {
                     {t('clients:details.transactions')}
                   </Button>
                 </View>
-              </ExpandableCard>
+                </ExpandableCard>
+              </View>
             ))
           )}
         </View>
@@ -242,6 +257,14 @@ const styles = StyleSheet.create({
   },
   cariInfo: {
     flex: 1,
+  },
+  cariNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  passiveItem: {
+    opacity: 0.5,
   },
   cariBalance: {
     alignItems: 'flex-end',
