@@ -596,6 +596,7 @@ export function NakitAvansSheet({
                 label={t('accounts:nakitAvans.category')}
                 placeholder={t('accounts:nakitAvans.categoryPlaceholder')}
                 optional
+                onNavigateAway={onDismiss}
               />
             </View>
 

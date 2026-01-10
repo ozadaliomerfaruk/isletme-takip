@@ -402,6 +402,7 @@ export function TransactionSheet({
                     label={t('transactions:form.category')}
                     placeholder={t('transactions:form.categoryPlaceholder')}
                     optional
+                    onNavigateAway={onDismiss}
                   />
 
                   {/* Description */}

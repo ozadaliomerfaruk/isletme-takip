@@ -845,6 +845,7 @@ export function QuickTransactionBar({
               type={categoryType}
               label=""
               placeholder={t('common:select.selectCategory')}
+              onNavigateAway={onDismiss}
             />
           </View>
         )}

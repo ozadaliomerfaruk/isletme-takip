@@ -600,6 +600,7 @@ export function CreditCardTransactionBar({
               type={categoryType}
               label=""
               placeholder={t('common:select.selectCategory')}
+              onNavigateAway={onDismiss}
             />
           </View>
         )}
