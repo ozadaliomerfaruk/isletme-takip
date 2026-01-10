@@ -138,7 +138,7 @@
     "deletionWarning": "Your account will be permanently deleted within 7 days.",
     "cancelDeletion": "Cancel Deletion Request",
     "deleteTitle": "Delete Account",
-    "deleteDescription": "When you delete your account, a 7-day waiting period begins. You can cancel by logging in during this time. After 7 days, all your data below will be permanently deleted:",
+    "deleteDescription": "When you request account deletion, a 7-day grace period begins. You can cancel anytime by logging back in. After 7 days, all the following data will be permanently deleted:",
     "deleteWarnings": {
       "transactions": "• All your transactions (income, expense, transfer)",
       "accounts": "• All your accounts and balances",

@@ -52,7 +52,7 @@
     "about": "About",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
-    "kvkk": "KVKK",
+    "kvkk": "Data Protection",
     "login": "Login",
     "register": "Register",
     "forgotPassword": "Forgot Password",
@@ -68,7 +68,7 @@
     "reminders": "Reminders",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
-    "kvkk": "KVKK",
+    "kvkk": "Data Protection",
     "logout": "Logout",
     "deleteAccount": "Delete Account"
   },

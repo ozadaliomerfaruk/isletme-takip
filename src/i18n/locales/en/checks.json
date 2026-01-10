@@ -48,7 +48,7 @@
     "createFailed": "Failed to create check",
     "completeSuccess": "Check payment completed",
     "completeFailed": "Check payment failed",
-    "completeConfirm": "Do you want to pay check {{cekNo}} for {{amount}}? This will decrease account balance and update client balance.",
+    "completeConfirm": "Process payment for check {{cekNo}} ({{amount}})? This will deduct from your bank account and credit the supplier.",
     "cancelSuccess": "Check cancelled",
     "cancelFailed": "Failed to cancel check",
     "cancelConfirm": "Are you sure you want to cancel this check?",
@@ -58,11 +58,11 @@
     "noChecks": "No checks yet",
     "noPendingChecks": "No pending checks",
     "comingSoon": "This feature is coming soon",
-    "futureInfo": "This check will appear as a future transaction on the due date"
+    "futureInfo": "This check will appear in your scheduled transactions until the due date"
   },
   "notifications": {
     "dueReminder": "Check Due Date Approaching",
-    "dueReminderBody": "Check {{cekNo}} due date is approaching. Amount: {{tutar}}"
+    "dueReminderBody": "Check {{cekNo}} is due soon. Amount: {{tutar}}"
   },
   "filters": {
     "all": "All",

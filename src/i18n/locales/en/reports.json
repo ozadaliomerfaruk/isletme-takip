@@ -99,8 +99,8 @@
   },
   "client": {
     "title": "Client Report",
-    "topCustomers": "Top Sellers",
-    "topSuppliers": "Top Purchases",
+    "topCustomers": "Top Customers by Sales",
+    "topSuppliers": "Top Suppliers by Purchases",
     "receivablesReport": "Receivables Report",
     "payablesReport": "Payables Report"
   },

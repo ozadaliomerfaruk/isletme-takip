@@ -13,8 +13,8 @@
     "musteri": "Customer"
   },
   "typeDescriptions": {
-    "tedarikci": "Company or person you purchase products/services from",
-    "musteri": "Company or person you sell products/services to"
+    "tedarikci": "A vendor or company you buy products or services from",
+    "musteri": "A customer or company you sell products or services to"
   },
   "form": {
     "name": "Client Name",

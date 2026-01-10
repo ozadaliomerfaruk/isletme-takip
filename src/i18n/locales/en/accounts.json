@@ -29,7 +29,7 @@
   },
   "form": {
     "name": "Account Name",
-    "namePlaceholder": "E.g., Cash Register, Ziraat Bank",
+    "namePlaceholder": "E.g., Cash Register, Chase Bank",
     "type": "Account Type",
     "typePlaceholder": "Select account type",
     "balance": "Opening Balance",

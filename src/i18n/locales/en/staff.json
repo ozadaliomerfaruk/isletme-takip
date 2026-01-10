@@ -95,7 +95,7 @@
     "deleteConfirm": "Are you sure you want to remove this staff member?",
     "deleteWarning": "All expense and payment transactions for this staff member will also be deleted.",
     "noPersonnel": "No staff members yet",
-    "addFirstPersonnel": "Start by adding your first team member",
+    "addFirstPersonnel": "Get started by adding your first team member",
     "noTransactions": "No transactions for this staff member",
     "expenseRecorded": "Expense recorded",
     "paymentRecorded": "Payment recorded",
