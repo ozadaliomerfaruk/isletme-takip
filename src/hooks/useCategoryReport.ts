@@ -3,7 +3,18 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, KategoriType } from '@/types/database';
-import { INCOME_TYPES, EXPENSE_TYPES } from '@/constants/islemTypes';
+import { INCOME_TYPES, EXPENSE_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
+
+/**
+ * İşlem tiplerini kaynak ve tipe göre belirler
+ * source='cash-flow' ise nakit akışı tiplerini kullan
+ */
+function getIslemTypes(type: KategoriType, source?: string) {
+  if (source === 'cash-flow') {
+    return type === 'gider' ? CASH_OUTFLOW_TYPES : CASH_INFLOW_TYPES;
+  }
+  return type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+}
 
 export interface CategoryReportItem {
   kategori: Kategori | null; // null = kategorisiz
@@ -42,6 +53,7 @@ export interface HierarchicalCategoryReportResult {
 interface UseCategoryReportOptions {
   startDate: string;
   endDate: string;
+  source?: string; // 'cash-flow' ise nakit akışı tiplerini kullan
 }
 
 /**
@@ -453,14 +465,14 @@ export function useCategoryTransactions(
   options: UseCategoryReportOptions
 ) {
   const { isletme } = useAuthContext();
-  const { startDate, endDate } = options;
+  const { startDate, endDate, source } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
-  // İşlem tiplerini belirle
-  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+  // İşlem tiplerini belirle (source'a göre)
+  const islemTypes = getIslemTypes(type, source);
 
   return useQuery({
-    queryKey: ['category-transactions', isletme?.id, kategoriId, type, startDateTime, endDateTime],
+    queryKey: ['category-transactions', isletme?.id, kategoriId, type, source, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -502,14 +514,14 @@ export function useMultiCategoryTransactions(
   options: UseCategoryReportOptions
 ) {
   const { isletme } = useAuthContext();
-  const { startDate, endDate } = options;
+  const { startDate, endDate, source } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
-  // İşlem tiplerini belirle
-  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+  // İşlem tiplerini belirle (source'a göre)
+  const islemTypes = getIslemTypes(type, source);
 
   return useQuery({
-    queryKey: ['multi-category-transactions', isletme?.id, kategoriIds.sort().join(','), type, startDateTime, endDateTime],
+    queryKey: ['multi-category-transactions', isletme?.id, kategoriIds.sort().join(','), type, source, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme || kategoriIds.length === 0) return [];
 
@@ -561,11 +573,11 @@ export function useSubCategoryReport(
   options: UseCategoryReportOptions
 ): SubCategoryReportResult {
   const { isletme } = useAuthContext();
-  const { startDate, endDate } = options;
+  const { startDate, endDate, source } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
-  // İşlem tiplerini belirle
-  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+  // İşlem tiplerini belirle (source'a göre)
+  const islemTypes = getIslemTypes(type, source);
 
   // Ana kategoriyi ve alt kategorileri çek
   const {
@@ -618,7 +630,7 @@ export function useSubCategoryReport(
     isLoading: islemlerLoading,
     error: islemlerError,
   } = useQuery({
-    queryKey: ['sub-category-transactions', isletme?.id, allKategoriIds.sort().join(','), type, startDateTime, endDateTime],
+    queryKey: ['sub-category-transactions', isletme?.id, allKategoriIds.sort().join(','), type, source, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme || allKategoriIds.length === 0) return [];
 

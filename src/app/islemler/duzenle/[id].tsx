@@ -19,7 +19,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
-import { useIslem, useUpdateIslem } from '@/hooks/useIslemler';
+import { useIslem, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
@@ -31,6 +31,7 @@ export default function IslemDuzenlePage() {
 
   const { data: islem, isLoading: islemLoading } = useIslem(id);
   const updateIslem = useUpdateIslem();
+  const deleteIslem = useDeleteIslem();
 
   const { data: hesaplar } = useHesaplar();
   const { data: cariler } = useCariler();
@@ -73,12 +74,12 @@ export default function IslemDuzenlePage() {
   const selectedCari = cariler?.find((c) => c.id === cariId);
   const selectedPersonel = personelList?.find((p) => p.id === personelId);
 
-  const needsHesap = ['gelir', 'gider', 'transfer', 'cari_odeme', 'cari_tahsilat', 'personel_odeme'].includes(islemType || '');
+  const needsHesap = ['gelir', 'gider', 'transfer', 'cari_odeme', 'cari_tahsilat', 'personel_odeme', 'personel_tahsilat'].includes(islemType || '');
   const needsHedefHesap = islemType === 'transfer';
-  // Kategori: gelir, gider, cari_alis, cari_satis, personel_gider
-  const needsKategori = ['gelir', 'gider', 'cari_alis', 'cari_satis', 'personel_gider'].includes(islemType || '');
+  // Kategori: tüm işlem tipleri için (transfer hariç)
+  const needsKategori = ['gelir', 'gider', 'cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat', 'personel_gider', 'personel_odeme', 'personel_tahsilat'].includes(islemType || '');
   const needsCari = ['cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat'].includes(islemType || '');
-  const needsPersonel = ['personel_gider', 'personel_odeme'].includes(islemType || '');
+  const needsPersonel = ['personel_gider', 'personel_odeme', 'personel_tahsilat'].includes(islemType || '');
 
   const validate = () => {
     const newErrors: { amount?: string; hesap?: string } = {};
@@ -119,6 +120,30 @@ export default function IslemDuzenlePage() {
     } catch (error: any) {
       Alert.alert(t('common:status.error'), error.message || t('errors:transaction.updateFailed'));
     }
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      t('transactions:messages.deleteConfirm'),
+      t('transactions:messages.deleteWarning'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteIslem.mutateAsync(id!);
+              Alert.alert(t('common:status.success'), t('transactions:messages.deleteSuccess'), [
+                { text: t('common:buttons.ok'), onPress: () => router.back() },
+              ]);
+            } catch (error: any) {
+              Alert.alert(t('common:status.error'), error.message || t('transactions:messages.deleteFailed'));
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (islemLoading) {
@@ -279,7 +304,7 @@ export default function IslemDuzenlePage() {
                 <CategoryPicker
                   value={kategoriId}
                   onChange={setKategoriId}
-                  type={islemType === 'gelir' || islemType === 'cari_satis' ? 'gelir' : 'gider'}
+                  type={['gelir', 'cari_satis', 'cari_tahsilat', 'personel_tahsilat'].includes(islemType || '') ? 'gelir' : 'gider'}
                   label={t('transactions:form.category')}
                 />
               )}
@@ -426,6 +451,19 @@ export default function IslemDuzenlePage() {
                 {t('common:buttons.update')}
               </Button>
             </View>
+
+            {/* Delete Button */}
+            <View style={styles.deleteSection}>
+              <Button
+                variant="outline"
+                size="lg"
+                onPress={handleDelete}
+                loading={deleteIslem.isPending}
+                style={styles.deleteButton}
+              >
+                <Text color="error">{t('common:buttons.delete')}</Text>
+              </Button>
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -506,5 +544,15 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  deleteSection: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  deleteButton: {
+    borderColor: colors.error,
   },
 });

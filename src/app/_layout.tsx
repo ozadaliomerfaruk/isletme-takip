@@ -361,6 +361,18 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        {/* Nakit Akışı */}
+        <Stack.Screen
+          name="nakit-akisi/index"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('common:dashboard.cashFlow'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Kategoriler */}
         <Stack.Screen
           name="kategoriler/index"

@@ -133,6 +133,7 @@ const invalidationMap = {
     'month-summary',
     'category-report',
     'category-transactions',
+    'cash-flow-by-category',
   ],
 
   // İleri tarihli işlem değişikliği
@@ -166,6 +167,7 @@ const invalidationMap = {
     'dashboard',
     'category-report',
     'category-transactions',
+    'cash-flow-by-category',
   ],
 
   // Personel değişikliği
@@ -177,6 +179,7 @@ const invalidationMap = {
     'dashboard',
     'category-report',
     'category-transactions',
+    'cash-flow-by-category',
   ],
 
   // Kategori değişikliği
@@ -185,6 +188,7 @@ const invalidationMap = {
     'kategori',
     'category-report',
     'category-transactions',
+    'cash-flow-by-category',
   ],
 
   // İşletme değişikliği - her şeyi invalidate et
@@ -198,6 +202,7 @@ const invalidationMap = {
     'month-summary',
     'category-report',
     'category-transactions',
+    'cash-flow-by-category',
   ],
 } as const;
 

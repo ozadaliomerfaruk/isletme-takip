@@ -1,11 +1,11 @@
-import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { ChevronRight, ArrowDownLeft, ArrowUpRight, CreditCard } from 'lucide-react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { ArrowDownLeft, ArrowUpRight, CreditCard } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card } from '@/components/ui';
+import { Text, Card, CategoryReportCard } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { useCashFlowByCategory, CashFlowItem } from '@/hooks/useCashFlowByCategory';
 
@@ -33,15 +33,14 @@ export default function NakitAkisiPage() {
   });
 
   const handleCategoryPress = (item: CashFlowItem, type: 'gelir' | 'gider') => {
-    if (!item.kategori) return;
-
     router.push({
       pathname: '/raporlar/kategori/[id]',
       params: {
-        id: item.kategori.id,
+        id: item.kategori?.id || 'uncategorized',
         type,
         startDate,
         endDate,
+        source: 'cash-flow', // Nakit akışı kaynaklı - tüm para çıkışlarını göster
       },
     } as any);
   };
@@ -49,7 +48,6 @@ export default function NakitAkisiPage() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ title: t('common:dashboard.cashFlow') }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -57,54 +55,8 @@ export default function NakitAkisiPage() {
     );
   }
 
-  const renderCategoryItem = (item: CashFlowItem, index: number, type: 'gelir' | 'gider') => (
-    <TouchableOpacity
-      key={item.kategori?.id || `uncategorized-${type}-${index}`}
-      style={styles.categoryCard}
-      onPress={() => handleCategoryPress(item, type)}
-      activeOpacity={item.kategori ? 0.7 : 1}
-      disabled={!item.kategori}
-    >
-      <View style={styles.categoryRow}>
-        <View style={[styles.colorDot, { backgroundColor: item.color }]} />
-        <View style={styles.categoryInfo}>
-          <Text variant="body" numberOfLines={1}>
-            {item.kategori?.name || t('common:dashboard.uncategorized')}
-          </Text>
-          <Text variant="caption" color="secondary">
-            %{item.percentage.toFixed(1)}
-          </Text>
-        </View>
-        <View style={styles.amountContainer}>
-          <Text variant="label" color={type === 'gelir' ? 'success' : 'error'}>
-            {formatCurrency(item.total)}
-          </Text>
-          {item.kategori && (
-            <ChevronRight size={16} color={colors.textMuted} />
-          )}
-        </View>
-      </View>
-      {/* Progress bar */}
-      <View style={styles.progressBarContainer}>
-        <View
-          style={[
-            styles.progressBar,
-            { width: `${item.percentage}%`, backgroundColor: item.color },
-          ]}
-        />
-      </View>
-    </TouchableOpacity>
-  );
-
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <Stack.Screen
-        options={{
-          title: t('common:dashboard.cashFlow'),
-          headerBackTitle: t('common:buttons.back'),
-        }}
-      />
-
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.listContent}
@@ -179,7 +131,15 @@ export default function NakitAkisiPage() {
         </Text>
 
         {allInflowItems.length > 0 ? (
-          allInflowItems.map((item, index) => renderCategoryItem(item, index, 'gelir'))
+          allInflowItems.map((item, index) => (
+            <CategoryReportCard
+              key={item.kategori?.id || `uncategorized-gelir-${index}`}
+              item={item}
+              index={index}
+              type="gelir"
+              onPress={() => handleCategoryPress(item, 'gelir')}
+            />
+          ))
         ) : (
           <View style={styles.emptyContainer}>
             <Text variant="body" color="secondary">
@@ -194,7 +154,15 @@ export default function NakitAkisiPage() {
         </Text>
 
         {allOutflowItems.length > 0 ? (
-          allOutflowItems.map((item, index) => renderCategoryItem(item, index, 'gider'))
+          allOutflowItems.map((item, index) => (
+            <CategoryReportCard
+              key={item.kategori?.id || `uncategorized-gider-${index}`}
+              item={item}
+              index={index}
+              type="gider"
+              onPress={() => handleCategoryPress(item, 'gider')}
+            />
+          ))
         ) : (
           <View style={styles.emptyContainer}>
             <Text variant="body" color="secondary">
@@ -218,7 +186,15 @@ export default function NakitAkisiPage() {
                 {formatCurrency(totalCreditCardSpending)}
               </Text>
             </Card>
-            {allCreditCardSpendingItems.map((item, index) => renderCategoryItem(item, index, 'gider'))}
+            {allCreditCardSpendingItems.map((item, index) => (
+              <CategoryReportCard
+                key={item.kategori?.id || `uncategorized-cc-${index}`}
+                item={item}
+                index={index}
+                type="gider"
+                onPress={() => handleCategoryPress(item, 'gider')}
+              />
+            ))}
           </>
         )}
       </ScrollView>
@@ -307,43 +283,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginLeft: spacing.xs,
     marginBottom: spacing.sm,
-  },
-  categoryCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  colorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: spacing.sm,
-  },
-  categoryInfo: {
-    flex: 1,
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  progressBarContainer: {
-    height: 6,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 3,
   },
   emptyContainer: {
     paddingVertical: spacing['3xl'],

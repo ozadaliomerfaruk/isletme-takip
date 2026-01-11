@@ -77,7 +77,8 @@
     "transactionUpdated": "İşlem güncellendi",
     "typeCannotChange": "İşlem türü değiştirilemez",
     "deleteSuccess": "İşlem silindi",
-    "deleteConfirm": "Bu işlemi silmek istediğinize emin misiniz?",
+    "deleteConfirm": "İşlemi Sil",
+    "deleteWarning": "Bu işlemi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
     "noTransactions": "Henüz işlem yok",
     "noTransactionsInPeriod": "Bu dönemde işlem bulunamadı",
     "saveSuccess": "İşleminiz başarıyla kaydedildi",
@@ -152,7 +153,7 @@
     "personel_odeme": "Ödeme",
     "personel_gider": "Gider",
     "personel_tahsilat": "Tahsilat",
-    "kredi_karti_gider": "Harcama",
+    "kredi_karti_gider": "Gider",
     "kredi_karti_odeme": "Ödeme",
     "kredi_karti_ekstre": "Ekstre Öde"
   },

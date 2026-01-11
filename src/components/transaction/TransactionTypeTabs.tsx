@@ -33,6 +33,7 @@ export type TransactionTabMode = 'normal' | 'tedarikci' | 'musteri' | 'personel'
 interface TransactionTypeTabsProps {
   value: TransactionType;
   onChange: (type: TransactionType) => void;
+  onTabPress?: (type: TransactionType) => void;
   mode?: TransactionTabMode;
 }
 
@@ -78,7 +79,7 @@ const PERSONEL_TABS: TransactionType[] = ['personel_gider_tab', 'personel_odeme_
 // Kredi kartı modu için sekmeler
 const KREDI_KARTI_TABS: TransactionType[] = ['kredi_karti_gider', 'kredi_karti_odeme', 'kredi_karti_ekstre'];
 
-export function TransactionTypeTabs({ value, onChange, mode = 'normal' }: TransactionTypeTabsProps) {
+export function TransactionTypeTabs({ value, onChange, onTabPress, mode = 'normal' }: TransactionTypeTabsProps) {
   const { t } = useTranslation('transactions');
 
   const handlePress = useCallback(

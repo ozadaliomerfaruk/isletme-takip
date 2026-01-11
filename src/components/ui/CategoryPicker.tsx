@@ -1,5 +1,5 @@
 import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, TextInput } from 'react-native';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -78,6 +78,8 @@ interface CategoryPickerProps {
   optional?: boolean;
   error?: string;
   onNavigateAway?: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function CategoryPicker({
@@ -89,13 +91,27 @@ export function CategoryPicker({
   optional = true,
   error,
   onNavigateAway,
+  open: externalOpen,
+  onOpenChange,
 }: CategoryPickerProps) {
   const router = useRouter();
   const { t } = useTranslation(['common', 'categories']);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
+
+  // Controlled/uncontrolled pattern
+  const isControlled = externalOpen !== undefined;
+  const modalVisible = isControlled ? externalOpen : internalOpen;
+
+  const setModalVisible = useCallback((open: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(open);
+    } else {
+      setInternalOpen(open);
+    }
+  }, [isControlled, onOpenChange]);
 
   // Use translations for defaults
   const displayLabel = label || t('common:labels.category');

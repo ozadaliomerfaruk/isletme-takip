@@ -1,5 +1,6 @@
 {
   "titles": {
+    "client": "Client",
     "clients": "Clients",
     "addClient": "Add Client",
     "editClient": "Edit Client",

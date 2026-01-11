@@ -93,6 +93,11 @@ export function CreditCardTransactionBar({
   const [cariSearchQuery, setCariSearchQuery] = useState('');
   const [personelSearchQuery, setPersonelSearchQuery] = useState('');
 
+  // Auto-open modal state
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [categorySkipped, setCategorySkipped] = useState(false);
+  const [selectedCategoryType, setSelectedCategoryType] = useState<'gelir' | 'gider' | null>(null);
+
   // Window dimensions for bottom sheet
   const windowHeight = Dimensions.get('window').height;
 
@@ -171,6 +176,9 @@ export function CreditCardTransactionBar({
         setHesapSearchQuery('');
         setCariSearchQuery('');
         setPersonelSearchQuery('');
+        setCategoryPickerOpen(false);
+        setCategorySkipped(false);
+        setSelectedCategoryType(null);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -308,6 +316,16 @@ export function CreditCardTransactionBar({
       return;
     }
 
+    // Auto-open modals for missing required data
+    if ((type === 'kredi_karti_gider' || type === 'kredi_karti_odeme') && !kategoriId && !categorySkipped) {
+      setCategoryPickerOpen(true);
+      return;
+    }
+    if (type === 'kredi_karti_ekstre' && !sourceHesapId) {
+      setShowHesapPicker(true);
+      return;
+    }
+
     // Validasyonlar
     if (type === 'kredi_karti_odeme') {
       if (odemeHedefType === 'tedarikci' && !cariId) {
@@ -437,7 +455,8 @@ export function CreditCardTransactionBar({
     if (type === 'kredi_karti_ekstre') return undefined; // Transfer için kategori yok
     return 'gider';
   };
-  const categoryType = getCategoryType();
+  // Kategori seçiliyse, seçim anındaki tipi kullan (sekme değişse bile görünür kalsın)
+  const categoryType = selectedCategoryType || getCategoryType();
 
   const cardBottom = keyboardHeight > 0 ? keyboardHeight : insets.bottom + 10;
 
@@ -598,11 +617,28 @@ export function CreditCardTransactionBar({
           <View style={styles.categoryWrapper}>
             <CategoryPicker
               value={kategoriId}
-              onChange={setKategoriId}
+              onChange={(newKategoriId) => {
+                setKategoriId(newKategoriId);
+                // Kategori seçildiğinde mevcut tipi sakla (sekme değişse bile görünür kalsın)
+                if (newKategoriId) {
+                  setSelectedCategoryType(categoryType);
+                } else {
+                  // Kategori temizlendiğinde tipi de temizle
+                  setSelectedCategoryType(null);
+                }
+              }}
               type={categoryType}
               label=""
               placeholder={t('common:select.selectCategory')}
               onNavigateAway={onDismiss}
+              open={categoryPickerOpen}
+              onOpenChange={(open) => {
+                setCategoryPickerOpen(open);
+                // Modal kapandı ve kategori seçilmedi ise, atlama olarak işaretle
+                if (!open && !kategoriId) {
+                  setCategorySkipped(true);
+                }
+              }}
             />
           </View>
         )}

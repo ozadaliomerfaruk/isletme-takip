@@ -68,11 +68,12 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 export default function KategoriDetayPage() {
   const router = useRouter();
-  const { id, type, startDate, endDate } = useLocalSearchParams<{
+  const { id, type, startDate, endDate, source } = useLocalSearchParams<{
     id: string;
     type: KategoriType;
     startDate: string;
     endDate: string;
+    source?: string; // 'cash-flow' ise nakit akışı kaynaklı
   }>();
   const { t } = useTranslation(['reports', 'common', 'errors', 'transactions']);
   const { formatDateMedium } = useDateFormat();
@@ -87,14 +88,14 @@ export default function KategoriDetayPage() {
   } = useCategoryTransactions(
     null, // null = kategorisiz
     type!,
-    { startDate: startDate!, endDate: endDate! }
+    { startDate: startDate!, endDate: endDate!, source }
   );
 
   // Alt kategori raporunu çek (sadece normal kategoriler için)
   const subCategoryReport = useSubCategoryReport(
     isUncategorized ? 'skip' : kategoriId, // 'skip' ile hook'u devre dışı bırak
     type!,
-    { startDate: startDate!, endDate: endDate! }
+    { startDate: startDate!, endDate: endDate!, source }
   );
 
   // Seçili alt kategoriler (checkbox için) - başlangıçta tümü seçili
@@ -125,7 +126,7 @@ export default function KategoriDetayPage() {
   const { data: filteredIslemler, isLoading: islemlerLoading } = useMultiCategoryTransactions(
     isUncategorized ? [] : selectedKategoriIds,
     type!,
-    { startDate: startDate!, endDate: endDate! }
+    { startDate: startDate!, endDate: endDate!, source }
   );
 
   // Alt kategori seçimini toggle et

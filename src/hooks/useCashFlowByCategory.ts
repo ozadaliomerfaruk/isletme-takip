@@ -25,6 +25,7 @@ const CASH_OUTFLOW_TYPES: IslemType[] = ['gider', 'cari_odeme', 'personel_gider'
 export interface CashFlowItem {
   kategori: Kategori | null;
   total: number;
+  count: number;
   percentage: number;
   color: string;
 }
@@ -137,9 +138,9 @@ export function useCashFlowByCategory(
     let totalInflow = 0;
     let totalOutflow = 0;
     let totalCreditCardSpending = 0;
-    const outflowByCategory = new Map<string, { kategori: Kategori | null; total: number }>();
-    const inflowByCategory = new Map<string, { kategori: Kategori | null; total: number }>();
-    const creditCardSpendingByCategory = new Map<string, { kategori: Kategori | null; total: number }>();
+    const outflowByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
+    const inflowByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
+    const creditCardSpendingByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
 
     islemler.forEach((islem: any) => {
       const amount = Number(islem.amount);
@@ -162,10 +163,12 @@ export function useCashFlowByCategory(
             const existing = outflowByCategory.get(kategoriKey);
             if (existing) {
               existing.total += amount;
+              existing.count += 1;
             } else {
               outflowByCategory.set(kategoriKey, {
                 kategori: islem.kategori || null,
-                total: amount
+                total: amount,
+                count: 1
               });
             }
           }
@@ -185,10 +188,12 @@ export function useCashFlowByCategory(
           const existing = inflowByCategory.get(kategoriKey);
           if (existing) {
             existing.total += amount;
+            existing.count += 1;
           } else {
             inflowByCategory.set(kategoriKey, {
               kategori: islem.kategori || null,
-              total: amount
+              total: amount,
+              count: 1
             });
           }
         }
@@ -205,10 +210,12 @@ export function useCashFlowByCategory(
           const existing = creditCardSpendingByCategory.get(kategoriKey);
           if (existing) {
             existing.total += amount;
+            existing.count += 1;
           } else {
             creditCardSpendingByCategory.set(kategoriKey, {
               kategori: islem.kategori || null,
-              total: amount
+              total: amount,
+              count: 1
             });
           }
         }
@@ -221,10 +228,12 @@ export function useCashFlowByCategory(
           const existing = outflowByCategory.get(kategoriKey);
           if (existing) {
             existing.total += amount;
+            existing.count += 1;
           } else {
             outflowByCategory.set(kategoriKey, {
               kategori: islem.kategori || null,
-              total: amount
+              total: amount,
+              count: 1
             });
           }
         }
@@ -237,6 +246,7 @@ export function useCashFlowByCategory(
       .map((value, index) => ({
         kategori: value.kategori,
         total: value.total,
+        count: value.count,
         percentage: totalOutflow > 0 ? (value.total / totalOutflow) * 100 : 0,
         color: value.kategori?.color || COLORS[index % COLORS.length],
       }));
@@ -245,12 +255,14 @@ export function useCashFlowByCategory(
     const topOutflowItems = allOutflowItems.slice(0, limit);
     const otherOutflowItems = allOutflowItems.slice(limit);
     const otherOutflowTotal = otherOutflowItems.reduce((acc, item) => acc + item.total, 0);
+    const otherOutflowCount = otherOutflowItems.reduce((acc, item) => acc + item.count, 0);
 
     let outflowItems = [...topOutflowItems];
     if (otherOutflowTotal > 0) {
       outflowItems.push({
         kategori: null,
         total: otherOutflowTotal,
+        count: otherOutflowCount,
         percentage: totalOutflow > 0 ? (otherOutflowTotal / totalOutflow) * 100 : 0,
         color: '#9CA3AF', // Gri
       });
@@ -262,6 +274,7 @@ export function useCashFlowByCategory(
       .map((value, index) => ({
         kategori: value.kategori,
         total: value.total,
+        count: value.count,
         percentage: totalInflow > 0 ? (value.total / totalInflow) * 100 : 0,
         color: value.kategori?.color || COLORS[index % COLORS.length],
       }));
@@ -270,12 +283,14 @@ export function useCashFlowByCategory(
     const topInflowItems = allInflowItems.slice(0, limit);
     const otherInflowItems = allInflowItems.slice(limit);
     const otherInflowTotal = otherInflowItems.reduce((acc, item) => acc + item.total, 0);
+    const otherInflowCount = otherInflowItems.reduce((acc, item) => acc + item.count, 0);
 
     let inflowItems = [...topInflowItems];
     if (otherInflowTotal > 0) {
       inflowItems.push({
         kategori: null,
         total: otherInflowTotal,
+        count: otherInflowCount,
         percentage: totalInflow > 0 ? (otherInflowTotal / totalInflow) * 100 : 0,
         color: '#9CA3AF', // Gri
       });
@@ -287,6 +302,7 @@ export function useCashFlowByCategory(
       .map((value, index) => ({
         kategori: value.kategori,
         total: value.total,
+        count: value.count,
         percentage: totalCreditCardSpending > 0 ? (value.total / totalCreditCardSpending) * 100 : 0,
         color: value.kategori?.color || COLORS[index % COLORS.length],
       }));
@@ -295,12 +311,14 @@ export function useCashFlowByCategory(
     const topCreditCardSpendingItems = allCreditCardSpendingItems.slice(0, limit);
     const otherCreditCardSpendingItems = allCreditCardSpendingItems.slice(limit);
     const otherCreditCardSpendingTotal = otherCreditCardSpendingItems.reduce((acc, item) => acc + item.total, 0);
+    const otherCreditCardSpendingCount = otherCreditCardSpendingItems.reduce((acc, item) => acc + item.count, 0);
 
     let creditCardSpendingItems = [...topCreditCardSpendingItems];
     if (otherCreditCardSpendingTotal > 0) {
       creditCardSpendingItems.push({
         kategori: null,
         total: otherCreditCardSpendingTotal,
+        count: otherCreditCardSpendingCount,
         percentage: totalCreditCardSpending > 0 ? (otherCreditCardSpendingTotal / totalCreditCardSpending) * 100 : 0,
         color: '#9CA3AF', // Gri
       });

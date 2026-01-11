@@ -36,6 +36,22 @@ export const PAYMENT_TYPES: IslemType[] = ['cari_odeme', 'cari_tahsilat', 'perso
 export const TRANSFER_TYPES: IslemType[] = ['transfer'];
 
 /**
+ * Nakit girişi yapan işlem tipleri (hesaba para GİREN)
+ * - gelir: Doğrudan gelir
+ * - cari_tahsilat: Müşteriden tahsilat
+ */
+export const CASH_INFLOW_TYPES: IslemType[] = ['gelir', 'cari_tahsilat'];
+
+/**
+ * Nakit çıkışı yapan işlem tipleri (hesaptan para ÇIKAN)
+ * - gider: Doğrudan gider
+ * - cari_odeme: Tedarikçiye ödeme
+ * - personel_gider: Personel gideri
+ * - personel_odeme: Personele ödeme
+ */
+export const CASH_OUTFLOW_TYPES: IslemType[] = ['gider', 'cari_odeme', 'personel_gider', 'personel_odeme'];
+
+/**
  * İade işlemleri (gelir/gideri AZALTIR)
  * - cari_alis_iade: Tedarikçiye iade → gideri azaltır
  * - cari_satis_iade: Müşteriden iade → geliri azaltır
