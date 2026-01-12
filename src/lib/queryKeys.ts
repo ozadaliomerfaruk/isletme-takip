@@ -109,6 +109,14 @@ export const queryKeys = {
     today: (isletmeId: string) =>
       ['cekler', 'today', isletmeId] as const,
   },
+
+  // Nakit Avanslar
+  nakitAvanslar: {
+    all: () => ['nakit-avanslar'] as const,
+    byKrediKarti: (krediKartiId: string, isletmeId: string) =>
+      ['nakit-avanslar', 'kredi-karti', krediKartiId, isletmeId] as const,
+    detail: (id: string) => ['nakit-avans', id] as const,
+  },
 } as const;
 
 // ============================================================================
@@ -147,6 +155,21 @@ const invalidationMap = {
     'cekler',
     'cek',
     'ileri-tarihli-islemler', // Çekler ileri tarihli işlemlerle birlikte gösteriliyor
+    'cariler', // Çek ödemesi cari bakiyesini etkiler
+    'cari',
+    'hesaplar', // Çek ödemesi hesap bakiyesini etkiler
+    'hesap',
+  ],
+
+  // Nakit avans değişikliği
+  nakitAvans: [
+    'nakit-avanslar',
+    'nakit-avans',
+    'hesaplar',
+    'hesap',
+    'month-summary',
+    'dashboard',
+    'islemler', // Nakit avans taksit işlemleri oluşturuyor
   ],
 
   // Hesap değişikliği
@@ -225,7 +248,10 @@ export function invalidateRelatedQueries(
   const keysToInvalidate = invalidationMap[entityType];
 
   keysToInvalidate.forEach((key) => {
-    queryClient.invalidateQueries({ queryKey: [key] });
+    queryClient.invalidateQueries({
+      queryKey: [key],
+      refetchType: 'all', // Tüm aktif query'leri hemen refetch et
+    });
   });
 }
 
@@ -291,4 +317,9 @@ export const createInvalidators = (queryClient: QueryClient) => ({
    * Çek mutation'ları için
    */
   onCekMutation: () => invalidateRelatedQueries(queryClient, 'cek'),
+
+  /**
+   * Nakit avans mutation'ları için
+   */
+  onNakitAvansMutation: () => invalidateRelatedQueries(queryClient, 'nakitAvans'),
 });

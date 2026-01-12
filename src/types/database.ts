@@ -3,6 +3,7 @@
 export type HesapType = 'nakit' | 'banka' | 'kredi_karti' | 'diger';
 export type CariType = 'musteri' | 'tedarikci';
 export type KategoriType = 'gelir' | 'gider';
+export type Currency = 'TRY' | 'USD' | 'EUR' | 'GBP' | 'XAU' | 'XAG';
 export type IslemType =
   | 'gelir'
   | 'gider'
@@ -92,7 +93,9 @@ export interface Hesap {
   isletme_id: string;
   name: string;
   type: HesapType;
+  currency: Currency; // Para birimi (default: TRY)
   balance: number;
+  initial_balance: number; // Hesap açılış bakiyesi
   description: string | null;
   credit_limit: number | null;
   is_active: boolean;
@@ -105,7 +108,9 @@ export interface HesapInsert {
   isletme_id: string;
   name: string;
   type: HesapType;
+  currency?: Currency; // Opsiyonel, verilmezse Supabase TRY atar
   balance?: number;
+  initial_balance?: number; // Hesap açılış bakiyesi
   description?: string | null;
   credit_limit?: number | null;
   is_active?: boolean;
@@ -114,6 +119,7 @@ export interface HesapInsert {
 export interface HesapUpdate {
   name?: string;
   type?: HesapType;
+  currency?: Currency;
   balance?: number;
   description?: string | null;
   credit_limit?: number | null;
@@ -255,6 +261,10 @@ export interface Islem {
   kategori_id: string | null;
   cari_id: string | null;
   personel_id: string | null;
+  // Çoklu para birimi desteği
+  source_currency: string | null;  // Kaynak para birimi
+  target_currency: string | null;  // Hedef para birimi
+  exchange_rate: number | null;    // Dönüşüm kuru
   created_at: string;
   updated_at: string;
 }
@@ -271,6 +281,10 @@ export interface IslemInsert {
   kategori_id?: string | null;
   cari_id?: string | null;
   personel_id?: string | null;
+  // Çoklu para birimi desteği
+  source_currency?: string | null;
+  target_currency?: string | null;
+  exchange_rate?: number | null;
 }
 
 export interface IslemUpdate {
@@ -283,6 +297,10 @@ export interface IslemUpdate {
   kategori_id?: string | null;
   cari_id?: string | null;
   personel_id?: string | null;
+  // Çoklu para birimi desteği
+  source_currency?: string | null;
+  target_currency?: string | null;
+  exchange_rate?: number | null;
 }
 
 // İlişkili verilerle birlikte işlem

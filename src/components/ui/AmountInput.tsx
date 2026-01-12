@@ -10,6 +10,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { Text } from './Text';
 import { CURRENCY_SYMBOL } from '@/constants';
+import { colors } from '@/constants/colors';
 import { formatCurrencyInput } from '@/lib/currency';
 
 export interface AmountInputProps {
@@ -153,12 +154,12 @@ export function AmountInput({
           onChangeText={handleChange}
           keyboardType="decimal-pad"
           placeholder="0"
-          placeholderTextColor="rgba(0, 0, 0, 0.25)"
+          placeholderTextColor={colors.textMuted}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           onSubmitEditing={onSubmit}
           returnKeyType="done"
-          selectionColor="rgba(13, 92, 77, 0.5)"
+          selectionColor={colors.primary + '80'}
           maxLength={15}
         />
       </Animated.View>
@@ -184,7 +185,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   currencySymbol: {
-    color: 'rgba(0, 0, 0, 0.4)',
+    color: colors.textMuted,
     marginRight: 4,
     marginTop: 8,
   },
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   amount: {
-    color: '#000000',
+    color: colors.text,
   },
   amountLarge: {
     fontSize: 48,
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   input: {
-    color: '#000000',
+    color: colors.text,
     minWidth: 60,
     textAlign: 'center',
     padding: 0,
@@ -229,12 +230,12 @@ const styles = StyleSheet.create({
   underline: {
     width: 80,
     height: 2,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: colors.border,
     marginTop: 8,
     borderRadius: 1,
   },
   underlineFocused: {
-    backgroundColor: 'rgba(13, 92, 77, 0.4)',
+    backgroundColor: colors.primary + '66',
     width: 120,
   },
 });

@@ -42,7 +42,7 @@ export default function NakitAkisiPage() {
         endDate,
         source: 'cash-flow', // Nakit akışı kaynaklı - tüm para çıkışlarını göster
       },
-    } as any);
+    });
   };
 
   if (isLoading) {

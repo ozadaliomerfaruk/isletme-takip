@@ -7,30 +7,33 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Wallet, Building2, CreditCard, Banknote } from 'lucide-react-native';
-import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
+import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
+import { Text, Input, Button, Card, BalanceDirectionSelector, CurrencyPicker, type BalanceDirection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCreateHesap } from '@/hooks/useHesaplar';
-import { HesapType } from '@/types/database';
+import { HesapType, Currency } from '@/types/database';
+import { DEFAULT_CURRENCY } from '@/constants/currencies';
 import { useTranslation } from 'react-i18next';
 
 export default function HesapEklePage() {
   const router = useRouter();
   const { t } = useTranslation(['accounts', 'common', 'errors']);
   const createHesap = useCreateHesap();
+  const insets = useSafeAreaInsets();
 
   const hesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
     { type: 'nakit', label: t('accounts:typeLabels.nakit'), icon: <Wallet size={24} color={colors.primary} /> },
     { type: 'banka', label: t('accounts:typeLabels.banka'), icon: <Building2 size={24} color={colors.info} /> },
     { type: 'kredi_karti', label: t('accounts:typeLabels.kredi_karti'), icon: <CreditCard size={24} color={colors.warning} /> },
-    { type: 'diger', label: t('accounts:typeLabels.diger'), icon: <Banknote size={24} color={colors.textSecondary} /> },
+    { type: 'diger', label: t('accounts:typeLabels.diger'), icon: <Vault size={24} color={colors.textSecondary} /> },
   ];
 
   const [name, setName] = useState('');
   const [type, setType] = useState<HesapType>('nakit');
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY);
   const [balance, setBalance] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
   const [creditLimit, setCreditLimit] = useState('');
@@ -63,7 +66,9 @@ export default function HesapEklePage() {
       await createHesap.mutateAsync({
         name: name.trim(),
         type,
+        currency,
         balance: finalBalance,
+        initial_balance: finalBalance, // Açılış bakiyesi olarak kaydet
         description: description.trim() || null,
         credit_limit: type === 'kredi_karti' && creditLimit
           ? parseFloat(creditLimit.replace(',', '.'))
@@ -83,10 +88,14 @@ export default function HesapEklePage() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
       >
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, spacing['3xl']) + spacing.xl }
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -125,6 +134,14 @@ export default function HesapEklePage() {
                 </Card>
               ))}
             </View>
+          </View>
+
+          {/* Para Birimi Seçimi */}
+          <View style={styles.section}>
+            <CurrencyPicker
+              value={currency}
+              onChange={setCurrency}
+            />
           </View>
 
           {/* Form */}

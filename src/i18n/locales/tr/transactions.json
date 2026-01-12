@@ -91,7 +91,9 @@
     "selectAccountRequired": "Lütfen bir hesap seçin",
     "saveFailedRetry": "İşlem kaydedilemedi. Lütfen tekrar deneyin.",
     "addAsIncome": "Gelir olarak ekle",
-    "addAsExpense": "Gider olarak ekle"
+    "addAsExpense": "Gider olarak ekle",
+    "loading": "İşlemler yükleniyor...",
+    "longLoading": "Çok fazla işlem olduğu için yükleme uzun sürüyor. Lütfen bekleyin veya daha sonra tekrar deneyin."
   },
   "notifications": {
     "reminderTitle": "Yaklaşan İşlem Hatırlatması",
@@ -159,6 +161,16 @@
   },
   "validation": {
     "selectTargetAccount": "Hedef hesap seçin"
+  },
+  "exchangeRate": {
+    "title": "Kur Girisi",
+    "rateLabel": "1 {{source}} = ? {{target}}",
+    "enterRate": "Kuru girin",
+    "result": "{{sourceAmount}} {{source}} = {{targetAmount}} {{target}}",
+    "conversion": "Donusum",
+    "confirm": "Onayla ve Kaydet",
+    "cancel": "Iptal",
+    "invalidRate": "Gecerli bir kur girin"
   },
   "dailyCash": {
     "enterButton": "Günlük Ciro Gir",

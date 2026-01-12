@@ -91,7 +91,9 @@
     "selectAccountRequired": "Please select an account",
     "saveFailedRetry": "Transaction could not be saved. Please try again.",
     "addAsIncome": "Add as income",
-    "addAsExpense": "Add as expense"
+    "addAsExpense": "Add as expense",
+    "loading": "Loading transactions...",
+    "longLoading": "Loading is taking longer due to the large number of transactions. Please wait or try again later."
   },
   "notifications": {
     "reminderTitle": "Upcoming Transaction Reminder",
@@ -159,6 +161,16 @@
   },
   "validation": {
     "selectTargetAccount": "Select target account"
+  },
+  "exchangeRate": {
+    "title": "Exchange Rate",
+    "rateLabel": "1 {{source}} = ? {{target}}",
+    "enterRate": "Enter rate",
+    "result": "{{sourceAmount}} {{source}} = {{targetAmount}} {{target}}",
+    "conversion": "Conversion",
+    "confirm": "Confirm and Save",
+    "cancel": "Cancel",
+    "invalidRate": "Please enter a valid rate"
   },
   "dailyCash": {
     "enterButton": "Enter Daily Revenue",

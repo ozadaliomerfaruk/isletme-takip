@@ -41,10 +41,14 @@ export function BekleyenCeklerSection({
 
   const displayTitle = title ?? t('checks:sections.pending');
 
-  // Filter by hesap if provided
-  const filteredCekler = hesapId
-    ? cekler?.filter((c) => c.hesap_id === hesapId)
-    : cekler;
+  // Filter: only show 'beklemede' (pending) checks, and optionally by hesap
+  const filteredCekler = cekler?.filter((c) => {
+    // Only show pending checks
+    if (c.durum !== 'beklemede') return false;
+    // If hesapId is provided, also filter by hesap
+    if (hesapId && c.hesap_id !== hesapId) return false;
+    return true;
+  });
 
   if (isLoading || !filteredCekler || filteredCekler.length === 0) {
     return null;

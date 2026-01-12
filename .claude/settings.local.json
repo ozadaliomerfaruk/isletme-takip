@@ -41,7 +41,12 @@
       "Bash({} ;)",
       "Bash(git pull:*)",
       "Bash(npx supabase functions deploy:*)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(git tag:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(powershell -Command \"pip install pandas openpyxl -q\")",
+      "Bash(npx eslint:*)"
     ]
   }
 }

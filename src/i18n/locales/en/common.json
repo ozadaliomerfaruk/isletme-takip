@@ -237,5 +237,12 @@
     "description": "Items in passive mode are not included in general calculations but you can still add transactions.",
     "passive": "Passive",
     "active": "Active"
+  },
+  "accessibility": {
+    "tapToSelect": "Tap to select",
+    "tapToOpen": "Tap to open",
+    "tapToClose": "Tap to close",
+    "selected": "Selected",
+    "notSelected": "Not selected"
   }
 }

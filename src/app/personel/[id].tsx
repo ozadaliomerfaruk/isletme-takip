@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,7 @@ import {
   Trash2,
   ArrowDownCircle,
   MoreVertical,
+  X,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -24,7 +25,7 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { getInitials } from '@/lib/utils';
-import { usePersonelById, useDeletePersonel } from '@/hooks/usePersonel';
+import { usePersonelById, useDeletePersonel, useUpdatePersonel } from '@/hooks/usePersonel';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
@@ -35,15 +36,18 @@ export default function PersonelHareketleriPage() {
   const { t } = useTranslation(['staff', 'common', 'errors']);
   const { formatDateSmart } = useDateFormat();
 
-  const { data: personel, isLoading: personelLoading } = usePersonelById(id!);
+  const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
+  const updatePersonel = useUpdatePersonel();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
+  const [newInitialBalance, setNewInitialBalance] = useState('');
 
   const fullName = personel ? `${personel.first_name} ${personel.last_name}` : t('common:status.loading');
 
@@ -67,6 +71,44 @@ export default function PersonelHareketleriPage() {
   };
 
   const initialBalance = calculateInitialBalance();
+
+  // Başlangıç bakiyesi düzenleme
+  const handleOpenEditBalance = () => {
+    setNewInitialBalance(initialBalance.toString());
+    setEditBalanceModalVisible(true);
+  };
+
+  const handleSaveInitialBalance = () => {
+    const newInitial = parseFloat(newInitialBalance) || 0;
+
+    Alert.alert(
+      t('staff:balance.confirmTitle'),
+      t('staff:balance.confirmMessage'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.confirm'),
+          onPress: async () => {
+            try {
+              // Yeni personel balance = newInitialBalance + işlem etkileri
+              const transactionEffect = Number(personel!.balance) - initialBalance;
+              const newPersonelBalance = newInitial + transactionEffect;
+
+              await updatePersonel.mutateAsync({
+                id: personel!.id,
+                balance: newPersonelBalance,
+              });
+
+              setEditBalanceModalVisible(false);
+              refetchPersonel();
+            } catch (error: any) {
+              Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const getHareketIcon = (type: string) => {
     switch (type) {
@@ -308,7 +350,7 @@ export default function PersonelHareketleriPage() {
                   </ExpandableCard>
                 ))}
 
-                {/* Başlangıç Bakiyesi - düzenleme/silme yok */}
+                {/* Başlangıç Bakiyesi - düzenleme mümkün */}
                 <Card style={styles.hareketCard}>
                   <View style={styles.hareketHeader}>
                     <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
@@ -320,9 +362,18 @@ export default function PersonelHareketleriPage() {
                         {t('staff:details.personelRecord')} • {formatDateShort(personel.created_at)}
                       </Text>
                     </View>
-                    <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                      {formatCurrency(initialBalance)}
-                    </Text>
+                    <View style={styles.initialBalanceRow}>
+                      <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
+                        {formatCurrency(initialBalance)}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={handleOpenEditBalance}
+                        style={styles.editBalanceBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Pencil size={16} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </Card>
               </>
@@ -369,6 +420,60 @@ export default function PersonelHareketleriPage() {
           defaultPersonelId={personel?.id}
           onSuccess={() => setQuickBarVisible(false)}
         />
+
+        {/* Başlangıç Bakiyesi Düzenleme Modal */}
+        <Modal
+          visible={editBalanceModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEditBalanceModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.balanceModalOverlay}
+            activeOpacity={1}
+            onPress={() => setEditBalanceModalVisible(false)}
+          >
+            <View style={styles.balanceModalContent} onStartShouldSetResponder={() => true}>
+              <View style={styles.balanceModalHeader}>
+                <Text variant="h3">{t('staff:balance.editTitle')}</Text>
+                <TouchableOpacity onPress={() => setEditBalanceModalVisible(false)}>
+                  <X size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text variant="caption" color="secondary" style={styles.balanceWarning}>
+                {t('staff:balance.editWarning')}
+              </Text>
+              <View style={styles.balanceInputContainer}>
+                <Text variant="label">{t('staff:balance.newInitialBalance')}</Text>
+                <TextInput
+                  style={styles.balanceInput}
+                  value={newInitialBalance}
+                  onChangeText={setNewInitialBalance}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+              <View style={styles.balanceModalButtons}>
+                <Button
+                  variant="secondary"
+                  onPress={() => setEditBalanceModalVisible(false)}
+                  style={{ flex: 1 }}
+                >
+                  {t('common:buttons.cancel')}
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={handleSaveInitialBalance}
+                  loading={updatePersonel.isPending}
+                  style={{ flex: 1 }}
+                >
+                  {t('common:buttons.save')}
+                </Button>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </SafeAreaView>
     </>
   );
@@ -494,5 +599,54 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     marginTop: spacing.xs,
     paddingTop: spacing.md + spacing.xs,
+  },
+  // Initial balance edit styles
+  initialBalanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  editBalanceBtn: {
+    padding: spacing.xs,
+  },
+  balanceModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  balanceModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 320,
+  },
+  balanceModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  balanceWarning: {
+    marginBottom: spacing.lg,
+  },
+  balanceInputContainer: {
+    marginBottom: spacing.lg,
+    gap: spacing.xs,
+  },
+  balanceInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: 16,
+    color: colors.text,
+  },
+  balanceModalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
   },
 });

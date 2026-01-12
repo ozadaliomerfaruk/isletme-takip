@@ -47,7 +47,12 @@
     "salary": "Maaş",
     "advance": "Avans",
     "bonus": "Prim",
-    "deduction": "Kesinti"
+    "deduction": "Kesinti",
+    "confirmTitle": "Bakiye Değiştir",
+    "confirmMessage": "Başlangıç bakiyesini değiştirmek istediğinize emin misiniz? Bu tüm hesaplamaları etkileyecektir.",
+    "editTitle": "Başlangıç Bakiyesini Düzenle",
+    "editWarning": "Dikkat: Bu değişiklik mevcut bakiye hesaplamalarını etkileyecektir. Sadece başlangıç bakiyesinde hata varsa kullanın.",
+    "newInitialBalance": "Yeni Başlangıç Bakiyesi"
   },
   "actions": {
     "addExpense": "Gider Ekle",

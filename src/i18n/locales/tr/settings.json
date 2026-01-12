@@ -130,6 +130,38 @@
     "clearCache": "Önbelleği Temizle",
     "clearAllData": "Tüm Verileri Sil"
   },
+  "dataImport": {
+    "duplicateFile": {
+      "title": "Dosya Zaten Import Edilmiş",
+      "message": "Bu dosya \"{{fileName}}\" olarak {{date}} tarihinde import edilmiş. Yine de devam etmek istiyor musunuz?"
+    },
+    "duplicateTransactions": {
+      "title": "Duplicate İşlemler",
+      "message": "{{count}} işlem zaten mevcut",
+      "skipOption": "Duplicate'ları atla"
+    },
+    "dryRun": {
+      "title": "Simülasyon Modu",
+      "description": "Veritabanına yazılmadan önizleme",
+      "button": "Önizle",
+      "result": "Simülasyon Sonucu"
+    },
+    "history": {
+      "title": "Import Geçmişi",
+      "noHistory": "Henüz import geçmişi yok",
+      "clearHistory": "Geçmişi Temizle"
+    },
+    "progress": {
+      "categories": "Kategoriler oluşturuluyor...",
+      "accounts": "Hesaplar oluşturuluyor...",
+      "clients": "Cariler oluşturuluyor...",
+      "personel": "Personeller oluşturuluyor...",
+      "transactions": "İşlemler import ediliyor...",
+      "balances": "Bakiyeler güncelleniyor...",
+      "done": "Tamamlandı!",
+      "simulation": "Simülasyon yapılıyor..."
+    }
+  },
   "account": {
     "title": "Hesap",
     "logout": "Çıkış Yap",

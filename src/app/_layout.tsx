@@ -145,6 +145,11 @@ function RootLayoutNav() {
           contentStyle: { backgroundColor: colors.background },
           animation: 'slide_from_right',
           headerBackTitle: t('common:buttons.back'),
+          headerBackVisible: true,
+          headerBackButtonDisplayMode: 'minimal',
+          headerTintColor: colors.text,
+          headerStyle: { backgroundColor: colors.surface },
+          headerShadowVisible: false,
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -517,6 +522,30 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('staff:bulkPayment.title'),
+            headerShadowVisible: false,
+          }}
+        />
+        {/* Hesap Silme */}
+        <Stack.Screen
+          name="ayarlar/hesap-sil"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('settings:account.deleteAccount'),
+            headerShadowVisible: false,
+          }}
+        />
+        {/* Veri İçe Aktar */}
+        <Stack.Screen
+          name="ayarlar/data-import/index"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('settings:dataImport.title', { defaultValue: 'Veri İçe Aktar' }),
             headerShadowVisible: false,
           }}
         />

@@ -130,6 +130,38 @@
     "clearCache": "Clear Cache",
     "clearAllData": "Delete All Data"
   },
+  "dataImport": {
+    "duplicateFile": {
+      "title": "File Already Imported",
+      "message": "This file was imported as \"{{fileName}}\" on {{date}}. Do you want to continue anyway?"
+    },
+    "duplicateTransactions": {
+      "title": "Duplicate Transactions",
+      "message": "{{count}} transactions already exist",
+      "skipOption": "Skip duplicates"
+    },
+    "dryRun": {
+      "title": "Simulation Mode",
+      "description": "Preview before writing to database",
+      "button": "Preview",
+      "result": "Simulation Result"
+    },
+    "history": {
+      "title": "Import History",
+      "noHistory": "No import history yet",
+      "clearHistory": "Clear History"
+    },
+    "progress": {
+      "categories": "Creating categories...",
+      "accounts": "Creating accounts...",
+      "clients": "Creating clients...",
+      "personel": "Creating staff...",
+      "transactions": "Importing transactions...",
+      "balances": "Updating balances...",
+      "done": "Done!",
+      "simulation": "Running simulation..."
+    }
+  },
   "account": {
     "title": "Account",
     "logout": "Logout",

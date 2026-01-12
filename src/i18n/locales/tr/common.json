@@ -219,5 +219,12 @@
     "description": "Pasif moddaki öğeler genel duruma dahil edilmez ancak işlem yapmaya devam edebilirsiniz.",
     "passive": "Pasif",
     "active": "Aktif"
+  },
+  "accessibility": {
+    "tapToSelect": "Seçmek için dokunun",
+    "tapToOpen": "Açmak için dokunun",
+    "tapToClose": "Kapatmak için dokunun",
+    "selected": "Seçili",
+    "notSelected": "Seçili değil"
   }
 }

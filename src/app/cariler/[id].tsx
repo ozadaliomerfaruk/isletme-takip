@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import {
   RotateCcw,
   MoreVertical,
   FileCheck,
+  X,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
@@ -26,7 +27,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { useCari, useDeleteCari } from '@/hooks/useCariler';
+import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
@@ -38,17 +39,20 @@ export default function CariHareketleriPage() {
   const { t } = useTranslation(['clients', 'common', 'errors', 'checks']);
   const { formatDateSmart } = useDateFormat();
 
-  const { data: cari, isLoading: cariLoading } = useCari(id!);
+  const { data: cari, isLoading: cariLoading, refetch: refetchCari } = useCari(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
+  const updateCari = useUpdateCari();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
+  const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
+  const [newInitialBalance, setNewInitialBalance] = useState('');
 
   // Başlangıç bakiyesini hesapla
   const calculateInitialBalance = () => {
@@ -76,6 +80,45 @@ export default function CariHareketleriPage() {
   };
 
   const initialBalance = calculateInitialBalance();
+
+  // Başlangıç bakiyesi düzenleme
+  const handleOpenEditBalance = () => {
+    setNewInitialBalance(initialBalance.toString());
+    setEditBalanceModalVisible(true);
+  };
+
+  const handleSaveInitialBalance = () => {
+    const newInitial = parseFloat(newInitialBalance) || 0;
+
+    Alert.alert(
+      t('clients:balance.confirmTitle'),
+      t('clients:balance.confirmMessage'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.confirm'),
+          onPress: async () => {
+            try {
+              // Yeni cari balance = newInitialBalance + işlem etkileri
+              // işlem etkileri = mevcut balance - mevcut initialBalance
+              const transactionEffect = Number(cari!.balance) - initialBalance;
+              const newCariBalance = newInitial + transactionEffect;
+
+              await updateCari.mutateAsync({
+                id: cari!.id,
+                balance: newCariBalance,
+              });
+
+              setEditBalanceModalVisible(false);
+              refetchCari();
+            } catch (error: any) {
+              Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const getHareketIcon = (type: string) => {
     switch (type) {
@@ -364,7 +407,7 @@ export default function CariHareketleriPage() {
                   </ExpandableCard>
                 ))}
 
-                {/* Başlangıç Bakiyesi - düzenleme/silme yok */}
+                {/* Başlangıç Bakiyesi - düzenleme mümkün */}
                 <Card style={styles.hareketCard}>
                   <View style={styles.hareketHeader}>
                     <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
@@ -376,9 +419,18 @@ export default function CariHareketleriPage() {
                         {t('clients:details.cariOpening')} • {formatDateShort(cari.created_at)}
                       </Text>
                     </View>
-                    <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                      {formatCurrency(initialBalance)}
-                    </Text>
+                    <View style={styles.initialBalanceRow}>
+                      <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
+                        {formatCurrency(initialBalance)}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={handleOpenEditBalance}
+                        style={styles.editBalanceBtn}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      >
+                        <Pencil size={16} color={colors.primary} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </Card>
               </>
@@ -433,6 +485,60 @@ export default function CariHareketleriPage() {
           onDismiss={() => setShowCekKesSheet(false)}
           defaultCariId={cari?.id}
         />
+
+        {/* Başlangıç Bakiyesi Düzenleme Modal */}
+        <Modal
+          visible={editBalanceModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEditBalanceModalVisible(false)}
+        >
+          <TouchableOpacity
+            style={styles.balanceModalOverlay}
+            activeOpacity={1}
+            onPress={() => setEditBalanceModalVisible(false)}
+          >
+            <View style={styles.balanceModalContent} onStartShouldSetResponder={() => true}>
+              <View style={styles.balanceModalHeader}>
+                <Text variant="h3">{t('clients:balance.editTitle')}</Text>
+                <TouchableOpacity onPress={() => setEditBalanceModalVisible(false)}>
+                  <X size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text variant="caption" color="secondary" style={styles.balanceWarning}>
+                {t('clients:balance.editWarning')}
+              </Text>
+              <View style={styles.balanceInputContainer}>
+                <Text variant="label">{t('clients:balance.newInitialBalance')}</Text>
+                <TextInput
+                  style={styles.balanceInput}
+                  value={newInitialBalance}
+                  onChangeText={setNewInitialBalance}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                />
+              </View>
+              <View style={styles.balanceModalButtons}>
+                <Button
+                  variant="secondary"
+                  onPress={() => setEditBalanceModalVisible(false)}
+                  style={{ flex: 1 }}
+                >
+                  {t('common:buttons.cancel')}
+                </Button>
+                <Button
+                  variant="primary"
+                  onPress={handleSaveInitialBalance}
+                  loading={updateCari.isPending}
+                  style={{ flex: 1 }}
+                >
+                  {t('common:buttons.save')}
+                </Button>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Modal>
       </SafeAreaView>
     </>
   );
@@ -557,5 +663,54 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     marginTop: spacing.xs,
     paddingTop: spacing.md + spacing.xs,
+  },
+  // Initial balance edit styles
+  initialBalanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  editBalanceBtn: {
+    padding: spacing.xs,
+  },
+  balanceModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  balanceModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 320,
+  },
+  balanceModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  balanceWarning: {
+    marginBottom: spacing.lg,
+  },
+  balanceInputContainer: {
+    marginBottom: spacing.lg,
+    gap: spacing.xs,
+  },
+  balanceInput: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: 16,
+    color: colors.text,
+  },
+  balanceModalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
   },
 });

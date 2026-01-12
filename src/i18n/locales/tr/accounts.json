@@ -51,7 +51,10 @@
     "negativeBalance": "Borç",
     "creditLimit": "Kredi Limiti",
     "usedCredit": "Kullanılan Kredi",
-    "remainingCredit": "Kalan Limit"
+    "remainingCredit": "Kalan Limit",
+    "editBalance": "Bakiye Düzenle",
+    "newBalance": "Yeni Bakiye",
+    "confirmChange": "Bakiyeyi {{oldBalance}}'dan {{newBalance}}'ye değiştirmek istediğinize emin misiniz?"
   },
   "actions": {
     "deposit": "Para Yatır",
@@ -70,7 +73,9 @@
     "deleteWarning": "Bu hesaba ait tüm işlemler de silinecektir.",
     "noAccounts": "Henüz hesap yok",
     "addFirstAccount": "İlk hesabınızı ekleyerek başlayın",
-    "noCreditCards": "Henüz kredi kartı hesabı yok"
+    "noCreditCards": "Henüz kredi kartı hesabı yok",
+    "invalidBalance": "Geçersiz bakiye değeri",
+    "balanceUpdated": "Bakiye güncellendi"
   },
   "transactionTitles": {
     "creditCardPayment": "Kredi Kartı Ödemesi"
@@ -127,6 +132,16 @@
   },
   "validation": {
     "nameRequired": "Hesap adı gerekli"
+  },
+  "currency": {
+    "title": "Para Birimi",
+    "selectCurrency": "Para birimi seçin",
+    "TRY": "Turk Lirasi",
+    "USD": "Amerikan Dolari",
+    "EUR": "Euro",
+    "GBP": "Ingiliz Sterlini",
+    "XAU": "Altin (gram)",
+    "XAG": "Gumus (gram)"
   },
   "nakitAvans": {
     "title": "Nakit Avanslar",

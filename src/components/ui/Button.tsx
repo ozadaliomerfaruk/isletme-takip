@@ -20,6 +20,10 @@ interface ButtonProps extends TouchableOpacityProps {
   iconPosition?: 'left' | 'right';
   fullWidth?: boolean;
   children: React.ReactNode;
+  /** Accessibility label - defaults to children text if string */
+  accessibilityLabel?: string;
+  /** Additional accessibility hint */
+  accessibilityHint?: string;
 }
 
 const variantStyles = {
@@ -81,9 +85,15 @@ export function Button({
   disabled,
   children,
   style,
+  accessibilityLabel,
+  accessibilityHint,
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+
+  // Derive accessibility label from children if not provided
+  const derivedLabel = accessibilityLabel ||
+    (typeof children === 'string' ? children : undefined);
 
   return (
     <TouchableOpacity
@@ -97,6 +107,13 @@ export function Button({
       ]}
       disabled={isDisabled}
       activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={derivedLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{
+        disabled: isDisabled,
+        busy: loading,
+      }}
       {...props}
     >
       {loading ? (

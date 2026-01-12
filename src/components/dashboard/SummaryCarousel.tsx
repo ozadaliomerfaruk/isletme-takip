@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -60,19 +60,26 @@ export function SummaryCarousel({
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const netProfit = income - expense;
-  const netBalance = receivables - payables;
+  // Memoize calculations to avoid re-computing on every render
+  const calculations = useMemo(() => {
+    const netProfit = income - expense;
+    const netBalance = receivables - payables;
 
-  // Calculate percentages for progress bars
-  const totalAssetReceivable = assets + receivables;
-  const totalAll = totalAssetReceivable + payables;
-  const positivePercent = totalAll > 0 ? (totalAssetReceivable / totalAll) * 100 : 50;
+    // Calculate percentages for progress bars
+    const totalAssetReceivable = assets + receivables;
+    const totalAll = totalAssetReceivable + payables;
+    const positivePercent = totalAll > 0 ? (totalAssetReceivable / totalAll) * 100 : 50;
 
-  const totalFlow = income + expense;
-  const incomePercent = totalFlow > 0 ? (income / totalFlow) * 100 : 50;
+    const totalFlow = income + expense;
+    const incomePercent = totalFlow > 0 ? (income / totalFlow) * 100 : 50;
 
-  const totalDebtCredit = receivables + payables;
-  const receivablesPercent = totalDebtCredit > 0 ? (receivables / totalDebtCredit) * 100 : 50;
+    const totalDebtCredit = receivables + payables;
+    const receivablesPercent = totalDebtCredit > 0 ? (receivables / totalDebtCredit) * 100 : 50;
+
+    return { netProfit, netBalance, positivePercent, incomePercent, receivablesPercent };
+  }, [income, expense, receivables, payables, assets]);
+
+  const { netProfit, netBalance, positivePercent, incomePercent, receivablesPercent } = calculations;
 
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
@@ -305,7 +312,7 @@ export function SummaryCarousel({
             onPress={() => router.push({
               pathname: '/nakit-akisi',
               params: startDate && endDate ? { startDate, endDate } : undefined,
-            } as any)}
+            })}
           />
         </View>
       </ScrollView>

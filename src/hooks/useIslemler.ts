@@ -191,11 +191,32 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
 
     case 'transfer':
       // Kaynak hesaptan düş, hedef hesaba ekle
+      // Cross-currency transfer: exchange_rate varsa dönüşüm uygula
       if (islem.hesap_id) {
         await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       if (islem.hedef_hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, amount);
+        // Exchange rate varsa dönüştürülmüş tutarı kullan
+        // Hedef tutar = Kaynak tutar * kur (veya / kur, duruma göre)
+        // Burada exchange_rate her zaman "base to quote" formatında saklanır
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+        const targetCurrency = islem.target_currency || 'TRY';
+
+        let targetAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== targetCurrency) {
+          // Kur hesaplaması: "1 base = X quote" formatı
+          // Eğer kaynak = base ise: hedef = kaynak * kur
+          // Eğer kaynak = quote ise: hedef = kaynak / kur
+          // Hangi para birimi base olduğunu belirle (TRY olmayan veya kaynak)
+          const baseCurrency = sourceCurrency === 'TRY' ? targetCurrency : sourceCurrency;
+          if (sourceCurrency === baseCurrency) {
+            targetAmount = amount * exchangeRate;
+          } else {
+            targetAmount = amount / exchangeRate;
+          }
+        }
+        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, targetAmount);
       }
       break;
 
@@ -215,21 +236,50 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
 
     case 'cari_odeme':
       // Tedarikçiye ödeme - cari bakiyesi artar, hesap bakiyesi azalır
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      // Cross-currency: Hesap farklı para biriminde ise, cari'ye TRY cinsinden ekle
+      {
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+
+        // Cari bakiyesi her zaman TRY cinsinden
+        let cariAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== 'TRY') {
+          // Kaynak TRY değilse, kur ile çarparak TRY'ye çevir
+          // Format: "1 [yabancı para] = X TRY"
+          cariAmount = amount * exchangeRate;
+        }
+
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
+        }
+        if (islem.hesap_id) {
+          // Hesap bakiyesi kendi para birimi cinsinden
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 
     case 'cari_tahsilat':
       // Müşteriden tahsilat - cari bakiyesi azalır, hesap bakiyesi artar
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      // Cross-currency: Hesap farklı para biriminde ise, cari'den TRY cinsinden düş
+      {
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+
+        // Cari bakiyesi her zaman TRY cinsinden
+        let cariAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== 'TRY') {
+          // Kaynak TRY değilse, kur ile çarparak TRY'ye çevir
+          cariAmount = amount * exchangeRate;
+        }
+
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
+        }
+        if (islem.hesap_id) {
+          // Hesap bakiyesi kendi para birimi cinsinden
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 
@@ -242,11 +292,23 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
 
     case 'personel_odeme':
       // Personel borcunu ödeme - personel bakiyesi artar, hesap azalır
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      // Cross-currency: Hesap farklı para biriminde ise, personel'e TRY cinsinden ekle
+      {
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+
+        // Personel bakiyesi her zaman TRY cinsinden
+        let personelAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== 'TRY') {
+          personelAmount = amount * exchangeRate;
+        }
+
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 
@@ -266,11 +328,23 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
 
     case 'personel_tahsilat':
       // Personelden tahsilat - personel bakiyesi azalır (alacağımız azalır), hesap bakiyesi artar
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      // Cross-currency: Hesap farklı para biriminde ise, personel'den TRY cinsinden düş
+      {
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+
+        // Personel bakiyesi her zaman TRY cinsinden
+        let personelAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== 'TRY') {
+          personelAmount = amount * exchangeRate;
+        }
+
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
   }
@@ -493,11 +567,25 @@ async function reverseBalances(islem: Islem) {
       break;
 
     case 'transfer':
+      // Cross-currency transfer geri alma
       if (islem.hesap_id) {
         await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       if (islem.hedef_hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, -amount);
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+        const targetCurrency = islem.target_currency || 'TRY';
+
+        let targetAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== targetCurrency) {
+          const baseCurrency = sourceCurrency === 'TRY' ? targetCurrency : sourceCurrency;
+          if (sourceCurrency === baseCurrency) {
+            targetAmount = amount * exchangeRate;
+          } else {
+            targetAmount = amount / exchangeRate;
+          }
+        }
+        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, -targetAmount);
       }
       break;
 
@@ -514,20 +602,42 @@ async function reverseBalances(islem: Islem) {
       break;
 
     case 'cari_odeme':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      // Cross-currency cari_odeme geri alma
+      {
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+
+        let cariAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== 'TRY') {
+          cariAmount = amount * exchangeRate;
+        }
+
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 
     case 'cari_tahsilat':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      // Cross-currency cari_tahsilat geri alma
+      {
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+
+        let cariAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== 'TRY') {
+          cariAmount = amount * exchangeRate;
+        }
+
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 
@@ -538,11 +648,22 @@ async function reverseBalances(islem: Islem) {
       break;
 
     case 'personel_odeme':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      // Cross-currency personel_odeme geri alma
+      {
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+
+        let personelAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== 'TRY') {
+          personelAmount = amount * exchangeRate;
+        }
+
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 
@@ -561,12 +682,22 @@ async function reverseBalances(islem: Islem) {
       break;
 
     case 'personel_tahsilat':
-      // Personel tahsilatı geri al - personel bakiyesi artar, hesap azalır
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      // Cross-currency personel_tahsilat geri alma
+      {
+        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+        const sourceCurrency = islem.source_currency || 'TRY';
+
+        let personelAmount = amount;
+        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== 'TRY') {
+          personelAmount = amount * exchangeRate;
+        }
+
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
   }
@@ -667,6 +798,16 @@ export function getPeriodDateRange(
   };
 }
 
+/**
+ * Tarih string'ini tam gün formatına normalize eder
+ * YYYY-MM-DD -> YYYY-MM-DDTHH:MM:SS formatına çevirir
+ */
+function normalizeDateRange(start: string, end: string): { startDateTime: string; endDateTime: string } {
+  const startDateTime = start.includes('T') ? start : `${start}T00:00:00`;
+  const endDateTime = end.includes('T') ? end : `${end}T23:59:59`;
+  return { startDateTime, endDateTime };
+}
+
 // Gelir/gider özeti (dönem ve offset parametreli)
 export function useMonthSummary(
   period: PeriodType = 'monthly',
@@ -677,6 +818,9 @@ export function useMonthSummary(
 
   const { startDate, endDate, label } = getPeriodDateRange(period, offset, customRange);
 
+  // Tarih aralığını normalize et (gün sonuna kadar dahil etmek için)
+  const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
+
   const query = useQuery({
     queryKey: ['month-summary', isletme?.id, period, offset, startDate, endDate],
     queryFn: async () => {
@@ -686,8 +830,8 @@ export function useMonthSummary(
         .from('islemler')
         .select('type, amount')
         .eq('isletme_id', isletme.id)
-        .gte('date', startDate)
-        .lte('date', endDate);
+        .gte('date', startDateTime)
+        .lte('date', endDateTime);
 
       if (error) throw error;
 

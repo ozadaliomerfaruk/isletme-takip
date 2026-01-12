@@ -54,6 +54,16 @@ interface UseCashFlowByCategoryOptions {
   limit?: number;  // Varsayılan 10
 }
 
+/**
+ * Tarih string'ini tam gün formatına normalize eder
+ * YYYY-MM-DD -> YYYY-MM-DDTHH:MM:SS formatına çevirir
+ */
+function normalizeDateRange(start: string, end: string): { startDateTime: string; endDateTime: string } {
+  const startDateTime = start.includes('T') ? start : `${start}T00:00:00`;
+  const endDateTime = end.includes('T') ? end : `${end}T23:59:59`;
+  return { startDateTime, endDateTime };
+}
+
 // Varsayılan renk paleti
 const COLORS = [
   '#EF4444', '#F97316', '#EAB308', '#22C55E', '#10B981',
@@ -73,6 +83,9 @@ export function useCashFlowByCategory(
 ): CashFlowByCategoryResult {
   const { isletme } = useAuthContext();
   const { startDate, endDate, limit = 10 } = options;
+
+  // Tarih aralığını normalize et (gün sonuna kadar dahil etmek için)
+  const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlemleri çek (hesap ve kategori bilgisi dahil)
   const {
@@ -102,8 +115,8 @@ export function useCashFlowByCategory(
         `)
         .eq('isletme_id', isletme.id)
         .in('type', allTypes)
-        .gte('date', startDate)
-        .lte('date', endDate);
+        .gte('date', startDateTime)
+        .lte('date', endDateTime);
 
       if (error) throw error;
 

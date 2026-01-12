@@ -18,6 +18,7 @@ import {
   X,
   Coins,
   Calendar,
+  Upload,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card } from '@/components/ui';
@@ -163,6 +164,12 @@ export default function DahaPage() {
               onPress={() => router.push('/kategoriler')}
             />
             <View style={styles.divider} />
+            <MenuItem
+              icon={<Upload size={22} color={colors.primary} />}
+              label={t('navigation:menu.importData', { defaultValue: 'Veri İçe Aktar' })}
+              onPress={() => router.push('/ayarlar/data-import' as any)}
+            />
+            <View style={styles.divider} />
             <TouchableOpacity
               style={styles.menuItem}
               onPress={() => setLanguageModalVisible(true)}
@@ -258,7 +265,7 @@ export default function DahaPage() {
             <MenuItem
               icon={<Trash2 size={22} color={colors.error} />}
               label={t('navigation:menu.deleteAccount')}
-              onPress={() => router.push('/ayarlar/hesap-sil' as any)}
+              onPress={() => router.push({ pathname: '/ayarlar/hesap-sil' })}
               danger
             />
           </Card>

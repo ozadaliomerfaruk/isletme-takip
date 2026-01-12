@@ -59,7 +59,12 @@
     "netBalance": "Net Bakiye",
     "weOwe": "Borcumuz",
     "theyOwe": "Alacağımız",
-    "noBalance": "Bakiye Yok"
+    "noBalance": "Bakiye Yok",
+    "confirmTitle": "Bakiye Değiştir",
+    "confirmMessage": "Başlangıç bakiyesini değiştirmek istediğinize emin misiniz? Bu tüm hesaplamaları etkileyecektir.",
+    "editTitle": "Başlangıç Bakiyesini Düzenle",
+    "editWarning": "Dikkat: Bu değişiklik mevcut bakiye hesaplamalarını etkileyecektir. Sadece başlangıç bakiyesinde hata varsa kullanın.",
+    "newInitialBalance": "Yeni Başlangıç Bakiyesi"
   },
   "actions": {
     "payment": "Ödeme Yap",

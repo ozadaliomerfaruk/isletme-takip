@@ -59,7 +59,12 @@
     "netBalance": "Net Balance",
     "weOwe": "We Owe",
     "theyOwe": "They Owe",
-    "noBalance": "No Balance"
+    "noBalance": "No Balance",
+    "confirmTitle": "Change Balance",
+    "confirmMessage": "Are you sure you want to change the opening balance? This will affect all calculations.",
+    "editTitle": "Edit Opening Balance",
+    "editWarning": "Warning: This change will affect current balance calculations. Only use if there's an error in the opening balance.",
+    "newInitialBalance": "New Opening Balance"
   },
   "actions": {
     "payment": "Make Payment",

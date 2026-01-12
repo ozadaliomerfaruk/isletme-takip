@@ -11,6 +11,11 @@ Bu döküman, uygulama genelinde tutarlılığı sağlamak için takip edilmesi 
 5. [Form Validasyonu](#5-form-validasyonu)
 6. [Component Yapısı](#6-component-yapısı)
 7. [Hata Yönetimi](#7-hata-yönetimi)
+8. [Type Safety](#8-type-safety)
+9. [Performance Patterns](#9-performance-patterns)
+10. [Constants Yönetimi](#10-constants-yönetimi)
+11. [Accessibility](#11-accessibility)
+12. [Error Boundary](#12-error-boundary)
 
 ---
 
@@ -27,16 +32,22 @@ Bu döküman, uygulama genelinde tutarlılığı sağlamak için takip edilmesi 
 new Date().toISOString().split('T')[0]
 date.toLocaleDateString('tr-TR')
 
+// ⚠️ KRİTİK: toISOString() KULLANMA - UTC'ye çevirir!
+const timestamp = new Date().toISOString(); // YANLIŞ - 3 saat kayar!
+
 // Hardcoded ay isimleri tanımlama
 const months = ['Ocak', 'Şubat', ...];
 ```
 
 ✅ **YAP:**
 ```typescript
-import { formatDateForDB, formatDateLong, MONTHS_FULL } from '@/lib';
+import { formatDateForDB, formatDateTimeForDB, formatDateLong, MONTHS_FULL } from '@/lib';
 
-// Veritabanı için tarih
+// Veritabanı için sadece tarih (YYYY-MM-DD)
 formatDateForDB(new Date()); // "2024-12-31"
+
+// Veritabanı için tarih + saat (TIMEZONE DAHİL)
+formatDateTimeForDB(new Date()); // "2024-12-31T14:30:00+03:00"
 
 // Görüntüleme için tarih
 formatDateLong(islem.date);   // "31 Aralık 2024"
@@ -48,11 +59,27 @@ const { startDate, endDate, label } = getDateRange('monthly', 0);
 const { startDate, endDate } = getMonthRange(selectedMonth);
 ```
 
+### 🌍 Global Timezone Desteği
+
+Bu uygulama dünyanın her yerinden kullanılabilir. Tarih/saat kaydetirken **mutlaka** kullanıcının timezone'u dahil edilmelidir:
+
+```typescript
+// ✅ DOĞRU - Kullanıcının cihaz timezone'unu otomatik ekler
+formatDateTimeForDB(new Date())
+// İstanbul'da: "2024-12-31T14:30:00+03:00"
+// New York'ta: "2024-12-31T06:30:00-05:00"
+// Tokyo'da:    "2024-12-31T23:30:00+09:00"
+
+// ❌ YANLIŞ - UTC'ye çevirir, timezone kaybeder
+new Date().toISOString() // "2024-12-31T11:30:00.000Z" - Her yerde UTC!
+```
+
 ### Mevcut Fonksiyonlar
 
 | Fonksiyon | Çıktı | Kullanım |
 |-----------|-------|----------|
-| `formatDateForDB(date)` | `2024-12-31` | Veritabanı kayıt |
+| `formatDateForDB(date)` | `2024-12-31` | Sadece tarih (saat yok) |
+| `formatDateTimeForDB(date)` | `2024-12-31T14:30:00+03:00` | **Tarih + saat + timezone** |
 | `formatDateLong(date)` | `31 Aralık 2024` | Detay sayfaları |
 | `formatDateMedium(date)` | `31 Ara 2024` | Kart başlıkları |
 | `formatDateShort(date)` | `31.12.2024` | Tablolar, listeler |
@@ -153,6 +180,31 @@ onSuccess: () => {
 | `cari` | cariler, islemler, month-summary, dashboard, category-report |
 | `personel` | personel, islemler, month-summary, dashboard, category-report |
 | `kategori` | kategoriler, category-report |
+| `nakitAvans` | nakit-avanslar, nakit-avans, hesaplar, hesap, month-summary, dashboard, islemler |
+
+### Query Key Factory Pattern
+
+Yeni entity eklerken `queryKeys.ts` dosyasına ekleme yapın:
+
+```typescript
+// src/lib/queryKeys.ts
+export const queryKeys = {
+  // Mevcut key'ler...
+
+  yeniEntity: {
+    all: () => ['yeni-entity'] as const,
+    detail: (id: string) => ['yeni-entity', id] as const,
+    byParent: (parentId: string, isletmeId: string) =>
+      ['yeni-entity', 'parent', parentId, isletmeId] as const,
+  },
+};
+
+// invalidationMap'e de ekleyin
+export const invalidationMap: Record<string, string[]> = {
+  // ...
+  yeniEntity: ['yeni-entity', 'ilgili-query-1', 'ilgili-query-2'],
+};
+```
 
 ---
 
@@ -347,20 +399,6 @@ const handleSubmit = async () => {
 
 ---
 
-## Checklist: Yeni Özellik Eklerken
-
-- [ ] Tarih işlemleri için `@/lib/date` fonksiyonlarını kullandım
-- [ ] Para formatlaması için `@/lib/currency` fonksiyonlarını kullandım
-- [ ] Query invalidation için `invalidateRelatedQueries` kullandım
-- [ ] İkon ve renkler için `@/lib/icons` fonksiyonlarını kullandım
-- [ ] Form validasyonu için `@/lib/validation` fonksiyonlarını kullandım
-- [ ] Loading state gösterdim
-- [ ] Empty state gösterdim
-- [ ] Button'a loading prop ekledim
-- [ ] Hata mesajlarını Alert.alert ile gösterdim
-
----
-
 ## Dosya Yapısı
 
 ```
@@ -373,21 +411,374 @@ src/
 │   ├── icons.tsx         # İkon yardımcıları
 │   ├── validation.ts     # Form validasyonu
 │   ├── supabase.ts       # Supabase client
+│   ├── supabaseErrors.ts # Supabase error handling
 │   ├── queryClient.ts    # React Query client
 │   └── utils.ts          # Diğer yardımcılar
 ├── constants/
 │   ├── colors.ts         # Renk paleti
 │   ├── spacing.ts        # Spacing değerleri
+│   ├── config.ts         # Uygulama config (magic numbers)
 │   └── islemTypes.ts     # İşlem tip tanımları
-├── components/ui/
-│   ├── index.ts          # UI component export
-│   ├── Text.tsx          # Typography
-│   ├── Card.tsx          # Kart component
-│   ├── Button.tsx        # Button component
-│   └── ...
+├── components/
+│   ├── ErrorBoundary.tsx # Global error boundary
+│   └── ui/
+│       ├── index.ts      # UI component export
+│       ├── Text.tsx      # Typography
+│       ├── Card.tsx      # Kart component
+│       ├── Button.tsx    # Button component (accessibility)
+│       └── ...
 └── hooks/
     ├── useIslemler.ts    # İşlem CRUD
     ├── useCariler.ts     # Cari CRUD
     ├── useHesaplar.ts    # Hesap CRUD
+    ├── useNakitAvans.ts  # Nakit Avans CRUD
     └── ...
 ```
+
+---
+
+## 8. Type Safety
+
+### Kurallar
+
+❌ **YAPMA:**
+```typescript
+// Type assertion kullanma
+router.push('/ayarlar/hesap-sil' as any);
+
+// Null/undefined kontrolü yapmadan erişim
+return islem.personel.first_name;
+
+// Any type kullanma
+const data: any = response.data;
+```
+
+✅ **YAP:**
+```typescript
+// Object syntax ile route push
+router.push({ pathname: '/ayarlar/hesap-sil' });
+
+// Optional chaining ve nullish coalescing
+return `${islem.personel?.first_name ?? ''} ${islem.personel?.last_name ?? ''}`.trim();
+
+// Doğru typing
+const data: IslemWithRelations = response.data;
+```
+
+### `as any` Yasak
+
+`as any` kullanımı kod kalitesini düşürür ve bug'lara yol açar. Alternatifler:
+
+1. **Type Guard Kullan:**
+```typescript
+function isIslem(data: unknown): data is Islem {
+  return typeof data === 'object' && data !== null && 'id' in data;
+}
+```
+
+2. **Proper Typing:**
+```typescript
+// router.push için object syntax
+router.push({ pathname: '/sayfa', params: { id: '123' } });
+```
+
+3. **Generic Type:**
+```typescript
+const data = await fetchData<IslemListResponse>();
+```
+
+---
+
+## 9. Performance Patterns
+
+### useMemo/useCallback Kullanım Kuralları
+
+**useMemo zorunlu durumlar:**
+- Hesaplama yoğun işlemler (map, filter, reduce, sort)
+- Derived state hesaplamaları
+- Component prop olarak geçirilen objeler
+
+```typescript
+// Zorunlu: Hesaplama yoğun
+const calculations = useMemo(() => {
+  const total = items.reduce((sum, item) => sum + item.amount, 0);
+  const average = total / items.length;
+  return { total, average };
+}, [items]);
+
+// Zorunlu: Child component'a geçirilen referans
+const sortedItems = useMemo(
+  () => [...items].sort((a, b) => b.date.localeCompare(a.date)),
+  [items]
+);
+```
+
+**useCallback zorunlu durumlar:**
+- Scroll handler'ları
+- Child component'lara geçirilen callback'ler
+- useEffect dependency'leri
+
+```typescript
+// Zorunlu: Scroll handler
+const handleScroll = useCallback((event) => {
+  const offsetX = event.nativeEvent.contentOffset.x;
+  // ...
+}, [dependency]);
+
+// Zorunlu: Child'a geçirilen callback
+const handleItemPress = useCallback((id: string) => {
+  router.push({ pathname: '/item', params: { id } });
+}, [router]);
+```
+
+### Gereksiz State'den Kaçının
+
+❌ **YAPMA:**
+```typescript
+const [displayValue, setDisplayValue] = useState('');
+
+useEffect(() => {
+  setDisplayValue(formatCurrency(value));
+}, [value]);
+```
+
+✅ **YAP:**
+```typescript
+// Derived state - useState gereksiz
+const displayValue = formatCurrency(value);
+```
+
+### Rollback Pattern (Çoklu DB İşlemlerinde)
+
+Birden fazla veritabanı işlemi yapılırken başarısızlık durumunda geri alma:
+
+```typescript
+const handleComplexOperation = async () => {
+  let step1Completed = false;
+  let step2Completed = false;
+
+  try {
+    // Step 1
+    await updateFirstTable();
+    step1Completed = true;
+
+    // Step 2
+    await updateSecondTable();
+    step2Completed = true;
+
+    // Step 3
+    await updateThirdTable();
+  } catch (error) {
+    // Rollback in reverse order
+    if (step2Completed) {
+      await rollbackSecondTable();
+    }
+    if (step1Completed) {
+      await rollbackFirstTable();
+    }
+    throw error;
+  }
+};
+```
+
+---
+
+## 10. Constants Yönetimi
+
+### Kaynak Dosya
+`src/constants/config.ts`
+
+### Kurallar
+
+❌ **YAPMA:**
+```typescript
+// Hardcoded magic numbers
+setTimeout(() => {}, 300);
+const pageSize = 10;
+if (remainingTime < 300) { refreshToken(); }
+```
+
+✅ **YAP:**
+```typescript
+import { CONFIG } from '@/constants/config';
+
+// Merkezi config kullan
+setTimeout(() => {}, CONFIG.AUTOFOCUS_DELAY);
+const pageSize = CONFIG.DEFAULT_PAGE_LIMIT;
+if (remainingTime < CONFIG.TOKEN_REFRESH_THRESHOLD) { refreshToken(); }
+```
+
+### Mevcut CONFIG Değerleri
+
+```typescript
+export const CONFIG = {
+  // Auth & Session
+  TOKEN_REFRESH_THRESHOLD: 300,        // 5 dakika (saniye)
+  SESSION_REFRESH_INTERVAL: 120000,    // 2 dakika (ms)
+  AUTH_TIMEOUT: 30000,                 // 30 saniye (ms)
+
+  // Pagination
+  DEFAULT_PAGE_LIMIT: 10,
+  CATEGORY_REPORT_LIMIT: 100,
+
+  // Animations
+  TRANSACTION_BAR_OPEN_DELAY: 500,     // ms
+  AUTOFOCUS_DELAY: 300,                // ms
+
+  // Cache
+  QUERY_STALE_TIME: 300000,            // 5 dakika (ms)
+  QUERY_CACHE_TIME: 1800000,           // 30 dakika (ms)
+} as const;
+```
+
+### Yeni Değer Ekleme
+
+```typescript
+// 1. config.ts'e ekle
+export const CONFIG = {
+  // ...
+  YENI_DEGER: 1000,
+} as const;
+
+// 2. Type güvenliği için ConfigKey type'ı kullanılabilir
+export type ConfigKey = keyof typeof CONFIG;
+```
+
+---
+
+## 11. Accessibility
+
+### Button Component
+
+Button component'leri accessibility prop'ları destekler:
+
+```typescript
+<Button
+  variant="primary"
+  onPress={handleSubmit}
+  accessibilityLabel="Kaydet butonu"
+  accessibilityHint="Formu kaydeder ve geri döner"
+>
+  Kaydet
+</Button>
+```
+
+**Otomatik Label:** Children string ise otomatik olarak accessibilityLabel olarak kullanılır:
+
+```typescript
+// Bu ikisi eşdeğerdir:
+<Button>Kaydet</Button>
+<Button accessibilityLabel="Kaydet">Kaydet</Button>
+```
+
+### Accessibility State
+
+Button component'i otomatik olarak state bilgisini sağlar:
+
+```typescript
+// Otomatik accessibilityState
+<Button loading={true} disabled={false}>
+  {/* accessibilityState={{ disabled: true, busy: true }} */}
+</Button>
+```
+
+### TouchableOpacity'lerde
+
+```typescript
+<TouchableOpacity
+  accessibilityRole="button"
+  accessibilityLabel="İşlem detayına git"
+  accessibilityHint="İşlem detay sayfasını açar"
+>
+  {/* content */}
+</TouchableOpacity>
+```
+
+---
+
+## 12. Error Boundary
+
+### Kaynak Dosya
+`src/components/ErrorBoundary.tsx`
+
+### Kullanım
+
+Root seviyesinde ErrorBoundary kullanın:
+
+```typescript
+// App veya Layout component'inde
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+
+export default function RootLayout() {
+  return (
+    <ErrorBoundary>
+      <Stack>
+        {/* screens */}
+      </Stack>
+    </ErrorBoundary>
+  );
+}
+```
+
+### Özel Fallback
+
+```typescript
+<ErrorBoundary
+  fallback={<CustomErrorScreen />}
+  onError={(error, errorInfo) => {
+    // Hata raporlama servisi (Sentry, etc.)
+    reportError(error, errorInfo);
+  }}
+>
+  {/* content */}
+</ErrorBoundary>
+```
+
+### Supabase Error Handling
+
+```typescript
+import {
+  isNoRowsError,
+  isForeignKeyError,
+  getErrorMessage,
+} from '@/lib/supabaseErrors';
+
+try {
+  const { data, error } = await supabase.from('table').select().single();
+
+  if (error) {
+    if (isNoRowsError(error)) {
+      return null; // Normal durum - kayıt yok
+    }
+    if (isForeignKeyError(error)) {
+      Alert.alert('Hata', 'Bu kayıt başka kayıtlarla ilişkili');
+      return;
+    }
+    throw error;
+  }
+} catch (error) {
+  Alert.alert('Hata', getErrorMessage(error));
+}
+```
+
+---
+
+## Checklist: Güncellenmiş
+
+### Yeni Özellik Eklerken
+
+- [ ] Tarih işlemleri için `@/lib/date` fonksiyonlarını kullandım
+- [ ] Para formatlaması için `@/lib/currency` fonksiyonlarını kullandım
+- [ ] Query invalidation için `invalidateRelatedQueries` kullandım
+- [ ] İkon ve renkler için `@/lib/icons` fonksiyonlarını kullandım
+- [ ] Form validasyonu için `@/lib/validation` fonksiyonlarını kullandım
+- [ ] Loading state gösterdim
+- [ ] Empty state gösterdim
+- [ ] Button'a loading prop ekledim
+- [ ] Hata mesajlarını Alert.alert ile gösterdim
+- [ ] **`as any` kullanmadım**
+- [ ] **Optional chaining kullandım (null safety)**
+- [ ] **Magic number'ları CONFIG'e taşıdım**
+- [ ] **useMemo/useCallback gerekli yerlerde kullandım**
+- [ ] **Accessibility label'ları ekledim**
+- [ ] **Yeni query key'ler için queryKeys.ts'e factory ekledim**

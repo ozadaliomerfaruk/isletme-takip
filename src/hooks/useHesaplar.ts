@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
+import { useSettings } from './useSettings';
 
 export function useHesaplar(includePassive: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -124,7 +125,82 @@ export function useDeleteHesap() {
         throw new Error('Hesap bulunamadı veya erişim yetkiniz yok');
       }
 
-      // Bu hesapla ilişkili işlemleri sil (ownership kontrolü ile)
+      // 1. Bu hesapla ilişkili tüm işlemleri bul
+      const { data: relatedIslemler } = await supabase
+        .from('islemler')
+        .select('id, type, amount, hesap_id, hedef_hesap_id, exchange_rate, source_currency, target_currency')
+        .eq('isletme_id', isletme.id)
+        .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
+
+      // 2. Etkilenecek diğer hesap ID'lerini bul
+      const affectedHesapIds = new Set<string>();
+      relatedIslemler?.forEach(islem => {
+        if (islem.hesap_id && islem.hesap_id !== id) {
+          affectedHesapIds.add(islem.hesap_id);
+        }
+        if (islem.hedef_hesap_id && islem.hedef_hesap_id !== id) {
+          affectedHesapIds.add(islem.hedef_hesap_id);
+        }
+      });
+
+      // 3. Etkilenen hesapların initial_balance'ını kaydet (NULL ise hesapla)
+      // Bu sayede işlemler silindikten sonra bile doğru initial_balance korunur
+      for (const hesapId of affectedHesapIds) {
+        const { data: affectedHesap } = await supabase
+          .from('hesaplar')
+          .select('id, balance, initial_balance')
+          .eq('id', hesapId)
+          .single();
+
+        if (affectedHesap && (affectedHesap.initial_balance === null || affectedHesap.initial_balance === undefined)) {
+          // Bu hesabın işlemlerini al ve initial_balance hesapla
+          const { data: hesapIslemleri } = await supabase
+            .from('islemler')
+            .select('type, amount, hesap_id, hedef_hesap_id, exchange_rate, source_currency, target_currency')
+            .eq('isletme_id', isletme.id)
+            .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`);
+
+          let totalEffect = 0;
+          hesapIslemleri?.forEach(islem => {
+            const amount = toNumber(islem.amount);
+            if (islem.type === 'transfer') {
+              if (islem.hedef_hesap_id === hesapId) {
+                // Cross-currency hesaplama
+                const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+                const sourceCurrency = islem.source_currency || 'TRY';
+                const targetCurrency = islem.target_currency || 'TRY';
+                let targetAmount = amount;
+                if (exchangeRate && exchangeRate > 0 && sourceCurrency !== targetCurrency) {
+                  const baseCurrency = sourceCurrency === 'TRY' ? targetCurrency : sourceCurrency;
+                  if (sourceCurrency === baseCurrency) {
+                    targetAmount = amount * exchangeRate;
+                  } else {
+                    targetAmount = amount / exchangeRate;
+                  }
+                }
+                totalEffect += targetAmount;
+              } else {
+                totalEffect -= amount;
+              }
+            } else if (islem.type === 'gelir' || islem.type === 'cari_tahsilat' || islem.type === 'personel_tahsilat') {
+              totalEffect += amount;
+            } else if (islem.type === 'gider' || islem.type === 'cari_odeme' || islem.type === 'personel_odeme') {
+              totalEffect -= amount;
+            }
+          });
+
+          const calculatedInitialBalance = toNumber(affectedHesap.balance) - totalEffect;
+
+          // initial_balance'ı kaydet
+          await supabase
+            .from('hesaplar')
+            .update({ initial_balance: calculatedInitialBalance })
+            .eq('id', hesapId)
+            .eq('isletme_id', isletme.id);
+        }
+      }
+
+      // 4. İşlemleri sil (bakiyeler otomatik geri alınacak - bu normal davranış)
       const { error: islemError1 } = await supabase
         .from('islemler')
         .delete()
@@ -141,7 +217,7 @@ export function useDeleteHesap() {
 
       if (islemError2) throw islemError2;
 
-      // Sonra hesabı sil - ownership kontrolü ile
+      // 5. Hesabı sil
       const { error } = await supabase
         .from('hesaplar')
         .delete()
@@ -157,12 +233,19 @@ export function useDeleteHesap() {
   });
 }
 
-// Toplam bakiye hesapla
+// Toplam bakiye hesapla (sadece ana para birimi - farklı para birimleri toplanamaz)
 export function useTotalBalance() {
   const { data: hesaplar } = useHesaplar();
+  const { currency: baseCurrency } = useSettings();
 
-  // Merkezi toNumber fonksiyonunu kullan
-  const total = hesaplar?.reduce((acc, h) => acc + toNumber(h.balance), 0) ?? 0;
+  // Sadece kullanıcının seçtiği ana para birimiyle eşleşen hesapları topla
+  const total = hesaplar?.reduce((acc, h) => {
+    const accountCurrency = h.currency || baseCurrency;
+    if (accountCurrency !== baseCurrency) {
+      return acc; // Farklı para birimlerini atla
+    }
+    return acc + toNumber(h.balance);
+  }, 0) ?? 0;
 
   return total;
 }

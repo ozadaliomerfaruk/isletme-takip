@@ -78,7 +78,11 @@ export function useCategoryReport(
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
 
   // Tüm kategorileri çek (parent bilgisi için)
-  const { data: allKategoriler } = useQuery({
+  const {
+    data: allKategoriler,
+    isLoading: kategorilerLoading,
+    error: kategorilerError,
+  } = useQuery({
     queryKey: ['all-kategoriler', isletme?.id, type],
     queryFn: async () => {
       if (!isletme) return [];
@@ -235,10 +239,13 @@ export function useCategoryReport(
     };
   }, [islemler, allKategoriler]);
 
+  // Combine errors - prefer islemler error as it's more critical
+  const combinedError = islemlerError || kategorilerError;
+
   return {
     ...result,
-    isLoading: islemlerLoading,
-    error: islemlerError as Error | null,
+    isLoading: islemlerLoading || kategorilerLoading,
+    error: combinedError as Error | null,
   };
 }
 
@@ -583,6 +590,7 @@ export function useSubCategoryReport(
   const {
     data: kategoriler,
     isLoading: kategorilerLoading,
+    error: kategorilerError,
   } = useQuery({
     queryKey: ['sub-categories', isletme?.id, parentKategoriId, type],
     queryFn: async () => {
@@ -722,9 +730,12 @@ export function useSubCategoryReport(
     };
   }, [kategoriler, islemler, parentKategoriId]);
 
+  // Combine errors - prefer islemler error as it's more critical
+  const combinedError = islemlerError || kategorilerError;
+
   return {
     ...result,
     isLoading: kategorilerLoading || islemlerLoading,
-    error: islemlerError as Error | null,
+    error: combinedError as Error | null,
   };
 }

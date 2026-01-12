@@ -35,8 +35,10 @@ import { useTranslation } from 'react-i18next';
 
 import { Text, CategoryPicker } from '@/components/ui';
 import { TransactionTypeTabs, TransactionType, TransactionTabMode, getTransactionTypeColor } from './TransactionTypeTabs';
+import { ExchangeRateBar } from './ExchangeRateBar';
 import { colors } from '@/constants/colors';
-import { CariType } from '@/types/database';
+import { CariType, Currency } from '@/types/database';
+import { isCrossCurrency } from '@/constants/currencies';
 import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -116,6 +118,14 @@ export function QuickTransactionBar({
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
   const [showOdemeHedefTypePicker, setShowOdemeHedefTypePicker] = useState(false);
   const [showKrediKartiPicker, setShowKrediKartiPicker] = useState(false);
+  const [showExchangeRateBar, setShowExchangeRateBar] = useState(false);
+
+  // Exchange rate state
+  const [pendingExchangeData, setPendingExchangeData] = useState<{
+    sourceCurrency: Currency;
+    targetCurrency: Currency;
+    sourceAmount: number;
+  } | null>(null);
 
   // Search queries
   const [hesapSearchQuery, setHesapSearchQuery] = useState('');
@@ -155,10 +165,19 @@ export function QuickTransactionBar({
   // Auto-select hesap (fallback)
   const hesapId = sourceHesapId || defaultHesapId || hesaplar?.[0]?.id;
 
-  // Get selected entities
-  const selectedHesap = hesaplar?.find(h => h.id === hesapId);
-  const selectedSourceHesap = hesaplar?.find(h => h.id === sourceHesapId);
-  const selectedHedefHesap = hesaplar?.find(h => h.id === hedefHesapId);
+  // Get selected entities - memoized to prevent unnecessary re-renders
+  const selectedHesap = useMemo(() =>
+    hesaplar?.find(h => h.id === hesapId),
+    [hesaplar, hesapId]
+  );
+  const selectedSourceHesap = useMemo(() =>
+    hesaplar?.find(h => h.id === sourceHesapId),
+    [hesaplar, sourceHesapId]
+  );
+  const selectedHedefHesap = useMemo(() =>
+    hesaplar?.find(h => h.id === hedefHesapId),
+    [hesaplar, hedefHesapId]
+  );
 
   // Cari listesi: cari modunda cari tipine göre, normal modda işlem tipine göre
   const carilerForType = useMemo(() => {
@@ -169,8 +188,14 @@ export function QuickTransactionBar({
     return type === 'odeme' ? tedarikciCariler : musteriCariler;
   }, [isCariMode, defaultCariType, type, tedarikciCariler, musteriCariler]);
 
-  const selectedCari = carilerForType?.find(c => c.id === cariId);
-  const selectedPersonel = personelList?.find(p => p.id === personelId);
+  const selectedCari = useMemo(() =>
+    carilerForType?.find(c => c.id === cariId),
+    [carilerForType, cariId]
+  );
+  const selectedPersonel = useMemo(() =>
+    personelList?.find(p => p.id === personelId),
+    [personelList, personelId]
+  );
 
   // Filtered lists for search
   const filteredHesaplar = useMemo(() => {
@@ -205,7 +230,10 @@ export function QuickTransactionBar({
   }, [hesaplar]);
 
   // Seçilen kredi kartı hesabı
-  const selectedKrediKarti = hesaplar?.find(h => h.id === hedefHesapId && h.type === 'kredi_karti');
+  const selectedKrediKarti = useMemo(() =>
+    hesaplar?.find(h => h.id === hedefHesapId && h.type === 'kredi_karti'),
+    [hesaplar, hedefHesapId]
+  );
 
   // Reset state when modal closes
   useEffect(() => {
@@ -231,6 +259,8 @@ export function QuickTransactionBar({
         setCategoryPickerOpen(false);
         setCategorySkipped(false);
         setSelectedCategoryType(null);
+        setShowExchangeRateBar(false);
+        setPendingExchangeData(null);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -568,6 +598,79 @@ export function QuickTransactionBar({
       return;
     }
 
+    // Parse amount early for exchange rate check
+    const parsedAmount = parseCurrency(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      return;
+    }
+
+    // Cross-currency check for transfers
+    // Use hesaplar array directly to avoid stale memoized values
+    if (type === 'transfer' && hesapId && hedefHesapId) {
+      const sourceAcc = hesaplar?.find(h => h.id === hesapId);
+      const targetAcc = hesaplar?.find(h => h.id === hedefHesapId);
+      const sourceCurr = sourceAcc?.currency || 'TRY';
+      const targetCurr = targetAcc?.currency || 'TRY';
+      if (isCrossCurrency(sourceCurr, targetCurr)) {
+        setPendingExchangeData({
+          sourceCurrency: sourceCurr as Currency,
+          targetCurrency: targetCurr as Currency,
+          sourceAmount: parsedAmount,
+        });
+        setShowExchangeRateBar(true);
+        return;
+      }
+    }
+
+    // Cross-currency check for ödeme/tahsilat (cari/personel balances are always TRY)
+    // Use hesaplar array directly
+    if (['odeme', 'tahsilat'].includes(type) && sourceHesapId) {
+      const sourceAcc = hesaplar?.find(h => h.id === sourceHesapId);
+      const sourceCurr = sourceAcc?.currency || 'TRY';
+      if (isCrossCurrency(sourceCurr, 'TRY')) {
+        setPendingExchangeData({
+          sourceCurrency: sourceCurr as Currency,
+          targetCurrency: 'TRY',
+          sourceAmount: parsedAmount,
+        });
+        setShowExchangeRateBar(true);
+        return;
+      }
+    }
+
+    // Cross-currency check for cari mode ödeme/tahsilat
+    if (isCariMode && ['odeme', 'tahsilat'].includes(type) && sourceHesapId) {
+      const sourceAcc = hesaplar?.find(h => h.id === sourceHesapId);
+      const sourceCurr = sourceAcc?.currency || 'TRY';
+      if (isCrossCurrency(sourceCurr, 'TRY')) {
+        setPendingExchangeData({
+          sourceCurrency: sourceCurr as Currency,
+          targetCurrency: 'TRY',
+          sourceAmount: parsedAmount,
+        });
+        setShowExchangeRateBar(true);
+        return;
+      }
+    }
+
+    // Cross-currency check for personel mode ödeme/tahsilat
+    if (isPersonelMode && ['personel_odeme_tab', 'personel_tahsilat_tab'].includes(type) && sourceHesapId) {
+      const sourceAcc = hesaplar?.find(h => h.id === sourceHesapId);
+      const sourceCurr = sourceAcc?.currency || 'TRY';
+      if (isCrossCurrency(sourceCurr, 'TRY')) {
+        setPendingExchangeData({
+          sourceCurrency: sourceCurr as Currency,
+          targetCurrency: 'TRY',
+          sourceAmount: parsedAmount,
+        });
+        setShowExchangeRateBar(true);
+        return;
+      }
+    }
+
     setIsSaving(true);
 
     if (Platform.OS !== 'web') {
@@ -575,8 +678,6 @@ export function QuickTransactionBar({
     }
 
     try {
-      const parsedAmount = parseCurrency(amount);
-
       // Determine actual type for API
       let apiType: string = type;
       if (type === 'odeme') {
@@ -681,6 +782,126 @@ export function QuickTransactionBar({
     odemeHedefType,
     isCariMode,
     isPersonelMode,
+    createIslem,
+    createIleriTarihliIslem,
+    onSuccess,
+    handleDismiss,
+    hesaplar,
+  ]);
+
+  // Handle exchange rate confirmation
+  const handleExchangeRateConfirm = useCallback(async (exchangeRate: number, targetAmount: number) => {
+    if (!pendingExchangeData) return;
+
+    setShowExchangeRateBar(false);
+    setIsSaving(true);
+
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+
+    try {
+      const parsedAmount = pendingExchangeData.sourceAmount;
+
+      // Determine actual type for API
+      let apiType: string = type;
+      if (type === 'odeme') {
+        if (odemeHedefType === 'staff') {
+          apiType = 'personel_odeme';
+        } else if (odemeHedefType === 'kredi_karti') {
+          apiType = 'transfer';
+        } else {
+          apiType = 'cari_odeme';
+        }
+      }
+      if (type === 'tahsilat') apiType = 'cari_tahsilat';
+      if (type === 'alis') apiType = 'cari_alis';
+      if (type === 'satis') apiType = 'cari_satis';
+      if (type === 'alis_iade') apiType = 'cari_alis_iade';
+      if (type === 'satis_iade') apiType = 'cari_satis_iade';
+      if (type === 'personel_odeme_tab') apiType = 'personel_odeme';
+      if (type === 'personel_gider_tab') apiType = 'personel_gider';
+      if (type === 'personel_tahsilat_tab') apiType = 'personel_tahsilat';
+
+      // Build transaction data with exchange rate info
+      const needsHesapForData = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab'].includes(type);
+      const transactionData: any = {
+        type: apiType,
+        amount: parsedAmount,
+        description: description.trim() || null,
+        hesap_id: needsHesapForData ? hesapId : null,
+        kategori_id: kategoriId,
+        // Exchange rate info
+        source_currency: pendingExchangeData.sourceCurrency,
+        target_currency: pendingExchangeData.targetCurrency,
+        exchange_rate: exchangeRate,
+      };
+
+      // Add type-specific fields
+      if (type === 'transfer') {
+        transactionData.hedef_hesap_id = hedefHesapId;
+      }
+      if (type === 'odeme') {
+        if (odemeHedefType === 'tedarikci') {
+          transactionData.cari_id = cariId;
+        } else if (odemeHedefType === 'kredi_karti') {
+          transactionData.hedef_hesap_id = hedefHesapId;
+        } else {
+          transactionData.personel_id = personelId;
+        }
+      }
+      if (type === 'tahsilat') {
+        transactionData.cari_id = cariId;
+      }
+      if (type === 'alis' || type === 'satis' || type === 'alis_iade' || type === 'satis_iade') {
+        transactionData.cari_id = cariId;
+      }
+      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'].includes(type)) {
+        transactionData.personel_id = personelId;
+      }
+
+      if (isScheduled) {
+        await createIleriTarihliIslem.mutateAsync({
+          ...transactionData,
+          scheduled_date: formatDateForDB(date),
+        });
+      } else {
+        await createIslem.mutateAsync({
+          ...transactionData,
+          date: formatDateTimeForDB(date),
+        });
+      }
+
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      setPendingExchangeData(null);
+      onSuccess?.();
+      handleDismiss();
+    } catch (error) {
+      if (__DEV__) {
+        console.error('Transaction error:', error);
+      }
+      setIsSaving(false);
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
+    }
+  }, [
+    t,
+    pendingExchangeData,
+    type,
+    odemeHedefType,
+    description,
+    hesapId,
+    kategoriId,
+    hedefHesapId,
+    cariId,
+    personelId,
+    isScheduled,
+    date,
     createIslem,
     createIleriTarihliIslem,
     onSuccess,
@@ -1588,6 +1809,21 @@ export function QuickTransactionBar({
             </View>
           </TouchableWithoutFeedback>
         </Modal>
+      )}
+
+      {/* Exchange Rate Bar */}
+      {pendingExchangeData && (
+        <ExchangeRateBar
+          visible={showExchangeRateBar}
+          onDismiss={() => {
+            setShowExchangeRateBar(false);
+            setPendingExchangeData(null);
+          }}
+          sourceAmount={pendingExchangeData.sourceAmount}
+          sourceCurrency={pendingExchangeData.sourceCurrency}
+          targetCurrency={pendingExchangeData.targetCurrency}
+          onConfirm={handleExchangeRateConfirm}
+        />
       )}
     </Modal>
   );

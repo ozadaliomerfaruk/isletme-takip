@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import {
   Trash2,
   Users,
   UserCheck,
+  Clock,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
@@ -29,9 +30,23 @@ export default function IslemlerPage() {
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
+  const [showLongLoadingMessage, setShowLongLoadingMessage] = useState(false);
 
-  const { data: islemler, isLoading } = useIslemler();
+  const { data: islemler, isLoading, isFetching } = useIslemler();
   const deleteIslem = useDeleteIslem();
+
+  // Uzun süren yükleme için mesaj göster
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    if (isLoading || isFetching) {
+      timer = setTimeout(() => {
+        setShowLongLoadingMessage(true);
+      }, 3000); // 3 saniye sonra mesaj göster
+    } else {
+      setShowLongLoadingMessage(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isLoading, isFetching]);
 
   const filterOptions = [
     { label: t('transactions:filters.all'), value: 'all' },
@@ -131,7 +146,20 @@ export default function IslemlerPage() {
           {/* İşlem Listesi */}
           <View style={styles.listContainer}>
             {isLoading ? (
-              <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+                <Text variant="body" color="secondary" style={styles.loadingText}>
+                  {t('transactions:messages.loading')}
+                </Text>
+                {showLongLoadingMessage && (
+                  <View style={styles.longLoadingMessage}>
+                    <Clock size={20} color={colors.warning} />
+                    <Text variant="caption" color="secondary" style={styles.longLoadingText}>
+                      {t('transactions:messages.longLoading')}
+                    </Text>
+                  </View>
+                )}
+              </View>
             ) : filteredIslemler.length === 0 ? (
               <EmptyState
                 icon={<Receipt size={48} color={colors.textMuted} />}
@@ -230,8 +258,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
   },
-  loader: {
-    marginTop: spacing.xl,
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing['2xl'],
+    gap: spacing.md,
+  },
+  loadingText: {
+    marginTop: spacing.sm,
+  },
+  longLoadingMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warningLight,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 8,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  longLoadingText: {
+    flex: 1,
+    color: colors.warning,
   },
   islemHeader: {
     flexDirection: 'row',

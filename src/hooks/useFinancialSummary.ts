@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useCariler } from './useCariler';
 import { usePersonelList } from './usePersonel';
 import { useHesaplar } from './useHesaplar';
+import { useSettings } from './useSettings';
 import { toNumber } from '@/lib/currency';
 
 export interface FinancialBreakdown {
@@ -58,11 +59,22 @@ export function useFinancialSummary(): FinancialSummary {
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
   const { data: cariler, isLoading: carilerLoading } = useCariler();
   const { data: personelList, isLoading: personelLoading } = usePersonelList();
+  const { currency: baseCurrency } = useSettings();
 
   const summary = useMemo(() => {
     // Hesap hesaplaması (varlıklar ve borçlar)
+    // Sadece kullanıcının seçtiği ana para birimiyle eşleşen hesaplar toplanır
+    // Farklı para birimleri (USD, EUR, XAU vs.) toplanamaz
     const hesapSummary = hesaplar?.reduce(
       (acc, hesap) => {
+        // Hesabın para birimi (yoksa ana para birimi kabul et)
+        const accountCurrency = hesap.currency || baseCurrency;
+
+        // Sadece ana para birimiyle eşleşen hesapları dahil et
+        if (accountCurrency !== baseCurrency) {
+          return acc; // Farklı para birimlerini atla
+        }
+
         const balance = toNumber(hesap.balance);
         if (balance > 0) {
           // Pozitif bakiye = varlık
@@ -139,7 +151,7 @@ export function useFinancialSummary(): FinancialSummary {
       netPosition,
       generalStatus,
     };
-  }, [hesaplar, cariler, personelList]);
+  }, [hesaplar, cariler, personelList, baseCurrency]);
 
   return {
     ...summary,

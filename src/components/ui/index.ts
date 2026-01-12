@@ -13,6 +13,7 @@ export { IconPicker } from './IconPicker';
 export { ColorPicker } from './ColorPicker';
 export { ParentCategoryPicker } from './ParentCategoryPicker';
 export { CategoryPicker } from './CategoryPicker';
+export { CurrencyPicker } from './CurrencyPicker';
 export { NotificationBell } from './NotificationBell';
 export { IleriTarihliIslemlerSection } from './IleriTarihliIslemlerSection';
 export { ReminderSettings, type ReminderConfig } from './ReminderSettings';

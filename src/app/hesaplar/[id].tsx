@@ -1,14 +1,11 @@
 import { useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
   ArrowLeft,
   ArrowRight,
-  ArrowLeftRight,
   Wallet,
-  TrendingUp,
-  TrendingDown,
   CreditCard,
   Banknote,
   CircleDollarSign,
@@ -17,6 +14,7 @@ import {
   Clock,
   MoreVertical,
   FileCheck,
+  X,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
@@ -25,11 +23,11 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort, formatDateSmart, formatTime, isSameYear } from '@/lib/date';
-import { useHesap, useDeleteHesap } from '@/hooks/useHesaplar';
+import { useHesap, useDeleteHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByHesap } from '@/hooks/useCekler';
-import { IslemWithRelations } from '@/types/database';
+import { IslemWithRelations, Currency } from '@/types/database';
 import { useTranslation } from 'react-i18next';
 
 export default function HesapHareketleriPage() {
@@ -46,12 +44,15 @@ export default function HesapHareketleriPage() {
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByHesap(id!);
   const deleteIslem = useDeleteIslem();
   const deleteHesap = useDeleteHesap();
+  const updateHesap = useUpdateHesap();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [showTransactionBar, setShowTransactionBar] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
+  const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
+  const [newBalanceInput, setNewBalanceInput] = useState('');
   const isOpeningRef = useRef(false);
 
   // Debounced transaction opener to prevent race conditions
@@ -68,13 +69,49 @@ export default function HesapHareketleriPage() {
     }, 500);
   }, []);
 
+  // Cross-currency işlemler için hesabın para birimi cinsinden tutarı al
+  const getAmountInAccountCurrency = (islem: IslemWithRelations): number => {
+    const sourceAmount = Number(islem.amount);
+
+    // Cross-currency transfer değilse source amount kullan
+    if (!islem.source_currency || !islem.target_currency ||
+        islem.source_currency === islem.target_currency) {
+      return sourceAmount;
+    }
+
+    // Exchange rate kontrolü
+    if (!islem.exchange_rate || islem.exchange_rate <= 0) {
+      if (__DEV__) {
+        console.warn(`[getAmountInAccountCurrency] Invalid exchange rate for transaction ${islem.id}: ${islem.exchange_rate}`);
+      }
+      return sourceAmount;
+    }
+
+    // Bu hesap hedef hesap mı?
+    const isTargetAccount = islem.hedef_hesap_id === id;
+
+    if (isTargetAccount) {
+      // Hedef hesaptayız, target amount hesapla
+      if (islem.source_currency === 'TRY') {
+        return sourceAmount / islem.exchange_rate;
+      } else {
+        return sourceAmount * islem.exchange_rate;
+      }
+    }
+
+    // Kaynak hesaptayız, source amount kullan
+    return sourceAmount;
+  };
+
   // Başlangıç bakiyesini hesapla (mevcut bakiye - tüm işlemlerin etkisi)
   const calculateInitialBalance = () => {
     if (!hesap || !islemler) return 0;
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      const amount = Number(islem.amount);
+      // Cross-currency işlemler için doğru tutarı al
+      const amount = getAmountInAccountCurrency(islem as IslemWithRelations);
+
       if (islem.type === 'transfer') {
         // Transfer: hedef hesapsa +, kaynak hesapsa -
         if (islem.hedef_hesap_id === id) {
@@ -92,7 +129,49 @@ export default function HesapHareketleriPage() {
     return Number(hesap.balance) - totalEffect;
   };
 
-  const initialBalance = calculateInitialBalance();
+  // Veritabanında saklanan initial_balance varsa onu kullan, yoksa hesapla (fallback)
+  const initialBalance = hesap?.initial_balance !== undefined && hesap?.initial_balance !== null
+    ? Number(hesap.initial_balance)
+    : calculateInitialBalance();
+
+  // Bakiye düzenleme modal'ını aç
+  const handleOpenEditBalance = () => {
+    setNewBalanceInput(String(Number(hesap?.balance) || 0));
+    setEditBalanceModalVisible(true);
+  };
+
+  // Bakiye kaydet
+  const handleSaveBalance = async () => {
+    const newBalance = parseFloat(newBalanceInput.replace(',', '.'));
+    if (isNaN(newBalance)) {
+      Alert.alert(t('common:status.error'), t('accounts:messages.invalidBalance'));
+      return;
+    }
+
+    Alert.alert(
+      t('accounts:balance.editBalance'),
+      t('accounts:balance.confirmChange', {
+        oldBalance: formatCurrency(Number(hesap?.balance) || 0, hesap?.currency),
+        newBalance: formatCurrency(newBalance, hesap?.currency),
+      }),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.save'),
+          onPress: async () => {
+            try {
+              await updateHesap.mutateAsync({ id: id!, balance: newBalance });
+              setEditBalanceModalVisible(false);
+              Alert.alert(t('common:status.success'), t('accounts:messages.balanceUpdated'));
+            } catch (error: unknown) {
+              const message = error instanceof Error ? error.message : t('common:messages.operationFailed');
+              Alert.alert(t('common:status.error'), message);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Yön bazlı icon: gelen para ← , giden para →
   const getHareketIcon = (type: string, isIncoming: boolean) => {
@@ -129,7 +208,7 @@ export default function HesapHareketleriPage() {
       case 'personel_odeme':
       case 'personel_gider':
         if (islem.personel) {
-          return `${islem.personel.first_name} ${islem.personel.last_name}`;
+          return `${islem.personel.first_name ?? ''} ${islem.personel.last_name ?? ''}`.trim() || null;
         }
         return null;
       default:
@@ -189,6 +268,62 @@ export default function HesapHareketleriPage() {
       return 'success';
     }
     return 'error';
+  };
+
+  // Cross-currency işlemler için hedef tutarı hesapla
+  const calculateTargetAmount = (islem: IslemWithRelations): number => {
+    const sourceAmount = Number(islem.amount);
+
+    if (!islem.source_currency || !islem.target_currency ||
+        islem.source_currency === islem.target_currency ||
+        !islem.exchange_rate || islem.exchange_rate <= 0) {
+      return sourceAmount;
+    }
+
+    // Exchange rate "1 [foreign] = X TRY" formatında saklanır
+    if (islem.source_currency === 'TRY') {
+      return sourceAmount / islem.exchange_rate;
+    } else {
+      return sourceAmount * islem.exchange_rate;
+    }
+  };
+
+  // Bu hesap perspektifinden gösterilecek tutarı al
+  const getDisplayAmount = (islem: IslemWithRelations): number => {
+    const sourceAmount = Number(islem.amount);
+
+    // Cross-currency transfer değilse source amount kullan
+    if (!islem.source_currency || !islem.target_currency ||
+        islem.source_currency === islem.target_currency) {
+      return sourceAmount;
+    }
+
+    // Bu hesap hedef hesap mı? (gelen transfer)
+    const isTargetAccount = islem.hedef_hesap_id === id;
+
+    if (isTargetAccount) {
+      // Hedef hesaptayız, target currency cinsinden göster
+      return calculateTargetAmount(islem);
+    } else {
+      // Kaynak hesaptayız, source currency cinsinden göster
+      return sourceAmount;
+    }
+  };
+
+  // Cross-currency dönüşüm bilgisini formatla
+  const getCrossCurrencyInfo = (islem: IslemWithRelations): string | null => {
+    if (!islem.source_currency || !islem.target_currency || islem.source_currency === islem.target_currency) {
+      return null;
+    }
+
+    const sourceAmount = Number(islem.amount);
+    const targetAmount = calculateTargetAmount(islem);
+
+    // Format source and target amounts
+    const formattedSource = formatCurrency(sourceAmount, islem.source_currency as Currency);
+    const formattedTarget = formatCurrency(targetAmount, islem.target_currency as Currency);
+
+    return `(${formattedSource} → ${formattedTarget})`;
   };
 
   const handleDelete = (islemId: string) => {
@@ -301,9 +436,18 @@ export default function HesapHareketleriPage() {
                 <Text variant="caption" color="secondary">
                   {hesap.type === 'kredi_karti' ? t('accounts:creditCard.currentDebt') : t('accounts:balance.currentBalance')}
                 </Text>
-                <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
-                  {formatCurrency(Math.abs(Number(hesap.balance)))}
-                </Text>
+                <View style={styles.balanceRow}>
+                  <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
+                    {formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleOpenEditBalance}
+                    style={styles.editBalanceBtn}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Pencil size={16} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
@@ -313,15 +457,15 @@ export default function HesapHareketleriPage() {
                 <View style={styles.creditLimitRow}>
                   <View style={styles.creditLimitItem}>
                     <Text variant="caption" color="secondary">{t('accounts:creditCard.creditLimit')}</Text>
-                    <Text variant="body" style={styles.creditLimitValue}>{formatCurrency(hesap.credit_limit)}</Text>
+                    <Text variant="body" style={styles.creditLimitValue}>{formatCurrency(hesap.credit_limit, hesap.currency)}</Text>
                   </View>
                   <View style={styles.creditLimitItem}>
                     <Text variant="caption" color="secondary">{t('accounts:creditCard.usedCredit')}</Text>
-                    <Text variant="body" style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(Math.abs(Number(hesap.balance)))}</Text>
+                    <Text variant="body" style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}</Text>
                   </View>
                   <View style={styles.creditLimitItem}>
                     <Text variant="caption" color="secondary">{t('accounts:creditCard.availableCredit')}</Text>
-                    <Text variant="body" style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(hesap.credit_limit - Math.abs(Number(hesap.balance)))}</Text>
+                    <Text variant="body" style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(hesap.credit_limit - Math.abs(Number(hesap.balance)), hesap.currency)}</Text>
                   </View>
                 </View>
               </View>
@@ -384,6 +528,7 @@ export default function HesapHareketleriPage() {
                   const isIncoming = isIncomingTransaction(islem.type, islem.hedef_hesap_id);
                   const target = getTransactionTarget(islem as IslemWithRelations);
                   const showTimeInExpanded = !isSameYear(islem.date);
+                  const crossCurrencyInfo = getCrossCurrencyInfo(islem as IslemWithRelations);
 
                   return (
                     <ExpandableCard
@@ -414,6 +559,11 @@ export default function HesapHareketleriPage() {
                                 {target}
                               </Text>
                             )}
+                            {crossCurrencyInfo && (
+                              <Text variant="caption" style={styles.crossCurrencyText}>
+                                {crossCurrencyInfo}
+                              </Text>
+                            )}
                             {(islem as IslemWithRelations).kategori?.name && (
                               <Text variant="caption" color="secondary">
                                 {(islem as IslemWithRelations).kategori?.name}
@@ -426,7 +576,7 @@ export default function HesapHareketleriPage() {
                             )}
                           </View>
                           <Text variant="h3" color={colorType}>
-                            {sign}{formatCurrency(Number(islem.amount))}
+                            {sign}{formatCurrency(getDisplayAmount(islem as IslemWithRelations), hesap.currency)}
                           </Text>
                         </View>
                       }
@@ -477,7 +627,7 @@ export default function HesapHareketleriPage() {
                       </Text>
                     </View>
                     <Text variant="h3" color={initialBalance >= 0 ? 'primary' : 'error'}>
-                      {formatCurrency(initialBalance)}
+                      {formatCurrency(initialBalance, hesap.currency)}
                     </Text>
                   </View>
                 </Card>
@@ -557,6 +707,60 @@ export default function HesapHareketleriPage() {
         defaultHesapId={id}
       />
 
+      {/* Bakiye Düzenleme Modal */}
+      <Modal
+        visible={editBalanceModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setEditBalanceModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.balanceModalOverlay}
+          activeOpacity={1}
+          onPress={() => setEditBalanceModalVisible(false)}
+        >
+          <View style={styles.balanceModalContent} onStartShouldSetResponder={() => true}>
+            <View style={styles.balanceModalHeader}>
+              <Text variant="h3">{t('accounts:balance.editBalance')}</Text>
+              <TouchableOpacity onPress={() => setEditBalanceModalVisible(false)}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text variant="caption" color="secondary" style={{ marginBottom: spacing.sm }}>
+              {t('accounts:balance.currentBalance')}: {formatCurrency(Number(hesap?.balance) || 0, hesap?.currency)}
+            </Text>
+
+            <TextInput
+              style={styles.balanceInput}
+              value={newBalanceInput}
+              onChangeText={setNewBalanceInput}
+              keyboardType="numeric"
+              placeholder={t('accounts:balance.newBalance')}
+              placeholderTextColor={colors.textMuted}
+              autoFocus
+            />
+
+            <View style={styles.balanceModalButtons}>
+              <Button
+                variant="outline"
+                onPress={() => setEditBalanceModalVisible(false)}
+                style={{ flex: 1 }}
+              >
+                {t('common:buttons.cancel')}
+              </Button>
+              <Button
+                variant="primary"
+                onPress={handleSaveBalance}
+                style={{ flex: 1 }}
+                loading={updateHesap.isPending}
+              >
+                {t('common:buttons.save')}
+              </Button>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </>
   );
 }
@@ -661,6 +865,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  crossCurrencyText: {
+    color: colors.info,
+    fontStyle: 'italic',
+  },
   // Header menu button
   headerMenuBtn: {
     padding: spacing.xs,
@@ -699,5 +907,46 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     marginTop: spacing.xs,
     paddingTop: spacing.md + spacing.xs,
+  },
+  // Balance editing styles
+  balanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  editBalanceBtn: {
+    padding: spacing.xs,
+  },
+  balanceModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  balanceModalContent: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    width: '100%',
+    maxWidth: 400,
+  },
+  balanceModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  balanceInput: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    fontSize: 18,
+    color: colors.text,
+    marginBottom: spacing.lg,
+  },
+  balanceModalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
   },
 });

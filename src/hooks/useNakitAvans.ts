@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
+import { formatDateTimeWithTzForDB } from '@/lib/date';
 import {
   NakitAvans,
   NakitAvansInsert,
@@ -18,7 +20,7 @@ export function useNakitAvanslarByKrediKarti(krediKartiId: string | undefined) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['nakit-avanslar', 'kredi-karti', krediKartiId],
+    queryKey: queryKeys.nakitAvanslar.byKrediKarti(krediKartiId || '', isletme?.id || ''),
     queryFn: async () => {
       if (!isletme || !krediKartiId) return [];
 
@@ -57,7 +59,7 @@ export function useNakitAvans(id: string | undefined) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['nakit-avans', id],
+    queryKey: queryKeys.nakitAvanslar.detail(id || ''),
     queryFn: async () => {
       if (!isletme || !id) return null;
 
@@ -217,11 +219,8 @@ export function useCreateNakitAvans() {
 
       return avans as NakitAvans;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['nakit-avanslar'] });
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['hesap', variables.kredi_karti_id] });
-      queryClient.invalidateQueries({ queryKey: ['hesap', variables.hedef_hesap_id] });
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'nakitAvans');
     },
   });
 }
@@ -248,9 +247,8 @@ export function useUpdateNakitAvans() {
       if (error) throw error;
       return avans as NakitAvans;
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['nakit-avanslar'] });
-      queryClient.invalidateQueries({ queryKey: ['nakit-avans', data.id] });
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'nakitAvans');
     },
   });
 }
@@ -282,8 +280,7 @@ export function useDeleteNakitAvans() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['nakit-avanslar'] });
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+      invalidateRelatedQueries(queryClient, 'nakitAvans');
     },
   });
 }
@@ -315,7 +312,7 @@ export function usePayTaksit() {
         .from('nakit_avans_taksitler')
         .update({
           status: 'paid',
-          odenen_tarih: new Date().toISOString(),
+          odenen_tarih: formatDateTimeWithTzForDB(new Date()),
         })
         .eq('id', taksitId);
 
@@ -366,9 +363,7 @@ export function usePayTaksit() {
       return taksit;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['nakit-avanslar'] });
-      queryClient.invalidateQueries({ queryKey: ['nakit-avans'] });
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+      invalidateRelatedQueries(queryClient, 'nakitAvans');
     },
   });
 }
@@ -392,8 +387,7 @@ export function useUpdateTaksit() {
       return taksit as NakitAvansTaksit;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['nakit-avanslar'] });
-      queryClient.invalidateQueries({ queryKey: ['nakit-avans'] });
+      invalidateRelatedQueries(queryClient, 'nakitAvans');
     },
   });
 }

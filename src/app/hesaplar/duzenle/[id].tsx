@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Wallet, Building2, CreditCard, Banknote } from 'lucide-react-native';
+import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
 import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -28,7 +28,7 @@ const getHesapTypeConfig = (type: HesapType) => {
     case 'kredi_karti':
       return { icon: <CreditCard size={20} color={colors.warning} />, color: colors.warning };
     case 'diger':
-      return { icon: <Banknote size={20} color={colors.textSecondary} />, color: colors.textSecondary };
+      return { icon: <Vault size={20} color={colors.textSecondary} />, color: colors.textSecondary };
     default:
       return { icon: <Wallet size={20} color={colors.primary} />, color: colors.primary };
   }

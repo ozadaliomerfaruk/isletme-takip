@@ -136,7 +136,7 @@ export function useDeletePersonel() {
 
       if (islemError) throw islemError;
 
-      // Sonra personeli sil - ownership kontrolü ile
+      // Personeli sil
       const { error } = await supabase
         .from('personel')
         .delete()

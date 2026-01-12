@@ -11,6 +11,8 @@
  */
 
 import { getCurrentCurrency } from '@/hooks/useSettings';
+import { Currency } from '@/types/database';
+import { getCurrencySymbol, isPreciousMetal } from '@/constants/currencies';
 
 // ============================================================================
 // PARSE FONKSİYONLARI (String → Number)
@@ -80,31 +82,65 @@ export function toNumber(value: string | number | null | undefined): number {
 /**
  * Para formatla: "₺1.234,56" veya "$1,234.56"
  * Her zaman mutlak değer kullanır (negatif işareti göstermez)
- * Kullanıcının seçtiği para birimi ve locale'e göre formatlar
+ *
+ * @param amount - Formatlanacak tutar
+ * @param accountCurrency - Hesabın para birimi (opsiyonel). Verilirse hesabın para birimine göre formatlar.
  *
  * @example
- * formatCurrency(1234.56)  // "₺1.234,56" (TRY seçiliyken)
- * formatCurrency(1234.56)  // "$1,234.56" (USD seçiliyken)
- * formatCurrency(-1234.56) // "₺1.234,56"
+ * formatCurrency(1234.56)           // "₺1.234,56" (kullanıcının ayarına göre)
+ * formatCurrency(1234.56, 'USD')    // "$1,234.56" (hesap USD ise)
+ * formatCurrency(1234.56, 'EUR')    // "€1,234.56" (hesap EUR ise)
+ * formatCurrency(1234.56, 'XAU')    // "1.234,56 gr" (altın için gram)
  */
-export function formatCurrency(amount: number): string {
+export function formatCurrency(amount: number, accountCurrency?: Currency | string | null): string {
+  const abs = Math.abs(amount);
+
+  // Hesap para birimi verilmişse onu kullan
+  if (accountCurrency) {
+    const symbol = getCurrencySymbol(accountCurrency as Currency);
+
+    // Altın/Gümüş için özel format: "1.234,56 gr"
+    if (isPreciousMetal(accountCurrency as Currency)) {
+      return `${new Intl.NumberFormat('tr-TR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(abs)} ${symbol}`;
+    }
+
+    // USD/EUR için İngilizce format: "$1,234.56"
+    if (accountCurrency === 'USD' || accountCurrency === 'EUR') {
+      return `${symbol}${new Intl.NumberFormat('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(abs)}`;
+    }
+
+    // TRY için Türkçe format: "₺1.234,56"
+    return `${symbol}${new Intl.NumberFormat('tr-TR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(abs)}`;
+  }
+
+  // Hesap para birimi verilmemişse kullanıcının ayarına göre formatla
   const currencyConfig = getCurrentCurrency();
   return `${currencyConfig.symbol}${new Intl.NumberFormat(currencyConfig.locale, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Math.abs(amount))}`;
+  }).format(abs)}`;
 }
 
 /**
  * Para formatla işaret ile: "+₺1.234,56" veya "-₺1.234,56"
  *
  * @example
- * formatCurrencyWithSign(1234.56)  // "+₺1.234,56"
- * formatCurrencyWithSign(-1234.56) // "-₺1.234,56"
+ * formatCurrencyWithSign(1234.56)           // "+₺1.234,56"
+ * formatCurrencyWithSign(-1234.56)          // "-₺1.234,56"
+ * formatCurrencyWithSign(1234.56, 'USD')    // "+$1,234.56"
  */
-export function formatCurrencyWithSign(amount: number): string {
+export function formatCurrencyWithSign(amount: number, accountCurrency?: Currency | string | null): string {
   const sign = amount >= 0 ? '+' : '-';
-  return `${sign}${formatCurrency(amount)}`;
+  return `${sign}${formatCurrency(amount, accountCurrency)}`;
 }
 
 /**
@@ -135,28 +171,44 @@ export function formatPercentage(value: number, decimals: number = 1): string {
 
 /**
  * Kompakt para formatı (büyük sayılar için): "₺1,2M", "$1.2M"
- * Kullanıcının seçtiği para birimi ve locale'e göre formatlar
  *
  * @example
- * formatCurrencyCompact(1234567) // "₺1,2M" (TRY seçiliyken)
- * formatCurrencyCompact(1234567) // "$1.2M" (USD seçiliyken)
- * formatCurrencyCompact(12345)   // "₺12,3K"
- * formatCurrencyCompact(1234)    // "₺1.234"
+ * formatCurrencyCompact(1234567)          // "₺1,2M" (TRY seçiliyken)
+ * formatCurrencyCompact(1234567, 'USD')   // "$1.2M"
+ * formatCurrencyCompact(12345)            // "₺12,3K"
+ * formatCurrencyCompact(1234)             // "₺1.234"
  */
-export function formatCurrencyCompact(amount: number): string {
+export function formatCurrencyCompact(amount: number, accountCurrency?: Currency | string | null): string {
   const abs = Math.abs(amount);
-  const currencyConfig = getCurrentCurrency();
-  const decimalSeparator = currencyConfig.locale.startsWith('tr') ? ',' : '.';
+
+  // Hesap para birimine göre ayarları belirle
+  let symbol: string;
+  let decimalSeparator: string;
+
+  if (accountCurrency) {
+    symbol = getCurrencySymbol(accountCurrency as Currency);
+    // USD/EUR için nokta, diğerleri için virgül
+    decimalSeparator = (accountCurrency === 'USD' || accountCurrency === 'EUR') ? '.' : ',';
+  } else {
+    const currencyConfig = getCurrentCurrency();
+    symbol = currencyConfig.symbol;
+    decimalSeparator = currencyConfig.locale.startsWith('tr') ? ',' : '.';
+  }
+
+  // Altın/Gümüş için sembol sonda olmalı
+  const isMetalCurrency = isPreciousMetal(accountCurrency as Currency);
 
   if (abs >= 1_000_000) {
-    return `${currencyConfig.symbol}${(abs / 1_000_000).toFixed(1).replace('.', decimalSeparator)}M`;
+    const formatted = (abs / 1_000_000).toFixed(1).replace('.', decimalSeparator);
+    return isMetalCurrency ? `${formatted}M ${symbol}` : `${symbol}${formatted}M`;
   }
 
   if (abs >= 10_000) {
-    return `${currencyConfig.symbol}${(abs / 1_000).toFixed(1).replace('.', decimalSeparator)}K`;
+    const formatted = (abs / 1_000).toFixed(1).replace('.', decimalSeparator);
+    return isMetalCurrency ? `${formatted}K ${symbol}` : `${symbol}${formatted}K`;
   }
 
-  return formatCurrency(amount);
+  return formatCurrency(amount, accountCurrency);
 }
 
 // ============================================================================
@@ -189,12 +241,12 @@ export function formatCurrencyInput(value: string): string {
   const [integerPart, decimalPart] = cleaned.split(',');
 
   // Tam kısmı formatla (binlik ayracı ekle)
-  const formattedInteger = integerPart
-    ? parseInt(integerPart, 10).toLocaleString('tr-TR')
-    : '';
+  if (!integerPart) return '';
 
-  // NaN kontrolü
-  if (formattedInteger === 'NaN') return '';
+  const parsedInteger = parseInt(integerPart, 10);
+  if (isNaN(parsedInteger)) return '';
+
+  const formattedInteger = parsedInteger.toLocaleString('tr-TR');
 
   // Ondalık kısım varsa ekle (max 2 hane)
   if (decimalPart !== undefined) {

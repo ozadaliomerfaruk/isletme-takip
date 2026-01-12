@@ -51,7 +51,10 @@
     "negativeBalance": "Debit",
     "creditLimit": "Credit Limit",
     "usedCredit": "Used Credit",
-    "remainingCredit": "Remaining Limit"
+    "remainingCredit": "Remaining Limit",
+    "editBalance": "Edit Balance",
+    "newBalance": "New Balance",
+    "confirmChange": "Are you sure you want to change the balance from {{oldBalance}} to {{newBalance}}?"
   },
   "actions": {
     "deposit": "Deposit",
@@ -70,7 +73,9 @@
     "deleteWarning": "All transactions for this account will also be deleted.",
     "noAccounts": "No accounts yet",
     "addFirstAccount": "Start by adding your first account",
-    "noCreditCards": "No credit card accounts yet"
+    "noCreditCards": "No credit card accounts yet",
+    "invalidBalance": "Invalid balance value",
+    "balanceUpdated": "Balance updated"
   },
   "transactionTitles": {
     "creditCardPayment": "Credit Card Payment"
@@ -127,6 +132,16 @@
   },
   "validation": {
     "nameRequired": "Account name is required"
+  },
+  "currency": {
+    "title": "Currency",
+    "selectCurrency": "Select currency",
+    "TRY": "Turkish Lira",
+    "USD": "US Dollar",
+    "EUR": "Euro",
+    "GBP": "British Pound",
+    "XAU": "Gold (gram)",
+    "XAG": "Silver (gram)"
   },
   "nakitAvans": {
     "title": "Cash Advances",

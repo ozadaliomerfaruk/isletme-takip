@@ -35,6 +35,7 @@ import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useMonthSummary, PeriodType } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useSettings } from '@/hooks/useSettings';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function HomePage() {
@@ -70,6 +71,7 @@ export default function HomePage() {
   const [showEndPicker, setShowEndPicker] = useState(false);
 
   const { isletme, cancelAccountDeletion } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
 
   // Gerçek veriler - pasif hesapları da dahil et
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true);
@@ -109,7 +111,7 @@ export default function HomePage() {
     return groups;
   }, [hesaplar]);
 
-  // Kategori toplamlarını hesapla (sadece aktif hesaplar)
+  // Kategori toplamlarını hesapla (sadece aktif ve ana para birimi hesapları)
   const categoryTotals = useMemo(() => {
     const totals: Record<string, number> = {
       nakit: 0,
@@ -119,13 +121,14 @@ export default function HomePage() {
     };
 
     Object.entries(groupedHesaplar).forEach(([key, accounts]) => {
+      // Sadece ana para birimi hesaplarını topla - farklı para birimleri karıştırılamaz
       totals[key] = accounts
-        .filter(h => h.is_active)
+        .filter(h => h.is_active && ((h.currency || baseCurrency) === baseCurrency))
         .reduce((acc, h) => acc + toNumber(h.balance), 0);
     });
 
     return totals;
-  }, [groupedHesaplar]);
+  }, [groupedHesaplar, baseCurrency]);
 
   // Grup başlık ve ikon tanımları
   const groupConfig: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -485,7 +488,7 @@ export default function HomePage() {
                                 variant="h3"
                                 color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}
                               >
-                                {formatCurrency(toNumber(hesap.balance))}
+                                {formatCurrency(toNumber(hesap.balance), hesap.currency)}
                               </Text>
                             </View>
                           </View>

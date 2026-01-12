@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -9,7 +8,7 @@ import {
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { Text } from './Text';
-import { formatCurrencyInput, parseCurrency } from '@/lib/currency';
+import { formatCurrencyInput } from '@/lib/currency';
 import { CURRENCY_SYMBOL } from '@/constants';
 
 interface CurrencyInputProps {
@@ -29,26 +28,12 @@ export function CurrencyInput({
   placeholder = '0,00',
   style,
 }: CurrencyInputProps) {
-  const [displayValue, setDisplayValue] = useState('');
-
-  // Dışarıdan gelen value değiştiğinde displayValue'yu güncelle
-  useEffect(() => {
-    if (value) {
-      // Eğer value zaten formatlanmışsa olduğu gibi kullan
-      // Değilse formatla
-      const formatted = formatCurrencyInput(value);
-      setDisplayValue(formatted);
-    } else {
-      setDisplayValue('');
-    }
-  }, [value]);
+  // Doğrudan value'dan hesapla - gereksiz useState kaldırıldı
+  const displayValue = formatCurrencyInput(value) || '';
 
   const handleChangeText = (text: string) => {
-    // Formatla ve göster
+    // Formatla ve parent'a gönder
     const formatted = formatCurrencyInput(text);
-    setDisplayValue(formatted);
-
-    // Parent'a formatlanmış değeri gönder (parseCurrency ile parse edilebilir)
     onChangeText(formatted);
   };
 

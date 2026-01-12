@@ -175,11 +175,20 @@ export function formatDateForDB(date: Date): string {
 }
 
 /**
- * Tarih ve saati veritabanı formatına çevir (YYYY-MM-DDTHH:MM:SS)
- * Timezone-safe: Yerel tarihi ve saati korur
+ * Tarih ve saati veritabanı formatına çevir (timezone bilgisi dahil)
+ * ISO 8601 formatı: YYYY-MM-DDTHH:MM:SS+HH:MM
+ *
+ * ÖNEMLİ: Bu fonksiyon kullanıcının cihaz timezone'unu otomatik olarak ekler.
+ * Böylece İstanbul'daki kullanıcı 14:30'da işlem yaparsa "+03:00",
+ * New York'taki kullanıcı aynı anda işlem yaparsa "-05:00" eklenir.
+ * Supabase timestamptz sütunları için doğru davranışı sağlar.
  *
  * @example
- * formatDateTimeForDB(new Date()) // "2024-12-31T14:30:00"
+ * // İstanbul'da (UTC+3):
+ * formatDateTimeForDB(new Date()) // "2024-12-31T14:30:00+03:00"
+ *
+ * // New York'ta (UTC-5):
+ * formatDateTimeForDB(new Date()) // "2024-12-31T06:30:00-05:00"
  */
 export function formatDateTimeForDB(date: Date): string {
   const year = date.getFullYear();
@@ -188,8 +197,21 @@ export function formatDateTimeForDB(date: Date): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+
+  // Timezone offset (dakika cinsinden, örn: UTC+3 = -180, UTC-5 = 300)
+  const tzOffset = date.getTimezoneOffset();
+  const tzSign = tzOffset <= 0 ? '+' : '-';
+  const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
+  const tzMins = String(Math.abs(tzOffset) % 60).padStart(2, '0');
+
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${tzSign}${tzHours}:${tzMins}`;
 }
+
+/**
+ * @deprecated formatDateTimeForDB artık timezone içeriyor, bu fonksiyonu kullanmaya gerek yok
+ * Geriye uyumluluk için alias olarak tutuluyor
+ */
+export const formatDateTimeWithTzForDB = formatDateTimeForDB;
 
 /**
  * Veritabanı tarih string'ini Date objesine çevir

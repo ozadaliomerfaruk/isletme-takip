@@ -137,7 +137,7 @@ export function useDeleteCari() {
 
       if (islemError) throw islemError;
 
-      // Sonra cariyi sil - ownership kontrolü ile
+      // Cariyi sil
       const { error } = await supabase
         .from('cariler')
         .delete()
