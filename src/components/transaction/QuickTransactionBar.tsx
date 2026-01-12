@@ -40,7 +40,7 @@ import { colors } from '@/constants/colors';
 import { CariType, Currency } from '@/types/database';
 import { isCrossCurrency } from '@/constants/currencies';
 import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
-import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -99,6 +99,8 @@ export function QuickTransactionBar({
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date());
+  // Geçersiz tarih koruması - 1970 ve benzeri sorunları önle
+  const safeDate = useMemo(() => ensureValidDate(date), [date]);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [isScheduled, setIsScheduled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -444,7 +446,10 @@ export function QuickTransactionBar({
         }
         if (odemeHedefType === 'tedarikci') {
           if (!cariId) {
-            setPendingModal('category');
+            // Kategori seçili değilse, cari seçildikten sonra kategori açılsın
+            if (!kategoriId && !categorySkipped) {
+              setPendingModal('category');
+            }
             setShowCariPicker(true);
             return;
           }
@@ -454,7 +459,10 @@ export function QuickTransactionBar({
           }
         } else if (odemeHedefType === 'staff') {
           if (!personelId) {
-            setPendingModal('category');
+            // Kategori seçili değilse, personel seçildikten sonra kategori açılsın
+            if (!kategoriId && !categorySkipped) {
+              setPendingModal('category');
+            }
             setShowPersonelPicker(true);
             return;
           }
@@ -481,7 +489,10 @@ export function QuickTransactionBar({
       // Tahsilat için sıralı modal akışı (müşteri → kategori)
       if (type === 'tahsilat') {
         if (!cariId) {
-          setPendingModal('category');
+          // Kategori seçili değilse, cari seçildikten sonra kategori açılsın
+          if (!kategoriId && !categorySkipped) {
+            setPendingModal('category');
+          }
           setShowCariPicker(true);
           return;
         }
@@ -503,7 +514,10 @@ export function QuickTransactionBar({
       // Ödeme ve Tahsilat için hesap + kategori gerekli
       if (type === 'odeme' || type === 'tahsilat') {
         if (!sourceHesapId) {
-          setPendingModal('category');
+          // Kategori seçili değilse, hesap seçildikten sonra kategori açılsın
+          if (!kategoriId && !categorySkipped) {
+            setPendingModal('category');
+          }
           setHesapPickerTarget('source');
           setShowHesapPicker(true);
           return;
@@ -524,7 +538,10 @@ export function QuickTransactionBar({
     if (isPersonelMode) {
       if (['personel_odeme_tab', 'personel_tahsilat_tab'].includes(type)) {
         if (!sourceHesapId) {
-          setPendingModal('category');
+          // Kategori seçili değilse, hesap seçildikten sonra kategori açılsın
+          if (!kategoriId && !categorySkipped) {
+            setPendingModal('category');
+          }
           setHesapPickerTarget('source');
           setShowHesapPicker(true);
           return;
@@ -740,13 +757,13 @@ export function QuickTransactionBar({
         // İleri tarihli işlem - sadece kullanıcı bilerek seçtiyse
         await createIleriTarihliIslem.mutateAsync({
           ...transactionData,
-          scheduled_date: formatDateForDB(date),
+          scheduled_date: formatDateForDB(safeDate),
         });
       } else {
         // Normal işlem - tarih ve saat dahil
         await createIslem.mutateAsync({
           ...transactionData,
-          date: formatDateTimeForDB(date),
+          date: formatDateTimeForDB(safeDate),
         });
       }
 
@@ -863,12 +880,12 @@ export function QuickTransactionBar({
       if (isScheduled) {
         await createIleriTarihliIslem.mutateAsync({
           ...transactionData,
-          scheduled_date: formatDateForDB(date),
+          scheduled_date: formatDateForDB(safeDate),
         });
       } else {
         await createIslem.mutateAsync({
           ...transactionData,
-          date: formatDateTimeForDB(date),
+          date: formatDateTimeForDB(safeDate),
         });
       }
 
@@ -993,7 +1010,7 @@ export function QuickTransactionBar({
           >
             <Calendar size={18} color={isScheduled ? colors.warning : colors.textMuted} />
             <Text style={[styles.dateText, isScheduled && styles.dateTextScheduled]}>
-              {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
+              {isToday(safeDate) ? t('common:date.today') : formatDateMedium(safeDate)}
             </Text>
           </TouchableOpacity>
 
@@ -1293,20 +1310,20 @@ export function QuickTransactionBar({
                   <View style={styles.pickerSection}>
                     <Text style={styles.pickerSectionTitle}>{t('common:date.date')}</Text>
                     <DateTimePickerRN
-                      value={date}
+                      value={safeDate}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       onChange={(event, selectedDate) => {
                         if (Platform.OS === 'android') {
                           if (event.type === 'set' && selectedDate) {
-                            const newDate = new Date(date);
+                            const newDate = new Date(safeDate);
                             newDate.setFullYear(selectedDate.getFullYear());
                             newDate.setMonth(selectedDate.getMonth());
                             newDate.setDate(selectedDate.getDate());
                             setDate(newDate);
                           }
                         } else if (selectedDate) {
-                          const newDate = new Date(date);
+                          const newDate = new Date(safeDate);
                           newDate.setFullYear(selectedDate.getFullYear());
                           newDate.setMonth(selectedDate.getMonth());
                           newDate.setDate(selectedDate.getDate());
@@ -1324,20 +1341,20 @@ export function QuickTransactionBar({
                   <View style={styles.pickerSection}>
                     <Text style={styles.pickerSectionTitle}>{t('common:date.time')}</Text>
                     <DateTimePickerRN
-                      value={date}
+                      value={safeDate}
                       mode="time"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       is24Hour={true}
                       onChange={(event, selectedDate) => {
                         if (Platform.OS === 'android') {
                           if (event.type === 'set' && selectedDate) {
-                            const newDate = new Date(date);
+                            const newDate = new Date(safeDate);
                             newDate.setHours(selectedDate.getHours());
                             newDate.setMinutes(selectedDate.getMinutes());
                             setDate(newDate);
                           }
                         } else if (selectedDate) {
-                          const newDate = new Date(date);
+                          const newDate = new Date(safeDate);
                           newDate.setHours(selectedDate.getHours());
                           newDate.setMinutes(selectedDate.getMinutes());
                           setDate(newDate);
@@ -1416,11 +1433,14 @@ export function QuickTransactionBar({
                         setHesapSearchQuery('');
 
                         // Handle sequential modal opening
-                        if (pendingModal === 'category') {
+                        if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
                           setTimeout(() => {
                             setCategoryPickerOpen(true);
                             setPendingModal(null);
                           }, 250);
+                        } else if (pendingModal === 'category') {
+                          // Kategori zaten seçili, pending'i temizle
+                          setPendingModal(null);
                         } else if (pendingModal === 'kredi_karti') {
                           setTimeout(() => {
                             setShowKrediKartiPicker(true);
@@ -1505,11 +1525,14 @@ export function QuickTransactionBar({
                         setCariSearchQuery('');
 
                         // Handle sequential modal opening
-                        if (pendingModal === 'category') {
+                        if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
                           setTimeout(() => {
                             setCategoryPickerOpen(true);
                             setPendingModal(null);
                           }, 250);
+                        } else if (pendingModal === 'category') {
+                          // Kategori zaten seçili, pending'i temizle
+                          setPendingModal(null);
                         }
                       }}
                     >
@@ -1580,7 +1603,10 @@ export function QuickTransactionBar({
                     setShowOdemeHedefTypePicker(false);
                     // Otomatik tedarikçi picker aç
                     setTimeout(() => {
-                      setPendingModal('category');
+                      // Kategori seçili değilse, cari seçildikten sonra kategori açılsın
+                      if (!kategoriId && !categorySkipped) {
+                        setPendingModal('category');
+                      }
                       setShowCariPicker(true);
                     }, 250);
                   }}
@@ -1610,7 +1636,10 @@ export function QuickTransactionBar({
                     setShowOdemeHedefTypePicker(false);
                     // Otomatik personel picker aç
                     setTimeout(() => {
-                      setPendingModal('category');
+                      // Kategori seçili değilse, personel seçildikten sonra kategori açılsın
+                      if (!kategoriId && !categorySkipped) {
+                        setPendingModal('category');
+                      }
                       setShowPersonelPicker(true);
                     }, 250);
                   }}
@@ -1768,11 +1797,14 @@ export function QuickTransactionBar({
                         setPersonelSearchQuery('');
 
                         // Handle sequential modal opening
-                        if (pendingModal === 'category') {
+                        if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
                           setTimeout(() => {
                             setCategoryPickerOpen(true);
                             setPendingModal(null);
                           }, 250);
+                        } else if (pendingModal === 'category') {
+                          // Kategori zaten seçili, pending'i temizle
+                          setPendingModal(null);
                         }
                       }}
                     >

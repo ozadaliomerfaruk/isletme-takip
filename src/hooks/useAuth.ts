@@ -34,10 +34,10 @@ export function useAuth() {
   const lastRefreshTime = useRef<number>(Date.now());
 
   // Race condition önleme - eşzamanlı fetchIsletme çağrılarını engelle
-  const fetchIsletmeInProgress = useRef<string | null>(null);
-  const fetchIsletmePromise = useRef<Promise<Isletme | null> | null>(null);
-  // İşletme oluşturma lock'u - duplicate oluşturmayı engelle
-  const createIsletmeInProgress = useRef<boolean>(false);
+  // Map kullanarak her userId için ayrı promise takibi yapıyoruz
+  const pendingRequests = useRef<Map<string, Promise<Isletme | null>>>(new Map());
+  // İşletme oluşturma lock'u - duplicate oluşturmayı engelle (global lock)
+  const createIsletmeLock = useRef<Promise<Isletme | null> | null>(null);
 
   // Session'ı yenile - arka plandan dönüşte veya token süresi dolmak üzereyken çağrılır
   const refreshSession = useCallback(async () => {
@@ -100,13 +100,12 @@ export function useAuth() {
     isletmeName?: string | null
   ): Promise<Isletme | null> => {
     // Aynı userId için zaten bir istek varsa, mevcut Promise'i bekle
-    if (fetchIsletmeInProgress.current === userId && fetchIsletmePromise.current) {
-      return fetchIsletmePromise.current;
+    const existingRequest = pendingRequests.current.get(userId);
+    if (existingRequest) {
+      return existingRequest;
     }
 
-    fetchIsletmeInProgress.current = userId;
-
-    // Promise'i oluştur ve sakla
+    // Yeni bir istek oluştur ve hemen Map'e ekle (senkron işlem - race condition yok)
     const executeRequest = async (): Promise<Isletme | null> => {
       try {
         // Önce mevcut işletmeyi kontrol et
@@ -129,68 +128,75 @@ export function useAuth() {
           return null;
         }
 
-        // İşletme yoksa ve oluşturma işlemi devam etmiyorsa, oluştur
-        if (createIsletmeInProgress.current) {
-          // Başka bir oluşturma işlemi devam ediyor, biraz bekle ve tekrar dene
-          await new Promise(resolve => setTimeout(resolve, 500));
+        // İşletme yoksa oluştur
+        // Eğer başka bir oluşturma işlemi varsa, onu bekle
+        if (createIsletmeLock.current) {
+          await createIsletmeLock.current;
+          // Oluşturma bittikten sonra tekrar kontrol et
           const { data: retryData } = await supabase
             .from('isletmeler')
             .select('*')
             .eq('user_id', userId)
             .limit(1)
             .single();
-          return retryData as Isletme | null;
-        }
-
-        // Lock'u al ve işletme oluştur
-        createIsletmeInProgress.current = true;
-
-        try {
-          const finalIsletmeName = isletmeName
-            || (userName ? `${userName}'in İşletmesi` : 'İşletmem');
-
-          // Upsert kullan - conflict durumunda mevcut kaydı döndür
-          const { data: newIsletme, error: insertError } = await supabase
-            .from('isletmeler')
-            .upsert(
-              {
-                user_id: userId,
-                name: finalIsletmeName,
-              },
-              {
-                onConflict: 'user_id',
-                ignoreDuplicates: true,
-              }
-            )
-            .select()
-            .single();
-
-          if (insertError) {
-            // Duplicate key hatası veya başka hata - mevcut kaydı getir
-            if (__DEV__) {
-              console.log('İşletme oluşturma/upsert hatası, mevcut kaydı getiriliyor:', insertError);
-            }
-            const { data: existingIsletme } = await supabase
-              .from('isletmeler')
-              .select('*')
-              .eq('user_id', userId)
-              .limit(1)
-              .single();
-            return existingIsletme as Isletme | null;
+          if (retryData) {
+            return retryData as Isletme;
           }
-
-          return newIsletme as Isletme;
-        } finally {
-          createIsletmeInProgress.current = false;
         }
+
+        // Oluşturma işlemi için yeni bir lock oluştur
+        const createPromise = (async (): Promise<Isletme | null> => {
+          try {
+            const finalIsletmeName = isletmeName
+              || (userName ? `${userName}'in İşletmesi` : 'İşletmem');
+
+            // Upsert kullan - conflict durumunda mevcut kaydı döndür
+            const { data: newIsletme, error: insertError } = await supabase
+              .from('isletmeler')
+              .upsert(
+                {
+                  user_id: userId,
+                  name: finalIsletmeName,
+                },
+                {
+                  onConflict: 'user_id',
+                  ignoreDuplicates: true,
+                }
+              )
+              .select()
+              .single();
+
+            if (insertError) {
+              // Duplicate key hatası veya başka hata - mevcut kaydı getir
+              if (__DEV__) {
+                console.log('İşletme oluşturma/upsert hatası, mevcut kaydı getiriliyor:', insertError);
+              }
+              const { data: existingIsletme } = await supabase
+                .from('isletmeler')
+                .select('*')
+                .eq('user_id', userId)
+                .limit(1)
+                .single();
+              return existingIsletme as Isletme | null;
+            }
+
+            return newIsletme as Isletme;
+          } finally {
+            createIsletmeLock.current = null;
+          }
+        })();
+
+        createIsletmeLock.current = createPromise;
+        return createPromise;
       } finally {
-        fetchIsletmeInProgress.current = null;
-        fetchIsletmePromise.current = null;
+        // Bu userId için pending request'i temizle
+        pendingRequests.current.delete(userId);
       }
     };
 
-    fetchIsletmePromise.current = executeRequest();
-    return fetchIsletmePromise.current;
+    const requestPromise = executeRequest();
+    pendingRequests.current.set(userId, requestPromise);
+    return requestPromise;
   }, []);
 
   // Sadece işletme getir (oluşturma yapma) - read-only işlemler için

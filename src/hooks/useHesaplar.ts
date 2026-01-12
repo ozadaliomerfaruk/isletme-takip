@@ -3,8 +3,35 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber } from '@/lib/currency';
+import { toNumber, safeParseAmount, safeParseExchangeRate } from '@/lib/currency';
 import { useSettings } from './useSettings';
+
+/**
+ * Cross-currency hesaplama için güvenli dönüşüm
+ * Exchange rate ile hedef tutarı hesaplar (useIslemler.ts ile aynı mantık)
+ */
+function calculateTargetAmount(
+  amount: number,
+  exchangeRate: number | null,
+  sourceCurrency: string,
+  targetCurrency: string
+): number {
+  if (sourceCurrency === targetCurrency) {
+    return amount;
+  }
+
+  if (!exchangeRate || exchangeRate <= 0) {
+    return amount;
+  }
+
+  if (sourceCurrency === 'TRY') {
+    return amount / exchangeRate;
+  } else if (targetCurrency === 'TRY') {
+    return amount * exchangeRate;
+  } else {
+    return amount * exchangeRate;
+  }
+}
 
 export function useHesaplar(includePassive: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -162,22 +189,33 @@ export function useDeleteHesap() {
 
           let totalEffect = 0;
           hesapIslemleri?.forEach(islem => {
-            const amount = toNumber(islem.amount);
+            // Güvenli tutar parse etme - geçersiz değerler atlanır
+            let amount: number;
+            try {
+              amount = safeParseAmount(islem.amount, 'işlem tutarı');
+            } catch {
+              // Geçersiz tutarlı işlemleri atla (veri bütünlüğü sorunu var demek)
+              if (__DEV__) {
+                console.warn('Geçersiz işlem tutarı atlandı:', islem);
+              }
+              return;
+            }
+
+            // Exchange rate güvenli parse etme
+            const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
+
             if (islem.type === 'transfer') {
               if (islem.hedef_hesap_id === hesapId) {
                 // Cross-currency hesaplama
-                const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
                 const sourceCurrency = islem.source_currency || 'TRY';
                 const targetCurrency = islem.target_currency || 'TRY';
-                let targetAmount = amount;
-                if (exchangeRate && exchangeRate > 0 && sourceCurrency !== targetCurrency) {
-                  const baseCurrency = sourceCurrency === 'TRY' ? targetCurrency : sourceCurrency;
-                  if (sourceCurrency === baseCurrency) {
-                    targetAmount = amount * exchangeRate;
-                  } else {
-                    targetAmount = amount / exchangeRate;
-                  }
-                }
+
+                const targetAmount = calculateTargetAmount(
+                  amount,
+                  exchangeRate,
+                  sourceCurrency,
+                  targetCurrency
+                );
                 totalEffect += targetAmount;
               } else {
                 totalEffect -= amount;

@@ -15,10 +15,12 @@ import {
   MoreVertical,
   FileCheck,
   X,
+  Share2,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType } from '@/components/transaction';
+import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -51,6 +53,7 @@ export default function HesapHareketleriPage() {
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
+  const [showExportSheet, setShowExportSheet] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newBalanceInput, setNewBalanceInput] = useState('');
   const isOpeningRef = useRef(false);
@@ -383,15 +386,24 @@ export default function HesapHareketleriPage() {
     }
   };
 
-  // Header right menu button
-  const HeaderMenuButton = () => (
-    <TouchableOpacity
-      onPress={() => setShowMenu(true)}
-      style={styles.headerMenuBtn}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-    >
-      <MoreVertical size={24} color={colors.text} />
-    </TouchableOpacity>
+  // Header right buttons (share + menu)
+  const HeaderRightButtons = () => (
+    <View style={styles.headerRightContainer}>
+      <TouchableOpacity
+        onPress={() => setShowExportSheet(true)}
+        style={styles.headerBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Share2 size={22} color={colors.text} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => setShowMenu(true)}
+        style={styles.headerBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <MoreVertical size={24} color={colors.text} />
+      </TouchableOpacity>
+    </View>
   );
 
   if (hesapLoading) {
@@ -421,7 +433,7 @@ export default function HesapHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: hesap.name,
-          headerRight: () => <HeaderMenuButton />,
+          headerRight: () => <HeaderRightButtons />,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -707,6 +719,17 @@ export default function HesapHareketleriPage() {
         defaultHesapId={id}
       />
 
+      {/* Export Sheet */}
+      <ExportSheet
+        visible={showExportSheet}
+        onDismiss={() => setShowExportSheet(false)}
+        entityType="hesap"
+        entityId={id!}
+        entityName={hesap.name}
+        entityCurrency={hesap.currency}
+        currentBalance={Number(hesap.balance)}
+      />
+
       {/* Bakiye Düzenleme Modal */}
       <Modal
         visible={editBalanceModalVisible}
@@ -869,10 +892,15 @@ const styles = StyleSheet.create({
     color: colors.info,
     fontStyle: 'italic',
   },
-  // Header menu button
-  headerMenuBtn: {
-    padding: spacing.xs,
+  // Header right buttons
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginRight: spacing.sm,
+  },
+  headerBtn: {
+    padding: spacing.xs,
   },
   // Menu styles
   menuBackdrop: {

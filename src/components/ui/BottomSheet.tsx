@@ -229,10 +229,16 @@ export function BottomSheet({
     })
   ).current;
 
+  // Track if we've already opened for this visible state
+  const hasOpenedRef = useRef(false);
+
   // Handle visibility changes
   useEffect(() => {
-    if (visible) {
+    if (visible && !hasOpenedRef.current) {
+      hasOpenedRef.current = true;
       open();
+    } else if (!visible) {
+      hasOpenedRef.current = false;
     }
   }, [visible, open]);
 

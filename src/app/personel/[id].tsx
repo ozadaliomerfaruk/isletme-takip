@@ -16,9 +16,11 @@ import {
   ArrowDownCircle,
   MoreVertical,
   X,
+  Share2,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -46,6 +48,7 @@ export default function PersonelHareketleriPage() {
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showExportSheet, setShowExportSheet] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
 
@@ -180,15 +183,24 @@ export default function PersonelHareketleriPage() {
     );
   };
 
-  // Header right menu button
-  const HeaderMenuButton = () => (
-    <TouchableOpacity
-      onPress={() => setShowMenu(true)}
-      style={styles.headerMenuBtn}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-    >
-      <MoreVertical size={24} color={colors.text} />
-    </TouchableOpacity>
+  // Header right buttons (share + menu)
+  const HeaderRightButtons = () => (
+    <View style={styles.headerRightContainer}>
+      <TouchableOpacity
+        onPress={() => setShowExportSheet(true)}
+        style={styles.headerBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Share2 size={22} color={colors.text} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => setShowMenu(true)}
+        style={styles.headerBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <MoreVertical size={24} color={colors.text} />
+      </TouchableOpacity>
+    </View>
   );
 
   if (personelLoading) {
@@ -218,7 +230,7 @@ export default function PersonelHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: fullName,
-          headerRight: () => <HeaderMenuButton />,
+          headerRight: () => <HeaderRightButtons />,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -421,6 +433,16 @@ export default function PersonelHareketleriPage() {
           onSuccess={() => setQuickBarVisible(false)}
         />
 
+        {/* Export Sheet */}
+        <ExportSheet
+          visible={showExportSheet}
+          onDismiss={() => setShowExportSheet(false)}
+          entityType="personel"
+          entityId={id!}
+          entityName={fullName}
+          currentBalance={Number(personel.balance)}
+        />
+
         {/* Başlangıç Bakiyesi Düzenleme Modal */}
         <Modal
           visible={editBalanceModalVisible}
@@ -561,10 +583,15 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
   },
-  // Header menu button
-  headerMenuBtn: {
-    padding: spacing.xs,
+  // Header right buttons
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginRight: spacing.sm,
+  },
+  headerBtn: {
+    padding: spacing.xs,
   },
   // Menu styles
   menuBackdrop: {

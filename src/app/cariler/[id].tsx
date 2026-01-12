@@ -18,10 +18,12 @@ import {
   MoreVertical,
   FileCheck,
   X,
+  Share2,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -51,6 +53,7 @@ export default function CariHareketleriPage() {
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
+  const [showExportSheet, setShowExportSheet] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
 
@@ -203,15 +206,24 @@ export default function CariHareketleriPage() {
     );
   };
 
-  // Header right menu button
-  const HeaderMenuButton = () => (
-    <TouchableOpacity
-      onPress={() => setShowMenu(true)}
-      style={styles.headerMenuBtn}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-    >
-      <MoreVertical size={24} color={colors.text} />
-    </TouchableOpacity>
+  // Header right buttons (share + menu)
+  const HeaderRightButtons = () => (
+    <View style={styles.headerRightContainer}>
+      <TouchableOpacity
+        onPress={() => setShowExportSheet(true)}
+        style={styles.headerBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Share2 size={22} color={colors.text} />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => setShowMenu(true)}
+        style={styles.headerBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <MoreVertical size={24} color={colors.text} />
+      </TouchableOpacity>
+    </View>
   );
 
   if (cariLoading) {
@@ -243,7 +255,7 @@ export default function CariHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: cari.name,
-          headerRight: () => <HeaderMenuButton />,
+          headerRight: () => <HeaderRightButtons />,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -486,6 +498,17 @@ export default function CariHareketleriPage() {
           defaultCariId={cari?.id}
         />
 
+        {/* Export Sheet */}
+        <ExportSheet
+          visible={showExportSheet}
+          onDismiss={() => setShowExportSheet(false)}
+          entityType="cari"
+          entityId={id!}
+          entityName={cari.name}
+          currentBalance={Number(cari.balance)}
+          cariType={cari.type as 'musteri' | 'tedarikci'}
+        />
+
         {/* Başlangıç Bakiyesi Düzenleme Modal */}
         <Modal
           visible={editBalanceModalVisible}
@@ -625,10 +648,15 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
   },
-  // Header menu button
-  headerMenuBtn: {
-    padding: spacing.xs,
+  // Header right buttons
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginRight: spacing.sm,
+  },
+  headerBtn: {
+    padding: spacing.xs,
   },
   // Menu styles
   menuBackdrop: {

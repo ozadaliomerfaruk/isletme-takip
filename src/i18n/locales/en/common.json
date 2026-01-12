@@ -244,5 +244,39 @@
     "tapToClose": "Tap to close",
     "selected": "Selected",
     "notSelected": "Not selected"
+  },
+  "export": {
+    "title": "Share as Excel",
+    "shareAsExcel": "Share as Excel",
+    "exporting": "Exporting...",
+    "largeDataWarning": {
+      "title": "Large Data Warning",
+      "message": "This period contains {{count}} transactions. Export may take a while."
+    },
+    "excel": {
+      "statement": "STATEMENT",
+      "accountStatement": "ACCOUNT STATEMENT",
+      "clientStatement": "CLIENT STATEMENT",
+      "staffStatement": "STAFF STATEMENT",
+      "account": "Account",
+      "client": "Client",
+      "staff": "Staff",
+      "period": "Period",
+      "createdAt": "Created",
+      "business": "Business",
+      "date": "DATE",
+      "transactionType": "TRANSACTION TYPE",
+      "description": "DESCRIPTION",
+      "category": "CATEGORY",
+      "accountColumn": "ACCOUNT",
+      "debit": "DEBIT",
+      "credit": "CREDIT",
+      "debitBalance": "DEBIT BALANCE",
+      "creditBalance": "CREDIT BALANCE",
+      "openingBalance": "OPENING BALANCE",
+      "periodTotal": "PERIOD TOTAL",
+      "closingBalance": "CLOSING BALANCE",
+      "sheetName": "Statement"
+    }
   }
 }

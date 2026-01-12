@@ -226,5 +226,39 @@
     "tapToClose": "Kapatmak için dokunun",
     "selected": "Seçili",
     "notSelected": "Seçili değil"
+  },
+  "export": {
+    "title": "Excel Olarak Paylaş",
+    "shareAsExcel": "Excel Olarak Paylaş",
+    "exporting": "Export ediliyor...",
+    "largeDataWarning": {
+      "title": "Büyük Veri Uyarısı",
+      "message": "Bu dönemde {{count}} işlem bulunuyor. Export işlemi biraz sürebilir."
+    },
+    "excel": {
+      "statement": "EKSTRESİ",
+      "accountStatement": "HESAP EKSTRESİ",
+      "clientStatement": "CARİ EKSTRESİ",
+      "staffStatement": "PERSONEL EKSTRESİ",
+      "account": "Hesap",
+      "client": "Cari",
+      "staff": "Personel",
+      "period": "Dönem",
+      "createdAt": "Oluşturulma",
+      "business": "İşletme",
+      "date": "TARİH",
+      "transactionType": "İŞLEM TİPİ",
+      "description": "AÇIKLAMA",
+      "category": "KATEGORİ",
+      "accountColumn": "HESAP",
+      "debit": "BORÇ",
+      "credit": "ALACAK",
+      "debitBalance": "BORÇ BAKİYE",
+      "creditBalance": "ALACAK BAKİYE",
+      "openingBalance": "BAŞLANGIÇ BAKİYESİ",
+      "periodTotal": "DÖNEM TOPLAMI",
+      "closingBalance": "SON BAKİYE",
+      "sheetName": "Ekstre"
+    }
   }
 }

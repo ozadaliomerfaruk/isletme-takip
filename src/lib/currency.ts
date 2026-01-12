@@ -70,9 +70,85 @@ export function parseCurrency(value: string): number {
  */
 export function toNumber(value: string | number | null | undefined): number {
   if (value === null || value === undefined) return 0;
-  if (typeof value === 'number') return value;
+  if (typeof value === 'number') {
+    if (isNaN(value)) return 0;
+    return value;
+  }
   const parsed = parseFloat(value);
   return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Kritik finansal işlemler için güvenli tutar dönüşümü
+ * NaN veya geçersiz değerler için hata fırlatır
+ *
+ * @example
+ * safeParseAmount("1234.56")  // 1234.56
+ * safeParseAmount(1234.56)    // 1234.56
+ * safeParseAmount(null)       // Error!
+ * safeParseAmount("invalid")  // Error!
+ */
+export function safeParseAmount(value: string | number | null | undefined, fieldName: string = 'amount'): number {
+  if (value === null || value === undefined) {
+    throw new Error(`Invalid ${fieldName}: value is null or undefined`);
+  }
+
+  let result: number;
+  if (typeof value === 'number') {
+    result = value;
+  } else {
+    result = parseFloat(value);
+  }
+
+  if (isNaN(result)) {
+    throw new Error(`Invalid ${fieldName}: "${value}" is not a valid number`);
+  }
+
+  if (!isFinite(result)) {
+    throw new Error(`Invalid ${fieldName}: value is infinite`);
+  }
+
+  return result;
+}
+
+/**
+ * Kur değerini güvenli şekilde parse et ve doğrula
+ * NaN, 0, negatif veya sonsuz değerler için hata fırlatır
+ *
+ * @example
+ * safeParseExchangeRate(1.5)   // 1.5
+ * safeParseExchangeRate("1.5") // 1.5
+ * safeParseExchangeRate(0)     // Error! (division by zero riski)
+ * safeParseExchangeRate(-1)    // Error! (negatif kur olamaz)
+ */
+export function safeParseExchangeRate(value: string | number | null | undefined): number | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  let result: number;
+  if (typeof value === 'number') {
+    result = value;
+  } else {
+    result = parseFloat(value);
+  }
+
+  // NaN kontrolü
+  if (isNaN(result)) {
+    return null;
+  }
+
+  // Sonsuz değer kontrolü
+  if (!isFinite(result)) {
+    throw new Error('Invalid exchange rate: value is infinite');
+  }
+
+  // Sıfır veya negatif kontrolü (division by zero riski)
+  if (result <= 0) {
+    throw new Error('Invalid exchange rate: must be greater than 0');
+  }
+
+  return result;
 }
 
 // ============================================================================
