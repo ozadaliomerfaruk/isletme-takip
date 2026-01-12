@@ -17,6 +17,7 @@ export function usePersonelList(includePassive: boolean = false) {
         .from('personel')
         .select('*')
         .eq('isletme_id', isletme.id)
+        .eq('is_archived', false) // Arşivlenmiş personeli hariç tut
         .order('first_name', { ascending: true });
 
       // Sadece aktif personeli getir (varsayılan davranış)

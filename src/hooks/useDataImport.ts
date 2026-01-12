@@ -615,7 +615,7 @@ export function useDataImport() {
         newAccounts.push({
           isletme_id: isletme.id,
           name: mapping.name,
-          type: (mapping.hesapType || 'diger') as HesapType,
+          type: (mapping.hesapType || 'banka') as HesapType,
           balance: 0, // Başlangıç bakiyesi 0, kullanıcı manuel değiştirebilir
         });
       }
@@ -882,10 +882,14 @@ export function useDataImport() {
           }
 
           // Ana hesap ID'sini bul (HESAP kolonu)
-          const hesapId = idMaps.accounts.get(tx.account.toLowerCase()) || null;
+          // NOT: cari_alis ve cari_satis işlemleri için HESAP zorunlu değil
+          const hesapId = tx.account
+            ? idMaps.accounts.get(tx.account.toLowerCase()) || null
+            : null;
 
-          // Hesap bulunamadıysa atla
-          if (!hesapId) {
+          // Hesap bulunamadıysa atla (cari_alis ve cari_satis HARİÇ)
+          const isCariAlisOrSatis = tx.mappedType === 'cari_alis' || tx.mappedType === 'cari_satis';
+          if (!hesapId && !isCariAlisOrSatis) {
             skipped++;
             skippedTransactions.push({
               transaction: tx,
@@ -893,6 +897,12 @@ export function useDataImport() {
               rowNumber,
             });
             continue;
+          }
+          // cari_alis/cari_satis için hesap belirtilmişse ama bulunamadıysa uyar (atlamadan devam et)
+          if (!hesapId && tx.account && isCariAlisOrSatis) {
+            if (__DEV__) {
+              console.log(`[UYARI] cari_alis/cari_satis için hesap bulunamadı: "${tx.account}", hesap_id null olarak devam ediliyor`);
+            }
           }
 
           // Transfer işlemi için karşı hesap kontrolü
@@ -930,14 +940,28 @@ export function useDataImport() {
             }
           }
 
-          // Cari işlemleri için cari kontrolü
-          if (tx.mappedType === 'cari_odeme' || tx.mappedType === 'cari_tahsilat') {
+          // Cari işlemleri için cari kontrolü (tüm cari işlem tipleri için)
+          if (tx.mappedType === 'cari_odeme' || tx.mappedType === 'cari_tahsilat' ||
+              tx.mappedType === 'cari_alis' || tx.mappedType === 'cari_satis') {
             const hasCari = tx.tedarikci || tx.musteri;
             if (!hasCari) {
               skipped++;
               skippedTransactions.push({
                 transaction: tx,
-                reason: 'Cari işlemi için TEDARİKÇİ veya MÜŞTERİ kolonu boş',
+                reason: `Cari işlemi (${tx.mappedType}) için TEDARİKÇİ veya MÜŞTERİ kolonu boş`,
+                rowNumber,
+              });
+              continue;
+            }
+
+            // Cari ID'nin bulunabildiğini kontrol et
+            const cariName = tx.tedarikci || tx.musteri;
+            const cariId = idMaps.clients.get(cariName!.toLowerCase()) || null;
+            if (!cariId) {
+              skipped++;
+              skippedTransactions.push({
+                transaction: tx,
+                reason: `Cari bulunamadı: "${cariName}"`,
                 rowNumber,
               });
               continue;

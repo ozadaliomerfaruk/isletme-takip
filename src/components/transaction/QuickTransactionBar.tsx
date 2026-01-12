@@ -551,16 +551,16 @@ export function QuickTransactionBar({
           return;
         }
       }
-      if (type === 'personel_gider_tab' && !kategoriId && !categorySkipped) {
+      if ((type === 'personel_gider_tab' || type === 'personel_satis_tab') && !kategoriId && !categorySkipped) {
         setCategoryPickerOpen(true);
         return;
       }
     }
 
     // Hesap kontrolü (modal açma logicinden sonra)
-    // Alış/Satış/İade ve Personel Gider işlemlerinde hesap gerekmez
+    // Alış/Satış/İade ve Personel Gider/Satış işlemlerinde hesap gerekmez
     // Ödeme için de hesap kontrolü burada yapılmaz (ödeme türüne göre değişir)
-    const needsHesap = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab', 'odeme'].includes(type);
+    const needsHesap = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab', 'personel_satis_tab', 'odeme'].includes(type);
     if (needsHesap && !hesapId) {
       Alert.alert(t('common:status.error'), t('accounts:messages.noAccounts'));
       return;
@@ -610,7 +610,7 @@ export function QuickTransactionBar({
     }
 
     // Personel modu validasyonları
-    if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'].includes(type) && !personelId) {
+    if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab'].includes(type) && !personelId) {
       Alert.alert(t('common:status.error'), t('staff:transactionForm.selectPersonel'));
       return;
     }
@@ -715,10 +715,11 @@ export function QuickTransactionBar({
       if (type === 'personel_odeme_tab') apiType = 'personel_odeme';
       if (type === 'personel_gider_tab') apiType = 'personel_gider';
       if (type === 'personel_tahsilat_tab') apiType = 'personel_tahsilat';
+      if (type === 'personel_satis_tab') apiType = 'personel_satis';
 
       // Build transaction data
-      // Alış/Satış/İade ve Personel Gider işlemlerinde hesap_id gerekmez (nakit akışı yok)
-      const needsHesapForData = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab'].includes(type);
+      // Alış/Satış/İade ve Personel Gider/Satış işlemlerinde hesap_id gerekmez (nakit akışı yok)
+      const needsHesapForData = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab', 'personel_satis_tab'].includes(type);
       const transactionData: any = {
         type: apiType,
         amount: parsedAmount,
@@ -749,7 +750,7 @@ export function QuickTransactionBar({
         transactionData.cari_id = cariId;
       }
       // Personel modu işlem tipleri
-      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'].includes(type)) {
+      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab'].includes(type)) {
         transactionData.personel_id = personelId;
       }
 
@@ -839,9 +840,10 @@ export function QuickTransactionBar({
       if (type === 'personel_odeme_tab') apiType = 'personel_odeme';
       if (type === 'personel_gider_tab') apiType = 'personel_gider';
       if (type === 'personel_tahsilat_tab') apiType = 'personel_tahsilat';
+      if (type === 'personel_satis_tab') apiType = 'personel_satis';
 
       // Build transaction data with exchange rate info
-      const needsHesapForData = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab'].includes(type);
+      const needsHesapForData = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab', 'personel_satis_tab'].includes(type);
       const transactionData: any = {
         type: apiType,
         amount: parsedAmount,
@@ -873,7 +875,7 @@ export function QuickTransactionBar({
       if (type === 'alis' || type === 'satis' || type === 'alis_iade' || type === 'satis_iade') {
         transactionData.cari_id = cariId;
       }
-      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab'].includes(type)) {
+      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab'].includes(type)) {
         transactionData.personel_id = personelId;
       }
 
@@ -948,6 +950,7 @@ export function QuickTransactionBar({
     personel_odeme_tab: t('transactions:tabs.odeme'),
     personel_gider_tab: t('transactions:tabs.gider'),
     personel_tahsilat_tab: t('transactions:tabs.tahsilat'),
+    personel_satis_tab: t('transactions:tabs.personel_satis'),
     kredi_karti_gider: t('transactions:tabs.kredi_karti_gider'),
     kredi_karti_odeme: t('transactions:tabs.kredi_karti_odeme'),
     kredi_karti_ekstre: t('transactions:tabs.kredi_karti_ekstre'),
@@ -962,7 +965,7 @@ export function QuickTransactionBar({
     if (type === 'satis_iade') return 'gelir';
     if (type === 'alis_iade') return 'gider';
     // Personel tipleri için kategori
-    if (type === 'personel_tahsilat_tab') return 'gelir';
+    if (type === 'personel_tahsilat_tab' || type === 'personel_satis_tab') return 'gelir';
     if (type === 'personel_odeme_tab' || type === 'personel_gider_tab') return 'gider';
     return undefined;
   };

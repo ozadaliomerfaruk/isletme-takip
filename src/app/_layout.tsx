@@ -549,6 +549,18 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        {/* Arşiv */}
+        <Stack.Screen
+          name="arsiv/index"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('common:archive.title'),
+            headerShadowVisible: false,
+          }}
+        />
       </Stack>
     </>
   );

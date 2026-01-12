@@ -18,7 +18,7 @@ import {
   X,
   Share2,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
@@ -28,6 +28,7 @@ import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { getInitials } from '@/lib/utils';
 import { usePersonelById, useDeletePersonel, useUpdatePersonel } from '@/hooks/usePersonel';
+import { useUnarchivePersonel } from '@/hooks/useArchive';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
@@ -44,6 +45,7 @@ export default function PersonelHareketleriPage() {
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
   const updatePersonel = useUpdatePersonel();
+  const unarchivePersonel = useUnarchivePersonel();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
@@ -183,6 +185,15 @@ export default function PersonelHareketleriPage() {
     );
   };
 
+  const handleUnarchive = async () => {
+    try {
+      await unarchivePersonel.mutateAsync(id!);
+      Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+    }
+  };
+
   // Header right buttons (share + menu)
   const HeaderRightButtons = () => (
     <View style={styles.headerRightContainer}>
@@ -272,18 +283,30 @@ export default function PersonelHareketleriPage() {
             </View>
           </Card>
 
+          {/* Arşiv Banner */}
+          {personel.is_archived && (
+            <View style={styles.bannerContainer}>
+              <ArchivedBanner
+                onUnarchive={handleUnarchive}
+                loading={unarchivePersonel.isPending}
+              />
+            </View>
+          )}
+
           {/* Aksiyon Butonları */}
-          <View style={styles.actionButtons}>
-            <Button
-              variant="primary"
-              size="md"
-              icon={<Zap size={18} color={colors.surface} />}
-              onPress={() => setQuickBarVisible(true)}
-              style={styles.actionBtn}
-            >
-              {t('staff:details.newTransaction')}
-            </Button>
-          </View>
+          {!personel.is_archived && (
+            <View style={styles.actionButtons}>
+              <Button
+                variant="primary"
+                size="md"
+                icon={<Zap size={18} color={colors.surface} />}
+                onPress={() => setQuickBarVisible(true)}
+                style={styles.actionBtn}
+              >
+                {t('staff:details.newTransaction')}
+              </Button>
+            </View>
+          )}
 
           {/* İleri Tarihli İşlemler ve Hareketler */}
           <View style={styles.section}>
@@ -516,6 +539,10 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     margin: spacing.lg,
+  },
+  bannerContainer: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
   summaryRow: {
     flexDirection: 'row',

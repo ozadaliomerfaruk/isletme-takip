@@ -20,7 +20,7 @@ import {
   X,
   Share2,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ExportSheet } from '@/components/export';
@@ -30,6 +30,7 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
+import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
@@ -48,6 +49,7 @@ export default function CariHareketleriPage() {
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
   const updateCari = useUpdateCari();
+  const unarchiveCari = useUnarchiveCari();
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
@@ -206,6 +208,15 @@ export default function CariHareketleriPage() {
     );
   };
 
+  const handleUnarchive = async () => {
+    try {
+      await unarchiveCari.mutateAsync(id!);
+      Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+    }
+  };
+
   // Header right buttons (share + menu)
   const HeaderRightButtons = () => (
     <View style={styles.headerRightContainer}>
@@ -294,30 +305,42 @@ export default function CariHareketleriPage() {
             </View>
           </Card>
 
+          {/* Arşiv Banner */}
+          {cari.is_archived && (
+            <View style={styles.bannerContainer}>
+              <ArchivedBanner
+                onUnarchive={handleUnarchive}
+                loading={unarchiveCari.isPending}
+              />
+            </View>
+          )}
+
           {/* Aksiyon Butonlari */}
-          <View style={styles.actionButtons}>
-            <Button
-              variant="primary"
-              size="md"
-              icon={<Zap size={18} color={colors.surface} />}
-              onPress={() => setQuickBarVisible(true)}
-              style={styles.actionBtn}
-            >
-              {t('clients:details.newTransaction')}
-            </Button>
-            {/* Çek Kes - Sadece tedarikçiler için */}
-            {cari.type === 'tedarikci' && (
+          {!cari.is_archived && (
+            <View style={styles.actionButtons}>
               <Button
-                variant="outline"
+                variant="primary"
                 size="md"
-                icon={<FileCheck size={18} color={colors.info} />}
-                onPress={() => setShowCekKesSheet(true)}
-                style={[styles.actionBtn, { borderColor: colors.info }]}
+                icon={<Zap size={18} color={colors.surface} />}
+                onPress={() => setQuickBarVisible(true)}
+                style={styles.actionBtn}
               >
-                {t('checks:create')}
+                {t('clients:details.newTransaction')}
               </Button>
-            )}
-          </View>
+              {/* Çek Kes - Sadece tedarikçiler için */}
+              {cari.type === 'tedarikci' && (
+                <Button
+                  variant="outline"
+                  size="md"
+                  icon={<FileCheck size={18} color={colors.info} />}
+                  onPress={() => setShowCekKesSheet(true)}
+                  style={[styles.actionBtn, { borderColor: colors.info }]}
+                >
+                  {t('checks:create')}
+                </Button>
+              )}
+            </View>
+          )}
 
           {/* İleri Tarihli İşlemler ve Hareketler */}
           <View style={styles.section}>
@@ -582,6 +605,10 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     margin: spacing.lg,
+  },
+  bannerContainer: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
   summaryRow: {
     flexDirection: 'row',

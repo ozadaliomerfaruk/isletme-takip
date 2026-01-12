@@ -13,8 +13,11 @@
   },
   "tabs": {
     "general": "Genel",
-    "expenseAnalysis": "Gider Analizi",
-    "incomeAnalysis": "Gelir Analizi"
+    "expenseAnalysis": "Gider",
+    "incomeAnalysis": "Gelir",
+    "client": "Cari",
+    "personnel": "Personel",
+    "comparison": "Karşılaştır"
   },
   "summary": {
     "generalStatus": "Genel Durum",
@@ -144,6 +147,37 @@
     "vsLastYear": "Geçen yıla göre",
     "increase": "Artış",
     "decrease": "Azalış",
-    "noChange": "Değişim yok"
+    "noChange": "Değişim yok",
+    "net": "Net",
+    "last3Months": "Son 3 Ay",
+    "details": "DETAY TABLO",
+    "period": "Dönem"
+  },
+  "entityPicker": {
+    "selectClient": "Cari Seçin",
+    "selectStaff": "Personel Seçin",
+    "selected": "Seçili",
+    "viewAll": "Tümünü görüntüle",
+    "all": "Tümü",
+    "noClients": "Henüz cari kaydı yok",
+    "noStaff": "Henüz personel kaydı yok",
+    "selectClientPrompt": "Dönem bazlı işlemleri görmek için yukarıdan bir cari seçin",
+    "selectStaffPrompt": "Dönem bazlı işlemleri görmek için yukarıdan bir personel seçin"
+  },
+  "entitySummary": {
+    "period": "Dönem",
+    "purchases": "Alışlar",
+    "sales": "Satışlar",
+    "expenses": "Giderler",
+    "payments": "Ödemeler",
+    "collections": "Tahsilatlar",
+    "periodBalanceChange": "Dönem Bakiye Değişimi",
+    "currentBalance": "Mevcut Bakiye",
+    "theyOweUs": "Bize borçlu",
+    "weOweThem": "Borcumuz var",
+    "balanced": "Dengede"
+  },
+  "entityTransactions": {
+    "viewAll": "Tüm işlemleri gör ({{count}})"
   }
 }

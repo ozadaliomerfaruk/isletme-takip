@@ -27,6 +27,7 @@ const getHesapTypeConfig = (type: HesapType) => {
       return { icon: <Building2 size={20} color={colors.info} />, color: colors.info };
     case 'kredi_karti':
       return { icon: <CreditCard size={20} color={colors.warning} />, color: colors.warning };
+    case 'birikim':
     case 'diger':
       return { icon: <Vault size={20} color={colors.textSecondary} />, color: colors.textSecondary };
     default:

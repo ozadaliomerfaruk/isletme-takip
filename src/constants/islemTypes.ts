@@ -11,8 +11,9 @@ import { IslemType } from '@/types/database';
  * Gelir olarak sayılan işlem tipleri
  * - gelir: Hesaba doğrudan gelen gelir
  * - cari_satis: Müşteriye yapılan satış
+ * - personel_satis: Personele yapılan satış
  */
-export const INCOME_TYPES: IslemType[] = ['gelir', 'cari_satis'];
+export const INCOME_TYPES: IslemType[] = ['gelir', 'cari_satis', 'personel_satis'];
 
 /**
  * Gider olarak sayılan işlem tipleri
@@ -144,6 +145,7 @@ export const ISLEM_TYPE_LABELS: Record<IslemType, string> = {
   personel_gider: 'Personel Gideri',
   personel_odeme: 'Personel Ödemesi',
   personel_tahsilat: 'Personelden Tahsilat',
+  personel_satis: 'Personele Satış',
   nakit_avans_taksit: 'Nakit Avans Taksit',
 };
 

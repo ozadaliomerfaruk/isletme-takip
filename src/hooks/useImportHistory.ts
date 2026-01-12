@@ -293,13 +293,80 @@ export function useImportHistory() {
   }, [isletme]);
 
   /**
+   * Bir işlemin bakiyesini geri al
+   * Helper function for undoLastImport
+   */
+  const revertTransactionBalance = async (tx: {
+    id: string;
+    type: string;
+    amount: number;
+    hesap_id: string | null;
+    hedef_hesap_id: string | null;
+    cari_id: string | null;
+    personel_id: string | null;
+  }) => {
+    const amount = Number(tx.amount) || 0;
+
+    // Hesap bakiyesini geri al
+    if (tx.hesap_id) {
+      const isIncomeType = ['gelir', 'cari_tahsilat', 'personel_tahsilat'].includes(tx.type);
+      const reverseAmount = isIncomeType ? -amount : amount;
+
+      if (tx.type === 'transfer') {
+        await supabase.rpc('increment_balance', {
+          table_name: 'hesaplar',
+          row_id: tx.hesap_id,
+          amount: amount,
+        });
+      } else {
+        await supabase.rpc('increment_balance', {
+          table_name: 'hesaplar',
+          row_id: tx.hesap_id,
+          amount: reverseAmount,
+        });
+      }
+    }
+
+    // Transfer hedef hesabını geri al
+    if (tx.type === 'transfer' && tx.hedef_hesap_id) {
+      await supabase.rpc('increment_balance', {
+        table_name: 'hesaplar',
+        row_id: tx.hedef_hesap_id,
+        amount: -amount,
+      });
+    }
+
+    // Cari bakiyesini geri al
+    if (tx.cari_id) {
+      const reverseAmount = ['cari_tahsilat', 'cari_alis'].includes(tx.type) ? amount : -amount;
+      await supabase.rpc('increment_balance', {
+        table_name: 'cariler',
+        row_id: tx.cari_id,
+        amount: reverseAmount,
+      });
+    }
+
+    // Personel bakiyesini geri al
+    if (tx.personel_id) {
+      const reverseAmount = tx.type === 'personel_odeme' ? amount : -amount;
+      await supabase.rpc('increment_balance', {
+        table_name: 'personel',
+        row_id: tx.personel_id,
+        amount: reverseAmount,
+      });
+    }
+  };
+
+  /**
    * Son importu tamamen geri al
-   * 1. İşlemlerin bakiyelerini geri alır
-   * 2. İşlemleri siler
-   * 3. Oluşturulan kategorileri siler
-   * 4. Oluşturulan hesapları siler
-   * 5. Oluşturulan carileri siler
-   * 6. Oluşturulan personeli siler
+   * Import edilen hesap/cari/personel ile ilişkili TÜM işlemleri siler (import sonrası girilenler dahil)
+   *
+   * Sıralama:
+   * 1. Import edilen hesap/cari/personel ile ilişkili TÜM işlemleri bul ve sil
+   * 2. Import edilen kategorileri sil/deaktive et
+   * 3. Import edilen hesapları sil
+   * 4. Import edilen carileri sil
+   * 5. Import edilen personeli sil
    */
   const undoLastImport = useCallback(async (): Promise<{
     success: boolean;
@@ -337,7 +404,7 @@ export function useImportHistory() {
 
       if (__DEV__) {
         console.log('Undo import: Starting full undo', {
-          transactions: transactionIds.length,
+          importedTransactions: transactionIds.length,
           categories: createdCategoryIds.length,
           reactivatedCategories: reactivatedCategoryIds.length,
           accounts: createdAccountIds.length,
@@ -346,96 +413,118 @@ export function useImportHistory() {
         });
       }
 
-      // 1. ÖNCE İŞLEMLERİN BAKİYELERİNİ GERİ AL
-      if (transactionIds.length > 0) {
-        if (__DEV__) {
-          console.log('Undo import: Reverting transaction balances...');
-        }
+      // ========================================================================
+      // 1. İMPORT EDİLEN ENTITY'LERLE İLİŞKİLİ TÜM İŞLEMLERİ BUL VE SİL
+      // (Import sonrası girilenler dahil)
+      // ========================================================================
 
-        const { data: transactions, error: fetchError } = await supabase
+      let totalDeletedTransactions = 0;
+      const allRelatedTransactionIds = new Set<string>(transactionIds);
+
+      // 1a. Import edilen HESAPLARLA ilişkili işlemleri bul
+      if (createdAccountIds.length > 0) {
+        const { data: accountTx, error: accTxError } = await supabase
           .from('islemler')
           .select('id, type, amount, hesap_id, hedef_hesap_id, cari_id, personel_id')
-          .in('id', transactionIds);
+          .eq('isletme_id', isletme.id)
+          .or(`hesap_id.in.(${createdAccountIds.join(',')}),hedef_hesap_id.in.(${createdAccountIds.join(',')})`);
 
-        if (fetchError) {
-          throw new Error(`İşlemler alınamadı: ${fetchError.message}`);
-        }
-
-        if (transactions && transactions.length > 0) {
-          for (const tx of transactions) {
-            const amount = Number(tx.amount) || 0;
-
-            // Hesap bakiyesini geri al
-            if (tx.hesap_id) {
-              const isIncomeType = ['gelir', 'cari_tahsilat', 'personel_tahsilat'].includes(tx.type);
-              const reverseAmount = isIncomeType ? -amount : amount;
-
-              if (tx.type === 'transfer') {
-                await supabase.rpc('increment_balance', {
-                  table_name: 'hesaplar',
-                  row_id: tx.hesap_id,
-                  amount: amount,
-                });
-              } else {
-                await supabase.rpc('increment_balance', {
-                  table_name: 'hesaplar',
-                  row_id: tx.hesap_id,
-                  amount: reverseAmount,
-                });
-              }
-            }
-
-            // Transfer hedef hesabını geri al
-            if (tx.type === 'transfer' && tx.hedef_hesap_id) {
-              await supabase.rpc('increment_balance', {
-                table_name: 'hesaplar',
-                row_id: tx.hedef_hesap_id,
-                amount: -amount,
-              });
-            }
-
-            // Cari bakiyesini geri al
-            if (tx.cari_id) {
-              const reverseAmount = ['cari_tahsilat', 'cari_alis'].includes(tx.type) ? amount : -amount;
-              await supabase.rpc('increment_balance', {
-                table_name: 'cariler',
-                row_id: tx.cari_id,
-                amount: reverseAmount,
-              });
-            }
-
-            // Personel bakiyesini geri al
-            if (tx.personel_id) {
-              const reverseAmount = tx.type === 'personel_odeme' ? amount : -amount;
-              await supabase.rpc('increment_balance', {
-                table_name: 'personel',
-                row_id: tx.personel_id,
-                amount: reverseAmount,
-              });
-            }
-          }
-
+        if (!accTxError && accountTx) {
+          accountTx.forEach(tx => allRelatedTransactionIds.add(tx.id));
           if (__DEV__) {
-            console.log('Undo import: Balances reverted');
+            console.log('Found transactions related to imported accounts:', accountTx.length);
           }
-        }
-
-        // 2. İŞLEMLERİ SİL
-        const { error: txDeleteError } = await supabase
-          .from('islemler')
-          .delete()
-          .in('id', transactionIds);
-
-        if (txDeleteError) {
-          throw new Error(`İşlemler silinemedi: ${txDeleteError.message}`);
-        }
-
-        if (__DEV__) {
-          console.log('Undo import: Transactions deleted', { count: transactionIds.length });
         }
       }
 
-      // 3. KATEGORİLERİ SİL
+      // 1b. Import edilen CARİLERLE ilişkili işlemleri bul
+      if (createdClientIds.length > 0) {
+        const { data: cariTx, error: cariTxError } = await supabase
+          .from('islemler')
+          .select('id, type, amount, hesap_id, hedef_hesap_id, cari_id, personel_id')
+          .eq('isletme_id', isletme.id)
+          .in('cari_id', createdClientIds);
+
+        if (!cariTxError && cariTx) {
+          cariTx.forEach(tx => allRelatedTransactionIds.add(tx.id));
+          if (__DEV__) {
+            console.log('Found transactions related to imported clients:', cariTx.length);
+          }
+        }
+      }
+
+      // 1c. Import edilen PERSONELLE ilişkili işlemleri bul
+      if (createdPersonelIds.length > 0) {
+        const { data: personelTx, error: personelTxError } = await supabase
+          .from('islemler')
+          .select('id, type, amount, hesap_id, hedef_hesap_id, cari_id, personel_id')
+          .eq('isletme_id', isletme.id)
+          .in('personel_id', createdPersonelIds);
+
+        if (!personelTxError && personelTx) {
+          personelTx.forEach(tx => allRelatedTransactionIds.add(tx.id));
+          if (__DEV__) {
+            console.log('Found transactions related to imported personel:', personelTx.length);
+          }
+        }
+      }
+
+      // 1d. Tüm ilişkili işlemleri getir ve bakiyelerini geri al
+      const allTxIds = Array.from(allRelatedTransactionIds);
+      if (allTxIds.length > 0) {
+        if (__DEV__) {
+          console.log('Undo import: Reverting balances for', allTxIds.length, 'transactions');
+        }
+
+        // Batch halinde işle (Supabase'in IN limiti nedeniyle)
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < allTxIds.length; i += BATCH_SIZE) {
+          const batch = allTxIds.slice(i, i + BATCH_SIZE);
+
+          const { data: transactions, error: fetchError } = await supabase
+            .from('islemler')
+            .select('id, type, amount, hesap_id, hedef_hesap_id, cari_id, personel_id')
+            .in('id', batch);
+
+          if (fetchError) {
+            if (__DEV__) {
+              console.error('İşlem fetch hatası:', fetchError);
+            }
+            continue;
+          }
+
+          if (transactions) {
+            for (const tx of transactions) {
+              await revertTransactionBalance(tx);
+            }
+          }
+        }
+
+        // İşlemleri sil (batch halinde)
+        for (let i = 0; i < allTxIds.length; i += BATCH_SIZE) {
+          const batch = allTxIds.slice(i, i + BATCH_SIZE);
+
+          const { error: txDeleteError } = await supabase
+            .from('islemler')
+            .delete()
+            .in('id', batch);
+
+          if (txDeleteError) {
+            if (__DEV__) {
+              console.error('İşlem silme hatası:', txDeleteError);
+            }
+          }
+        }
+
+        totalDeletedTransactions = allTxIds.length;
+        if (__DEV__) {
+          console.log('Undo import: Deleted', totalDeletedTransactions, 'transactions (including post-import)');
+        }
+      }
+
+      // ========================================================================
+      // 2. KATEGORİLERİ SİL / DEAKTİVE ET
+      // ========================================================================
       let deletedCategories = 0;
       if (createdCategoryIds.length > 0) {
         const { error: catDeleteError } = await supabase
@@ -447,7 +536,6 @@ export function useImportHistory() {
           if (__DEV__) {
             console.error('Kategori silme hatası:', catDeleteError);
           }
-          // Devam et, kritik değil
         } else {
           deletedCategories = createdCategoryIds.length;
           if (__DEV__) {
@@ -456,7 +544,6 @@ export function useImportHistory() {
         }
       }
 
-      // 3b. REAKTİVE EDİLEN KATEGORİLERİ DEAKTİVE ET
       let deactivatedCategories = 0;
       if (reactivatedCategoryIds.length > 0) {
         const { error: catDeactivateError } = await supabase
@@ -468,7 +555,6 @@ export function useImportHistory() {
           if (__DEV__) {
             console.error('Kategori deaktive hatası:', catDeactivateError);
           }
-          // Devam et, kritik değil
         } else {
           deactivatedCategories = reactivatedCategoryIds.length;
           if (__DEV__) {
@@ -477,7 +563,9 @@ export function useImportHistory() {
         }
       }
 
-      // 4. HESAPLARI SİL
+      // ========================================================================
+      // 3. HESAPLARI SİL
+      // ========================================================================
       let deletedAccounts = 0;
       if (createdAccountIds.length > 0) {
         const { error: accDeleteError } = await supabase
@@ -489,7 +577,6 @@ export function useImportHistory() {
           if (__DEV__) {
             console.error('Hesap silme hatası:', accDeleteError);
           }
-          // Devam et, kritik değil
         } else {
           deletedAccounts = createdAccountIds.length;
           if (__DEV__) {
@@ -498,7 +585,9 @@ export function useImportHistory() {
         }
       }
 
-      // 5. CARİLERİ SİL
+      // ========================================================================
+      // 4. CARİLERİ SİL
+      // ========================================================================
       let deletedClients = 0;
       if (createdClientIds.length > 0) {
         const { error: cariDeleteError } = await supabase
@@ -510,7 +599,6 @@ export function useImportHistory() {
           if (__DEV__) {
             console.error('Cari silme hatası:', cariDeleteError);
           }
-          // Devam et, kritik değil
         } else {
           deletedClients = createdClientIds.length;
           if (__DEV__) {
@@ -519,7 +607,9 @@ export function useImportHistory() {
         }
       }
 
-      // 6. PERSONELİ SİL
+      // ========================================================================
+      // 5. PERSONELİ SİL
+      // ========================================================================
       let deletedPersonel = 0;
       if (createdPersonelIds.length > 0) {
         const { error: personelDeleteError } = await supabase
@@ -531,7 +621,6 @@ export function useImportHistory() {
           if (__DEV__) {
             console.error('Personel silme hatası:', personelDeleteError);
           }
-          // Devam et, kritik değil
         } else {
           deletedPersonel = createdPersonelIds.length;
           if (__DEV__) {
@@ -540,7 +629,9 @@ export function useImportHistory() {
         }
       }
 
-      // 7. LOCAL STORAGE'I TEMİZLE
+      // ========================================================================
+      // 6. LOCAL STORAGE'I TEMİZLE
+      // ========================================================================
       await AsyncStorage.removeItem(LAST_IMPORT_KEY);
       setLastImport(null);
 
@@ -562,11 +653,11 @@ export function useImportHistory() {
       }
 
       const totalCategories = deletedCategories + deactivatedCategories;
-      const totalDeleted = transactionIds.length + totalCategories + deletedAccounts + deletedClients + deletedPersonel;
+      const totalDeleted = totalDeletedTransactions + totalCategories + deletedAccounts + deletedClients + deletedPersonel;
 
       if (__DEV__) {
         console.log('Undo import: Complete', {
-          transactions: transactionIds.length,
+          transactions: totalDeletedTransactions,
           categoriesDeleted: deletedCategories,
           categoriesDeactivated: deactivatedCategories,
           accounts: deletedAccounts,
@@ -580,8 +671,8 @@ export function useImportHistory() {
         success: true,
         deletedCount: totalDeleted,
         deletedEntities: {
-          transactions: transactionIds.length,
-          categories: totalCategories, // Hem silinen hem deaktive edilen kategoriler
+          transactions: totalDeletedTransactions,
+          categories: totalCategories,
           accounts: deletedAccounts,
           clients: deletedClients,
           personel: deletedPersonel,

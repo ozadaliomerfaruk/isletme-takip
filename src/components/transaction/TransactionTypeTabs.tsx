@@ -24,6 +24,7 @@ export type TransactionType =
   | 'personel_odeme_tab'
   | 'personel_gider_tab'
   | 'personel_tahsilat_tab'
+  | 'personel_satis_tab'
   | 'kredi_karti_gider'
   | 'kredi_karti_odeme'
   | 'kredi_karti_ekstre';
@@ -58,6 +59,7 @@ const ALL_TABS: TabConfig[] = [
   { type: 'personel_odeme_tab', labelKey: 'transactions:tabs.personel_odeme', color: colors.success, bgColor: colors.successLight },
   { type: 'personel_gider_tab', labelKey: 'transactions:tabs.personel_gider', color: colors.error, bgColor: colors.errorLight },
   { type: 'personel_tahsilat_tab', labelKey: 'transactions:tabs.personel_tahsilat', color: colors.info, bgColor: colors.infoLight },
+  { type: 'personel_satis_tab', labelKey: 'transactions:tabs.personel_satis', color: colors.primary, bgColor: colors.primaryLight },
   // Kredi kartı sekmeleri
   { type: 'kredi_karti_gider', labelKey: 'transactions:tabs.kredi_karti_gider', color: colors.error, bgColor: colors.errorLight },
   { type: 'kredi_karti_odeme', labelKey: 'transactions:tabs.kredi_karti_odeme', color: colors.orange, bgColor: colors.orangeLight },
@@ -68,13 +70,13 @@ const ALL_TABS: TabConfig[] = [
 const NORMAL_TABS: TransactionType[] = ['gelir', 'gider', 'transfer', 'odeme', 'tahsilat'];
 
 // Tedarikçi cari modu için sekmeler
-const TEDARIKCI_TABS: TransactionType[] = ['alis', 'odeme', 'alis_iade'];
+const TEDARIKCI_TABS: TransactionType[] = ['alis', 'satis', 'odeme', 'alis_iade'];
 
 // Müşteri cari modu için sekmeler
-const MUSTERI_TABS: TransactionType[] = ['satis', 'tahsilat', 'satis_iade'];
+const MUSTERI_TABS: TransactionType[] = ['satis', 'alis', 'tahsilat', 'satis_iade'];
 
 // Personel modu için sekmeler
-const PERSONEL_TABS: TransactionType[] = ['personel_gider_tab', 'personel_odeme_tab', 'personel_tahsilat_tab'];
+const PERSONEL_TABS: TransactionType[] = ['personel_gider_tab', 'personel_satis_tab', 'personel_odeme_tab', 'personel_tahsilat_tab'];
 
 // Kredi kartı modu için sekmeler
 const KREDI_KARTI_TABS: TransactionType[] = ['kredi_karti_gider', 'kredi_karti_odeme', 'kredi_karti_ekstre'];

@@ -17,6 +17,7 @@ export function useCariler(type?: CariType, includePassive: boolean = false) {
         .from('cariler')
         .select('*')
         .eq('isletme_id', isletme.id)
+        .eq('is_archived', false) // Arşivlenmiş carileri hariç tut
         .order('name', { ascending: true });
 
       // Sadece aktif carileri getir (varsayılan davranış)

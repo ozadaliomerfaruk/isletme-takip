@@ -15,11 +15,13 @@ export const ACCOUNTS = {
   },
 
   // Hesap tipleri (display)
+  // 'diger' ve 'birikim' aynı şeyi gösteriyor - backward compatibility
   types: {
     nakit: 'Nakit',
     banka: 'Banka Hesabı',
     kredi_karti: 'Kredi Kartı',
-    diger: 'Diğer',
+    birikim: 'Birikim',
+    diger: 'Birikim', // eski değer, Birikim olarak göster
   },
 
   // Hesap tipi açıklamaları
@@ -27,7 +29,8 @@ export const ACCOUNTS = {
     nakit: 'Elde tutulan nakit para',
     banka: 'Banka hesabındaki para',
     kredi_karti: 'Kredi kartı borç takibi',
-    diger: 'Diğer para kaynakları',
+    birikim: 'Birikim ve yatırım hesapları (altın, döviz vb.)',
+    diger: 'Birikim ve yatırım hesapları (altın, döviz vb.)', // eski değer
   },
 
   // Hesap tipi etiketleri (kısa - seçim kartları için)
@@ -35,7 +38,8 @@ export const ACCOUNTS = {
     nakit: 'Nakit',
     banka: 'Banka',
     kredi_karti: 'Kredi Kartı',
-    diger: 'Diğer',
+    birikim: 'Birikim',
+    diger: 'Birikim', // eski değer
   },
 
   // Form etiketleri

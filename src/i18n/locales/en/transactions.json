@@ -12,6 +12,7 @@
     "personel_gider": "Staff Expense",
     "personel_odeme": "Staff Payment",
     "personel_tahsilat": "Staff Payment Received",
+    "personel_satis": "Staff Sale",
     "kredi_karti_harcama": "Credit Card Expense",
     "nakit_avans_taksit": "Cash Advance Installment"
   },
@@ -155,6 +156,7 @@
     "personel_odeme": "Payment",
     "personel_gider": "Expense",
     "personel_tahsilat": "Payment Received",
+    "personel_satis": "Sale",
     "kredi_karti_gider": "Spending",
     "kredi_karti_odeme": "Payment",
     "kredi_karti_ekstre": "Pay Statement"

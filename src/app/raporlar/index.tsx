@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,8 +22,16 @@ import {
   ChevronRight,
   X,
   CreditCard,
+  BarChart3,
 } from 'lucide-react-native';
 import { Text, Card, TabFilter, CategoryReportCard, Button } from '@/components/ui';
+import {
+  EntityPicker,
+  EntitySummaryCard,
+  EntityTransactionList,
+  PeriodComparisonChart,
+  TrendIndicator,
+} from '@/components/reports';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -32,12 +40,12 @@ import { toNumber } from '@/lib/currency';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
 import { useCariler, useCariSummary } from '@/hooks/useCariler';
 import { usePersonelList, usePersonelSummary } from '@/hooks/usePersonel';
-import { PeriodType } from '@/hooks/useIslemler';
+import { PeriodType, useIslemlerByCari, useIslemlerByPersonel, useMonthSummary } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
 import { useTranslation } from 'react-i18next';
 
-type TabType = 'genel' | 'gider' | 'gelir';
+type TabType = 'genel' | 'gider' | 'gelir' | 'cari' | 'personel' | 'karsilastirma';
 
 export default function RaporlarPage() {
   const router = useRouter();
@@ -49,6 +57,9 @@ export default function RaporlarPage() {
     { label: t('reports:tabs.general'), value: 'genel' },
     { label: t('reports:tabs.expenseAnalysis'), value: 'gider' },
     { label: t('reports:tabs.incomeAnalysis'), value: 'gelir' },
+    { label: t('reports:tabs.client'), value: 'cari' },
+    { label: t('reports:tabs.personnel'), value: 'personel' },
+    { label: t('reports:tabs.comparison'), value: 'karsilastirma' },
   ];
 
   const PERIOD_OPTIONS = [
@@ -63,10 +74,20 @@ export default function RaporlarPage() {
   const [period, setPeriod] = useState<PeriodType>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
 
+  // Cari ve Personel tab için seçim state'leri
+  const [selectedCariId, setSelectedCariId] = useState<string | null>(null);
+  const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
+
+  // Karşılaştırma tab için metrik seçimi
+  const [comparisonMetric, setComparisonMetric] = useState<'income' | 'expense' | 'net'>('income');
+
   // URL parametresinden tab ayarla
   useEffect(() => {
     if (tab === 'gider') setActiveTab('gider');
     else if (tab === 'gelir') setActiveTab('gelir');
+    else if (tab === 'cari') setActiveTab('cari');
+    else if (tab === 'personel') setActiveTab('personel');
+    else if (tab === 'karsilastirma') setActiveTab('karsilastirma');
   }, [tab]);
 
   // Özel tarih aralığı için state'ler
@@ -107,6 +128,37 @@ export default function RaporlarPage() {
     startDate,
     endDate,
   });
+
+  // Cari ve Personel işlemleri
+  const { data: cariIslemler = [], isLoading: cariIslemlerLoading } = useIslemlerByCari(selectedCariId || '');
+  const { data: personelIslemler = [], isLoading: personelIslemlerLoading } = useIslemlerByPersonel(selectedPersonelId || '');
+
+  // Dönem içi cari işlemleri
+  const filteredCariIslemler = useMemo(() => {
+    if (!cariIslemler) return [];
+    return cariIslemler.filter((islem) => {
+      const islemDate = islem.date;
+      return islemDate >= startDate && islemDate <= endDate;
+    });
+  }, [cariIslemler, startDate, endDate]);
+
+  // Dönem içi personel işlemleri
+  const filteredPersonelIslemler = useMemo(() => {
+    if (!personelIslemler) return [];
+    return personelIslemler.filter((islem) => {
+      const islemDate = islem.date;
+      return islemDate >= startDate && islemDate <= endDate;
+    });
+  }, [personelIslemler, startDate, endDate]);
+
+  // Karşılaştırma için son 3 ay verileri
+  const month1Summary = useMonthSummary('monthly', -2);
+  const month2Summary = useMonthSummary('monthly', -1);
+  const month3Summary = useMonthSummary('monthly', 0);
+
+  // Seçili cari ve personel
+  const selectedCari = cariler?.find((c) => c.id === selectedCariId) || null;
+  const selectedPersonel = personelList?.find((p) => p.id === selectedPersonelId) || null;
 
   // Kategori detay sayfasına git
   const handleCategoryPress = (kategoriId: string | null, type: 'gelir' | 'gider') => {
@@ -462,6 +514,246 @@ export default function RaporlarPage() {
     </>
   );
 
+  // Cari Raporu Tab İçeriği
+  const renderCariTab = () => (
+    <>
+      <View style={styles.section}>
+        <EntityPicker
+          type="cari"
+          entities={cariler || []}
+          selectedId={selectedCariId}
+          onSelect={setSelectedCariId}
+        />
+      </View>
+
+      {selectedCariId && selectedCari ? (
+        <>
+          <View style={styles.section}>
+            <EntitySummaryCard
+              type="cari"
+              entity={selectedCari}
+              transactions={filteredCariIslemler}
+              periodLabel={periodLabel}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text variant="label" color="secondary" style={styles.sectionTitle}>
+              {t('reports:sections.transactions')}
+            </Text>
+            {cariIslemlerLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <EntityTransactionList
+                transactions={filteredCariIslemler}
+                maxItems={20}
+              />
+            )}
+          </View>
+        </>
+      ) : (
+        <View style={styles.section}>
+          <Card style={styles.emptyCard}>
+            <Building2 size={48} color={colors.textMuted} style={{ alignSelf: 'center', marginBottom: spacing.md }} />
+            <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
+              {t('reports:entityPicker.selectClientPrompt')}
+            </Text>
+          </Card>
+        </View>
+      )}
+    </>
+  );
+
+  // Personel Raporu Tab İçeriği
+  const renderPersonelTab = () => (
+    <>
+      <View style={styles.section}>
+        <EntityPicker
+          type="personel"
+          entities={personelList || []}
+          selectedId={selectedPersonelId}
+          onSelect={setSelectedPersonelId}
+        />
+      </View>
+
+      {selectedPersonelId && selectedPersonel ? (
+        <>
+          <View style={styles.section}>
+            <EntitySummaryCard
+              type="personel"
+              entity={selectedPersonel}
+              transactions={filteredPersonelIslemler}
+              periodLabel={periodLabel}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text variant="label" color="secondary" style={styles.sectionTitle}>
+              {t('reports:sections.transactions')}
+            </Text>
+            {personelIslemlerLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color={colors.primary} />
+              </View>
+            ) : (
+              <EntityTransactionList
+                transactions={filteredPersonelIslemler}
+                maxItems={20}
+              />
+            )}
+          </View>
+        </>
+      ) : (
+        <View style={styles.section}>
+          <Card style={styles.emptyCard}>
+            <Users size={48} color={colors.textMuted} style={{ alignSelf: 'center', marginBottom: spacing.md }} />
+            <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
+              {t('reports:entityPicker.selectStaffPrompt')}
+            </Text>
+          </Card>
+        </View>
+      )}
+    </>
+  );
+
+  // Karşılaştırma Tab İçeriği
+  const renderKarsilastirmaTab = () => {
+    const COMPARISON_OPTIONS = [
+      { label: t('reports:summary.income'), value: 'income' },
+      { label: t('reports:summary.expense'), value: 'expense' },
+      { label: t('reports:comparison.net'), value: 'net' },
+    ];
+
+    // Summary verilerini normalize et
+    const getSummaryData = (summary: typeof month1Summary) => ({
+      income: summary.data?.income ?? 0,
+      expense: summary.data?.expense ?? 0,
+      periodLabel: summary.periodLabel,
+    });
+
+    const month1Data = getSummaryData(month1Summary);
+    const month2Data = getSummaryData(month2Summary);
+    const month3Data = getSummaryData(month3Summary);
+
+    // Chart için veri hazırla
+    const getComparisonData = () => {
+      const getData = (summary: { income: number; expense: number; periodLabel: string }, isCurrentPeriod: boolean) => {
+        let value = 0;
+        switch (comparisonMetric) {
+          case 'income':
+            value = summary.income;
+            break;
+          case 'expense':
+            value = summary.expense;
+            break;
+          case 'net':
+            value = summary.income - summary.expense;
+            break;
+        }
+        return {
+          label: summary.periodLabel,
+          value,
+          isCurrentPeriod,
+        };
+      };
+
+      return [
+        getData(month1Data, false),
+        getData(month2Data, false),
+        getData(month3Data, true),
+      ];
+    };
+
+    const chartData = getComparisonData();
+    const chartColor = comparisonMetric === 'expense' ? colors.error : colors.success;
+
+    return (
+      <>
+        <View style={styles.section}>
+          <TabFilter
+            options={COMPARISON_OPTIONS}
+            value={comparisonMetric}
+            onChange={(v) => setComparisonMetric(v as 'income' | 'expense' | 'net')}
+          />
+        </View>
+
+        <View style={styles.section}>
+          <Card style={styles.comparisonCard}>
+            <PeriodComparisonChart
+              data={chartData}
+              title={t('reports:comparison.last3Months')}
+              color={chartColor}
+              showTrend={true}
+              height={200}
+            />
+          </Card>
+        </View>
+
+        {/* Detay Tablo */}
+        <View style={styles.section}>
+          <Text variant="label" color="secondary" style={styles.sectionTitle}>
+            {t('reports:comparison.details')}
+          </Text>
+          <Card>
+            <View style={styles.comparisonTable}>
+              {/* Başlık satırı */}
+              <View style={[styles.comparisonRow, styles.comparisonHeaderRow]}>
+                <Text variant="caption" color="secondary" style={styles.comparisonCell}>
+                  {t('reports:comparison.period')}
+                </Text>
+                <Text variant="caption" color="secondary" style={styles.comparisonCell}>
+                  {t('reports:summary.income')}
+                </Text>
+                <Text variant="caption" color="secondary" style={styles.comparisonCell}>
+                  {t('reports:summary.expense')}
+                </Text>
+                <Text variant="caption" color="secondary" style={styles.comparisonCell}>
+                  {t('reports:comparison.net')}
+                </Text>
+              </View>
+              {/* Veri satırları */}
+              {[month1Data, month2Data, month3Data].map((summary, index) => {
+                const net = summary.income - summary.expense;
+                const isCurrentMonth = index === 2;
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.comparisonRow,
+                      isCurrentMonth && styles.comparisonCurrentRow,
+                    ]}
+                  >
+                    <Text
+                      variant="body"
+                      style={[styles.comparisonCell, isCurrentMonth && styles.comparisonCurrentText]}
+                    >
+                      {summary.periodLabel}
+                    </Text>
+                    <Text variant="body" color="success" style={styles.comparisonCell}>
+                      {formatCurrency(summary.income)}
+                    </Text>
+                    <Text variant="body" color="error" style={styles.comparisonCell}>
+                      {formatCurrency(summary.expense)}
+                    </Text>
+                    <Text
+                      variant="body"
+                      color={net >= 0 ? 'success' : 'error'}
+                      style={styles.comparisonCell}
+                    >
+                      {net >= 0 ? '+' : ''}{formatCurrency(net)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </Card>
+        </View>
+      </>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -474,8 +766,8 @@ export default function RaporlarPage() {
           />
         </View>
 
-        {/* Dönem Seçici - Sadece Gider ve Gelir sekmelerinde göster */}
-        {activeTab !== 'genel' && (
+        {/* Dönem Seçici - Genel ve Karşılaştırma hariç tüm sekmelerde göster */}
+        {activeTab !== 'genel' && activeTab !== 'karsilastirma' && (
         <View style={styles.periodFilter}>
           <TabFilter
             options={PERIOD_OPTIONS}
@@ -636,6 +928,9 @@ export default function RaporlarPage() {
         {activeTab === 'genel' && renderGenelTab()}
         {activeTab === 'gider' && renderGiderTab()}
         {activeTab === 'gelir' && renderGelirTab()}
+        {activeTab === 'cari' && renderCariTab()}
+        {activeTab === 'personel' && renderPersonelTab()}
+        {activeTab === 'karsilastirma' && renderKarsilastirmaTab()}
       </ScrollView>
     </SafeAreaView>
   );
@@ -897,5 +1192,34 @@ const styles = StyleSheet.create({
     height: 50,
     backgroundColor: colors.border,
     marginHorizontal: spacing.md,
+  },
+  // Karşılaştırma Tab stilleri
+  comparisonCard: {
+    padding: spacing.lg,
+  },
+  comparisonTable: {
+    gap: 0,
+  },
+  comparisonRow: {
+    flexDirection: 'row',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  comparisonHeaderRow: {
+    backgroundColor: colors.surfaceLight,
+    borderBottomWidth: 2,
+  },
+  comparisonCurrentRow: {
+    backgroundColor: colors.primaryLight,
+  },
+  comparisonCell: {
+    flex: 1,
+    fontSize: 12,
+  },
+  comparisonCurrentText: {
+    fontWeight: '600',
+    color: colors.primary,
   },
 });

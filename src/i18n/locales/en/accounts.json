@@ -13,18 +13,21 @@
     "nakit": "Cash",
     "banka": "Bank Account",
     "kredi_karti": "Credit Card",
+    "birikim": "Savings",
     "diger": "Savings"
   },
   "typeDescriptions": {
     "nakit": "Cash on hand",
     "banka": "Money in bank account",
     "kredi_karti": "Credit card debt tracking",
+    "birikim": "Savings, investments, gold, etc.",
     "diger": "Savings or emergency fund"
   },
   "typeLabels": {
     "nakit": "Cash",
     "banka": "Bank",
     "kredi_karti": "Credit Card",
+    "birikim": "Savings",
     "diger": "Savings"
   },
   "form": {

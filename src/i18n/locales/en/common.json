@@ -278,5 +278,31 @@
       "closingBalance": "CLOSING BALANCE",
       "sheetName": "Statement"
     }
+  },
+  "archive": {
+    "title": "Archive",
+    "tabs": {
+      "accounts": "Accounts",
+      "suppliers": "Suppliers",
+      "customers": "Customers",
+      "staff": "Staff"
+    },
+    "actions": {
+      "archive": "Move to Archive",
+      "unarchive": "Restore from Archive",
+      "permanentDelete": "Delete Permanently"
+    },
+    "messages": {
+      "archiveConfirm": "Are you sure you want to archive this item?",
+      "unarchiveConfirm": "Are you sure you want to restore this item from archive?",
+      "archiveSuccess": "Moved to archive",
+      "unarchiveSuccess": "Restored from archive",
+      "archivedBanner": "This item is archived. New transactions cannot be added.",
+      "emptyArchive": "No items in archive",
+      "itemCount": "{{count}} items in archive"
+    },
+    "search": {
+      "placeholder": "Search archive..."
+    }
   }
 }

@@ -17,7 +17,7 @@ import {
   X,
   Share2,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType } from '@/components/transaction';
 import { ExportSheet } from '@/components/export';
@@ -26,6 +26,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort, formatDateSmart, formatTime, isSameYear } from '@/lib/date';
 import { useHesap, useDeleteHesap, useUpdateHesap } from '@/hooks/useHesaplar';
+import { useUnarchiveHesap } from '@/hooks/useArchive';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByHesap } from '@/hooks/useCekler';
@@ -47,6 +48,16 @@ export default function HesapHareketleriPage() {
   const deleteIslem = useDeleteIslem();
   const deleteHesap = useDeleteHesap();
   const updateHesap = useUpdateHesap();
+  const unarchiveHesap = useUnarchiveHesap();
+
+  const handleUnarchive = async () => {
+    try {
+      await unarchiveHesap.mutateAsync(id!);
+      Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+    }
+  };
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [showTransactionBar, setShowTransactionBar] = useState(false);
@@ -438,6 +449,16 @@ export default function HesapHareketleriPage() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {/* Arşiv Banner */}
+          {hesap.is_archived && (
+            <View style={styles.bannerContainer}>
+              <ArchivedBanner
+                onUnarchive={handleUnarchive}
+                loading={unarchiveHesap.isPending}
+              />
+            </View>
+          )}
+
           {/* Hesap Özeti */}
           <Card style={styles.summaryCard}>
             <View style={styles.summaryRow}>
@@ -800,6 +821,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  bannerContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   summaryCard: {
     margin: spacing.lg,

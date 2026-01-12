@@ -386,6 +386,13 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
         }
       }
       break;
+
+    case 'personel_satis':
+      // Personele satış - personel bakiyesi artar (personelden alacağımız artar), hesap değişmez
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, amount);
+      }
+      break;
   }
 }
 
@@ -718,6 +725,13 @@ async function reverseBalances(islem: Islem) {
         if (islem.hesap_id) {
           await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
         }
+      }
+      break;
+
+    case 'personel_satis':
+      // Personele satış geri al - personel bakiyesi azalır (alacağımız azalır)
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, -amount);
       }
       break;
   }

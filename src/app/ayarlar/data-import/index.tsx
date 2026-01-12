@@ -63,7 +63,7 @@ const HESAP_TYPES = [
   { value: 'banka', label: 'Banka' },
   { value: 'nakit', label: 'Nakit / Kasa' },
   { value: 'kredi_karti', label: 'Kredi Kartı' },
-  { value: 'diger', label: 'Diğer' },
+  { value: 'birikim', label: 'Birikim' },
 ] as const;
 
 // Cari alt tipleri
@@ -300,7 +300,7 @@ export default function VeriIceAktarPage() {
   };
 
   // Hesap alt tipini değiştir
-  const setHesapSubType = (name: string, hesapType: 'nakit' | 'banka' | 'kredi_karti' | 'diger') => {
+  const setHesapSubType = (name: string, hesapType: 'nakit' | 'banka' | 'kredi_karti' | 'birikim') => {
     setAccountMappings(prev => ({
       ...prev,
       [name]: { ...prev[name], hesapType },
@@ -999,6 +999,69 @@ export default function VeriIceAktarPage() {
                 </View>
               ))}
             </Card>
+
+            {/* DEBUG: Tedarikçi ve Mapped Type Analizi */}
+            {__DEV__ && (
+              <Card style={[styles.typesCard, { borderColor: colors.info, borderWidth: 1 }]}>
+                <Text variant="label" style={[styles.typesTitle, { color: colors.info }]}>DEBUG: Tedarikçi Analizi</Text>
+                <View style={styles.typeRow}>
+                  <Text variant="body">Unique Tedarikçi Sayısı</Text>
+                  <Text variant="body" style={{ color: preview.uniqueTedarikci.length > 0 ? colors.success : colors.error, fontWeight: '700' }}>
+                    {preview.uniqueTedarikci.length}
+                  </Text>
+                </View>
+                {preview.uniqueTedarikci.length > 0 && (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <Text variant="caption" color="secondary">Tedarikçiler:</Text>
+                    {preview.uniqueTedarikci.slice(0, 5).map((name, idx) => (
+                      <Text key={idx} variant="caption" color="primary">• {name}</Text>
+                    ))}
+                    {preview.uniqueTedarikci.length > 5 && (
+                      <Text variant="caption" color="muted">... ve {preview.uniqueTedarikci.length - 5} tane daha</Text>
+                    )}
+                  </View>
+                )}
+
+                {/* Mapped Type Dağılımı */}
+                <Text variant="label" style={[styles.typesTitle, { color: colors.info, marginTop: spacing.md }]}>Mapped Type Dağılımı</Text>
+                {(() => {
+                  const dist: Record<string, number> = {};
+                  preview.transactions.forEach(t => {
+                    dist[t.mappedType] = (dist[t.mappedType] || 0) + 1;
+                  });
+                  return Object.entries(dist).map(([type, count]) => (
+                    <View key={type} style={styles.typeRow}>
+                      <Text variant="body" style={{ color: type === 'cari_alis' ? colors.success : colors.text }}>{type}</Text>
+                      <Text variant="body" style={{ color: type === 'cari_alis' ? colors.success : colors.textSecondary, fontWeight: type === 'cari_alis' ? '700' : '400' }}>{count}</Text>
+                    </View>
+                  ));
+                })()}
+
+                {/* GİDER + Tedarikçi Analizi */}
+                <Text variant="label" style={[styles.typesTitle, { color: colors.warning, marginTop: spacing.md }]}>GİDER + Tedarikçi</Text>
+                {(() => {
+                  const giderTxs = preview.transactions.filter(t => t.type === 'GİDER' || t.type === 'GIDER');
+                  const giderWithTedarikci = giderTxs.filter(t => t.tedarikci);
+                  const giderAsCariAlis = preview.transactions.filter(t => t.mappedType === 'cari_alis');
+                  return (
+                    <>
+                      <View style={styles.typeRow}>
+                        <Text variant="body">GİDER sayısı</Text>
+                        <Text variant="body" color="secondary">{giderTxs.length}</Text>
+                      </View>
+                      <View style={styles.typeRow}>
+                        <Text variant="body">GİDER + tedarikçi</Text>
+                        <Text variant="body" style={{ color: giderWithTedarikci.length > 0 ? colors.success : colors.error, fontWeight: '700' }}>{giderWithTedarikci.length}</Text>
+                      </View>
+                      <View style={styles.typeRow}>
+                        <Text variant="body">cari_alis olarak</Text>
+                        <Text variant="body" style={{ color: giderAsCariAlis.length > 0 ? colors.success : colors.error, fontWeight: '700' }}>{giderAsCariAlis.length}</Text>
+                      </View>
+                    </>
+                  );
+                })()}
+              </Card>
+            )}
 
             {/* Hatalar */}
             {preview.errors.length > 0 && (

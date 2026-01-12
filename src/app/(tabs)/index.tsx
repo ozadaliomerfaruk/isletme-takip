@@ -16,9 +16,13 @@ import {
   CreditCard,
   PiggyBank,
   EyeOff,
+  Archive,
+  Edit3,
+  MoreVertical,
+  Trash2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card, TabFilter, ExpandableCard, Button, EmptyState, NotificationBell } from '@/components/ui';
+import { Text, Card, TabFilter, ExpandableCard, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { CreditCardTransactionBar } from '@/components/transaction/CreditCardTransactionBar';
 import { DailyCashModal } from '@/components/transaction/DailyCashModal';
@@ -30,7 +34,8 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { getHesapIcon } from '@/lib/icons';
-import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
+import { useHesaplar, useTotalBalance, useDeleteHesap } from '@/hooks/useHesaplar';
+import { useArchiveHesap } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useMonthSummary, PeriodType } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
@@ -69,6 +74,14 @@ export default function HomePage() {
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+
+  // ActionSheet için state
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [actionSheetHesap, setActionSheetHesap] = useState<Hesap | null>(null);
+
+  // Mutations
+  const archiveHesap = useArchiveHesap();
+  const deleteHesap = useDeleteHesap();
 
   const { isletme, cancelAccountDeletion } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
@@ -135,7 +148,8 @@ export default function HomePage() {
     nakit: { label: t('accounts:types.nakit'), icon: <Banknote size={20} color={colors.success} /> },
     banka: { label: t('accounts:types.banka'), icon: <Building2 size={20} color={colors.primary} /> },
     kredi_karti: { label: t('accounts:types.kredi_karti'), icon: <CreditCard size={20} color={colors.error} /> },
-    diger: { label: t('accounts:types.diger'), icon: <PiggyBank size={20} color={colors.warning} /> },
+    birikim: { label: t('accounts:types.birikim'), icon: <PiggyBank size={20} color={colors.warning} /> },
+    diger: { label: t('accounts:types.diger'), icon: <PiggyBank size={20} color={colors.warning} /> }, // backward compat.
   };
 
   const openQuickBar = (type: TransactionType, hesap: Hesap) => {
@@ -203,6 +217,67 @@ export default function HomePage() {
     );
   };
 
+  // Action sheet handlers for hesaplar
+  const handleOpenHesapActionSheet = (hesap: Hesap) => {
+    setActionSheetHesap(hesap);
+    setActionSheetVisible(true);
+  };
+
+  const handleArchiveHesap = async () => {
+    if (!actionSheetHesap) return;
+    try {
+      await archiveHesap.mutateAsync(actionSheetHesap.id);
+      Alert.alert(t('common:status.success'), t('common:archive.messages.archiveSuccess'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+    }
+  };
+
+  const handleDeleteHesap = () => {
+    if (!actionSheetHesap) return;
+    Alert.alert(
+      t('common:confirm.deleteTitle'),
+      t('common:confirm.deleteMessage', { item: actionSheetHesap.name }),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteHesap.mutateAsync(actionSheetHesap.id);
+              Alert.alert(t('common:status.success'), t('common:messages.deletedSuccessfully'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const hesapActionSheetOptions: ActionSheetOption[] = [
+    {
+      label: t('common:buttons.edit'),
+      icon: <Edit3 size={20} color={colors.primary} />,
+      onPress: () => {
+        if (actionSheetHesap) {
+          router.push(`/hesaplar/duzenle/${actionSheetHesap.id}`);
+        }
+      },
+    },
+    {
+      label: t('common:archive.actions.archive'),
+      icon: <Archive size={20} color={colors.warning} />,
+      onPress: handleArchiveHesap,
+    },
+    {
+      label: t('common:buttons.delete'),
+      icon: <Trash2 size={20} color={colors.error} />,
+      onPress: handleDeleteHesap,
+      destructive: true,
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -444,7 +519,7 @@ export default function HomePage() {
               onAction={() => router.push('/hesaplar/ekle')}
             />
           ) : (
-            ['nakit', 'banka', 'kredi_karti', 'diger'].map((groupKey) => {
+            ['nakit', 'banka', 'kredi_karti', 'birikim', 'diger'].map((groupKey) => {
               const groupHesaplar = groupedHesaplar[groupKey] || [];
               if (groupHesaplar.length === 0) return null;
 
@@ -491,6 +566,16 @@ export default function HomePage() {
                                 {formatCurrency(toNumber(hesap.balance), hesap.currency)}
                               </Text>
                             </View>
+                            <TouchableOpacity
+                              style={styles.moreButton}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                handleOpenHesapActionSheet(hesap);
+                              }}
+                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            >
+                              <MoreVertical size={20} color={colors.textMuted} />
+                            </TouchableOpacity>
                           </View>
                         }
                       >
@@ -546,6 +631,18 @@ export default function HomePage() {
           creditCard={creditCardForTransaction}
         />
       )}
+
+      {/* Action Sheet */}
+      <ActionSheet
+        visible={actionSheetVisible}
+        onClose={() => {
+          setActionSheetVisible(false);
+          setActionSheetHesap(null);
+        }}
+        title={actionSheetHesap?.name}
+        options={hesapActionSheetOptions}
+        cancelLabel={t('common:buttons.cancel')}
+      />
     </SafeAreaView>
   );
 }
@@ -700,5 +797,9 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  moreButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
   },
 });

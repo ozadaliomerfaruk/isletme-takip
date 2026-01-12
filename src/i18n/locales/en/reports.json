@@ -13,8 +13,11 @@
   },
   "tabs": {
     "general": "General",
-    "expenseAnalysis": "Expense Analysis",
-    "incomeAnalysis": "Income Analysis"
+    "expenseAnalysis": "Expense",
+    "incomeAnalysis": "Income",
+    "client": "Client",
+    "personnel": "Staff",
+    "comparison": "Compare"
   },
   "summary": {
     "generalStatus": "General Status",
@@ -144,6 +147,37 @@
     "vsLastYear": "vs last year",
     "increase": "Increase",
     "decrease": "Decrease",
-    "noChange": "No change"
+    "noChange": "No change",
+    "net": "Net",
+    "last3Months": "Last 3 Months",
+    "details": "DETAILS",
+    "period": "Period"
+  },
+  "entityPicker": {
+    "selectClient": "Select Client",
+    "selectStaff": "Select Staff",
+    "selected": "Selected",
+    "viewAll": "View all",
+    "all": "All",
+    "noClients": "No clients yet",
+    "noStaff": "No staff yet",
+    "selectClientPrompt": "Select a client above to view period-based transactions",
+    "selectStaffPrompt": "Select a staff member above to view period-based transactions"
+  },
+  "entitySummary": {
+    "period": "Period",
+    "purchases": "Purchases",
+    "sales": "Sales",
+    "expenses": "Expenses",
+    "payments": "Payments",
+    "collections": "Collections",
+    "periodBalanceChange": "Period Balance Change",
+    "currentBalance": "Current Balance",
+    "theyOweUs": "They owe us",
+    "weOweThem": "We owe them",
+    "balanced": "Balanced"
+  },
+  "entityTransactions": {
+    "viewAll": "View all transactions ({{count}})"
   }
 }

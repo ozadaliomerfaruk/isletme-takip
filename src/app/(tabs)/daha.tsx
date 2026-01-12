@@ -19,6 +19,7 @@ import {
   Coins,
   Calendar,
   Upload,
+  Archive,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card } from '@/components/ui';
@@ -168,6 +169,12 @@ export default function DahaPage() {
               icon={<Upload size={22} color={colors.primary} />}
               label={t('navigation:menu.importData', { defaultValue: 'Veri İçe Aktar' })}
               onPress={() => router.push('/ayarlar/data-import' as any)}
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon={<Archive size={22} color={colors.textSecondary} />}
+              label={t('common:archive.title')}
+              onPress={() => router.push('/arsiv' as any)}
             />
             <View style={styles.divider} />
             <TouchableOpacity

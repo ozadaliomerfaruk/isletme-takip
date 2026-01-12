@@ -77,9 +77,9 @@ export default function IslemDuzenlePage() {
   const needsHesap = ['gelir', 'gider', 'transfer', 'cari_odeme', 'cari_tahsilat', 'personel_odeme', 'personel_tahsilat'].includes(islemType || '');
   const needsHedefHesap = islemType === 'transfer';
   // Kategori: tüm işlem tipleri için (transfer hariç)
-  const needsKategori = ['gelir', 'gider', 'cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat', 'personel_gider', 'personel_odeme', 'personel_tahsilat'].includes(islemType || '');
+  const needsKategori = ['gelir', 'gider', 'cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat', 'personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(islemType || '');
   const needsCari = ['cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat'].includes(islemType || '');
-  const needsPersonel = ['personel_gider', 'personel_odeme', 'personel_tahsilat'].includes(islemType || '');
+  const needsPersonel = ['personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(islemType || '');
 
   const validate = () => {
     const newErrors: { amount?: string; hesap?: string } = {};
@@ -304,7 +304,7 @@ export default function IslemDuzenlePage() {
                 <CategoryPicker
                   value={kategoriId}
                   onChange={setKategoriId}
-                  type={['gelir', 'cari_satis', 'cari_tahsilat', 'personel_tahsilat'].includes(islemType || '') ? 'gelir' : 'gider'}
+                  type={['gelir', 'cari_satis', 'cari_tahsilat', 'personel_tahsilat', 'personel_satis'].includes(islemType || '') ? 'gelir' : 'gider'}
                   label={t('transactions:form.category')}
                 />
               )}

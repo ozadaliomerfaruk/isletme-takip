@@ -20,7 +20,10 @@ export interface ParsedTransaction {
   personel: string | null; // PERSONEL kolonu
   tedarikci: string | null; // TEDARİKÇİ kolonu
   musteri: string | null; // MÜŞTERİ kolonu
-  karsiHesap: string | null; // KARŞI HESAP kolonu (transfer için)
+  karsiHesap: string | null; // KARŞI HESAP kolonu - parse edilmiş hesap adı
+  karsiHesapRaw: string | null; // KARŞI HESAP orijinal değer (örn: "Nakit [-58750 TRY]")
+  karsiHesapAmount: number | null; // KARŞI HESAP'taki tutar değeri (transfer için)
+  karsiHesapCurrency: string | null; // KARŞI HESAP'taki para birimi
   amount: number;
   isExpense: boolean;
   dateValid: boolean; // Tarih geçerli mi?
@@ -37,6 +40,8 @@ export interface ImportPreview {
   uniqueKarsiHesap: string[]; // KARŞI HESAP kolonundaki unique değerler
   uniqueCategories: string[];
   transactionTypes: Record<string, number>;
+  // KARŞI HESAP context: hangi işlem tipleri bu değeri kullanıyor
+  karsiHesapContext: Record<string, { types: string[]; suggestedType: 'hesap' | 'cari' | 'personel'; cariType?: 'musteri' | 'tedarikci' }>;
   dateRange: { min: string; max: string };
   totalRows: number;
   validRows: number; // Geçerli tarihli satır sayısı
@@ -47,8 +52,43 @@ export interface ImportPreview {
 export interface AccountMapping {
   name: string;
   type: 'hesap' | 'cari' | 'personel';
-  hesapType?: 'nakit' | 'banka' | 'kredi_karti' | 'diger';
+  hesapType?: 'nakit' | 'banka' | 'kredi_karti' | 'birikim' | 'diger';
   cariType?: 'musteri' | 'tedarikci';
+}
+
+/**
+ * KARŞI HESAP kolonundaki değeri parse et
+ * Örnek: "Nakit (Kasa) [-58750 TRY]" → { name: "Nakit (Kasa)", amount: 58750, currency: "TRY" }
+ * Transfer işlemlerinde hedef hesap ve TRY değeri bu formatta gelir
+ */
+export interface ParsedKarsiHesap {
+  name: string;          // Hesap adı
+  amount?: number;       // Tutar (parantez içindeki değer)
+  currency?: string;     // Para birimi (TRY, USD, EUR, vs.)
+}
+
+export function parseKarsiHesap(value: string): ParsedKarsiHesap {
+  if (!value) return { name: '' };
+
+  const trimmed = value.trim();
+
+  // Köşeli parantez içinde değer var mı kontrol et
+  // Format: "Hesap Adı [-123,45 TRY]" veya "Hesap Adı [123.45]"
+  const bracketRegex = /^(.+?)\s*\[([+-]?\d+(?:[.,]\d+)?)\s*([A-Z]{3})?\]$/;
+  const match = trimmed.match(bracketRegex);
+
+  if (match) {
+    const name = match[1].trim();
+    // Türkçe formatı destekle: 58.750,00 → 58750.00
+    const amountStr = match[2].replace(/\./g, '').replace(',', '.');
+    const amount = Math.abs(parseFloat(amountStr));
+    const currency = match[3] || 'TRY';
+
+    return { name, amount, currency };
+  }
+
+  // Parantez yoksa sadece hesap adı döndür
+  return { name: trimmed };
 }
 
 export interface ImportConfig {
@@ -116,6 +156,34 @@ export const KNOWN_BANK_KEYWORDS = [
 export const KNOWN_CASH_KEYWORDS = ['nakit', 'kasa', 'cash', 'elden'];
 
 export const KNOWN_CREDIT_CARD_KEYWORDS = ['kredi kartı', 'kredi karti', 'credit card', 'kk'];
+
+export const KNOWN_BIRIKIM_KEYWORDS = [
+  'altın', 'altin', 'gold', 'xau',
+  'döviz', 'doviz', 'usd', 'eur', 'gbp', 'euro', 'dolar',
+  'yatırım', 'yatirim', 'investment',
+  'birikim', 'tasarruf', 'savings',
+  'gümüş', 'gumus', 'silver', 'xag',
+];
+
+/**
+ * Türkçe karakterleri ASCII karşılıklarına dönüştür
+ * Bu, Excel başlıklarını karşılaştırırken tutarlılık sağlar
+ */
+function normalizeTurkishChars(str: string): string {
+  return str
+    .replace(/İ/g, 'I')
+    .replace(/ı/g, 'i')
+    .replace(/Ğ/g, 'G')
+    .replace(/ğ/g, 'g')
+    .replace(/Ü/g, 'U')
+    .replace(/ü/g, 'u')
+    .replace(/Ş/g, 'S')
+    .replace(/ş/g, 's')
+    .replace(/Ö/g, 'O')
+    .replace(/ö/g, 'o')
+    .replace(/Ç/g, 'C')
+    .replace(/ç/g, 'c');
+}
 
 // ============================================================================
 // EXCEL PARSING
@@ -261,28 +329,27 @@ function findColumnIndices(headerRow: any[]): ColumnIndices | null {
   }
 
   headerRow.forEach((cell, index) => {
-    const header = cell?.toString().toUpperCase().trim();
+    const rawHeader = cell?.toString().toUpperCase().trim();
+    // Türkçe karakterleri normalize et: İ→I, Ş→S, Ğ→G, Ü→U, Ö→O, Ç→C
+    const header = normalizeTurkishChars(rawHeader || '');
 
     // Debug: Her header'ı logla
     if (__DEV__) {
-      console.log(`Column ${index}: raw="${cell}" -> normalized="${header}"`);
+      console.log(`Column ${index}: raw="${cell}" -> upper="${rawHeader}" -> normalized="${header}"`);
     }
 
+    // Normalize edilmiş ASCII değerleri ile karşılaştır
     switch (header) {
       case 'TARIH':
         indices.tarih = index;
         break;
-      case 'İŞLEM TIPI':
       case 'ISLEM TIPI':
         indices.islemTipi = index;
         break;
-      case 'AÇIKLAMA':
       case 'ACIKLAMA':
         indices.aciklama = index;
         break;
-      case 'KATEGORİ':
       case 'KATEGORI':
-      case 'ALT KATEGORİ':
       case 'ALT KATEGORI':
       case 'CATEGORY':
         indices.kategori = index;
@@ -293,23 +360,18 @@ function findColumnIndices(headerRow: any[]): ColumnIndices | null {
       case 'PERSONEL':
         indices.personel = index;
         break;
-      case 'TEDARİKÇİ':
       case 'TEDARIKCI':
         indices.tedarikci = index;
         break;
-      case 'MÜŞTERİ':
       case 'MUSTERI':
         indices.musteri = index;
         break;
-      case 'KARŞI HESAP':
       case 'KARSI HESAP':
         indices.karsiHesap = index;
         break;
-      case 'MİKTAR':
       case 'MIKTAR':
         indices.miktar = index;
         break;
-      case 'BİRİM':
       case 'BIRIM':
         indices.birim = index;
         break;
@@ -371,6 +433,8 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
   const uniqueKarsiHesap = new Set<string>();
   const uniqueCategories = new Set<string>();
   const transactionTypes: Record<string, number> = {};
+  // KARŞI HESAP'ın hangi işlem tipleriyle kullanıldığını takip et
+  const karsiHesapTransactionTypes = new Map<string, Set<string>>();
 
   // Header row'u bul
   let headerRowIndex = -1;
@@ -398,6 +462,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       uniqueKarsiHesap: [],
       uniqueCategories: [],
       transactionTypes: {},
+      karsiHesapContext: {},
       dateRange: { min: '', max: '' },
       totalRows: 0,
       validRows: 0,
@@ -433,11 +498,38 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       }
       const tedarikci = cols.tedarikci >= 0 ? row[cols.tedarikci]?.toString().trim() || null : null;
       const musteri = cols.musteri >= 0 ? row[cols.musteri]?.toString().trim() || null : null;
-      const karsiHesap = cols.karsiHesap >= 0 ? row[cols.karsiHesap]?.toString().trim() || null : null;
+
+      // DEBUG: GİDER işlemleri için TEDARİKÇİ kolonunu kontrol et
+      const isGiderType = type === 'GİDER' || type === 'GIDER';
+      if (__DEV__ && isGiderType && i <= headerRowIndex + 10) {
+        console.log(`[DEBUG Row ${rowNumber}] GİDER işlem:`, {
+          'type': type,
+          'cols.tedarikci index': cols.tedarikci,
+          'raw tedarikci cell': cols.tedarikci >= 0 ? row[cols.tedarikci] : 'COLUMN_NOT_FOUND',
+          'parsed tedarikci': tedarikci,
+          'description': description,
+          'amount': Number(row[cols.miktar]),
+          'row data': row.slice(0, 10), // İlk 10 hücreyi göster
+        });
+      }
+      const karsiHesapRaw = cols.karsiHesap >= 0 ? row[cols.karsiHesap]?.toString().trim() || null : null;
+
+      // KARŞI HESAP'ı parse et: "Nakit (Kasa) [-58750 TRY]" → { name, amount, currency }
+      const parsedKarsiHesap = karsiHesapRaw ? parseKarsiHesap(karsiHesapRaw) : null;
+      const karsiHesap = parsedKarsiHesap?.name || null;
+      const karsiHesapAmount = parsedKarsiHesap?.amount ?? null;
+      const karsiHesapCurrency = parsedKarsiHesap?.currency ?? null;
+
       const amount = Number(row[cols.miktar]) || 0;
 
       // Gerekli alanları kontrol et
-      if (!rawDate || !type || !account) {
+      // NOT: TEDARİKÇİ veya MÜŞTERİ varsa HESAP zorunlu DEĞİL (cari_alis/cari_satis için)
+      const hasCariEntity = tedarikci || musteri;
+      if (!rawDate || !type) {
+        continue;
+      }
+      // HESAP kontrolü: Sadece cari entity yoksa zorunlu
+      if (!account && !hasCariEntity) {
         continue;
       }
 
@@ -468,19 +560,48 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
 
       // İşlem tipi mapping - context-aware
       let mappedType = TRANSACTION_TYPE_MAP[type] || 'gider';
+      const originalMappedType = mappedType;
 
       // Context-aware type correction:
       // 1. KARŞI HESAP doluysa → transfer (hesaplar arası)
       if (karsiHesap) {
         mappedType = 'transfer';
       }
-      // 2. PERSONEL kolonu doluysa ve CARİ/TEDARİKÇİ/MÜŞTERİ boşsa → personel işlemi
+      // 2. PERSONEL kolonu doluysa → personel işlemi
       else if (personel && !tedarikci && !musteri) {
-        if (mappedType === 'cari_odeme') {
+        if (mappedType === 'gider') {
+          mappedType = 'personel_gider';
+        } else if (mappedType === 'cari_odeme') {
           mappedType = 'personel_odeme';
         } else if (mappedType === 'cari_tahsilat') {
           mappedType = 'personel_tahsilat';
         }
+      }
+      // 3. TEDARİKÇİ kolonu doluysa → cari işlemi
+      else if (tedarikci && !musteri) {
+        if (mappedType === 'gider') {
+          mappedType = 'cari_alis';
+        }
+        // cari_odeme zaten TRANSACTION_TYPE_MAP'ten geliyor
+      }
+      // 4. MÜŞTERİ kolonu doluysa → cari işlemi
+      else if (musteri && !tedarikci) {
+        if (mappedType === 'gelir') {
+          mappedType = 'cari_satis';
+        }
+        // cari_tahsilat zaten TRANSACTION_TYPE_MAP'ten geliyor
+      }
+      // 5. Hiçbir entity kolonu dolmamışsa → salt gelir/gider (hesap işlemi)
+      // mappedType olduğu gibi kalır (gelir veya gider)
+
+      // Debug: Context-aware mapping'i logla (sadece değişenler için)
+      if (__DEV__ && originalMappedType !== mappedType) {
+        console.log(`Context-aware mapping: ${type} (${originalMappedType}) → ${mappedType}`, {
+          tedarikci,
+          musteri,
+          personel,
+          karsiHesap,
+        });
       }
 
       // Geçerli tarih varsa min/max güncelle
@@ -489,12 +610,19 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         if (!maxDate || jsDate > maxDate) maxDate = jsDate;
       }
 
-      // Unique değerleri topla
-      uniqueAccounts.add(account);
+      // Unique değerleri topla (boş değerleri ekleme)
+      if (account) uniqueAccounts.add(account);
       if (personel) uniquePersonel.add(personel);
       if (tedarikci) uniqueTedarikci.add(tedarikci);
       if (musteri) uniqueMusteri.add(musteri);
-      if (karsiHesap) uniqueKarsiHesap.add(karsiHesap);
+      if (karsiHesap) {
+        uniqueKarsiHesap.add(karsiHesap);
+        // KARŞI HESAP'ın hangi işlem tipleriyle kullanıldığını kaydet
+        if (!karsiHesapTransactionTypes.has(karsiHesap)) {
+          karsiHesapTransactionTypes.set(karsiHesap, new Set());
+        }
+        karsiHesapTransactionTypes.get(karsiHesap)!.add(type);
+      }
       if (category) uniqueCategories.add(category);
       transactionTypes[type] = (transactionTypes[type] || 0) + 1;
 
@@ -512,6 +640,9 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         tedarikci,
         musteri,
         karsiHesap,
+        karsiHesapRaw,
+        karsiHesapAmount,
+        karsiHesapCurrency,
         amount: Math.abs(amount),
         isExpense: amount < 0,
         dateValid,
@@ -527,12 +658,107 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
   const validRows = transactions.filter(t => t.dateValid).length;
   const invalidDateCount = transactions.filter(t => !t.dateValid).length;
 
+  // KARŞI HESAP context'i oluştur: işlem tipine göre akıllı sınıflandırma
+  const karsiHesapContext: ImportPreview['karsiHesapContext'] = {};
+  karsiHesapTransactionTypes.forEach((typeSet, name) => {
+    const types = Array.from(typeSet);
+    const lowerName = name.toLowerCase();
+
+    // Önce isim bazlı kontrol (banka/nakit isimleri hesap olmalı)
+    const isBankOrCash = KNOWN_BANK_KEYWORDS.some(kw => lowerName.includes(kw)) ||
+                         KNOWN_CASH_KEYWORDS.some(kw => lowerName.includes(kw));
+
+    let suggestedType: 'hesap' | 'cari' | 'personel' = 'hesap';
+    let cariType: 'musteri' | 'tedarikci' | undefined;
+
+    if (isBankOrCash) {
+      // Banka veya nakit ismi → hesap
+      suggestedType = 'hesap';
+    } else {
+      // İşlem tipi bazlı akıllı tahmin
+      // Öncelik sırası: ÖDEME/TAHSİLAT > PERSONEL > TRANSFER
+      const hasOdeme = types.some(t => t.includes('ÖDEME') || t.includes('ODEME'));
+      const hasTahsilat = types.some(t => t.includes('TAHSİLAT') || t.includes('TAHSILAT'));
+      const hasPersonel = types.some(t => t.includes('PERSONEL'));
+      const hasTransfer = types.includes('TRANSFER');
+      const hasSatis = types.some(t => t.includes('SATIŞ') || t.includes('SATIS'));
+      const hasAlis = types.some(t => t.includes('ALIŞ') || t.includes('ALIS'));
+
+      if (hasPersonel) {
+        // PERSONEL işlemi → personel
+        suggestedType = 'personel';
+      } else if (hasOdeme && !hasTransfer) {
+        // ÖDEME (transfer değilse) → cari tedarikçi
+        suggestedType = 'cari';
+        cariType = 'tedarikci';
+      } else if (hasTahsilat && !hasTransfer) {
+        // TAHSİLAT (transfer değilse) → cari müşteri
+        suggestedType = 'cari';
+        cariType = 'musteri';
+      } else if (hasSatis) {
+        // SATIŞ → cari müşteri
+        suggestedType = 'cari';
+        cariType = 'musteri';
+      } else if (hasAlis) {
+        // ALIŞ → cari tedarikçi
+        suggestedType = 'cari';
+        cariType = 'tedarikci';
+      } else if (hasTransfer) {
+        // Sadece TRANSFER → hesap
+        suggestedType = 'hesap';
+      } else {
+        // Varsayılan: cari (tedarikçi) - çünkü genelde ödeme yapılan taraf
+        suggestedType = 'cari';
+        cariType = 'tedarikci';
+      }
+    }
+
+    karsiHesapContext[name] = { types, suggestedType, cariType };
+  });
+
   // Debug: Final unique kategorileri logla
   if (__DEV__) {
     console.log('=== IMPORT SUMMARY ===');
     console.log('uniqueCategories:', Array.from(uniqueCategories));
     console.log('Total transactions:', transactions.length);
     console.log('Transactions with category:', transactions.filter(t => t.category).length);
+    console.log('karsiHesapContext:', karsiHesapContext);
+
+    // Mapped type dağılımı
+    const mappedTypeDistribution: Record<string, number> = {};
+    transactions.forEach(t => {
+      mappedTypeDistribution[t.mappedType] = (mappedTypeDistribution[t.mappedType] || 0) + 1;
+    });
+    console.log('=== MAPPED TYPE DISTRIBUTION ===');
+    console.log(mappedTypeDistribution);
+
+    // TEDARİKÇİ bilgisi
+    console.log('=== TEDARİKÇİ ANALIZ ===');
+    console.log('uniqueTedarikci count:', uniqueTedarikci.size);
+    console.log('uniqueTedarikci values:', Array.from(uniqueTedarikci));
+
+    // GİDER işlemleri analizi
+    const giderTransactions = transactions.filter(t => t.type === 'GİDER' || t.type === 'GIDER');
+    const giderWithTedarikci = giderTransactions.filter(t => t.tedarikci);
+    const giderMappedToCariAlis = transactions.filter(t => t.mappedType === 'cari_alis');
+    console.log('=== GİDER ANALIZ ===');
+    console.log('GİDER transaction count:', giderTransactions.length);
+    console.log('GİDER with tedarikci:', giderWithTedarikci.length);
+    console.log('Mapped to cari_alis:', giderMappedToCariAlis.length);
+
+    // İlk 3 GİDER+TEDARİKÇİ örneği
+    if (giderWithTedarikci.length > 0) {
+      console.log('=== GİDER+TEDARİKÇİ ÖRNEKLER ===');
+      giderWithTedarikci.slice(0, 3).forEach((t, idx) => {
+        console.log(`Örnek ${idx + 1}:`, {
+          type: t.type,
+          mappedType: t.mappedType,
+          tedarikci: t.tedarikci,
+          description: t.description,
+          amount: t.amount,
+        });
+      });
+    }
   }
 
   return {
@@ -544,6 +770,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
     uniqueKarsiHesap: Array.from(uniqueKarsiHesap).sort(),
     uniqueCategories: Array.from(uniqueCategories).sort(),
     transactionTypes,
+    karsiHesapContext,
     dateRange: {
       min: minDate ? formatDateForDB(minDate) : '',
       max: maxDate ? formatDateForDB(maxDate) : '',
@@ -563,6 +790,10 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
  * Hesap adından tipini otomatik tahmin et
  */
 export function guessAccountType(name: string): AccountMapping {
+  // Defensive check: boş veya undefined isim
+  if (!name) {
+    return { name: '', type: 'hesap', hesapType: 'banka' };
+  }
   const lowerName = name.toLowerCase();
 
   // Kredi kartı kontrolü
@@ -580,8 +811,13 @@ export function guessAccountType(name: string): AccountMapping {
     return { name, type: 'hesap', hesapType: 'nakit' };
   }
 
-  // Varsayılan: Hesap (diğer)
-  return { name, type: 'hesap', hesapType: 'diger' };
+  // Birikim kontrolü (altın, döviz, yatırım vb.)
+  if (KNOWN_BIRIKIM_KEYWORDS.some(kw => lowerName.includes(kw))) {
+    return { name, type: 'hesap', hesapType: 'birikim' };
+  }
+
+  // Varsayılan: Hesap (banka - bilinmeyen hesaplar için en güvenli varsayılan)
+  return { name, type: 'hesap', hesapType: 'banka' };
 }
 
 /**
@@ -598,10 +834,24 @@ export function autoClassifyAccounts(
     mappings[name] = guessAccountType(name);
   });
 
-  // KARŞI HESAP kolonundakiler -> hesap olarak sınıflandır (transfer için)
+  // KARŞI HESAP kolonundakiler -> context-aware sınıflandır
   preview.uniqueKarsiHesap.forEach(name => {
     if (!mappings[name]) {
-      mappings[name] = guessAccountType(name);
+      const context = preview.karsiHesapContext[name];
+      if (context) {
+        // Context bazlı akıllı sınıflandırma
+        if (context.suggestedType === 'cari') {
+          mappings[name] = { name, type: 'cari', cariType: context.cariType || 'tedarikci' };
+        } else if (context.suggestedType === 'personel') {
+          mappings[name] = { name, type: 'personel' };
+        } else {
+          // hesap
+          mappings[name] = guessAccountType(name);
+        }
+      } else {
+        // Context yoksa varsayılan olarak hesap tipi tahmin et
+        mappings[name] = guessAccountType(name);
+      }
     }
   });
 

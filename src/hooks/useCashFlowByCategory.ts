@@ -7,7 +7,7 @@ import { Kategori, IslemType, HesapType } from '@/types/database';
 /**
  * Nakit akışına dahil hesap tipleri (kredi kartı HARİÇ)
  */
-const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'diger'];
+const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'birikim', 'diger']; // kredi_karti hariç
 
 /**
  * Nakit girişi yapan işlem tipleri (hesaba para GİREN)

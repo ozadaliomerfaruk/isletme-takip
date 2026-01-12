@@ -45,6 +45,7 @@ export function useHesaplar(includePassive: boolean = false) {
         .from('hesaplar')
         .select('*')
         .eq('isletme_id', isletme.id)
+        .eq('is_archived', false) // Arşivlenmiş hesapları hariç tut
         .order('created_at', { ascending: true });
 
       // Sadece aktif hesapları getir (varsayılan davranış)

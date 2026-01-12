@@ -12,6 +12,7 @@
     "personel_gider": "Personel Gideri",
     "personel_odeme": "Personel Ödemesi",
     "personel_tahsilat": "Personelden Tahsilat",
+    "personel_satis": "Personele Satış",
     "kredi_karti_harcama": "Kredi Kartı Harcaması",
     "nakit_avans_taksit": "Nakit Avans Taksit"
   },
@@ -155,6 +156,7 @@
     "personel_odeme": "Ödeme",
     "personel_gider": "Gider",
     "personel_tahsilat": "Tahsilat",
+    "personel_satis": "Satış",
     "kredi_karti_gider": "Gider",
     "kredi_karti_odeme": "Ödeme",
     "kredi_karti_ekstre": "Ekstre Öde"

@@ -105,6 +105,7 @@ export function getIslemIconConfig(type: IslemType, size: number = 24): IconConf
         backgroundColor: colors.successLight,
       };
     case 'cari_satis':
+    case 'personel_satis':
       return {
         icon: <ShoppingCart size={size} color={colors.success} />,
         color: colors.success,
@@ -226,6 +227,7 @@ export function getIslemAmountColor(type: IslemType): AmountColorType {
     // Gelir - yeşil
     case 'gelir':
     case 'cari_satis':
+    case 'personel_satis':
       return 'success';
 
     // Gider - kırmızı

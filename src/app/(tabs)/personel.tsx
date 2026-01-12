@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Animated } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Animated, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -13,15 +13,21 @@ import {
   MinusCircle,
   Banknote,
   X,
+  Archive,
+  Edit3,
+  MoreVertical,
+  Trash2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
+import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
-import { usePersonelList } from '@/hooks/usePersonel';
+import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
+import { useArchivePersonel } from '@/hooks/useArchive';
+import type { Personel } from '@/types/database';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 
 export default function PersonelPage() {
@@ -81,6 +87,77 @@ export default function PersonelPage() {
   // Gerçek veriler - pasif personeli de dahil et
   const { data: personelList, isLoading } = usePersonelList(true);
   const { payables, receivables } = useFinancialSummary();
+
+  // ActionSheet için state
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [actionSheetPersonel, setActionSheetPersonel] = useState<Personel | null>(null);
+
+  // Mutations
+  const archivePersonel = useArchivePersonel();
+  const deletePersonel = useDeletePersonel();
+
+  // Action sheet handlers
+  const handleOpenActionSheet = (personel: Personel) => {
+    setActionSheetPersonel(personel);
+    setActionSheetVisible(true);
+  };
+
+  const handleArchive = async () => {
+    if (!actionSheetPersonel) return;
+    try {
+      await archivePersonel.mutateAsync(actionSheetPersonel.id);
+      Alert.alert(t('common:status.success'), t('common:archive.messages.archiveSuccess'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+    }
+  };
+
+  const handleDelete = () => {
+    if (!actionSheetPersonel) return;
+    const name = `${actionSheetPersonel.first_name} ${actionSheetPersonel.last_name}`;
+    Alert.alert(
+      t('common:confirm.deleteTitle'),
+      t('common:confirm.deleteMessage', { item: name }),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deletePersonel.mutateAsync(actionSheetPersonel.id);
+              Alert.alert(t('common:status.success'), t('common:messages.deletedSuccessfully'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const actionSheetOptions: ActionSheetOption[] = [
+    {
+      label: t('common:buttons.edit'),
+      icon: <Edit3 size={20} color={colors.primary} />,
+      onPress: () => {
+        if (actionSheetPersonel) {
+          router.push(`/personel/duzenle/${actionSheetPersonel.id}`);
+        }
+      },
+    },
+    {
+      label: t('common:archive.actions.archive'),
+      icon: <Archive size={20} color={colors.warning} />,
+      onPress: handleArchive,
+    },
+    {
+      label: t('common:buttons.delete'),
+      icon: <Trash2 size={20} color={colors.error} />,
+      onPress: handleDelete,
+      destructive: true,
+    },
+  ];
 
   // Arama ve sıralama (aktif önce)
   const filteredPersonel = personelList
@@ -215,6 +292,16 @@ export default function PersonelPage() {
                         {formatCurrency(Math.abs(toNumber(personel.balance)))}
                       </Text>
                     </View>
+                    <TouchableOpacity
+                      style={styles.moreButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleOpenActionSheet(personel);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <MoreVertical size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
                   </View>
                 }
               >
@@ -325,6 +412,18 @@ export default function PersonelPage() {
           setSelectedPersonelId(null);
         }}
       />
+
+      {/* Action Sheet */}
+      <ActionSheet
+        visible={actionSheetVisible}
+        onClose={() => {
+          setActionSheetVisible(false);
+          setActionSheetPersonel(null);
+        }}
+        title={actionSheetPersonel ? `${actionSheetPersonel.first_name} ${actionSheetPersonel.last_name}` : undefined}
+        options={actionSheetOptions}
+        cancelLabel={t('common:buttons.cancel')}
+      />
     </SafeAreaView>
   );
 }
@@ -402,6 +501,10 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  moreButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
   },
   // FAB Styles
   fabContainer: {

@@ -260,5 +260,31 @@
       "closingBalance": "SON BAKİYE",
       "sheetName": "Ekstre"
     }
+  },
+  "archive": {
+    "title": "Arşiv",
+    "tabs": {
+      "accounts": "Hesaplar",
+      "suppliers": "Tedarikçiler",
+      "customers": "Müşteriler",
+      "staff": "Personel"
+    },
+    "actions": {
+      "archive": "Arşive At",
+      "unarchive": "Arşivden Çıkar",
+      "permanentDelete": "Kalıcı Sil"
+    },
+    "messages": {
+      "archiveConfirm": "Bu öğeyi arşive atmak istediğinize emin misiniz?",
+      "unarchiveConfirm": "Bu öğeyi arşivden çıkarmak istediğinize emin misiniz?",
+      "archiveSuccess": "Arşive atıldı",
+      "unarchiveSuccess": "Arşivden çıkarıldı",
+      "archivedBanner": "Bu öğe arşivlenmiş. Yeni işlem eklenemez.",
+      "emptyArchive": "Arşivde öğe bulunmuyor",
+      "itemCount": "Arşivde {{count}} öğe bulunuyor"
+    },
+    "search": {
+      "placeholder": "Arşivde ara..."
+    }
   }
 }

@@ -1,6 +1,7 @@
 // Supabase veritabanı şeması tipleri
 
-export type HesapType = 'nakit' | 'banka' | 'kredi_karti' | 'diger';
+// 'diger' eski değer, 'birikim' yeni değer - backward compatibility için ikisi de destekleniyor
+export type HesapType = 'nakit' | 'banka' | 'kredi_karti' | 'birikim' | 'diger';
 export type CariType = 'musteri' | 'tedarikci';
 export type KategoriType = 'gelir' | 'gider';
 export type Currency = 'TRY' | 'USD' | 'EUR' | 'GBP' | 'XAU' | 'XAG';
@@ -17,6 +18,7 @@ export type IslemType =
   | 'personel_gider'
   | 'personel_odeme'
   | 'personel_tahsilat'
+  | 'personel_satis'
   | 'nakit_avans_taksit';
 
 // Veritabanı tabloları
@@ -99,6 +101,7 @@ export interface Hesap {
   description: string | null;
   credit_limit: number | null;
   is_active: boolean;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -114,6 +117,7 @@ export interface HesapInsert {
   description?: string | null;
   credit_limit?: number | null;
   is_active?: boolean;
+  is_archived?: boolean;
 }
 
 export interface HesapUpdate {
@@ -124,6 +128,7 @@ export interface HesapUpdate {
   description?: string | null;
   credit_limit?: number | null;
   is_active?: boolean;
+  is_archived?: boolean;
 }
 
 // Kategori
@@ -178,6 +183,7 @@ export interface Cari {
   balance: number;
   notes: string | null;
   is_active: boolean;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -194,6 +200,7 @@ export interface CariInsert {
   balance?: number;
   notes?: string | null;
   is_active?: boolean;
+  is_archived?: boolean;
 }
 
 export interface CariUpdate {
@@ -206,6 +213,7 @@ export interface CariUpdate {
   balance?: number;
   notes?: string | null;
   is_active?: boolean;
+  is_archived?: boolean;
 }
 
 // Personel
@@ -220,6 +228,7 @@ export interface Personel {
   balance: number;
   start_date: string | null;
   is_active: boolean;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -235,6 +244,7 @@ export interface PersonelInsert {
   balance?: number;
   start_date?: string | null;
   is_active?: boolean;
+  is_archived?: boolean;
 }
 
 export interface PersonelUpdate {
@@ -246,6 +256,7 @@ export interface PersonelUpdate {
   balance?: number;
   start_date?: string | null;
   is_active?: boolean;
+  is_archived?: boolean;
 }
 
 // İşlem

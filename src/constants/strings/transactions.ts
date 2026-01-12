@@ -31,6 +31,7 @@ export const TRANSACTIONS = {
     nakit: 'Nakit',
     banka: 'Banka Hesabı',
     kredi_karti: 'Kredi Kartı',
+    birikim: 'Birikim',
     diger: 'Diğer',
   } as Record<HesapType, string>,
 

@@ -28,7 +28,7 @@ export default function HesapEklePage() {
     { type: 'nakit', label: t('accounts:typeLabels.nakit'), icon: <Wallet size={24} color={colors.primary} /> },
     { type: 'banka', label: t('accounts:typeLabels.banka'), icon: <Building2 size={24} color={colors.info} /> },
     { type: 'kredi_karti', label: t('accounts:typeLabels.kredi_karti'), icon: <CreditCard size={24} color={colors.warning} /> },
-    { type: 'diger', label: t('accounts:typeLabels.diger'), icon: <Vault size={24} color={colors.textSecondary} /> },
+    { type: 'birikim', label: t('accounts:typeLabels.birikim'), icon: <Vault size={24} color={colors.textSecondary} /> },
   ];
 
   const [name, setName] = useState('');

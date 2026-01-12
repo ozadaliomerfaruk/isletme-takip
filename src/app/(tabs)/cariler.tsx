@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -8,15 +8,20 @@ import {
   History,
   Zap,
   EyeOff,
+  Archive,
+  Edit3,
+  MoreVertical,
+  Trash2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card } from '@/components/ui';
+import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getCariIcon } from '@/lib/icons';
-import { useCariler } from '@/hooks/useCariler';
+import { useCariler, useDeleteCari } from '@/hooks/useCariler';
+import { useArchiveCari } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { Cari, CariType } from '@/types/database';
 
@@ -37,12 +42,82 @@ export default function CarilerPage() {
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedCari, setSelectedCari] = useState<Cari | null>(null);
 
+  // ActionSheet için state
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [actionSheetCari, setActionSheetCari] = useState<Cari | null>(null);
+
+  // Mutations
+  const archiveCari = useArchiveCari();
+  const deleteCari = useDeleteCari();
+
   // Gerçek veriler - pasif carileri de dahil et
   const { data: cariler, isLoading } = useCariler(
     filter === 'all' ? undefined : (filter as CariType),
     true // includePassive
   );
   const { payables, receivables } = useFinancialSummary();
+
+  // Action sheet handlers
+  const handleOpenActionSheet = (cari: Cari) => {
+    setActionSheetCari(cari);
+    setActionSheetVisible(true);
+  };
+
+  const handleArchive = async () => {
+    if (!actionSheetCari) return;
+    try {
+      await archiveCari.mutateAsync(actionSheetCari.id);
+      Alert.alert(t('common:status.success'), t('common:archive.messages.archiveSuccess'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+    }
+  };
+
+  const handleDelete = () => {
+    if (!actionSheetCari) return;
+    Alert.alert(
+      t('common:confirm.deleteTitle'),
+      t('common:confirm.deleteMessage', { item: actionSheetCari.name }),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteCari.mutateAsync(actionSheetCari.id);
+              Alert.alert(t('common:status.success'), t('common:messages.deletedSuccessfully'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const actionSheetOptions: ActionSheetOption[] = [
+    {
+      label: t('common:buttons.edit'),
+      icon: <Edit3 size={20} color={colors.primary} />,
+      onPress: () => {
+        if (actionSheetCari) {
+          router.push(`/cariler/duzenle/${actionSheetCari.id}`);
+        }
+      },
+    },
+    {
+      label: t('common:archive.actions.archive'),
+      icon: <Archive size={20} color={colors.warning} />,
+      onPress: handleArchive,
+    },
+    {
+      label: t('common:buttons.delete'),
+      icon: <Trash2 size={20} color={colors.error} />,
+      onPress: handleDelete,
+      destructive: true,
+    },
+  ];
 
   // Arama filtresi ve sıralama (aktif önce)
   const filteredCariler = cariler
@@ -161,6 +236,16 @@ export default function CarilerPage() {
                         {formatCurrency(Math.abs(toNumber(cari.balance)))}
                       </Text>
                     </View>
+                    <TouchableOpacity
+                      style={styles.moreButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleOpenActionSheet(cari);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <MoreVertical size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
                   </View>
                 }
               >
@@ -207,6 +292,18 @@ export default function CarilerPage() {
           setQuickBarVisible(false);
           setSelectedCari(null);
         }}
+      />
+
+      {/* Action Sheet */}
+      <ActionSheet
+        visible={actionSheetVisible}
+        onClose={() => {
+          setActionSheetVisible(false);
+          setActionSheetCari(null);
+        }}
+        title={actionSheetCari?.name}
+        options={actionSheetOptions}
+        cancelLabel={t('common:buttons.cancel')}
       />
     </SafeAreaView>
   );
@@ -275,5 +372,9 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  moreButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
   },
 });
