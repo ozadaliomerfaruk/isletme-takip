@@ -88,6 +88,7 @@
     "thisYear": "Bu Yıl",
     "lastWeek": "Geçen Hafta",
     "lastMonth": "Geçen Ay",
+    "last3Months": "Son 3 Ay",
     "lastYear": "Geçen Yıl",
     "startDate": "Başlangıç Tarihi",
     "endDate": "Bitiş Tarihi",
@@ -148,7 +149,10 @@
     "phone": "Telefon",
     "email": "E-posta",
     "address": "Adres",
-    "select": "Seç"
+    "select": "Seç",
+    "account": "Hesap",
+    "client": "Cari",
+    "staff": "Personel"
   },
   "placeholders": {
     "enterName": "Ad girin",
@@ -181,7 +185,8 @@
     "yearly": "Yıllık",
     "custom": "Özel",
     "allTime": "Tüm Zamanlar",
-    "instant": "Anlık"
+    "instant": "Anlık",
+    "selectPeriod": "Dönem Seçin"
   },
   "dashboard": {
     "generalStatus": "Genel Durum",
@@ -231,6 +236,7 @@
     "title": "Excel Olarak Paylaş",
     "shareAsExcel": "Excel Olarak Paylaş",
     "exporting": "Export ediliyor...",
+    "preparing": "Hazırlanıyor...",
     "largeDataWarning": {
       "title": "Büyük Veri Uyarısı",
       "message": "Bu dönemde {{count}} işlem bulunuyor. Export işlemi biraz sürebilir."

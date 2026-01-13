@@ -483,7 +483,6 @@ export function QuickTransactionBar({
           }
           // Kredi kartı ödemesi için kategori gerekmiyor
         }
-        return;
       }
 
       // Tahsilat için sıralı modal akışı (müşteri → kategori)

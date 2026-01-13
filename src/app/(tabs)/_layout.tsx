@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Users, UserCircle, MoreHorizontal } from 'lucide-react-native';
+import { Home, BarChart3, Users, UserCircle, MoreHorizontal } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '@/constants/colors';
 
@@ -31,6 +31,15 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.home'),
           tabBarIcon: ({ color, size }) => <Home size={size} color={color} />,
+        }}
+      />
+      {/* Analytics tab hidden from navbar but page still accessible via URL */}
+      <Tabs.Screen
+        name="analitik"
+        options={{
+          href: null, // Hide from tab bar
+          title: t('tabs.analytics'),
+          tabBarIcon: ({ color, size }) => <BarChart3 size={size} color={color} />,
         }}
       />
       <Tabs.Screen

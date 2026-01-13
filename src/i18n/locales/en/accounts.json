@@ -9,26 +9,19 @@
     "selectAccount": "Select Account",
     "selectCreditCard": "Select Credit Card"
   },
-  "types": {
-    "nakit": "Cash",
-    "banka": "Bank Account",
-    "kredi_karti": "Credit Card",
-    "birikim": "Savings",
-    "diger": "Savings"
-  },
   "typeDescriptions": {
     "nakit": "Cash on hand",
     "banka": "Money in bank account",
     "kredi_karti": "Credit card debt tracking",
     "birikim": "Savings, investments, gold, etc.",
-    "diger": "Savings or emergency fund"
+    "diger": "Other account types"
   },
   "typeLabels": {
     "nakit": "Cash",
     "banka": "Bank",
     "kredi_karti": "Credit Card",
     "birikim": "Savings",
-    "diger": "Savings"
+    "diger": "Other"
   },
   "form": {
     "name": "Account Name",

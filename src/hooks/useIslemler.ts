@@ -5,7 +5,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
 import { calculateIncomeSummary } from '@/constants/islemTypes';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber, safeParseAmount, safeParseExchangeRate } from '@/lib/currency';
+import { toNumber, safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import {
   formatDateForDB,
   type PeriodType as DatePeriodType,
@@ -191,46 +191,6 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
       console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
     }
     throw new Error(`Bakiye güncellenemedi: ${error.message}`);
-  }
-}
-
-/**
- * Cross-currency hesaplama için güvenli dönüşüm
- * Exchange rate ile hedef tutarı hesaplar
- *
- * Kur formatı: "1 [yabancı para] = X TRY"
- * - USD -> TRY: amount * exchangeRate (örn: 100 USD * 32 = 3200 TRY)
- * - TRY -> USD: amount / exchangeRate (örn: 3200 TRY / 32 = 100 USD)
- */
-function calculateTargetAmount(
-  amount: number,
-  exchangeRate: number | null,
-  sourceCurrency: string,
-  targetCurrency: string
-): number {
-  // Aynı para birimi ise dönüşüm yok
-  if (sourceCurrency === targetCurrency) {
-    return amount;
-  }
-
-  // Exchange rate yoksa veya geçersizse dönüşüm yapma
-  if (!exchangeRate || exchangeRate <= 0) {
-    return amount;
-  }
-
-  // TRY referans alınarak kur hesaplanır
-  // Exchange rate formatı: "1 [yabancı para] = X TRY"
-  if (sourceCurrency === 'TRY') {
-    // TRY'den yabancı paraya: bölme işlemi
-    return amount / exchangeRate;
-  } else if (targetCurrency === 'TRY') {
-    // Yabancı paradan TRY'ye: çarpma işlemi
-    return amount * exchangeRate;
-  } else {
-    // İki yabancı para arası: önce TRY'ye çevir, sonra hedef paraya
-    // Bu durumda exchange_rate source->TRY formatında olmalı
-    // Basitleştirilmiş: direkt çarpma (UI'da doğru kur girilmeli)
-    return amount * exchangeRate;
   }
 }
 

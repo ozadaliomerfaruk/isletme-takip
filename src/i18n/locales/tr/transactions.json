@@ -16,6 +16,12 @@
     "kredi_karti_harcama": "Kredi Kartı Harcaması",
     "nakit_avans_taksit": "Nakit Avans Taksit"
   },
+  "groups": {
+    "basic": "Temel İşlemler",
+    "supplier": "Tedarikçi İşlemleri",
+    "customer": "Müşteri İşlemleri",
+    "staff": "Personel İşlemleri"
+  },
   "accountTypes": {
     "nakit": "Nakit",
     "banka": "Banka Hesabı",

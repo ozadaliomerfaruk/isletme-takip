@@ -102,6 +102,7 @@
     "lastWeek": "Last Week",
     "thisMonth": "This Month",
     "lastMonth": "Last Month",
+    "last3Months": "Last 3 Months",
     "thisYear": "This Year",
     "lastYear": "Last Year",
     "date": "Date",
@@ -157,7 +158,10 @@
     "details": "Details",
     "summary": "Summary",
     "all": "All",
-    "other": "Other"
+    "other": "Other",
+    "account": "Account",
+    "client": "Client",
+    "staff": "Staff"
   },
   "placeholders": {
     "enterName": "Enter name",
@@ -192,7 +196,8 @@
     "yearly": "Yearly",
     "custom": "Custom",
     "allTime": "All Time",
-    "instant": "Current"
+    "instant": "Current",
+    "selectPeriod": "Select Period"
   },
   "messages": {
     "savedSuccessfully": "Saved successfully",
@@ -249,6 +254,7 @@
     "title": "Share as Excel",
     "shareAsExcel": "Share as Excel",
     "exporting": "Exporting...",
+    "preparing": "Preparing...",
     "largeDataWarning": {
       "title": "Large Data Warning",
       "message": "This period contains {{count}} transactions. Export may take a while."

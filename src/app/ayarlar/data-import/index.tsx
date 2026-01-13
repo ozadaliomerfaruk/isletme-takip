@@ -9,12 +9,14 @@ import {
   Modal,
   TextInput,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
+import * as Crypto from 'expo-crypto';
 import * as XLSX from 'xlsx';
 import {
   FileSpreadsheet,
@@ -35,8 +37,11 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Undo2,
+  Info,
+  Trash2,
+  FileCheck,
 } from 'lucide-react-native';
-import { Text, Card, Button } from '@/components/ui';
+import { Text, Card, Button, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import {
@@ -51,32 +56,33 @@ import {
 } from '@/lib/excelImport';
 import { useDataImport, SkippedTransaction, DuplicateInfo } from '@/hooks/useDataImport';
 import { useImportHistory } from '@/hooks/useImportHistory';
+import {
+  useCreatePendingIslemler,
+  usePendingIslemler,
+  useDismissPendingIslem,
+  useDeleteAllPendingIslemler,
+} from '@/hooks/usePendingIslemler';
 import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { PendingTransactionForm } from '@/components/import';
+import { SkippedTransactionCard } from '@/components/import/SkippedTransactionCard';
+import type { PendingIslemRawData, PendingIslem } from '@/types/database';
+import { useDateFormat } from '@/hooks/useDateFormat';
 
 type Step = 'select' | 'preview' | 'mapping' | 'importing' | 'result';
 type ModalType = 'transactions' | 'accounts' | 'clients' | 'categories' | 'categoryTypes' | 'skipped' | null;
+type TabType = 'import' | 'skipped';
 
-// Hesap alt tipleri
-const HESAP_TYPES = [
-  { value: 'banka', label: 'Banka' },
-  { value: 'nakit', label: 'Nakit / Kasa' },
-  { value: 'kredi_karti', label: 'Kredi Kartı' },
-  { value: 'birikim', label: 'Birikim' },
-] as const;
+// Hesap alt tipleri - labels are translated via t()
+const HESAP_TYPE_VALUES = ['banka', 'nakit', 'kredi_karti', 'birikim'] as const;
 
-// Cari alt tipleri
-const CARI_TYPES = [
-  { value: 'musteri', label: 'Müşteri' },
-  { value: 'tedarikci', label: 'Tedarikçi' },
-] as const;
+// Cari alt tipleri - labels are translated via t()
+const CARI_TYPE_VALUES = ['musteri', 'tedarikci'] as const;
 
-// Entity tipleri (Cari/Personel seçimi için)
-const ENTITY_TYPES = [
-  { value: 'cari', label: 'Cari' },
-  { value: 'personel', label: 'Personel' },
-] as const;
+// Entity tipleri (Cari/Personel seçimi için) - labels are translated via t()
+const ENTITY_TYPE_VALUES = ['cari', 'personel'] as const;
 
 export default function VeriIceAktarPage() {
   const router = useRouter();
@@ -84,10 +90,21 @@ export default function VeriIceAktarPage() {
   const windowHeight = Dimensions.get('window').height;
   const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
+  const { formatDateMedium } = useDateFormat();
   const { progress, result, duplicates, runImport, runDuplicateCheck, reset } = useDataImport();
   const { lastImport, isUndoing, checkFileHash, saveImportHistory, undoLastImport } = useImportHistory();
+  const createPendingIslemler = useCreatePendingIslemler();
+  const { data: pendingIslemler, isLoading: loadingPending, refetch: refetchPending } = usePendingIslemler();
+  const dismissPending = useDismissPendingIslem();
+  const deleteAllPending = useDeleteAllPendingIslemler();
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabType>('import');
+  const [refreshing, setRefreshing] = useState(false);
 
   const [step, setStep] = useState<Step>('select');
+  const [selectedPendingItem, setSelectedPendingItem] = useState<PendingIslem | null>(null);
+  const [showPendingForm, setShowPendingForm] = useState(false);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [accountMappings, setAccountMappings] = useState<Record<string, AccountMapping>>({});
   const [categoryMappings, setCategoryMappings] = useState<Record<string, 'gelir' | 'gider'>>({});
@@ -101,20 +118,33 @@ export default function VeriIceAktarPage() {
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Count of pending items
+  const pendingCount = pendingIslemler?.length || 0;
+
+  // Refresh handler for skipped tab
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refetchPending();
+    setRefreshing(false);
+  }, [refetchPending]);
+
   // Şablon Excel dosyası oluştur ve indir
   const handleDownloadTemplate = async () => {
     try {
       setDownloadingTemplate(true);
 
-      // Şablon verisi - Yeni format: PERSONEL, TEDARİKÇİ, MÜŞTERİ ayrı kolonlar
+      // Şablon verisi - Lokalize edilmiş
+      const h = t('dataImport.template.headers', { returnObjects: true }) as Record<string, string>;
+      const s = t('dataImport.template.sampleData', { returnObjects: true }) as Record<string, string>;
+
       const templateData = [
-        ['TARIH', 'İŞLEM TIPI', 'AÇIKLAMA', 'KATEGORİ', 'HESAP', 'PERSONEL', 'TEDARİKÇİ', 'MÜŞTERİ', 'KARŞI HESAP', 'MİKTAR', 'BİRİM'],
-        ['2024-01-15 10:30', 'GELİR', 'Satış geliri', 'SATIŞ', 'Banka Hesabı', '', 'CİRO', '', '', '5000', 'TRY'],
-        ['2024-01-15 14:00', 'GİDER', 'Ofis malzemesi', 'OFİS GİDERLERİ', 'Nakit', 'Ahmet Yılmaz', '', '', '', '-250', 'TRY'],
-        ['2024-01-16 09:00', 'ÖDEME', 'Tedarikçi ödemesi', '', 'Banka Hesabı', '', 'ABC Tedarik', '', '', '-10000', 'TRY'],
-        ['2024-01-16 11:30', 'TAHSİLAT', 'Müşteri tahsilatı', '', 'Banka Hesabı', '', '', 'XYZ Müşteri', '', '15000', 'TRY'],
-        ['2024-01-17 08:00', 'TRANSFER', 'Hesaplar arası', '', 'Banka Hesabı', '', '', '', 'Nakit', '-2000', 'TRY'],
-        ['2024-01-17 16:00', 'PERSONEL GİDERİ', 'Maaş ödemesi', 'MAAŞ', 'Banka Hesabı', 'Mehmet Demir', '', '', '', '-8500', 'TRY'],
+        [h.date, h.type, h.description, h.category, h.account, h.staff, h.supplier, h.customer, h.targetAccount, h.amount, h.currency],
+        ['2024-01-15 10:30', s.income, s.salesIncome, s.sales, s.bankAccount, '', s.sampleSupplier1, '', '', '5000', 'TRY'],
+        ['2024-01-15 14:00', s.expense, s.officeSupplies, s.officeExpenses, s.cash, s.sampleStaff1, '', '', '', '-250', 'TRY'],
+        ['2024-01-16 09:00', s.payment, s.supplierPayment, '', s.bankAccount, '', s.sampleSupplier2, '', '', '-10000', 'TRY'],
+        ['2024-01-16 11:30', s.collection, s.customerCollection, '', s.bankAccount, '', '', s.sampleCustomer, '', '15000', 'TRY'],
+        ['2024-01-17 08:00', s.transfer, s.betweenAccounts, '', s.bankAccount, '', '', '', s.cash, '-2000', 'TRY'],
+        ['2024-01-17 16:00', s.staffExpense, s.salaryPayment, s.salary, s.bankAccount, s.sampleStaff2, '', '', '', '-8500', 'TRY'],
       ];
 
       // Excel dosyası oluştur
@@ -136,7 +166,7 @@ export default function VeriIceAktarPage() {
       ];
 
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'İşlemler');
+      XLSX.utils.book_append_sheet(wb, ws, t('dataImport.template.sheetName'));
 
       // Base64'e çevir
       const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
@@ -152,14 +182,14 @@ export default function VeriIceAktarPage() {
       if (canShare) {
         await Sharing.shareAsync(fileUri, {
           mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          dialogTitle: 'Excel Şablonunu İndir',
+          dialogTitle: t('dataImport.template.dialogTitle'),
         });
       } else {
-        Alert.alert('Hata', 'Bu cihazda dosya paylaşımı desteklenmiyor.');
+        Alert.alert(t('common:status.error'), t('dataImport.errors.sharingNotSupported'));
       }
     } catch (error) {
       if (__DEV__) console.error('Template download error:', error);
-      Alert.alert('Hata', 'Şablon indirilemedi. Lütfen tekrar deneyin.');
+      Alert.alert(t('common:status.error'), t('dataImport.errors.templateDownloadFailed'));
     } finally {
       setDownloadingTemplate(false);
     }
@@ -202,7 +232,8 @@ export default function VeriIceAktarPage() {
       // Daha önce import edilmiş mi kontrol et
       const existingImport = await checkFileHash(hash);
       if (existingImport) {
-        const importDate = new Date(existingImport.importedAt).toLocaleDateString('tr-TR');
+        const locale = i18n.language === 'tr' ? 'tr-TR' : 'en-US';
+        const importDate = new Date(existingImport.importedAt).toLocaleDateString(locale);
         Alert.alert(
           t('dataImport.duplicateFile.title'),
           t('dataImport.duplicateFile.message', {
@@ -210,8 +241,8 @@ export default function VeriIceAktarPage() {
             date: importDate,
           }),
           [
-            { text: 'İptal', style: 'cancel' },
-            { text: 'Devam', onPress: () => proceedWithParsing(buffer, file.name) },
+            { text: t('common:buttons.cancel'), style: 'cancel' },
+            { text: t('common:buttons.continue'), onPress: () => proceedWithParsing(buffer, file.name) },
           ]
         );
         return;
@@ -221,7 +252,7 @@ export default function VeriIceAktarPage() {
       proceedWithParsing(buffer, file.name);
     } catch (error) {
       if (__DEV__) console.error('File select error:', error);
-      Alert.alert('Hata', 'Dosya okunamadı. Lütfen geçerli bir Excel dosyası seçin.');
+      Alert.alert(t('common:status.error'), t('dataImport.errors.fileReadFailed'));
     }
   };
 
@@ -254,11 +285,11 @@ export default function VeriIceAktarPage() {
 
       if (parsed.errors.length > 0) {
         Alert.alert(
-          'Uyarı',
-          `Dosya okundu ama ${parsed.errors.length} hata var. Devam etmek istiyor musunuz?`,
+          t('dataImport.warnings.title'),
+          t('dataImport.warnings.parseErrors', { count: parsed.errors.length }),
           [
-            { text: 'İptal', style: 'cancel' },
-            { text: 'Devam', onPress: () => setStep('preview') },
+            { text: t('common:buttons.cancel'), style: 'cancel' },
+            { text: t('common:buttons.continue'), onPress: () => setStep('preview') },
           ]
         );
       } else {
@@ -266,7 +297,7 @@ export default function VeriIceAktarPage() {
       }
     } catch (error) {
       if (__DEV__) console.error('Parse error:', error);
-      Alert.alert('Hata', 'Dosya parse edilemedi.');
+      Alert.alert(t('common:status.error'), t('dataImport.errors.parseFailed'));
     }
   };
 
@@ -338,13 +369,13 @@ export default function VeriIceAktarPage() {
         t('dataImport.duplicateTransactions.title'),
         t('dataImport.duplicateTransactions.message', { count: duplicateCount }),
         [
-          { text: 'İptal', style: 'cancel' },
+          { text: t('common:buttons.cancel'), style: 'cancel' },
           {
             text: t('dataImport.duplicateTransactions.skipOption'),
             onPress: () => proceedWithImport(dryRun, true),
           },
           {
-            text: 'Yine de Devam',
+            text: t('dataImport.buttons.continueAnyway'),
             onPress: () => proceedWithImport(dryRun, false),
           },
         ]
@@ -376,10 +407,108 @@ export default function VeriIceAktarPage() {
         clientIds: importResult.createdClientIds,
         personelIds: importResult.createdPersonelIds,
       });
+
+      // Atlanan işlemleri pending_islemler tablosuna kaydet
+      if (importResult.skippedTransactions.length > 0) {
+        try {
+          const importBatchId = Crypto.randomUUID();
+          const pendingItems = importResult.skippedTransactions.map((skipped) => ({
+            import_batch_id: importBatchId,
+            row_number: skipped.rowNumber,
+            skip_reason: skipped.reason,
+            raw_data: {
+              date: skipped.transaction.date,
+              type: skipped.transaction.type,
+              mappedType: skipped.transaction.mappedType,
+              description: skipped.transaction.description,
+              category: skipped.transaction.category,
+              account: skipped.transaction.account,
+              personel: skipped.transaction.personel,
+              tedarikci: skipped.transaction.tedarikci,
+              musteri: skipped.transaction.musteri,
+              karsiHesap: skipped.transaction.karsiHesap,
+              amount: skipped.transaction.amount,
+              isExpense: skipped.transaction.isExpense,
+              rowNumber: skipped.transaction.rowNumber,
+            } as PendingIslemRawData,
+          }));
+
+          await createPendingIslemler.mutateAsync(pendingItems);
+        } catch (error) {
+          // Atlanan işlemleri kaydetme hatası - kritik değil, sadece log
+          if (__DEV__) {
+            console.warn('Failed to save skipped transactions to pending:', error);
+          }
+        }
+      }
     }
 
     setStep('result');
+
+    // Refetch pending items after saving
+    await refetchPending();
   };
+
+  // Handle fix button on skipped transaction - open form
+  const handleFixPendingItem = useCallback((item: PendingIslem) => {
+    setSelectedPendingItem(item);
+    setShowPendingForm(true);
+  }, []);
+
+  // Handle skip/dismiss button on skipped transaction
+  const handleSkipPendingItem = useCallback(async (item: PendingIslem) => {
+    Alert.alert(
+      t('dataImport.pendingForm.skipTitle'),
+      t('dataImport.pendingForm.skipMessage'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.skip'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dismissPending.mutateAsync(item.id);
+              await refetchPending();
+            } catch (error) {
+              console.error('Error dismissing pending transaction:', error);
+            }
+          },
+        },
+      ]
+    );
+  }, [dismissPending, refetchPending, t]);
+
+  // Handle delete all pending
+  const handleDeleteAllPending = useCallback(() => {
+    if (!pendingIslemler || pendingIslemler.length === 0) return;
+
+    Alert.alert(
+      t('dataImport.skippedTransactions.deleteAllTitle'),
+      t('dataImport.skippedTransactions.deleteAllMessage'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('dataImport.skippedTransactions.deleteAllButton'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAllPending.mutateAsync();
+              await refetchPending();
+            } catch (error) {
+              console.error('Error deleting all pending transactions:', error);
+            }
+          },
+        },
+      ]
+    );
+  }, [pendingIslemler, deleteAllPending, refetchPending, t]);
+
+  // Handle success from pending form
+  const handlePendingFormSuccess = useCallback(async () => {
+    setShowPendingForm(false);
+    setSelectedPendingItem(null);
+    await refetchPending();
+  }, [refetchPending]);
 
   // Son importu geri al
   const handleUndoLastImport = () => {
@@ -395,28 +524,28 @@ export default function VeriIceAktarPage() {
 
     const details = [];
     if (lastImport.transactionIds.length > 0) {
-      details.push(`${lastImport.transactionIds.length} işlem`);
+      details.push(`${lastImport.transactionIds.length} ${t('dataImport.results.transaction')}`);
     }
     if (lastImport.createdAccountIds?.length) {
-      details.push(`${lastImport.createdAccountIds.length} hesap`);
+      details.push(`${lastImport.createdAccountIds.length} ${t('dataImport.results.account')}`);
     }
     if (lastImport.createdClientIds?.length) {
-      details.push(`${lastImport.createdClientIds.length} cari`);
+      details.push(`${lastImport.createdClientIds.length} ${t('dataImport.results.client')}`);
     }
     if (lastImport.createdPersonelIds?.length) {
-      details.push(`${lastImport.createdPersonelIds.length} personel`);
+      details.push(`${lastImport.createdPersonelIds.length} ${t('dataImport.results.staff')}`);
     }
     if (lastImport.createdCategoryIds?.length) {
-      details.push(`${lastImport.createdCategoryIds.length} kategori`);
+      details.push(`${lastImport.createdCategoryIds.length} ${t('dataImport.results.category')}`);
     }
 
     Alert.alert(
-      'Son İmportu Geri Al',
-      `"${lastImport.fileName}" dosyasından eklenen tüm veriler silinecek:\n\n${details.join('\n')}\n\nBu işlem geri alınamaz. Devam etmek istiyor musunuz?`,
+      t('dataImport.undo.confirmTitle'),
+      t('dataImport.undo.confirmMessage', { fileName: lastImport.fileName, details: details.join('\n') }),
       [
-        { text: 'İptal', style: 'cancel' },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
         {
-          text: 'Tümünü Sil',
+          text: t('dataImport.undo.deleteAll'),
           style: 'destructive',
           onPress: async () => {
             const result = await undoLastImport();
@@ -444,27 +573,27 @@ export default function VeriIceAktarPage() {
               const { deletedEntities } = result;
               const deletedDetails = [];
               if (deletedEntities.transactions > 0) {
-                deletedDetails.push(`${deletedEntities.transactions} işlem`);
+                deletedDetails.push(`${deletedEntities.transactions} ${t('dataImport.results.transaction')}`);
               }
               if (deletedEntities.accounts > 0) {
-                deletedDetails.push(`${deletedEntities.accounts} hesap`);
+                deletedDetails.push(`${deletedEntities.accounts} ${t('dataImport.results.account')}`);
               }
               if (deletedEntities.clients > 0) {
-                deletedDetails.push(`${deletedEntities.clients} cari`);
+                deletedDetails.push(`${deletedEntities.clients} ${t('dataImport.results.client')}`);
               }
               if (deletedEntities.personel > 0) {
-                deletedDetails.push(`${deletedEntities.personel} personel`);
+                deletedDetails.push(`${deletedEntities.personel} ${t('dataImport.results.staff')}`);
               }
               if (deletedEntities.categories > 0) {
-                deletedDetails.push(`${deletedEntities.categories} kategori`);
+                deletedDetails.push(`${deletedEntities.categories} ${t('dataImport.results.category')}`);
               }
 
               Alert.alert(
-                'Başarılı',
-                `Import tamamen geri alındı:\n\n${deletedDetails.join('\n')}`
+                t('dataImport.success.title'),
+                t('dataImport.success.undoComplete', { details: deletedDetails.join('\n') })
               );
             } else {
-              Alert.alert('Hata', result.error || 'Geri alma başarısız');
+              Alert.alert(t('common:status.error'), result.error || t('dataImport.errors.undoFailed'));
             }
           },
         },
@@ -512,14 +641,14 @@ export default function VeriIceAktarPage() {
       if (canShare) {
         await Sharing.shareAsync(filePath, {
           mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          dialogTitle: 'Atlanan İşlemleri Kaydet',
+          dialogTitle: t('dataImport.skipped.exportDialogTitle'),
         });
       } else {
-        Alert.alert('Hata', 'Dosya paylaşımı bu cihazda desteklenmiyor');
+        Alert.alert(t('common:status.error'), t('dataImport.errors.sharingNotAvailable'));
       }
     } catch (error) {
       if (__DEV__) console.error('Export error:', error);
-      Alert.alert('Hata', 'Dosya oluşturulurken bir hata oluştu');
+      Alert.alert(t('common:status.error'), t('dataImport.errors.fileCreationFailed'));
     }
   };
 
@@ -580,23 +709,23 @@ export default function VeriIceAktarPage() {
 
     const getModalTitle = () => {
       switch (activeModal) {
-        case 'transactions': return `İşlemler (${preview?.totalRows || 0})`;
-        case 'accounts': return `Hesaplar (${countByType('hesap')})`;
-        case 'clients': return `Cari/Personel (${countCariAndPersonel})`;
-        case 'categories': return `Kategoriler (${preview?.uniqueCategories.length || 0})`;
-        case 'skipped': return `Atlanan İşlemler (${result?.skipped || 0})`;
+        case 'transactions': return t('dataImport.modal.transactions', { count: preview?.totalRows || 0 });
+        case 'accounts': return t('dataImport.modal.accounts', { count: countByType('hesap') });
+        case 'clients': return t('dataImport.modal.clients', { count: countCariAndPersonel });
+        case 'categories': return t('dataImport.modal.categories', { count: preview?.uniqueCategories.length || 0 });
+        case 'skipped': return t('dataImport.modal.skipped', { count: result?.skipped || 0 });
         default: return '';
       }
     };
 
     const getSearchPlaceholder = () => {
       switch (activeModal) {
-        case 'transactions': return 'İşlem ara...';
-        case 'accounts': return 'Hesap ara...';
-        case 'clients': return 'Cari veya personel ara...';
-        case 'categories': return 'Kategori ara...';
-        case 'skipped': return 'Atlanan işlem ara...';
-        default: return 'Ara...';
+        case 'transactions': return t('dataImport.search.transactions');
+        case 'accounts': return t('dataImport.search.accounts');
+        case 'clients': return t('dataImport.search.clientsStaff');
+        case 'categories': return t('dataImport.search.categories');
+        case 'skipped': return t('dataImport.search.skipped');
+        default: return t('dataImport.search.default');
       }
     };
 
@@ -661,13 +790,13 @@ export default function VeriIceAktarPage() {
                         <View style={styles.emptyState}>
                           <Receipt size={48} color={colors.textMuted} />
                           <Text variant="body" color="secondary" style={styles.emptyText}>
-                            İşlem bulunamadı
+                            {t('dataImport.empty.transactions')}
                           </Text>
                         </View>
                       )}
                       {preview && preview.totalRows > 100 && filteredTransactions.length > 0 && (
                         <Text variant="caption" color="muted" style={styles.footerText}>
-                          İlk 100 işlem gösteriliyor ({preview.totalRows} toplam)
+                          {t('dataImport.preview.showingFirst100', { total: preview.totalRows })}
                         </Text>
                       )}
                     </>
@@ -688,7 +817,7 @@ export default function VeriIceAktarPage() {
                         <View style={styles.emptyState}>
                           <Building2 size={48} color={colors.textMuted} />
                           <Text variant="body" color="secondary" style={styles.emptyText}>
-                            Hesap bulunamadı
+                            {t('dataImport.empty.accounts')}
                           </Text>
                         </View>
                       )}
@@ -711,7 +840,7 @@ export default function VeriIceAktarPage() {
                         <View style={styles.emptyState}>
                           <Users size={48} color={colors.textMuted} />
                           <Text variant="body" color="secondary" style={styles.emptyText}>
-                            Cari veya personel bulunamadı
+                            {t('dataImport.empty.clientsStaff')}
                           </Text>
                         </View>
                       )}
@@ -722,7 +851,7 @@ export default function VeriIceAktarPage() {
                     <>
                       <View style={styles.categoryHint}>
                         <Text variant="caption" color="secondary">
-                          Dokunarak kategori tipini değiştirebilirsiniz (Gelir ↔ Gider)
+                          {t('dataImport.hints.categoryToggle')}
                         </Text>
                       </View>
                       {filteredCategories.map((item) => (
@@ -731,13 +860,14 @@ export default function VeriIceAktarPage() {
                           name={item}
                           categoryType={categoryMappings[item] || 'gider'}
                           onToggleType={() => toggleCategoryType(item)}
+                          t={t}
                         />
                       ))}
                       {filteredCategories.length === 0 && (
                         <View style={styles.emptyState}>
                           <Tag size={48} color={colors.textMuted} />
                           <Text variant="body" color="secondary" style={styles.emptyText}>
-                            Kategori bulunamadı
+                            {t('dataImport.empty.categories')}
                           </Text>
                         </View>
                       )}
@@ -754,7 +884,10 @@ export default function VeriIceAktarPage() {
                           item.transaction.description?.toLowerCase().includes(searchQuery.toLowerCase())
                         )
                         .map((item, index) => (
-                          <SkippedTransactionItem key={index} item={item} />
+                          <SkippedTransactionItemSimple
+                            key={index}
+                            item={item}
+                          />
                         ))}
                       {result.skippedTransactions.filter(item =>
                         !searchQuery ||
@@ -765,7 +898,7 @@ export default function VeriIceAktarPage() {
                         <View style={styles.emptyState}>
                           <AlertTriangle size={48} color={colors.textMuted} />
                           <Text variant="body" color="secondary" style={styles.emptyText}>
-                            Atlanan işlem bulunamadı
+                            {t('dataImport.empty.skipped')}
                           </Text>
                         </View>
                       )}
@@ -778,8 +911,108 @@ export default function VeriIceAktarPage() {
     );
   };
 
+  // Render tabs
+  const renderTabs = () => (
+    <View style={styles.tabContainer}>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'import' && styles.tabActive]}
+        onPress={() => setActiveTab('import')}
+      >
+        <Text
+          variant="label"
+          style={[styles.tabText, activeTab === 'import' && styles.tabTextActive]}
+        >
+          {t('dataImport.skippedTransactions.tabImport')}
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.tab, activeTab === 'skipped' && styles.tabActive]}
+        onPress={() => setActiveTab('skipped')}
+      >
+        <Text
+          variant="label"
+          style={[styles.tabText, activeTab === 'skipped' && styles.tabTextActive]}
+        >
+          {t('dataImport.skippedTransactions.tabSkipped')}
+        </Text>
+        {pendingCount > 0 && (
+          <View style={styles.tabBadge}>
+            <Text style={styles.tabBadgeText}>{pendingCount}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+    </View>
+  );
+
+  // Render skipped transactions tab content
+  const renderSkippedTab = () => (
+    <ScrollView
+      style={styles.scrollView}
+      contentContainerStyle={styles.skippedContent}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          colors={[colors.primary]}
+          tintColor={colors.primary}
+        />
+      }
+    >
+      {/* Description */}
+      <View style={styles.descriptionContainer}>
+        <Text variant="body" color="secondary">
+          {t('dataImport.skippedTransactions.description')}
+        </Text>
+      </View>
+
+      {/* Delete All Button */}
+      {pendingIslemler && pendingIslemler.length > 0 && (
+        <TouchableOpacity
+          style={styles.deleteAllRow}
+          onPress={handleDeleteAllPending}
+        >
+          <Trash2 size={18} color={colors.error} />
+          <Text variant="body" style={{ color: colors.error }}>
+            {t('dataImport.skippedTransactions.deleteAllButton')}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Content */}
+      {loadingPending ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : pendingIslemler && pendingIslemler.length > 0 ? (
+        pendingIslemler.map((item) => (
+          <SkippedTransactionCard
+            key={item.id}
+            item={item}
+            onFix={() => handleFixPendingItem(item)}
+            onSkip={() => handleSkipPendingItem(item)}
+            formatDateMedium={formatDateMedium}
+          />
+        ))
+      ) : (
+        <EmptyState
+          icon={<FileCheck size={64} color={colors.textMuted} />}
+          title={t('dataImport.skippedTransactions.empty')}
+          description={t('dataImport.skippedTransactions.emptyDescription')}
+        />
+      )}
+    </ScrollView>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* Tabs */}
+      {renderTabs()}
+
+      {/* Tab Content */}
+      {activeTab === 'skipped' ? (
+        renderSkippedTab()
+      ) : (
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Step 1: Dosya Seçimi */}
         {step === 'select' && (
@@ -789,12 +1022,11 @@ export default function VeriIceAktarPage() {
             </View>
 
             <Text variant="h2" style={styles.title}>
-              Veri İçe Aktar
+              {t('dataImport.pageTitle')}
             </Text>
 
             <Text variant="body" color="secondary" style={styles.description}>
-              Başka bir uygulamadan veya Excel dosyasından verilerinizi kolayca aktarın.
-              İşlemler, hesaplar, cariler ve kategoriler otomatik olarak oluşturulacak.
+              {t('dataImport.pageDescription')}
             </Text>
 
             {/* Adım 1: Şablon İndir */}
@@ -804,9 +1036,9 @@ export default function VeriIceAktarPage() {
                   <Text style={styles.stepNumberText}>1</Text>
                 </View>
                 <View style={styles.stepInfo}>
-                  <Text variant="label">Şablon İndir (Opsiyonel)</Text>
+                  <Text variant="label">{t('dataImport.steps.downloadTemplate')}</Text>
                   <Text variant="caption" color="secondary">
-                    Excel formatını görmek veya manuel veri girmek için şablonu indirin
+                    {t('dataImport.steps.downloadTemplateDesc')}
                   </Text>
                 </View>
               </View>
@@ -818,7 +1050,7 @@ export default function VeriIceAktarPage() {
                 loading={downloadingTemplate}
                 style={styles.stepButton}
               >
-                Örnek Şablon İndir
+                {t('dataImport.buttons.downloadTemplate')}
               </Button>
             </Card>
 
@@ -829,9 +1061,9 @@ export default function VeriIceAktarPage() {
                   <Text style={[styles.stepNumberText, { color: colors.surface }]}>2</Text>
                 </View>
                 <View style={styles.stepInfo}>
-                  <Text variant="label">Excel Dosyası Seç</Text>
+                  <Text variant="label">{t('dataImport.steps.selectFile')}</Text>
                   <Text variant="caption" color="secondary">
-                    Doldurduğunuz Excel dosyasını veya başka uygulamadan aldığınız dosyayı seçin
+                    {t('dataImport.steps.selectFileDesc')}
                   </Text>
                 </View>
               </View>
@@ -842,22 +1074,22 @@ export default function VeriIceAktarPage() {
                 onPress={handleSelectFile}
                 style={styles.stepButton}
               >
-                Dosya Seç
+                {t('dataImport.buttons.selectFile')}
               </Button>
             </Card>
 
             {/* İşlem Tipleri Bilgisi */}
             <Card style={styles.infoCard}>
               <Text variant="label" style={styles.infoTitle}>
-                Desteklenen İşlem Tipleri
+                {t('dataImport.info.supportedTypes')}
               </Text>
               <View style={styles.typesList}>
-                <Text variant="caption" color="secondary">• GELİR - Gelir işlemleri</Text>
-                <Text variant="caption" color="secondary">• GİDER - Gider işlemleri</Text>
-                <Text variant="caption" color="secondary">• ÖDEME - Cari ödemeleri</Text>
-                <Text variant="caption" color="secondary">• TAHSİLAT - Cari tahsilatları</Text>
-                <Text variant="caption" color="secondary">• TRANSFER - Hesaplar arası transfer</Text>
-                <Text variant="caption" color="secondary">• PERSONEL GİDERİ - Personel ödemeleri</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.gelir')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.gider')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.odeme')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.tahsilat')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.transfer')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelGider')}</Text>
               </View>
             </Card>
 
@@ -869,12 +1101,12 @@ export default function VeriIceAktarPage() {
                     <Undo2 size={16} color={colors.surface} />
                   </View>
                   <View style={styles.stepInfo}>
-                    <Text variant="label">Son İmportu Geri Al</Text>
+                    <Text variant="label">{t('dataImport.undo.title')}</Text>
                     <Text variant="caption" color="secondary">
-                      {lastImport.fileName} - {lastImport.transactionIds.length} işlem
+                      {lastImport.fileName} - {t('dataImport.undo.transactionCount', { count: lastImport.transactionIds.length })}
                     </Text>
                     <Text variant="caption" color="muted">
-                      {new Date(lastImport.importedAt).toLocaleDateString('tr-TR', {
+                      {new Date(lastImport.importedAt).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
                         day: 'numeric',
                         month: 'long',
                         year: 'numeric',
@@ -892,7 +1124,7 @@ export default function VeriIceAktarPage() {
                   loading={isUndoing}
                   style={[styles.stepButton, { borderColor: colors.warning }]}
                 >
-                  <Text style={{ color: colors.warning }}>Geri Al</Text>
+                  <Text style={{ color: colors.warning }}>{t('dataImport.buttons.undoImport')}</Text>
                 </Button>
               </Card>
             )}
@@ -907,7 +1139,7 @@ export default function VeriIceAktarPage() {
             </View>
 
             <Text variant="h2" style={styles.title}>
-              Dosya Analiz Edildi
+              {t('dataImport.preview.fileAnalyzed')}
             </Text>
 
             <Text variant="body" color="secondary" style={styles.description}>
@@ -915,7 +1147,7 @@ export default function VeriIceAktarPage() {
             </Text>
 
             <Text variant="caption" color="muted" style={styles.tapHint}>
-              Detayları görmek için kartlara dokunun
+              {t('dataImport.preview.tapForDetails')}
             </Text>
 
             {/* Özet Kartları - Tıklanabilir */}
@@ -928,9 +1160,9 @@ export default function VeriIceAktarPage() {
                 <Card style={styles.summaryCardInner}>
                   <Receipt size={24} color={colors.primary} />
                   <Text variant="h3" style={styles.summaryNumber}>
-                    {preview.totalRows.toLocaleString('tr-TR')}
+                    {preview.totalRows.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
                   </Text>
-                  <Text variant="caption" color="secondary">İşlem</Text>
+                  <Text variant="caption" color="secondary">{t('dataImport.labels.transaction')}</Text>
                   <ChevronRight size={14} color={colors.textMuted} style={styles.cardChevron} />
                 </Card>
               </TouchableOpacity>
@@ -945,7 +1177,7 @@ export default function VeriIceAktarPage() {
                   <Text variant="h3" style={styles.summaryNumber}>
                     {countByType('hesap')}
                   </Text>
-                  <Text variant="caption" color="secondary">Hesap</Text>
+                  <Text variant="caption" color="secondary">{t('dataImport.labels.account')}</Text>
                   <ChevronRight size={14} color={colors.textMuted} style={styles.cardChevron} />
                 </Card>
               </TouchableOpacity>
@@ -960,7 +1192,7 @@ export default function VeriIceAktarPage() {
                   <Text variant="h3" style={styles.summaryNumber}>
                     {countCariAndPersonel}
                   </Text>
-                  <Text variant="caption" color="secondary">Cari/Personel</Text>
+                  <Text variant="caption" color="secondary">{t('dataImport.labels.clientStaff')}</Text>
                   <ChevronRight size={14} color={colors.textMuted} style={styles.cardChevron} />
                 </Card>
               </TouchableOpacity>
@@ -975,7 +1207,7 @@ export default function VeriIceAktarPage() {
                   <Text variant="h3" style={styles.summaryNumber}>
                     {preview.uniqueCategories.length}
                   </Text>
-                  <Text variant="caption" color="secondary">Kategori</Text>
+                  <Text variant="caption" color="secondary">{t('dataImport.labels.category')}</Text>
                   <ChevronRight size={14} color={colors.textMuted} style={styles.cardChevron} />
                 </Card>
               </TouchableOpacity>
@@ -983,7 +1215,7 @@ export default function VeriIceAktarPage() {
 
             {/* Tarih Aralığı */}
             <Card style={styles.dateRangeCard}>
-              <Text variant="label">Tarih Aralığı</Text>
+              <Text variant="label">{t('dataImport.preview.dateRange')}</Text>
               <Text variant="body" color="secondary">
                 {preview.dateRange.min} → {preview.dateRange.max}
               </Text>
@@ -991,7 +1223,7 @@ export default function VeriIceAktarPage() {
 
             {/* İşlem Tipleri */}
             <Card style={styles.typesCard}>
-              <Text variant="label" style={styles.typesTitle}>İşlem Tipleri</Text>
+              <Text variant="label" style={styles.typesTitle}>{t('dataImport.labels.transactionTypes')}</Text>
               {Object.entries(preview.transactionTypes).map(([type, count]) => (
                 <View key={type} style={styles.typeRow}>
                   <Text variant="body">{type}</Text>
@@ -999,69 +1231,6 @@ export default function VeriIceAktarPage() {
                 </View>
               ))}
             </Card>
-
-            {/* DEBUG: Tedarikçi ve Mapped Type Analizi */}
-            {__DEV__ && (
-              <Card style={[styles.typesCard, { borderColor: colors.info, borderWidth: 1 }]}>
-                <Text variant="label" style={[styles.typesTitle, { color: colors.info }]}>DEBUG: Tedarikçi Analizi</Text>
-                <View style={styles.typeRow}>
-                  <Text variant="body">Unique Tedarikçi Sayısı</Text>
-                  <Text variant="body" style={{ color: preview.uniqueTedarikci.length > 0 ? colors.success : colors.error, fontWeight: '700' }}>
-                    {preview.uniqueTedarikci.length}
-                  </Text>
-                </View>
-                {preview.uniqueTedarikci.length > 0 && (
-                  <View style={{ marginTop: spacing.sm }}>
-                    <Text variant="caption" color="secondary">Tedarikçiler:</Text>
-                    {preview.uniqueTedarikci.slice(0, 5).map((name, idx) => (
-                      <Text key={idx} variant="caption" color="primary">• {name}</Text>
-                    ))}
-                    {preview.uniqueTedarikci.length > 5 && (
-                      <Text variant="caption" color="muted">... ve {preview.uniqueTedarikci.length - 5} tane daha</Text>
-                    )}
-                  </View>
-                )}
-
-                {/* Mapped Type Dağılımı */}
-                <Text variant="label" style={[styles.typesTitle, { color: colors.info, marginTop: spacing.md }]}>Mapped Type Dağılımı</Text>
-                {(() => {
-                  const dist: Record<string, number> = {};
-                  preview.transactions.forEach(t => {
-                    dist[t.mappedType] = (dist[t.mappedType] || 0) + 1;
-                  });
-                  return Object.entries(dist).map(([type, count]) => (
-                    <View key={type} style={styles.typeRow}>
-                      <Text variant="body" style={{ color: type === 'cari_alis' ? colors.success : colors.text }}>{type}</Text>
-                      <Text variant="body" style={{ color: type === 'cari_alis' ? colors.success : colors.textSecondary, fontWeight: type === 'cari_alis' ? '700' : '400' }}>{count}</Text>
-                    </View>
-                  ));
-                })()}
-
-                {/* GİDER + Tedarikçi Analizi */}
-                <Text variant="label" style={[styles.typesTitle, { color: colors.warning, marginTop: spacing.md }]}>GİDER + Tedarikçi</Text>
-                {(() => {
-                  const giderTxs = preview.transactions.filter(t => t.type === 'GİDER' || t.type === 'GIDER');
-                  const giderWithTedarikci = giderTxs.filter(t => t.tedarikci);
-                  const giderAsCariAlis = preview.transactions.filter(t => t.mappedType === 'cari_alis');
-                  return (
-                    <>
-                      <View style={styles.typeRow}>
-                        <Text variant="body">GİDER sayısı</Text>
-                        <Text variant="body" color="secondary">{giderTxs.length}</Text>
-                      </View>
-                      <View style={styles.typeRow}>
-                        <Text variant="body">GİDER + tedarikçi</Text>
-                        <Text variant="body" style={{ color: giderWithTedarikci.length > 0 ? colors.success : colors.error, fontWeight: '700' }}>{giderWithTedarikci.length}</Text>
-                      </View>
-                      <View style={styles.typeRow}>
-                        <Text variant="body">cari_alis olarak</Text>
-                        <Text variant="body" style={{ color: giderAsCariAlis.length > 0 ? colors.success : colors.error, fontWeight: '700' }}>{giderAsCariAlis.length}</Text>
-                      </View>
-                    </>
-                  );
-                })()}
-              </Card>
-            )}
 
             {/* Hatalar */}
             {preview.errors.length > 0 && (
@@ -1091,14 +1260,14 @@ export default function VeriIceAktarPage() {
 
             <View style={styles.buttonRow}>
               <Button variant="outline" onPress={handleReset} style={styles.halfButton}>
-                İptal
+                {t('common:buttons.cancel')}
               </Button>
               <Button
                 variant="primary"
                 onPress={() => handleStartImport(false)}
                 style={styles.halfButton}
               >
-                Import Başlat
+                {t('dataImport.buttons.startImport')}
               </Button>
             </View>
           </View>
@@ -1112,7 +1281,7 @@ export default function VeriIceAktarPage() {
             </View>
 
             <Text variant="h2" style={styles.title}>
-              Import Ediliyor...
+              {t('dataImport.status.importing')}
             </Text>
 
             <Text variant="body" color="secondary" style={styles.description}>
@@ -1132,16 +1301,16 @@ export default function VeriIceAktarPage() {
                 />
               </View>
               <Text variant="caption" color="secondary" style={styles.progressText}>
-                {progress.current.toLocaleString('tr-TR')} / {progress.total.toLocaleString('tr-TR')}
+                {progress.current.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')} / {progress.total.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
               </Text>
             </View>
 
             <Card style={styles.phaseCard}>
-              <PhaseItem label="Kategoriler" active={progress.phase === 'categories'} done={['accounts', 'clients', 'personel', 'transactions', 'done'].includes(progress.phase)} />
-              <PhaseItem label="Hesaplar" active={progress.phase === 'accounts'} done={['clients', 'personel', 'transactions', 'done'].includes(progress.phase)} />
-              <PhaseItem label="Cariler" active={progress.phase === 'clients'} done={['personel', 'transactions', 'done'].includes(progress.phase)} />
-              <PhaseItem label="Personeller" active={progress.phase === 'personel'} done={['transactions', 'done'].includes(progress.phase)} />
-              <PhaseItem label="İşlemler" active={progress.phase === 'transactions'} done={progress.phase === 'done'} />
+              <PhaseItem label={t('dataImport.phases.categories')} active={progress.phase === 'categories'} done={['accounts', 'clients', 'personel', 'transactions', 'done'].includes(progress.phase)} />
+              <PhaseItem label={t('dataImport.phases.accounts')} active={progress.phase === 'accounts'} done={['clients', 'personel', 'transactions', 'done'].includes(progress.phase)} />
+              <PhaseItem label={t('dataImport.phases.clients')} active={progress.phase === 'clients'} done={['personel', 'transactions', 'done'].includes(progress.phase)} />
+              <PhaseItem label={t('dataImport.phases.personel')} active={progress.phase === 'personel'} done={['transactions', 'done'].includes(progress.phase)} />
+              <PhaseItem label={t('dataImport.phases.transactions')} active={progress.phase === 'transactions'} done={progress.phase === 'done'} />
             </Card>
           </View>
         )}
@@ -1161,8 +1330,8 @@ export default function VeriIceAktarPage() {
               {isDryRun
                 ? t('dataImport.dryRun.result')
                 : result.success
-                  ? 'Import Tamamlandı!'
-                  : 'Import Başarısız'}
+                  ? t('dataImport.success.complete')
+                  : t('dataImport.status.importFailed')}
             </Text>
 
             {isDryRun && (
@@ -1173,20 +1342,21 @@ export default function VeriIceAktarPage() {
 
             {result.success && (
               <View style={styles.resultGrid}>
-                <ResultItem label="Kategori" value={result.categoriesCreated} isDryRun={isDryRun} />
-                <ResultItem label="Hesap" value={result.accountsCreated} isDryRun={isDryRun} />
-                <ResultItem label="Cari" value={result.clientsCreated} isDryRun={isDryRun} />
-                <ResultItem label="Personel" value={result.personelCreated} isDryRun={isDryRun} />
-                <ResultItem label="İşlem" value={result.transactionsCreated} isDryRun={isDryRun} />
+                <ResultItem label={t('dataImport.results.category')} value={result.categoriesCreated} isDryRun={isDryRun} />
+                <ResultItem label={t('dataImport.results.account')} value={result.accountsCreated} isDryRun={isDryRun} />
+                <ResultItem label={t('dataImport.results.client')} value={result.clientsCreated} isDryRun={isDryRun} />
+                <ResultItem label={t('dataImport.results.staff')} value={result.personelCreated} isDryRun={isDryRun} />
+                <ResultItem label={t('dataImport.results.transaction')} value={result.transactionsCreated} isDryRun={isDryRun} />
               </View>
             )}
 
+            {/* Skipped Transactions Info Banner - No Fix/Skip buttons */}
             {result.skipped > 0 && result.skippedTransactions.length > 0 && (
               <Card style={styles.skippedCard}>
                 <View style={styles.skippedHeader}>
                   <AlertTriangle size={20} color={colors.warning} />
                   <Text variant="label" style={{ color: colors.warning }}>
-                    {result.skipped} İşlem Atlandı
+                    {t('dataImport.skipped.count', { count: result.skipped })}
                   </Text>
                 </View>
 
@@ -1204,7 +1374,15 @@ export default function VeriIceAktarPage() {
                   ))}
                 </View>
 
-                {/* Aksiyon butonları */}
+                {/* Info banner - direct to skipped tab */}
+                <View style={styles.skippedInfoBanner}>
+                  <Info size={16} color={colors.info} />
+                  <Text variant="caption" style={{ color: colors.info, flex: 1, marginLeft: spacing.sm }}>
+                    {t('dataImport.skippedTransactions.infoMessage')}
+                  </Text>
+                </View>
+
+                {/* Actions - View details and Export only */}
                 <View style={styles.skippedActions}>
                   <Button
                     variant="outline"
@@ -1212,7 +1390,7 @@ export default function VeriIceAktarPage() {
                     onPress={() => setActiveModal('skipped')}
                     style={{ flex: 1, marginRight: spacing.sm }}
                   >
-                    Detayları Gör
+                    {t('dataImport.buttons.viewDetails')}
                   </Button>
                   <Button
                     variant="outline"
@@ -1221,15 +1399,25 @@ export default function VeriIceAktarPage() {
                     onPress={handleExportSkipped}
                     style={{ flex: 1 }}
                   >
-                    Excel İndir
+                    {t('dataImport.buttons.downloadExcel')}
                   </Button>
                 </View>
+
+                {/* Go to Skipped Tab Button */}
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onPress={() => setActiveTab('skipped')}
+                  style={{ marginTop: spacing.md }}
+                >
+                  {t('dataImport.skippedTransactions.goToSkipped')}
+                </Button>
               </Card>
             )}
 
             {result.errors.length > 0 && (
               <Card style={styles.errorCard}>
-                <Text variant="label" style={styles.errorTitle}>Hatalar</Text>
+                <Text variant="label" style={styles.errorTitle}>{t('dataImport.errors.title')}</Text>
                 {result.errors.slice(0, 5).map((err, i) => (
                   <Text key={i} variant="caption" color="error">
                     • {err}
@@ -1237,7 +1425,7 @@ export default function VeriIceAktarPage() {
                 ))}
                 {result.errors.length > 5 && (
                   <Text variant="caption" color="secondary">
-                    ... ve {result.errors.length - 5} hata daha
+                    {t('dataImport.errors.moreErrors', { count: result.errors.length - 5 })}
                   </Text>
                 )}
               </Card>
@@ -1250,20 +1438,20 @@ export default function VeriIceAktarPage() {
                   onPress={() => handleStartImport(false)}
                   style={styles.doneButton}
                 >
-                  Gerçek Import Başlat
+                  {t('dataImport.buttons.startRealImport')}
                 </Button>
                 <Button variant="outline" onPress={handleReset} style={styles.retryButton}>
-                  İptal
+                  {t('common:buttons.cancel')}
                 </Button>
               </>
             ) : (
               <>
                 <Button variant="primary" onPress={() => router.back()} style={styles.doneButton}>
-                  Tamam
+                  {t('common:buttons.ok')}
                 </Button>
                 {!result.success && (
                   <Button variant="outline" onPress={handleReset} style={styles.retryButton}>
-                    Tekrar Dene
+                    {t('common:buttons.retry')}
                   </Button>
                 )}
               </>
@@ -1271,9 +1459,21 @@ export default function VeriIceAktarPage() {
           </View>
         )}
         </ScrollView>
+      )}
 
         {/* Modals */}
         {renderModal()}
+
+        {/* Pending Transaction Form */}
+        <PendingTransactionForm
+          visible={showPendingForm}
+          onDismiss={() => {
+            setShowPendingForm(false);
+            setSelectedPendingItem(null);
+          }}
+          pendingIslem={selectedPendingItem}
+          onSuccess={handlePendingFormSuccess}
+        />
     </SafeAreaView>
   );
 }
@@ -1306,7 +1506,7 @@ function ResultItem({ label, value, isDryRun = false }: { label: string; value: 
   return (
     <Card style={styles.resultCard}>
       <Text variant="h3" style={[styles.resultValue, isDryRun && { color: colors.info }]}>
-        {value.toLocaleString('tr-TR')}
+        {value.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
       </Text>
       <Text variant="caption" color="secondary">{label}</Text>
     </Card>
@@ -1352,14 +1552,15 @@ function TransactionItem({ transaction }: { transaction: ParsedTransaction }) {
           fontWeight: '600',
         }}
       >
-        {transaction.isExpense ? '-' : '+'}{transaction.amount.toLocaleString('tr-TR')}
+        {transaction.isExpense ? '-' : '+'}{transaction.amount.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
       </Text>
     </View>
   );
 }
 
-// Atlanan işlem satırı
-function SkippedTransactionItem({ item }: { item: SkippedTransaction }) {
+// Simple skipped transaction item (no buttons - for result modal)
+function SkippedTransactionItemSimple({ item }: { item: SkippedTransaction }) {
+  const { t } = useTranslation('settings');
   const { transaction, reason, rowNumber } = item;
 
   // ISO formatından tarih ve saati al
@@ -1373,7 +1574,7 @@ function SkippedTransactionItem({ item }: { item: SkippedTransaction }) {
       <View style={styles.skippedItemHeader}>
         <View style={styles.rowNumberBadge}>
           <Text variant="caption" style={{ color: colors.warning, fontWeight: '600' }}>
-            Satır {rowNumber}
+            {t('dataImport.labels.row')} {rowNumber}
           </Text>
         </View>
         <Text variant="caption" color="muted">{formattedDateTime}</Text>
@@ -1400,7 +1601,7 @@ function SkippedTransactionItem({ item }: { item: SkippedTransaction }) {
           marginTop: 4,
         }}
       >
-        {transaction.isExpense ? '-' : '+'}{transaction.amount.toLocaleString('tr-TR')}
+        {transaction.isExpense ? '-' : '+'}{transaction.amount.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
       </Text>
 
       {/* Atlanma nedeni */}
@@ -1426,6 +1627,7 @@ function AccountItem({
   onToggleType: () => void;
   onSubTypeChange: (subType: string) => void;
 }) {
+  const { t } = useTranslation('settings');
   return (
     <View style={styles.accountItem}>
       <View style={styles.accountHeader}>
@@ -1436,35 +1638,35 @@ function AccountItem({
           <Text variant="body" numberOfLines={1}>{name}</Text>
           <View style={styles.accountBadgeRow}>
             <View style={[styles.typeBadge, { backgroundColor: colors.infoLight }]}>
-              <Text variant="caption" style={{ color: colors.info, fontWeight: '600' }}>HESAP</Text>
+              <Text variant="caption" style={{ color: colors.info, fontWeight: '600' }}>{t('dataImport.badges.account')}</Text>
             </View>
           </View>
         </View>
         <TouchableOpacity onPress={onToggleType} style={styles.toggleButton}>
           <ArrowLeftRight size={14} color={colors.primary} />
-          <Text variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>Cari yap</Text>
+          <Text variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>{t('dataImport.buttons.convertToClient')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Alt tip seçimi */}
       <View style={styles.subTypeRow}>
-        {HESAP_TYPES.map((type) => (
+        {HESAP_TYPE_VALUES.map((typeValue) => (
           <TouchableOpacity
-            key={type.value}
+            key={typeValue}
             style={[
               styles.subTypeChip,
-              mapping.hesapType === type.value && styles.subTypeChipActive,
+              mapping.hesapType === typeValue && styles.subTypeChipActive,
             ]}
-            onPress={() => onSubTypeChange(type.value)}
+            onPress={() => onSubTypeChange(typeValue)}
           >
             <Text
               variant="caption"
               style={{
-                color: mapping.hesapType === type.value ? colors.info : colors.textSecondary,
-                fontWeight: mapping.hesapType === type.value ? '600' : '400',
+                color: mapping.hesapType === typeValue ? colors.info : colors.textSecondary,
+                fontWeight: mapping.hesapType === typeValue ? '600' : '400',
               }}
             >
-              {type.label}
+              {t(`dataImport.accountTypes.${typeValue}`)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -1487,11 +1689,12 @@ function ClientPersonelItem({
   onToggleEntityType: (type: 'cari' | 'personel') => void;
   onSubTypeChange: (subType: string) => void;
 }) {
+  const { t } = useTranslation('settings');
   const isPersonel = mapping.type === 'personel';
   const iconColor = isPersonel ? colors.success : colors.warning;
   const iconBgColor = isPersonel ? colors.successLight : colors.warningLight;
   const Icon = isPersonel ? UserRound : Users;
-  const typeLabel = isPersonel ? 'PERSONEL' : 'CARİ';
+  const typeLabel = isPersonel ? t('dataImport.badges.staff') : t('dataImport.badges.client');
 
   return (
     <View style={styles.accountItem}>
@@ -1509,29 +1712,29 @@ function ClientPersonelItem({
         </View>
         <TouchableOpacity onPress={onToggleToHesap} style={styles.toggleButton}>
           <ArrowLeftRight size={14} color={colors.primary} />
-          <Text variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>Hesap yap</Text>
+          <Text variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>{t('dataImport.buttons.convertToAccount')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Entity tipi seçimi (Cari vs Personel) */}
       <View style={styles.subTypeRow}>
-        {ENTITY_TYPES.map((type) => (
+        {ENTITY_TYPE_VALUES.map((typeValue) => (
           <TouchableOpacity
-            key={type.value}
+            key={typeValue}
             style={[
               styles.subTypeChip,
-              mapping.type === type.value && (type.value === 'personel' ? styles.subTypeChipActiveSuccess : styles.subTypeChipActiveWarning),
+              mapping.type === typeValue && (typeValue === 'personel' ? styles.subTypeChipActiveSuccess : styles.subTypeChipActiveWarning),
             ]}
-            onPress={() => onToggleEntityType(type.value as 'cari' | 'personel')}
+            onPress={() => onToggleEntityType(typeValue as 'cari' | 'personel')}
           >
             <Text
               variant="caption"
               style={{
-                color: mapping.type === type.value ? (type.value === 'personel' ? colors.success : colors.warning) : colors.textSecondary,
-                fontWeight: mapping.type === type.value ? '600' : '400',
+                color: mapping.type === typeValue ? (typeValue === 'personel' ? colors.success : colors.warning) : colors.textSecondary,
+                fontWeight: mapping.type === typeValue ? '600' : '400',
               }}
             >
-              {type.label}
+              {t(`dataImport.entityTypes.${typeValue}`)}
             </Text>
           </TouchableOpacity>
         ))}
@@ -1540,24 +1743,24 @@ function ClientPersonelItem({
       {/* Cari alt tip seçimi (sadece cari tipinde göster) */}
       {!isPersonel && (
         <View style={[styles.subTypeRow, { marginTop: spacing.xs }]}>
-          {CARI_TYPES.map((type) => (
+          {CARI_TYPE_VALUES.map((typeValue) => (
             <TouchableOpacity
-              key={type.value}
+              key={typeValue}
               style={[
                 styles.subTypeChipSmall,
-                mapping.cariType === type.value && styles.subTypeChipActiveWarning,
+                mapping.cariType === typeValue && styles.subTypeChipActiveWarning,
               ]}
-              onPress={() => onSubTypeChange(type.value)}
+              onPress={() => onSubTypeChange(typeValue)}
             >
               <Text
                 variant="caption"
                 style={{
-                  color: mapping.cariType === type.value ? colors.warning : colors.textSecondary,
-                  fontWeight: mapping.cariType === type.value ? '600' : '400',
+                  color: mapping.cariType === typeValue ? colors.warning : colors.textSecondary,
+                  fontWeight: mapping.cariType === typeValue ? '600' : '400',
                   fontSize: 11,
                 }}
               >
-                {type.label}
+                {t(`dataImport.clientTypes.${typeValue}`)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -1572,10 +1775,12 @@ function CategoryItem({
   name,
   categoryType,
   onToggleType,
+  t,
 }: {
   name: string;
   categoryType: 'gelir' | 'gider';
   onToggleType: () => void;
+  t: (key: string) => string;
 }) {
   const isGelir = categoryType === 'gelir';
   return (
@@ -1594,7 +1799,7 @@ function CategoryItem({
         <View style={styles.categoryItemInfo}>
           <Text variant="body" numberOfLines={1}>{name}</Text>
           <Text variant="caption" color="secondary">
-            {isGelir ? 'Gelir Kategorisi' : 'Gider Kategorisi'}
+            {isGelir ? t('dataImport.categoryTypes.income') : t('dataImport.categoryTypes.expense')}
           </Text>
         </View>
       </View>
@@ -1611,7 +1816,7 @@ function CategoryItem({
           fontWeight: '600',
           color: isGelir ? colors.success : colors.error,
         }}>
-          {isGelir ? 'GELİR' : 'GİDER'}
+          {isGelir ? t('dataImport.badges.income') : t('dataImport.badges.expense')}
         </Text>
       </TouchableOpacity>
     </View>
@@ -1632,6 +1837,65 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: spacing.lg,
+  },
+  // Tab styles
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+    gap: spacing.xs,
+  },
+  tabActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: colors.primary,
+  },
+  tabText: {
+    color: colors.textMuted,
+  },
+  tabTextActive: {
+    color: colors.primary,
+  },
+  tabBadge: {
+    backgroundColor: colors.warning,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  tabBadgeText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  // Skipped tab styles
+  skippedContent: {
+    padding: spacing.lg,
+    paddingBottom: spacing['3xl'],
+  },
+  descriptionContainer: {
+    marginBottom: spacing.md,
+  },
+  deleteAllRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing['3xl'],
   },
   iconContainer: {
     alignItems: 'center',
@@ -1818,6 +2082,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.xs,
+  },
+  skippedInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.infoLight,
+    padding: spacing.sm,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
   },
   skippedActions: {
     flexDirection: 'row',

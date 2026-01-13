@@ -3,35 +3,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber, safeParseAmount, safeParseExchangeRate } from '@/lib/currency';
+import { toNumber, safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import { useSettings } from './useSettings';
-
-/**
- * Cross-currency hesaplama için güvenli dönüşüm
- * Exchange rate ile hedef tutarı hesaplar (useIslemler.ts ile aynı mantık)
- */
-function calculateTargetAmount(
-  amount: number,
-  exchangeRate: number | null,
-  sourceCurrency: string,
-  targetCurrency: string
-): number {
-  if (sourceCurrency === targetCurrency) {
-    return amount;
-  }
-
-  if (!exchangeRate || exchangeRate <= 0) {
-    return amount;
-  }
-
-  if (sourceCurrency === 'TRY') {
-    return amount / exchangeRate;
-  } else if (targetCurrency === 'TRY') {
-    return amount * exchangeRate;
-  } else {
-    return amount * exchangeRate;
-  }
-}
 
 export function useHesaplar(includePassive: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();

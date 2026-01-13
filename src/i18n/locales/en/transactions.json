@@ -16,6 +16,12 @@
     "kredi_karti_harcama": "Credit Card Expense",
     "nakit_avans_taksit": "Cash Advance Installment"
   },
+  "groups": {
+    "basic": "Basic Transactions",
+    "supplier": "Supplier Transactions",
+    "customer": "Customer Transactions",
+    "staff": "Staff Transactions"
+  },
   "accountTypes": {
     "nakit": "Cash",
     "banka": "Bank Account",

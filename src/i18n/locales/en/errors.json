@@ -6,6 +6,10 @@
     "tryAgain": "Please try again",
     "contactSupport": "If the problem persists, contact support"
   },
+  "boundary": {
+    "title": "Something Went Wrong",
+    "message": "Sorry, an unexpected error occurred. Please restart the app."
+  },
   "network": {
     "noConnection": "No internet connection",
     "connectionLost": "Connection lost",

@@ -6,6 +6,10 @@
     "somethingWentWrong": "Bir şeyler yanlış gitti",
     "operationFailed": "İşlem başarısız oldu"
   },
+  "boundary": {
+    "title": "Bir Hata Oluştu",
+    "message": "Üzgünüz, beklenmeyen bir hata oluştu. Lütfen uygulamayı yeniden başlatın."
+  },
   "network": {
     "noConnection": "İnternet bağlantısı yok",
     "connectionError": "Bağlantı hatası",

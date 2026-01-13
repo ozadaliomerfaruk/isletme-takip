@@ -99,64 +99,6 @@ function getDaysShort(): string[] {
 }
 
 // ============================================================================
-// SABITLER (Deprecated - geriye uyumluluk için)
-// ============================================================================
-
-/**
- * @deprecated Çeviriler için useDateFormat hook'unu kullanın
- */
-export const MONTHS_FULL = [
-  'Ocak',
-  'Şubat',
-  'Mart',
-  'Nisan',
-  'Mayıs',
-  'Haziran',
-  'Temmuz',
-  'Ağustos',
-  'Eylül',
-  'Ekim',
-  'Kasım',
-  'Aralık',
-] as const;
-
-/**
- * @deprecated Çeviriler için useDateFormat hook'unu kullanın
- */
-export const MONTHS_SHORT = [
-  'Oca',
-  'Şub',
-  'Mar',
-  'Nis',
-  'May',
-  'Haz',
-  'Tem',
-  'Ağu',
-  'Eyl',
-  'Eki',
-  'Kas',
-  'Ara',
-] as const;
-
-/**
- * @deprecated Çeviriler için useDateFormat hook'unu kullanın
- */
-export const DAYS_FULL = [
-  'Pazar',
-  'Pazartesi',
-  'Salı',
-  'Çarşamba',
-  'Perşembe',
-  'Cuma',
-  'Cumartesi',
-] as const;
-
-/**
- * @deprecated Çeviriler için useDateFormat hook'unu kullanın
- */
-export const DAYS_SHORT = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'] as const;
-
-// ============================================================================
 // DATABASE FORMAT (YYYY-MM-DD)
 // ============================================================================
 
@@ -597,6 +539,26 @@ export function addDays(date: Date | string, days: number): Date {
   const result = new Date(d);
   result.setDate(result.getDate() + days);
   return result;
+}
+
+/**
+ * Önceki dönem için tarih aralığı hesapla
+ * Analytics karşılaştırmaları için kullanılır
+ *
+ * @param period - Dönem tipi ('weekly' | 'monthly' | 'yearly')
+ * @returns Önceki dönemin tarih aralığı
+ *
+ * @example
+ * getPreviousDateRange('monthly') // Geçen ayın tarih aralığı
+ */
+export function getPreviousDateRange(
+  period: 'weekly' | 'monthly' | 'yearly'
+): { startDate: string; endDate: string } {
+  const range = getDateRange(period, -1);
+  return {
+    startDate: range.startDate,
+    endDate: range.endDate,
+  };
 }
 
 /**

@@ -131,6 +131,9 @@
     "clearAllData": "Tüm Verileri Sil"
   },
   "dataImport": {
+    "title": "Veri İçe Aktar",
+    "pageTitle": "Veri İçe Aktar",
+    "pageDescription": "Başka bir uygulamadan veya Excel dosyasından verilerinizi kolayca aktarın.\nİşlemler, hesaplar, cariler ve kategoriler otomatik olarak oluşturulacak.",
     "duplicateFile": {
       "title": "Dosya Zaten Import Edilmiş",
       "message": "Bu dosya \"{{fileName}}\" olarak {{date}} tarihinde import edilmiş. Yine de devam etmek istiyor musunuz?"
@@ -160,6 +163,221 @@
       "balances": "Bakiyeler güncelleniyor...",
       "done": "Tamamlandı!",
       "simulation": "Simülasyon yapılıyor..."
+    },
+    "steps": {
+      "downloadTemplate": "Şablon İndir (Opsiyonel)",
+      "downloadTemplateDesc": "Excel formatını görmek veya manuel veri girmek için şablonu indirin.",
+      "selectFile": "Excel Dosyası Seç",
+      "selectFileDesc": "Doldurduğunuz Excel dosyasını veya başka uygulamadan aldığınız dosyayı seçin."
+    },
+    "buttons": {
+      "downloadTemplate": "Örnek Şablon İndir",
+      "selectFile": "Dosya Seç",
+      "startImport": "Import Başlat",
+      "startRealImport": "Gerçek Import Başlat",
+      "viewDetails": "Detayları Gör",
+      "downloadExcel": "Excel İndir",
+      "continueAnyway": "Yine de Devam",
+      "convertToClient": "Cari yap",
+      "convertToAccount": "Hesap yap",
+      "undoImport": "Geri Al"
+    },
+    "accountTypes": {
+      "banka": "Banka",
+      "nakit": "Nakit / Kasa",
+      "kredi_karti": "Kredi Kartı",
+      "birikim": "Birikim"
+    },
+    "clientTypes": {
+      "musteri": "Müşteri",
+      "tedarikci": "Tedarikçi"
+    },
+    "entityTypes": {
+      "cari": "Cari",
+      "personel": "Personel"
+    },
+    "template": {
+      "dialogTitle": "Excel Şablonunu İndir",
+      "sheetName": "İşlemler",
+      "headers": {
+        "date": "TARİH",
+        "type": "İŞLEM TİPİ",
+        "description": "AÇIKLAMA",
+        "category": "KATEGORİ",
+        "account": "HESAP",
+        "staff": "PERSONEL",
+        "supplier": "TEDARİKÇİ",
+        "customer": "MÜŞTERİ",
+        "targetAccount": "KARŞI HESAP",
+        "amount": "MİKTAR",
+        "currency": "BİRİM"
+      },
+      "sampleData": {
+        "salesIncome": "Satış geliri",
+        "officeSupplies": "Ofis malzemesi",
+        "supplierPayment": "Tedarikçi ödemesi",
+        "customerCollection": "Müşteri tahsilatı",
+        "betweenAccounts": "Hesaplar arası",
+        "salaryPayment": "Maaş ödemesi",
+        "bankAccount": "Banka Hesabı",
+        "cash": "Nakit",
+        "sales": "SATIŞ",
+        "officeExpenses": "OFİS GİDERLERİ",
+        "salary": "MAAŞ",
+        "income": "GELİR",
+        "expense": "GİDER",
+        "payment": "ÖDEME",
+        "collection": "TAHSİLAT",
+        "transfer": "TRANSFER",
+        "staffExpense": "PERSONEL GİDERİ",
+        "sampleSupplier1": "CİRO",
+        "sampleSupplier2": "ABC Tedarik",
+        "sampleCustomer": "XYZ Müşteri",
+        "sampleStaff1": "Ahmet Yılmaz",
+        "sampleStaff2": "Mehmet Demir"
+      }
+    },
+    "modal": {
+      "transactions": "İşlemler ({{count}})",
+      "accounts": "Hesaplar ({{count}})",
+      "clients": "Cari/Personel ({{count}})",
+      "categories": "Kategoriler ({{count}})",
+      "skipped": "Atlanan ({{count}})"
+    },
+    "search": {
+      "transactions": "İşlem ara...",
+      "accounts": "Hesap ara...",
+      "clientsStaff": "Cari veya personel ara...",
+      "categories": "Kategori ara...",
+      "skipped": "Atlanan işlem ara...",
+      "default": "Ara..."
+    },
+    "empty": {
+      "transactions": "İşlem bulunamadı",
+      "accounts": "Hesap bulunamadı",
+      "clientsStaff": "Cari veya personel bulunamadı",
+      "categories": "Kategori bulunamadı",
+      "skipped": "Atlanan işlem bulunamadı"
+    },
+    "preview": {
+      "showingFirst100": "İlk 100 işlem gösteriliyor ({{total}} toplam)",
+      "fileAnalyzed": "Dosya Analiz Edildi",
+      "tapForDetails": "Detayları görmek için kartlara dokunun",
+      "dateRange": "Tarih Aralığı"
+    },
+    "labels": {
+      "transaction": "İşlem",
+      "transactions": "İşlemler",
+      "account": "Hesap",
+      "accounts": "Hesaplar",
+      "clientStaff": "Cari/Personel",
+      "category": "Kategori",
+      "categories": "Kategoriler",
+      "row": "Satır",
+      "transactionTypes": "İşlem Tipleri"
+    },
+    "badges": {
+      "account": "HESAP",
+      "client": "CARİ",
+      "staff": "PERSONEL",
+      "income": "GELİR",
+      "expense": "GİDER"
+    },
+    "categoryTypes": {
+      "income": "Gelir Kategorisi",
+      "expense": "Gider Kategorisi"
+    },
+    "hints": {
+      "categoryToggle": "Dokunarak kategori tipini değiştirebilirsiniz (Gelir ↔ Gider)"
+    },
+    "phases": {
+      "categories": "Kategoriler",
+      "accounts": "Hesaplar",
+      "clients": "Cariler",
+      "personel": "Personeller",
+      "transactions": "İşlemler"
+    },
+    "status": {
+      "importing": "Import Ediliyor...",
+      "importFailed": "Import Başarısız"
+    },
+    "success": {
+      "title": "Başarılı",
+      "complete": "Import Tamamlandı!",
+      "undoComplete": "Import tamamen geri alındı:\n\n{{details}}"
+    },
+    "skipped": {
+      "count": "{{count}} İşlem Atlandı",
+      "exportDialogTitle": "Atlanan İşlemleri Kaydet"
+    },
+    "undo": {
+      "title": "Son İmportu Geri Al",
+      "confirmTitle": "Son İmportu Geri Al",
+      "confirmMessage": "\"{{fileName}}\" dosyasından eklenen tüm veriler silinecek:\n\n{{details}}\n\nBu işlem geri alınamaz. Devam etmek istiyor musunuz?",
+      "deleteAll": "Tümünü Sil",
+      "transactionCount": "{{count}} işlem"
+    },
+    "errors": {
+      "title": "Hatalar",
+      "sharingNotSupported": "Bu cihazda dosya paylaşımı desteklenmiyor.",
+      "templateDownloadFailed": "Şablon indirilemedi. Lütfen tekrar deneyin.",
+      "fileReadFailed": "Dosya okunamadı. Lütfen geçerli bir Excel dosyası seçin.",
+      "parseFailed": "Dosya parse edilemedi.",
+      "sharingNotAvailable": "Dosya paylaşımı bu cihazda desteklenmiyor.",
+      "fileCreationFailed": "Dosya oluşturulurken bir hata oluştu.",
+      "undoFailed": "Geri alma başarısız",
+      "moreErrors": "... ve {{count}} hata daha"
+    },
+    "warnings": {
+      "title": "Uyarı",
+      "parseErrors": "Dosya okundu ama {{count}} hata var. Devam etmek istiyor musunuz?",
+      "warningCount": "{{count}} Uyarı"
+    },
+    "info": {
+      "supportedTypes": "Desteklenen İşlem Tipleri"
+    },
+    "typeDescriptions": {
+      "gelir": "GELİR - Gelir işlemleri",
+      "gider": "GİDER - Gider işlemleri",
+      "odeme": "ÖDEME - Cari ödemeleri",
+      "tahsilat": "TAHSİLAT - Cari tahsilatları",
+      "transfer": "TRANSFER - Hesaplar arası transfer",
+      "personelGider": "PERSONEL GİDERİ - Personel ödemeleri"
+    },
+    "results": {
+      "category": "Kategori",
+      "account": "Hesap",
+      "client": "Cari",
+      "staff": "Personel",
+      "transaction": "İşlem"
+    },
+    "pendingForm": {
+      "title": "İşlemi Düzelt",
+      "detected": "algılandı",
+      "notDetected": "Algılanamadı",
+      "saveAndContinue": "Kaydet ve Devam Et",
+      "skipTitle": "İşlemi Atla",
+      "skipMessage": "Bu işlem atlandı olarak işaretlenecek ve listeden kaldırılacak. Devam etmek istiyor musunuz?",
+      "fixButton": "Düzelt",
+      "skipButton": "Atla"
+    },
+    "skippedTransactions": {
+      "title": "Atlanan İşlemler",
+      "tabImport": "İçe Aktar",
+      "tabSkipped": "Atlanan",
+      "description": "Import sırasında atlanan ve manuel düzeltme bekleyen işlemler",
+      "badge": "{{count}} atlanan",
+      "empty": "Atlanan işlem yok",
+      "emptyDescription": "Import sırasında atlanan işlemler burada görünecek",
+      "deleteAllTitle": "Tümünü Sil",
+      "deleteAllMessage": "Tüm atlanan işlemler silinecek. Bu işlem geri alınamaz.",
+      "deleteAllButton": "Tümünü Sil",
+      "infoTitle": "Atlanan İşlemler Hakkında",
+      "infoMessage": "Import sırasında atlanan işlemleri \"Atlanan\" sekmesinden düzeltebilirsiniz.",
+      "goToSkipped": "Atlanan İşlemlere Git"
+    },
+    "errors": {
+      "selectSupplierOrStaff": "Lütfen bir tedarikçi veya personel seçin"
     }
   },
   "account": {

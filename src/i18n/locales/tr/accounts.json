@@ -9,26 +9,19 @@
     "selectAccount": "Hesap Seçin",
     "selectCreditCard": "Kredi Kartı Seçin"
   },
-  "types": {
-    "nakit": "Nakit",
-    "banka": "Banka Hesabı",
-    "kredi_karti": "Kredi Kartı",
-    "birikim": "Birikim",
-    "diger": "Birikim"
-  },
   "typeDescriptions": {
     "nakit": "Elde tutulan nakit para",
     "banka": "Banka hesabındaki para",
     "kredi_karti": "Kredi kartı borç takibi",
     "birikim": "Birikim hesabı (yastık altı, kumbara, altın vb.)",
-    "diger": "Birikim hesabı (yastık altı, kumbara vb.)"
+    "diger": "Diğer hesap türleri"
   },
   "typeLabels": {
     "nakit": "Nakit",
     "banka": "Banka",
     "kredi_karti": "Kredi Kartı",
     "birikim": "Birikim",
-    "diger": "Birikim"
+    "diger": "Diğer"
   },
   "form": {
     "name": "Hesap Adı",

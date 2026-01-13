@@ -456,3 +456,52 @@ export function calculateBalanceSummary(
     net: result.receivables - result.payables,
   };
 }
+
+// ============================================================================
+// CROSS-CURRENCY HESAPLAMA
+// ============================================================================
+
+/**
+ * Cross-currency hesaplama için güvenli dönüşüm
+ * Exchange rate ile hedef tutarı hesaplar
+ *
+ * Kur formatı: "1 [yabancı para] = X TRY"
+ * - USD -> TRY: amount * exchangeRate (örn: 100 USD * 32 = 3200 TRY)
+ * - TRY -> USD: amount / exchangeRate (örn: 3200 TRY / 32 = 100 USD)
+ *
+ * @example
+ * calculateTargetAmount(100, 32, 'USD', 'TRY') // 3200 (100 * 32)
+ * calculateTargetAmount(3200, 32, 'TRY', 'USD') // 100 (3200 / 32)
+ * calculateTargetAmount(100, null, 'TRY', 'TRY') // 100 (aynı para birimi)
+ */
+export function calculateTargetAmount(
+  amount: number,
+  exchangeRate: number | null,
+  sourceCurrency: string,
+  targetCurrency: string
+): number {
+  // Aynı para birimi ise dönüşüm yok
+  if (sourceCurrency === targetCurrency) {
+    return amount;
+  }
+
+  // Exchange rate yoksa veya geçersizse dönüşüm yapma
+  if (!exchangeRate || exchangeRate <= 0) {
+    return amount;
+  }
+
+  // TRY referans alınarak kur hesaplanır
+  // Exchange rate formatı: "1 [yabancı para] = X TRY"
+  if (sourceCurrency === 'TRY') {
+    // TRY'den yabancı paraya: bölme işlemi
+    return amount / exchangeRate;
+  } else if (targetCurrency === 'TRY') {
+    // Yabancı paradan TRY'ye: çarpma işlemi
+    return amount * exchangeRate;
+  } else {
+    // İki yabancı para arası: önce TRY'ye çevir, sonra hedef paraya
+    // Bu durumda exchange_rate source->TRY formatında olmalı
+    // Basitleştirilmiş: direkt çarpma (UI'da doğru kur girilmeli)
+    return amount * exchangeRate;
+  }
+}

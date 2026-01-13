@@ -1,6 +1,7 @@
 {
   "tabs": {
     "home": "Home",
+    "analytics": "Analytics",
     "clients": "Clients",
     "personnel": "Staff",
     "more": "More"
@@ -66,6 +67,7 @@
     "categories": "Categories",
     "accounts": "Accounts",
     "reminders": "Reminders",
+    "importData": "Import Data",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
     "kvkk": "Data Protection",

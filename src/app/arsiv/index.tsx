@@ -165,7 +165,7 @@ export default function ArsivPage() {
         <View style={styles.itemInfo}>
           <Text variant="body">{hesap.name}</Text>
           <Text variant="caption" color="secondary">
-            {t(`accounts:types.${hesap.type}`)}
+            {t(`accounts:typeLabels.${hesap.type}`)}
           </Text>
         </View>
         <View style={styles.itemBalance}>

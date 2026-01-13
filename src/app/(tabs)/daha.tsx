@@ -35,15 +35,23 @@ interface MenuItemProps {
   label: string;
   onPress: () => void;
   danger?: boolean;
+  badge?: number;
 }
 
-function MenuItem({ icon, label, onPress, danger }: MenuItemProps) {
+function MenuItem({ icon, label, onPress, danger, badge }: MenuItemProps) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>{icon}</View>
-      <Text variant="body" style={danger && { color: colors.error }}>
+      <Text variant="body" style={[{ flex: 1 }, danger && { color: colors.error }]}>
         {label}
       </Text>
+      {badge !== undefined && badge > 0 && (
+        <View style={styles.badge}>
+          <Text variant="caption" style={styles.badgeText}>
+            {badge > 99 ? '99+' : badge}
+          </Text>
+        </View>
+      )}
       <ChevronRight size={20} color={danger ? colors.error : colors.textMuted} />
     </TouchableOpacity>
   );
@@ -512,5 +520,19 @@ const styles = StyleSheet.create({
   dateFormatOption: {
     flex: 1,
     gap: 2,
+  },
+  badge: {
+    backgroundColor: colors.error,
+    borderRadius: 12,
+    minWidth: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  badgeText: {
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 12,
   },
 });

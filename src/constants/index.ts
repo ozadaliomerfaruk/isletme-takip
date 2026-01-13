@@ -11,7 +11,7 @@ export const CURRENCY = 'TRY';
 export const CURRENCY_SYMBOL = '₺';
 
 /**
- * @deprecated Çeviriler için t('accounts:types.${type}') kullanın
+ * @deprecated Çeviriler için t('accounts:typeLabels.${type}') kullanın
  */
 export const HESAP_TYPES = {
   nakit: 'Nakit',

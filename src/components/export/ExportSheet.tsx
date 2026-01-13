@@ -4,8 +4,9 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Modal } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Modal, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Calendar, FileSpreadsheet, Check } from 'lucide-react-native';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -47,7 +48,7 @@ export function ExportSheet({
   currentBalance,
   cariType,
 }: ExportSheetProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('common');
   const [selectedPeriod, setSelectedPeriod] = useState<string>('thisMonth');
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
@@ -66,14 +67,14 @@ export function ExportSheet({
 
   // Dönem seçenekleri
   const periodOptions: PeriodOption[] = useMemo(() => [
-    { key: 'today', label: t('common:date.today'), period: 'daily', offset: 0 },
-    { key: 'thisWeek', label: t('common:date.thisWeek'), period: 'weekly', offset: 0 },
-    { key: 'thisMonth', label: t('common:date.thisMonth'), period: 'monthly', offset: 0 },
-    { key: 'lastMonth', label: t('common:date.lastMonth'), period: 'monthly', offset: -1 },
-    { key: 'last3Months', label: 'Son 3 Ay', period: 'monthly', offset: -2 },
-    { key: 'thisYear', label: t('common:date.thisYear'), period: 'yearly', offset: 0 },
-    { key: 'allTime', label: t('common:period.allTime'), period: 'yearly', offset: -100 },
-    { key: 'custom', label: t('common:period.custom'), period: 'custom' },
+    { key: 'today', label: t('date.today'), period: 'daily', offset: 0 },
+    { key: 'thisWeek', label: t('date.thisWeek'), period: 'weekly', offset: 0 },
+    { key: 'thisMonth', label: t('date.thisMonth'), period: 'monthly', offset: 0 },
+    { key: 'lastMonth', label: t('date.lastMonth'), period: 'monthly', offset: -1 },
+    { key: 'last3Months', label: t('date.last3Months'), period: 'monthly', offset: -2 },
+    { key: 'thisYear', label: t('date.thisYear'), period: 'yearly', offset: 0 },
+    { key: 'allTime', label: t('period.allTime'), period: 'yearly', offset: -100 },
+    { key: 'custom', label: t('period.custom'), period: 'custom' },
   ], [t]);
 
   // Seçilen döneme göre tarih aralığını hesapla
@@ -162,34 +163,52 @@ export function ExportSheet({
 
   const renderIOSDateModal = (type: 'start' | 'end') => {
     const isVisible = type === 'start' ? showStartPicker : showEndPicker;
+    const currentValue = type === 'start' ? customStartDate : customEndDate;
 
     return (
       <Modal visible={isVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => type === 'start' ? setShowStartPicker(false) : setShowEndPicker(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {type === 'start' ? t('date.startDate') : t('date.endDate')}
+              </Text>
               <TouchableOpacity
                 onPress={() => type === 'start' ? setShowStartPicker(false) : setShowEndPicker(false)}
               >
-                <Text style={styles.modalCancel}>{t('common:buttons.cancel')}</Text>
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>
-                {type === 'start' ? t('common:date.startDate') : t('common:date.endDate')}
-              </Text>
-              <TouchableOpacity onPress={() => confirmIOSDate(type)}>
-                <Text style={styles.modalConfirm}>{t('common:buttons.done')}</Text>
+                <Text style={styles.modalConfirm}>{t('buttons.done')}</Text>
               </TouchableOpacity>
             </View>
-            <DateTimePickerRN
-              value={tempDate}
-              mode="date"
-              display="spinner"
-              onChange={type === 'start' ? handleStartDateChange : handleEndDateChange}
-              maximumDate={new Date()}
-              locale="tr-TR"
-            />
-          </View>
-        </View>
+            <View style={styles.datePickerWrapper}>
+              <DateTimePickerRN
+                value={currentValue}
+                mode="date"
+                display="inline"
+                onChange={(event, date) => {
+                  if (date) {
+                    if (type === 'start') {
+                      setCustomStartDate(date);
+                      if (date > customEndDate) {
+                        setCustomEndDate(date);
+                      }
+                    } else {
+                      setCustomEndDate(date);
+                    }
+                  }
+                }}
+                minimumDate={type === 'end' ? customStartDate : undefined}
+                maximumDate={new Date()}
+                locale={i18n.language === 'tr' ? 'tr-TR' : 'en-US'}
+                themeVariant="light"
+                accentColor={colors.primary}
+                style={{ height: 350 }}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
       </Modal>
     );
   };
@@ -204,19 +223,19 @@ export function ExportSheet({
         {/* Başlık */}
         <View style={styles.header}>
           <FileSpreadsheet size={24} color={colors.success} />
-          <Text style={styles.title}>Excel Olarak Paylaş</Text>
+          <Text style={styles.title}>{t('export.shareAsExcel')}</Text>
         </View>
 
         {/* Entity bilgisi */}
         <View style={styles.entityInfo}>
           <Text style={styles.entityLabel}>
-            {entityType === 'hesap' ? 'Hesap' : entityType === 'cari' ? 'Cari' : 'Personel'}
+            {entityType === 'hesap' ? t('labels.account') : entityType === 'cari' ? t('labels.client') : t('labels.staff')}
           </Text>
           <Text style={styles.entityName}>{entityName}</Text>
         </View>
 
         {/* Dönem Seçimi - Grid Layout */}
-        <Text style={styles.sectionTitle}>Dönem Seçin</Text>
+        <Text style={styles.sectionTitle}>{t('period.selectPeriod')}</Text>
         <View style={styles.periodGrid}>
           {periodOptions.map((option) => {
             const isSelected = selectedPeriod === option.key;
@@ -262,7 +281,7 @@ export function ExportSheet({
             >
               <Calendar size={18} color={colors.primary} />
               <View style={styles.dateButtonContent}>
-                <Text style={styles.dateButtonLabel}>{t('common:date.startDate')}</Text>
+                <Text style={styles.dateButtonLabel}>{t('date.startDate')}</Text>
                 <Text style={styles.dateButtonValue}>{formatDateShort(customStartDate)}</Text>
               </View>
             </TouchableOpacity>
@@ -283,7 +302,7 @@ export function ExportSheet({
             >
               <Calendar size={18} color={colors.primary} />
               <View style={styles.dateButtonContent}>
-                <Text style={styles.dateButtonLabel}>{t('common:date.endDate')}</Text>
+                <Text style={styles.dateButtonLabel}>{t('date.endDate')}</Text>
                 <Text style={styles.dateButtonValue}>{formatDateShort(customEndDate)}</Text>
               </View>
             </TouchableOpacity>
@@ -296,7 +315,7 @@ export function ExportSheet({
             <View style={styles.dateDisplayBox}>
               <Calendar size={18} color={colors.primary} />
               <View style={styles.dateButtonContent}>
-                <Text style={styles.dateButtonLabel}>{t('common:date.startDate')}</Text>
+                <Text style={styles.dateButtonLabel}>{t('date.startDate')}</Text>
                 <Text style={styles.dateButtonValue}>{formatDateShort(dateRange.startDate)}</Text>
               </View>
             </View>
@@ -310,7 +329,7 @@ export function ExportSheet({
             <View style={styles.dateDisplayBox}>
               <Calendar size={18} color={colors.primary} />
               <View style={styles.dateButtonContent}>
-                <Text style={styles.dateButtonLabel}>{t('common:date.endDate')}</Text>
+                <Text style={styles.dateButtonLabel}>{t('date.endDate')}</Text>
                 <Text style={styles.dateButtonValue}>{formatDateShort(dateRange.endDate)}</Text>
               </View>
             </View>
@@ -327,12 +346,12 @@ export function ExportSheet({
             {isExporting ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={colors.white} />
-                <Text style={styles.exportButtonText}>Hazırlanıyor...</Text>
+                <Text style={styles.exportButtonText}>{t('export.preparing')}</Text>
               </View>
             ) : (
               <View style={styles.buttonContent}>
                 <FileSpreadsheet size={20} color={colors.white} />
-                <Text style={styles.exportButtonText}>Excel Olarak Paylaş</Text>
+                <Text style={styles.exportButtonText}>{t('export.shareAsExcel')}</Text>
               </View>
             )}
           </Button>
@@ -562,5 +581,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.primary,
+  },
+  datePickerWrapper: {
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
   },
 });

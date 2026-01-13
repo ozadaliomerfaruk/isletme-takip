@@ -60,9 +60,12 @@ interface UseCategoryReportOptions {
  * Tarih string'ini tam gun formatina normalize eder
  * YYYY-MM-DD -> YYYY-MM-DDTHH:MM:SS formatina cevirir
  */
-function normalizeDateRange(startDate: string, endDate: string): { startDateTime: string; endDateTime: string } {
-  const startDateTime = startDate.includes('T') ? startDate : `${startDate}T00:00:00`;
-  const endDateTime = endDate.includes('T') ? endDate : `${endDate}T23:59:59`;
+function normalizeDateRange(startDate: string | undefined, endDate: string | undefined): { startDateTime: string; endDateTime: string } {
+  // Handle undefined dates with empty strings (queries will be disabled anyway)
+  const start = startDate || '';
+  const end = endDate || '';
+  const startDateTime = start.includes('T') ? start : `${start}T00:00:00`;
+  const endDateTime = end.includes('T') ? end : `${end}T23:59:59`;
   return { startDateTime, endDateTime };
 }
 

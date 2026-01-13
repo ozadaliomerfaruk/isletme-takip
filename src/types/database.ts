@@ -541,3 +541,69 @@ export interface CekWithRelations extends Cek {
   cari: Cari;
   kategori?: Kategori | null;
 }
+
+// Bekleyen İşlem (Import'tan atlanan işlemler)
+export type PendingIslemStatus = 'pending' | 'saved' | 'dismissed';
+
+/**
+ * Raw data from Excel import - original parsed values
+ */
+export interface PendingIslemRawData {
+  date: string;
+  type: string;
+  mappedType: string;
+  description: string | null;
+  category: string | null;
+  account: string;
+  personel: string | null;
+  tedarikci: string | null;
+  musteri: string | null;
+  karsiHesap: string | null;
+  amount: number;
+  isExpense: boolean;
+  rowNumber: number;
+}
+
+/**
+ * User corrections for pending transaction
+ */
+export interface PendingIslemCorrections {
+  type?: IslemType;
+  amount?: number;
+  description?: string | null;
+  date?: string;
+  hesap_id?: string | null;
+  hedef_hesap_id?: string | null;
+  kategori_id?: string | null;
+  cari_id?: string | null;
+  personel_id?: string | null;
+}
+
+export interface PendingIslem {
+  id: string;
+  isletme_id: string;
+  import_batch_id: string;
+  row_number: number;
+  skip_reason: string;
+  raw_data: PendingIslemRawData;
+  corrections: PendingIslemCorrections;
+  status: PendingIslemStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PendingIslemInsert {
+  id?: string;
+  isletme_id: string;
+  import_batch_id: string;
+  row_number: number;
+  skip_reason: string;
+  raw_data: PendingIslemRawData;
+  corrections?: PendingIslemCorrections;
+  status?: PendingIslemStatus;
+}
+
+export interface PendingIslemUpdate {
+  corrections?: PendingIslemCorrections;
+  status?: PendingIslemStatus;
+}

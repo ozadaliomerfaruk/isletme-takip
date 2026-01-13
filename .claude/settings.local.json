@@ -46,7 +46,8 @@
       "Bash(pip install:*)",
       "Bash(python:*)",
       "Bash(powershell -Command \"pip install pandas openpyxl -q\")",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npx kill-port 8081)"
     ]
   }
 }

@@ -13,11 +13,6 @@
 // ============================================================================
 
 export {
-  // Sabitler
-  MONTHS_FULL,
-  MONTHS_SHORT,
-  DAYS_FULL,
-  DAYS_SHORT,
   // Database format
   formatDateForDB,
   parseDateFromDB,

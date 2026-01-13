@@ -1,6 +1,7 @@
 import { View, StyleSheet, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
 import { useRef, useEffect, useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { Text } from './Text';
@@ -27,9 +28,11 @@ export function ActionSheet({
   onClose,
   title,
   options,
-  cancelLabel = 'İptal',
+  cancelLabel,
 }: ActionSheetProps) {
+  const { t } = useTranslation('common');
   const insets = useSafeAreaInsets();
+  const resolvedCancelLabel = cancelLabel ?? t('buttons.cancel');
   const translateY = useRef(new Animated.Value(300)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
@@ -110,7 +113,7 @@ export function ActionSheet({
           {/* Title */}
           {title && (
             <View style={styles.titleContainer}>
-              <Text variant="caption" color="textSecondary" style={styles.title}>
+              <Text variant="caption" color="secondary" style={styles.title}>
                 {title}
               </Text>
             </View>
@@ -152,7 +155,7 @@ export function ActionSheet({
           activeOpacity={0.7}
         >
           <Text variant="label" color="primary">
-            {cancelLabel}
+            {resolvedCancelLabel}
           </Text>
         </TouchableOpacity>
       </Animated.View>

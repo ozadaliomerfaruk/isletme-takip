@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import i18n from '@/i18n';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -78,11 +79,11 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         <View style={styles.container}>
           <View style={styles.content}>
             <Text variant="h2" style={styles.title}>
-              Bir Hata Oluştu
+              {i18n.t('errors:boundary.title')}
             </Text>
 
             <Text variant="body" color="secondary" style={styles.message}>
-              Üzgünüz, beklenmeyen bir hata oluştu. Lütfen uygulamayı yeniden başlatın.
+              {i18n.t('errors:boundary.message')}
             </Text>
 
             {__DEV__ && this.state.error && (
@@ -103,7 +104,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
               onPress={this.handleReset}
               style={styles.button}
             >
-              Tekrar Dene
+              {i18n.t('common:buttons.retry')}
             </Button>
           </View>
         </View>

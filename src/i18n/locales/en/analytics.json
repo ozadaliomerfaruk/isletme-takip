@@ -1,0 +1,110 @@
+{
+  "title": "Analytics",
+  "settings": "Settings",
+  "refresh": "Refresh",
+  "customize": "Customize",
+  "period": {
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "thisYear": "This Year"
+  },
+  "widgets": {
+    "financeKpi": "Financial Summary",
+    "receivables": "Open Receivables",
+    "payables": "Open Payables",
+    "trend": "Income/Expense Trend",
+    "category": "Category Distribution",
+    "cashFlow": "Cash Flow",
+    "insights": "Insights"
+  },
+  "kpi": {
+    "netProfit": "Net Profit",
+    "income": "Income",
+    "expense": "Expense",
+    "cashBalance": "Cash/Bank"
+  },
+  "labels": {
+    "accounts": "{{count}} accounts",
+    "accounts_one": "{{count}} account",
+    "accounts_other": "{{count}} accounts",
+    "customers": "{{count}} customers",
+    "customers_one": "{{count}} customer",
+    "customers_other": "{{count}} customers",
+    "suppliers": "{{count}} suppliers",
+    "suppliers_one": "{{count}} supplier",
+    "suppliers_other": "{{count}} suppliers",
+    "staff": "{{count}} staff",
+    "staff_one": "{{count}} staff",
+    "staff_other": "{{count}} staff",
+    "instant": "Instant",
+    "vsLastPeriod": "vs last period",
+    "total": "Total",
+    "average": "Average",
+    "noChange": "No change",
+    "creditCard": "C.C."
+  },
+  "trend": {
+    "title": "Income/Expense Trend",
+    "income": "Income",
+    "expense": "Expense",
+    "net": "Net",
+    "last6Months": "Last 6 Months"
+  },
+  "filter": {
+    "title": "Filter Trend",
+    "types": {
+      "hesap": "Account",
+      "cari": "Client",
+      "kategori": "Category",
+      "personel": "Staff"
+    },
+    "apply": "Apply",
+    "clear": "Clear",
+    "noResults": "No results found"
+  },
+  "category": {
+    "title": "Category Distribution",
+    "income": "Income",
+    "expense": "Expense",
+    "totalExpense": "Total Expense",
+    "totalIncome": "Total Income",
+    "other": "Other",
+    "uncategorized": "Uncategorized"
+  },
+  "cashFlow": {
+    "title": "Cash Flow",
+    "inflow": "Inflow",
+    "outflow": "Outflow",
+    "netPositive": "Net positive",
+    "netNegative": "Net negative"
+  },
+  "insights": {
+    "title": "Insights",
+    "noInsights": "No insights at this time",
+    "openReceivables": "Open receivables: {{count}} customers, {{amount}}",
+    "topExpenseCategory": "{{percentage}}% of expenses in {{category}} category",
+    "collectionTrendDown": "Collections down {{percentage}}% in last 7 days",
+    "collectionTrendUp": "Collections up {{percentage}}% in last 7 days",
+    "staffExpenseUp": "Staff expenses up {{percentage}}%",
+    "profitTrendUp": "Net profit trending up over last 3 months",
+    "profitTrendDown": "Net profit trending down over last 3 months",
+    "openPayables": "Open payables: {{supplierCount}} suppliers + {{staffCount}} staff",
+    "highCreditCardDebt": "High credit card debt: {{amount}}",
+    "creditCardDebt": "Credit card debt: {{amount}}",
+    "netProfitPositive": "Profit this period: {{amount}}",
+    "netProfitNegative": "Loss this period: {{amount}}",
+    "viewDetails": "View details",
+    "goToClients": "Go to clients",
+    "goToCategory": "Go to category",
+    "goToReports": "Go to reports"
+  },
+  "empty": {
+    "noData": "No data for this period",
+    "noWidgets": "No widgets to display",
+    "noTransactions": "No transactions yet"
+  },
+  "errors": {
+    "loadFailed": "Failed to load data",
+    "retry": "Retry"
+  }
+}

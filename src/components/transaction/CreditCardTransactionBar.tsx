@@ -188,12 +188,10 @@ export function CreditCardTransactionBar({
   useEffect(() => {
     if (visible) {
       setType('kredi_karti_gider');
-      // Varsayılan kaynak hesap seç (ekstre ödemesi için)
-      if (nakitHesaplar.length > 0) {
-        setSourceHesapId(nakitHesaplar[0].id);
-      }
+      // Ekstre ödemesi için varsayılan hesap seçme - kullanıcı seçmeli
+      setSourceHesapId(null);
     }
-  }, [visible, nakitHesaplar]);
+  }, [visible]);
 
   // Reset related fields when type changes
   useEffect(() => {

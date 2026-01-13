@@ -145,11 +145,11 @@ export default function HomePage() {
 
   // Grup başlık ve ikon tanımları
   const groupConfig: Record<string, { label: string; icon: React.ReactNode }> = {
-    nakit: { label: t('accounts:types.nakit'), icon: <Banknote size={20} color={colors.success} /> },
-    banka: { label: t('accounts:types.banka'), icon: <Building2 size={20} color={colors.primary} /> },
-    kredi_karti: { label: t('accounts:types.kredi_karti'), icon: <CreditCard size={20} color={colors.error} /> },
-    birikim: { label: t('accounts:types.birikim'), icon: <PiggyBank size={20} color={colors.warning} /> },
-    diger: { label: t('accounts:types.diger'), icon: <PiggyBank size={20} color={colors.warning} /> }, // backward compat.
+    nakit: { label: t('accounts:typeLabels.nakit'), icon: <Banknote size={20} color={colors.success} /> },
+    banka: { label: t('accounts:typeLabels.banka'), icon: <Building2 size={20} color={colors.primary} /> },
+    kredi_karti: { label: t('accounts:typeLabels.kredi_karti'), icon: <CreditCard size={20} color={colors.error} /> },
+    birikim: { label: t('accounts:typeLabels.birikim'), icon: <PiggyBank size={20} color={colors.warning} /> },
+    diger: { label: t('accounts:typeLabels.diger'), icon: <PiggyBank size={20} color={colors.warning} /> },
   };
 
   const openQuickBar = (type: TransactionType, hesap: Hesap) => {

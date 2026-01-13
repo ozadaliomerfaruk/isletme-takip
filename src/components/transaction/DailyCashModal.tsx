@@ -80,11 +80,17 @@ export function DailyCashModal({
   const { data: hesaplar } = useHesaplar();
   const createIslem = useCreateIslem();
 
+  // Kredi kartı ve birikim hesaplarını filtrele (sadece nakit, banka, diger)
+  const filteredHesaplar = useMemo(() => {
+    if (!hesaplar) return [];
+    return hesaplar.filter((h) => !['kredi_karti', 'birikim'].includes(h.type));
+  }, [hesaplar]);
+
   // Initialize entries when hesaplar changes
   useEffect(() => {
-    if (hesaplar && hesaplar.length > 0) {
+    if (filteredHesaplar.length > 0) {
       setEntries(
-        hesaplar.map((h) => ({
+        filteredHesaplar.map((h) => ({
           hesapId: h.id,
           amount: '',
           kategoriId: null,
@@ -92,7 +98,7 @@ export function DailyCashModal({
         }))
       );
     }
-  }, [hesaplar]);
+  }, [filteredHesaplar]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -102,9 +108,9 @@ export function DailyCashModal({
         d.setHours(23, 59, 0, 0);
         setDate(d);
         setIsSaving(false);
-        if (hesaplar) {
+        if (filteredHesaplar.length > 0) {
           setEntries(
-            hesaplar.map((h) => ({
+            filteredHesaplar.map((h) => ({
               hesapId: h.id,
               amount: '',
               kategoriId: null,
@@ -115,7 +121,7 @@ export function DailyCashModal({
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [visible, hesaplar]);
+  }, [visible, filteredHesaplar]);
 
   // Keyboard listeners
   useEffect(() => {
@@ -325,8 +331,8 @@ export function DailyCashModal({
 
   // Get hesap by id
   const getHesap = useCallback((hesapId: string): Hesap | undefined => {
-    return hesaplar?.find((h) => h.id === hesapId);
-  }, [hesaplar]);
+    return filteredHesaplar.find((h) => h.id === hesapId);
+  }, [filteredHesaplar]);
 
   // Calculate total amount
   const totalAmount = useMemo(() => {

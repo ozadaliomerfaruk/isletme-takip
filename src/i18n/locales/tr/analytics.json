@@ -1,0 +1,110 @@
+{
+  "title": "Analitik",
+  "settings": "Ayarlar",
+  "refresh": "Yenile",
+  "customize": "Düzenle",
+  "period": {
+    "thisWeek": "Bu Hafta",
+    "thisMonth": "Bu Ay",
+    "thisYear": "Bu Yıl"
+  },
+  "widgets": {
+    "financeKpi": "Finansal Özet",
+    "receivables": "Açık Alacak",
+    "payables": "Açık Borç",
+    "trend": "Gelir/Gider Trendi",
+    "category": "Kategori Dağılımı",
+    "cashFlow": "Nakit Akışı",
+    "insights": "İçgörüler"
+  },
+  "kpi": {
+    "netProfit": "Net Kâr",
+    "income": "Gelir",
+    "expense": "Gider",
+    "cashBalance": "Kasa/Banka"
+  },
+  "labels": {
+    "accounts": "{{count}} hesap",
+    "accounts_one": "{{count}} hesap",
+    "accounts_other": "{{count}} hesap",
+    "customers": "{{count}} müşteri",
+    "customers_one": "{{count}} müşteri",
+    "customers_other": "{{count}} müşteri",
+    "suppliers": "{{count}} tedarikçi",
+    "suppliers_one": "{{count}} tedarikçi",
+    "suppliers_other": "{{count}} tedarikçi",
+    "staff": "{{count}} personel",
+    "staff_one": "{{count}} personel",
+    "staff_other": "{{count}} personel",
+    "instant": "Anlık",
+    "vsLastPeriod": "önceki döneme göre",
+    "total": "Toplam",
+    "average": "Ortalama",
+    "noChange": "Değişim yok",
+    "creditCard": "K.K."
+  },
+  "trend": {
+    "title": "Gelir/Gider Trendi",
+    "income": "Gelir",
+    "expense": "Gider",
+    "net": "Net",
+    "last6Months": "Son 6 Ay"
+  },
+  "filter": {
+    "title": "Trend Filtrele",
+    "types": {
+      "hesap": "Hesap",
+      "cari": "Cari",
+      "kategori": "Kategori",
+      "personel": "Personel"
+    },
+    "apply": "Uygula",
+    "clear": "Temizle",
+    "noResults": "Sonuç bulunamadı"
+  },
+  "category": {
+    "title": "Kategori Dağılımı",
+    "income": "Gelir",
+    "expense": "Gider",
+    "totalExpense": "Toplam Gider",
+    "totalIncome": "Toplam Gelir",
+    "other": "Diğer",
+    "uncategorized": "Kategorisiz"
+  },
+  "cashFlow": {
+    "title": "Nakit Akışı",
+    "inflow": "Giren",
+    "outflow": "Çıkan",
+    "netPositive": "Net pozitif",
+    "netNegative": "Net negatif"
+  },
+  "insights": {
+    "title": "İçgörüler",
+    "noInsights": "Şu an için içgörü yok",
+    "openReceivables": "Açık alacak: {{count}} müşteri, {{amount}}",
+    "topExpenseCategory": "Giderin %{{percentage}}'i {{category}} kategorisinde",
+    "collectionTrendDown": "Son 7 günde tahsilat %{{percentage}} düştü",
+    "collectionTrendUp": "Son 7 günde tahsilat %{{percentage}} arttı",
+    "staffExpenseUp": "Personel gideri %{{percentage}} arttı",
+    "profitTrendUp": "Net kâr son 3 ayda artış trendinde",
+    "profitTrendDown": "Net kâr son 3 ayda düşüş trendinde",
+    "openPayables": "Açık borç: {{supplierCount}} tedarikçi + {{staffCount}} personel",
+    "highCreditCardDebt": "Kredi kartı borcu yüksek: {{amount}}",
+    "creditCardDebt": "Kredi kartı borcu: {{amount}}",
+    "netProfitPositive": "Bu dönem kâr: {{amount}}",
+    "netProfitNegative": "Bu dönem zarar: {{amount}}",
+    "viewDetails": "Detayları gör",
+    "goToClients": "Carilere git",
+    "goToCategory": "Kategoriye git",
+    "goToReports": "Raporlara git"
+  },
+  "empty": {
+    "noData": "Bu dönemde veri yok",
+    "noWidgets": "Görüntülenecek widget yok",
+    "noTransactions": "Henüz işlem yok"
+  },
+  "errors": {
+    "loadFailed": "Veriler yüklenemedi",
+    "retry": "Tekrar dene"
+  }
+}

@@ -78,6 +78,15 @@ export const queryKeys = {
     all: () => ['dashboard'] as const,
   },
 
+  // Analytics
+  analytics: {
+    all: () => ['analytics'] as const,
+    periods: (isletmeId: string, period: string) =>
+      ['analytics-periods', isletmeId, period] as const,
+    trend: (isletmeId: string, period: string) =>
+      ['analytics-trend', isletmeId, period] as const,
+  },
+
   // İleri Tarihli İşlemler
   ileriTarihliIslemler: {
     all: () => ['ileri-tarihli-islemler'] as const,
@@ -142,6 +151,8 @@ const invalidationMap = {
     'category-report',
     'category-transactions',
     'cash-flow-by-category',
+    'analytics-periods',
+    'analytics-trend',
   ],
 
   // İleri tarihli işlem değişikliği
@@ -179,6 +190,8 @@ const invalidationMap = {
     'islemler',
     'month-summary',
     'dashboard',
+    'analytics-periods',
+    'analytics-trend',
   ],
 
   // Cari değişikliği
@@ -191,6 +204,8 @@ const invalidationMap = {
     'category-report',
     'category-transactions',
     'cash-flow-by-category',
+    'analytics-periods',
+    'analytics-trend',
   ],
 
   // Personel değişikliği
@@ -203,6 +218,8 @@ const invalidationMap = {
     'category-report',
     'category-transactions',
     'cash-flow-by-category',
+    'analytics-periods',
+    'analytics-trend',
   ],
 
   // Kategori değişikliği
@@ -226,6 +243,8 @@ const invalidationMap = {
     'category-report',
     'category-transactions',
     'cash-flow-by-category',
+    'analytics-periods',
+    'analytics-trend',
   ],
 } as const;
 

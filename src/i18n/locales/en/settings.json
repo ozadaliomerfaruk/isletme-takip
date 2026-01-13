@@ -131,6 +131,9 @@
     "clearAllData": "Delete All Data"
   },
   "dataImport": {
+    "title": "Import Data",
+    "pageTitle": "Import Data",
+    "pageDescription": "Easily import your data from another app or Excel file.\nTransactions, accounts, clients, and categories will be created automatically.",
     "duplicateFile": {
       "title": "File Already Imported",
       "message": "This file was imported as \"{{fileName}}\" on {{date}}. Do you want to continue anyway?"
@@ -160,6 +163,221 @@
       "balances": "Updating balances...",
       "done": "Done!",
       "simulation": "Running simulation..."
+    },
+    "steps": {
+      "downloadTemplate": "Download Template (Optional)",
+      "downloadTemplateDesc": "Download the template to see the Excel format or enter data manually.",
+      "selectFile": "Select Excel File",
+      "selectFileDesc": "Select your filled Excel file or a file exported from another app."
+    },
+    "buttons": {
+      "downloadTemplate": "Download Sample Template",
+      "selectFile": "Select File",
+      "startImport": "Start Import",
+      "startRealImport": "Start Actual Import",
+      "viewDetails": "View Details",
+      "downloadExcel": "Download Excel",
+      "continueAnyway": "Continue Anyway",
+      "convertToClient": "Make Client",
+      "convertToAccount": "Make Account",
+      "undoImport": "Undo"
+    },
+    "accountTypes": {
+      "banka": "Bank",
+      "nakit": "Cash",
+      "kredi_karti": "Credit Card",
+      "birikim": "Savings"
+    },
+    "clientTypes": {
+      "musteri": "Customer",
+      "tedarikci": "Supplier"
+    },
+    "entityTypes": {
+      "cari": "Client",
+      "personel": "Staff"
+    },
+    "template": {
+      "dialogTitle": "Download Excel Template",
+      "sheetName": "Transactions",
+      "headers": {
+        "date": "DATE",
+        "type": "TYPE",
+        "description": "DESCRIPTION",
+        "category": "CATEGORY",
+        "account": "ACCOUNT",
+        "staff": "STAFF",
+        "supplier": "SUPPLIER",
+        "customer": "CUSTOMER",
+        "targetAccount": "TARGET ACCOUNT",
+        "amount": "AMOUNT",
+        "currency": "CURRENCY"
+      },
+      "sampleData": {
+        "salesIncome": "Sales income",
+        "officeSupplies": "Office supplies",
+        "supplierPayment": "Supplier payment",
+        "customerCollection": "Customer collection",
+        "betweenAccounts": "Between accounts",
+        "salaryPayment": "Salary payment",
+        "bankAccount": "Bank Account",
+        "cash": "Cash",
+        "sales": "SALES",
+        "officeExpenses": "OFFICE EXPENSES",
+        "salary": "SALARY",
+        "income": "INCOME",
+        "expense": "EXPENSE",
+        "payment": "PAYMENT",
+        "collection": "COLLECTION",
+        "transfer": "TRANSFER",
+        "staffExpense": "STAFF EXPENSE",
+        "sampleSupplier1": "ACME Supplies",
+        "sampleSupplier2": "ABC Trading",
+        "sampleCustomer": "XYZ Customer",
+        "sampleStaff1": "John Smith",
+        "sampleStaff2": "Jane Doe"
+      }
+    },
+    "modal": {
+      "transactions": "Transactions ({{count}})",
+      "accounts": "Accounts ({{count}})",
+      "clients": "Clients/Staff ({{count}})",
+      "categories": "Categories ({{count}})",
+      "skipped": "Skipped ({{count}})"
+    },
+    "search": {
+      "transactions": "Search transactions...",
+      "accounts": "Search accounts...",
+      "clientsStaff": "Search clients or staff...",
+      "categories": "Search categories...",
+      "skipped": "Search skipped...",
+      "default": "Search..."
+    },
+    "empty": {
+      "transactions": "No transactions found",
+      "accounts": "No accounts found",
+      "clientsStaff": "No clients or staff found",
+      "categories": "No categories found",
+      "skipped": "No skipped transactions found"
+    },
+    "preview": {
+      "showingFirst100": "Showing first 100 of {{total}} transactions",
+      "fileAnalyzed": "File Analyzed",
+      "tapForDetails": "Tap cards to view details",
+      "dateRange": "Date Range"
+    },
+    "labels": {
+      "transaction": "Transaction",
+      "transactions": "Transactions",
+      "account": "Account",
+      "accounts": "Accounts",
+      "clientStaff": "Client/Staff",
+      "category": "Category",
+      "categories": "Categories",
+      "row": "Row",
+      "transactionTypes": "Transaction Types"
+    },
+    "badges": {
+      "account": "ACCOUNT",
+      "client": "CLIENT",
+      "staff": "STAFF",
+      "income": "INCOME",
+      "expense": "EXPENSE"
+    },
+    "categoryTypes": {
+      "income": "Income Category",
+      "expense": "Expense Category"
+    },
+    "hints": {
+      "categoryToggle": "Tap to change category type (Income ↔ Expense)"
+    },
+    "phases": {
+      "categories": "Categories",
+      "accounts": "Accounts",
+      "clients": "Clients",
+      "personel": "Staff",
+      "transactions": "Transactions"
+    },
+    "status": {
+      "importing": "Importing...",
+      "importFailed": "Import Failed"
+    },
+    "success": {
+      "title": "Success",
+      "complete": "Import Complete!",
+      "undoComplete": "Import fully undone:\n\n{{details}}"
+    },
+    "skipped": {
+      "count": "{{count}} Transactions Skipped",
+      "exportDialogTitle": "Save Skipped Transactions"
+    },
+    "undo": {
+      "title": "Undo Last Import",
+      "confirmTitle": "Undo Last Import",
+      "confirmMessage": "All data from \"{{fileName}}\" will be deleted:\n\n{{details}}\n\nThis can't be undone. Continue?",
+      "deleteAll": "Delete All",
+      "transactionCount": "{{count}} transactions"
+    },
+    "errors": {
+      "title": "Errors",
+      "sharingNotSupported": "File sharing isn't supported on this device.",
+      "templateDownloadFailed": "Couldn't download template. Please try again.",
+      "fileReadFailed": "Couldn't read file. Please select a valid Excel file.",
+      "parseFailed": "Couldn't parse file.",
+      "sharingNotAvailable": "File sharing isn't available on this device.",
+      "fileCreationFailed": "Something went wrong creating the file.",
+      "undoFailed": "Undo failed",
+      "moreErrors": "... and {{count}} more errors"
+    },
+    "warnings": {
+      "title": "Warning",
+      "parseErrors": "File loaded with {{count}} error(s). Continue anyway?",
+      "warningCount": "{{count}} Warning"
+    },
+    "info": {
+      "supportedTypes": "Supported Transaction Types"
+    },
+    "typeDescriptions": {
+      "gelir": "INCOME — Revenue transactions",
+      "gider": "EXPENSE — Expense transactions",
+      "odeme": "PAYMENT — Client payments",
+      "tahsilat": "COLLECTION — Client collections",
+      "transfer": "TRANSFER — Transfers between accounts",
+      "personelGider": "STAFF EXPENSE — Staff payments"
+    },
+    "results": {
+      "category": "Category",
+      "account": "Account",
+      "client": "Client",
+      "staff": "Staff",
+      "transaction": "Transaction"
+    },
+    "pendingForm": {
+      "title": "Fix Transaction",
+      "detected": "detected",
+      "notDetected": "Not detected",
+      "saveAndContinue": "Save and Continue",
+      "skipTitle": "Skip Transaction",
+      "skipMessage": "This transaction will be marked as skipped and removed from the list. Continue?",
+      "fixButton": "Fix",
+      "skipButton": "Skip"
+    },
+    "skippedTransactions": {
+      "title": "Skipped Transactions",
+      "tabImport": "Import",
+      "tabSkipped": "Skipped",
+      "description": "Transactions skipped during import that need manual correction",
+      "badge": "{{count}} skipped",
+      "empty": "No skipped transactions",
+      "emptyDescription": "Transactions skipped during import will appear here",
+      "deleteAllTitle": "Delete All",
+      "deleteAllMessage": "All skipped transactions will be deleted. This cannot be undone.",
+      "deleteAllButton": "Delete All",
+      "infoTitle": "About Skipped Transactions",
+      "infoMessage": "You can fix skipped transactions from the \"Skipped\" tab.",
+      "goToSkipped": "Go to Skipped Transactions"
+    },
+    "errors": {
+      "selectSupplierOrStaff": "Please select a supplier or staff member"
     }
   },
   "account": {

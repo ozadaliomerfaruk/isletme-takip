@@ -19,7 +19,7 @@ export function BalanceDirectionSelector({
   onChange,
   variant
 }: BalanceDirectionSelectorProps) {
-  const { t } = useTranslation();
+  const { t } = useTranslation('common');
 
   const handlePress = useCallback(
     (direction: BalanceDirection) => {
