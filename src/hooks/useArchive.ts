@@ -98,13 +98,17 @@ export function useArchivedPersonel() {
  */
 export function useArchiveHesap() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { error } = await supabase
         .from('hesaplar')
         .update({ is_archived: true })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);  // Güvenlik
 
       if (error) throw error;
     },
@@ -119,13 +123,17 @@ export function useArchiveHesap() {
  */
 export function useUnarchiveHesap() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { error } = await supabase
         .from('hesaplar')
         .update({ is_archived: false })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);  // Güvenlik
 
       if (error) throw error;
     },
@@ -140,13 +148,17 @@ export function useUnarchiveHesap() {
  */
 export function useArchiveCari() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { error } = await supabase
         .from('cariler')
         .update({ is_archived: true })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);  // Güvenlik
 
       if (error) throw error;
     },
@@ -161,13 +173,17 @@ export function useArchiveCari() {
  */
 export function useUnarchiveCari() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { error } = await supabase
         .from('cariler')
         .update({ is_archived: false })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);  // Güvenlik
 
       if (error) throw error;
     },
@@ -182,13 +198,17 @@ export function useUnarchiveCari() {
  */
 export function useArchivePersonel() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { error } = await supabase
         .from('personel')
         .update({ is_archived: true })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);  // Güvenlik
 
       if (error) throw error;
     },
@@ -203,13 +223,17 @@ export function useArchivePersonel() {
  */
 export function useUnarchivePersonel() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { error } = await supabase
         .from('personel')
         .update({ is_archived: false })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);  // Güvenlik
 
       if (error) throw error;
     },

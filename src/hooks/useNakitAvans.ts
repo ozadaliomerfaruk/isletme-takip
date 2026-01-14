@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
-import { formatDateTimeWithTzForDB } from '@/lib/date';
 import {
   NakitAvans,
   NakitAvansInsert,
@@ -93,6 +92,7 @@ export function useNakitAvans(id: string | undefined) {
 
 /**
  * Nakit avans oluştur
+ * Atomik RPC kullanır - tüm bakiye güncellemeleri tek transaction içinde yapılır
  */
 export function useCreateNakitAvans() {
   const { isletme } = useAuthContext();
@@ -104,23 +104,28 @@ export function useCreateNakitAvans() {
 
       const { taksitler, ...avansData } = data;
 
-      // 1. Nakit avans oluştur
-      const { data: avans, error: avansError } = await supabase
-        .from('nakit_avanslar')
-        .insert({
-          ...avansData,
-          isletme_id: isletme.id,
-        })
-        .select()
-        .single();
+      // 1. Atomik RPC ile nakit avans oluştur (bakiye güncellemeleri dahil)
+      const { data: avansId, error: rpcError } = await supabase.rpc('perform_nakit_avans', {
+        p_isletme_id: isletme.id,
+        p_kredi_karti_id: data.kredi_karti_id,
+        p_hedef_hesap_id: data.hedef_hesap_id,
+        p_tutar: data.tutar,
+        p_geri_odeme_tutari: data.geri_odeme_tutari,
+        p_kategori_id: data.kategori_id || null,
+        p_aciklama: data.aciklama || null,
+        p_tarih: data.tarih || new Date().toISOString(),
+        p_is_taksitli: data.is_taksitli || false,
+        p_taksit_sayisi: data.taksit_sayisi || 1,
+      });
 
-      if (avansError) throw avansError;
+      if (rpcError) throw rpcError;
+      if (!avansId) throw new Error('Nakit avans oluşturulamadı');
 
       // 2. Taksitler varsa ekle ve her taksit için kredi kartı ekstresine işlem yaz
       if (taksitler && taksitler.length > 0) {
         const taksitlerWithAvansId = taksitler.map((t) => ({
           ...t,
-          nakit_avans_id: avans.id,
+          nakit_avans_id: avansId,
         }));
 
         const { data: createdTaksitler, error: taksitError } = await supabase
@@ -173,49 +178,14 @@ export function useCreateNakitAvans() {
         }
       }
 
-      // 3. Hedef hesaba para ekle (nakit avans tutarı kadar)
-      const { error: hedefHesapError } = await supabase.rpc('update_hesap_balance', {
-        p_hesap_id: data.hedef_hesap_id,
-        p_amount: data.tutar,
-      });
+      // 3. Oluşturulan avansı getir
+      const { data: avans, error: fetchError } = await supabase
+        .from('nakit_avanslar')
+        .select('*')
+        .eq('id', avansId)
+        .single();
 
-      if (hedefHesapError) {
-        // Fallback: Manuel güncelleme
-        const { data: hedefHesap } = await supabase
-          .from('hesaplar')
-          .select('balance')
-          .eq('id', data.hedef_hesap_id)
-          .single();
-
-        if (hedefHesap) {
-          await supabase
-            .from('hesaplar')
-            .update({ balance: Number(hedefHesap.balance) + data.tutar })
-            .eq('id', data.hedef_hesap_id);
-        }
-      }
-
-      // 4. Kredi kartı borcunu artır (geri ödeme tutarı kadar)
-      const { error: krediKartiError } = await supabase.rpc('update_hesap_balance', {
-        p_hesap_id: data.kredi_karti_id,
-        p_amount: -data.geri_odeme_tutari, // Negatif = borç artışı
-      });
-
-      if (krediKartiError) {
-        // Fallback: Manuel güncelleme
-        const { data: krediKarti } = await supabase
-          .from('hesaplar')
-          .select('balance')
-          .eq('id', data.kredi_karti_id)
-          .single();
-
-        if (krediKarti) {
-          await supabase
-            .from('hesaplar')
-            .update({ balance: Number(krediKarti.balance) - data.geri_odeme_tutari })
-            .eq('id', data.kredi_karti_id);
-        }
-      }
+      if (fetchError) throw fetchError;
 
       return avans as NakitAvans;
     },
@@ -287,6 +257,7 @@ export function useDeleteNakitAvans() {
 
 /**
  * Taksit öde
+ * Atomik RPC kullanır - tüm bakiye güncellemeleri tek transaction içinde yapılır
  */
 export function usePayTaksit() {
   const { isletme } = useAuthContext();
@@ -296,69 +267,23 @@ export function usePayTaksit() {
     mutationFn: async ({ taksitId, sourceHesapId }: { taksitId: string; sourceHesapId: string }) => {
       if (!isletme) throw new Error('İşletme bulunamadı');
 
-      // 1. Taksit bilgisini al
-      const { data: taksit, error: taksitError } = await supabase
+      // Atomik RPC ile taksit öde
+      const { error: rpcError } = await supabase.rpc('perform_taksit_odeme', {
+        p_taksit_id: taksitId,
+        p_source_hesap_id: sourceHesapId,
+        p_isletme_id: isletme.id,
+      });
+
+      if (rpcError) throw rpcError;
+
+      // Güncellenmiş taksit bilgisini getir
+      const { data: taksit, error: fetchError } = await supabase
         .from('nakit_avans_taksitler')
         .select('*, nakit_avans:nakit_avanslar(*)')
         .eq('id', taksitId)
         .single();
 
-      if (taksitError) throw taksitError;
-
-      const avans = Array.isArray(taksit.nakit_avans) ? taksit.nakit_avans[0] : taksit.nakit_avans;
-
-      // 2. Taksiti ödenmiş olarak işaretle
-      const { error: updateError } = await supabase
-        .from('nakit_avans_taksitler')
-        .update({
-          status: 'paid',
-          odenen_tarih: formatDateTimeWithTzForDB(new Date()),
-        })
-        .eq('id', taksitId);
-
-      if (updateError) throw updateError;
-
-      // 3. Kaynak hesaptan para çıkar
-      const { data: sourceHesap } = await supabase
-        .from('hesaplar')
-        .select('balance')
-        .eq('id', sourceHesapId)
-        .single();
-
-      if (sourceHesap) {
-        await supabase
-          .from('hesaplar')
-          .update({ balance: Number(sourceHesap.balance) - taksit.tutar })
-          .eq('id', sourceHesapId);
-      }
-
-      // 4. Kredi kartı borcunu azalt
-      const { data: krediKarti } = await supabase
-        .from('hesaplar')
-        .select('balance')
-        .eq('id', avans.kredi_karti_id)
-        .single();
-
-      if (krediKarti) {
-        await supabase
-          .from('hesaplar')
-          .update({ balance: Number(krediKarti.balance) + taksit.tutar })
-          .eq('id', avans.kredi_karti_id);
-      }
-
-      // 5. Tüm taksitler ödendiyse avansı tamamlanmış olarak işaretle
-      const { data: remainingTaksitler } = await supabase
-        .from('nakit_avans_taksitler')
-        .select('id')
-        .eq('nakit_avans_id', avans.id)
-        .neq('status', 'paid');
-
-      if (!remainingTaksitler || remainingTaksitler.length === 0) {
-        await supabase
-          .from('nakit_avanslar')
-          .update({ status: 'completed' })
-          .eq('id', avans.id);
-      }
+      if (fetchError) throw fetchError;
 
       return taksit;
     },

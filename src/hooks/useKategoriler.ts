@@ -178,13 +178,17 @@ export function useCreateKategori() {
 
 export function useUpdateKategori() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: KategoriUpdate & { id: string }) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { data, error } = await supabase
         .from('kategoriler')
         .update(input)
         .eq('id', id)
+        .eq('isletme_id', isletme.id)  // Güvenlik: Sadece kendi işletmesindeki kategoriyi güncelleyebilir
         .select()
         .single();
 
@@ -199,13 +203,17 @@ export function useUpdateKategori() {
 
 export function useDeleteKategori() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { error } = await supabase
         .from('kategoriler')
         .update({ is_active: false })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);  // Güvenlik: Sadece kendi işletmesindeki kategoriyi silebilir
 
       if (error) throw error;
     },

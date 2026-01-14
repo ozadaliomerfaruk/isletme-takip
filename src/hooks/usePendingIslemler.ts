@@ -138,6 +138,13 @@ async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isl
         await safeIncrementBalance('personel', islem.personel_id, amount);
       }
       break;
+
+    case 'nakit_avans_taksit':
+      // Nakit avans taksiti - kredi kartı borcunu azaltır
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      }
+      break;
   }
 }
 

@@ -8,7 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// İşlem tipi tanımı
+// İşlem tipi tanımı - Ana uygulamadaki IslemType ile senkronize
 type IslemType =
   | "gelir"
   | "gider"
@@ -17,8 +17,13 @@ type IslemType =
   | "cari_satis"
   | "cari_odeme"
   | "cari_tahsilat"
+  | "cari_alis_iade"
+  | "cari_satis_iade"
   | "personel_gider"
-  | "personel_odeme";
+  | "personel_odeme"
+  | "personel_tahsilat"
+  | "personel_satis"
+  | "nakit_avans_taksit";
 
 interface IleriTarihliIslem {
   id: string;
@@ -56,8 +61,13 @@ function getIslemTypeLabel(type: IslemType): string {
     cari_satis: "Müşteriye Satış",
     cari_odeme: "Tedarikçiye Ödeme",
     cari_tahsilat: "Müşteriden Tahsilat",
+    cari_alis_iade: "Alış İadesi",
+    cari_satis_iade: "Satış İadesi",
     personel_gider: "Personel Gideri",
     personel_odeme: "Personel Ödemesi",
+    personel_tahsilat: "Personelden Tahsilat",
+    personel_satis: "Personele Satış",
+    nakit_avans_taksit: "Nakit Avans Taksiti",
   };
   return labels[type] || type;
 }

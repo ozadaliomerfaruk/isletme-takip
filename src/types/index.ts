@@ -1,10 +1,155 @@
-// Temel tipler
-export type HesapType = 'nakit' | 'banka' | 'kredi_karti';
-export type CariType = 'tedarikci' | 'musteri';
-export type IslemType = 'gelir' | 'gider' | 'transfer' | 'odeme' | 'tahsilat' | 'alis' | 'satis';
-export type KategoriType = 'gelir' | 'gider';
+/**
+ * Tip Tanımları - Merkezi Export
+ *
+ * TÜM TİPLER database.ts'DEN GELİR
+ * Bu dosya sadece geriye dönük uyumluluk için re-export yapar.
+ *
+ * YENİ KODLARDA DOĞRUDAN @/types/database KULLANIN
+ *
+ * @deprecated Doğrudan @/types/database import edin
+ */
 
-// Veritabanı modelleri
+// ============================================================================
+// ANA TİPLER - database.ts'den re-export
+// ============================================================================
+
+export type {
+  // Temel tipler
+  HesapType,
+  CariType,
+  IslemType,
+  KategoriType,
+  Currency,
+
+  // İşletme
+  Isletme,
+  IsletmeInsert,
+  IsletmeUpdate,
+
+  // Hesap
+  Hesap,
+  HesapInsert,
+  HesapUpdate,
+
+  // Kategori
+  Kategori,
+  KategoriInsert,
+  KategoriUpdate,
+  KategoriWithChildren,
+
+  // Cari
+  Cari,
+  CariInsert,
+  CariUpdate,
+
+  // Personel
+  Personel,
+  PersonelInsert,
+  PersonelUpdate,
+
+  // İşlem
+  Islem,
+  IslemInsert,
+  IslemUpdate,
+  IslemWithRelations,
+
+  // İleri Tarihli İşlem
+  IleriTarihliIslem,
+  IleriTarihliIslemInsert,
+  IleriTarihliIslemUpdate,
+  IleriTarihliIslemWithRelations,
+  IleriTarihliIslemStatus,
+
+  // Nakit Avans
+  NakitAvans,
+  NakitAvansInsert,
+  NakitAvansUpdate,
+  NakitAvansWithRelations,
+  NakitAvansStatus,
+  NakitAvansTaksit,
+  NakitAvansTaksitInsert,
+  NakitAvansTaksitUpdate,
+  TaksitStatus,
+
+  // Çek
+  Cek,
+  CekInsert,
+  CekUpdate,
+  CekWithRelations,
+  CekDurum,
+
+  // Pending İşlem (Import)
+  PendingIslem,
+  PendingIslemInsert,
+  PendingIslemUpdate,
+  PendingIslemRawData,
+  PendingIslemCorrections,
+  PendingIslemStatus,
+
+  // Dashboard
+  DashboardSummary,
+
+  // Database
+  Database,
+} from './database';
+
+// ============================================================================
+// DEPRECATED - Eski Form Input Tipleri
+// Bunlar artık kullanılmıyor, *Insert tipleri kullanılmalı
+// ============================================================================
+
+/** @deprecated HesapInsert kullanın */
+export interface HesapInput {
+  name: string;
+  type: 'nakit' | 'banka' | 'kredi_karti';
+  balance?: number;
+  currency?: string;
+}
+
+/** @deprecated CariInsert kullanın */
+export interface CariInput {
+  name: string;
+  type: 'tedarikci' | 'musteri';
+  phone?: string;
+  balance?: number;
+  balance_type?: 'biz_borcluyuz' | 'o_bize_borclu';
+}
+
+/** @deprecated PersonelInsert kullanın */
+export interface PersonelInput {
+  first_name: string;
+  last_name: string;
+  phone?: string;
+  position?: string;
+  salary?: number;
+}
+
+/** @deprecated IslemInsert kullanın */
+export interface IslemInput {
+  type: 'gelir' | 'gider' | 'transfer' | 'odeme' | 'tahsilat' | 'alis' | 'satis';
+  amount: number;
+  date: string;
+  description?: string;
+  hesap_id?: string;
+  hesap_hedef_id?: string;
+  cari_id?: string;
+  personel_id?: string;
+  kategori_id?: string;
+}
+
+/** @deprecated KategoriInsert kullanın */
+export interface KategoriInput {
+  name: string;
+  type: 'gelir' | 'gider';
+  icon?: string;
+  color?: string;
+}
+
+// ============================================================================
+// DEPRECATED - Eski Modeller (geriye dönük uyumluluk)
+// ============================================================================
+
+/** @deprecated Isletme kullanın */
 export interface Restaurant {
   id: string;
   name: string;
@@ -19,6 +164,7 @@ export interface Restaurant {
   deleted_at?: string;
 }
 
+/** @deprecated Kullanılmıyor */
 export interface Profile {
   id: string;
   first_name?: string;
@@ -27,148 +173,4 @@ export interface Profile {
   avatar_url?: string;
   created_at: string;
   updated_at: string;
-}
-
-export interface Hesap {
-  id: string;
-  restaurant_id: string;
-  name: string;
-  type: HesapType;
-  currency: string;
-  balance: number;
-  is_active: boolean;
-  include_in_total: boolean;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-}
-
-export interface Cari {
-  id: string;
-  restaurant_id: string;
-  name: string;
-  type: CariType;
-  phone?: string;
-  email?: string;
-  address?: string;
-  tax_number?: string;
-  tax_office?: string;
-  balance: number;
-  is_active: boolean;
-  include_in_total: boolean;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-}
-
-export interface Personel {
-  id: string;
-  restaurant_id: string;
-  first_name: string;
-  last_name: string;
-  phone?: string;
-  email?: string;
-  position?: string;
-  start_date?: string;
-  salary?: number;
-  balance: number;
-  is_active: boolean;
-  include_in_total: boolean;
-  notes?: string;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-}
-
-export interface Kategori {
-  id: string;
-  restaurant_id: string;
-  name: string;
-  type: KategoriType;
-  parent_id?: string;
-  icon?: string;
-  color?: string;
-  sort_order: number;
-  is_default: boolean;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-}
-
-export interface Islem {
-  id: string;
-  restaurant_id: string;
-  type: IslemType;
-  amount: number;
-  date: string;
-  description?: string;
-  hesap_id?: string;
-  hesap_hedef_id?: string;
-  cari_id?: string;
-  personel_id?: string;
-  kategori_id?: string;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string;
-  // İlişkili veriler (join ile gelir)
-  hesap?: Hesap;
-  hesap_hedef?: Hesap;
-  cari?: Cari;
-  personel?: Personel;
-  kategori?: Kategori;
-}
-
-// Form input tipleri
-export interface HesapInput {
-  name: string;
-  type: HesapType;
-  balance?: number;
-  currency?: string;
-}
-
-export interface CariInput {
-  name: string;
-  type: CariType;
-  phone?: string;
-  balance?: number;
-  balance_type?: 'biz_borcluyuz' | 'o_bize_borclu';
-}
-
-export interface PersonelInput {
-  first_name: string;
-  last_name: string;
-  phone?: string;
-  position?: string;
-  salary?: number;
-}
-
-export interface IslemInput {
-  type: IslemType;
-  amount: number;
-  date: string;
-  description?: string;
-  hesap_id?: string;
-  hesap_hedef_id?: string;
-  cari_id?: string;
-  personel_id?: string;
-  kategori_id?: string;
-}
-
-export interface KategoriInput {
-  name: string;
-  type: KategoriType;
-  icon?: string;
-  color?: string;
-}
-
-// Dashboard özet tipleri
-export interface DashboardSummary {
-  totalBalance: number;
-  totalIncome: number;
-  totalExpense: number;
-  netProfit: number;
-  totalReceivables: number; // Alacaklar
-  totalPayables: number; // Borçlar
 }

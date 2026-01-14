@@ -92,13 +92,17 @@ export function useCreatePersonel() {
 
 export function useUpdatePersonel() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: PersonelUpdate & { id: string }) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { data, error } = await supabase
         .from('personel')
         .update(input)
         .eq('id', id)
+        .eq('isletme_id', isletme.id)  // Güvenlik: Sadece kendi işletmesindeki personeli güncelleyebilir
         .select()
         .single();
 
