@@ -19,9 +19,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.isletmetakip.app",
-      "buildNumber": "12",
+      "buildNumber": "14",
       "usesAppleSignIn": true,
-      "usesNonExemptEncryption": false,
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
         "ITSAppUsesNonExemptEncryption": false

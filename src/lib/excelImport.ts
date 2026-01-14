@@ -470,6 +470,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       totalRows: 0,
       validRows: 0,
       invalidDateCount: 0,
+      invalidAmountCount: 0,
       errors,
     };
   }

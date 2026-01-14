@@ -34,7 +34,12 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { Text, CategoryPicker } from '@/components/ui';
-import { TransactionTypeTabs, TransactionType, TransactionTabMode, getTransactionTypeColor } from './TransactionTypeTabs';
+import {
+  TransactionTypeTabs,
+  TransactionType,
+  TransactionTabMode,
+  getTransactionTypeColor,
+} from './TransactionTypeTabs';
 import { ExchangeRateBar } from './ExchangeRateBar';
 import { colors } from '@/constants/colors';
 import { CariType, Currency } from '@/types/database';
@@ -54,8 +59,6 @@ type OdemeHedefType = 'tedarikci' | 'staff' | 'kredi_karti' | null;
 
 // Hesap picker modu
 type HesapPickerTarget = 'source' | 'hedef';
-
-const CARD_HEIGHT = 200;
 
 export interface QuickTransactionBarProps {
   visible: boolean;
@@ -91,8 +94,10 @@ export function QuickTransactionBar({
   const tabMode: TransactionTabMode = isPersonelMode
     ? 'personel'
     : isCariMode
-    ? (defaultCariType === 'tedarikci' ? 'tedarikci' : 'musteri')
-    : 'normal';
+      ? defaultCariType === 'tedarikci'
+        ? 'tedarikci'
+        : 'musteri'
+      : 'normal';
 
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType);
@@ -135,7 +140,9 @@ export function QuickTransactionBar({
   const [personelSearchQuery, setPersonelSearchQuery] = useState('');
 
   // Auto-open modal states
-  const [pendingModal, setPendingModal] = useState<'category' | 'kredi_karti' | 'cari' | 'personel' | null>(null);
+  const [pendingModal, setPendingModal] = useState<
+    'category' | 'kredi_karti' | 'cari' | 'personel' | null
+  >(null);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [categorySkipped, setCategorySkipped] = useState(false);
   const [selectedCategoryType, setSelectedCategoryType] = useState<'gelir' | 'gider' | null>(null);
@@ -168,16 +175,13 @@ export function QuickTransactionBar({
   const hesapId = sourceHesapId || defaultHesapId || hesaplar?.[0]?.id;
 
   // Get selected entities - memoized to prevent unnecessary re-renders
-  const selectedHesap = useMemo(() =>
-    hesaplar?.find(h => h.id === hesapId),
-    [hesaplar, hesapId]
-  );
-  const selectedSourceHesap = useMemo(() =>
-    hesaplar?.find(h => h.id === sourceHesapId),
+  const selectedHesap = useMemo(() => hesaplar?.find((h) => h.id === hesapId), [hesaplar, hesapId]);
+  const selectedSourceHesap = useMemo(
+    () => hesaplar?.find((h) => h.id === sourceHesapId),
     [hesaplar, sourceHesapId]
   );
-  const selectedHedefHesap = useMemo(() =>
-    hesaplar?.find(h => h.id === hedefHesapId),
+  const selectedHedefHesap = useMemo(
+    () => hesaplar?.find((h) => h.id === hedefHesapId),
     [hesaplar, hedefHesapId]
   );
 
@@ -190,50 +194,51 @@ export function QuickTransactionBar({
     return type === 'odeme' ? tedarikciCariler : musteriCariler;
   }, [isCariMode, defaultCariType, type, tedarikciCariler, musteriCariler]);
 
-  const selectedCari = useMemo(() =>
-    carilerForType?.find(c => c.id === cariId),
+  const selectedCari = useMemo(
+    () => carilerForType?.find((c) => c.id === cariId),
     [carilerForType, cariId]
   );
-  const selectedPersonel = useMemo(() =>
-    personelList?.find(p => p.id === personelId),
+  const selectedPersonel = useMemo(
+    () => personelList?.find((p) => p.id === personelId),
     [personelList, personelId]
   );
 
   // Filtered lists for search
   const filteredHesaplar = useMemo(() => {
     // Kaynak hesap seçimi için tüm hesaplar, hedef için kaynak hariç
-    const list = hesapPickerTarget === 'source'
-      ? (hesaplar || [])
-      : (hesaplar?.filter(h => h.id !== hesapId) || []);
+    const list =
+      hesapPickerTarget === 'source'
+        ? hesaplar || []
+        : hesaplar?.filter((h) => h.id !== hesapId) || [];
     if (!hesapSearchQuery.trim()) return list;
     const query = hesapSearchQuery.toLowerCase().trim();
-    return list.filter(h => h.name.toLowerCase().includes(query));
+    return list.filter((h) => h.name.toLowerCase().includes(query));
   }, [hesaplar, hesapId, hesapSearchQuery, hesapPickerTarget]);
 
   const filteredCariler = useMemo(() => {
     if (!carilerForType) return [];
     if (!cariSearchQuery.trim()) return carilerForType;
     const query = cariSearchQuery.toLowerCase().trim();
-    return carilerForType.filter(c => c.name.toLowerCase().includes(query));
+    return carilerForType.filter((c) => c.name.toLowerCase().includes(query));
   }, [carilerForType, cariSearchQuery]);
 
   const filteredPersonel = useMemo(() => {
     if (!personelList) return [];
     if (!personelSearchQuery.trim()) return personelList;
     const query = personelSearchQuery.toLowerCase().trim();
-    return personelList.filter(p =>
+    return personelList.filter((p) =>
       `${p.first_name} ${p.last_name}`.toLowerCase().includes(query)
     );
   }, [personelList, personelSearchQuery]);
 
   // Kredi kartı hesapları
   const krediKartiHesaplari = useMemo(() => {
-    return hesaplar?.filter(h => h.type === 'kredi_karti') || [];
+    return hesaplar?.filter((h) => h.type === 'kredi_karti') || [];
   }, [hesaplar]);
 
   // Seçilen kredi kartı hesabı
-  const selectedKrediKarti = useMemo(() =>
-    hesaplar?.find(h => h.id === hedefHesapId && h.type === 'kredi_karti'),
+  const selectedKrediKarti = useMemo(
+    () => hesaplar?.find((h) => h.id === hedefHesapId && h.type === 'kredi_karti'),
     [hesaplar, hedefHesapId]
   );
 
@@ -296,7 +301,17 @@ export function QuickTransactionBar({
         setType(defaultType);
       }
     }
-  }, [visible, isPersonelMode, defaultPersonelId, isCariMode, defaultCariId, defaultCariType, defaultType, hesaplar, defaultHesapId]);
+  }, [
+    visible,
+    isPersonelMode,
+    defaultPersonelId,
+    isCariMode,
+    defaultCariId,
+    defaultCariType,
+    defaultType,
+    hesaplar,
+    defaultHesapId,
+  ]);
 
   // Reset cariId and personelId when type changes (only in normal mode)
   // NOT: kategoriId, selectedCategoryType ve categorySkipped sıfırlanmaz - seçilen kategori sekmeler arası kalır
@@ -370,28 +385,31 @@ export function QuickTransactionBar({
   }, [opacity, translateY]);
 
   // Close animation
-  const animateClose = useCallback((callback?: () => void) => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
+  const animateClose = useCallback(
+    (callback?: () => void) => {
+      if (isAnimatingRef.current) return;
+      isAnimatingRef.current = true;
 
-    Keyboard.dismiss();
+      Keyboard.dismiss();
 
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      isAnimatingRef.current = false;
-      callback?.();
-    });
-  }, [opacity, translateY]);
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 100,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        isAnimatingRef.current = false;
+        callback?.();
+      });
+    },
+    [opacity, translateY]
+  );
 
   // Handle visibility
   useEffect(() => {
@@ -530,7 +548,11 @@ export function QuickTransactionBar({
         }
       }
       // Alış, Satış, İadeler için sadece kategori gerekli
-      if (['alis', 'satis', 'alis_iade', 'satis_iade'].includes(type) && !kategoriId && !categorySkipped) {
+      if (
+        ['alis', 'satis', 'alis_iade', 'satis_iade'].includes(type) &&
+        !kategoriId &&
+        !categorySkipped
+      ) {
         setCategoryPickerOpen(true);
         return;
       }
@@ -553,7 +575,11 @@ export function QuickTransactionBar({
           return;
         }
       }
-      if ((type === 'personel_gider_tab' || type === 'personel_satis_tab') && !kategoriId && !categorySkipped) {
+      if (
+        (type === 'personel_gider_tab' || type === 'personel_satis_tab') &&
+        !kategoriId &&
+        !categorySkipped
+      ) {
         setCategoryPickerOpen(true);
         return;
       }
@@ -562,7 +588,15 @@ export function QuickTransactionBar({
     // Hesap kontrolü (modal açma logicinden sonra)
     // Alış/Satış/İade ve Personel Gider/Satış işlemlerinde hesap gerekmez
     // Ödeme için de hesap kontrolü burada yapılmaz (ödeme türüne göre değişir)
-    const needsHesap = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab', 'personel_satis_tab', 'odeme'].includes(type);
+    const needsHesap = ![
+      'alis',
+      'satis',
+      'alis_iade',
+      'satis_iade',
+      'personel_gider_tab',
+      'personel_satis_tab',
+      'odeme',
+    ].includes(type);
     if (needsHesap && !hesapId) {
       Alert.alert(t('common:status.error'), t('accounts:messages.noAccounts'));
       return;
@@ -612,7 +646,15 @@ export function QuickTransactionBar({
     }
 
     // Personel modu validasyonları
-    if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab'].includes(type) && !personelId) {
+    if (
+      [
+        'personel_odeme_tab',
+        'personel_gider_tab',
+        'personel_tahsilat_tab',
+        'personel_satis_tab',
+      ].includes(type) &&
+      !personelId
+    ) {
       Alert.alert(t('common:status.error'), t('staff:transactionForm.selectPersonel'));
       return;
     }
@@ -629,8 +671,8 @@ export function QuickTransactionBar({
     // Cross-currency check for transfers
     // Use hesaplar array directly to avoid stale memoized values
     if (type === 'transfer' && hesapId && hedefHesapId) {
-      const sourceAcc = hesaplar?.find(h => h.id === hesapId);
-      const targetAcc = hesaplar?.find(h => h.id === hedefHesapId);
+      const sourceAcc = hesaplar?.find((h) => h.id === hesapId);
+      const targetAcc = hesaplar?.find((h) => h.id === hedefHesapId);
       const sourceCurr = sourceAcc?.currency || 'TRY';
       const targetCurr = targetAcc?.currency || 'TRY';
       if (isCrossCurrency(sourceCurr, targetCurr)) {
@@ -647,7 +689,7 @@ export function QuickTransactionBar({
     // Cross-currency check for ödeme/tahsilat (cari/personel balances are always TRY)
     // Use hesaplar array directly
     if (['odeme', 'tahsilat'].includes(type) && sourceHesapId) {
-      const sourceAcc = hesaplar?.find(h => h.id === sourceHesapId);
+      const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
       const sourceCurr = sourceAcc?.currency || 'TRY';
       if (isCrossCurrency(sourceCurr, 'TRY')) {
         setPendingExchangeData({
@@ -662,7 +704,7 @@ export function QuickTransactionBar({
 
     // Cross-currency check for cari mode ödeme/tahsilat
     if (isCariMode && ['odeme', 'tahsilat'].includes(type) && sourceHesapId) {
-      const sourceAcc = hesaplar?.find(h => h.id === sourceHesapId);
+      const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
       const sourceCurr = sourceAcc?.currency || 'TRY';
       if (isCrossCurrency(sourceCurr, 'TRY')) {
         setPendingExchangeData({
@@ -676,8 +718,12 @@ export function QuickTransactionBar({
     }
 
     // Cross-currency check for personel mode ödeme/tahsilat
-    if (isPersonelMode && ['personel_odeme_tab', 'personel_tahsilat_tab'].includes(type) && sourceHesapId) {
-      const sourceAcc = hesaplar?.find(h => h.id === sourceHesapId);
+    if (
+      isPersonelMode &&
+      ['personel_odeme_tab', 'personel_tahsilat_tab'].includes(type) &&
+      sourceHesapId
+    ) {
+      const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
       const sourceCurr = sourceAcc?.currency || 'TRY';
       if (isCrossCurrency(sourceCurr, 'TRY')) {
         setPendingExchangeData({
@@ -721,7 +767,15 @@ export function QuickTransactionBar({
 
       // Build transaction data
       // Alış/Satış/İade ve Personel Gider/Satış işlemlerinde hesap_id gerekmez (nakit akışı yok)
-      const needsHesapForData = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab', 'personel_satis_tab'].includes(type);
+      const needsHesapForData = ![
+        'alis',
+        'satis',
+        'alis_iade',
+        'satis_iade',
+        'personel_gider_tab',
+        'personel_satis_tab',
+      ].includes(type);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const transactionData: any = {
         type: apiType,
         amount: parsedAmount,
@@ -752,7 +806,14 @@ export function QuickTransactionBar({
         transactionData.cari_id = cariId;
       }
       // Personel modu işlem tipleri
-      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab'].includes(type)) {
+      if (
+        [
+          'personel_odeme_tab',
+          'personel_gider_tab',
+          'personel_tahsilat_tab',
+          'personel_satis_tab',
+        ].includes(type)
+      ) {
         transactionData.personel_id = personelId;
       }
 
@@ -792,7 +853,6 @@ export function QuickTransactionBar({
     amount,
     type,
     description,
-    date,
     kategoriId,
     isScheduled,
     hedefHesapId,
@@ -807,127 +867,147 @@ export function QuickTransactionBar({
     onSuccess,
     handleDismiss,
     hesaplar,
+    categorySkipped,
+    safeDate,
   ]);
 
   // Handle exchange rate confirmation
-  const handleExchangeRateConfirm = useCallback(async (exchangeRate: number, targetAmount: number) => {
-    if (!pendingExchangeData) return;
+  const handleExchangeRateConfirm = useCallback(
+    async (exchangeRate: number, _targetAmount: number) => {
+      if (!pendingExchangeData) return;
 
-    setShowExchangeRateBar(false);
-    setIsSaving(true);
+      setShowExchangeRateBar(false);
+      setIsSaving(true);
 
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
 
-    try {
-      const parsedAmount = pendingExchangeData.sourceAmount;
+      try {
+        const parsedAmount = pendingExchangeData.sourceAmount;
 
-      // Determine actual type for API
-      let apiType: string = type;
-      if (type === 'odeme') {
-        if (odemeHedefType === 'staff') {
-          apiType = 'personel_odeme';
-        } else if (odemeHedefType === 'kredi_karti') {
-          apiType = 'transfer';
-        } else {
-          apiType = 'cari_odeme';
+        // Determine actual type for API
+        let apiType: string = type;
+        if (type === 'odeme') {
+          if (odemeHedefType === 'staff') {
+            apiType = 'personel_odeme';
+          } else if (odemeHedefType === 'kredi_karti') {
+            apiType = 'transfer';
+          } else {
+            apiType = 'cari_odeme';
+          }
         }
-      }
-      if (type === 'tahsilat') apiType = 'cari_tahsilat';
-      if (type === 'alis') apiType = 'cari_alis';
-      if (type === 'satis') apiType = 'cari_satis';
-      if (type === 'alis_iade') apiType = 'cari_alis_iade';
-      if (type === 'satis_iade') apiType = 'cari_satis_iade';
-      if (type === 'personel_odeme_tab') apiType = 'personel_odeme';
-      if (type === 'personel_gider_tab') apiType = 'personel_gider';
-      if (type === 'personel_tahsilat_tab') apiType = 'personel_tahsilat';
-      if (type === 'personel_satis_tab') apiType = 'personel_satis';
+        if (type === 'tahsilat') apiType = 'cari_tahsilat';
+        if (type === 'alis') apiType = 'cari_alis';
+        if (type === 'satis') apiType = 'cari_satis';
+        if (type === 'alis_iade') apiType = 'cari_alis_iade';
+        if (type === 'satis_iade') apiType = 'cari_satis_iade';
+        if (type === 'personel_odeme_tab') apiType = 'personel_odeme';
+        if (type === 'personel_gider_tab') apiType = 'personel_gider';
+        if (type === 'personel_tahsilat_tab') apiType = 'personel_tahsilat';
+        if (type === 'personel_satis_tab') apiType = 'personel_satis';
 
-      // Build transaction data with exchange rate info
-      const needsHesapForData = !['alis', 'satis', 'alis_iade', 'satis_iade', 'personel_gider_tab', 'personel_satis_tab'].includes(type);
-      const transactionData: any = {
-        type: apiType,
-        amount: parsedAmount,
-        description: description.trim() || null,
-        hesap_id: needsHesapForData ? hesapId : null,
-        kategori_id: kategoriId,
-        // Exchange rate info
-        source_currency: pendingExchangeData.sourceCurrency,
-        target_currency: pendingExchangeData.targetCurrency,
-        exchange_rate: exchangeRate,
-      };
+        // Build transaction data with exchange rate info
+        const needsHesapForData = ![
+          'alis',
+          'satis',
+          'alis_iade',
+          'satis_iade',
+          'personel_gider_tab',
+          'personel_satis_tab',
+        ].includes(type);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const transactionData: any = {
+          type: apiType,
+          amount: parsedAmount,
+          description: description.trim() || null,
+          hesap_id: needsHesapForData ? hesapId : null,
+          kategori_id: kategoriId,
+          // Exchange rate info
+          source_currency: pendingExchangeData.sourceCurrency,
+          target_currency: pendingExchangeData.targetCurrency,
+          exchange_rate: exchangeRate,
+        };
 
-      // Add type-specific fields
-      if (type === 'transfer') {
-        transactionData.hedef_hesap_id = hedefHesapId;
-      }
-      if (type === 'odeme') {
-        if (odemeHedefType === 'tedarikci') {
-          transactionData.cari_id = cariId;
-        } else if (odemeHedefType === 'kredi_karti') {
+        // Add type-specific fields
+        if (type === 'transfer') {
           transactionData.hedef_hesap_id = hedefHesapId;
-        } else {
+        }
+        if (type === 'odeme') {
+          if (odemeHedefType === 'tedarikci') {
+            transactionData.cari_id = cariId;
+          } else if (odemeHedefType === 'kredi_karti') {
+            transactionData.hedef_hesap_id = hedefHesapId;
+          } else {
+            transactionData.personel_id = personelId;
+          }
+        }
+        if (type === 'tahsilat') {
+          transactionData.cari_id = cariId;
+        }
+        if (type === 'alis' || type === 'satis' || type === 'alis_iade' || type === 'satis_iade') {
+          transactionData.cari_id = cariId;
+        }
+        if (
+          [
+            'personel_odeme_tab',
+            'personel_gider_tab',
+            'personel_tahsilat_tab',
+            'personel_satis_tab',
+          ].includes(type)
+        ) {
           transactionData.personel_id = personelId;
         }
-      }
-      if (type === 'tahsilat') {
-        transactionData.cari_id = cariId;
-      }
-      if (type === 'alis' || type === 'satis' || type === 'alis_iade' || type === 'satis_iade') {
-        transactionData.cari_id = cariId;
-      }
-      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab'].includes(type)) {
-        transactionData.personel_id = personelId;
-      }
 
-      if (isScheduled) {
-        await createIleriTarihliIslem.mutateAsync({
-          ...transactionData,
-          scheduled_date: formatDateForDB(safeDate),
-        });
-      } else {
-        await createIslem.mutateAsync({
-          ...transactionData,
-          date: formatDateTimeForDB(safeDate),
-        });
-      }
+        if (isScheduled) {
+          await createIleriTarihliIslem.mutateAsync({
+            ...transactionData,
+            scheduled_date: formatDateForDB(safeDate),
+          });
+        } else {
+          await createIslem.mutateAsync({
+            ...transactionData,
+            date: formatDateTimeForDB(safeDate),
+          });
+        }
 
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
 
-      setPendingExchangeData(null);
-      onSuccess?.();
-      handleDismiss();
-    } catch (error) {
-      if (__DEV__) {
-        console.error('Transaction error:', error);
+        setPendingExchangeData(null);
+        onSuccess?.();
+        handleDismiss();
+      } catch (error) {
+        if (__DEV__) {
+          console.error('Transaction error:', error);
+        }
+        setIsSaving(false);
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+        Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
       }
-      setIsSaving(false);
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
-    }
-  }, [
-    t,
-    pendingExchangeData,
-    type,
-    odemeHedefType,
-    description,
-    hesapId,
-    kategoriId,
-    hedefHesapId,
-    cariId,
-    personelId,
-    isScheduled,
-    date,
-    createIslem,
-    createIleriTarihliIslem,
-    onSuccess,
-    handleDismiss,
-  ]);
+    },
+    [
+      pendingExchangeData,
+      type,
+      description,
+      hesapId,
+      kategoriId,
+      isScheduled,
+      onSuccess,
+      handleDismiss,
+      odemeHedefType,
+      hedefHesapId,
+      cariId,
+      personelId,
+      createIleriTarihliIslem,
+      safeDate,
+      createIslem,
+      t,
+    ]
+  );
 
   // Format amount for display
   const handleAmountChange = useCallback((text: string) => {
@@ -962,7 +1042,8 @@ export function QuickTransactionBar({
   // Category picker type mapping
   const getCategoryType = (): 'gelir' | 'gider' | undefined => {
     if (type === 'gelir' || type === 'tahsilat' || type === 'satis') return 'gelir';
-    if (type === 'gider' || type === 'odeme' || type === 'transfer' || type === 'alis') return 'gider';
+    if (type === 'gider' || type === 'odeme' || type === 'transfer' || type === 'alis')
+      return 'gider';
     // İade tipleri için kategori
     if (type === 'satis_iade') return 'gelir';
     if (type === 'alis_iade') return 'gider';
@@ -1003,9 +1084,7 @@ export function QuickTransactionBar({
           </View>
         )}
 
-        {isScheduled && (
-          <Text style={styles.dateLabel}>{t('transactions:future.scheduled')}:</Text>
-        )}
+        {isScheduled && <Text style={styles.dateLabel}>{t('transactions:future.scheduled')}:</Text>}
 
         {/* Row 1: Date + Bell + Close */}
         <View style={styles.headerRow}>
@@ -1039,15 +1118,21 @@ export function QuickTransactionBar({
 
         {/* Cari Modu: Seçili cari bilgisi */}
         {isCariMode && selectedCari && (
-          <View style={[styles.sourceAccountRow, { backgroundColor: defaultCariType === 'tedarikci' ? colors.orangeLight : colors.primaryLight }]}>
+          <View
+            style={[
+              styles.sourceAccountRow,
+              {
+                backgroundColor:
+                  defaultCariType === 'tedarikci' ? colors.orangeLight : colors.primaryLight,
+              },
+            ]}
+          >
             {defaultCariType === 'tedarikci' ? (
               <Building2 size={16} color={colors.orange} />
             ) : (
               <Users size={16} color={colors.primary} />
             )}
-            <Text style={styles.sourceAccountText}>
-              {selectedCari.name}
-            </Text>
+            <Text style={styles.sourceAccountText}>{selectedCari.name}</Text>
           </View>
         )}
 
@@ -1113,7 +1198,9 @@ export function QuickTransactionBar({
                 }}
               >
                 <Text style={styles.targetAccountText}>
-                  {selectedHedefHesap ? selectedHedefHesap.name : t('transactions:form.targetAccount')}
+                  {selectedHedefHesap
+                    ? selectedHedefHesap.name
+                    : t('transactions:form.targetAccount')}
                 </Text>
                 <ChevronDown size={16} color={colors.info} />
               </TouchableOpacity>
@@ -1138,24 +1225,23 @@ export function QuickTransactionBar({
               ) : (
                 <ChevronDown size={18} color={colors.textMuted} />
               )}
-              <Text style={[styles.pickerButtonText, !odemeHedefType && { color: colors.textMuted }]}>
+              <Text
+                style={[styles.pickerButtonText, !odemeHedefType && { color: colors.textMuted }]}
+              >
                 {odemeHedefType === 'tedarikci'
                   ? t('clients:transactionTitles.supplierPayment')
                   : odemeHedefType === 'staff'
-                  ? t('staff:transactionTitles.payment')
-                  : odemeHedefType === 'kredi_karti'
-                  ? t('accounts:transactionTitles.creditCardPayment')
-                  : t('transactions:form.selectPaymentType')}
+                    ? t('staff:transactionTitles.payment')
+                    : odemeHedefType === 'kredi_karti'
+                      ? t('accounts:transactionTitles.creditCardPayment')
+                      : t('transactions:form.selectPaymentType')}
               </Text>
               <ChevronDown size={18} color={colors.textMuted} />
             </TouchableOpacity>
 
             {/* Tedarikçi/Personel/Kredi Kartı Seçici - sadece tür seçiliyse göster */}
             {odemeHedefType === 'tedarikci' && (
-              <TouchableOpacity
-                style={styles.pickerButton}
-                onPress={() => setShowCariPicker(true)}
-              >
+              <TouchableOpacity style={styles.pickerButton} onPress={() => setShowCariPicker(true)}>
                 <Building2 size={18} color={colors.orange} />
                 <Text style={styles.pickerButtonText}>
                   {selectedCari ? selectedCari.name : t('clients:transactionForm.selectSupplier')}
@@ -1170,7 +1256,9 @@ export function QuickTransactionBar({
               >
                 <UserCheck size={18} color={colors.orange} />
                 <Text style={styles.pickerButtonText}>
-                  {selectedPersonel ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}` : t('staff:transactionForm.selectPersonel')}
+                  {selectedPersonel
+                    ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
+                    : t('staff:transactionForm.selectPersonel')}
                 </Text>
                 <ChevronDown size={18} color={colors.textMuted} />
               </TouchableOpacity>
@@ -1195,7 +1283,9 @@ export function QuickTransactionBar({
                     onPress={() => setShowKrediKartiPicker(true)}
                   >
                     <Text style={styles.targetAccountText}>
-                      {selectedKrediKarti ? selectedKrediKarti.name : t('accounts:titles.selectCreditCard')}
+                      {selectedKrediKarti
+                        ? selectedKrediKarti.name
+                        : t('accounts:titles.selectCreditCard')}
                     </Text>
                     <ChevronDown size={16} color={colors.info} />
                   </TouchableOpacity>
@@ -1207,10 +1297,7 @@ export function QuickTransactionBar({
 
         {/* Tahsilat: Müşteri Seçici (sadece normal modda) */}
         {type === 'tahsilat' && !isCariMode && (
-          <TouchableOpacity
-            style={styles.pickerButton}
-            onPress={() => setShowCariPicker(true)}
-          >
+          <TouchableOpacity style={styles.pickerButton} onPress={() => setShowCariPicker(true)}>
             <Users size={18} color={colors.primary} />
             <Text style={styles.pickerButtonText}>
               {selectedCari ? selectedCari.name : t('clients:transactionForm.selectCustomer')}
@@ -1288,18 +1375,12 @@ export function QuickTransactionBar({
             onPress={handleSave}
             disabled={isSaving}
           >
-            <Text style={styles.saveButtonText}>
-              {isSaving ? '...' : buttonLabel}
-            </Text>
+            <Text style={styles.saveButtonText}>{isSaving ? '...' : buttonLabel}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Type Tabs */}
-        <TransactionTypeTabs
-          value={type}
-          onChange={setType}
-          mode={tabMode}
-        />
+        <TransactionTypeTabs value={type} onChange={setType} mode={tabMode} />
       </Animated.View>
 
       {/* DateTime Picker Modal */}
@@ -1387,93 +1468,149 @@ export function QuickTransactionBar({
 
       {/* Hesap Picker Modal - Bottom Sheet */}
       {showHesapPicker && (
-        <Modal visible transparent animationType="slide" onRequestClose={() => { setShowHesapPicker(false); setHesapSearchQuery(''); setPendingModal(null); }}>
-          <TouchableWithoutFeedback onPress={() => { setShowHesapPicker(false); setHesapSearchQuery(''); setPendingModal(null); }}>
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowHesapPicker(false);
+            setHesapSearchQuery('');
+            setPendingModal(null);
+          }}
+        >
+          <TouchableWithoutFeedback
+            onPress={() => {
+              setShowHesapPicker(false);
+              setHesapSearchQuery('');
+              setPendingModal(null);
+            }}
+          >
             <View style={styles.bottomSheetOverlay}>
               <TouchableWithoutFeedback onPress={() => {}}>
-                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-              <View style={styles.bottomSheetHeader}>
-                <Text style={styles.bottomSheetTitle}>
-                  {hesapPickerTarget === 'source' ? t('accounts:titles.selectAccount') : t('transactions:form.targetAccount')}
-                </Text>
-                <TouchableOpacity onPress={() => { setShowHesapPicker(false); setHesapSearchQuery(''); setPendingModal(null); }} style={styles.bottomSheetCloseBtn}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('common:search.searchPlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={hesapSearchQuery}
-                  onChangeText={setHesapSearchQuery}
-                  autoCorrect={false}
-                />
-                {hesapSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setHesapSearchQuery('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
-                {filteredHesaplar.map((hesap) => {
-                  const isSelected = hesapPickerTarget === 'source'
-                    ? sourceHesapId === hesap.id
-                    : hedefHesapId === hesap.id;
-                  return (
+                <View
+                  style={[
+                    styles.bottomSheetContent,
+                    { height: windowHeight * 0.7, paddingBottom: insets.bottom },
+                  ]}
+                >
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>
+                      {hesapPickerTarget === 'source'
+                        ? t('accounts:titles.selectAccount')
+                        : t('transactions:form.targetAccount')}
+                    </Text>
                     <TouchableOpacity
-                      key={hesap.id}
-                      style={[styles.bottomSheetItem, isSelected && styles.bottomSheetItemSelected]}
                       onPress={() => {
-                        if (hesapPickerTarget === 'source') {
-                          setSourceHesapId(hesap.id);
-                        } else {
-                          setHedefHesapId(hesap.id);
-                        }
                         setShowHesapPicker(false);
                         setHesapSearchQuery('');
-
-                        // Handle sequential modal opening
-                        if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
-                          setTimeout(() => {
-                            setCategoryPickerOpen(true);
-                            setPendingModal(null);
-                          }, 250);
-                        } else if (pendingModal === 'category') {
-                          // Kategori zaten seçili, pending'i temizle
-                          setPendingModal(null);
-                        } else if (pendingModal === 'kredi_karti') {
-                          setTimeout(() => {
-                            setShowKrediKartiPicker(true);
-                            setPendingModal(null);
-                          }, 250);
-                        }
+                        setPendingModal(null);
                       }}
+                      style={styles.bottomSheetCloseBtn}
                     >
-                      <View style={[styles.bottomSheetItemIcon, { backgroundColor: colors.infoLight }]}>
-                        <Wallet size={20} color={colors.info} />
-                      </View>
-                      <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{hesap.name}</Text>
-                      <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(hesap.balance)}</Text>
-                      {isSelected && (
-                        <View style={[styles.checkIcon, { backgroundColor: colors.info }]}>
-                          <Check size={14} color="#FFFFFF" />
-                        </View>
-                      )}
+                      <X size={24} color={colors.text} />
                     </TouchableOpacity>
-                  );
-                })}
-                {filteredHesaplar.length === 0 && hesapSearchQuery.trim() && (
-                  <View style={styles.emptySearchState}>
-                    <Search size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
                   </View>
-                )}
-              </ScrollView>
+
+                  {/* Search Bar */}
+                  <View style={styles.searchContainer}>
+                    <Search size={20} color={colors.textMuted} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder={t('common:search.searchPlaceholder')}
+                      placeholderTextColor={colors.textMuted}
+                      value={hesapSearchQuery}
+                      onChangeText={setHesapSearchQuery}
+                      autoCorrect={false}
+                    />
+                    {hesapSearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setHesapSearchQuery('')}>
+                        <X size={18} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <ScrollView
+                    style={styles.bottomSheetList}
+                    contentContainerStyle={styles.bottomSheetListContent}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {filteredHesaplar.map((hesap) => {
+                      const isSelected =
+                        hesapPickerTarget === 'source'
+                          ? sourceHesapId === hesap.id
+                          : hedefHesapId === hesap.id;
+                      return (
+                        <TouchableOpacity
+                          key={hesap.id}
+                          style={[
+                            styles.bottomSheetItem,
+                            isSelected && styles.bottomSheetItemSelected,
+                          ]}
+                          onPress={() => {
+                            if (hesapPickerTarget === 'source') {
+                              setSourceHesapId(hesap.id);
+                            } else {
+                              setHedefHesapId(hesap.id);
+                            }
+                            setShowHesapPicker(false);
+                            setHesapSearchQuery('');
+
+                            // Handle sequential modal opening
+                            if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
+                              setTimeout(() => {
+                                setCategoryPickerOpen(true);
+                                setPendingModal(null);
+                              }, 250);
+                            } else if (pendingModal === 'category') {
+                              // Kategori zaten seçili, pending'i temizle
+                              setPendingModal(null);
+                            } else if (pendingModal === 'kredi_karti') {
+                              setTimeout(() => {
+                                setShowKrediKartiPicker(true);
+                                setPendingModal(null);
+                              }, 250);
+                            }
+                          }}
+                        >
+                          <View
+                            style={[
+                              styles.bottomSheetItemIcon,
+                              { backgroundColor: colors.infoLight },
+                            ]}
+                          >
+                            <Wallet size={20} color={colors.info} />
+                          </View>
+                          <Text
+                            style={[
+                              styles.bottomSheetItemText,
+                              isSelected && { color: colors.primary },
+                            ]}
+                          >
+                            {hesap.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bottomSheetItemBalance,
+                              isSelected && { color: colors.primary },
+                            ]}
+                          >
+                            {formatCurrency(hesap.balance)}
+                          </Text>
+                          {isSelected && (
+                            <View style={[styles.checkIcon, { backgroundColor: colors.info }]}>
+                              <Check size={14} color="#FFFFFF" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {filteredHesaplar.length === 0 && hesapSearchQuery.trim() && (
+                      <View style={styles.emptySearchState}>
+                        <Search size={48} color={colors.textMuted} />
+                        <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
+                      </View>
+                    )}
+                  </ScrollView>
                 </View>
               </TouchableWithoutFeedback>
             </View>
@@ -1483,99 +1620,158 @@ export function QuickTransactionBar({
 
       {/* Cari Picker Modal (for ödeme tedarikçi/tahsilat) - Bottom Sheet */}
       {showCariPicker && (
-        <Modal visible transparent animationType="slide" onRequestClose={() => { setShowCariPicker(false); setCariSearchQuery(''); setPendingModal(null); }}>
-          <TouchableWithoutFeedback onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); setPendingModal(null); }}>
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowCariPicker(false);
+            setCariSearchQuery('');
+            setPendingModal(null);
+          }}
+        >
+          <TouchableWithoutFeedback
+            onPress={() => {
+              setShowCariPicker(false);
+              setCariSearchQuery('');
+              setPendingModal(null);
+            }}
+          >
             <View style={styles.bottomSheetOverlay}>
               <TouchableWithoutFeedback onPress={() => {}}>
-                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                <View
+                  style={[
+                    styles.bottomSheetContent,
+                    { height: windowHeight * 0.7, paddingBottom: insets.bottom },
+                  ]}
+                >
                   <View style={styles.bottomSheetHeader}>
                     <Text style={styles.bottomSheetTitle}>
-                      {type === 'tahsilat' ? t('clients:transactionForm.selectCustomer') : t('clients:transactionForm.selectSupplier')}
+                      {type === 'tahsilat'
+                        ? t('clients:transactionForm.selectCustomer')
+                        : t('clients:transactionForm.selectSupplier')}
                     </Text>
-                    <TouchableOpacity onPress={() => { setShowCariPicker(false); setCariSearchQuery(''); setPendingModal(null); }} style={styles.bottomSheetCloseBtn}>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowCariPicker(false);
+                        setCariSearchQuery('');
+                        setPendingModal(null);
+                      }}
+                      style={styles.bottomSheetCloseBtn}
+                    >
                       <X size={24} color={colors.text} />
                     </TouchableOpacity>
                   </View>
 
                   {/* Search Bar */}
                   <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={type === 'tahsilat' ? t('clients:search.searchCustomers') : t('clients:search.searchSuppliers')}
-                  placeholderTextColor={colors.textMuted}
-                  value={cariSearchQuery}
-                  onChangeText={setCariSearchQuery}
-                  autoCorrect={false}
-                />
-                {cariSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setCariSearchQuery('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
-                {filteredCariler.map((cari) => {
-                  const isSelected = cariId === cari.id;
-                  const iconColor = type === 'tahsilat' ? colors.primary : colors.orange;
-                  const iconBgColor = type === 'tahsilat' ? colors.primaryLight : colors.orangeLight;
-                  return (
-                    <TouchableOpacity
-                      key={cari.id}
-                      style={[styles.bottomSheetItem, isSelected && styles.bottomSheetItemSelected]}
-                      onPress={() => {
-                        setCariId(cari.id);
-                        setShowCariPicker(false);
-                        setCariSearchQuery('');
-
-                        // Handle sequential modal opening
-                        if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
-                          setTimeout(() => {
-                            setCategoryPickerOpen(true);
-                            setPendingModal(null);
-                          }, 250);
-                        } else if (pendingModal === 'category') {
-                          // Kategori zaten seçili, pending'i temizle
-                          setPendingModal(null);
-                        }
-                      }}
-                    >
-                      <View style={[styles.bottomSheetItemIcon, { backgroundColor: iconBgColor }]}>
-                        {type === 'tahsilat' ? (
-                          <Users size={20} color={iconColor} />
-                        ) : (
-                          <Building2 size={20} color={iconColor} />
-                        )}
-                      </View>
-                      <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{cari.name}</Text>
-                      <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(cari.balance)}</Text>
-                      {isSelected && (
-                        <View style={[styles.checkIcon, { backgroundColor: iconColor }]}>
-                          <Check size={14} color="#FFFFFF" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-                {filteredCariler.length === 0 && cariSearchQuery.trim() && (
-                  <View style={styles.emptySearchState}>
-                    <Search size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
-                  </View>
-                )}
-                {filteredCariler.length === 0 && !cariSearchQuery.trim() && (
-                  <View style={styles.emptySearchState}>
-                    {type === 'tahsilat' ? (
-                      <Users size={48} color={colors.textMuted} />
-                    ) : (
-                      <Building2 size={48} color={colors.textMuted} />
+                    <Search size={20} color={colors.textMuted} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder={
+                        type === 'tahsilat'
+                          ? t('clients:search.searchCustomers')
+                          : t('clients:search.searchSuppliers')
+                      }
+                      placeholderTextColor={colors.textMuted}
+                      value={cariSearchQuery}
+                      onChangeText={setCariSearchQuery}
+                      autoCorrect={false}
+                    />
+                    {cariSearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setCariSearchQuery('')}>
+                        <X size={18} color={colors.textMuted} />
+                      </TouchableOpacity>
                     )}
-                    <Text style={styles.emptySearchText}>
-                      {type === 'tahsilat' ? t('clients:messages.noCustomers') : t('clients:messages.noSuppliers')}
-                    </Text>
                   </View>
-                )}
+
+                  <ScrollView
+                    style={styles.bottomSheetList}
+                    contentContainerStyle={styles.bottomSheetListContent}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {filteredCariler.map((cari) => {
+                      const isSelected = cariId === cari.id;
+                      const iconColor = type === 'tahsilat' ? colors.primary : colors.orange;
+                      const iconBgColor =
+                        type === 'tahsilat' ? colors.primaryLight : colors.orangeLight;
+                      return (
+                        <TouchableOpacity
+                          key={cari.id}
+                          style={[
+                            styles.bottomSheetItem,
+                            isSelected && styles.bottomSheetItemSelected,
+                          ]}
+                          onPress={() => {
+                            setCariId(cari.id);
+                            setShowCariPicker(false);
+                            setCariSearchQuery('');
+
+                            // Handle sequential modal opening
+                            if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
+                              setTimeout(() => {
+                                setCategoryPickerOpen(true);
+                                setPendingModal(null);
+                              }, 250);
+                            } else if (pendingModal === 'category') {
+                              // Kategori zaten seçili, pending'i temizle
+                              setPendingModal(null);
+                            }
+                          }}
+                        >
+                          <View
+                            style={[styles.bottomSheetItemIcon, { backgroundColor: iconBgColor }]}
+                          >
+                            {type === 'tahsilat' ? (
+                              <Users size={20} color={iconColor} />
+                            ) : (
+                              <Building2 size={20} color={iconColor} />
+                            )}
+                          </View>
+                          <Text
+                            style={[
+                              styles.bottomSheetItemText,
+                              isSelected && { color: colors.primary },
+                            ]}
+                          >
+                            {cari.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bottomSheetItemBalance,
+                              isSelected && { color: colors.primary },
+                            ]}
+                          >
+                            {formatCurrency(cari.balance)}
+                          </Text>
+                          {isSelected && (
+                            <View style={[styles.checkIcon, { backgroundColor: iconColor }]}>
+                              <Check size={14} color="#FFFFFF" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {filteredCariler.length === 0 && cariSearchQuery.trim() && (
+                      <View style={styles.emptySearchState}>
+                        <Search size={48} color={colors.textMuted} />
+                        <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
+                      </View>
+                    )}
+                    {filteredCariler.length === 0 && !cariSearchQuery.trim() && (
+                      <View style={styles.emptySearchState}>
+                        {type === 'tahsilat' ? (
+                          <Users size={48} color={colors.textMuted} />
+                        ) : (
+                          <Building2 size={48} color={colors.textMuted} />
+                        )}
+                        <Text style={styles.emptySearchText}>
+                          {type === 'tahsilat'
+                            ? t('clients:messages.noCustomers')
+                            : t('clients:messages.noSuppliers')}
+                        </Text>
+                      </View>
+                    )}
                   </ScrollView>
                 </View>
               </TouchableWithoutFeedback>
@@ -1586,115 +1782,170 @@ export function QuickTransactionBar({
 
       {/* Ödeme Hedef Tipi Picker Modal - Bottom Sheet */}
       {showOdemeHedefTypePicker && (
-        <Modal visible transparent animationType="slide" onRequestClose={() => setShowOdemeHedefTypePicker(false)}>
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowOdemeHedefTypePicker(false)}
+        >
           <TouchableWithoutFeedback onPress={() => setShowOdemeHedefTypePicker(false)}>
             <View style={styles.bottomSheetOverlay}>
               <TouchableWithoutFeedback onPress={() => {}}>
                 <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
                   <View style={styles.bottomSheetHeader}>
-                    <Text style={styles.bottomSheetTitle}>{t('transactions:form.selectPaymentType')}</Text>
-                    <TouchableOpacity onPress={() => setShowOdemeHedefTypePicker(false)} style={styles.bottomSheetCloseBtn}>
+                    <Text style={styles.bottomSheetTitle}>
+                      {t('transactions:form.selectPaymentType')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowOdemeHedefTypePicker(false)}
+                      style={styles.bottomSheetCloseBtn}
+                    >
                       <X size={24} color={colors.text} />
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.bottomSheetListContent}>
-                <TouchableOpacity
-                  style={[styles.odemeTypeItem, odemeHedefType === 'tedarikci' && styles.odemeTypeItemSelected]}
-                  onPress={() => {
-                    setOdemeHedefType('tedarikci');
-                    setCariId(null);
-                    setPersonelId(null);
-                    setShowOdemeHedefTypePicker(false);
-                    // Otomatik tedarikçi picker aç
-                    setTimeout(() => {
-                      // Kategori seçili değilse, cari seçildikten sonra kategori açılsın
-                      if (!kategoriId && !categorySkipped) {
-                        setPendingModal('category');
-                      }
-                      setShowCariPicker(true);
-                    }, 250);
-                  }}
-                >
-                  <View style={[styles.bottomSheetItemIcon, { backgroundColor: colors.orangeLight }]}>
-                    <Building2 size={24} color={colors.orange} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text style={[styles.odemeTypeTitle, odemeHedefType === 'tedarikci' && { color: colors.orange }]}>
-                      {t('clients:transactionTitles.supplierPayment')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>{t('clients:transactionDescriptions.supplierPayment')}</Text>
-                  </View>
-                  {odemeHedefType === 'tedarikci' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.odemeTypeItem,
+                        odemeHedefType === 'tedarikci' && styles.odemeTypeItemSelected,
+                      ]}
+                      onPress={() => {
+                        setOdemeHedefType('tedarikci');
+                        setCariId(null);
+                        setPersonelId(null);
+                        setShowOdemeHedefTypePicker(false);
+                        // Otomatik tedarikçi picker aç
+                        setTimeout(() => {
+                          // Kategori seçili değilse, cari seçildikten sonra kategori açılsın
+                          if (!kategoriId && !categorySkipped) {
+                            setPendingModal('category');
+                          }
+                          setShowCariPicker(true);
+                        }, 250);
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.bottomSheetItemIcon,
+                          { backgroundColor: colors.orangeLight },
+                        ]}
+                      >
+                        <Building2 size={24} color={colors.orange} />
+                      </View>
+                      <View style={styles.odemeTypeContent}>
+                        <Text
+                          style={[
+                            styles.odemeTypeTitle,
+                            odemeHedefType === 'tedarikci' && { color: colors.orange },
+                          ]}
+                        >
+                          {t('clients:transactionTitles.supplierPayment')}
+                        </Text>
+                        <Text style={styles.odemeTypeSubtext}>
+                          {t('clients:transactionDescriptions.supplierPayment')}
+                        </Text>
+                      </View>
+                      {odemeHedefType === 'tedarikci' && (
+                        <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
+                          <Check size={14} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.odemeTypeItem, odemeHedefType === 'staff' && styles.odemeTypeItemSelected]}
-                  onPress={() => {
-                    setOdemeHedefType('staff');
-                    setCariId(null);
-                    setPersonelId(null);
-                    setShowOdemeHedefTypePicker(false);
-                    // Otomatik personel picker aç
-                    setTimeout(() => {
-                      // Kategori seçili değilse, personel seçildikten sonra kategori açılsın
-                      if (!kategoriId && !categorySkipped) {
-                        setPendingModal('category');
-                      }
-                      setShowPersonelPicker(true);
-                    }, 250);
-                  }}
-                >
-                  <View style={[styles.bottomSheetItemIcon, { backgroundColor: colors.orangeLight }]}>
-                    <UserCheck size={24} color={colors.orange} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text style={[styles.odemeTypeTitle, odemeHedefType === 'staff' && { color: colors.orange }]}>
-                      {t('staff:transactionTitles.payment')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>{t('staff:transactionDescriptions.personnelPayment')}</Text>
-                  </View>
-                  {odemeHedefType === 'staff' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.odemeTypeItem,
+                        odemeHedefType === 'staff' && styles.odemeTypeItemSelected,
+                      ]}
+                      onPress={() => {
+                        setOdemeHedefType('staff');
+                        setCariId(null);
+                        setPersonelId(null);
+                        setShowOdemeHedefTypePicker(false);
+                        // Otomatik personel picker aç
+                        setTimeout(() => {
+                          // Kategori seçili değilse, personel seçildikten sonra kategori açılsın
+                          if (!kategoriId && !categorySkipped) {
+                            setPendingModal('category');
+                          }
+                          setShowPersonelPicker(true);
+                        }, 250);
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.bottomSheetItemIcon,
+                          { backgroundColor: colors.orangeLight },
+                        ]}
+                      >
+                        <UserCheck size={24} color={colors.orange} />
+                      </View>
+                      <View style={styles.odemeTypeContent}>
+                        <Text
+                          style={[
+                            styles.odemeTypeTitle,
+                            odemeHedefType === 'staff' && { color: colors.orange },
+                          ]}
+                        >
+                          {t('staff:transactionTitles.payment')}
+                        </Text>
+                        <Text style={styles.odemeTypeSubtext}>
+                          {t('staff:transactionDescriptions.personnelPayment')}
+                        </Text>
+                      </View>
+                      {odemeHedefType === 'staff' && (
+                        <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
+                          <Check size={14} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.odemeTypeItem, odemeHedefType === 'kredi_karti' && styles.odemeTypeItemSelected]}
-                  onPress={() => {
-                    setOdemeHedefType('kredi_karti');
-                    setCariId(null);
-                    setPersonelId(null);
-                    setHedefHesapId(null);
-                    setShowOdemeHedefTypePicker(false);
-                    // Otomatik kaynak hesap picker aç, sonra kredi kartı picker
-                    setTimeout(() => {
-                      setPendingModal('kredi_karti');
-                      setHesapPickerTarget('source');
-                      setShowHesapPicker(true);
-                    }, 250);
-                  }}
-                >
-                  <View style={[styles.bottomSheetItemIcon, { backgroundColor: colors.orangeLight }]}>
-                    <CreditCard size={24} color={colors.orange} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text style={[styles.odemeTypeTitle, odemeHedefType === 'kredi_karti' && { color: colors.orange }]}>
-                      {t('accounts:transactionTitles.creditCardPayment')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>{t('accounts:transactionDescriptions.creditCardPayment')}</Text>
-                  </View>
-                  {odemeHedefType === 'kredi_karti' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
+                    <TouchableOpacity
+                      style={[
+                        styles.odemeTypeItem,
+                        odemeHedefType === 'kredi_karti' && styles.odemeTypeItemSelected,
+                      ]}
+                      onPress={() => {
+                        setOdemeHedefType('kredi_karti');
+                        setCariId(null);
+                        setPersonelId(null);
+                        setHedefHesapId(null);
+                        setShowOdemeHedefTypePicker(false);
+                        // Otomatik kaynak hesap picker aç, sonra kredi kartı picker
+                        setTimeout(() => {
+                          setPendingModal('kredi_karti');
+                          setHesapPickerTarget('source');
+                          setShowHesapPicker(true);
+                        }, 250);
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.bottomSheetItemIcon,
+                          { backgroundColor: colors.orangeLight },
+                        ]}
+                      >
+                        <CreditCard size={24} color={colors.orange} />
+                      </View>
+                      <View style={styles.odemeTypeContent}>
+                        <Text
+                          style={[
+                            styles.odemeTypeTitle,
+                            odemeHedefType === 'kredi_karti' && { color: colors.orange },
+                          ]}
+                        >
+                          {t('accounts:transactionTitles.creditCardPayment')}
+                        </Text>
+                        <Text style={styles.odemeTypeSubtext}>
+                          {t('accounts:transactionDescriptions.creditCardPayment')}
+                        </Text>
+                      </View>
+                      {odemeHedefType === 'kredi_karti' && (
+                        <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
+                          <Check size={14} color="#FFFFFF" />
+                        </View>
+                      )}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -1706,49 +1957,92 @@ export function QuickTransactionBar({
 
       {/* Kredi Kartı Picker Modal - Bottom Sheet */}
       {showKrediKartiPicker && (
-        <Modal visible transparent animationType="slide" onRequestClose={() => setShowKrediKartiPicker(false)}>
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowKrediKartiPicker(false)}
+        >
           <TouchableWithoutFeedback onPress={() => setShowKrediKartiPicker(false)}>
             <View style={styles.bottomSheetOverlay}>
               <TouchableWithoutFeedback onPress={() => {}}>
-                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>
+                <View
+                  style={[
+                    styles.bottomSheetContent,
+                    { height: windowHeight * 0.5, paddingBottom: insets.bottom },
+                  ]}
+                >
                   <View style={styles.bottomSheetHeader}>
-                    <Text style={styles.bottomSheetTitle}>{t('accounts:titles.selectCreditCard')}</Text>
-                    <TouchableOpacity onPress={() => setShowKrediKartiPicker(false)} style={styles.bottomSheetCloseBtn}>
+                    <Text style={styles.bottomSheetTitle}>
+                      {t('accounts:titles.selectCreditCard')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowKrediKartiPicker(false)}
+                      style={styles.bottomSheetCloseBtn}
+                    >
                       <X size={24} color={colors.text} />
                     </TouchableOpacity>
                   </View>
 
-                  <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
-                {krediKartiHesaplari.map((hesap) => {
-                  const isSelected = hedefHesapId === hesap.id;
-                  return (
-                    <TouchableOpacity
-                      key={hesap.id}
-                      style={[styles.bottomSheetItem, isSelected && styles.bottomSheetItemSelected]}
-                      onPress={() => {
-                        setHedefHesapId(hesap.id);
-                        setShowKrediKartiPicker(false);
-                      }}
-                    >
-                      <View style={[styles.bottomSheetItemIcon, { backgroundColor: colors.orangeLight }]}>
-                        <CreditCard size={20} color={colors.orange} />
+                  <ScrollView
+                    style={styles.bottomSheetList}
+                    contentContainerStyle={styles.bottomSheetListContent}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {krediKartiHesaplari.map((hesap) => {
+                      const isSelected = hedefHesapId === hesap.id;
+                      return (
+                        <TouchableOpacity
+                          key={hesap.id}
+                          style={[
+                            styles.bottomSheetItem,
+                            isSelected && styles.bottomSheetItemSelected,
+                          ]}
+                          onPress={() => {
+                            setHedefHesapId(hesap.id);
+                            setShowKrediKartiPicker(false);
+                          }}
+                        >
+                          <View
+                            style={[
+                              styles.bottomSheetItemIcon,
+                              { backgroundColor: colors.orangeLight },
+                            ]}
+                          >
+                            <CreditCard size={20} color={colors.orange} />
+                          </View>
+                          <Text
+                            style={[
+                              styles.bottomSheetItemText,
+                              isSelected && { color: colors.primary },
+                            ]}
+                          >
+                            {hesap.name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bottomSheetItemBalance,
+                              isSelected && { color: colors.primary },
+                            ]}
+                          >
+                            {formatCurrency(hesap.balance)}
+                          </Text>
+                          {isSelected && (
+                            <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
+                              <Check size={14} color="#FFFFFF" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {krediKartiHesaplari.length === 0 && (
+                      <View style={styles.emptySearchState}>
+                        <CreditCard size={48} color={colors.textMuted} />
+                        <Text style={styles.emptySearchText}>
+                          {t('accounts:messages.noCreditCards')}
+                        </Text>
                       </View>
-                      <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{hesap.name}</Text>
-                      <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(hesap.balance)}</Text>
-                      {isSelected && (
-                        <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
-                          <Check size={14} color="#FFFFFF" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-                {krediKartiHesaplari.length === 0 && (
-                  <View style={styles.emptySearchState}>
-                    <CreditCard size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>{t('accounts:messages.noCreditCards')}</Text>
-                  </View>
-                )}
+                    )}
                   </ScrollView>
                 </View>
               </TouchableWithoutFeedback>
@@ -1759,87 +2053,142 @@ export function QuickTransactionBar({
 
       {/* Personel Picker Modal - Bottom Sheet */}
       {showPersonelPicker && (
-        <Modal visible transparent animationType="slide" onRequestClose={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); setPendingModal(null); }}>
-          <TouchableWithoutFeedback onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); setPendingModal(null); }}>
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => {
+            setShowPersonelPicker(false);
+            setPersonelSearchQuery('');
+            setPendingModal(null);
+          }}
+        >
+          <TouchableWithoutFeedback
+            onPress={() => {
+              setShowPersonelPicker(false);
+              setPersonelSearchQuery('');
+              setPendingModal(null);
+            }}
+          >
             <View style={styles.bottomSheetOverlay}>
               <TouchableWithoutFeedback onPress={() => {}}>
-                <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                <View
+                  style={[
+                    styles.bottomSheetContent,
+                    { height: windowHeight * 0.7, paddingBottom: insets.bottom },
+                  ]}
+                >
                   <View style={styles.bottomSheetHeader}>
-                    <Text style={styles.bottomSheetTitle}>{t('staff:transactionForm.selectPersonel')}</Text>
-                    <TouchableOpacity onPress={() => { setShowPersonelPicker(false); setPersonelSearchQuery(''); setPendingModal(null); }} style={styles.bottomSheetCloseBtn}>
+                    <Text style={styles.bottomSheetTitle}>
+                      {t('staff:transactionForm.selectPersonel')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setShowPersonelPicker(false);
+                        setPersonelSearchQuery('');
+                        setPendingModal(null);
+                      }}
+                      style={styles.bottomSheetCloseBtn}
+                    >
                       <X size={24} color={colors.text} />
                     </TouchableOpacity>
                   </View>
 
                   {/* Search Bar */}
                   <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('staff:search.searchPersonnel')}
-                  placeholderTextColor={colors.textMuted}
-                  value={personelSearchQuery}
-                  onChangeText={setPersonelSearchQuery}
-                  autoCorrect={false}
-                />
-                {personelSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setPersonelSearchQuery('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
+                    <Search size={20} color={colors.textMuted} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder={t('staff:search.searchPersonnel')}
+                      placeholderTextColor={colors.textMuted}
+                      value={personelSearchQuery}
+                      onChangeText={setPersonelSearchQuery}
+                      autoCorrect={false}
+                    />
+                    {personelSearchQuery.length > 0 && (
+                      <TouchableOpacity onPress={() => setPersonelSearchQuery('')}>
+                        <X size={18} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
 
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
-                {filteredPersonel.map((personel) => {
-                  const isSelected = personelId === personel.id;
-                  return (
-                    <TouchableOpacity
-                      key={personel.id}
-                      style={[styles.bottomSheetItem, isSelected && styles.bottomSheetItemSelected]}
-                      onPress={() => {
-                        setPersonelId(personel.id);
-                        setShowPersonelPicker(false);
-                        setPersonelSearchQuery('');
+                  <ScrollView
+                    style={styles.bottomSheetList}
+                    contentContainerStyle={styles.bottomSheetListContent}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {filteredPersonel.map((personel) => {
+                      const isSelected = personelId === personel.id;
+                      return (
+                        <TouchableOpacity
+                          key={personel.id}
+                          style={[
+                            styles.bottomSheetItem,
+                            isSelected && styles.bottomSheetItemSelected,
+                          ]}
+                          onPress={() => {
+                            setPersonelId(personel.id);
+                            setShowPersonelPicker(false);
+                            setPersonelSearchQuery('');
 
-                        // Handle sequential modal opening
-                        if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
-                          setTimeout(() => {
-                            setCategoryPickerOpen(true);
-                            setPendingModal(null);
-                          }, 250);
-                        } else if (pendingModal === 'category') {
-                          // Kategori zaten seçili, pending'i temizle
-                          setPendingModal(null);
-                        }
-                      }}
-                    >
-                      <View style={[styles.bottomSheetItemIcon, { backgroundColor: colors.orangeLight }]}>
-                        <UserCheck size={20} color={colors.orange} />
+                            // Handle sequential modal opening
+                            if (pendingModal === 'category' && !kategoriId && !categorySkipped) {
+                              setTimeout(() => {
+                                setCategoryPickerOpen(true);
+                                setPendingModal(null);
+                              }, 250);
+                            } else if (pendingModal === 'category') {
+                              // Kategori zaten seçili, pending'i temizle
+                              setPendingModal(null);
+                            }
+                          }}
+                        >
+                          <View
+                            style={[
+                              styles.bottomSheetItemIcon,
+                              { backgroundColor: colors.orangeLight },
+                            ]}
+                          >
+                            <UserCheck size={20} color={colors.orange} />
+                          </View>
+                          <Text
+                            style={[
+                              styles.bottomSheetItemText,
+                              isSelected && { color: colors.primary },
+                            ]}
+                          >
+                            {personel.first_name} {personel.last_name}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.bottomSheetItemBalance,
+                              isSelected && { color: colors.primary },
+                            ]}
+                          >
+                            {formatCurrency(personel.balance)}
+                          </Text>
+                          {isSelected && (
+                            <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
+                              <Check size={14} color="#FFFFFF" />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                    {filteredPersonel.length === 0 && personelSearchQuery.trim() && (
+                      <View style={styles.emptySearchState}>
+                        <Search size={48} color={colors.textMuted} />
+                        <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
                       </View>
-                      <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>
-                        {personel.first_name} {personel.last_name}
-                      </Text>
-                      <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(personel.balance)}</Text>
-                      {isSelected && (
-                        <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
-                          <Check size={14} color="#FFFFFF" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-                {filteredPersonel.length === 0 && personelSearchQuery.trim() && (
-                  <View style={styles.emptySearchState}>
-                    <Search size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>
-                  </View>
-                )}
-                {filteredPersonel.length === 0 && !personelSearchQuery.trim() && (
-                  <View style={styles.emptySearchState}>
-                    <UserCheck size={48} color={colors.textMuted} />
-                    <Text style={styles.emptySearchText}>{t('staff:messages.noPersonnel')}</Text>
-                  </View>
-                )}
+                    )}
+                    {filteredPersonel.length === 0 && !personelSearchQuery.trim() && (
+                      <View style={styles.emptySearchState}>
+                        <UserCheck size={48} color={colors.textMuted} />
+                        <Text style={styles.emptySearchText}>
+                          {t('staff:messages.noPersonnel')}
+                        </Text>
+                      </View>
+                    )}
                   </ScrollView>
                 </View>
               </TouchableWithoutFeedback>
