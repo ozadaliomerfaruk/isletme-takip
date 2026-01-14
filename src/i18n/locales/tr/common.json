@@ -43,6 +43,13 @@
     "warning": "Uyarı",
     "info": "Bilgi"
   },
+  "messages": {
+    "savedSuccessfully": "Başarıyla kaydedildi",
+    "deletedSuccessfully": "Başarıyla silindi",
+    "updatedSuccessfully": "Başarıyla güncellendi",
+    "operationFailed": "İşlem başarısız",
+    "pleaseTryAgain": "Lütfen tekrar deneyin"
+  },
   "empty": {
     "noData": "Veri bulunamadı",
     "noResults": "Sonuç bulunamadı",
@@ -97,8 +104,34 @@
     "time": "Saat",
     "selectDate": "Tarih Seç",
     "selectTime": "Saat Seç",
-    "months": ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
-    "monthsShort": ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"],
+    "months": [
+      "Ocak",
+      "Şubat",
+      "Mart",
+      "Nisan",
+      "Mayıs",
+      "Haziran",
+      "Temmuz",
+      "Ağustos",
+      "Eylül",
+      "Ekim",
+      "Kasım",
+      "Aralık"
+    ],
+    "monthsShort": [
+      "Oca",
+      "Şub",
+      "Mar",
+      "Nis",
+      "May",
+      "Haz",
+      "Tem",
+      "Ağu",
+      "Eyl",
+      "Eki",
+      "Kas",
+      "Ara"
+    ],
     "days": ["Pazar", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi"],
     "daysShort": ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"],
     "relative": {

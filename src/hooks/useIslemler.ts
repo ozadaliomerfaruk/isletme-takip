@@ -803,6 +803,7 @@ function normalizeDateRange(start: string, end: string): { startDateTime: string
 }
 
 // Gelir/gider özeti (dönem ve offset parametreli)
+// Pasif hesaplardaki işlemler hariç tutulur
 export function useMonthSummary(
   period: PeriodType = 'monthly',
   offset: number = 0,
@@ -820,17 +821,31 @@ export function useMonthSummary(
     queryFn: async () => {
       if (!isletme) return { income: 0, expense: 0 };
 
+      // Hesap bilgisi ile birlikte çek (pasif filtresi için)
       const { data, error } = await supabase
         .from('islemler')
-        .select('type, amount')
+        .select(`
+          type, 
+          amount,
+          hesap:hesaplar!hesap_id(is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(is_active)
+        `)
         .eq('isletme_id', isletme.id)
         .gte('date', startDateTime)
         .lte('date', endDateTime);
 
       if (error) throw error;
 
+      // Pasif hesaplardaki işlemleri filtrele
+      const activeTransactions = (data || []).filter((item: any) => {
+        const hesapActive = item.hesap ? (Array.isArray(item.hesap) ? item.hesap[0]?.is_active : item.hesap.is_active) : true;
+        const hedefHesapActive = item.hedef_hesap ? (Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0]?.is_active : item.hedef_hesap.is_active) : true;
+        // Hesap yoksa (null) aktif kabul et, varsa is_active kontrol et
+        return hesapActive !== false && hedefHesapActive !== false;
+      });
+
       // Merkezi hesaplama fonksiyonunu kullan
-      return calculateIncomeSummary(data as { type: IslemType; amount: number }[]);
+      return calculateIncomeSummary(activeTransactions as { type: IslemType; amount: number }[]);
     },
     enabled: !!isletme,
   });

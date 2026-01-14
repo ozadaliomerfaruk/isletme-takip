@@ -3,6 +3,38 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, IslemType, HesapType } from '@/types/database';
+import { queryKeys } from '@/lib/queryKeys';
+
+/**
+ * Supabase query sonucu için tip tanımı
+ * Join'lerden dönen nested objeler array veya tekil olabilir
+ */
+interface CashFlowQueryItem {
+  id: string;
+  type: string;
+  amount: number;
+  kategori_id: string | null;
+  hesap_id: string | null;
+  hedef_hesap_id: string | null;
+  kategori: Kategori | Kategori[] | null;
+  hesap: { id: string; type: HesapType; is_active: boolean } | { id: string; type: HesapType; is_active: boolean }[] | null;
+  hedef_hesap: { id: string; type: HesapType; is_active: boolean } | { id: string; type: HesapType; is_active: boolean }[] | null;
+}
+
+/**
+ * Normalize edilmiş işlem tipi
+ */
+interface NormalizedCashFlowItem {
+  id: string;
+  type: string;
+  amount: number;
+  kategori_id: string | null;
+  hesap_id: string | null;
+  hedef_hesap_id: string | null;
+  kategori: Kategori | null;
+  hesap: { id: string; type: HesapType; is_active: boolean } | null;
+  hedef_hesap: { id: string; type: HesapType; is_active: boolean } | null;
+}
 
 /**
  * Nakit akışına dahil hesap tipleri (kredi kartı HARİÇ)
@@ -93,7 +125,7 @@ export function useCashFlowByCategory(
     isLoading,
     error,
   } = useQuery({
-    queryKey: ['cash-flow-by-category', isletme?.id, startDate, endDate],
+    queryKey: queryKeys.reports.cashFlowByCategory(isletme?.id || '', startDate, endDate),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -110,8 +142,8 @@ export function useCashFlowByCategory(
           hesap_id,
           hedef_hesap_id,
           kategori:kategoriler(*),
-          hesap:hesaplar!hesap_id(id, type),
-          hedef_hesap:hesaplar!hedef_hesap_id(id, type)
+          hesap:hesaplar!hesap_id(id, type, is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(id, type, is_active)
         `)
         .eq('isletme_id', isletme.id)
         .in('type', allTypes)
@@ -121,12 +153,20 @@ export function useCashFlowByCategory(
       if (error) throw error;
 
       // Supabase bazen array döndürüyor, normalize et
-      return data.map((item: any) => ({
-        ...item,
-        kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
-        hesap: Array.isArray(item.hesap) ? item.hesap[0] || null : item.hesap,
-        hedef_hesap: Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] || null : item.hedef_hesap,
-      }));
+      // Pasif hesaplardaki işlemleri filtrele
+      return (data as CashFlowQueryItem[])
+        .map((item): NormalizedCashFlowItem => ({
+          ...item,
+          kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
+          hesap: Array.isArray(item.hesap) ? item.hesap[0] || null : item.hesap,
+          hedef_hesap: Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] || null : item.hedef_hesap,
+        }))
+        .filter((item) => {
+          // Pasif hesaplardaki işlemleri hariç tut
+          if (item.hesap && !item.hesap.is_active) return false;
+          if (item.hedef_hesap && !item.hedef_hesap.is_active) return false;
+          return true;
+        });
     },
     enabled: !!isletme && !!startDate && !!endDate,
   });
@@ -155,7 +195,7 @@ export function useCashFlowByCategory(
     const inflowByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
     const creditCardSpendingByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
 
-    islemler.forEach((islem: any) => {
+    islemler.forEach((islem: NormalizedCashFlowItem) => {
       // NaN-safe number parsing - geçersiz değerler için 0 kullan
       const rawAmount = Number(islem.amount);
       const amount = isNaN(rawAmount) ? 0 : rawAmount;

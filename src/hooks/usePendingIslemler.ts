@@ -16,7 +16,29 @@ import type {
   PendingIslemUpdate,
   PendingIslemCorrections,
   IslemInsert,
+  IslemType,
 } from '@/types/database';
+
+/**
+ * Geçerli IslemType değerleri
+ * Import sırasında gelen mappedType değerinin doğrulanması için kullanılır
+ */
+const VALID_ISLEM_TYPES: IslemType[] = [
+  'gelir',
+  'gider',
+  'transfer',
+  'cari_alis',
+  'cari_satis',
+  'cari_odeme',
+  'cari_tahsilat',
+  'cari_alis_iade',
+  'cari_satis_iade',
+  'personel_gider',
+  'personel_odeme',
+  'personel_tahsilat',
+  'personel_satis',
+  'nakit_avans_taksit',
+];
 
 /**
  * Güvenli bakiye artırma/azaltma
@@ -435,8 +457,13 @@ export function buildIslemFromPending(
   const raw = pending.raw_data;
   const merged = { ...corrections };
 
+  // raw.mappedType'ı güvenli şekilde IslemType'a çevir
+  const rawType = raw.mappedType;
+  const validatedType: IslemType = merged.type 
+    || (VALID_ISLEM_TYPES.includes(rawType as IslemType) ? rawType as IslemType : 'gider');
+
   return {
-    type: merged.type || (raw.mappedType as any) || 'gider',
+    type: validatedType,
     amount: merged.amount ?? raw.amount,
     description: merged.description ?? raw.description,
     date: merged.date ?? raw.date,

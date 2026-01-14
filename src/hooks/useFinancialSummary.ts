@@ -56,12 +56,14 @@ export interface FinancialSummary {
  * Genel Durum = (Varlıklar + Alacaklar) - Borçlar
  */
 export function useFinancialSummary(): FinancialSummary {
-  // Arşivlenmiş öğeleri de dahil et - genel durumda tüm alacak/verecek bakiyeleri hesaba katılmalı
-  // includePassive: true - pasif hesaplar da dahil
-  // includeArchived: true - arşivlenmiş hesaplar da dahil
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true, true);
-  const { data: cariler, isLoading: carilerLoading } = useCariler(undefined, true, true);
-  const { data: personelList, isLoading: personelLoading } = usePersonelList(true, true);
+  // Pasif öğeleri HARIÇ tut - pasif moda alınan hesaplar hiçbir hesaplamaya dahil edilmemeli
+  // Arşivlenmiş öğeleri HARİÇ tut - arşivdeki bakiyeler genel duruma dahil edilmez
+  // NOT: İşlem bazlı sorgular (gelir/gider, nakit akışı) arşivlenmiş hesap işlemlerini DAHİL eder
+  // includePassive: false - pasif hesaplar hariç
+  // includeArchived: false - arşivlenmiş hesaplar hariç
+  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(false, false);
+  const { data: cariler, isLoading: carilerLoading } = useCariler(undefined, false, false);
+  const { data: personelList, isLoading: personelLoading } = usePersonelList(false, false);
   const { currency: baseCurrency } = useSettings();
 
   const summary = useMemo(() => {
@@ -142,10 +144,10 @@ export function useFinancialSummary(): FinancialSummary {
     };
 
     // Net pozisyon (sadece alacak - borç)
-    const netPosition = receivables.total - payables.total;
+    const netPosition = Math.round((receivables.total - payables.total) * 100) / 100;
 
     // Genel Durum = (Hesaplar + Alacaklar) - Borçlar
-    const generalStatus = (assets + receivables.total) - payables.total;
+    const generalStatus = Math.round(((assets + receivables.total) - payables.total) * 100) / 100;
 
     return {
       assets,

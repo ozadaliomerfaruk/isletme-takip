@@ -331,8 +331,11 @@ export function QuickTransactionBar({
     return () => {
       showSub.remove();
       hideSub.remove();
+      // Cleanup: Aktif animasyonları durdur
+      opacity.stopAnimation();
+      translateY.stopAnimation();
     };
-  }, []);
+  }, [opacity, translateY]);
 
   // Open animation
   const animateOpen = useCallback(() => {

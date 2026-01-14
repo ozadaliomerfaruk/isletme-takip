@@ -65,21 +65,35 @@ export function useAnalyticsSummary(period: AnalyticsPeriod): AnalyticsSummary {
       }
 
       // Fetch all transactions in the date range (oldest to newest)
+      // Hesap bilgisi ile birlikte çek (pasif filtresi için)
       const oldestStart = periods[0].startDate;
       const newestEnd = periods[periods.length - 1].endDate;
 
       const { data, error } = await supabase
         .from('islemler')
-        .select('type, amount, date')
+        .select(`
+          type, 
+          amount, 
+          date,
+          hesap:hesaplar!hesap_id(is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(is_active)
+        `)
         .eq('isletme_id', isletme.id)
         .gte('date', `${oldestStart}T00:00:00`)
         .lte('date', `${newestEnd}T23:59:59`);
 
       if (error) throw error;
 
+      // Pasif hesaplardaki işlemleri filtrele
+      const activeData = (data || []).filter((item: any) => {
+        const hesapActive = item.hesap ? (Array.isArray(item.hesap) ? item.hesap[0]?.is_active : item.hesap.is_active) : true;
+        const hedefHesapActive = item.hedef_hesap ? (Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0]?.is_active : item.hedef_hesap.is_active) : true;
+        return hesapActive !== false && hedefHesapActive !== false;
+      });
+
       // Group transactions by period
       const periodData = periods.map((p) => {
-        const periodTransactions = (data || []).filter((t) => {
+        const periodTransactions = activeData.filter((t: any) => {
           const txDate = t.date.split('T')[0];
           return txDate >= p.startDate && txDate <= p.endDate;
         });

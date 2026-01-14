@@ -71,6 +71,8 @@ export const queryKeys = {
       ['category-report', isletmeId, type, startDate, endDate] as const,
     categoryTransactions: (isletmeId: string, kategoriId: string, type: string, startDate: string, endDate: string) =>
       ['category-transactions', isletmeId, kategoriId, type, startDate, endDate] as const,
+    cashFlowByCategory: (isletmeId: string, startDate: string, endDate: string) =>
+      ['cash-flow-by-category', isletmeId, startDate, endDate] as const,
   },
 
   // Dashboard

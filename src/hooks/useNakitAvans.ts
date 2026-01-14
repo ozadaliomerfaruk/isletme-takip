@@ -225,6 +225,7 @@ export function useUpdateNakitAvans() {
 
 /**
  * Nakit avans sil
+ * Atomik RPC kullanır - tüm bakiye değişiklikleri geri alınır
  */
 export function useDeleteNakitAvans() {
   const { isletme } = useAuthContext();
@@ -234,18 +235,11 @@ export function useDeleteNakitAvans() {
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error('İşletme bulunamadı');
 
-      // Önce taksitleri sil
-      await supabase
-        .from('nakit_avans_taksitler')
-        .delete()
-        .eq('nakit_avans_id', id);
-
-      // Sonra avansı sil
-      const { error } = await supabase
-        .from('nakit_avanslar')
-        .delete()
-        .eq('id', id)
-        .eq('isletme_id', isletme.id);
+      // Atomik RPC ile sil - bakiye reversal dahil
+      const { error } = await supabase.rpc('delete_nakit_avans_with_reversal', {
+        p_avans_id: id,
+        p_isletme_id: isletme.id,
+      });
 
       if (error) throw error;
     },

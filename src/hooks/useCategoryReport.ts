@@ -80,7 +80,7 @@ export function useCategoryReport(
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
 
-  // Tüm kategorileri çek (parent bilgisi için)
+  // Tüm kategorileri çek (parent bilgisi için) - sadece aktif kategoriler
   const {
     data: allKategoriler,
     isLoading: kategorilerLoading,
@@ -94,7 +94,8 @@ export function useCategoryReport(
         .from('kategoriler')
         .select('*')
         .eq('isletme_id', isletme.id)
-        .eq('type', type);
+        .eq('type', type)
+        .eq('is_active', true);  // Sadece aktif kategoriler
 
       if (error) throw error;
       return data as Kategori[];
@@ -102,7 +103,8 @@ export function useCategoryReport(
     enabled: !!isletme,
   });
 
-  // İşlemleri çek (kategori bilgisi ile birlikte)
+  // İşlemleri çek (kategori ve hesap bilgisi ile birlikte)
+  // Pasif hesaplardaki işlemler hariç tutulur
   const {
     data: islemler,
     isLoading: islemlerLoading,
@@ -119,7 +121,9 @@ export function useCategoryReport(
           type,
           amount,
           kategori_id,
-          kategori:kategoriler(*)
+          kategori:kategoriler(*),
+          hesap:hesaplar!hesap_id(is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(is_active)
         `)
         .eq('isletme_id', isletme.id)
         .in('type', islemTypes)
@@ -128,11 +132,18 @@ export function useCategoryReport(
 
       if (error) throw error;
 
-      // Supabase join sonucunu düzelt (kategori array olarak dönüyor)
-      return data.map((item) => ({
-        ...item,
-        kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
-      }));
+      // Supabase join sonucunu düzelt ve pasif hesapları filtrele
+      return data
+        .map((item: any) => ({
+          ...item,
+          kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
+        }))
+        .filter((item: any) => {
+          // Pasif hesaplardaki işlemleri hariç tut
+          const hesapActive = item.hesap ? (Array.isArray(item.hesap) ? item.hesap[0]?.is_active : item.hesap.is_active) : true;
+          const hedefHesapActive = item.hedef_hesap ? (Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0]?.is_active : item.hedef_hesap.is_active) : true;
+          return hesapActive !== false && hedefHesapActive !== false;
+        });
     },
     enabled: !!isletme && !!startDate && !!endDate,
   });
