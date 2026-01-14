@@ -23,7 +23,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { getInitials } from '@/lib/utils';
@@ -62,7 +62,7 @@ export default function PersonelHareketleriPage() {
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      const amount = Number(islem.amount);
+      const amount = toNumber(islem.amount); // Güvenli NaN koruması
       if (islem.type === 'personel_gider') {
         totalEffect -= amount; // Borç artar
       } else if (islem.type === 'personel_odeme') {
@@ -72,7 +72,7 @@ export default function PersonelHareketleriPage() {
       }
     });
 
-    return Number(personel.balance) - totalEffect;
+    return toNumber(personel.balance) - totalEffect;
   };
 
   const initialBalance = calculateInitialBalance();

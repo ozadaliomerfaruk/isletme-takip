@@ -60,7 +60,8 @@ const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // İşlem tipi seçenekleri - database IslemType değerleri
 // Gruplandırılmış: Temel, Cari, Personel
-const ISLEM_TYPES: { value: IslemType; labelKey: string; color: string; group: string }[] = [
+// isCustomerVariant: cari_alis'in müşteri versiyonu için (müşteriden alış)
+const ISLEM_TYPES: { value: IslemType; labelKey: string; color: string; group: string; isCustomerVariant?: boolean }[] = [
   // Temel işlemler
   { value: 'gelir', labelKey: 'transactions:tabs.gelir', color: colors.success, group: 'basic' },
   { value: 'gider', labelKey: 'transactions:tabs.gider', color: colors.error, group: 'basic' },
@@ -70,6 +71,7 @@ const ISLEM_TYPES: { value: IslemType; labelKey: string; color: string; group: s
   { value: 'cari_alis_iade', labelKey: 'transactions:types.cari_alis_iade', color: colors.success, group: 'supplier' },
   { value: 'cari_odeme', labelKey: 'transactions:types.cari_odeme', color: colors.orange, group: 'supplier' },
   // Cari işlemleri (Müşteri)
+  { value: 'cari_alis', labelKey: 'transactions:types.musteri_alis', color: colors.error, group: 'customer', isCustomerVariant: true },
   { value: 'cari_satis', labelKey: 'transactions:types.cari_satis', color: colors.success, group: 'customer' },
   { value: 'cari_satis_iade', labelKey: 'transactions:types.cari_satis_iade', color: colors.error, group: 'customer' },
   { value: 'cari_tahsilat', labelKey: 'transactions:types.cari_tahsilat', color: colors.primary, group: 'customer' },
@@ -118,6 +120,9 @@ export function PendingTransactionForm({
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [cariId, setCariId] = useState<string | null>(null);
   const [personelId, setPersonelId] = useState<string | null>(null);
+
+  // Track if customer variant of cari_alis is selected (müşteriden alış)
+  const [isCustomerVariantSelected, setIsCustomerVariantSelected] = useState(false);
 
   // Picker states
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -197,6 +202,7 @@ export function PendingTransactionForm({
     setKategoriId(null);
     setCariId(null);
     setPersonelId(null);
+    setIsCustomerVariantSelected(false);
     setHesapSearch('');
     setCariSearch('');
     setPersonelSearch('');
@@ -407,7 +413,14 @@ export function PendingTransactionForm({
   }, [type]);
 
   // Get type color
-  const getTypeColor = (typeValue: IslemType) => {
+  const getTypeColor = (typeValue: IslemType, isCustomerVar: boolean = false) => {
+    // For cari_alis, consider the variant
+    if (typeValue === 'cari_alis') {
+      const matchingType = ISLEM_TYPES.find((t) =>
+        t.value === typeValue && t.isCustomerVariant === isCustomerVar
+      );
+      return matchingType?.color || colors.primary;
+    }
     return ISLEM_TYPES.find((t) => t.value === typeValue)?.color || colors.primary;
   };
 
@@ -570,7 +583,7 @@ export function PendingTransactionForm({
 
   if (!visible || !pendingIslem) return null;
 
-  const buttonColor = getTypeColor(type);
+  const buttonColor = getTypeColor(type, isCustomerVariantSelected);
   const cardBottom = keyboardHeight > 0 ? keyboardHeight : insets.bottom + 10;
 
   return (
@@ -620,9 +633,18 @@ export function PendingTransactionForm({
             onPress={() => setShowTypePicker(true)}
           >
             <Text style={[styles.typeText, { color: buttonColor }]}>
-              {ISLEM_TYPES.find((t) => t.value === type)?.labelKey
-                ? t(ISLEM_TYPES.find((item) => item.value === type)?.labelKey || '')
-                : type}
+              {(() => {
+                // For cari_alis, check if customer variant is selected
+                if (type === 'cari_alis') {
+                  const matchingType = ISLEM_TYPES.find((item) =>
+                    item.value === type && item.isCustomerVariant === isCustomerVariantSelected
+                  );
+                  return matchingType?.labelKey ? t(matchingType.labelKey) : type;
+                }
+                // For other types, just find by value
+                const matchingType = ISLEM_TYPES.find((item) => item.value === type);
+                return matchingType?.labelKey ? t(matchingType.labelKey) : type;
+              })()}
             </Text>
             <ChevronDown size={16} color={buttonColor} />
           </TouchableOpacity>
@@ -667,14 +689,15 @@ export function PendingTransactionForm({
             ]}
             onPress={() => setShowCariPicker(true)}
           >
-            {['cari_satis', 'cari_satis_iade', 'cari_tahsilat'].includes(type) ? (
+            {/* Customer types: cari_satis, cari_satis_iade, cari_tahsilat, OR cari_alis with customer variant */}
+            {['cari_satis', 'cari_satis_iade', 'cari_tahsilat'].includes(type) || (type === 'cari_alis' && isCustomerVariantSelected) ? (
               <Users size={18} color={selectedCari ? colors.primary : colors.textMuted} />
             ) : (
               <Building2 size={18} color={selectedCari ? colors.orange : colors.textMuted} />
             )}
             <Text style={[styles.pickerButtonText, !selectedCari && { color: colors.textMuted }]}>
               {selectedCari?.name ||
-                (['cari_satis', 'cari_satis_iade', 'cari_tahsilat'].includes(type)
+                (['cari_satis', 'cari_satis_iade', 'cari_tahsilat'].includes(type) || (type === 'cari_alis' && isCustomerVariantSelected)
                   ? t('clients:transactionForm.selectCustomer')
                   : t('clients:transactionForm.selectSupplier'))}
             </Text>
@@ -832,6 +855,7 @@ export function PendingTransactionForm({
                           style={[styles.typeItem, isSelected && styles.typeItemSelected]}
                           onPress={() => {
                             setType(item.value);
+                            setIsCustomerVariantSelected(false);
                             setShowTypePicker(false);
                           }}
                           activeOpacity={0.7}
@@ -856,13 +880,14 @@ export function PendingTransactionForm({
                     {/* Tedarikçi İşlemleri */}
                     <Text style={styles.typeGroupHeader}>{t('transactions:groups.supplier')}</Text>
                     {ISLEM_TYPES.filter(item => item.group === 'supplier').map((item) => {
-                      const isSelected = type === item.value;
+                      const isSelected = type === item.value && !isCustomerVariantSelected;
                       return (
                         <TouchableOpacity
                           key={item.value}
                           style={[styles.typeItem, isSelected && styles.typeItemSelected]}
                           onPress={() => {
                             setType(item.value);
+                            setIsCustomerVariantSelected(false);
                             setShowTypePicker(false);
                           }}
                           activeOpacity={0.7}
@@ -886,14 +911,15 @@ export function PendingTransactionForm({
 
                     {/* Müşteri İşlemleri */}
                     <Text style={styles.typeGroupHeader}>{t('transactions:groups.customer')}</Text>
-                    {ISLEM_TYPES.filter(item => item.group === 'customer').map((item) => {
-                      const isSelected = type === item.value;
+                    {ISLEM_TYPES.filter(item => item.group === 'customer').map((item, index) => {
+                      const isSelected = type === item.value && (item.isCustomerVariant === isCustomerVariantSelected || !item.isCustomerVariant);
                       return (
                         <TouchableOpacity
-                          key={item.value}
+                          key={`customer-${item.value}-${index}`}
                           style={[styles.typeItem, isSelected && styles.typeItemSelected]}
                           onPress={() => {
                             setType(item.value);
+                            setIsCustomerVariantSelected(item.isCustomerVariant === true);
                             setShowTypePicker(false);
                           }}
                           activeOpacity={0.7}
@@ -925,6 +951,7 @@ export function PendingTransactionForm({
                           style={[styles.typeItem, isSelected && styles.typeItemSelected]}
                           onPress={() => {
                             setType(item.value);
+                            setIsCustomerVariantSelected(false);
                             setShowTypePicker(false);
                           }}
                           activeOpacity={0.7}
@@ -1088,7 +1115,7 @@ export function PendingTransactionForm({
                 <View style={[styles.bottomSheetContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
                   <View style={styles.bottomSheetHeader}>
                     <Text style={styles.bottomSheetTitle}>
-                      {['cari_satis', 'cari_satis_iade', 'cari_tahsilat'].includes(type)
+                      {['cari_satis', 'cari_satis_iade', 'cari_tahsilat'].includes(type) || (type === 'cari_alis' && isCustomerVariantSelected)
                         ? t('clients:transactionForm.selectCustomer')
                         : t('clients:transactionForm.selectSupplier')}
                     </Text>
@@ -1115,7 +1142,7 @@ export function PendingTransactionForm({
                   <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
                     {filteredCariler?.map((cari) => {
                       const isSelected = cariId === cari.id;
-                      const isCustomerType = ['cari_satis', 'cari_satis_iade', 'cari_tahsilat'].includes(type);
+                      const isCustomerType = ['cari_satis', 'cari_satis_iade', 'cari_tahsilat'].includes(type) || (type === 'cari_alis' && isCustomerVariantSelected);
                       const iconColor = isCustomerType ? colors.primary : colors.orange;
                       const iconBgColor = isCustomerType ? colors.primaryLight : colors.orangeLight;
                       return (

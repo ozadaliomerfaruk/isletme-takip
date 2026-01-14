@@ -156,7 +156,15 @@ export function useCashFlowByCategory(
     const creditCardSpendingByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
 
     islemler.forEach((islem: any) => {
-      const amount = Number(islem.amount);
+      // NaN-safe number parsing - geçersiz değerler için 0 kullan
+      const rawAmount = Number(islem.amount);
+      const amount = isNaN(rawAmount) ? 0 : rawAmount;
+
+      // Geçersiz tutar varsa atla (opsiyonel: geliştirme modunda uyarı ver)
+      if (isNaN(rawAmount) && __DEV__) {
+        console.warn(`[CashFlow] Invalid amount for transaction ${islem.id}: ${islem.amount}`);
+      }
+
       const hesapType = islem.hesap?.type as HesapType | undefined;
       const hedefHesapType = islem.hedef_hesap?.type as HesapType | undefined;
       const islemType = islem.type as IslemType;
@@ -337,17 +345,22 @@ export function useCashFlowByCategory(
       });
     }
 
+    // Floating-point precision fix: 2 ondalık basamağa yuvarla
+    const roundedTotalInflow = Math.round(totalInflow * 100) / 100;
+    const roundedTotalOutflow = Math.round(totalOutflow * 100) / 100;
+    const roundedTotalCreditCardSpending = Math.round(totalCreditCardSpending * 100) / 100;
+
     return {
       outflowItems,
       allOutflowItems,
       inflowItems,
       allInflowItems,
-      totalInflow,
-      totalOutflow,
-      netCashFlow: totalInflow - totalOutflow,
+      totalInflow: roundedTotalInflow,
+      totalOutflow: roundedTotalOutflow,
+      netCashFlow: Math.round((roundedTotalInflow - roundedTotalOutflow) * 100) / 100,
       creditCardSpendingItems,
       allCreditCardSpendingItems,
-      totalCreditCardSpending,
+      totalCreditCardSpending: roundedTotalCreditCardSpending,
     };
   }, [islemler, limit]);
 

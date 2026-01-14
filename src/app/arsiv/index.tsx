@@ -11,6 +11,7 @@ import {
   MoreVertical,
   RotateCcw,
   Trash2,
+  EyeOff,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card, SearchInput, EmptyState, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
@@ -152,110 +153,130 @@ export default function ArsivPage() {
     },
   ];
 
-  const renderHesapItem = (hesap: Hesap) => (
-    <Card key={hesap.id} style={styles.itemCard}>
-      <TouchableOpacity
-        style={styles.itemContent}
-        onPress={() => router.push(`/hesaplar/${hesap.id}`)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.itemIcon}>
-          <Wallet size={20} color={colors.primary} />
-        </View>
-        <View style={styles.itemInfo}>
-          <Text variant="body">{hesap.name}</Text>
-          <Text variant="caption" color="secondary">
-            {t(`accounts:typeLabels.${hesap.type}`)}
-          </Text>
-        </View>
-        <View style={styles.itemBalance}>
-          <Text variant="body" color={toNumber(hesap.balance) >= 0 ? 'success' : 'error'}>
-            {formatCurrency(toNumber(hesap.balance), hesap.currency)}
-          </Text>
-        </View>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.moreButton}
-        onPress={() => handleItemPress(hesap.id, 'hesaplar', hesap.name)}
-      >
-        <MoreVertical size={20} color={colors.textMuted} />
-      </TouchableOpacity>
-    </Card>
-  );
-
-  const renderCariItem = (cari: Cari, type: 'tedarikci' | 'musteri') => (
-    <Card key={cari.id} style={styles.itemCard}>
-      <TouchableOpacity
-        style={styles.itemContent}
-        onPress={() => router.push(`/cariler/${cari.id}`)}
-        activeOpacity={0.7}
-      >
-        <View style={[styles.itemIcon, { backgroundColor: type === 'tedarikci' ? colors.warningLight : colors.successLight }]}>
-          {type === 'tedarikci' ? (
-            <Truck size={20} color={colors.warning} />
-          ) : (
-            <Users size={20} color={colors.success} />
-          )}
-        </View>
-        <View style={styles.itemInfo}>
-          <Text variant="body">{cari.name}</Text>
-          {cari.phone && (
+  const renderHesapItem = (hesap: Hesap) => {
+    const isPassive = hesap.is_active === false;
+    return (
+      <Card key={hesap.id} style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+        <TouchableOpacity
+          style={styles.itemContent}
+          onPress={() => router.push(`/hesaplar/${hesap.id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.itemIcon, isPassive && styles.itemIconPassive]}>
+            <Wallet size={20} color={isPassive ? colors.textMuted : colors.primary} />
+          </View>
+          <View style={styles.itemInfo}>
+            <View style={styles.itemNameRow}>
+              <Text variant="body" style={isPassive && styles.textPassive}>{hesap.name}</Text>
+              {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
+            </View>
             <Text variant="caption" color="secondary">
-              {cari.phone}
+              {t(`accounts:typeLabels.${hesap.type}`)}
             </Text>
-          )}
-        </View>
-        <View style={styles.itemBalance}>
-          <Text variant="body" color={toNumber(cari.balance) >= 0 ? 'success' : 'error'}>
-            {formatCurrency(Math.abs(toNumber(cari.balance)))}
-          </Text>
-        </View>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.moreButton}
-        onPress={() => handleItemPress(cari.id, type, cari.name)}
-      >
-        <MoreVertical size={20} color={colors.textMuted} />
-      </TouchableOpacity>
-    </Card>
-  );
+          </View>
+          <View style={styles.itemBalance}>
+            <Text variant="body" color={toNumber(hesap.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
+              {formatCurrency(toNumber(hesap.balance), hesap.currency)}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.moreButton}
+          onPress={() => handleItemPress(hesap.id, 'hesaplar', hesap.name)}
+        >
+          <MoreVertical size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      </Card>
+    );
+  };
 
-  const renderPersonelItem = (personel: Personel) => (
-    <Card key={personel.id} style={styles.itemCard}>
-      <TouchableOpacity
-        style={styles.itemContent}
-        onPress={() => router.push(`/personel/${personel.id}`)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.avatar}>
-          <Text variant="caption" style={{ color: colors.primary }}>
-            {getInitials(`${personel.first_name} ${personel.last_name}`)}
-          </Text>
-        </View>
-        <View style={styles.itemInfo}>
-          <Text variant="body">
-            {personel.first_name} {personel.last_name}
-          </Text>
-          {personel.position && (
-            <Text variant="caption" color="secondary">
-              {personel.position}
+  const renderCariItem = (cari: Cari, type: 'tedarikci' | 'musteri') => {
+    const isPassive = cari.is_active === false;
+    const iconColor = type === 'tedarikci' ? colors.warning : colors.success;
+    const iconBgColor = type === 'tedarikci' ? colors.warningLight : colors.successLight;
+    return (
+      <Card key={cari.id} style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+        <TouchableOpacity
+          style={styles.itemContent}
+          onPress={() => router.push(`/cariler/${cari.id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.itemIcon, { backgroundColor: isPassive ? colors.surfaceLight : iconBgColor }, isPassive && styles.itemIconPassive]}>
+            {type === 'tedarikci' ? (
+              <Truck size={20} color={isPassive ? colors.textMuted : iconColor} />
+            ) : (
+              <Users size={20} color={isPassive ? colors.textMuted : iconColor} />
+            )}
+          </View>
+          <View style={styles.itemInfo}>
+            <View style={styles.itemNameRow}>
+              <Text variant="body" style={isPassive && styles.textPassive}>{cari.name}</Text>
+              {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
+            </View>
+            {cari.phone && (
+              <Text variant="caption" color="secondary">
+                {cari.phone}
+              </Text>
+            )}
+          </View>
+          <View style={styles.itemBalance}>
+            <Text variant="body" color={toNumber(cari.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
+              {formatCurrency(Math.abs(toNumber(cari.balance)))}
             </Text>
-          )}
-        </View>
-        <View style={styles.itemBalance}>
-          <Text variant="body" color={toNumber(personel.balance) >= 0 ? 'success' : 'error'}>
-            {formatCurrency(Math.abs(toNumber(personel.balance)))}
-          </Text>
-        </View>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.moreButton}
-        onPress={() => handleItemPress(personel.id, 'personel', `${personel.first_name} ${personel.last_name}`)}
-      >
-        <MoreVertical size={20} color={colors.textMuted} />
-      </TouchableOpacity>
-    </Card>
-  );
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.moreButton}
+          onPress={() => handleItemPress(cari.id, type, cari.name)}
+        >
+          <MoreVertical size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      </Card>
+    );
+  };
+
+  const renderPersonelItem = (personel: Personel) => {
+    const isPassive = personel.is_active === false;
+    return (
+      <Card key={personel.id} style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+        <TouchableOpacity
+          style={styles.itemContent}
+          onPress={() => router.push(`/personel/${personel.id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.avatar, isPassive && styles.avatarPassive]}>
+            <Text variant="caption" style={{ color: isPassive ? colors.textMuted : colors.primary }}>
+              {getInitials(`${personel.first_name} ${personel.last_name}`)}
+            </Text>
+          </View>
+          <View style={styles.itemInfo}>
+            <View style={styles.itemNameRow}>
+              <Text variant="body" style={isPassive && styles.textPassive}>
+                {personel.first_name} {personel.last_name}
+              </Text>
+              {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
+            </View>
+            {personel.position && (
+              <Text variant="caption" color="secondary">
+                {personel.position}
+              </Text>
+            )}
+          </View>
+          <View style={styles.itemBalance}>
+            <Text variant="body" color={toNumber(personel.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
+              {formatCurrency(Math.abs(toNumber(personel.balance)))}
+            </Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.moreButton}
+          onPress={() => handleItemPress(personel.id, 'personel', `${personel.first_name} ${personel.last_name}`)}
+        >
+          <MoreVertical size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      </Card>
+    );
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -466,5 +487,26 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
+  },
+  // Pasif öğeler için stiller
+  itemCardPassive: {
+    opacity: 0.6,
+  },
+  itemIconPassive: {
+    backgroundColor: colors.surfaceLight,
+  },
+  avatarPassive: {
+    backgroundColor: colors.surfaceLight,
+  },
+  itemNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  passiveIcon: {
+    marginLeft: 2,
+  },
+  textPassive: {
+    opacity: 0.7,
   },
 });

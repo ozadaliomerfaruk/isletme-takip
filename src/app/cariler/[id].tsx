@@ -26,7 +26,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
@@ -65,7 +65,7 @@ export default function CariHareketleriPage() {
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      const amount = Number(islem.amount);
+      const amount = toNumber(islem.amount); // Güvenli NaN koruması
       if (islem.type === 'cari_alis') {
         totalEffect -= amount; // Borç artar
       } else if (islem.type === 'cari_odeme') {
@@ -81,7 +81,7 @@ export default function CariHareketleriPage() {
       }
     });
 
-    return Number(cari.balance) - totalEffect;
+    return toNumber(cari.balance) - totalEffect;
   };
 
   const initialBalance = calculateInitialBalance();

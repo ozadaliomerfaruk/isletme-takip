@@ -56,9 +56,12 @@ export interface FinancialSummary {
  * Genel Durum = (Varlıklar + Alacaklar) - Borçlar
  */
 export function useFinancialSummary(): FinancialSummary {
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
-  const { data: cariler, isLoading: carilerLoading } = useCariler();
-  const { data: personelList, isLoading: personelLoading } = usePersonelList();
+  // Arşivlenmiş öğeleri de dahil et - genel durumda tüm alacak/verecek bakiyeleri hesaba katılmalı
+  // includePassive: true - pasif hesaplar da dahil
+  // includeArchived: true - arşivlenmiş hesaplar da dahil
+  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true, true);
+  const { data: cariler, isLoading: carilerLoading } = useCariler(undefined, true, true);
+  const { data: personelList, isLoading: personelLoading } = usePersonelList(true, true);
   const { currency: baseCurrency } = useSettings();
 
   const summary = useMemo(() => {

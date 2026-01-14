@@ -49,7 +49,7 @@ export function useAnalyticsSummary(period: AnalyticsPeriod): AnalyticsSummary {
 
   // Fetch period-based data for current and previous + 6 periods for sparkline
   const periodsQuery = useQuery({
-    queryKey: ['analytics-periods', isletme?.id, period],
+    queryKey: ['analytics-periods', isletme?.id, period, baseCurrency],
     queryFn: async () => {
       if (!isletme) return null;
 

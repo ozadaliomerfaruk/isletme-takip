@@ -56,7 +56,7 @@ export function SkippedTransactionCard({
 
       {/* Transaction info */}
       <Text variant="caption" color="secondary" style={styles.info}>
-        {raw.type}
+        {raw.type || '-'}
         {raw.account ? ` • ${raw.account}` : ''}
         {raw.personel ? ` • ${raw.personel}` : ''}
         {raw.tedarikci ? ` • ${raw.tedarikci}` : ''}

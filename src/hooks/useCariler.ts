@@ -5,11 +5,11 @@ import { Cari, CariInsert, CariUpdate, CariType } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber, calculateBalanceSummary } from '@/lib/currency';
 
-export function useCariler(type?: CariType, includePassive: boolean = false) {
+export function useCariler(type?: CariType, includePassive: boolean = false, includeArchived: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: ['cariler', isletme?.id, type, includePassive],
+    queryKey: ['cariler', isletme?.id, type, includePassive, includeArchived],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -17,8 +17,12 @@ export function useCariler(type?: CariType, includePassive: boolean = false) {
         .from('cariler')
         .select('*')
         .eq('isletme_id', isletme.id)
-        .eq('is_archived', false) // Arşivlenmiş carileri hariç tut
         .order('name', { ascending: true });
+
+      // Arşivlenmiş carileri dahil et veya hariç tut
+      if (!includeArchived) {
+        query = query.eq('is_archived', false);
+      }
 
       // Sadece aktif carileri getir (varsayılan davranış)
       if (!includePassive) {

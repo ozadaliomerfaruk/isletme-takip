@@ -1126,7 +1126,7 @@ export function useDataImport() {
           }
 
           // =====================================================
-          // KRİTİK: Bakiye güncellemesi
+          // KRİTİK: Bakiye güncellemesi (rollback destekli)
           // İşlemler eklendi, şimdi bakiyeleri güncelle
           // =====================================================
           if (actualCreated > 0) {
@@ -1136,16 +1136,25 @@ export function useDataImport() {
               message: `Bakiyeler güncelleniyor (${chunkIndex + 1}/${totalChunks})...`,
             }));
 
-            // Her başarılı işlem için bakiye güncelle
+            // Her başarılı işlem için bakiye güncelle, hataları takip et
+            let balanceUpdateSuccessCount = 0;
+            let balanceUpdateFailCount = 0;
+            const failedTransactionIds: string[] = [];
+
             for (let i = 0; i < Math.min(actualCreated, islemler.length); i++) {
               const islem = islemler[i];
+              const txId = insertedData?.[i]?.id;
               try {
                 await updateBalanceForImportedTransaction(islem);
+                balanceUpdateSuccessCount++;
               } catch (balanceErr) {
-                // Bakiye güncelleme hatası - işlem zaten eklendi, devam et
+                balanceUpdateFailCount++;
+                if (txId) failedTransactionIds.push(txId);
+
                 if (__DEV__) {
                   console.error('Bakiye güncelleme hatası:', {
                     islem,
+                    txId,
                     error: balanceErr,
                   });
                 }
@@ -1153,9 +1162,44 @@ export function useDataImport() {
               }
             }
 
+            // Bakiye güncelleme başarısız olan işlemleri geri al (rollback)
+            if (failedTransactionIds.length > 0) {
+              if (__DEV__) {
+                console.warn('Import: Bakiye güncelleme hataları nedeniyle rollback yapılıyor', {
+                  failedCount: failedTransactionIds.length,
+                  failedIds: failedTransactionIds,
+                });
+              }
+
+              // Başarısız olan işlemleri sil
+              const { error: deleteError } = await supabase
+                .from('islemler')
+                .delete()
+                .in('id', failedTransactionIds);
+
+              if (deleteError) {
+                errors.push(`Rollback hatası - işlemler silinemedi: ${deleteError.message}`);
+                // Kritik: İşlemler silinmedi, bakiyeler yanlış olabilir!
+                errors.push('UYARI: Veritabanı tutarsız durumda olabilir. Manuel kontrol gerekli.');
+              } else {
+                // Başarıyla silinen işlemleri created sayısından düş
+                created -= failedTransactionIds.length;
+                skipped += failedTransactionIds.length;
+                // transactionIds listesinden sil
+                failedTransactionIds.forEach(fId => {
+                  const idx = transactionIds.indexOf(fId);
+                  if (idx !== -1) transactionIds.splice(idx, 1);
+                });
+
+                errors.push(`${failedTransactionIds.length} işlem bakiye hatası nedeniyle geri alındı`);
+              }
+            }
+
             if (__DEV__) {
               console.log('Import: Bakiyeler güncellendi', {
-                count: actualCreated,
+                success: balanceUpdateSuccessCount,
+                failed: balanceUpdateFailCount,
+                rolledBack: failedTransactionIds.length,
               });
             }
           }

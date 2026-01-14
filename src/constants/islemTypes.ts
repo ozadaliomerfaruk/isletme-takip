@@ -100,13 +100,19 @@ export function isExpenseReturnType(type: IslemType): boolean {
  * İadeler ilgili kategoriden düşülür:
  * - cari_satis_iade → gelirden düşülür
  * - cari_alis_iade → giderden düşülür
+ *
+ * NOT: Floating-point precision için sonuçlar 2 ondalık basamağa yuvarlanır
  */
 export function calculateIncomeSummary<T extends { type: IslemType; amount: number | string }>(
   islemler: T[]
 ): { income: number; expense: number } {
-  return islemler.reduce(
+  const result = islemler.reduce(
     (acc, islem) => {
-      const amount = Number(islem.amount);
+      // Güvenli number dönüşümü - NaN için 0 döner
+      const rawAmount = islem.amount;
+      const amount = typeof rawAmount === 'number'
+        ? (isNaN(rawAmount) ? 0 : rawAmount)
+        : (isNaN(parseFloat(String(rawAmount))) ? 0 : parseFloat(String(rawAmount)));
 
       // Gelir hesaplama
       if (isIncomeType(islem.type)) {
@@ -126,6 +132,12 @@ export function calculateIncomeSummary<T extends { type: IslemType; amount: numb
     },
     { income: 0, expense: 0 }
   );
+
+  // Floating-point precision fix: 2 ondalık basamağa yuvarla
+  return {
+    income: Math.round(result.income * 100) / 100,
+    expense: Math.round(result.expense * 100) / 100,
+  };
 }
 
 /**

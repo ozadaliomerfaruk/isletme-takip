@@ -122,7 +122,7 @@ export function ActionSheet({
           {/* Options */}
           {options.map((option, index) => (
             <TouchableOpacity
-              key={index}
+              key={option.label}
               style={[
                 styles.option,
                 index === 0 && !title && styles.optionFirst,
@@ -132,6 +132,10 @@ export function ActionSheet({
               onPress={() => handleOptionPress(option)}
               disabled={option.disabled}
               activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={option.label}
+              accessibilityState={{ disabled: option.disabled }}
+              accessibilityHint={option.destructive ? 'Dikkat: Bu işlem geri alınamaz' : undefined}
             >
               {option.icon && <View style={styles.optionIcon}>{option.icon}</View>}
               <Text
@@ -153,6 +157,8 @@ export function ActionSheet({
           style={styles.cancelButton}
           onPress={handleClose}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={resolvedCancelLabel}
         >
           <Text variant="label" color="primary">
             {resolvedCancelLabel}

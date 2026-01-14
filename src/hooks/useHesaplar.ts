@@ -6,11 +6,11 @@ import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber, safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import { useSettings } from './useSettings';
 
-export function useHesaplar(includePassive: boolean = false) {
+export function useHesaplar(includePassive: boolean = false, includeArchived: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const query = useQuery({
-    queryKey: ['hesaplar', isletme?.id, includePassive],
+    queryKey: ['hesaplar', isletme?.id, includePassive, includeArchived],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -18,8 +18,12 @@ export function useHesaplar(includePassive: boolean = false) {
         .from('hesaplar')
         .select('*')
         .eq('isletme_id', isletme.id)
-        .eq('is_archived', false) // Arşivlenmiş hesapları hariç tut
         .order('created_at', { ascending: true });
+
+      // Arşivlenmiş hesapları dahil et veya hariç tut
+      if (!includeArchived) {
+        queryBuilder = queryBuilder.eq('is_archived', false);
+      }
 
       // Sadece aktif hesapları getir (varsayılan davranış)
       if (!includePassive) {
@@ -162,6 +166,7 @@ export function useDeleteHesap() {
             .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`);
 
           let totalEffect = 0;
+          let skippedCount = 0; // Atlanan işlem sayısı
           hesapIslemleri?.forEach(islem => {
             // Güvenli tutar parse etme - geçersiz değerler atlanır
             let amount: number;
@@ -169,6 +174,7 @@ export function useDeleteHesap() {
               amount = safeParseAmount(islem.amount, 'işlem tutarı');
             } catch {
               // Geçersiz tutarlı işlemleri atla (veri bütünlüğü sorunu var demek)
+              skippedCount++;
               if (__DEV__) {
                 console.warn('Geçersiz işlem tutarı atlandı:', islem);
               }
@@ -203,7 +209,15 @@ export function useDeleteHesap() {
 
           const calculatedInitialBalance = toNumber(affectedHesap.balance) - totalEffect;
 
-          // initial_balance'ı kaydet
+          // Eğer işlem atlandıysa, initial_balance doğru olmayabilir - sadece log
+          if (skippedCount > 0 && __DEV__) {
+            console.warn(
+              `[useHesaplar] ${skippedCount} işlem atlandı, initial_balance yanlış olabilir:`,
+              { hesapId, calculatedInitialBalance, skippedCount }
+            );
+          }
+
+          // initial_balance'ı kaydet (atlanmış işlemler varsa bile - en iyi tahmin)
           await supabase
             .from('hesaplar')
             .update({ initial_balance: calculatedInitialBalance })

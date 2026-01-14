@@ -275,6 +275,7 @@ export function ExportSheet({
               style={styles.dateButton}
               onPress={() => {
                 setTempDate(customStartDate);
+                setShowEndPicker(false); // Önce diğer picker'ı kapat
                 setShowStartPicker(true);
               }}
               activeOpacity={0.7}
@@ -296,6 +297,7 @@ export function ExportSheet({
               style={styles.dateButton}
               onPress={() => {
                 setTempDate(customEndDate);
+                setShowStartPicker(false); // Önce diğer picker'ı kapat
                 setShowEndPicker(true);
               }}
               activeOpacity={0.7}

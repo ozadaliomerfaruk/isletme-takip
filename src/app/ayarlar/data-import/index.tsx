@@ -1533,7 +1533,7 @@ function TransactionItem({ transaction }: { transaction: ParsedTransaction }) {
         <Text variant="caption" color="muted">{formattedDateTime}</Text>
         <Text variant="body" numberOfLines={1}>{transaction.description || '-'}</Text>
         <Text variant="caption" color="secondary">
-          {transaction.type} • {transaction.account}
+          {transaction.type || '-'} • {transaction.account || '-'}
           {relatedEntity ? ` → ${relatedEntity}` : ''}
         </Text>
         {transaction.category && (
@@ -1585,7 +1585,7 @@ function SkippedTransactionItemSimple({ item }: { item: SkippedTransaction }) {
         {transaction.description || '-'}
       </Text>
       <Text variant="caption" color="secondary">
-        {transaction.type} • {transaction.account}
+        {transaction.type || '-'} • {transaction.account || '-'}
         {transaction.personel ? ` • ${transaction.personel}` : ''}
         {transaction.tedarikci ? ` • ${transaction.tedarikci}` : ''}
         {transaction.musteri ? ` • ${transaction.musteri}` : ''}

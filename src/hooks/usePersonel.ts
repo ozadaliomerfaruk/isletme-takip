@@ -5,11 +5,11 @@ import { Personel, PersonelInsert, PersonelUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
 
-export function usePersonelList(includePassive: boolean = false) {
+export function usePersonelList(includePassive: boolean = false, includeArchived: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: ['personel', isletme?.id, includePassive],
+    queryKey: ['personel', isletme?.id, includePassive, includeArchived],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -17,8 +17,12 @@ export function usePersonelList(includePassive: boolean = false) {
         .from('personel')
         .select('*')
         .eq('isletme_id', isletme.id)
-        .eq('is_archived', false) // Arşivlenmiş personeli hariç tut
         .order('first_name', { ascending: true });
+
+      // Arşivlenmiş personeli dahil et veya hariç tut
+      if (!includeArchived) {
+        query = query.eq('is_archived', false);
+      }
 
       // Sadece aktif personeli getir (varsayılan davranış)
       if (!includePassive) {

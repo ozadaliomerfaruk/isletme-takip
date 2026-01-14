@@ -4,6 +4,7 @@
     "gider": "Gider",
     "transfer": "Transfer",
     "cari_alis": "Tedarikçiden Alış",
+    "musteri_alis": "Müşteriden Alış",
     "cari_satis": "Müşteriye Satış",
     "cari_odeme": "Tedarikçiye Ödeme",
     "cari_tahsilat": "Müşteriden Tahsilat",
@@ -60,6 +61,7 @@
     "schedule": "Planla"
   },
   "titles": {
+    "selectType": "İşlem Tipi Seçin",
     "addIncome": "Gelir Ekle",
     "addExpense": "Gider Ekle",
     "addTransfer": "Transfer Yap",
@@ -168,7 +170,8 @@
     "kredi_karti_ekstre": "Ekstre Öde"
   },
   "validation": {
-    "selectTargetAccount": "Hedef hesap seçin"
+    "selectTargetAccount": "Hedef hesap seçin",
+    "invalidAmount": "Geçerli bir tutar girin"
   },
   "exchangeRate": {
     "title": "Kur Girisi",

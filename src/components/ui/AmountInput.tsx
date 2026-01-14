@@ -85,9 +85,12 @@ export function AmountInput({
   // Focus on mount if autoFocus
   useEffect(() => {
     if (autoFocus && editable) {
-      setTimeout(() => {
+      const timerId = setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
+
+      // Cleanup on unmount
+      return () => clearTimeout(timerId);
     }
   }, [autoFocus, editable]);
 

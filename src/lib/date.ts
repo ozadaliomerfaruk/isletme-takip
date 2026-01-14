@@ -512,7 +512,13 @@ export function isDateInRange(
   const start = typeof startDate === 'string' ? parseDateFromDB(startDate) : startDate;
   const end = typeof endDate === 'string' ? parseDateFromDB(endDate) : endDate;
 
-  return d >= start && d <= end;
+  // Saat bileşenlerini normalize et (gün başlangıcı/sonu)
+  // Böylece aynı gündeki farklı saatler doğru karşılaştırılır
+  const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+  const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+  return dDate >= startDateOnly && dDate <= endDateOnly;
 }
 
 /**

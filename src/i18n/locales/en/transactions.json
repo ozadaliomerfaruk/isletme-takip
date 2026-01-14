@@ -4,6 +4,7 @@
     "gider": "Expense",
     "transfer": "Transfer",
     "cari_alis": "Supplier Purchase",
+    "musteri_alis": "Customer Purchase",
     "cari_satis": "Customer Sale",
     "cari_odeme": "Supplier Payment",
     "cari_tahsilat": "Customer Payment Received",
@@ -60,6 +61,7 @@
     "schedule": "Schedule"
   },
   "titles": {
+    "selectType": "Select Transaction Type",
     "addIncome": "Add Income",
     "addExpense": "Add Expense",
     "addTransfer": "Make Transfer",
@@ -168,7 +170,8 @@
     "kredi_karti_ekstre": "Pay Statement"
   },
   "validation": {
-    "selectTargetAccount": "Select target account"
+    "selectTargetAccount": "Select target account",
+    "invalidAmount": "Please enter a valid amount"
   },
   "exchangeRate": {
     "title": "Exchange Rate",

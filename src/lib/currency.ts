@@ -485,23 +485,35 @@ export function calculateTargetAmount(
     return amount;
   }
 
-  // Exchange rate yoksa veya geçersizse dönüşüm yapma
+  // Exchange rate yoksa veya geçersizse - HATA: farklı para birimleri için kur gerekli
   if (!exchangeRate || exchangeRate <= 0) {
+    if (__DEV__) {
+      console.warn(
+        `[Currency] Cross-currency conversion attempted without valid exchange rate: ` +
+        `${sourceCurrency} → ${targetCurrency}, rate: ${exchangeRate}. ` +
+        `Returning original amount (${amount}) which may be incorrect!`
+      );
+    }
+    // Hata durumunda orijinal tutarı döndür ama log ile uyar
     return amount;
   }
 
   // TRY referans alınarak kur hesaplanır
   // Exchange rate formatı: "1 [yabancı para] = X TRY"
+  let result: number;
   if (sourceCurrency === 'TRY') {
     // TRY'den yabancı paraya: bölme işlemi
-    return amount / exchangeRate;
+    result = amount / exchangeRate;
   } else if (targetCurrency === 'TRY') {
     // Yabancı paradan TRY'ye: çarpma işlemi
-    return amount * exchangeRate;
+    result = amount * exchangeRate;
   } else {
     // İki yabancı para arası: önce TRY'ye çevir, sonra hedef paraya
     // Bu durumda exchange_rate source->TRY formatında olmalı
     // Basitleştirilmiş: direkt çarpma (UI'da doğru kur girilmeli)
-    return amount * exchangeRate;
+    result = amount * exchangeRate;
   }
+
+  // Floating point precision fix: 2 ondalık basamağa yuvarla
+  return Math.round(result * 100) / 100;
 }

@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { toNumber, calculateTargetAmount } from '@/lib/currency';
 import type {
   PendingIslem,
   PendingIslemInsert,
@@ -16,6 +17,129 @@ import type {
   PendingIslemCorrections,
   IslemInsert,
 } from '@/types/database';
+
+/**
+ * Güvenli bakiye artırma/azaltma
+ * initial_balance DEĞİŞTİRMEZ - sadece mevcut bakiyeyi günceller
+ */
+async function safeIncrementBalance(tableName: string, rowId: string, amount: number) {
+  if (!rowId || isNaN(amount)) return;
+
+  const { error } = await supabase.rpc('increment_balance', {
+    table_name: tableName,
+    row_id: rowId,
+    amount: amount,
+  });
+
+  if (error) {
+    console.error('safeIncrementBalance hatası:', { tableName, rowId, amount, error });
+    throw error;
+  }
+}
+
+/**
+ * İşlem tipine göre bakiyeleri güncelle
+ * NOT: initial_balance ASLA güncellenmez - sadece mevcut balance değişir
+ */
+async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isletme_id'>): Promise<void> {
+  const amount = toNumber(islem.amount);
+  if (amount === 0) return;
+
+  switch (islem.type) {
+    case 'gelir':
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      }
+      break;
+
+    case 'gider':
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      }
+      break;
+
+    case 'transfer':
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      }
+      if (islem.hedef_hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, amount);
+      }
+      break;
+
+    case 'cari_alis':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
+      }
+      break;
+
+    case 'cari_satis':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
+      }
+      break;
+
+    case 'cari_odeme':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
+      }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      }
+      break;
+
+    case 'cari_tahsilat':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
+      }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      }
+      break;
+
+    case 'cari_alis_iade':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
+      }
+      break;
+
+    case 'cari_satis_iade':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
+      }
+      break;
+
+    case 'personel_gider':
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, -amount);
+      }
+      break;
+
+    case 'personel_odeme':
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, amount);
+      }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      }
+      break;
+
+    case 'personel_tahsilat':
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, -amount);
+      }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      }
+      break;
+
+    case 'personel_satis':
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, amount);
+      }
+      break;
+  }
+}
 
 // Query key factory
 const pendingIslemlerKeys = {
@@ -227,7 +351,8 @@ export function useDeleteAllPendingIslemler() {
 
 /**
  * Save a pending transaction as a real transaction
- * This creates the islem record and deletes the pending record
+ * This creates the islem record, updates balances, and deletes the pending record
+ * NOT: initial_balance ASLA güncellenmez - sadece mevcut balance değişir
  */
 export function useSavePendingAsIslem() {
   const { isletme } = useAuthContext();
@@ -254,6 +379,16 @@ export function useSavePendingAsIslem() {
         .single();
 
       if (islemError) throw islemError;
+
+      // Update balances (sadece mevcut bakiye, initial_balance DEĞİL)
+      try {
+        await updateBalancesForPendingTransaction(islemData);
+      } catch (balanceError) {
+        // Bakiye güncelleme hatası - işlemi geri al
+        console.error('Bakiye güncelleme hatası:', balanceError);
+        await supabase.from('islemler').delete().eq('id', islem.id);
+        throw balanceError;
+      }
 
       // Delete the pending record (or mark as saved)
       const { error: deleteError } = await supabase

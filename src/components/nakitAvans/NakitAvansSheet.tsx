@@ -80,6 +80,16 @@ export function NakitAvansSheet({
   const translateY = useRef(new Animated.Value(100)).current;
   const isAnimatingRef = useRef(false);
 
+  // Cleanup animation state on unmount
+  useEffect(() => {
+    return () => {
+      isAnimatingRef.current = false;
+      // Stop any ongoing animations
+      opacity.stopAnimation();
+      translateY.stopAnimation();
+    };
+  }, [opacity, translateY]);
+
   // Keyboard
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);

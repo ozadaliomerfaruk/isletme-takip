@@ -48,6 +48,14 @@ export function BottomSheet({
   const currentSnapIndexRef = useRef(currentSnapIndex);
   const isKeyboardVisibleRef = useRef(false);
 
+  // Cleanup animations on unmount
+  useEffect(() => {
+    return () => {
+      translateY.stopAnimation();
+      backdropOpacity.stopAnimation();
+    };
+  }, [translateY, backdropOpacity]);
+
   // Track keyboard height
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 

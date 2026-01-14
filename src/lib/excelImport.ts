@@ -28,6 +28,8 @@ export interface ParsedTransaction {
   isExpense: boolean;
   dateValid: boolean; // Tarih geçerli mi?
   dateError?: string; // Tarih hatası varsa açıklama
+  amountValid: boolean; // Tutar geçerli mi?
+  amountError?: string; // Tutar hatası varsa açıklama
   rowNumber: number; // Excel satır numarası
 }
 
@@ -46,6 +48,7 @@ export interface ImportPreview {
   totalRows: number;
   validRows: number; // Geçerli tarihli satır sayısı
   invalidDateCount: number; // Geçersiz tarihli satır sayısı
+  invalidAmountCount: number; // Geçersiz tutarlı satır sayısı
   errors: string[];
 }
 
@@ -520,7 +523,27 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       const karsiHesapAmount = parsedKarsiHesap?.amount ?? null;
       const karsiHesapCurrency = parsedKarsiHesap?.currency ?? null;
 
-      const amount = Number(row[cols.miktar]) || 0;
+      // Tutar dönüşümü ve validasyonu
+      let amount = 0;
+      let amountValid = true;
+      let amountError: string | undefined;
+      const rawAmount = row[cols.miktar];
+
+      if (rawAmount === undefined || rawAmount === null || rawAmount === '') {
+        amountValid = false;
+        amountError = 'Tutar boş veya bulunamadı';
+      } else {
+        const parsedAmount = Number(rawAmount);
+        if (isNaN(parsedAmount)) {
+          amountValid = false;
+          amountError = `Geçersiz tutar değeri: "${rawAmount}"`;
+        } else if (parsedAmount < 0) {
+          // Negatif tutarlar mutlak değer olarak alınır
+          amount = Math.abs(parsedAmount);
+        } else {
+          amount = parsedAmount;
+        }
+      }
 
       // Gerekli alanları kontrol et
       // NOT: TEDARİKÇİ veya MÜŞTERİ varsa HESAP zorunlu DEĞİL (cari_alis/cari_satis için)
@@ -647,6 +670,8 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         isExpense: amount < 0,
         dateValid,
         dateError,
+        amountValid,
+        amountError,
         rowNumber,
       });
     } catch (err) {
@@ -654,9 +679,10 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
     }
   }
 
-  // Geçerli/geçersiz tarih sayıları
-  const validRows = transactions.filter(t => t.dateValid).length;
+  // Geçerli/geçersiz tarih ve tutar sayıları
+  const validRows = transactions.filter(t => t.dateValid && t.amountValid).length;
   const invalidDateCount = transactions.filter(t => !t.dateValid).length;
+  const invalidAmountCount = transactions.filter(t => !t.amountValid).length;
 
   // KARŞI HESAP context'i oluştur: işlem tipine göre akıllı sınıflandırma
   const karsiHesapContext: ImportPreview['karsiHesapContext'] = {};
@@ -778,6 +804,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
     totalRows: transactions.length,
     validRows,
     invalidDateCount,
+    invalidAmountCount,
     errors,
   };
 }
