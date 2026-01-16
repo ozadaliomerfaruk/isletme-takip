@@ -19,8 +19,8 @@ export interface ReceivablesBreakdown {
 }
 
 export interface FinancialSummary {
-  // Hesap varlıkları (pozitif bakiyeli hesaplar)
-  assets: number;
+  // Hesaplar (pozitif bakiyeli hesaplar, birikim hesapları hariç)
+  accounts: number;
 
   // Borçlar (biz borçluyuz)
   payables: FinancialBreakdown;
@@ -41,19 +41,19 @@ export interface FinancialSummary {
  * Birleşik finansal özet hook'u
  * Tüm borç ve alacakları tek bir yerden yönetir
  *
- * Varlıklar (Assets):
- * - Hesaplar (pozitif bakiyeli hesaplar)
+ * Hesaplar (Accounts):
+ * - Pozitif bakiyeli hesaplar (birikim hesapları HARİÇ)
  *
  * Borç kaynakları (Payables):
- * - Cariler (tedarikçilere borç - negatif bakiye)
+ * - Cariler (müşteri/tedarikçiye borç - negatif bakiye)
  * - Personel (personele borç - negatif bakiye)
- * - Hesaplar (negatif bakiyeli hesaplar - kredi kartı vs.)
+ * - Hesaplar (negatif bakiyeli hesaplar - kredi kartı vs., birikim hariç)
  *
  * Alacak kaynakları (Receivables):
- * - Cariler (müşterilerden alacak - pozitif bakiye)
+ * - Cariler (müşteri/tedarikçiden alacak - pozitif bakiye)
  * - Personel (personelden alacak/avans - pozitif bakiye)
  *
- * Genel Durum = (Varlıklar + Alacaklar) - Borçlar
+ * Genel Durum = (Hesaplar + Alacaklar) - Borçlar
  */
 export function useFinancialSummary(): FinancialSummary {
   // Pasif öğeleri HARIÇ tut - pasif moda alınan hesaplar hiçbir hesaplamaya dahil edilmemeli
@@ -67,10 +67,13 @@ export function useFinancialSummary(): FinancialSummary {
   const { currency: baseCurrency } = useSettings();
 
   const summary = useMemo(() => {
-    // Hesap hesaplaması (varlıklar ve borçlar)
+    // Birikim hesaplarını filtrele - hesaplamalara dahil edilmez
+    const filteredHesaplar = hesaplar?.filter(h => h.type !== 'birikim') || [];
+
+    // Hesap hesaplaması (hesaplar ve borçlar)
     // Sadece kullanıcının seçtiği ana para birimiyle eşleşen hesaplar toplanır
     // Farklı para birimleri (USD, EUR, XAU vs.) toplanamaz
-    const hesapSummary = hesaplar?.reduce(
+    const hesapSummary = filteredHesaplar.reduce(
       (acc, hesap) => {
         // Hesabın para birimi (yoksa ana para birimi kabul et)
         const accountCurrency = hesap.currency || baseCurrency;
@@ -82,16 +85,16 @@ export function useFinancialSummary(): FinancialSummary {
 
         const balance = toNumber(hesap.balance);
         if (balance > 0) {
-          // Pozitif bakiye = varlık
-          acc.assets += balance;
+          // Pozitif bakiye = hesap varlığı
+          acc.accounts += balance;
         } else if (balance < 0) {
           // Negatif bakiye = borç (kredi kartı vs.)
           acc.payables += Math.abs(balance);
         }
         return acc;
       },
-      { assets: 0, payables: 0 }
-    ) ?? { assets: 0, payables: 0 };
+      { accounts: 0, payables: 0 }
+    );
 
     // Cari hesaplaması
     const cariSummary = cariler?.reduce(
@@ -125,8 +128,8 @@ export function useFinancialSummary(): FinancialSummary {
       { receivables: 0, payables: 0 }
     ) ?? { receivables: 0, payables: 0 };
 
-    // Varlıklar
-    const assets = hesapSummary.assets;
+    // Hesaplar (pozitif bakiyeli, birikim hariç)
+    const accounts = hesapSummary.accounts;
 
     // Toplam borçlar
     const payables: FinancialBreakdown = {
@@ -147,10 +150,10 @@ export function useFinancialSummary(): FinancialSummary {
     const netPosition = Math.round((receivables.total - payables.total) * 100) / 100;
 
     // Genel Durum = (Hesaplar + Alacaklar) - Borçlar
-    const generalStatus = Math.round(((assets + receivables.total) - payables.total) * 100) / 100;
+    const generalStatus = Math.round(((accounts + receivables.total) - payables.total) * 100) / 100;
 
     return {
-      assets,
+      accounts,
       payables,
       receivables,
       netPosition,

@@ -161,19 +161,25 @@ export function useDeletePersonel() {
   });
 }
 
-// Toplam personel borcu
+// Toplam personel borcu ve alacağı
 export function usePersonelSummary() {
   const { data: personelList } = usePersonelList();
 
   // Merkezi toNumber fonksiyonunu kullan
-  const totalDebt = personelList?.reduce((acc, p) => {
-    const balance = toNumber(p.balance);
-    // Negatif bakiye = borcumuz var
-    if (balance < 0) {
-      return acc + Math.abs(balance);
-    }
-    return acc;
-  }, 0) ?? 0;
+  const summary = personelList?.reduce(
+    (acc, p) => {
+      const balance = toNumber(p.balance);
+      if (balance < 0) {
+        // Negatif bakiye = borcumuz var (personele borçluyuz)
+        acc.totalDebt += Math.abs(balance);
+      } else if (balance > 0) {
+        // Pozitif bakiye = alacağımız var (personel bize borçlu)
+        acc.totalReceivables += balance;
+      }
+      return acc;
+    },
+    { totalDebt: 0, totalReceivables: 0 }
+  ) ?? { totalDebt: 0, totalReceivables: 0 };
 
-  return { totalDebt };
+  return summary;
 }

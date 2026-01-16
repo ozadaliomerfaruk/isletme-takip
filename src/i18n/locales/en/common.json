@@ -210,6 +210,7 @@
     "generalStatus": "Financial Overview",
     "netWorth": "Net Worth",
     "assets": "Assets",
+    "accounts": "Accounts",
     "receivables": "Receivables",
     "payables": "Payables",
     "incomeExpense": "Income/Expense",

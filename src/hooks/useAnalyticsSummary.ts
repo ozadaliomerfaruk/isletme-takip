@@ -189,7 +189,7 @@ export function useAnalyticsSummary(period: AnalyticsPeriod): AnalyticsSummary {
       income: incomeMetric,
       expense: expenseMetric,
       cashBalance: {
-        total: financialSummary.assets,
+        total: financialSummary.accounts,
         accountCount,
       },
       receivables: {

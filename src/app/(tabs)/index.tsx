@@ -163,7 +163,7 @@ export default function HomePage() {
     }
   };
   const totalBalance = useTotalBalance();
-  const { assets, payables, receivables, generalStatus } = useFinancialSummary();
+  const { accounts, payables, receivables, generalStatus } = useFinancialSummary();
   const customRange = period === 'custom' ? {
     startDate: formatDateForDB(customStartDate),
     endDate: formatDateForDB(customEndDate),
@@ -467,7 +467,7 @@ export default function HomePage() {
 
         {/* Özet Carousel */}
         <SummaryCarousel
-          assets={assets}
+          assets={accounts}
           receivables={receivables.total}
           payables={payables.total}
           generalStatus={generalStatus}

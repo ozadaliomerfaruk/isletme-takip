@@ -78,12 +78,14 @@
     "makePayment": "Personel Ödemesi",
     "getCollection": "Personelden Tahsilat",
     "expense": "Personel Gideri",
-    "payment": "Personel Ödemesi"
+    "payment": "Personel Ödemesi",
+    "collection": "Personel Tahsilatı"
   },
   "transactionDescriptions": {
     "expense": "Bu işlem personele olan borcunuzu artırır (maaş tahakkuku vb.)",
     "payment": "Bu işlem personele olan borcunuzu azaltır (maaş ödemesi vb.)",
-    "personnelPayment": "Personele ödeme yapılacak"
+    "personnelPayment": "Personele ödeme yapılacak",
+    "personnelCollection": "Personelden avans iadesi alın"
   },
   "transactionForm": {
     "personel": "Personel",

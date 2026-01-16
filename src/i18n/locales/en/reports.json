@@ -39,7 +39,8 @@
     "totalExpense": "Total Expense",
     "totalAmount": "Total Amount",
     "transactionCount": "Transaction Count",
-    "totalPersonnelDebt": "Total staff debt"
+    "totalPersonnelDebt": "Staff Debt",
+    "personnelReceivables": "Staff Receivables"
   },
   "sections": {
     "accountBalances": "ACCOUNT BALANCES",

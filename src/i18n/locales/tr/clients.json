@@ -87,14 +87,17 @@
     "purchaseReturn": "Alış İadesi",
     "saleReturn": "Satış İadesi",
     "supplierPayment": "Tedarikçiye Ödeme",
-    "customerCollection": "Müşteriden Tahsilat"
+    "customerCollection": "Müşteri Tahsilatı",
+    "supplierCollection": "Tedarikçi Tahsilatı"
   },
   "transactionDescriptions": {
     "purchase": "Bu işlem tedarikçiye borcunuzu artırır",
     "sale": "Bu işlem müşteriden alacağınızı artırır",
     "payment": "Bu işlem tedarikçiye olan borcunuzu azaltır",
     "collection": "Bu işlem müşteriden alacağınızı azaltır",
-    "supplierPayment": "Tedarikçiye ödeme yapılacak"
+    "supplierPayment": "Tedarikçiye ödeme yapılacak",
+    "customerCollection": "Müşteriden alacak tahsil edin",
+    "supplierCollection": "Tedarikçiden iade veya fazla ödeme alın"
   },
   "transactionForm": {
     "supplier": "Tedarikçi",

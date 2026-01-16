@@ -39,7 +39,8 @@
     "totalExpense": "Toplam Gider",
     "totalAmount": "Toplam Tutar",
     "transactionCount": "İşlem Sayısı",
-    "totalPersonnelDebt": "Toplam personel borcu"
+    "totalPersonnelDebt": "Personele Borç",
+    "personnelReceivables": "Personelden Alacak"
   },
   "sections": {
     "accountBalances": "HESAP BAKIYELERI",

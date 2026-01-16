@@ -57,6 +57,9 @@ import DateTimePickerRN from '@react-native-community/datetimepicker';
 // Ödeme hedef tipi
 type OdemeHedefType = 'tedarikci' | 'staff' | 'kredi_karti' | null;
 
+// Tahsilat hedef tipi
+type TahsilatHedefType = 'musteri' | 'tedarikci' | 'personel' | null;
+
 // Hesap picker modu
 type HesapPickerTarget = 'source' | 'hedef';
 
@@ -116,6 +119,7 @@ export function QuickTransactionBar({
   const [cariId, setCariId] = useState<string | null>(null);
   const [personelId, setPersonelId] = useState<string | null>(null);
   const [odemeHedefType, setOdemeHedefType] = useState<OdemeHedefType>(null);
+  const [tahsilatHedefType, setTahsilatHedefType] = useState<TahsilatHedefType>(null);
   const [hesapPickerTarget, setHesapPickerTarget] = useState<HesapPickerTarget>('hedef');
 
   // Pickers
@@ -124,6 +128,7 @@ export function QuickTransactionBar({
   const [showCariPicker, setShowCariPicker] = useState(false);
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
   const [showOdemeHedefTypePicker, setShowOdemeHedefTypePicker] = useState(false);
+  const [showTahsilatHedefTypePicker, setShowTahsilatHedefTypePicker] = useState(false);
   const [showKrediKartiPicker, setShowKrediKartiPicker] = useState(false);
   const [showExchangeRateBar, setShowExchangeRateBar] = useState(false);
 
@@ -185,14 +190,20 @@ export function QuickTransactionBar({
     [hesaplar, hedefHesapId]
   );
 
-  // Cari listesi: cari modunda cari tipine göre, normal modda işlem tipine göre
+  // Cari listesi: cari modunda cari tipine göre, normal modda işlem tipine ve seçilen hedef türüne göre
   const carilerForType = useMemo(() => {
     if (isCariMode) {
       return defaultCariType === 'tedarikci' ? tedarikciCariler : musteriCariler;
     }
-    // Normal mod: odeme için tedarikçi, tahsilat için müşteri
-    return type === 'odeme' ? tedarikciCariler : musteriCariler;
-  }, [isCariMode, defaultCariType, type, tedarikciCariler, musteriCariler]);
+    // Normal mod: ödeme ve tahsilat için seçilen türe göre cari listesi
+    if (type === 'odeme') {
+      return tedarikciCariler;
+    }
+    if (type === 'tahsilat') {
+      return tahsilatHedefType === 'tedarikci' ? tedarikciCariler : musteriCariler;
+    }
+    return musteriCariler;
+  }, [isCariMode, defaultCariType, type, tahsilatHedefType, tedarikciCariler, musteriCariler]);
 
   const selectedCari = useMemo(
     () => carilerForType?.find((c) => c.id === cariId),
@@ -258,6 +269,7 @@ export function QuickTransactionBar({
         setCariId(null);
         setPersonelId(null);
         setOdemeHedefType(null);
+        setTahsilatHedefType(null);
         setHesapPickerTarget('hedef');
         setHesapSearchQuery('');
         setCariSearchQuery('');
@@ -320,6 +332,7 @@ export function QuickTransactionBar({
       setCariId(null);
       setPersonelId(null);
       setOdemeHedefType(null);
+      setTahsilatHedefType(null);
     }
   }, [type, isCariMode, isPersonelMode]);
 
@@ -1116,6 +1129,17 @@ export function QuickTransactionBar({
           </TouchableOpacity>
         </View>
 
+        {/* Normal Mod: Gelir/Gider için Hesap Bilgisi */}
+        {!isCariMode && !isPersonelMode && (type === 'gelir' || type === 'gider') && selectedHesap && (
+          <View style={[styles.sourceAccountRow, { backgroundColor: colors.surfaceLight }]}>
+            <Wallet size={16} color={colors.primary} />
+            <Text style={styles.sourceAccountText}>{selectedHesap.name}</Text>
+            <Text style={[styles.balanceText, { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error }]}>
+              {formatCurrency(Number(selectedHesap.balance))}
+            </Text>
+          </View>
+        )}
+
         {/* Cari Modu: Seçili cari bilgisi */}
         {isCariMode && selectedCari && (
           <View
@@ -1133,6 +1157,9 @@ export function QuickTransactionBar({
               <Users size={16} color={colors.primary} />
             )}
             <Text style={styles.sourceAccountText}>{selectedCari.name}</Text>
+            <Text style={[styles.balanceText, { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error }]}>
+              {formatCurrency(Number(selectedCari.balance))}
+            </Text>
           </View>
         )}
 
@@ -1149,6 +1176,11 @@ export function QuickTransactionBar({
             <Text style={styles.sourceAccountText}>
               {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
             </Text>
+            {selectedSourceHesap && (
+              <Text style={[styles.balanceText, { color: Number(selectedSourceHesap.balance) >= 0 ? colors.success : colors.error }]}>
+                {formatCurrency(Number(selectedSourceHesap.balance))}
+              </Text>
+            )}
             <ChevronDown size={16} color={colors.info} />
           </TouchableOpacity>
         )}
@@ -1159,6 +1191,9 @@ export function QuickTransactionBar({
             <UserCheck size={16} color={colors.success} />
             <Text style={styles.sourceAccountText}>
               {selectedPersonel.first_name} {selectedPersonel.last_name}
+            </Text>
+            <Text style={[styles.balanceText, { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error }]}>
+              {formatCurrency(Number(selectedPersonel.balance))}
             </Text>
           </View>
         )}
@@ -1176,6 +1211,11 @@ export function QuickTransactionBar({
             <Text style={styles.sourceAccountText}>
               {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
             </Text>
+            {selectedSourceHesap && (
+              <Text style={[styles.balanceText, { color: Number(selectedSourceHesap.balance) >= 0 ? colors.success : colors.error }]}>
+                {formatCurrency(Number(selectedSourceHesap.balance))}
+              </Text>
+            )}
             <ChevronDown size={16} color={colors.info} />
           </TouchableOpacity>
         )}
@@ -1189,6 +1229,11 @@ export function QuickTransactionBar({
               <Text style={styles.sourceAccountText}>
                 {selectedHesap?.name || t('accounts:titles.accounts')}
               </Text>
+              {selectedHesap && (
+                <Text style={[styles.balanceTextSmall, { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error }]}>
+                  {formatCurrency(Number(selectedHesap.balance))}
+                </Text>
+              )}
               <ArrowRight size={16} color={colors.info} />
               <TouchableOpacity
                 style={styles.targetAccountButton}
@@ -1202,42 +1247,67 @@ export function QuickTransactionBar({
                     ? selectedHedefHesap.name
                     : t('transactions:form.targetAccount')}
                 </Text>
+                {selectedHedefHesap && (
+                  <Text style={[styles.balanceTextSmall, { color: Number(selectedHedefHesap.balance) >= 0 ? colors.success : colors.error, marginRight: 4 }]}>
+                    {formatCurrency(Number(selectedHedefHesap.balance))}
+                  </Text>
+                )}
                 <ChevronDown size={16} color={colors.info} />
               </TouchableOpacity>
             </View>
           </>
         )}
 
-        {/* Ödeme: Tedarikçi/Personel/Kredi Kartı Seçimi (sadece normal modda) */}
+        {/* Ödeme: Kaynak Hesap + Ödeme Türü Seçici (sadece normal modda) */}
         {type === 'odeme' && !isCariMode && (
           <>
-            {/* Hedef Tip Seçici */}
-            <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowOdemeHedefTypePicker(true)}
-            >
-              {odemeHedefType === 'tedarikci' ? (
-                <Building2 size={18} color={colors.orange} />
-              ) : odemeHedefType === 'staff' ? (
-                <UserCheck size={18} color={colors.orange} />
-              ) : odemeHedefType === 'kredi_karti' ? (
-                <CreditCard size={18} color={colors.orange} />
-              ) : (
-                <ChevronDown size={18} color={colors.textMuted} />
-              )}
-              <Text
-                style={[styles.pickerButtonText, !odemeHedefType && { color: colors.textMuted }]}
+            {/* Kaynak Hesap → Ödeme Türü Satırı */}
+            <View style={styles.paymentRow}>
+              {/* Sol: Kaynak Hesap (sabit) */}
+              <View style={styles.paymentRowLeft}>
+                <Wallet size={16} color={colors.primary} />
+                <View style={styles.paymentAccountInfo}>
+                  <Text style={styles.paymentAccountName} numberOfLines={1}>
+                    {selectedHesap?.name || t('accounts:titles.accounts')}
+                  </Text>
+                  {selectedHesap && (
+                    <Text style={[styles.paymentAccountBalance, { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error }]}>
+                      {formatCurrency(Number(selectedHesap.balance))}
+                    </Text>
+                  )}
+                </View>
+              </View>
+
+              {/* Ok */}
+              <ArrowRight size={18} color={colors.orange} />
+
+              {/* Sağ: Ödeme Türü Seçici */}
+              <TouchableOpacity
+                style={styles.paymentRowRight}
+                onPress={() => setShowOdemeHedefTypePicker(true)}
               >
-                {odemeHedefType === 'tedarikci'
-                  ? t('clients:transactionTitles.supplierPayment')
-                  : odemeHedefType === 'staff'
-                    ? t('staff:transactionTitles.payment')
-                    : odemeHedefType === 'kredi_karti'
-                      ? t('accounts:transactionTitles.creditCardPayment')
-                      : t('transactions:form.selectPaymentType')}
-              </Text>
-              <ChevronDown size={18} color={colors.textMuted} />
-            </TouchableOpacity>
+                {odemeHedefType === 'tedarikci' ? (
+                  <Building2 size={16} color={colors.orange} />
+                ) : odemeHedefType === 'staff' ? (
+                  <UserCheck size={16} color={colors.orange} />
+                ) : odemeHedefType === 'kredi_karti' ? (
+                  <CreditCard size={16} color={colors.orange} />
+                ) : null}
+                <Text
+                  style={[styles.paymentTypeText, !odemeHedefType && { color: colors.textMuted }]}
+                  numberOfLines={1}
+                >
+                  {odemeHedefType === 'tedarikci'
+                    ? t('clients:transactionTitles.supplierPayment')
+                    : odemeHedefType === 'staff'
+                      ? t('staff:transactionTitles.payment')
+                      : odemeHedefType === 'kredi_karti'
+                        ? t('accounts:transactionTitles.creditCardPayment')
+                        : t('transactions:form.selectPaymentType')}
+                </Text>
+                <ChevronDown size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
 
             {/* Tedarikçi/Personel/Kredi Kartı Seçici - sadece tür seçiliyse göster */}
             {odemeHedefType === 'tedarikci' && (
@@ -1246,6 +1316,11 @@ export function QuickTransactionBar({
                 <Text style={styles.pickerButtonText}>
                   {selectedCari ? selectedCari.name : t('clients:transactionForm.selectSupplier')}
                 </Text>
+                {selectedCari && (
+                  <Text style={[styles.balanceText, { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error }]}>
+                    {formatCurrency(Number(selectedCari.balance))}
+                  </Text>
+                )}
                 <ChevronDown size={18} color={colors.textMuted} />
               </TouchableOpacity>
             )}
@@ -1260,6 +1335,11 @@ export function QuickTransactionBar({
                     ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
                     : t('staff:transactionForm.selectPersonel')}
                 </Text>
+                {selectedPersonel && (
+                  <Text style={[styles.balanceText, { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error }]}>
+                    {formatCurrency(Number(selectedPersonel.balance))}
+                  </Text>
+                )}
                 <ChevronDown size={18} color={colors.textMuted} />
               </TouchableOpacity>
             )}
@@ -1277,6 +1357,11 @@ export function QuickTransactionBar({
                   <Text style={styles.sourceAccountText}>
                     {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
                   </Text>
+                  {selectedSourceHesap && (
+                    <Text style={[styles.balanceTextSmall, { color: Number(selectedSourceHesap.balance) >= 0 ? colors.success : colors.error }]}>
+                      {formatCurrency(Number(selectedSourceHesap.balance))}
+                    </Text>
+                  )}
                   <ArrowRight size={16} color={colors.info} />
                   <TouchableOpacity
                     style={styles.targetAccountButton}
@@ -1287,6 +1372,11 @@ export function QuickTransactionBar({
                         ? selectedKrediKarti.name
                         : t('accounts:titles.selectCreditCard')}
                     </Text>
+                    {selectedKrediKarti && (
+                      <Text style={[styles.balanceTextSmall, { color: colors.error, marginRight: 4 }]}>
+                        {formatCurrency(Math.abs(Number(selectedKrediKarti.balance)))}
+                      </Text>
+                    )}
                     <ChevronDown size={16} color={colors.info} />
                   </TouchableOpacity>
                 </TouchableOpacity>
@@ -1295,15 +1385,113 @@ export function QuickTransactionBar({
           </>
         )}
 
-        {/* Tahsilat: Müşteri Seçici (sadece normal modda) */}
+        {/* Tahsilat: Tahsilat Türü + Hedef Hesap Seçici (sadece normal modda) */}
         {type === 'tahsilat' && !isCariMode && (
-          <TouchableOpacity style={styles.pickerButton} onPress={() => setShowCariPicker(true)}>
-            <Users size={18} color={colors.primary} />
-            <Text style={styles.pickerButtonText}>
-              {selectedCari ? selectedCari.name : t('clients:transactionForm.selectCustomer')}
-            </Text>
-            <ChevronDown size={18} color={colors.textMuted} />
-          </TouchableOpacity>
+          <>
+            {/* Tahsilat Türü → Hedef Hesap Satırı */}
+            <View style={styles.paymentRow}>
+              {/* Sol: Tahsilat Türü Seçici */}
+              <TouchableOpacity
+                style={styles.paymentRowLeft}
+                onPress={() => setShowTahsilatHedefTypePicker(true)}
+              >
+                {tahsilatHedefType === 'musteri' ? (
+                  <Users size={16} color={colors.success} />
+                ) : tahsilatHedefType === 'tedarikci' ? (
+                  <Building2 size={16} color={colors.success} />
+                ) : tahsilatHedefType === 'personel' ? (
+                  <UserCheck size={16} color={colors.success} />
+                ) : null}
+                <Text
+                  style={[styles.paymentTypeText, !tahsilatHedefType && { color: colors.textMuted }]}
+                  numberOfLines={1}
+                >
+                  {tahsilatHedefType === 'musteri'
+                    ? t('clients:transactionTitles.customerCollection')
+                    : tahsilatHedefType === 'tedarikci'
+                      ? t('clients:transactionTitles.supplierCollection')
+                      : tahsilatHedefType === 'personel'
+                        ? t('staff:transactionTitles.collection')
+                        : t('transactions:form.selectCollectionType')}
+                </Text>
+                <ChevronDown size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+
+              {/* Ok */}
+              <ArrowRight size={18} color={colors.success} />
+
+              {/* Sağ: Hedef Hesap (seçilebilir) */}
+              <TouchableOpacity
+                style={styles.paymentRowRight}
+                onPress={() => {
+                  setHesapPickerTarget('hedef');
+                  setShowHesapPicker(true);
+                }}
+              >
+                <Wallet size={16} color={colors.primary} />
+                <View style={styles.paymentAccountInfo}>
+                  <Text style={styles.paymentAccountName} numberOfLines={1}>
+                    {selectedHedefHesap?.name || selectedHesap?.name || t('accounts:titles.selectAccount')}
+                  </Text>
+                  {(selectedHedefHesap || selectedHesap) && (
+                    <Text style={[styles.paymentAccountBalance, { color: Number((selectedHedefHesap || selectedHesap)?.balance) >= 0 ? colors.success : colors.error }]}>
+                      {formatCurrency(Number((selectedHedefHesap || selectedHesap)?.balance))}
+                    </Text>
+                  )}
+                </View>
+                <ChevronDown size={16} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Müşteri/Tedarikçi/Personel Seçici - sadece tür seçiliyse göster */}
+            {tahsilatHedefType === 'musteri' && (
+              <TouchableOpacity style={styles.pickerButton} onPress={() => setShowCariPicker(true)}>
+                <Users size={18} color={colors.success} />
+                <Text style={styles.pickerButtonText}>
+                  {selectedCari ? selectedCari.name : t('clients:transactionForm.selectCustomer')}
+                </Text>
+                {selectedCari && (
+                  <Text style={[styles.balanceText, { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error }]}>
+                    {formatCurrency(Number(selectedCari.balance))}
+                  </Text>
+                )}
+                <ChevronDown size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+            {tahsilatHedefType === 'tedarikci' && (
+              <TouchableOpacity style={styles.pickerButton} onPress={() => setShowCariPicker(true)}>
+                <Building2 size={18} color={colors.success} />
+                <Text style={styles.pickerButtonText}>
+                  {selectedCari ? selectedCari.name : t('clients:transactionForm.selectSupplier')}
+                </Text>
+                {selectedCari && (
+                  <Text style={[styles.balanceText, { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error }]}>
+                    {formatCurrency(Number(selectedCari.balance))}
+                  </Text>
+                )}
+                <ChevronDown size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+            {tahsilatHedefType === 'personel' && (
+              <TouchableOpacity
+                style={styles.pickerButton}
+                onPress={() => setShowPersonelPicker(true)}
+              >
+                <UserCheck size={18} color={colors.success} />
+                <Text style={styles.pickerButtonText}>
+                  {selectedPersonel
+                    ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
+                    : t('staff:transactionForm.selectPersonel')}
+                </Text>
+                {selectedPersonel && (
+                  <Text style={[styles.balanceText, { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error }]}>
+                    {formatCurrency(Number(selectedPersonel.balance))}
+                  </Text>
+                )}
+                <ChevronDown size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </>
         )}
 
         {/* Category Picker - tüm işlem tiplerinde */}
@@ -1955,6 +2143,182 @@ export function QuickTransactionBar({
         </Modal>
       )}
 
+      {/* Tahsilat Hedef Tipi Picker Modal - Bottom Sheet */}
+      {showTahsilatHedefTypePicker && (
+        <Modal
+          visible
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowTahsilatHedefTypePicker(false)}
+        >
+          <TouchableWithoutFeedback onPress={() => setShowTahsilatHedefTypePicker(false)}>
+            <View style={styles.bottomSheetOverlay}>
+              <TouchableWithoutFeedback onPress={() => {}}>
+                <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
+                  <View style={styles.bottomSheetHeader}>
+                    <Text style={styles.bottomSheetTitle}>
+                      {t('transactions:form.selectCollectionType')}
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowTahsilatHedefTypePicker(false)}
+                      style={styles.bottomSheetCloseBtn}
+                    >
+                      <X size={24} color={colors.text} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.bottomSheetListContent}>
+                    {/* Müşteri Tahsilatı */}
+                    <TouchableOpacity
+                      style={[
+                        styles.tahsilatTypeItem,
+                        tahsilatHedefType === 'musteri' && styles.tahsilatTypeItemSelected,
+                      ]}
+                      onPress={() => {
+                        setTahsilatHedefType('musteri');
+                        setCariId(null);
+                        setPersonelId(null);
+                        setShowTahsilatHedefTypePicker(false);
+                        // Otomatik müşteri picker aç
+                        setTimeout(() => {
+                          if (!kategoriId && !categorySkipped) {
+                            setPendingModal('category');
+                          }
+                          setShowCariPicker(true);
+                        }, 250);
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.bottomSheetItemIcon,
+                          { backgroundColor: colors.successLight },
+                        ]}
+                      >
+                        <Users size={24} color={colors.success} />
+                      </View>
+                      <View style={styles.odemeTypeContent}>
+                        <Text
+                          style={[
+                            styles.odemeTypeTitle,
+                            tahsilatHedefType === 'musteri' && { color: colors.success },
+                          ]}
+                        >
+                          {t('clients:transactionTitles.customerCollection')}
+                        </Text>
+                        <Text style={styles.odemeTypeSubtext}>
+                          {t('clients:transactionDescriptions.customerCollection')}
+                        </Text>
+                      </View>
+                      {tahsilatHedefType === 'musteri' && (
+                        <View style={[styles.checkIcon, { backgroundColor: colors.success }]}>
+                          <Check size={14} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Tedarikçi Tahsilatı */}
+                    <TouchableOpacity
+                      style={[
+                        styles.tahsilatTypeItem,
+                        tahsilatHedefType === 'tedarikci' && styles.tahsilatTypeItemSelected,
+                      ]}
+                      onPress={() => {
+                        setTahsilatHedefType('tedarikci');
+                        setCariId(null);
+                        setPersonelId(null);
+                        setShowTahsilatHedefTypePicker(false);
+                        // Otomatik tedarikçi picker aç
+                        setTimeout(() => {
+                          if (!kategoriId && !categorySkipped) {
+                            setPendingModal('category');
+                          }
+                          setShowCariPicker(true);
+                        }, 250);
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.bottomSheetItemIcon,
+                          { backgroundColor: colors.successLight },
+                        ]}
+                      >
+                        <Building2 size={24} color={colors.success} />
+                      </View>
+                      <View style={styles.odemeTypeContent}>
+                        <Text
+                          style={[
+                            styles.odemeTypeTitle,
+                            tahsilatHedefType === 'tedarikci' && { color: colors.success },
+                          ]}
+                        >
+                          {t('clients:transactionTitles.supplierCollection')}
+                        </Text>
+                        <Text style={styles.odemeTypeSubtext}>
+                          {t('clients:transactionDescriptions.supplierCollection')}
+                        </Text>
+                      </View>
+                      {tahsilatHedefType === 'tedarikci' && (
+                        <View style={[styles.checkIcon, { backgroundColor: colors.success }]}>
+                          <Check size={14} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+
+                    {/* Personel Tahsilatı */}
+                    <TouchableOpacity
+                      style={[
+                        styles.tahsilatTypeItem,
+                        tahsilatHedefType === 'personel' && styles.tahsilatTypeItemSelected,
+                      ]}
+                      onPress={() => {
+                        setTahsilatHedefType('personel');
+                        setCariId(null);
+                        setPersonelId(null);
+                        setShowTahsilatHedefTypePicker(false);
+                        // Otomatik personel picker aç
+                        setTimeout(() => {
+                          if (!kategoriId && !categorySkipped) {
+                            setPendingModal('category');
+                          }
+                          setShowPersonelPicker(true);
+                        }, 250);
+                      }}
+                    >
+                      <View
+                        style={[
+                          styles.bottomSheetItemIcon,
+                          { backgroundColor: colors.successLight },
+                        ]}
+                      >
+                        <UserCheck size={24} color={colors.success} />
+                      </View>
+                      <View style={styles.odemeTypeContent}>
+                        <Text
+                          style={[
+                            styles.odemeTypeTitle,
+                            tahsilatHedefType === 'personel' && { color: colors.success },
+                          ]}
+                        >
+                          {t('staff:transactionTitles.collection')}
+                        </Text>
+                        <Text style={styles.odemeTypeSubtext}>
+                          {t('staff:transactionDescriptions.personnelCollection')}
+                        </Text>
+                      </View>
+                      {tahsilatHedefType === 'personel' && (
+                        <View style={[styles.checkIcon, { backgroundColor: colors.success }]}>
+                          <Check size={14} color="#FFFFFF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
+
       {/* Kredi Kartı Picker Modal - Bottom Sheet */}
       {showKrediKartiPicker && (
         <Modal
@@ -2474,6 +2838,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '500',
   },
+  balanceText: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 'auto',
+    marginRight: 8,
+  },
+  balanceTextSmall: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
   targetAccountButton: {
     flex: 1,
     flexDirection: 'row',
@@ -2620,5 +2995,62 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
     marginTop: 2,
+  },
+  // Ödeme/Tahsilat Satırı
+  paymentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  paymentRowLeft: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  paymentRowRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  paymentAccountInfo: {
+    flex: 1,
+  },
+  paymentAccountName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  paymentAccountBalance: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  paymentTypeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+    marginRight: 4,
+  },
+  // Tahsilat Türü Seçici
+  tahsilatTypeItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: colors.surfaceLighter,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  tahsilatTypeItemSelected: {
+    backgroundColor: colors.successLight + '30',
+    borderWidth: 1,
+    borderColor: colors.success,
   },
 });

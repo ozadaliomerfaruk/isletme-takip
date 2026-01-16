@@ -150,7 +150,7 @@ export function SummaryCarousel({
               <View style={styles.detailItemThree}>
                 <View style={styles.detailHeader}>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.success }]} />
-                  <Text style={styles.detailLabel}>{t('common:dashboard.assets')}</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.accounts')}</Text>
                 </View>
                 <Text style={[styles.detailValueSmall, { color: colors.success }]}>
                   {formatCurrency(assets)}

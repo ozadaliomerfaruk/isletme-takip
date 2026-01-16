@@ -46,6 +46,7 @@
     "sourceAccount": "Source Account",
     "targetAccount": "Target Account",
     "selectPaymentType": "Select Payment Type",
+    "selectCollectionType": "Select Collection Type",
     "description": "Description",
     "descriptionOptional": "Description (Optional)",
     "descriptionPlaceholder": "Add description (optional)",

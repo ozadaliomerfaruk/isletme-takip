@@ -78,12 +78,14 @@
     "makePayment": "Staff Payment",
     "getCollection": "Payment from Staff",
     "expense": "Staff Expense",
-    "payment": "Staff Payment"
+    "payment": "Staff Payment",
+    "collection": "Staff Collection"
   },
   "transactionDescriptions": {
     "expense": "This transaction increases your debt to the staff member (salary accrual, etc.)",
     "payment": "This transaction decreases your debt to the staff member (salary payment, etc.)",
-    "personnelPayment": "Payment will be made to staff member"
+    "personnelPayment": "Payment will be made to staff member",
+    "personnelCollection": "Collect advance refund from staff member"
   },
   "transactionForm": {
     "personel": "Staff Member",

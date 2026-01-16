@@ -23,19 +23,23 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
-import { useIslem, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
+import {
+  useIleriTarihliIslem,
+  useUpdateIleriTarihliIslem,
+  useDeleteIleriTarihliIslem,
+} from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
 
-export default function IslemDuzenlePage() {
+export default function IleriTarihliIslemDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
 
-  const { data: islem, isLoading: islemLoading } = useIslem(id);
-  const updateIslem = useUpdateIslem();
-  const deleteIslem = useDeleteIslem();
+  const { data: islem, isLoading: islemLoading } = useIleriTarihliIslem(id);
+  const updateIslem = useUpdateIleriTarihliIslem();
+  const deleteIslem = useDeleteIleriTarihliIslem();
 
   const { data: hesaplar } = useHesaplar();
   const { data: cariler } = useCariler();
@@ -48,7 +52,7 @@ export default function IslemDuzenlePage() {
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [cariId, setCariId] = useState<string | null>(null);
   const [personelId, setPersonelId] = useState<string | null>(null);
-  const [date, setDate] = useState('');
+  const [scheduledDate, setScheduledDate] = useState('');
 
   const [showHesapPicker, setShowHesapPicker] = useState(false);
   const [hesapPickerTarget, setHesapPickerTarget] = useState<'source' | 'hedef'>('source');
@@ -97,7 +101,7 @@ export default function IslemDuzenlePage() {
       setKategoriId(islem.kategori_id);
       setCariId(islem.cari_id);
       setPersonelId(islem.personel_id);
-      setDate(islem.date);
+      setScheduledDate(islem.scheduled_date);
     }
   }, [islem]);
 
@@ -110,7 +114,6 @@ export default function IslemDuzenlePage() {
 
   const needsHesap = ['gelir', 'gider', 'transfer', 'cari_odeme', 'cari_tahsilat', 'personel_odeme', 'personel_tahsilat'].includes(islemType || '');
   const needsHedefHesap = islemType === 'transfer';
-  // Kategori: tüm işlem tipleri için (transfer hariç)
   const needsKategori = ['gelir', 'gider', 'cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat', 'personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(islemType || '');
   const needsCari = ['cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat'].includes(islemType || '');
   const needsPersonel = ['personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(islemType || '');
@@ -144,7 +147,7 @@ export default function IslemDuzenlePage() {
           kategori_id: kategoriId,
           cari_id: cariId,
           personel_id: personelId,
-          date,
+          scheduled_date: scheduledDate,
         },
       });
 
@@ -158,8 +161,8 @@ export default function IslemDuzenlePage() {
 
   const handleDelete = () => {
     Alert.alert(
-      t('transactions:messages.deleteConfirm'),
-      t('transactions:messages.deleteWarning'),
+      t('transactions:scheduled.delete'),
+      t('transactions:scheduled.deleteConfirm'),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -208,7 +211,7 @@ export default function IslemDuzenlePage() {
     <>
       <Stack.Screen
         options={{
-          headerTitle: t('transactions:titles.editTransaction'),
+          headerTitle: t('transactions:scheduled.title'),
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -395,11 +398,11 @@ export default function IslemDuzenlePage() {
                 </View>
               )}
 
-              {/* Tarih ve Saat */}
+              {/* Planlanan Tarih ve Saat */}
               <DateTimePicker
-                label={t('transactions:form.dateTime')}
-                value={date ? parseDateFromDB(date) : new Date()}
-                onChange={(newDate) => setDate(formatDateTimeForDB(newDate))}
+                label={t('transactions:future.dueDate')}
+                value={scheduledDate ? parseDateFromDB(scheduledDate) : new Date()}
+                onChange={(newDate) => setScheduledDate(formatDateTimeForDB(newDate))}
               />
 
               {/* Açıklama */}

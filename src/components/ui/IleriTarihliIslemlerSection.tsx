@@ -114,8 +114,10 @@ export function IleriTarihliIslemlerSection({
   };
 
   const handleEdit = (item: IleriTarihliIslemWithRelations) => {
-    // TODO: Düzenleme sayfasına yönlendir
-    Alert.alert(t('common:status.info'), t('transactions:scheduled.comingSoon'));
+    router.push({
+      pathname: '/islemler/ileri-tarihli/duzenle/[id]',
+      params: { id: item.id },
+    });
   };
 
   return (

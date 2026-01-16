@@ -343,6 +343,17 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen
+          name="islemler/ileri-tarihli/duzenle/[id]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('transactions:scheduled.title'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Raporlar */}
         <Stack.Screen
           name="raporlar/index"

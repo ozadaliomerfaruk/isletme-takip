@@ -46,6 +46,7 @@
     "sourceAccount": "Kaynak Hesap",
     "targetAccount": "Hedef Hesap",
     "selectPaymentType": "Ödeme Türü Seç",
+    "selectCollectionType": "Tahsilat Türü Seç",
     "description": "Açıklama",
     "descriptionOptional": "Açıklama (İsteğe Bağlı)",
     "descriptionPlaceholder": "Açıklama ekle (isteğe bağlı)",

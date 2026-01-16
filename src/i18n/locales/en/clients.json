@@ -87,14 +87,17 @@
     "purchaseReturn": "Purchase Return",
     "saleReturn": "Sale Return",
     "supplierPayment": "Supplier Payment",
-    "customerCollection": "Payment from Customer"
+    "customerCollection": "Customer Collection",
+    "supplierCollection": "Supplier Collection"
   },
   "transactionDescriptions": {
     "purchase": "This transaction increases your debt to the supplier",
     "sale": "This transaction increases your receivable from the customer",
     "payment": "This transaction decreases your debt to the supplier",
     "collection": "This transaction decreases your receivable from the customer",
-    "supplierPayment": "Payment will be made to supplier"
+    "supplierPayment": "Payment will be made to supplier",
+    "customerCollection": "Collect receivable from customer",
+    "supplierCollection": "Collect refund or overpayment from supplier"
   },
   "transactionForm": {
     "supplier": "Supplier",
