@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Animated, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, TouchableWithoutFeedback, Animated, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -19,7 +19,9 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
+import { useToast } from '@/contexts/ToastContext';
+import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -97,6 +99,10 @@ export default function PersonelPage() {
   const archivePersonel = useArchivePersonel();
   const deletePersonel = useDeletePersonel();
 
+  // Toast ve Haptics
+  const { showToast } = useToast();
+  const haptics = useHaptics();
+
   // Action sheet handlers
   const handleOpenActionSheet = (personel: Personel) => {
     setActionSheetPersonel(personel);
@@ -107,9 +113,11 @@ export default function PersonelPage() {
     if (!actionSheetPersonel) return;
     try {
       await archivePersonel.mutateAsync(actionSheetPersonel.id);
-      Alert.alert(t('common:status.success'), t('common:archive.messages.archiveSuccess'));
+      haptics.success();
+      showToast(t('common:archive.messages.archiveSuccess'), 'success');
     } catch (error) {
-      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+      haptics.error();
+      showToast(t('common:messages.operationFailed'), 'error');
     }
   };
 
@@ -127,9 +135,11 @@ export default function PersonelPage() {
           onPress: async () => {
             try {
               await deletePersonel.mutateAsync(actionSheetPersonel.id);
-              Alert.alert(t('common:status.success'), t('common:messages.deletedSuccessfully'));
+              haptics.success();
+              showToast(t('common:messages.deletedSuccessfully'), 'success');
             } catch (error) {
-              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+              haptics.error();
+              showToast(t('common:messages.operationFailed'), 'error');
             }
           },
         },
@@ -228,7 +238,7 @@ export default function PersonelPage() {
         {/* Personel Listesi */}
         <View style={styles.listContainer}>
           {isLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+            <SkeletonAccountList count={5} />
           ) : !filteredPersonel || filteredPersonel.length === 0 ? (
             <EmptyState
               icon={<UserCircle size={48} color={colors.textMuted} />}
@@ -246,7 +256,10 @@ export default function PersonelPage() {
               <View key={personel.id} style={!personel.is_active && styles.passiveItem}>
                 <ExpandableCard
                   expanded={expandedPersonelId === personel.id}
-                  onToggle={() => setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id)}
+                  onToggle={() => {
+                    haptics.selection();
+                    setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id);
+                  }}
                   header={
                     <View style={styles.personelHeader}>
                       <View style={styles.avatar}>
@@ -336,6 +349,16 @@ export default function PersonelPage() {
         </View>
       </ScrollView>
 
+      {/* FAB Backdrop */}
+      {fabMenuVisible && (
+        <TouchableWithoutFeedback onPress={() => {
+          haptics.light();
+          setFabMenuVisible(false);
+        }}>
+          <View style={styles.fabBackdrop} />
+        </TouchableWithoutFeedback>
+      )}
+
       {/* FAB Menu */}
       <View style={[styles.fabContainer, { bottom: spacing.lg + insets.bottom }]}>
         {fabMenuVisible && (
@@ -351,6 +374,7 @@ export default function PersonelPage() {
             <TouchableOpacity
               style={styles.fabMenuItem}
               onPress={() => {
+                haptics.light();
                 setFabMenuVisible(false);
                 router.push('/personel/toplu-gider');
               }}
@@ -363,6 +387,7 @@ export default function PersonelPage() {
             <TouchableOpacity
               style={styles.fabMenuItem}
               onPress={() => {
+                haptics.light();
                 setFabMenuVisible(false);
                 router.push('/personel/toplu-odeme');
               }}
@@ -376,7 +401,10 @@ export default function PersonelPage() {
         )}
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => setFabMenuVisible(!fabMenuVisible)}
+          onPress={() => {
+            haptics.light();
+            setFabMenuVisible(!fabMenuVisible);
+          }}
           activeOpacity={0.8}
         >
           <Animated.View
@@ -442,7 +470,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
   summaryContainer: {
     flexDirection: 'row',
@@ -551,5 +579,9 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  fabBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
 });

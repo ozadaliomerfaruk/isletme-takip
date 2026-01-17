@@ -14,7 +14,9 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
+import { useToast } from '@/contexts/ToastContext';
+import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -50,6 +52,10 @@ export default function CarilerPage() {
   const archiveCari = useArchiveCari();
   const deleteCari = useDeleteCari();
 
+  // Toast ve Haptics
+  const { showToast } = useToast();
+  const haptics = useHaptics();
+
   // Gerçek veriler - pasif carileri de dahil et
   const { data: cariler, isLoading } = useCariler(
     filter === 'all' ? undefined : (filter as CariType),
@@ -67,9 +73,11 @@ export default function CarilerPage() {
     if (!actionSheetCari) return;
     try {
       await archiveCari.mutateAsync(actionSheetCari.id);
-      Alert.alert(t('common:status.success'), t('common:archive.messages.archiveSuccess'));
+      haptics.success();
+      showToast(t('common:archive.messages.archiveSuccess'), 'success');
     } catch (error) {
-      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+      haptics.error();
+      showToast(t('common:messages.operationFailed'), 'error');
     }
   };
 
@@ -86,9 +94,11 @@ export default function CarilerPage() {
           onPress: async () => {
             try {
               await deleteCari.mutateAsync(actionSheetCari.id);
-              Alert.alert(t('common:status.success'), t('common:messages.deletedSuccessfully'));
+              haptics.success();
+              showToast(t('common:messages.deletedSuccessfully'), 'success');
             } catch (error) {
-              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+              haptics.error();
+              showToast(t('common:messages.operationFailed'), 'error');
             }
           },
         },
@@ -177,7 +187,7 @@ export default function CarilerPage() {
         {/* Cari Listesi */}
         <View style={styles.listContainer}>
           {isLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+            <SkeletonAccountList count={5} />
           ) : !filteredCariler || filteredCariler.length === 0 ? (
             <EmptyState
               icon={<Users size={48} color={colors.textMuted} />}
@@ -195,7 +205,10 @@ export default function CarilerPage() {
               <View key={cari.id} style={!cari.is_active && styles.passiveItem}>
                 <ExpandableCard
                   expanded={expandedCariId === cari.id}
-                  onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
+                  onToggle={() => {
+                    haptics.selection();
+                    setExpandedCariId(expandedCariId === cari.id ? null : cari.id);
+                  }}
                   header={
                     <View style={styles.cariHeader}>
                       {getCariIcon(cari.type, 24)}
@@ -322,7 +335,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
   summaryContainer: {
     flexDirection: 'row',

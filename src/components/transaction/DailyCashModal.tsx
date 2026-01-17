@@ -13,14 +13,16 @@ import {
   Alert,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, X } from 'lucide-react-native';
+import { Calendar, X, Wallet } from 'lucide-react-native';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 
-import { Text, Button, CategoryPicker } from '@/components/ui';
+import { Text, Button, CategoryPicker, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
@@ -53,6 +55,7 @@ export function DailyCashModal({
   const { t } = useTranslation(['transactions', 'common', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const windowHeight = Dimensions.get('window').height;
 
   // Date state - initialized with time 23:59
@@ -77,7 +80,7 @@ export function DailyCashModal({
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   // Data
-  const { data: hesaplar } = useHesaplar();
+  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
   const createIslem = useCreateIslem();
 
   // Kredi kartı ve birikim hesaplarını filtrele (sadece nakit, banka, diger)
@@ -360,6 +363,7 @@ export function DailyCashModal({
             styles.card,
             {
               maxHeight: windowHeight * (isKeyboardVisible ? 0.5 : 0.7),
+              minHeight: filteredHesaplar.length === 0 && !hesaplarLoading ? 350 : undefined,
               paddingBottom: isKeyboardVisible ? spacing.md : insets.bottom + spacing.md,
               opacity,
               transform: [{ translateY }],
@@ -394,70 +398,99 @@ export function DailyCashModal({
             </View>
           </View>
 
-          {/* Accounts List */}
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {entries.map((entry) => {
-              const hesap = getHesap(entry.hesapId);
-              if (!hesap) return null;
+          {/* Content */}
+          {hesaplarLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+            </View>
+          ) : filteredHesaplar.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Wallet size={48} color={colors.textMuted} />
+              <Text variant="h3" center style={styles.emptyTitle}>
+                {t('accounts:messages.noAccounts')}
+              </Text>
+              <Text variant="bodySmall" color="secondary" center style={styles.emptyDescription}>
+                {t('accounts:messages.addFirstAccount')}
+              </Text>
+              <Button
+                variant="primary"
+                onPress={() => {
+                  handleDismiss();
+                  router.push('/hesaplar/ekle');
+                }}
+                style={styles.emptyButton}
+              >
+                {t('accounts:titles.addAccount')}
+              </Button>
+            </View>
+          ) : (
+            <>
+              {/* Accounts List */}
+              <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                {entries.map((entry) => {
+                  const hesap = getHesap(entry.hesapId);
+                  if (!hesap) return null;
 
-              const iconConfig = getHesapIconConfig(hesap.type, 18);
+                  const iconConfig = getHesapIconConfig(hesap.type, 18);
 
-              return (
-                <View key={entry.hesapId} style={styles.entryRow}>
-                  {/* Category - Compact */}
-                  <View style={styles.categoryCompact}>
-                    <CategoryPicker
-                      value={entry.kategoriId}
-                      onChange={(value) => updateEntry(entry.hesapId, 'kategoriId', value)}
-                      type="gelir"
-                      label=""
-                      placeholder={t('transactions:dailyCash.category')}
-                      onNavigateAway={handleDismiss}
-                    />
-                  </View>
-
-                  {/* Hesap + Amount Row */}
-                  <View style={styles.hesapAmountRow}>
-                    <View style={styles.hesapInfo}>
-                      <View style={[styles.hesapIcon, { backgroundColor: iconConfig.backgroundColor }]}>
-                        {iconConfig.icon}
+                  return (
+                    <View key={entry.hesapId} style={styles.entryRow}>
+                      {/* Category - Compact */}
+                      <View style={styles.categoryCompact}>
+                        <CategoryPicker
+                          value={entry.kategoriId}
+                          onChange={(value) => updateEntry(entry.hesapId, 'kategoriId', value)}
+                          type="gelir"
+                          label=""
+                          placeholder={t('transactions:dailyCash.category')}
+                          onNavigateAway={handleDismiss}
+                        />
                       </View>
-                      <Text variant="body" numberOfLines={1} style={styles.hesapName}>
-                        {hesap.name}
-                      </Text>
-                    </View>
-                    <TextInput
-                      style={styles.amountInput}
-                      placeholder="0"
-                      placeholderTextColor={colors.textMuted}
-                      value={entry.amount}
-                      onChangeText={(text) => handleAmountChange(entry.hesapId, text)}
-                      keyboardType="decimal-pad"
-                      maxLength={12}
-                    />
-                  </View>
-                </View>
-              );
-            })}
-          </ScrollView>
 
-          {/* Save Button */}
-          <View style={styles.footer}>
-            <Button
-              variant="primary"
-              size="md"
-              loading={isSaving}
-              onPress={handleSave}
-              style={styles.saveButton}
-            >
+                      {/* Hesap + Amount Row */}
+                      <View style={styles.hesapAmountRow}>
+                        <View style={styles.hesapInfo}>
+                          <View style={[styles.hesapIcon, { backgroundColor: iconConfig.backgroundColor }]}>
+                            {iconConfig.icon}
+                          </View>
+                          <Text variant="body" numberOfLines={1} style={styles.hesapName}>
+                            {hesap.name}
+                          </Text>
+                        </View>
+                        <TextInput
+                          style={styles.amountInput}
+                          placeholder="0"
+                          placeholderTextColor={colors.textMuted}
+                          value={entry.amount}
+                          onChangeText={(text) => handleAmountChange(entry.hesapId, text)}
+                          keyboardType="decimal-pad"
+                          maxLength={12}
+                        />
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Save Button */}
+              <View style={styles.footer}>
+                <Button
+                  variant="primary"
+                  size="md"
+                  loading={isSaving}
+                  onPress={handleSave}
+                  style={styles.saveButton}
+                >
               {isSaving ? t('transactions:dailyCash.saving') : t('transactions:dailyCash.save')}
-            </Button>
-          </View>
+                </Button>
+              </View>
+            </>
+          )}
         </Animated.View>
       </View>
 
@@ -546,6 +579,29 @@ const styles = StyleSheet.create({
   dateText: {
     color: colors.primary,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing['3xl'],
+  },
+  emptyContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+  },
+  emptyTitle: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  emptyDescription: {
+    marginBottom: spacing.xl,
+  },
+  emptyButton: {
+    minWidth: 150,
   },
   scrollView: {
     flexGrow: 0,

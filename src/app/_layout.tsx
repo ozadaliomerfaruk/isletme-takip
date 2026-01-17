@@ -9,6 +9,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
+import { ToastProvider } from '@/contexts/ToastContext';
+import { ToastContainer } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import {
   registerForPushNotificationsAsync,
@@ -139,6 +141,7 @@ function RootLayoutNav() {
   return (
     <>
       <StatusBar style="dark" />
+      <ToastContainer />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -583,7 +586,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
-            <RootLayoutNav />
+            <ToastProvider>
+              <RootLayoutNav />
+            </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>
       </SafeAreaProvider>

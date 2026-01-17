@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
+import { TAB_BAR_HEIGHT } from '@/constants/spacing';
+
 import { getTransactionTypeColor } from '../TransactionTypeTabs';
 import { ExchangeRateBar } from '../ExchangeRateBar';
 import { styles } from './styles';
@@ -326,8 +328,10 @@ export function QuickTransactionBar({
   };
   const categoryType = modals.selectedCategoryType || getCategoryType();
 
-  // Position card above keyboard
-  const cardBottom = animation.keyboardHeight > 0 ? animation.keyboardHeight : insets.bottom + 10;
+  // Position card above keyboard and tab bar
+  const cardBottom = animation.keyboardHeight > 0
+    ? animation.keyboardHeight
+    : insets.bottom + TAB_BAR_HEIGHT + 10;
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>

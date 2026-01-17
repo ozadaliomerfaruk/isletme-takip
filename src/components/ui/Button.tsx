@@ -1,10 +1,14 @@
+import { useCallback } from 'react';
 import {
   TouchableOpacity,
   TouchableOpacityProps,
   StyleSheet,
   ActivityIndicator,
   View,
+  Platform,
+  GestureResponderEvent,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { Text } from './Text';
@@ -87,6 +91,7 @@ export function Button({
   style,
   accessibilityLabel,
   accessibilityHint,
+  onPress,
   ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
@@ -95,8 +100,20 @@ export function Button({
   const derivedLabel = accessibilityLabel ||
     (typeof children === 'string' ? children : undefined);
 
+  // Wrap onPress with haptic feedback
+  const handlePress = useCallback(
+    (event: GestureResponderEvent) => {
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      onPress?.(event);
+    },
+    [onPress]
+  );
+
   return (
     <TouchableOpacity
+      onPress={handlePress}
       style={[
         styles.base,
         variantStyles[variant],

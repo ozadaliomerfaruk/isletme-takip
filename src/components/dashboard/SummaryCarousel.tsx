@@ -15,8 +15,10 @@ import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
 import { CashFlowCard } from './CashFlowCard';
+import { PeriodDropdown } from './PeriodDropdown';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
+import type { PeriodType } from '@/lib/date';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_PADDING = 16;
@@ -39,6 +41,13 @@ interface SummaryCarouselProps {
   // Tarih parametreleri (nakit akışı detay sayfası için)
   startDate?: string;
   endDate?: string;
+  // Sayfa değişikliği callback'i
+  onPageChange?: (index: number) => void;
+  // Period selection (for cards 2 and 4)
+  periodType?: PeriodType;
+  onPeriodChange?: (type: PeriodType) => void;
+  onPeriodNavigate?: (direction: -1 | 1) => void;
+  onCustomDatePress?: () => void;
 }
 
 export function SummaryCarousel({
@@ -54,6 +63,11 @@ export function SummaryCarousel({
   netCashFlow = 0,
   startDate,
   endDate,
+  onPageChange,
+  periodType = 'monthly',
+  onPeriodChange,
+  onPeriodNavigate,
+  onCustomDatePress,
 }: SummaryCarouselProps) {
   const { t } = useTranslation(['common']);
   const router = useRouter();
@@ -86,11 +100,12 @@ export function SummaryCarousel({
     const newIndex = Math.round(offsetX / CARD_WIDTH);
     if (newIndex !== activeIndex && newIndex >= 0 && newIndex <= 3) {
       setActiveIndex(newIndex);
+      onPageChange?.(newIndex);
       if (Platform.OS !== 'web') {
         Haptics.selectionAsync();
       }
     }
-  }, [activeIndex]);
+  }, [activeIndex, onPageChange]);
 
   const scrollToIndex = useCallback((index: number) => {
     scrollViewRef.current?.scrollTo({ x: index * CARD_WIDTH, animated: true });
@@ -150,7 +165,7 @@ export function SummaryCarousel({
               <View style={styles.detailItemThree}>
                 <View style={styles.detailHeader}>
                   <View style={[styles.dotIndicator, { backgroundColor: colors.success }]} />
-                  <Text style={styles.detailLabel}>{t('common:dashboard.accounts')}</Text>
+                  <Text style={styles.detailLabel}>{t('common:dashboard.assets')}</Text>
                 </View>
                 <Text style={[styles.detailValueSmall, { color: colors.success }]}>
                   {formatCurrency(assets)}
@@ -194,7 +209,17 @@ export function SummaryCarousel({
             {/* Header */}
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>{t('common:dashboard.incomeExpense')}</Text>
-              <Text style={styles.periodBadge}>{periodLabel}</Text>
+              {onPeriodChange && onPeriodNavigate ? (
+                <PeriodDropdown
+                  periodLabel={periodLabel}
+                  periodType={periodType}
+                  onPeriodChange={onPeriodChange}
+                  onNavigate={onPeriodNavigate}
+                  onCustomDatePress={onCustomDatePress}
+                />
+              ) : (
+                <Text style={styles.periodBadge}>{periodLabel}</Text>
+              )}
             </View>
 
             {/* Main Value */}
@@ -309,6 +334,10 @@ export function SummaryCarousel({
             totalOutflow={totalOutflow}
             netCashFlow={netCashFlow}
             periodLabel={periodLabel}
+            periodType={periodType}
+            onPeriodChange={onPeriodChange}
+            onPeriodNavigate={onPeriodNavigate}
+            onCustomDatePress={onCustomDatePress}
             onPress={() => router.push({
               pathname: '/nakit-akisi',
               params: startDate && endDate ? { startDate, endDate } : undefined,
@@ -351,7 +380,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: 20,
-    padding: 20,
+    padding: 16,
     marginRight: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -363,7 +392,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   cardTitle: {
     fontSize: 15,
@@ -383,21 +412,21 @@ const styles = StyleSheet.create({
   },
   mainValue: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   bigNumber: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '700',
     letterSpacing: -1,
     marginBottom: 4,
   },
   mainLabel: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textMuted,
     fontWeight: '500',
   },
   progressContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   progressBar: {
     flexDirection: 'row',
@@ -460,16 +489,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   detailLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '600',
   },
   detailValueSmall: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '600',
   },
   detailDivider: {

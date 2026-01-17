@@ -37,3 +37,6 @@ export const fontWeight = {
   semibold: '600',
   bold: '700',
 } as const;
+
+// Layout constants
+export const TAB_BAR_HEIGHT = 52;

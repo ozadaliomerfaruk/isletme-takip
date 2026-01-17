@@ -35,6 +35,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, CategoryPicker } from '@/components/ui';
 import { TransactionTypeTabs, TransactionType, getTransactionTypeColor } from './TransactionTypeTabs';
 import { colors } from '@/constants/colors';
+import { TAB_BAR_HEIGHT } from '@/constants/spacing';
 import { Hesap } from '@/types/database';
 import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
@@ -456,7 +457,10 @@ export function CreditCardTransactionBar({
   // Kategori seçiliyse, seçim anındaki tipi kullan (sekme değişse bile görünür kalsın)
   const categoryType = selectedCategoryType || getCategoryType();
 
-  const cardBottom = keyboardHeight > 0 ? keyboardHeight : insets.bottom + 10;
+  // Position card above keyboard and tab bar
+  const cardBottom = keyboardHeight > 0
+    ? keyboardHeight
+    : insets.bottom + TAB_BAR_HEIGHT + 10;
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>

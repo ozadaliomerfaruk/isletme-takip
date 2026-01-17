@@ -12,8 +12,8 @@ export const colors = {
 
   // Metin renkleri
   text: '#1A1A1A',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
+  textSecondary: '#4B5563', // WCAG AA compliant (~7:1 contrast ratio)
+  textMuted: '#6B7280', // Improved from #9CA3AF
 
   // Durum renkleri
   success: '#10B981',

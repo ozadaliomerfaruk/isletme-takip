@@ -10,8 +10,6 @@ import {
   History,
   AlertTriangle,
   X,
-  ChevronLeft,
-  ChevronRight,
   Banknote,
   Building2,
   CreditCard,
@@ -23,7 +21,9 @@ import {
   Trash2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card, TabFilter, ExpandableCard, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryCard } from '@/components/ui';
+import { useToast } from '@/contexts/ToastContext';
+import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { CreditCardTransactionBar } from '@/components/transaction/CreditCardTransactionBar';
 import { DailyCashModal } from '@/components/transaction/DailyCashModal';
@@ -51,18 +51,12 @@ export default function HomePage() {
   const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff']);
   const { getDateRangeLabel, locale, formatDateNative } = useDateFormat();
 
-  const periodOptions = [
-    { label: t('reports:period.yearly'), value: 'yearly' },
-    { label: t('reports:period.monthly'), value: 'monthly' },
-    { label: t('reports:period.weekly'), value: 'weekly' },
-    { label: t('reports:period.daily'), value: 'daily' },
-    { label: t('reports:period.custom'), value: 'custom' },
-  ];
   const [period, setPeriod] = useState<PeriodType>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
   const [isCancelling, setIsCancelling] = useState(false);
   const [dailyCashModalVisible, setDailyCashModalVisible] = useState(false);
   const [expandedHesapId, setExpandedHesapId] = useState<string | null>(null);
+  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 
   // QuickTransactionBar state
   const [quickBarVisible, setQuickBarVisible] = useState(false);
@@ -88,6 +82,8 @@ export default function HomePage() {
 
   const { isletme, cancelAccountDeletion } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
+  const { showToast } = useToast();
+  const haptics = useHaptics();
 
   // Gerçek veriler - pasif hesapları da dahil et
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true);
@@ -234,9 +230,11 @@ export default function HomePage() {
     if (!actionSheetHesap) return;
     try {
       await archiveHesap.mutateAsync(actionSheetHesap.id);
-      Alert.alert(t('common:status.success'), t('common:archive.messages.archiveSuccess'));
+      haptics.success();
+      showToast(t('common:archive.messages.archiveSuccess'), 'success');
     } catch (error) {
-      Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+      haptics.error();
+      showToast(t('common:messages.operationFailed'), 'error');
     }
   };
 
@@ -253,9 +251,11 @@ export default function HomePage() {
           onPress: async () => {
             try {
               await deleteHesap.mutateAsync(actionSheetHesap.id);
-              Alert.alert(t('common:status.success'), t('common:messages.deletedSuccessfully'));
+              haptics.success();
+              showToast(t('common:messages.deletedSuccessfully'), 'success');
             } catch (error) {
-              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+              haptics.error();
+              showToast(t('common:messages.operationFailed'), 'error');
             }
           },
         },
@@ -321,157 +321,6 @@ export default function HomePage() {
           </View>
         )}
 
-        {/* Dönem Seçici */}
-        <View style={styles.periodFilter}>
-          <TabFilter
-            options={periodOptions}
-            value={period}
-            onChange={(v) => {
-              setPeriod(v as PeriodType);
-              setPeriodOffset(0); // Dönem değiştiğinde offset'i sıfırla
-            }}
-          />
-          {/* Dönem Navigasyonu - Özel hariç diğer dönemler için */}
-          {period !== 'custom' ? (
-            <View style={styles.periodNavigator}>
-              <TouchableOpacity
-                style={styles.periodNavButton}
-                onPress={() => setPeriodOffset(periodOffset - 1)}
-              >
-                <ChevronLeft size={20} color={colors.text} />
-              </TouchableOpacity>
-              <Text variant="body" style={styles.periodLabel}>
-                {periodLabel}
-              </Text>
-              <TouchableOpacity
-                style={styles.periodNavButton}
-                onPress={() => setPeriodOffset(periodOffset + 1)}
-              >
-                <ChevronRight size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-          ) : (
-            /* Özel tarih aralığı seçici */
-            <View style={styles.customDateContainer}>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowStartPicker(true)}
-              >
-                <Text variant="caption" color="secondary">{t('reports:period.startDate')}</Text>
-                <Text variant="body">{formatDateNative(customStartDate)}</Text>
-              </TouchableOpacity>
-              <Text variant="body" color="secondary">-</Text>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowEndPicker(true)}
-              >
-                <Text variant="caption" color="secondary">{t('reports:period.endDate')}</Text>
-                <Text variant="body">{formatDateNative(customEndDate)}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          {/* iOS için DateTimePicker Modal */}
-          {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (
-            <Modal
-              visible={showStartPicker || showEndPicker}
-              transparent
-              animationType="slide"
-            >
-              <Pressable
-                style={styles.datePickerModalOverlay}
-                onPress={() => {
-                  setShowStartPicker(false);
-                  setShowEndPicker(false);
-                }}
-              >
-                <Pressable style={styles.datePickerModalContent} onPress={(e) => e.stopPropagation()}>
-                  <View style={styles.datePickerModalHeader}>
-                    <Text variant="h3">
-                      {showStartPicker ? t('reports:period.startDateTitle') : t('reports:period.endDateTitle')}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setShowStartPicker(false);
-                        setShowEndPicker(false);
-                      }}
-                    >
-                      <X size={24} color={colors.text} />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.datePickerWrapper}>
-                    <DateTimePicker
-                      value={showStartPicker ? customStartDate : customEndDate}
-                      mode="date"
-                      display="inline"
-                      onChange={(event, date) => {
-                        if (date) {
-                          if (showStartPicker) {
-                            setCustomStartDate(date);
-                            if (date > customEndDate) {
-                              setCustomEndDate(date);
-                            }
-                          } else {
-                            setCustomEndDate(date);
-                          }
-                        }
-                      }}
-                      minimumDate={showEndPicker ? customStartDate : undefined}
-                      maximumDate={new Date()}
-                      locale={locale}
-                      themeVariant="light"
-                      accentColor={colors.primary}
-                      style={{ height: 350 }}
-                    />
-                  </View>
-                  <Button
-                    variant="primary"
-                    onPress={() => {
-                      setShowStartPicker(false);
-                      setShowEndPicker(false);
-                    }}
-                    style={{ marginTop: spacing.md }}
-                  >
-                    {t('common:buttons.ok')}
-                  </Button>
-                </Pressable>
-              </Pressable>
-            </Modal>
-          )}
-          {/* Android için DateTimePicker */}
-          {Platform.OS === 'android' && showStartPicker && (
-            <DateTimePicker
-              value={customStartDate}
-              mode="date"
-              display="default"
-              onChange={(event, date) => {
-                setShowStartPicker(false);
-                if (event.type === 'set' && date) {
-                  setCustomStartDate(date);
-                  if (date > customEndDate) {
-                    setCustomEndDate(date);
-                  }
-                }
-              }}
-              maximumDate={new Date()}
-            />
-          )}
-          {Platform.OS === 'android' && showEndPicker && (
-            <DateTimePicker
-              value={customEndDate}
-              mode="date"
-              display="default"
-              onChange={(event, date) => {
-                setShowEndPicker(false);
-                if (event.type === 'set' && date) {
-                  setCustomEndDate(date);
-                }
-              }}
-              minimumDate={customStartDate}
-              maximumDate={new Date()}
-            />
-          )}
-        </View>
-
         {/* Özet Carousel */}
         <SummaryCarousel
           assets={accounts}
@@ -486,7 +335,121 @@ export default function HomePage() {
           netCashFlow={netCashFlow}
           startDate={periodStartDate}
           endDate={periodEndDate}
+          onPageChange={setActiveCarouselIndex}
+          periodType={period}
+          onPeriodChange={(type) => {
+            setPeriod(type);
+            setPeriodOffset(0);
+          }}
+          onPeriodNavigate={(direction) => setPeriodOffset(periodOffset + direction)}
+          onCustomDatePress={() => setShowStartPicker(true)}
         />
+
+        {/* iOS için DateTimePicker Modal (Özel tarih seçimi için) */}
+        {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (
+          <Modal
+            visible={showStartPicker || showEndPicker}
+            transparent
+            animationType="slide"
+          >
+            <Pressable
+              style={styles.datePickerModalOverlay}
+              onPress={() => {
+                setShowStartPicker(false);
+                setShowEndPicker(false);
+              }}
+            >
+              <Pressable style={styles.datePickerModalContent} onPress={(e) => e.stopPropagation()}>
+                <View style={styles.datePickerModalHeader}>
+                  <Text variant="h3">
+                    {showStartPicker ? t('reports:period.startDateTitle') : t('reports:period.endDateTitle')}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setShowStartPicker(false);
+                      setShowEndPicker(false);
+                    }}
+                  >
+                    <X size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.datePickerWrapper}>
+                  <DateTimePicker
+                    value={showStartPicker ? customStartDate : customEndDate}
+                    mode="date"
+                    display="inline"
+                    onChange={(event, date) => {
+                      if (date) {
+                        if (showStartPicker) {
+                          setCustomStartDate(date);
+                          if (date > customEndDate) {
+                            setCustomEndDate(date);
+                          }
+                        } else {
+                          setCustomEndDate(date);
+                        }
+                      }
+                    }}
+                    minimumDate={showEndPicker ? customStartDate : undefined}
+                    maximumDate={new Date()}
+                    locale={locale}
+                    themeVariant="light"
+                    accentColor={colors.primary}
+                    style={{ height: 350 }}
+                  />
+                </View>
+                <Button
+                  variant="primary"
+                  onPress={() => {
+                    if (showStartPicker) {
+                      setShowStartPicker(false);
+                      setShowEndPicker(true);
+                    } else {
+                      setShowEndPicker(false);
+                    }
+                  }}
+                  style={{ marginTop: spacing.md }}
+                >
+                  {showStartPicker ? t('common:buttons.next') : t('common:buttons.ok')}
+                </Button>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        )}
+        {/* Android için DateTimePicker */}
+        {Platform.OS === 'android' && showStartPicker && (
+          <DateTimePicker
+            value={customStartDate}
+            mode="date"
+            display="default"
+            onChange={(event, date) => {
+              setShowStartPicker(false);
+              if (event.type === 'set' && date) {
+                setCustomStartDate(date);
+                if (date > customEndDate) {
+                  setCustomEndDate(date);
+                }
+                setShowEndPicker(true);
+              }
+            }}
+            maximumDate={new Date()}
+          />
+        )}
+        {Platform.OS === 'android' && showEndPicker && (
+          <DateTimePicker
+            value={customEndDate}
+            mode="date"
+            display="default"
+            onChange={(event, date) => {
+              setShowEndPicker(false);
+              if (event.type === 'set' && date) {
+                setCustomEndDate(date);
+              }
+            }}
+            minimumDate={customStartDate}
+            maximumDate={new Date()}
+          />
+        )}
 
         {/* Hesaplar Bölümü */}
         <View style={styles.section}>
@@ -505,7 +468,7 @@ export default function HomePage() {
 
           {/* Hesap Listesi - Gruplandırılmış */}
           {hesaplarLoading ? (
-            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
+            <SkeletonAccountList count={4} />
           ) : !hesaplar || hesaplar.length === 0 ? (
             <EmptyState
               icon={<Wallet size={48} color={colors.textMuted} />}
@@ -544,7 +507,10 @@ export default function HomePage() {
                     <View key={hesap.id} style={!hesap.is_active && styles.passiveItem}>
                       <ExpandableCard
                         expanded={expandedHesapId === hesap.id}
-                        onToggle={() => setExpandedHesapId(expandedHesapId === hesap.id ? null : hesap.id)}
+                        onToggle={() => {
+                          haptics.selection();
+                          setExpandedHesapId(expandedHesapId === hesap.id ? null : hesap.id);
+                        }}
                         header={
                           <View style={styles.hesapHeader}>
                             {getHesapIcon(hesap.type, 24)}
@@ -613,7 +579,10 @@ export default function HomePage() {
       {/* FAB - Günlük Ciro */}
       <TouchableOpacity
         style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-        onPress={() => setDailyCashModalVisible(true)}
+        onPress={() => {
+          haptics.light();
+          setDailyCashModalVisible(true);
+        }}
         activeOpacity={0.8}
       >
         <Banknote size={24} color={colors.surface} />
@@ -670,7 +639,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
   deletionWarning: {
     backgroundColor: colors.error,
@@ -690,40 +659,6 @@ const styles = StyleSheet.create({
   },
   cancelDeletionBtn: {
     alignSelf: 'flex-start',
-  },
-  periodFilter: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
-  periodNavigator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-    gap: spacing.md,
-  },
-  periodNavButton: {
-    padding: spacing.xs,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceLight,
-  },
-  periodLabel: {
-    minWidth: 120,
-    textAlign: 'center',
-  },
-  customDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.sm,
-    gap: spacing.md,
-  },
-  datePickerButton: {
-    backgroundColor: colors.surfaceLight,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.md,
-    alignItems: 'center',
   },
   datePickerModalOverlay: {
     flex: 1,
