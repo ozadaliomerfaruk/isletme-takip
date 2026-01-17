@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Bell, CalendarClock, TrendingUp, TrendingDown, X } from 'lucide-react-native';
+import { Bell, CalendarClock, TrendingUp, TrendingDown, X, FileCheck } from 'lucide-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
 import { colors } from '@/constants/colors';
@@ -19,20 +19,53 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useIleriTarihliIslemler } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { IleriTarihliIslemWithRelations } from '@/types/database';
+import { IleriTarihliIslemWithRelations, CekWithRelations } from '@/types/database';
+import { useBekleyenCekler } from '@/hooks/useCekler';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export function NotificationBell() {
   const router = useRouter();
-  const { t } = useTranslation(['transactions', 'common']);
+  const { t } = useTranslation(['transactions', 'common', 'checks']);
   const { monthsShort } = useDateFormat();
   const [isOpen, setIsOpen] = useState(false);
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const { data: ileriTarihliIslemler, isLoading } = useIleriTarihliIslemler();
-  const count = ileriTarihliIslemler?.length || 0;
+  const { data: ileriTarihliIslemler, isLoading: islemlerLoading } = useIleriTarihliIslemler();
+  const { data: bekleyenCekler, isLoading: ceklerLoading } = useBekleyenCekler();
+
+  const isLoading = islemlerLoading || ceklerLoading;
+
+  // Birleşik notification item tipi
+  type NotificationItem =
+    | { itemType: 'islem'; data: IleriTarihliIslemWithRelations }
+    | { itemType: 'cek'; data: CekWithRelations };
+
+  const combinedItems = useMemo(() => {
+    const items: NotificationItem[] = [];
+
+    // İleri tarihli işlemleri ekle
+    ileriTarihliIslemler?.forEach(islem => {
+      items.push({ itemType: 'islem', data: islem });
+    });
+
+    // Bekleyen çekleri ekle
+    bekleyenCekler?.forEach(cek => {
+      items.push({ itemType: 'cek', data: cek });
+    });
+
+    // Tarihe göre sırala (en yakın önce)
+    items.sort((a, b) => {
+      const dateA = a.itemType === 'islem' ? a.data.scheduled_date : a.data.vade_tarihi;
+      const dateB = b.itemType === 'islem' ? b.data.scheduled_date : b.data.vade_tarihi;
+      return dateA.localeCompare(dateB);
+    });
+
+    return items;
+  }, [ileriTarihliIslemler, bekleyenCekler]);
+
+  const count = combinedItems.length;
 
   useEffect(() => {
     if (isOpen) {
@@ -64,16 +97,22 @@ export function NotificationBell() {
     }
   }, [isOpen]);
 
-  const handleItemPress = (item: IleriTarihliIslemWithRelations) => {
+  const handleItemPress = (item: NotificationItem) => {
     setIsOpen(false);
 
-    // İlgili detay sayfasına yönlendir
-    if (item.hesap_id) {
-      router.push(`/hesaplar/${item.hesap_id}`);
-    } else if (item.cari_id) {
-      router.push(`/cariler/${item.cari_id}`);
-    } else if (item.personel_id) {
-      router.push(`/personel/${item.personel_id}`);
+    if (item.itemType === 'islem') {
+      const islem = item.data;
+      // İlgili detay sayfasına yönlendir
+      if (islem.hesap_id) {
+        router.push(`/hesaplar/${islem.hesap_id}`);
+      } else if (islem.cari_id) {
+        router.push(`/cariler/${islem.cari_id}`);
+      } else if (islem.personel_id) {
+        router.push(`/personel/${islem.personel_id}`);
+      }
+    } else {
+      // Çek için hesap sayfasına yönlendir
+      router.push(`/hesaplar/${item.data.hesap_id}`);
     }
   };
 
@@ -162,14 +201,62 @@ export function NotificationBell() {
                   </Text>
                 </View>
               ) : (
-                ileriTarihliIslemler?.map((item) => {
-                  const overdue = isOverdue(item.scheduled_date);
-                  const today = isToday(item.scheduled_date);
-                  const isGelir = item.type === 'gelir';
+                combinedItems.map((item) => {
+                  const isCek = item.itemType === 'cek';
+                  const date = isCek ? item.data.vade_tarihi : item.data.scheduled_date;
+                  const overdue = isOverdue(date);
+                  const today = isToday(date);
+
+                  if (isCek) {
+                    const cek = item.data;
+                    return (
+                      <TouchableOpacity
+                        key={`cek-${cek.id}`}
+                        style={[
+                          styles.dropdownItem,
+                          overdue && styles.dropdownItemOverdue,
+                          today && styles.dropdownItemToday,
+                        ]}
+                        onPress={() => handleItemPress(item)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.itemLeft}>
+                          <View style={[styles.itemIcon, { backgroundColor: colors.info + '20' }]}>
+                            <FileCheck size={16} color={colors.info} />
+                          </View>
+                          <View style={styles.itemContent}>
+                            <Text variant="body" numberOfLines={1}>
+                              {t('checks:labels.check')} - {cek.cek_no}
+                            </Text>
+                            <Text variant="caption" color="secondary">
+                              {cek.cari?.name || cek.hesap?.name}
+                            </Text>
+                          </View>
+                        </View>
+                        <View style={styles.itemRight}>
+                          <Text variant="body" style={{ color: colors.error }}>
+                            -{formatCurrency(cek.tutar)}
+                          </Text>
+                          <Text
+                            variant="caption"
+                            style={{
+                              color: overdue ? colors.error : today ? colors.warning : colors.textMuted,
+                            }}
+                          >
+                            {overdue ? t('transactions:scheduled.overdue') : today ? t('transactions:scheduled.dueToday') : formatDate(date)}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  }
+
+                  // İleri tarihli işlem render
+                  const islem = item.data;
+                  const isGelir = islem.type === 'gelir';
 
                   return (
                     <TouchableOpacity
-                      key={item.id}
+                      key={`islem-${islem.id}`}
                       style={[
                         styles.dropdownItem,
                         overdue && styles.dropdownItemOverdue,
@@ -193,11 +280,11 @@ export function NotificationBell() {
                         </View>
                         <View style={styles.itemContent}>
                           <Text variant="body" numberOfLines={1}>
-                            {item.description || t(`transactions:types.${item.type}`)}
+                            {islem.description || t(`transactions:types.${islem.type}`)}
                           </Text>
                           <Text variant="caption" color="secondary">
-                            {item.hesap?.name || item.cari?.name ||
-                             (item.personel && `${item.personel.first_name} ${item.personel.last_name}`)}
+                            {islem.hesap?.name || islem.cari?.name ||
+                             (islem.personel && `${islem.personel.first_name} ${islem.personel.last_name}`)}
                           </Text>
                         </View>
                       </View>
@@ -206,7 +293,7 @@ export function NotificationBell() {
                           variant="body"
                           style={{ color: isGelir ? colors.success : colors.error }}
                         >
-                          {isGelir ? '+' : '-'}{formatCurrency(item.amount)}
+                          {isGelir ? '+' : '-'}{formatCurrency(islem.amount)}
                         </Text>
                         <Text
                           variant="caption"
@@ -214,7 +301,7 @@ export function NotificationBell() {
                             color: overdue ? colors.error : today ? colors.warning : colors.textMuted,
                           }}
                         >
-                          {overdue ? t('transactions:scheduled.overdue') : today ? t('transactions:scheduled.dueToday') : formatDate(item.scheduled_date)}
+                          {overdue ? t('transactions:scheduled.overdue') : today ? t('transactions:scheduled.dueToday') : formatDate(date)}
                         </Text>
                       </View>
                     </TouchableOpacity>

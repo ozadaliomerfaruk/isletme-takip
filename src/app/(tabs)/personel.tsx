@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Animated, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   UserCircle,
@@ -32,6 +32,7 @@ import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 
 export default function PersonelPage() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedPersonelId, setExpandedPersonelId] = useState<string | null>(null);
@@ -336,7 +337,7 @@ export default function PersonelPage() {
       </ScrollView>
 
       {/* FAB Menu */}
-      <View style={styles.fabContainer}>
+      <View style={[styles.fabContainer, { bottom: spacing.lg + insets.bottom }]}>
         {fabMenuVisible && (
           <Animated.View
             style={[
@@ -510,7 +511,6 @@ const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: spacing.lg,
     alignItems: 'flex-end',
   },
   fab: {

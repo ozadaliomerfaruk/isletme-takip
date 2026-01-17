@@ -11,6 +11,7 @@ import {
 } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { formatDateForDB, formatDateTimeWithTzForDB } from '@/lib/date';
+import { formatCurrency } from '@/lib/currency';
 import {
   scheduleTransactionReminder,
   cancelTransactionReminder,
@@ -318,7 +319,7 @@ export function useCreateCek() {
           const notificationId = await scheduleTransactionReminder(
             cek.id,
             'Çek Vadesi Yaklaşıyor',
-            `${cek.cek_no} numaralı çekin vadesi ${daysBefore === 0 ? 'bugün' : daysBefore === 1 ? 'yarın' : `${daysBefore} gün sonra`}. Tutar: ₺${Number(cek.tutar).toLocaleString('tr-TR')}`,
+            `${cek.cek_no} numaralı çekin vadesi ${daysBefore === 0 ? 'bugün' : daysBefore === 1 ? 'yarın' : `${daysBefore} gün sonra`}. Tutar: ${formatCurrency(Number(cek.tutar))}`,
             reminderDate,
             {
               type: 'cek',

@@ -9,7 +9,8 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { Text } from './Text';
 import { formatCurrencyInput } from '@/lib/currency';
-import { CURRENCY_SYMBOL } from '@/constants';
+import { getCurrencySymbol } from '@/constants/currencies';
+import type { Currency } from '@/types/database';
 
 interface CurrencyInputProps {
   label?: string;
@@ -18,6 +19,8 @@ interface CurrencyInputProps {
   error?: string;
   placeholder?: string;
   style?: StyleProp<TextStyle>;
+  /** Para birimi - belirtilmezse TRY kullanılır */
+  currency?: Currency;
 }
 
 export function CurrencyInput({
@@ -27,7 +30,9 @@ export function CurrencyInput({
   error,
   placeholder = '0,00',
   style,
+  currency,
 }: CurrencyInputProps) {
+  const currencySymbol = getCurrencySymbol(currency);
   // Doğrudan value'dan hesapla - gereksiz useState kaldırıldı
   const displayValue = formatCurrencyInput(value) || '';
 
@@ -45,7 +50,7 @@ export function CurrencyInput({
         </Text>
       )}
       <View style={[styles.inputContainer, error && styles.inputError]}>
-        <Text style={styles.currencySymbol}>{CURRENCY_SYMBOL}</Text>
+        <Text style={styles.currencySymbol}>{currencySymbol}</Text>
         <TextInput
           style={[styles.input, style]}
           value={displayValue}

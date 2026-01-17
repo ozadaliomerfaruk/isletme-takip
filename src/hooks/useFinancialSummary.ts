@@ -3,6 +3,7 @@ import { useCariler } from './useCariler';
 import { usePersonelList } from './usePersonel';
 import { useHesaplar } from './useHesaplar';
 import { useSettings } from './useSettings';
+import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import { toNumber } from '@/lib/currency';
 
 export interface FinancialBreakdown {
@@ -19,7 +20,7 @@ export interface ReceivablesBreakdown {
 }
 
 export interface FinancialSummary {
-  // Hesaplar (pozitif bakiyeli hesaplar, birikim hesapları hariç)
+  // Varlıklar (pozitif bakiyeli tüm hesaplar, birikim dahil)
   accounts: number;
 
   // Borçlar (biz borçluyuz)
@@ -41,8 +42,8 @@ export interface FinancialSummary {
  * Birleşik finansal özet hook'u
  * Tüm borç ve alacakları tek bir yerden yönetir
  *
- * Hesaplar (Accounts):
- * - Pozitif bakiyeli hesaplar (birikim hesapları HARİÇ)
+ * Varlıklar (Assets/Accounts):
+ * - Pozitif bakiyeli tüm hesaplar (birikim DAHİL)
  *
  * Borç kaynakları (Payables):
  * - Cariler (müşteri/tedarikçiye borç - negatif bakiye)
@@ -53,7 +54,7 @@ export interface FinancialSummary {
  * - Cariler (müşteri/tedarikçiden alacak - pozitif bakiye)
  * - Personel (personelden alacak/avans - pozitif bakiye)
  *
- * Genel Durum = (Hesaplar + Alacaklar) - Borçlar
+ * Genel Durum = (Varlıklar + Alacaklar) - Borçlar
  */
 export function useFinancialSummary(): FinancialSummary {
   // Pasif öğeleri HARIÇ tut - pasif moda alınan hesaplar hiçbir hesaplamaya dahil edilmemeli
@@ -65,31 +66,38 @@ export function useFinancialSummary(): FinancialSummary {
   const { data: cariler, isLoading: carilerLoading } = useCariler(undefined, false, false);
   const { data: personelList, isLoading: personelLoading } = usePersonelList(false, false);
   const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
 
   const summary = useMemo(() => {
-    // Birikim hesaplarını filtrele - hesaplamalara dahil edilmez
-    const filteredHesaplar = hesaplar?.filter(h => h.type !== 'birikim') || [];
-
     // Hesap hesaplaması (hesaplar ve borçlar)
-    // Sadece kullanıcının seçtiği ana para birimiyle eşleşen hesaplar toplanır
-    // Farklı para birimleri (USD, EUR, XAU vs.) toplanamaz
-    const hesapSummary = filteredHesaplar.reduce(
+    // Tüm para birimlerini ana para birimine çevirip topla
+    // Birikim hesapları sadece pozitif bakiyelerde varlık olarak sayılır
+    const hesapSummary = (hesaplar || []).reduce(
       (acc, hesap) => {
         // Hesabın para birimi (yoksa ana para birimi kabul et)
         const accountCurrency = hesap.currency || baseCurrency;
+        const balance = toNumber(hesap.balance);
 
-        // Sadece ana para birimiyle eşleşen hesapları dahil et
-        if (accountCurrency !== baseCurrency) {
-          return acc; // Farklı para birimlerini atla
+        // Para birimini ana para birimine çevir
+        let convertedBalance: number;
+        if (accountCurrency === baseCurrency) {
+          convertedBalance = balance;
+        } else {
+          // Döviz kuru yoksa bu hesabı atla
+          const converted = convertCurrency(balance, accountCurrency, baseCurrency, exchangeRates);
+          if (converted === null) {
+            return acc;
+          }
+          convertedBalance = converted;
         }
 
-        const balance = toNumber(hesap.balance);
-        if (balance > 0) {
-          // Pozitif bakiye = hesap varlığı
-          acc.accounts += balance;
-        } else if (balance < 0) {
-          // Negatif bakiye = borç (kredi kartı vs.)
-          acc.payables += Math.abs(balance);
+        if (convertedBalance > 0) {
+          // Pozitif bakiye = hesap varlığı (birikim dahil)
+          acc.accounts += convertedBalance;
+        } else if (convertedBalance < 0 && hesap.type !== 'birikim') {
+          // Negatif bakiye = borç (kredi kartı vs.) - birikim hariç
+          acc.payables += Math.abs(convertedBalance);
         }
         return acc;
       },
@@ -128,7 +136,7 @@ export function useFinancialSummary(): FinancialSummary {
       { receivables: 0, payables: 0 }
     ) ?? { receivables: 0, payables: 0 };
 
-    // Hesaplar (pozitif bakiyeli, birikim hariç)
+    // Varlıklar (pozitif bakiyeli tüm hesaplar, birikim dahil)
     const accounts = hesapSummary.accounts;
 
     // Toplam borçlar
@@ -159,7 +167,7 @@ export function useFinancialSummary(): FinancialSummary {
       netPosition,
       generalStatus,
     };
-  }, [hesaplar, cariler, personelList, baseCurrency]);
+  }, [hesaplar, cariler, personelList, baseCurrency, exchangeRates]);
 
   return {
     ...summary,

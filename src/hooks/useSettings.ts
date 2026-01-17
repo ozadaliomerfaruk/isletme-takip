@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Localization from 'expo-localization';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -43,9 +44,72 @@ export const DATE_FORMAT_OPTIONS: DateFormatConfig[] = [
   { code: 'MDY', example: '12/31/2024', separator: '/' },
 ];
 
-// Default values
-const DEFAULT_CURRENCY: CurrencyCode = 'TRY';
-const DEFAULT_DATE_FORMAT: DateFormatType = 'DMY';
+// Ülke koduna göre para birimi eşlemesi
+const COUNTRY_CURRENCY_MAP: Record<string, CurrencyCode> = {
+  TR: 'TRY',
+  US: 'USD',
+  // Eurozone ülkeleri
+  DE: 'EUR',
+  FR: 'EUR',
+  IT: 'EUR',
+  ES: 'EUR',
+  NL: 'EUR',
+  BE: 'EUR',
+  AT: 'EUR',
+  PT: 'EUR',
+  IE: 'EUR',
+  FI: 'EUR',
+  GR: 'EUR',
+  // GBP desteklenmediği için EUR
+  GB: 'EUR',
+};
+
+/**
+ * Telefon locale'ına göre varsayılan para birimini belirle
+ */
+function getDefaultCurrencyFromLocale(): CurrencyCode {
+  try {
+    const locales = Localization.getLocales();
+    const region = locales[0]?.regionCode; // 'TR', 'US', 'DE', etc.
+
+    // Önce ülke koduna bak
+    if (region && COUNTRY_CURRENCY_MAP[region]) {
+      return COUNTRY_CURRENCY_MAP[region];
+    }
+
+    // Dil koduna göre fallback
+    const lang = locales[0]?.languageCode;
+    if (lang === 'tr') return 'TRY';
+    if (lang === 'de' || lang === 'fr' || lang === 'es' || lang === 'it') return 'EUR';
+
+    // Uluslararası varsayılan
+    return 'USD';
+  } catch {
+    return 'TRY';
+  }
+}
+
+/**
+ * Telefon locale'ına göre varsayılan tarih formatını belirle
+ */
+function getDefaultDateFormatFromLocale(): DateFormatType {
+  try {
+    const locales = Localization.getLocales();
+    const region = locales[0]?.regionCode;
+
+    // ABD ve Kanada MDY kullanır
+    if (region === 'US' || region === 'CA') return 'MDY';
+
+    // Diğer tüm ülkeler DMY kullanır
+    return 'DMY';
+  } catch {
+    return 'DMY';
+  }
+}
+
+// Default values (telefon locale'ına göre)
+const DEFAULT_CURRENCY: CurrencyCode = getDefaultCurrencyFromLocale();
+const DEFAULT_DATE_FORMAT: DateFormatType = getDefaultDateFormatFromLocale();
 
 // Global state to share between hook instances
 let globalCurrency: CurrencyCode = DEFAULT_CURRENCY;

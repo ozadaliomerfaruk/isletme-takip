@@ -9,9 +9,10 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from './Text';
-import { CURRENCY_SYMBOL } from '@/constants';
+import { getCurrencySymbol } from '@/constants/currencies';
 import { colors } from '@/constants/colors';
 import { formatCurrencyInput } from '@/lib/currency';
+import type { Currency } from '@/types/database';
 
 export interface AmountInputProps {
   value: string;
@@ -21,6 +22,8 @@ export interface AmountInputProps {
   onSubmit?: () => void;
   editable?: boolean;
   onPress?: () => void;
+  /** Para birimi - belirtilmezse TRY kullanılır */
+  currency?: Currency;
 }
 
 export function AmountInput({
@@ -31,7 +34,9 @@ export function AmountInput({
   onSubmit,
   editable = true,
   onPress,
+  currency,
 }: AmountInputProps) {
+  const currencySymbol = getCurrencySymbol(currency);
   const inputRef = useRef<TextInput>(null);
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [isFocused, setIsFocused] = useState(false);
@@ -116,7 +121,7 @@ export function AmountInput({
               isLarge ? styles.symbolLarge : styles.symbolMedium,
             ]}
           >
-            {CURRENCY_SYMBOL}
+            {currencySymbol}
           </Text>
           <Text
             style={[
@@ -145,7 +150,7 @@ export function AmountInput({
             isLarge ? styles.symbolLarge : styles.symbolMedium,
           ]}
         >
-          {CURRENCY_SYMBOL}
+          {currencySymbol}
         </Text>
         <TextInput
           ref={inputRef}

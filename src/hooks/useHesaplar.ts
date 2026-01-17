@@ -130,6 +130,17 @@ export function useDeleteHesap() {
         throw new Error('Hesap bulunamadı veya erişim yetkiniz yok');
       }
 
+      // 0. Bu hesapla ilişkili ileri tarihli işlemleri sil
+      const { error: ileriIslemError } = await supabase
+        .from('ileri_tarihli_islemler')
+        .delete()
+        .eq('isletme_id', isletme.id)
+        .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
+
+      if (ileriIslemError) {
+        throw new Error(`İleri tarihli işlemler silinemedi: ${ileriIslemError.message}`);
+      }
+
       // 1. Bu hesapla ilişkili tüm işlemleri bul
       const { data: relatedIslemler } = await supabase
         .from('islemler')

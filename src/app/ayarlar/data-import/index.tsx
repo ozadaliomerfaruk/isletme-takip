@@ -138,13 +138,32 @@ export default function VeriIceAktarPage() {
       const s = t('dataImport.template.sampleData', { returnObjects: true }) as Record<string, string>;
 
       const templateData = [
+        // Header row
         [h.date, h.type, h.description, h.category, h.account, h.staff, h.supplier, h.customer, h.targetAccount, h.amount, h.currency],
-        ['2024-01-15 10:30', s.income, s.salesIncome, s.sales, s.bankAccount, '', s.sampleSupplier1, '', '', '5000', 'TRY'],
-        ['2024-01-15 14:00', s.expense, s.officeSupplies, s.officeExpenses, s.cash, s.sampleStaff1, '', '', '', '-250', 'TRY'],
-        ['2024-01-16 09:00', s.payment, s.supplierPayment, '', s.bankAccount, '', s.sampleSupplier2, '', '', '-10000', 'TRY'],
-        ['2024-01-16 11:30', s.collection, s.customerCollection, '', s.bankAccount, '', '', s.sampleCustomer, '', '15000', 'TRY'],
-        ['2024-01-17 08:00', s.transfer, s.betweenAccounts, '', s.bankAccount, '', '', '', s.cash, '-2000', 'TRY'],
-        ['2024-01-17 16:00', s.staffExpense, s.salaryPayment, s.salary, s.bankAccount, s.sampleStaff2, '', '', '', '-8500', 'TRY'],
+        // 1. GELİR - Genel gelir (cari bağımsız)
+        ['2024-01-15 10:30', s.income, s.cashSale, s.sales, s.cash, '', '', '', '', '1500', 'TRY'],
+        // 2. GİDER - Genel gider (cari bağımsız)
+        ['2024-01-15 14:00', s.expense, s.officeSupplies, s.officeExpenses, s.bankAccount, '', '', '', '', '-250', 'TRY'],
+        // 3. CARİ ALIŞ - Tedarikçiden alış
+        ['2024-01-16 09:00', s.cariPurchase, s.goodsPurchase, s.purchase, '', '', s.sampleSupplier, '', '', '-10000', 'TRY'],
+        // 4. CARİ SATIŞ - Müşteriye satış
+        ['2024-01-16 11:30', s.cariSale, s.goodsSale, s.sales, '', '', '', s.sampleCustomer, '', '15000', 'TRY'],
+        // 5. ÖDEME - Tedarikçiye ödeme
+        ['2024-01-17 08:00', s.payment, s.supplierPayment, '', s.bankAccount, '', s.sampleSupplier, '', '', '-5000', 'TRY'],
+        // 6. TAHSİLAT - Müşteriden tahsilat
+        ['2024-01-17 10:00', s.collection, s.customerCollection, '', s.bankAccount, '', '', s.sampleCustomer, '', '8000', 'TRY'],
+        // 7. CARİ ALIŞ (iade) - Tedarikçiye iade (pozitif tutar = para alıyoruz)
+        ['2024-01-18 09:00', s.cariPurchase, s.purchaseReturn, s.returnCategory, '', '', s.sampleSupplier, '', '', '500', 'TRY'],
+        // 8. CARİ SATIŞ (iade) - Müşteriden iade aldık (negatif tutar = para veriyoruz)
+        ['2024-01-18 11:00', s.cariSale, s.saleReturn, s.returnCategory, '', '', '', s.sampleCustomer, '', '-1000', 'TRY'],
+        // 9. TRANSFER - Hesaplar arası aktarım
+        ['2024-01-19 08:00', s.transfer, s.betweenAccounts, '', s.cash, '', '', '', s.bankAccount, '-2000', 'TRY'],
+        // 10. PERSONEL GİDERİ - Maaş
+        ['2024-01-19 16:00', s.staffExpense, s.salaryPayment, s.salary, s.bankAccount, s.sampleStaff1, '', '', '', '-8500', 'TRY'],
+        // 11. PERSONEL ÖDEMESİ - Avans ödemesi
+        ['2024-01-20 10:00', s.staffPayment, s.advancePayment, '', s.cash, s.sampleStaff2, '', '', '', '-500', 'TRY'],
+        // 12. PERSONEL TAHSİLATI - Avans iadesi
+        ['2024-01-20 14:00', s.staffCollection, s.advanceReturn, '', s.cash, s.sampleStaff2, '', '', '', '300', 'TRY'],
       ];
 
       // Excel dosyası oluştur
@@ -1086,10 +1105,14 @@ export default function VeriIceAktarPage() {
               <View style={styles.typesList}>
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.gelir')}</Text>
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.gider')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.cariAlis')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.cariSatis')}</Text>
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.odeme')}</Text>
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.tahsilat')}</Text>
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.transfer')}</Text>
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelGider')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelOdeme')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelTahsilat')}</Text>
               </View>
             </Card>
 

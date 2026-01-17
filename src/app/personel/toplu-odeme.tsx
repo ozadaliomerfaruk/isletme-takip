@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
   Modal,
   Dimensions,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
@@ -47,8 +48,11 @@ export default function TopluOdemePage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [hesapId, setHesapId] = useState<string | null>(null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
+  const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [categorySkipped, setCategorySkipped] = useState(false);
   const [selectedPersonel, setSelectedPersonel] = useState<Set<string>>(new Set());
   const [amounts, setAmounts] = useState<Record<string, string>>({});
+  const [description, setDescription] = useState('');
   const [showHesapPicker, setShowHesapPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -162,6 +166,12 @@ export default function TopluOdemePage() {
       return;
     }
 
+    // Kategori seçilmediyse ve henüz atlanmadıysa, picker'ı aç
+    if (!kategoriId && !categorySkipped) {
+      setCategoryPickerOpen(true);
+      return;
+    }
+
     if (selectedCount === 0) {
       Alert.alert(t('common:status.error'), t('transactions:dailyCash.noEntries'));
       return;
@@ -184,7 +194,7 @@ export default function TopluOdemePage() {
               hesap_id: hesapId,
               kategori_id: kategoriId,
               date: formatDateTimeForDB(date),
-              description: t('staff:bulkPayment.description'),
+              description: description.trim() || t('staff:bulkPayment.description'),
             })
           );
         }
@@ -265,6 +275,29 @@ export default function TopluOdemePage() {
                 onChange={setKategoriId}
                 type="gider"
                 label={t('transactions:form.category')}
+                open={categoryPickerOpen}
+                onOpenChange={(open) => {
+                  setCategoryPickerOpen(open);
+                  if (!open && !kategoriId) {
+                    setCategorySkipped(true);
+                  }
+                }}
+              />
+            </View>
+
+            {/* Açıklama */}
+            <View style={styles.section}>
+              <Text variant="label" color="secondary" style={styles.label}>
+                {t('transactions:form.description')}
+              </Text>
+              <TextInput
+                style={styles.descriptionInput}
+                value={description}
+                onChangeText={setDescription}
+                placeholder={t('transactions:form.descriptionPlaceholder')}
+                placeholderTextColor={colors.textMuted}
+                multiline
+                numberOfLines={2}
               />
             </View>
 
@@ -666,6 +699,18 @@ const styles = StyleSheet.create({
   },
   dateText: {
     flex: 1,
+  },
+  descriptionInput: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    fontSize: 16,
+    color: colors.text,
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
   // Date Picker Modal Styles
   pickerBackdrop: {

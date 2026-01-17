@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, Pressable, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -41,10 +42,12 @@ import { useMonthSummary, PeriodType } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function HomePage() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff']);
   const { getDateRangeLabel, locale, formatDateNative } = useDateFormat();
 
@@ -88,6 +91,10 @@ export default function HomePage() {
 
   // Gerçek veriler - pasif hesapları da dahil et
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true);
+
+  // Döviz kurları (TRY karşılığı göstermek için)
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
 
   // Hesapları tipe göre grupla
   const groupedHesaplar = useMemo(() => {
@@ -496,17 +503,6 @@ export default function HomePage() {
             </TouchableOpacity>
           </View>
 
-          {/* Günlük Ciro Gir Butonu */}
-          <Button
-            variant="primary"
-            size="lg"
-            icon={<Plus size={20} color={colors.surface} />}
-            onPress={() => setDailyCashModalVisible(true)}
-            style={styles.dailyCashButton}
-          >
-            {t('transactions:dailyCash.enterButton')}
-          </Button>
-
           {/* Hesap Listesi - Gruplandırılmış */}
           {hesaplarLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: spacing.xl }} />
@@ -565,6 +561,11 @@ export default function HomePage() {
                               >
                                 {formatCurrency(toNumber(hesap.balance), hesap.currency)}
                               </Text>
+                              {hesap.currency !== baseCurrency && exchangeRates && (
+                                <Text variant="caption" color="secondary">
+                                  ~{formatCurrency(convertCurrency(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                                </Text>
+                              )}
                             </View>
                             <TouchableOpacity
                               style={styles.moreButton}
@@ -608,6 +609,15 @@ export default function HomePage() {
           )}
         </View>
       </ScrollView>
+
+      {/* FAB - Günlük Ciro */}
+      <TouchableOpacity
+        style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+        onPress={() => setDailyCashModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Banknote size={24} color={colors.surface} />
+      </TouchableOpacity>
 
       {/* DailyCashModal */}
       <DailyCashModal
@@ -754,9 +764,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  dailyCashButton: {
-    marginBottom: spacing.lg,
-  },
   hesapGroup: {
     marginBottom: spacing.lg,
   },
@@ -801,5 +808,20 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: spacing.xs,
     marginLeft: spacing.sm,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

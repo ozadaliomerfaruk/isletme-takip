@@ -17,6 +17,7 @@
     "dueToday": "Bugün"
   },
   "labels": {
+    "check": "Çek",
     "checkNo": "Çek No",
     "checkNoPlaceholder": "ABC 123456",
     "amount": "Tutar",

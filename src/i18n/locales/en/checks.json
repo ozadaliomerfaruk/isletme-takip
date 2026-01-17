@@ -17,6 +17,7 @@
     "dueToday": "Due Today"
   },
   "labels": {
+    "check": "Check",
     "checkNo": "Check No",
     "checkNoPlaceholder": "ABC 123456",
     "amount": "Amount",

@@ -30,6 +30,8 @@ import { useUnarchiveHesap } from '@/hooks/useArchive';
 import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByHesap } from '@/hooks/useCekler';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useSettings } from '@/hooks/useSettings';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { useTranslation } from 'react-i18next';
 
@@ -49,6 +51,11 @@ export default function HesapHareketleriPage() {
   const deleteHesap = useDeleteHesap();
   const updateHesap = useUpdateHesap();
   const unarchiveHesap = useUnarchiveHesap();
+
+  // Döviz kurları ve kullanıcı para birimi
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
+  const { currency: baseCurrency } = useSettings();
 
   const handleUnarchive = async () => {
     try {
@@ -481,6 +488,15 @@ export default function HesapHareketleriPage() {
                     <Pencil size={16} color={colors.textMuted} />
                   </TouchableOpacity>
                 </View>
+                {/* Farklı para birimindeyse base currency karşılığını göster */}
+                {hesap.currency !== baseCurrency && exchangeRates && (
+                  <Text variant="body" color="secondary">
+                    ~{formatCurrency(
+                      convertCurrency(Math.abs(Number(hesap.balance)), hesap.currency, baseCurrency, exchangeRates) ?? 0,
+                      baseCurrency
+                    )}
+                  </Text>
+                )}
               </View>
             </View>
 

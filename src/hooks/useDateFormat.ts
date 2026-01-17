@@ -127,19 +127,19 @@ export function useDateFormat() {
   /**
    * Smart date format:
    * - Same year: "19 Dec 14:30" (no year, with time)
-   * - Different year: "19 Dec 2025" (with year, no time)
+   * - Different year: "19 Dec 2025 14:30" (with year and time)
    */
   const formatDateSmart = useCallback(
     (date: string | Date): string => {
       const d = typeof date === 'string' ? parseDateFromDB(date) : date;
       const day = d.getDate();
       const month = monthsShort[d.getMonth()];
+      const time = formatTime(d);
 
       if (isSameYear(d)) {
-        const time = formatTime(d);
         return `${day} ${month} ${time}`;
       } else {
-        return `${day} ${month} ${d.getFullYear()}`;
+        return `${day} ${month} ${d.getFullYear()} ${time}`;
       }
     },
     [monthsShort]

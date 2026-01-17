@@ -5,10 +5,6 @@ export * from './categoryIcons';
 export * from './currencies';
 
 export const APP_NAME = 'Business Tracker'; // İşletme Takip in TR
-/** @deprecated getCurrencySymbol() veya formatCurrency() kullanın */
-export const CURRENCY = 'TRY';
-/** @deprecated getCurrencySymbol() veya formatCurrency() kullanın */
-export const CURRENCY_SYMBOL = '₺';
 
 /**
  * @deprecated Çeviriler için t('accounts:typeLabels.${type}') kullanın

@@ -33,6 +33,7 @@ import { Text, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
+import { getCurrencySymbol } from '@/constants/currencies';
 import { formatDateForDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -429,7 +430,7 @@ export function CekKesSheet({
             <View style={styles.halfColumn}>
               <Text variant="caption" color="secondary">{t('checks:labels.amount')}</Text>
               <View style={styles.amountContainer}>
-                <Text style={styles.currencySymbol}>₺</Text>
+                <Text style={styles.currencySymbol}>{getCurrencySymbol(selectedHesap?.currency)}</Text>
                 <TextInput
                   style={styles.amountInput}
                   value={amount}

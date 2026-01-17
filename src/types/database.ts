@@ -607,3 +607,13 @@ export interface PendingIslemUpdate {
   corrections?: PendingIslemCorrections;
   status?: PendingIslemStatus;
 }
+
+// Döviz Kurları
+export interface ExchangeRates {
+  id: string;
+  base_currency: string;
+  rates: Record<string, number>; // {"USD": 32.5, "EUR": 35.2, ...} - 1 birim = X TRY
+  updated_at: string;
+  source: string;
+  created_at: string;
+}
