@@ -47,7 +47,9 @@
       "Bash(python:*)",
       "Bash(powershell -Command \"pip install pandas openpyxl -q\")",
       "Bash(npx eslint:*)",
-      "Bash(npx kill-port 8081)"
+      "Bash(npx kill-port 8081)",
+      "WebSearch",
+      "WebFetch(domain:mobbin.com)"
     ]
   }
 }
