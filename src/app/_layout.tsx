@@ -11,6 +11,7 @@ import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ToastContainer } from '@/components/ui';
+import { ChangePasswordModal } from '@/components/auth';
 import { colors } from '@/constants/colors';
 import {
   registerForPushNotificationsAsync,
@@ -25,7 +26,7 @@ import { loadSavedLanguage } from '@/i18n';
 const ONBOARDING_KEY = '@defter_onboarding_completed';
 
 function RootLayoutNav() {
-  const { user, initialized } = useAuthContext();
+  const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
   const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings']);
@@ -576,6 +577,12 @@ function RootLayoutNav() {
           }}
         />
       </Stack>
+
+      {/* Şifre değiştirme modal'ı - şifremi unuttum akışı sonrası gösterilir */}
+      <ChangePasswordModal
+        visible={!!user && needsPasswordReset}
+        onSuccess={clearPasswordReset}
+      />
     </>
   );
 }

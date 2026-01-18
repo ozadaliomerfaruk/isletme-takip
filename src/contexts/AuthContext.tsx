@@ -10,6 +10,7 @@ interface AuthContextType {
   loading: boolean;
   initialized: boolean;
   isletmeLoading: boolean;
+  needsPasswordReset: boolean;
   signIn: (email: string, password: string) => Promise<{ user: User; session: Session }>;
   signUp: (email: string, password: string, isletmeName: string) => Promise<{ user: User; isletme: Isletme }>;
   signOut: () => Promise<void>;
@@ -19,6 +20,7 @@ interface AuthContextType {
   signInWithApple: () => Promise<any>;
   signInWithGoogle: (idToken: string) => Promise<any>;
   isAppleSignInAvailable: boolean;
+  clearPasswordReset: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

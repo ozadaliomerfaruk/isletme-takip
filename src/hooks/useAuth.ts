@@ -17,6 +17,7 @@ interface AuthState {
   loading: boolean;
   initialized: boolean;
   isletmeLoading: boolean;
+  needsPasswordReset: boolean;
 }
 
 export function useAuth() {
@@ -27,6 +28,7 @@ export function useAuth() {
     loading: true,
     initialized: false,
     isletmeLoading: true,
+    needsPasswordReset: false,
   });
 
   // AppState için ref - arka plan/ön plan takibi
@@ -60,6 +62,7 @@ export function useAuth() {
             loading: false,
             initialized: true,
             isletmeLoading: false,
+            needsPasswordReset: false,
           });
         }
         return null;
@@ -239,6 +242,7 @@ export function useAuth() {
             loading: false,
             initialized: true,
             isletmeLoading: false,
+            needsPasswordReset: false,
           });
           return;
         }
@@ -252,6 +256,7 @@ export function useAuth() {
             loading: false,
             initialized: true,
             isletmeLoading: true,
+            needsPasswordReset: false,
           });
 
           // Sonra işletmeyi arka planda getir
@@ -288,6 +293,7 @@ export function useAuth() {
             loading: false,
             initialized: true,
             isletmeLoading: false,
+            needsPasswordReset: false,
           });
         }
       } catch (error) {
@@ -302,6 +308,7 @@ export function useAuth() {
             loading: false,
             initialized: true,
             isletmeLoading: false,
+            needsPasswordReset: false,
           });
         }
       }
@@ -347,6 +354,20 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
+      // PASSWORD_RECOVERY event'ini özel olarak ele al
+      // Kullanıcı şifremi unuttum akışından geldiğinde şifre değiştirme modal'ı göster
+      if (event === 'PASSWORD_RECOVERY') {
+        setState((prev) => ({
+          ...prev,
+          session,
+          user: session?.user ?? null,
+          needsPasswordReset: true,
+          loading: false,
+          initialized: true,
+        }));
+        return;
+      }
+
       // TOKEN_REFRESHED eventinde sadece session'ı güncelle, isletme'yi tekrar çekme
       if (event === 'TOKEN_REFRESHED') {
         lastRefreshTime.current = Date.now();
@@ -367,6 +388,7 @@ export function useAuth() {
           loading: false,
           initialized: true,
           isletmeLoading: false,
+          needsPasswordReset: false,
         });
         return;
       }
@@ -555,8 +577,14 @@ export function useAuth() {
       loading: false,
       initialized: true,
       isletmeLoading: false,
+      needsPasswordReset: false,
     });
   };
+
+  // Şifre değiştirme bayrağını temizle
+  const clearPasswordReset = useCallback(() => {
+    setState((prev) => ({ ...prev, needsPasswordReset: false }));
+  }, []);
 
   // İşletme bilgisini yenile
   const refreshIsletme = async () => {
@@ -680,6 +708,7 @@ export function useAuth() {
         loading: false,
         initialized: true,
         isletmeLoading: false,
+        needsPasswordReset: false,
       });
     } catch (error) {
       setState((prev) => ({ ...prev, loading: false }));
@@ -757,5 +786,6 @@ export function useAuth() {
     signInWithGoogle,
     isAppleSignInAvailable,
     changePassword,
+    clearPasswordReset,
   };
 }
