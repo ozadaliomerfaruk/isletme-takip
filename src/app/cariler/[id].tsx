@@ -29,6 +29,8 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
@@ -41,6 +43,9 @@ export default function CariHareketleriPage() {
   const router = useRouter();
   const { t } = useTranslation(['clients', 'common', 'errors', 'checks']);
   const { formatDateSmart } = useDateFormat();
+  const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
 
   const { data: cari, isLoading: cariLoading, refetch: refetchCari } = useCari(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
@@ -304,6 +309,11 @@ export default function CariHareketleriPage() {
                 <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
                   {formatCurrency(Math.abs(Number(cari.balance)), cari.currency)}
                 </Text>
+                {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
+                  <Text variant="caption" color="secondary">
+                    ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                  </Text>
+                )}
               </View>
             </View>
           </Card>

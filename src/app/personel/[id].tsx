@@ -26,6 +26,8 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
 import { usePersonelById, useDeletePersonel, useUpdatePersonel } from '@/hooks/usePersonel';
 import { useUnarchivePersonel } from '@/hooks/useArchive';
@@ -38,6 +40,9 @@ export default function PersonelHareketleriPage() {
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'errors']);
   const { formatDateSmart } = useDateFormat();
+  const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
 
   const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByPersonel(id!);
@@ -282,6 +287,11 @@ export default function PersonelHareketleriPage() {
                 <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
                   {formatCurrency(Math.abs(Number(personel.balance)), personel.currency)}
                 </Text>
+                {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
+                  <Text variant="caption" color="secondary">
+                    ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                  </Text>
+                )}
               </View>
             </View>
           </Card>
