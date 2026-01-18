@@ -121,6 +121,14 @@ export default function VeriIceAktarPage() {
   // Count of pending items
   const pendingCount = pendingIslemler?.length || 0;
 
+  // Error code to translated message mapping
+  const translateError = useCallback((error: string): string => {
+    const errorMap: Record<string, string> = {
+      'HEADER_NOT_FOUND': t('dataImport.errors.headerNotFound'),
+    };
+    return errorMap[error] || error;
+  }, [t]);
+
   // Refresh handler for skipped tab
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -195,7 +203,7 @@ export default function VeriIceAktarPage() {
       const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
 
       // Dosyayı kaydet
-      const fileUri = FileSystem.cacheDirectory + 'import_sablonu.xlsx';
+      const fileUri = FileSystem.cacheDirectory + t('dataImport.template.fileName');
       await FileSystem.writeAsStringAsync(fileUri, wbout, {
         encoding: 'base64',
       });
@@ -1265,12 +1273,12 @@ export default function VeriIceAktarPage() {
                 <View style={styles.errorHeader}>
                   <AlertTriangle size={20} color={colors.warning} />
                   <Text variant="label" style={styles.errorTitle}>
-                    {preview.errors.length} Uyarı
+                    {t('dataImport.warnings.warningCount', { count: preview.errors.length })}
                   </Text>
                 </View>
                 {preview.errors.slice(0, 5).map((err, i) => (
                   <Text key={i} variant="caption" color="secondary">
-                    • {err}
+                    • {translateError(err)}
                   </Text>
                 ))}
               </Card>
@@ -1447,7 +1455,7 @@ export default function VeriIceAktarPage() {
                 <Text variant="label" style={styles.errorTitle}>{t('dataImport.errors.title')}</Text>
                 {result.errors.slice(0, 5).map((err, i) => (
                   <Text key={i} variant="caption" color="error">
-                    • {err}
+                    • {translateError(err)}
                   </Text>
                 ))}
                 {result.errors.length > 5 && (

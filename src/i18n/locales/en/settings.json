@@ -199,6 +199,7 @@
     "template": {
       "dialogTitle": "Download Excel Template",
       "sheetName": "Transactions",
+      "fileName": "import_template.xlsx",
       "headers": {
         "date": "DATE",
         "type": "TYPE",
@@ -342,7 +343,8 @@
       "sharingNotAvailable": "File sharing isn't available on this device.",
       "fileCreationFailed": "Something went wrong creating the file.",
       "undoFailed": "Undo failed",
-      "moreErrors": "... and {{count}} more errors"
+      "moreErrors": "... and {{count}} more errors",
+      "headerNotFound": "Header row not found in Excel file (DATE, TYPE, ACCOUNT, AMOUNT required)"
     },
     "warnings": {
       "title": "Warning",

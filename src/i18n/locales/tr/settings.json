@@ -199,6 +199,7 @@
     "template": {
       "dialogTitle": "Excel Şablonunu İndir",
       "sheetName": "İşlemler",
+      "fileName": "import_sablonu.xlsx",
       "headers": {
         "date": "TARİH",
         "type": "İŞLEM TİPİ",
@@ -342,7 +343,8 @@
       "sharingNotAvailable": "Dosya paylaşımı bu cihazda desteklenmiyor.",
       "fileCreationFailed": "Dosya oluşturulurken bir hata oluştu.",
       "undoFailed": "Geri alma başarısız",
-      "moreErrors": "... ve {{count}} hata daha"
+      "moreErrors": "... ve {{count}} hata daha",
+      "headerNotFound": "Excel dosyasında başlık satırı bulunamadı (TARİH, İŞLEM TİPİ, HESAP, MİKTAR zorunlu)"
     },
     "warnings": {
       "title": "Uyarı",

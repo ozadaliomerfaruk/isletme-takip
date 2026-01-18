@@ -107,13 +107,17 @@ export interface ImportConfig {
  * DefterApp işlem tipi -> Defteri işlem tipi mapping
  */
 export const TRANSACTION_TYPE_MAP: Record<string, string> = {
-  // Cari işlemleri
+  // Cari işlemleri (TR)
   'ÖDEME': 'cari_odeme',
   'ODEME': 'cari_odeme',
   'TAHSILAT': 'cari_tahsilat',
   'TAHSİLAT': 'cari_tahsilat',
 
-  // Gelir/Gider
+  // Cari işlemleri (EN)
+  'PAYMENT': 'cari_odeme',
+  'COLLECTION': 'cari_tahsilat',
+
+  // Gelir/Gider (TR)
   'SATIŞ': 'gelir',
   'SATIS': 'gelir',
   'GİDER': 'gider',
@@ -121,10 +125,14 @@ export const TRANSACTION_TYPE_MAP: Record<string, string> = {
   'GELİR': 'gelir',
   'GELIR': 'gelir',
 
+  // Gelir/Gider (EN)
+  'INCOME': 'gelir',
+  'EXPENSE': 'gider',
+
   // Transfer
   'TRANSFER': 'transfer',
 
-  // Personel işlemleri - tüm Türkçe karakter varyasyonları
+  // Personel işlemleri - Türkçe varyasyonları
   'PERSONEL GİDERİ': 'personel_gider',
   'PERSONEL GIDERI': 'personel_gider',
   'PERSONEL GİDERI': 'personel_gider',
@@ -140,20 +148,28 @@ export const TRANSACTION_TYPE_MAP: Record<string, string> = {
   'PERSONEL TAHSİLAT': 'personel_tahsilat',
   'PERSONEL TAHSILAT': 'personel_tahsilat',
 
-  // Cari alış/satış
+  // Personel işlemleri (EN)
+  'STAFF EXPENSE': 'personel_gider',
+  'STAFF PAYMENT': 'personel_odeme',
+  'STAFF COLLECTION': 'personel_tahsilat',
+
+  // Cari alış/satış (TR)
   'CARİ ALIŞ': 'cari_alis',
   'CARI ALIS': 'cari_alis',
   'CARİ SATIŞ': 'cari_satis',
   'CARI SATIS': 'cari_satis',
 
-  // Cari iade işlemleri
+  // Cari alış/satış (EN)
+  'PURCHASE': 'cari_alis',
+  'SALE': 'cari_satis',
+
+  // Cari iade işlemleri (TR)
   'CARİ ALIŞ İADE': 'cari_alis_iade',
   'CARI ALIS IADE': 'cari_alis_iade',
   'CARİ ALIŞ IADE': 'cari_alis_iade',
   'CARI ALIŞ İADE': 'cari_alis_iade',
   'ALIŞ İADE': 'cari_alis_iade',
   'ALIS IADE': 'cari_alis_iade',
-  'PURCHASE RETURN': 'cari_alis_iade',
 
   'CARİ SATIŞ İADE': 'cari_satis_iade',
   'CARI SATIS IADE': 'cari_satis_iade',
@@ -161,6 +177,9 @@ export const TRANSACTION_TYPE_MAP: Record<string, string> = {
   'CARI SATIŞ İADE': 'cari_satis_iade',
   'SATIŞ İADE': 'cari_satis_iade',
   'SATIS IADE': 'cari_satis_iade',
+
+  // Cari iade işlemleri (EN)
+  'PURCHASE RETURN': 'cari_alis_iade',
   'SALE RETURN': 'cari_satis_iade',
 };
 
@@ -375,15 +394,18 @@ function findColumnIndices(headerRow: any[]): ColumnIndices | null {
       console.log(`Column ${index}: raw="${cell}" -> upper="${rawHeader}" -> normalized="${header}"`);
     }
 
-    // Normalize edilmiş ASCII değerleri ile karşılaştır
+    // Normalize edilmiş ASCII değerleri ile karşılaştır (TR ve EN)
     switch (header) {
       case 'TARIH':
+      case 'DATE':
         indices.tarih = index;
         break;
       case 'ISLEM TIPI':
+      case 'TYPE':
         indices.islemTipi = index;
         break;
       case 'ACIKLAMA':
+      case 'DESCRIPTION':
         indices.aciklama = index;
         break;
       case 'KATEGORI':
@@ -392,24 +414,31 @@ function findColumnIndices(headerRow: any[]): ColumnIndices | null {
         indices.kategori = index;
         break;
       case 'HESAP':
+      case 'ACCOUNT':
         indices.hesap = index;
         break;
       case 'PERSONEL':
+      case 'STAFF':
         indices.personel = index;
         break;
       case 'TEDARIKCI':
+      case 'SUPPLIER':
         indices.tedarikci = index;
         break;
       case 'MUSTERI':
+      case 'CUSTOMER':
         indices.musteri = index;
         break;
       case 'KARSI HESAP':
+      case 'TARGET ACCOUNT':
         indices.karsiHesap = index;
         break;
       case 'MIKTAR':
+      case 'AMOUNT':
         indices.miktar = index;
         break;
       case 'BIRIM':
+      case 'CURRENCY':
         indices.birim = index;
         break;
     }
@@ -489,7 +518,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
   }
 
   if (headerRowIndex === -1 || !columnIndices) {
-    errors.push('Excel dosyasında başlık satırı bulunamadı (TARIH, İŞLEM TIPI, HESAP, MİKTAR zorunlu)');
+    errors.push('HEADER_NOT_FOUND');
     return {
       transactions: [],
       uniqueAccounts: [],
