@@ -20,12 +20,13 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUpdateIsletme } from '@/hooks/useIsletme';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { parseDateFromDB } from '@/lib/date';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function IsletmeBilgileriPage() {
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
-  const { formatDateLong } = useDateFormat();
+  const { formatDateNative } = useDateFormat();
   const { isletme, user } = useAuthContext();
   const updateIsletme = useUpdateIsletme();
   const { changePassword } = useAuth();
@@ -229,7 +230,7 @@ export default function IsletmeBilgileriPage() {
             <Card style={styles.infoCard}>
               <Text variant="label" color="secondary">{t('settings:business.registrationDate')}</Text>
               <Text variant="body">
-                {formatDateLong(isletme.created_at)}
+                {formatDateNative(parseDateFromDB(isletme.created_at))}
               </Text>
             </Card>
 

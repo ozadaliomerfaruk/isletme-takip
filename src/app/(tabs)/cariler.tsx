@@ -21,6 +21,8 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getCariIcon } from '@/lib/icons';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
 import { useArchiveCari } from '@/hooks/useArchive';
@@ -55,6 +57,11 @@ export default function CarilerPage() {
   // Toast ve Haptics
   const { showToast } = useToast();
   const haptics = useHaptics();
+
+  // Settings ve döviz kurları
+  const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
 
   // Gerçek veriler - pasif carileri de dahil et
   const { data: cariler, isLoading } = useCariler(
@@ -248,6 +255,11 @@ export default function CarilerPage() {
                       >
                         {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
                       </Text>
+                      {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
+                        <Text variant="caption" color="secondary">
+                          ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                        </Text>
+                      )}
                     </View>
                     <TouchableOpacity
                       style={styles.moreButton}

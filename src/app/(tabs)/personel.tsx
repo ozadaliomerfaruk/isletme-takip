@@ -26,6 +26,8 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
 import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
 import { useArchivePersonel } from '@/hooks/useArchive';
@@ -102,6 +104,11 @@ export default function PersonelPage() {
   // Toast ve Haptics
   const { showToast } = useToast();
   const haptics = useHaptics();
+
+  // Settings ve döviz kurları
+  const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
 
   // Action sheet handlers
   const handleOpenActionSheet = (personel: Personel) => {
@@ -305,6 +312,11 @@ export default function PersonelPage() {
                       >
                         {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
                       </Text>
+                      {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
+                        <Text variant="caption" color="secondary">
+                          ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                        </Text>
+                      )}
                     </View>
                     <TouchableOpacity
                       style={styles.moreButton}
