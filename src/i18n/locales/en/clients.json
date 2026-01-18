@@ -1,11 +1,11 @@
 {
   "titles": {
-    "client": "Client",
-    "clients": "Clients",
-    "addClient": "Add Client",
-    "editClient": "Edit Client",
-    "clientDetails": "Client Details",
-    "clientTransactions": "Client History",
+    "client": "Contact",
+    "clients": "Contacts",
+    "addClient": "Add Contact",
+    "editClient": "Edit Contact",
+    "clientDetails": "Contact Details",
+    "clientTransactions": "Contact History",
     "customers": "Customers",
     "suppliers": "Suppliers"
   },
@@ -18,12 +18,14 @@
     "musteri": "A customer or company you sell products or services to"
   },
   "form": {
-    "name": "Client Name",
-    "namePlaceholder": "Enter client name",
+    "name": "Contact Name",
+    "namePlaceholder": "Enter contact name",
     "nameSupplierPlaceholder": "E.g., ABC Supplies, Costco",
     "nameCustomerPlaceholder": "E.g., John Smith",
-    "type": "Client Type",
-    "typePlaceholder": "Select client type",
+    "type": "Contact Type",
+    "typePlaceholder": "Select contact type",
+    "currency": "Currency",
+    "currencyHint": "What currency should this contact's balance be tracked in?",
     "phone": "Phone",
     "phoneOptional": "Phone (Optional)",
     "phonePlaceholder": "Enter phone number",
@@ -43,7 +45,7 @@
     "note": "Note",
     "noteOptional": "Note (Optional)",
     "notePlaceholder": "Add note...",
-    "noteDetailPlaceholder": "Note about client...",
+    "noteDetailPlaceholder": "Note about contact...",
     "initialBalance": "Opening Balance",
     "initialBalancePlaceholder": "Enter opening balance",
     "openingDebtOptional": "Opening Debt (Optional)",
@@ -73,8 +75,8 @@
     "sale": "Add Sale",
     "return": "Return",
     "viewTransactions": "View History",
-    "editClient": "Edit Client",
-    "deleteClient": "Delete Client",
+    "editClient": "Edit Contact",
+    "deleteClient": "Delete Contact",
     "call": "Call",
     "sendEmail": "Send Email",
     "getDirections": "Get Directions"
@@ -118,16 +120,16 @@
     "collect": "Collect"
   },
   "messages": {
-    "createSuccess": "Client created",
-    "updateSuccess": "Client updated",
-    "deleteSuccess": "Client deleted",
-    "deleteConfirm": "Are you sure you want to delete this client?",
-    "deleteWarning": "All transactions for this client will also be deleted.",
-    "noClients": "No clients yet",
-    "addFirstClient": "Start by adding your first client",
+    "createSuccess": "Contact created",
+    "updateSuccess": "Contact updated",
+    "deleteSuccess": "Contact deleted",
+    "deleteConfirm": "Are you sure you want to delete this contact?",
+    "deleteWarning": "All transactions for this contact will also be deleted.",
+    "noClients": "No contacts yet",
+    "addFirstClient": "Start by adding your first contact",
     "noCustomers": "No customers yet",
     "noSuppliers": "No suppliers yet",
-    "noTransactions": "No transactions for this client",
+    "noTransactions": "No transactions for this contact",
     "purchaseRecorded": "Purchase recorded",
     "saleRecorded": "Sale recorded",
     "paymentRecorded": "Payment recorded",
@@ -138,7 +140,7 @@
     "scheduledCollectionCreated": "Scheduled payment receipt created"
   },
   "search": {
-    "searchClients": "Search clients...",
+    "searchClients": "Search contacts...",
     "searchCustomers": "Search customers...",
     "searchSuppliers": "Search suppliers...",
     "noResults": "No results found"
@@ -152,7 +154,7 @@
     "noBalance": "No Balance"
   },
   "summary": {
-    "totalClients": "Total Clients",
+    "totalClients": "Total Contacts",
     "customerCount": "{{count}} Customers",
     "supplierCount": "{{count}} Suppliers",
     "totalReceivables": "Total Receivables",
@@ -167,8 +169,8 @@
     "transactionCount": "Transaction Count",
     "newTransaction": "New Transaction",
     "initialBalance": "Opening Balance",
-    "cariOpening": "Client opening",
-    "notFoundDescription": "This client does not exist or may have been deleted."
+    "cariOpening": "Contact opening",
+    "notFoundDescription": "This contact does not exist or may have been deleted."
   },
   "transactionLabels": {
     "alis": "Purchase",
@@ -181,8 +183,8 @@
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",
     "transactionMessage": "Are you sure you want to delete this transaction?",
-    "clientTitle": "Delete Client",
-    "clientMessage": "Are you sure you want to delete this client?\n\nWarning: All purchases, sales, payments and collections for this client will also be deleted. This action cannot be undone."
+    "clientTitle": "Delete Contact",
+    "clientMessage": "Are you sure you want to delete this contact?\n\nWarning: All purchases, sales, payments and collections for this contact will also be deleted. This action cannot be undone."
   },
   "balanceDirection": {
     "label": "Balance Direction",
@@ -190,6 +192,6 @@
     "credit": "We Owe Them"
   },
   "validation": {
-    "nameRequired": "Client name is required"
+    "nameRequired": "Contact name is required"
   }
 }

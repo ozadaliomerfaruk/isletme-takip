@@ -9,6 +9,7 @@
   "form": {
     "firstName": "First Name",
     "firstNamePlaceholder": "Staff member's first name",
+    "currency": "Currency",
     "lastName": "Last Name",
     "lastNameOptional": "Last Name (Optional)",
     "lastNamePlaceholder": "Staff member's last name",

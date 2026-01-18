@@ -168,6 +168,8 @@ export function QuickTransactionBar({
     cariId: form.cariId,
     personelId: form.personelId,
     hesaplar: entities.hesaplar,
+    cariler: entities.carilerForType,
+    personelList: entities.personelList,
     setIsSaving: form.setIsSaving,
     setHesapPickerTarget: modals.setHesapPickerTarget,
     setShowHesapPicker: modals.setShowHesapPicker,

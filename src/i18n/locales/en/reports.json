@@ -55,7 +55,7 @@
   "counts": {
     "account": "{{count}} Accounts",
     "creditCard": "{{count}} Credit Cards",
-    "client": "{{count}} Clients",
+    "client": "{{count}} Contacts",
     "personnel": "{{count}} Staff",
     "transaction": "{{count}} transactions"
   },
@@ -163,7 +163,7 @@
     "selected": "Selected",
     "viewAll": "View all",
     "all": "All",
-    "noClients": "No clients yet",
+    "noClients": "No contacts yet",
     "noStaff": "No staff yet",
     "selectClientPrompt": "Select a client above to view period-based transactions",
     "selectStaffPrompt": "Select a staff member above to view period-based transactions"

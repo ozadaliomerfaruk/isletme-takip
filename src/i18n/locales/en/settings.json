@@ -133,7 +133,7 @@
   "dataImport": {
     "title": "Import Data",
     "pageTitle": "Import Data",
-    "pageDescription": "Easily import your data from another app or Excel file.\nTransactions, accounts, clients, and categories will be created automatically.",
+    "pageDescription": "Easily import your data from another app or Excel file.\nTransactions, accounts, contacts, and categories will be created automatically.",
     "duplicateFile": {
       "title": "File Already Imported",
       "message": "This file was imported as \"{{fileName}}\" on {{date}}. Do you want to continue anyway?"
@@ -157,7 +157,7 @@
     "progress": {
       "categories": "Creating categories...",
       "accounts": "Creating accounts...",
-      "clients": "Creating clients...",
+      "clients": "Creating contacts...",
       "personel": "Creating staff...",
       "transactions": "Importing transactions...",
       "balances": "Updating balances...",
@@ -260,14 +260,14 @@
     "modal": {
       "transactions": "Transactions ({{count}})",
       "accounts": "Accounts ({{count}})",
-      "clients": "Clients/Staff ({{count}})",
+      "clients": "Contacts/Staff ({{count}})",
       "categories": "Categories ({{count}})",
       "skipped": "Skipped ({{count}})"
     },
     "search": {
       "transactions": "Search transactions...",
       "accounts": "Search accounts...",
-      "clientsStaff": "Search clients or staff...",
+      "clientsStaff": "Search contacts or staff...",
       "categories": "Search categories...",
       "skipped": "Search skipped...",
       "default": "Search..."
@@ -275,7 +275,7 @@
     "empty": {
       "transactions": "No transactions found",
       "accounts": "No accounts found",
-      "clientsStaff": "No clients or staff found",
+      "clientsStaff": "No contacts or staff found",
       "categories": "No categories found",
       "skipped": "No skipped transactions found"
     },
@@ -317,7 +317,7 @@
     "phases": {
       "categories": "Categories",
       "accounts": "Accounts",
-      "clients": "Clients",
+      "clients": "Contacts",
       "personel": "Staff",
       "transactions": "Transactions"
     },
@@ -421,7 +421,7 @@
     "deleteWarnings": {
       "transactions": "• All your transactions (income, expense, transfer)",
       "accounts": "• All your accounts and balances",
-      "clients": "• All your client accounts",
+      "clients": "• All your contact accounts",
       "personnel": "• All your personnel records",
       "categories": "• All your categories",
       "business": "• Your business information"

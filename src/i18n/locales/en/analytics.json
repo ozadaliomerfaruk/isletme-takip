@@ -94,7 +94,7 @@
     "netProfitPositive": "Profit this period: {{amount}}",
     "netProfitNegative": "Loss this period: {{amount}}",
     "viewDetails": "View details",
-    "goToClients": "Go to clients",
+    "goToClients": "Go to contacts",
     "goToCategory": "Go to category",
     "goToReports": "Go to reports"
   },

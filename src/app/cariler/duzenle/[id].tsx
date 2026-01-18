@@ -16,17 +16,21 @@ import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCari, useUpdateCari } from '@/hooks/useCariler';
-import { CariType } from '@/types/database';
+import { CariType, Currency } from '@/types/database';
+import { getLocalizedCurrencies } from '@/constants/currencies';
 
 export default function CariDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useTranslation(['clients', 'common', 'errors']);
+  const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
+
+  const currencies = getLocalizedCurrencies(i18n.language);
 
   const { data: cari, isLoading } = useCari(id);
   const updateCari = useUpdateCari();
 
   const [name, setName] = useState('');
+  const [currency, setCurrency] = useState<Currency>('TRY');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
@@ -37,6 +41,7 @@ export default function CariDuzenlePage() {
   useEffect(() => {
     if (cari) {
       setName(cari.name);
+      setCurrency(cari.currency || 'TRY');
       setPhone(cari.phone || '');
       setEmail(cari.email || '');
       setAddress(cari.address || '');
@@ -63,6 +68,7 @@ export default function CariDuzenlePage() {
       await updateCari.mutateAsync({
         id,
         name: name.trim(),
+        currency,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
@@ -125,6 +131,41 @@ export default function CariDuzenlePage() {
                   {t(`clients:types.${cari.type}`)}
                 </Text>
               </View>
+            </View>
+
+            {/* Para Birimi Seçimi */}
+            <View style={styles.section}>
+              <Text variant="label" color="secondary" style={styles.sectionTitle}>
+                {t('clients:form.currency')}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.currencyGrid}
+              >
+                {currencies.map((curr) => (
+                  <Card
+                    key={curr.code}
+                    variant={currency === curr.code ? 'elevated' : 'outlined'}
+                    padding="sm"
+                    onPress={() => setCurrency(curr.code as Currency)}
+                    style={[
+                      styles.currencyCard,
+                      currency === curr.code && styles.currencyCardActive,
+                    ]}
+                  >
+                    <Text
+                      variant="body"
+                      style={{
+                        color: currency === curr.code ? colors.primary : colors.text,
+                        fontWeight: currency === curr.code ? '600' : '400',
+                      }}
+                    >
+                      {curr.symbol} {curr.code}
+                    </Text>
+                  </Card>
+                ))}
+              </ScrollView>
             </View>
 
             {/* Form */}
@@ -250,6 +291,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceLight,
     borderRadius: borderRadius.md,
     padding: spacing.md,
+  },
+  currencyGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  currencyCard: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  currencyCardActive: {
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   buttons: {
     flexDirection: 'row',

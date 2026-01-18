@@ -15,20 +15,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
-import { Text, Input, Button, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
+import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreatePersonel } from '@/hooks/usePersonel';
 import { formatDateForDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { Currency } from '@/types/database';
+import { getLocalizedCurrencies } from '@/constants/currencies';
 
 export default function PersonelEklePage() {
   const router = useRouter();
-  const { t } = useTranslation(['staff', 'common', 'errors']);
+  const { t, i18n } = useTranslation(['staff', 'common', 'errors']);
   const { locale, formatDateNative } = useDateFormat();
   const createPersonel = useCreatePersonel();
 
+  // Dile göre varsayılan para birimi
+  const defaultCurrency: Currency = i18n.language.startsWith('en') ? 'USD' : 'TRY';
+  const currencies = getLocalizedCurrencies(i18n.language);
+
   const [firstName, setFirstName] = useState('');
+  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [position, setPosition] = useState('');
@@ -66,6 +73,7 @@ export default function PersonelEklePage() {
       await createPersonel.mutateAsync({
         first_name: firstName.trim(),
         last_name: lastName.trim() || '',
+        currency,
         phone: phone.trim() || null,
         position: position.trim() || null,
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
@@ -96,6 +104,41 @@ export default function PersonelEklePage() {
           {/* Header */}
           <View style={styles.header}>
             <Text variant="h2">{t('staff:titles.addPersonnel')}</Text>
+          </View>
+
+          {/* Para Birimi Seçimi */}
+          <View style={styles.section}>
+            <Text variant="label" color="secondary" style={styles.sectionTitle}>
+              {t('staff:form.currency')}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.currencyGrid}
+            >
+              {currencies.map((curr) => (
+                <Card
+                  key={curr.code}
+                  variant={currency === curr.code ? 'elevated' : 'outlined'}
+                  padding="sm"
+                  onPress={() => setCurrency(curr.code as Currency)}
+                  style={[
+                    styles.currencyCard,
+                    currency === curr.code && styles.currencyCardActive,
+                  ]}
+                >
+                  <Text
+                    variant="body"
+                    style={{
+                      color: currency === curr.code ? colors.primary : colors.text,
+                      fontWeight: currency === curr.code ? '600' : '400',
+                    }}
+                  >
+                    {curr.symbol} {curr.code}
+                  </Text>
+                </Card>
+              ))}
+            </ScrollView>
           </View>
 
           {/* Form */}
@@ -291,6 +334,22 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    marginBottom: spacing.md,
+  },
+  currencyGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  currencyCard: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  currencyCardActive: {
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   buttons: {
     flexDirection: 'row',

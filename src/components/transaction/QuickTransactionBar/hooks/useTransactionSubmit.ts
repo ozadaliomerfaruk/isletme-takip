@@ -18,6 +18,18 @@ interface Hesap {
   type?: string;
 }
 
+interface Cari {
+  id: string;
+  name: string;
+  currency?: string;
+}
+
+interface Personel {
+  id: string;
+  first_name: string;
+  currency?: string;
+}
+
 interface PendingExchangeData {
   sourceCurrency: Currency;
   targetCurrency: Currency;
@@ -48,6 +60,8 @@ interface UseTransactionSubmitOptions {
 
   // Entities
   hesaplar: Hesap[] | undefined;
+  cariler: Cari[] | undefined;
+  personelList: Personel[] | undefined;
 
   // State setters
   setIsSaving: (saving: boolean) => void;
@@ -137,6 +151,8 @@ export function useTransactionSubmit({
   cariId,
   personelId,
   hesaplar,
+  cariler,
+  personelList,
   setIsSaving,
   setHesapPickerTarget,
   setShowHesapPicker,
@@ -227,14 +243,16 @@ export function useTransactionSubmit({
         }
       }
 
-      // Payment/collection cross-currency check (cari/personel balances are TRY)
-      if (['odeme', 'tahsilat'].includes(type) && sourceHesapId) {
+      // Payment/collection cross-currency check - compare hesap currency with cari currency
+      if (['odeme', 'tahsilat'].includes(type) && sourceHesapId && cariId) {
         const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
+        const targetCari = cariler?.find((c) => c.id === cariId);
         const sourceCurr = sourceAcc?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, 'TRY')) {
+        const targetCurr = targetCari?.currency || 'TRY';
+        if (isCrossCurrency(sourceCurr, targetCurr)) {
           setPendingExchangeData({
             sourceCurrency: sourceCurr as Currency,
-            targetCurrency: 'TRY',
+            targetCurrency: targetCurr as Currency,
             sourceAmount: parsedAmount,
           });
           setShowExchangeRateBar(true);
@@ -242,14 +260,16 @@ export function useTransactionSubmit({
         }
       }
 
-      // Cari mode cross-currency check
-      if (isCariMode && ['odeme', 'tahsilat'].includes(type) && sourceHesapId) {
+      // Cari mode cross-currency check - compare hesap currency with cari currency
+      if (isCariMode && ['odeme', 'tahsilat'].includes(type) && sourceHesapId && cariId) {
         const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
+        const targetCari = cariler?.find((c) => c.id === cariId);
         const sourceCurr = sourceAcc?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, 'TRY')) {
+        const targetCurr = targetCari?.currency || 'TRY';
+        if (isCrossCurrency(sourceCurr, targetCurr)) {
           setPendingExchangeData({
             sourceCurrency: sourceCurr as Currency,
-            targetCurrency: 'TRY',
+            targetCurrency: targetCurr as Currency,
             sourceAmount: parsedAmount,
           });
           setShowExchangeRateBar(true);
@@ -257,14 +277,16 @@ export function useTransactionSubmit({
         }
       }
 
-      // Personel mode cross-currency check
-      if (isPersonelMode && ['personel_odeme_tab', 'personel_tahsilat_tab'].includes(type) && sourceHesapId) {
+      // Personel mode cross-currency check - compare hesap currency with personel currency
+      if (isPersonelMode && ['personel_odeme_tab', 'personel_tahsilat_tab'].includes(type) && sourceHesapId && personelId) {
         const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
+        const targetPersonel = personelList?.find((p) => p.id === personelId);
         const sourceCurr = sourceAcc?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, 'TRY')) {
+        const targetCurr = targetPersonel?.currency || 'TRY';
+        if (isCrossCurrency(sourceCurr, targetCurr)) {
           setPendingExchangeData({
             sourceCurrency: sourceCurr as Currency,
-            targetCurrency: 'TRY',
+            targetCurrency: targetCurr as Currency,
             sourceAmount: parsedAmount,
           });
           setShowExchangeRateBar(true);
@@ -274,7 +296,7 @@ export function useTransactionSubmit({
 
       return false;
     },
-    [type, hesapId, hedefHesapId, sourceHesapId, hesaplar, isCariMode, isPersonelMode, setPendingExchangeData, setShowExchangeRateBar]
+    [type, hesapId, hedefHesapId, sourceHesapId, cariId, personelId, hesaplar, cariler, personelList, isCariMode, isPersonelMode, setPendingExchangeData, setShowExchangeRateBar]
   );
 
   // Handle save

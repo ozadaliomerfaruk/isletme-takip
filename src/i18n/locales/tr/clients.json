@@ -24,6 +24,8 @@
     "nameCustomerPlaceholder": "Örn: Mehmet Bey",
     "type": "Cari Tipi",
     "typePlaceholder": "Cari tipi seçin",
+    "currency": "Para Birimi",
+    "currencyHint": "Bu carinin bakiyesi hangi para biriminde tutulsun?",
     "phone": "Telefon",
     "phoneOptional": "Telefon (Opsiyonel)",
     "phonePlaceholder": "Telefon numarası girin",

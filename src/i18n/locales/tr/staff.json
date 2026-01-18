@@ -9,6 +9,7 @@
   "form": {
     "firstName": "Ad",
     "firstNamePlaceholder": "Personelin adı",
+    "currency": "Para Birimi",
     "lastName": "Soyad",
     "lastNameOptional": "Soyad (Opsiyonel)",
     "lastNamePlaceholder": "Personelin soyadı",

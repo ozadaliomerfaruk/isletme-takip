@@ -181,6 +181,7 @@ export interface Cari {
   address: string | null;
   tax_number: string | null;
   balance: number;
+  currency: Currency;
   notes: string | null;
   is_active: boolean;
   is_archived: boolean;
@@ -198,6 +199,7 @@ export interface CariInsert {
   address?: string | null;
   tax_number?: string | null;
   balance?: number;
+  currency?: Currency;
   notes?: string | null;
   is_active?: boolean;
   is_archived?: boolean;
@@ -211,6 +213,7 @@ export interface CariUpdate {
   address?: string | null;
   tax_number?: string | null;
   balance?: number;
+  currency?: Currency;
   notes?: string | null;
   is_active?: boolean;
   is_archived?: boolean;
@@ -226,6 +229,7 @@ export interface Personel {
   position: string | null;
   salary: number | null;
   balance: number;
+  currency: Currency;
   start_date: string | null;
   is_active: boolean;
   is_archived: boolean;
@@ -242,6 +246,7 @@ export interface PersonelInsert {
   position?: string | null;
   salary?: number | null;
   balance?: number;
+  currency?: Currency;
   start_date?: string | null;
   is_active?: boolean;
   is_archived?: boolean;
@@ -254,6 +259,7 @@ export interface PersonelUpdate {
   position?: string | null;
   salary?: number | null;
   balance?: number;
+  currency?: Currency;
   start_date?: string | null;
   is_active?: boolean;
   is_archived?: boolean;

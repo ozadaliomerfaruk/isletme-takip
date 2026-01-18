@@ -16,22 +16,28 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
 import { formatDateForDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { Currency } from '@/types/database';
+import { getLocalizedCurrencies } from '@/constants/currencies';
 
 export default function PersonelDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useTranslation(['staff', 'common', 'errors']);
+  const { t, i18n } = useTranslation(['staff', 'common', 'errors']);
   const { locale, formatDateNative } = useDateFormat();
+
+  const currencies = getLocalizedCurrencies(i18n.language);
+
   const { data: personel, isLoading } = usePersonelById(id);
   const updatePersonel = useUpdatePersonel();
 
   const [firstName, setFirstName] = useState('');
+  const [currency, setCurrency] = useState<Currency>('TRY');
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [position, setPosition] = useState('');
@@ -44,6 +50,7 @@ export default function PersonelDuzenlePage() {
   useEffect(() => {
     if (personel) {
       setFirstName(personel.first_name);
+      setCurrency(personel.currency || 'TRY');
       setLastName(personel.last_name || '');
       setPhone(personel.phone || '');
       setPosition(personel.position || '');
@@ -72,6 +79,7 @@ export default function PersonelDuzenlePage() {
         id,
         first_name: firstName.trim(),
         last_name: lastName.trim() || '',
+        currency,
         phone: phone.trim() || null,
         position: position.trim() || null,
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
@@ -119,6 +127,41 @@ export default function PersonelDuzenlePage() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Para Birimi Seçimi */}
+            <View style={styles.section}>
+              <Text variant="label" color="secondary" style={styles.sectionTitle}>
+                {t('staff:form.currency')}
+              </Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.currencyGrid}
+              >
+                {currencies.map((curr) => (
+                  <Card
+                    key={curr.code}
+                    variant={currency === curr.code ? 'elevated' : 'outlined'}
+                    padding="sm"
+                    onPress={() => setCurrency(curr.code as Currency)}
+                    style={[
+                      styles.currencyCard,
+                      currency === curr.code && styles.currencyCardActive,
+                    ]}
+                  >
+                    <Text
+                      variant="body"
+                      style={{
+                        color: currency === curr.code ? colors.primary : colors.text,
+                        fontWeight: currency === curr.code ? '600' : '400',
+                      }}
+                    >
+                      {curr.symbol} {curr.code}
+                    </Text>
+                  </Card>
+                ))}
+              </ScrollView>
+            </View>
+
             {/* Form */}
             <View style={styles.section}>
               <Input
@@ -309,6 +352,22 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    marginBottom: spacing.md,
+  },
+  currencyGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  currencyCard: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  currencyCardActive: {
+    borderColor: colors.primary,
+    borderWidth: 2,
   },
   buttons: {
     flexDirection: 'row',

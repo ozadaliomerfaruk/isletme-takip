@@ -15,12 +15,17 @@ import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirect
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreateCari } from '@/hooks/useCariler';
-import { CariType } from '@/types/database';
+import { CariType, Currency } from '@/types/database';
+import { getLocalizedCurrencies } from '@/constants/currencies';
 
 export default function CariEklePage() {
   const router = useRouter();
-  const { t } = useTranslation(['clients', 'common', 'errors']);
+  const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
   const createCari = useCreateCari();
+
+  // Dile göre varsayılan para birimi
+  const defaultCurrency: Currency = i18n.language.startsWith('en') ? 'USD' : 'TRY';
+  const currencies = getLocalizedCurrencies(i18n.language);
 
   const cariTypes: { type: CariType; label: string; icon: React.ReactNode }[] = [
     { type: 'tedarikci', label: t('clients:types.tedarikci'), icon: <Building2 size={24} color={colors.warning} /> },
@@ -29,6 +34,7 @@ export default function CariEklePage() {
 
   const [name, setName] = useState('');
   const [type, setType] = useState<CariType>('tedarikci');
+  const [currency, setCurrency] = useState<Currency>(defaultCurrency);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
@@ -71,6 +77,7 @@ export default function CariEklePage() {
       await createCari.mutateAsync({
         name: name.trim(),
         type,
+        currency,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
@@ -133,6 +140,41 @@ export default function CariEklePage() {
                 </Card>
               ))}
             </View>
+          </View>
+
+          {/* Para Birimi Seçimi */}
+          <View style={styles.section}>
+            <Text variant="label" color="secondary" style={styles.sectionTitle}>
+              {t('clients:form.currency')}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.currencyGrid}
+            >
+              {currencies.map((curr) => (
+                <Card
+                  key={curr.code}
+                  variant={currency === curr.code ? 'elevated' : 'outlined'}
+                  padding="sm"
+                  onPress={() => setCurrency(curr.code as Currency)}
+                  style={[
+                    styles.currencyCard,
+                    currency === curr.code && styles.currencyCardActive,
+                  ]}
+                >
+                  <Text
+                    variant="body"
+                    style={{
+                      color: currency === curr.code ? colors.primary : colors.text,
+                      fontWeight: currency === curr.code ? '600' : '400',
+                    }}
+                  >
+                    {curr.symbol} {curr.code}
+                  </Text>
+                </Card>
+              ))}
+            </ScrollView>
           </View>
 
           {/* Form */}
@@ -264,6 +306,19 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
   },
   typeCardActive: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
+  currencyGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  currencyCard: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  currencyCardActive: {
     borderColor: colors.primary,
     borderWidth: 2,
   },
