@@ -194,7 +194,7 @@ export default function CariAlisPage() {
                   <Text variant="body">{selectedCari?.name || t('clients:transactionForm.selectSupplier')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'secondary'}>
-                      {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)), selectedCari.currency)}
                     </Text>
                   )}
                 </View>
@@ -223,7 +223,7 @@ export default function CariAlisPage() {
                         {cari.name}
                       </Text>
                       <Text variant="caption" color="secondary">
-                        {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(cari.balance)))}
+                        {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(cari.balance)), cari.currency)}
                       </Text>
                     </TouchableOpacity>
                   ))}

@@ -218,7 +218,7 @@ export default function PersonelOdemePage() {
                   </Text>
                   {selectedPersonel && (
                     <Text variant="caption" color={Number(selectedPersonel.balance) < 0 ? 'error' : 'success'}>
-                      {t('staff:balance.weOwe')}: {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                      {t('staff:balance.weOwe')}: {formatCurrency(Math.abs(Number(selectedPersonel.balance)), selectedPersonel.currency)}
                     </Text>
                   )}
                 </View>

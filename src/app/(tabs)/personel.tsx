@@ -303,7 +303,7 @@ export default function PersonelPage() {
                         variant="h3"
                         color={getBalanceColor(toNumber(personel.balance))}
                       >
-                        {formatCurrency(Math.abs(toNumber(personel.balance)))}
+                        {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
                       </Text>
                     </View>
                     <TouchableOpacity

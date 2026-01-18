@@ -299,7 +299,7 @@ export default function CariHareketleriPage() {
                   {Number(cari.balance) < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe')}
                 </Text>
                 <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
-                  {formatCurrency(Math.abs(Number(cari.balance)))}
+                  {formatCurrency(Math.abs(Number(cari.balance)), cari.currency)}
                 </Text>
               </View>
             </View>

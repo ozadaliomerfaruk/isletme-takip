@@ -277,7 +277,7 @@ export default function PersonelHareketleriPage() {
                   {Number(personel.balance) < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
                 </Text>
                 <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
-                  {formatCurrency(Math.abs(Number(personel.balance)))}
+                  {formatCurrency(Math.abs(Number(personel.balance)), personel.currency)}
                 </Text>
               </View>
             </View>

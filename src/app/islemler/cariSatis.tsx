@@ -192,7 +192,7 @@ export default function CariSatisPage() {
                   <Text variant="body">{selectedCari?.name || t('clients:transactionForm.selectCustomer')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) > 0 ? 'success' : 'secondary'}>
-                      {t('clients:balance.receivable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('clients:balance.receivable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)), selectedCari.currency)}
                     </Text>
                   )}
                 </View>

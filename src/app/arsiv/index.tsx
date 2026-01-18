@@ -221,7 +221,7 @@ export default function ArsivPage() {
           </View>
           <View style={styles.itemBalance}>
             <Text variant="body" color={toNumber(cari.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
-              {formatCurrency(Math.abs(toNumber(cari.balance)))}
+              {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
             </Text>
           </View>
         </TouchableOpacity>
@@ -264,7 +264,7 @@ export default function ArsivPage() {
           </View>
           <View style={styles.itemBalance}>
             <Text variant="body" color={toNumber(personel.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
-              {formatCurrency(Math.abs(toNumber(personel.balance)))}
+              {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
             </Text>
           </View>
         </TouchableOpacity>

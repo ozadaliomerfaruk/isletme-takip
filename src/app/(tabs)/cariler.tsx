@@ -246,7 +246,7 @@ export default function CarilerPage() {
                             : 'error'
                         }
                       >
-                        {formatCurrency(Math.abs(toNumber(cari.balance)))}
+                        {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
                       </Text>
                     </View>
                     <TouchableOpacity

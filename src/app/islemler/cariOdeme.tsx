@@ -214,7 +214,7 @@ export default function CariOdemePage() {
                   <Text variant="body">{selectedCari?.name || t('clients:transactionForm.selectSupplier')}</Text>
                   {selectedCari && (
                     <Text variant="caption" color={Number(selectedCari.balance) < 0 ? 'error' : 'success'}>
-                      {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)))}
+                      {t('clients:balance.payable')}: {formatCurrency(Math.abs(Number(selectedCari.balance)), selectedCari.currency)}
                     </Text>
                   )}
                 </View>
