@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -25,6 +25,7 @@ import {
   Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
 } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -102,6 +103,20 @@ export default function KategoriDetayPage() {
   const [selectedSubCategories, setSelectedSubCategories] = useState<Set<string> | null>(null);
   // Ana kategori dahil mi (checkbox için)
   const [includeParentCategory, setIncludeParentCategory] = useState(true);
+  // Edit transaction state
+  const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
+  const [showEditBar, setShowEditBar] = useState(false);
+
+  // Handle edit transaction
+  const handleEditTransaction = useCallback((transactionId: string) => {
+    setEditTransactionId(transactionId);
+    setShowEditBar(true);
+  }, []);
+
+  const handleEditDismiss = useCallback(() => {
+    setShowEditBar(false);
+    setEditTransactionId(null);
+  }, []);
 
   // Alt kategoriler yüklendiğinde tümünü seç
   const effectiveSelectedSubCategories = useMemo(() => {
@@ -183,7 +198,7 @@ export default function KategoriDetayPage() {
     return (
       <TouchableOpacity
         style={styles.islemCard}
-        onPress={() => router.push(`/islemler/duzenle/${item.id}`)}
+        onPress={() => handleEditTransaction(item.id)}
         activeOpacity={0.7}
       >
         <View style={styles.islemHeader}>
@@ -462,6 +477,16 @@ export default function KategoriDetayPage() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
+
+        {/* Quick Transaction Bar - Edit Mode */}
+        <QuickTransactionBar
+          visible={showEditBar}
+          onDismiss={handleEditDismiss}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          onSuccess={handleEditDismiss}
+        />
       </SafeAreaView>
     );
   }
@@ -552,6 +577,16 @@ export default function KategoriDetayPage() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
+
+        {/* Quick Transaction Bar - Edit Mode */}
+        <QuickTransactionBar
+          visible={showEditBar}
+          onDismiss={handleEditDismiss}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          onSuccess={handleEditDismiss}
+        />
       </SafeAreaView>
     );
   }
@@ -576,6 +611,16 @@ export default function KategoriDetayPage() {
         ListFooterComponent={islemlerLoading ? (
           <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />
         ) : null}
+      />
+
+      {/* Quick Transaction Bar - Edit Mode */}
+      <QuickTransactionBar
+        visible={showEditBar}
+        onDismiss={handleEditDismiss}
+        mode="edit"
+        transactionId={editTransactionId ?? undefined}
+        isScheduledTransaction={false}
+        onSuccess={handleEditDismiss}
       />
     </SafeAreaView>
   );

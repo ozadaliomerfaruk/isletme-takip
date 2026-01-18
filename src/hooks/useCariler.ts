@@ -133,6 +133,15 @@ export function useDeleteCari() {
         throw new Error('Cari bulunamadı veya erişim yetkiniz yok');
       }
 
+      // İlişkili ileri tarihli işlemleri sil (ownership kontrolü ile)
+      const { error: scheduledError } = await supabase
+        .from('ileri_tarihli_islemler')
+        .delete()
+        .eq('cari_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (scheduledError) throw scheduledError;
+
       // İlişkili işlemleri sil (ownership kontrolü ile)
       const { error: islemError } = await supabase
         .from('islemler')

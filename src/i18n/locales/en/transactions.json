@@ -59,7 +59,9 @@
     "personnelPlaceholder": "Select staff member",
     "recurring": "Recurring",
     "futureDate": "Future Date",
-    "schedule": "Schedule"
+    "schedule": "Schedule",
+    "convertToScheduled": "Convert to Scheduled",
+    "selectTargetAccount": "Select target account"
   },
   "titles": {
     "selectType": "Select Transaction Type",
@@ -103,7 +105,10 @@
     "addAsIncome": "Add as income",
     "addAsExpense": "Add as expense",
     "loading": "Loading transactions...",
-    "longLoading": "Loading is taking longer due to the large number of transactions. Please wait or try again later."
+    "longLoading": "Loading is taking longer due to the large number of transactions. Please wait or try again later.",
+    "willConvertToScheduled": "This transaction will be converted to a scheduled transaction",
+    "convertedToScheduled": "Transaction converted to scheduled transaction",
+    "transactionNotFound": "Transaction not found"
   },
   "notifications": {
     "reminderTitle": "Upcoming Transaction Reminder",

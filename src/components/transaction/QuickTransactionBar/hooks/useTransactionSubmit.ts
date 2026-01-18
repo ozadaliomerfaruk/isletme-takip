@@ -2,12 +2,12 @@ import { useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { useCreateIslem } from '@/hooks/useIslemler';
-import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
+import { useCreateIslem, useUpdateIslem } from '@/hooks/useIslemler';
+import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
-import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal } from '../types';
+import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode } from '../types';
 import type { Currency } from '@/types/database';
 
 interface Hesap {
@@ -40,6 +40,12 @@ interface UseTransactionSubmitOptions {
   // Mode
   isCariMode: boolean;
   isPersonelMode: boolean;
+  isEditMode: boolean;
+
+  // Edit mode props
+  mode?: QuickTransactionMode;
+  transactionId?: string;
+  isScheduledTransaction?: boolean;
 
   // Form state
   type: TransactionType;
@@ -137,6 +143,10 @@ function needsHesapInData(type: TransactionType): boolean {
 export function useTransactionSubmit({
   isCariMode,
   isPersonelMode,
+  isEditMode,
+  mode = 'create',
+  transactionId,
+  isScheduledTransaction = false,
   type,
   amount,
   description,
@@ -171,7 +181,9 @@ export function useTransactionSubmit({
 }: UseTransactionSubmitOptions): UseTransactionSubmitReturn {
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const createIslem = useCreateIslem();
+  const updateIslem = useUpdateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
+  const updateIleriTarihliIslem = useUpdateIleriTarihliIslem();
 
   // Build transaction data
   const buildTransactionData = useCallback(
@@ -490,16 +502,39 @@ export function useTransactionSubmit({
     try {
       const transactionData = buildTransactionData(parsedAmount);
 
-      if (isScheduled) {
-        await createIleriTarihliIslem.mutateAsync({
-          ...transactionData,
-          scheduled_date: formatDateForDB(safeDate),
-        });
-      } else {
-        await createIslem.mutateAsync({
-          ...transactionData,
-          date: formatDateTimeForDB(safeDate),
-        });
+      // Edit mode - update existing transaction
+      if (isEditMode && transactionId) {
+        if (isScheduledTransaction) {
+          await updateIleriTarihliIslem.mutateAsync({
+            id: transactionId,
+            updates: {
+              ...transactionData,
+              scheduled_date: formatDateForDB(safeDate),
+            },
+          });
+        } else {
+          await updateIslem.mutateAsync({
+            id: transactionId,
+            updates: {
+              ...transactionData,
+              date: formatDateTimeForDB(safeDate),
+            },
+          });
+        }
+      }
+      // Create mode - create new transaction
+      else {
+        if (isScheduled) {
+          await createIleriTarihliIslem.mutateAsync({
+            ...transactionData,
+            scheduled_date: formatDateForDB(safeDate),
+          });
+        } else {
+          await createIslem.mutateAsync({
+            ...transactionData,
+            date: formatDateTimeForDB(safeDate),
+          });
+        }
       }
 
       if (Platform.OS !== 'web') {
@@ -522,6 +557,9 @@ export function useTransactionSubmit({
     amount,
     isCariMode,
     isPersonelMode,
+    isEditMode,
+    transactionId,
+    isScheduledTransaction,
     type,
     odemeHedefType,
     hedefHesapId,
@@ -547,6 +585,8 @@ export function useTransactionSubmit({
     buildTransactionData,
     createIleriTarihliIslem,
     createIslem,
+    updateIslem,
+    updateIleriTarihliIslem,
     onSuccess,
     handleDismiss,
   ]);
@@ -570,16 +610,39 @@ export function useTransactionSubmit({
           exchangeRate,
         });
 
-        if (isScheduled) {
-          await createIleriTarihliIslem.mutateAsync({
-            ...transactionData,
-            scheduled_date: formatDateForDB(safeDate),
-          });
-        } else {
-          await createIslem.mutateAsync({
-            ...transactionData,
-            date: formatDateTimeForDB(safeDate),
-          });
+        // Edit mode - update existing transaction
+        if (isEditMode && transactionId) {
+          if (isScheduledTransaction) {
+            await updateIleriTarihliIslem.mutateAsync({
+              id: transactionId,
+              updates: {
+                ...transactionData,
+                scheduled_date: formatDateForDB(safeDate),
+              },
+            });
+          } else {
+            await updateIslem.mutateAsync({
+              id: transactionId,
+              updates: {
+                ...transactionData,
+                date: formatDateTimeForDB(safeDate),
+              },
+            });
+          }
+        }
+        // Create mode - create new transaction
+        else {
+          if (isScheduled) {
+            await createIleriTarihliIslem.mutateAsync({
+              ...transactionData,
+              scheduled_date: formatDateForDB(safeDate),
+            });
+          } else {
+            await createIslem.mutateAsync({
+              ...transactionData,
+              date: formatDateTimeForDB(safeDate),
+            });
+          }
         }
 
         if (Platform.OS !== 'web') {
@@ -603,6 +666,9 @@ export function useTransactionSubmit({
     [
       pendingExchangeData,
       isScheduled,
+      isEditMode,
+      transactionId,
+      isScheduledTransaction,
       safeDate,
       t,
       setShowExchangeRateBar,
@@ -610,6 +676,8 @@ export function useTransactionSubmit({
       buildTransactionData,
       createIleriTarihliIslem,
       createIslem,
+      updateIslem,
+      updateIleriTarihliIslem,
       setPendingExchangeData,
       onSuccess,
       handleDismiss,

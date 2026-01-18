@@ -59,7 +59,9 @@
     "personnelPlaceholder": "Personel seç",
     "recurring": "Tekrarlayan",
     "futureDate": "İleri Tarihli",
-    "schedule": "Planla"
+    "schedule": "Planla",
+    "convertToScheduled": "İleri Tarihli Yap",
+    "selectTargetAccount": "Hedef hesap seçin"
   },
   "titles": {
     "selectType": "İşlem Tipi Seçin",
@@ -103,7 +105,10 @@
     "addAsIncome": "Gelir olarak ekle",
     "addAsExpense": "Gider olarak ekle",
     "loading": "İşlemler yükleniyor...",
-    "longLoading": "Çok fazla işlem olduğu için yükleme uzun sürüyor. Lütfen bekleyin veya daha sonra tekrar deneyin."
+    "longLoading": "Çok fazla işlem olduğu için yükleme uzun sürüyor. Lütfen bekleyin veya daha sonra tekrar deneyin.",
+    "willConvertToScheduled": "Bu işlem ileri tarihli işleme dönüştürülecek",
+    "convertedToScheduled": "İşlem ileri tarihli işleme dönüştürüldü",
+    "transactionNotFound": "İşlem bulunamadı"
   },
   "notifications": {
     "reminderTitle": "Yaklaşan İşlem Hatırlatması",

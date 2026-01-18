@@ -57,6 +57,9 @@ export function QuickTransactionBar({
   defaultCariType,
   defaultPersonelId,
   onSuccess,
+  mode = 'create',
+  transactionId,
+  isScheduledTransaction = false,
 }: QuickTransactionBarProps) {
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
@@ -96,6 +99,10 @@ export function QuickTransactionBar({
     defaultPersonelId,
     hesaplar: tempEntities.hesaplar,
     resetModalStates: modals.resetModalStates,
+    // Edit mode props
+    mode,
+    transactionId,
+    isScheduledTransaction,
   });
 
   // Tab mode
@@ -154,6 +161,12 @@ export function QuickTransactionBar({
   const submit = useTransactionSubmit({
     isCariMode: form.isCariMode,
     isPersonelMode: form.isPersonelMode,
+    isEditMode: form.isEditMode,
+    // Edit mode props
+    mode,
+    transactionId,
+    isScheduledTransaction,
+    // Form state
     type: form.type,
     amount: form.amount,
     description: form.description,
@@ -315,7 +328,10 @@ export function QuickTransactionBar({
     kredi_karti_odeme: t('transactions:tabs.kredi_karti_odeme'),
     kredi_karti_ekstre: t('transactions:tabs.kredi_karti_ekstre'),
   };
-  const buttonLabel = buttonLabels[form.type];
+  // In edit mode, show "Update" instead of transaction type
+  const buttonLabel = form.isEditMode
+    ? t('common:buttons.update')
+    : buttonLabels[form.type];
 
   // Category picker type mapping
   const getCategoryType = (): 'gelir' | 'gider' | undefined => {
@@ -455,7 +471,7 @@ export function QuickTransactionBar({
           }}
           onNavigateAway={onDismiss}
           isScheduled={form.isScheduled}
-          isSaving={form.isSaving}
+          isSaving={form.isSaving || form.isLoadingTransaction}
           buttonColor={buttonColor}
           buttonLabel={buttonLabel}
           onSave={submit.handleSave}

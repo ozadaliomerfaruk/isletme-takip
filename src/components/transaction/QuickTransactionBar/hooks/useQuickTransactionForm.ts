@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ensureValidDate } from '@/lib/date';
-import type { TransactionType, OdemeHedefType, TahsilatHedefType } from '../types';
+import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode } from '../types';
 import type { CariType, Currency } from '@/types/database';
+import { useIslem } from '@/hooks/useIslemler';
+import { useIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
+import { mapApiTypeToFormState } from '../utils/reverseTypeMapper';
 
 interface Hesap {
   id: string;
@@ -20,6 +23,10 @@ interface UseQuickTransactionFormOptions {
   defaultPersonelId?: string;
   hesaplar: Hesap[] | undefined;
   resetModalStates: () => void;
+  // Edit mode options
+  mode?: QuickTransactionMode;
+  transactionId?: string;
+  isScheduledTransaction?: boolean;
 }
 
 interface PendingExchangeData {
@@ -32,6 +39,8 @@ interface UseQuickTransactionFormReturn {
   // Mode flags
   isCariMode: boolean;
   isPersonelMode: boolean;
+  isEditMode: boolean;
+  isLoadingTransaction: boolean;
 
   // Form state
   type: TransactionType;
@@ -89,10 +98,30 @@ export function useQuickTransactionForm({
   defaultPersonelId,
   hesaplar,
   resetModalStates,
+  mode = 'create',
+  transactionId,
+  isScheduledTransaction = false,
 }: UseQuickTransactionFormOptions): UseQuickTransactionFormReturn {
-  // Mode flags
-  const isCariMode = !!defaultCariId;
-  const isPersonelMode = !!defaultPersonelId;
+  // Edit mode flag
+  const isEditMode = mode === 'edit' && !!transactionId;
+
+  // Mode flags (overridden in edit mode based on loaded transaction)
+  const [isCariMode, setIsCariMode] = useState(!!defaultCariId);
+  const [isPersonelMode, setIsPersonelMode] = useState(!!defaultPersonelId);
+
+  // Track if we've loaded edit data
+  const [editDataLoaded, setEditDataLoaded] = useState(false);
+
+  // Fetch transaction data for edit mode
+  const { data: normalTransaction, isLoading: isLoadingNormal } = useIslem(
+    isEditMode && !isScheduledTransaction ? transactionId : undefined
+  );
+  const { data: scheduledTransaction, isLoading: isLoadingScheduled } = useIleriTarihliIslem(
+    isEditMode && isScheduledTransaction ? transactionId : undefined
+  );
+
+  // Combined loading state
+  const isLoadingTransaction = isEditMode && (isLoadingNormal || isLoadingScheduled);
 
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType);
@@ -144,8 +173,11 @@ export function useQuickTransactionForm({
     setOdemeHedefType(null);
     setTahsilatHedefType(null);
     setPendingExchangeData(null);
+    setEditDataLoaded(false);
+    setIsCariMode(!!defaultCariId);
+    setIsPersonelMode(!!defaultPersonelId);
     resetModalStates();
-  }, [resetModalStates]);
+  }, [resetModalStates, defaultCariId, defaultPersonelId]);
 
   // Keep resetForm ref up to date (to avoid dependency in effect)
   const resetFormRef = useRef(resetForm);
@@ -161,8 +193,62 @@ export function useQuickTransactionForm({
     }
   }, [visible]);
 
-  // Update type and cari/personel when modal opens
+  // Load transaction data in edit mode
   useEffect(() => {
+    if (!isEditMode || !visible || editDataLoaded) return;
+
+    const transaction = isScheduledTransaction ? scheduledTransaction : normalTransaction;
+    if (!transaction) return;
+
+    // Map API type to form state using reverse mapper
+    const mappedState = mapApiTypeToFormState(
+      transaction.type,
+      transaction.cari_id,
+      transaction.personel_id,
+      transaction.hedef_hesap_id
+    );
+
+    // Set form values from transaction
+    setType(mappedState.type);
+    setAmount(transaction.amount.toString());
+    setDescription(transaction.description || '');
+    // Use scheduled_date for scheduled transactions, date for normal transactions
+    const transactionDate = isScheduledTransaction
+      ? (transaction as { scheduled_date?: string }).scheduled_date
+      : (transaction as { date?: string }).date;
+    if (transactionDate) {
+      setDate(new Date(transactionDate));
+    }
+    setKategoriId(transaction.kategori_id || null);
+    setSourceHesapId(transaction.hesap_id || null);
+    setHedefHesapId(transaction.hedef_hesap_id || null);
+    setCariId(transaction.cari_id || null);
+    setPersonelId(transaction.personel_id || null);
+    setOdemeHedefType(mappedState.odemeHedefType);
+    setTahsilatHedefType(mappedState.tahsilatHedefType);
+    setIsCariMode(mappedState.isCariMode);
+    setIsPersonelMode(mappedState.isPersonelMode);
+
+    // For scheduled transactions, mark as scheduled
+    if (isScheduledTransaction) {
+      setIsScheduled(true);
+    }
+
+    setEditDataLoaded(true);
+  }, [
+    isEditMode,
+    visible,
+    editDataLoaded,
+    isScheduledTransaction,
+    normalTransaction,
+    scheduledTransaction,
+  ]);
+
+  // Update type and cari/personel when modal opens (only in create mode)
+  useEffect(() => {
+    // Skip in edit mode - data will be loaded from transaction
+    if (isEditMode) return;
+
     if (visible) {
       // Personel mode
       if (isPersonelMode && defaultPersonelId) {
@@ -188,6 +274,7 @@ export function useQuickTransactionForm({
     }
   }, [
     visible,
+    isEditMode,
     isPersonelMode,
     defaultPersonelId,
     isCariMode,
@@ -198,20 +285,25 @@ export function useQuickTransactionForm({
     defaultHesapId,
   ]);
 
-  // Reset cariId and personelId when type changes (only in normal mode)
+  // Reset cariId and personelId when type changes (only in normal mode, not during edit data loading)
   useEffect(() => {
+    // Don't reset during edit mode data loading
+    if (isEditMode && !editDataLoaded) return;
+
     if (!isCariMode && !isPersonelMode) {
       setCariId(null);
       setPersonelId(null);
       setOdemeHedefType(null);
       setTahsilatHedefType(null);
     }
-  }, [type, isCariMode, isPersonelMode]);
+  }, [type, isCariMode, isPersonelMode, isEditMode, editDataLoaded]);
 
   return {
     // Mode flags
     isCariMode,
     isPersonelMode,
+    isEditMode,
+    isLoadingTransaction,
 
     // Form state
     type,

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
@@ -31,6 +32,9 @@ export default function IslemlerPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [showLongLoadingMessage, setShowLongLoadingMessage] = useState(false);
+  // Edit mode state
+  const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
+  const [showEditBar, setShowEditBar] = useState(false);
 
   const { data: islemler, isLoading, isFetching } = useIslemler();
   const deleteIslem = useDeleteIslem();
@@ -213,7 +217,11 @@ export default function IslemlerPage() {
                       variant="secondary"
                       size="sm"
                       icon={<Pencil size={16} color={colors.text} />}
-                      onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
+                      onPress={() => {
+                        setEditTransactionId(islem.id);
+                        setShowEditBar(true);
+                        setExpandedIslemId(null);
+                      }}
                       style={styles.actionButton}
                     >
                       {t('common:buttons.edit')}
@@ -233,6 +241,22 @@ export default function IslemlerPage() {
             )}
           </View>
         </ScrollView>
+
+      {/* Edit Transaction Bar */}
+      <QuickTransactionBar
+        visible={showEditBar}
+        onDismiss={() => {
+          setShowEditBar(false);
+          setEditTransactionId(null);
+        }}
+        mode="edit"
+        transactionId={editTransactionId ?? undefined}
+        isScheduledTransaction={false}
+        onSuccess={() => {
+          setShowEditBar(false);
+          setEditTransactionId(null);
+        }}
+      />
     </SafeAreaView>
   );
 }

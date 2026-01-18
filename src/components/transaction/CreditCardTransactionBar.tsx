@@ -36,7 +36,7 @@ import { Text, CategoryPicker } from '@/components/ui';
 import { TransactionTypeTabs, TransactionType, getTransactionTypeColor } from './TransactionTypeTabs';
 import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
-import { Hesap } from '@/types/database';
+import { Hesap, IslemType, IslemInsert, IleriTarihliIslemInsert } from '@/types/database';
 import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -352,50 +352,63 @@ export function CreditCardTransactionBar({
       const parsedAmount = parseCurrency(amount);
 
       // İşlem tipine göre API tipi belirleme
-      let apiType: string;
-      const transactionData: Record<string, unknown> = {
-        amount: parsedAmount,
-        description: description.trim() || null,
-        kategori_id: kategoriId,
-      };
+      let apiType: IslemType;
+      let hesapId: string | null = null;
+      let hedefHesapId: string | null = null;
+      let cariIdValue: string | null = null;
+      let personelIdValue: string | null = null;
 
       if (type === 'kredi_karti_gider') {
         // Kredi kartı harcaması - gider olarak kaydedilir, hesap_id kredi kartı
         apiType = 'gider';
-        transactionData.hesap_id = creditCard.id;
+        hesapId = creditCard.id;
       } else if (type === 'kredi_karti_odeme') {
         // Tedarikçi/personel ödemesi - kredi kartından
         if (odemeHedefType === 'tedarikci') {
           apiType = 'cari_odeme';
-          transactionData.hesap_id = creditCard.id;
-          transactionData.cari_id = cariId;
+          hesapId = creditCard.id;
+          cariIdValue = cariId;
         } else {
           apiType = 'personel_odeme';
-          transactionData.hesap_id = creditCard.id;
-          transactionData.personel_id = personelId;
+          hesapId = creditCard.id;
+          personelIdValue = personelId;
         }
       } else if (type === 'kredi_karti_ekstre') {
         // Ekstre ödemesi - transfer olarak kaydedilir (kaynak hesaptan kredi kartına)
         apiType = 'transfer';
-        transactionData.hesap_id = sourceHesapId;
-        transactionData.hedef_hesap_id = creditCard.id;
+        hesapId = sourceHesapId;
+        hedefHesapId = creditCard.id;
       } else {
         apiType = 'gider';
-        transactionData.hesap_id = creditCard.id;
+        hesapId = creditCard.id;
       }
 
-      transactionData.type = apiType;
-
       if (isScheduled) {
-        await createIleriTarihliIslem.mutateAsync({
-          ...transactionData,
+        const scheduledData: Omit<IleriTarihliIslemInsert, 'isletme_id'> = {
+          type: apiType,
+          amount: parsedAmount,
+          description: description.trim() || null,
+          kategori_id: kategoriId,
+          hesap_id: hesapId,
+          hedef_hesap_id: hedefHesapId,
+          cari_id: cariIdValue,
+          personel_id: personelIdValue,
           scheduled_date: formatDateForDB(date),
-        });
+        };
+        await createIleriTarihliIslem.mutateAsync(scheduledData);
       } else {
-        await createIslem.mutateAsync({
-          ...transactionData,
+        const islemData: Omit<IslemInsert, 'isletme_id'> = {
+          type: apiType,
+          amount: parsedAmount,
+          description: description.trim() || null,
+          kategori_id: kategoriId,
+          hesap_id: hesapId,
+          hedef_hesap_id: hedefHesapId,
+          cari_id: cariIdValue,
+          personel_id: personelIdValue,
           date: formatDateTimeForDB(date),
-        });
+        };
+        await createIslem.mutateAsync(islemData);
       }
 
       if (Platform.OS !== 'web') {

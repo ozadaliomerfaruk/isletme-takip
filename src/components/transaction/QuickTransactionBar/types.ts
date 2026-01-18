@@ -16,6 +16,9 @@ export type HesapPickerTarget = 'source' | 'hedef';
 // Pending modal tipi
 export type PendingModal = 'category' | 'kredi_karti' | 'cari' | 'personel' | null;
 
+// Edit mode tipi
+export type QuickTransactionMode = 'create' | 'edit';
+
 // Ana component props
 export interface QuickTransactionBarProps {
   visible: boolean;
@@ -26,6 +29,10 @@ export interface QuickTransactionBarProps {
   defaultCariType?: CariType;
   defaultPersonelId?: string;
   onSuccess?: () => void;
+  // Edit mode props
+  mode?: QuickTransactionMode;
+  transactionId?: string;
+  isScheduledTransaction?: boolean;
 }
 
 // Exchange rate data for cross-currency transactions

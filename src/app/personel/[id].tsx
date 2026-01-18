@@ -53,6 +53,9 @@ export default function PersonelHareketleriPage() {
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
+  // Edit transaction state
+  const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
+  const [showEditBar, setShowEditBar] = useState(false);
 
   const fullName = personel ? `${personel.first_name} ${personel.last_name}` : t('common:status.loading');
 
@@ -367,7 +370,11 @@ export default function PersonelHareketleriPage() {
                         variant="secondary"
                         size="sm"
                         icon={<Pencil size={16} color={colors.text} />}
-                        onPress={() => router.push({ pathname: '/islemler/duzenle/[id]', params: { id: islem.id } })}
+                        onPress={() => {
+                          setEditTransactionId(islem.id);
+                          setShowEditBar(true);
+                          setExpandedIslemId(null);
+                        }}
                         style={styles.actionButton}
                       >
                         {t('common:buttons.edit')}
@@ -448,12 +455,28 @@ export default function PersonelHareketleriPage() {
           </TouchableOpacity>
         </Modal>
 
-        {/* Quick Transaction Bar */}
+        {/* Quick Transaction Bar - Create Mode */}
         <QuickTransactionBar
           visible={quickBarVisible}
           onDismiss={() => setQuickBarVisible(false)}
           defaultPersonelId={personel?.id}
           onSuccess={() => setQuickBarVisible(false)}
+        />
+
+        {/* Quick Transaction Bar - Edit Mode */}
+        <QuickTransactionBar
+          visible={showEditBar}
+          onDismiss={() => {
+            setShowEditBar(false);
+            setEditTransactionId(null);
+          }}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          onSuccess={() => {
+            setShowEditBar(false);
+            setEditTransactionId(null);
+          }}
         />
 
         {/* Export Sheet */}

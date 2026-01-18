@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { ChevronDown, Wallet, X, Search, Check, Users, UserCheck } from 'lucide-react-native';
+import { ChevronDown, Wallet, X, Search, Check, Users, UserCheck, Bell } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -24,9 +24,10 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useIslem, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
+import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
-import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
+import { parseDateFromDB, formatDateTimeForDB, formatDateForDB } from '@/lib/date';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
@@ -36,6 +37,7 @@ export default function IslemDuzenlePage() {
   const { data: islem, isLoading: islemLoading } = useIslem(id);
   const updateIslem = useUpdateIslem();
   const deleteIslem = useDeleteIslem();
+  const createIleriTarihliIslem = useCreateIleriTarihliIslem();
 
   const { data: hesaplar } = useHesaplar();
   const { data: cariler } = useCariler();
@@ -49,6 +51,7 @@ export default function IslemDuzenlePage() {
   const [cariId, setCariId] = useState<string | null>(null);
   const [personelId, setPersonelId] = useState<string | null>(null);
   const [date, setDate] = useState('');
+  const [isIleriTarihli, setIsIleriTarihli] = useState(false);
 
   const [showHesapPicker, setShowHesapPicker] = useState(false);
   const [hesapPickerTarget, setHesapPickerTarget] = useState<'source' | 'hedef'>('source');
@@ -60,7 +63,7 @@ export default function IslemDuzenlePage() {
 
   const windowHeight = Dimensions.get('window').height;
 
-  const [errors, setErrors] = useState<{ amount?: string; hesap?: string }>({});
+  const [errors, setErrors] = useState<{ amount?: string; hesap?: string; date?: string }>({});
 
   const filteredHesaplar = useMemo(() => {
     const list = hesapPickerTarget === 'hedef' && hesapId
@@ -116,7 +119,7 @@ export default function IslemDuzenlePage() {
   const needsPersonel = ['personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(islemType || '');
 
   const validate = () => {
-    const newErrors: { amount?: string; hesap?: string } = {};
+    const newErrors: { amount?: string; hesap?: string; date?: string } = {};
 
     if (!isValidAmount(amount)) {
       newErrors.amount = t('errors:validation.invalidAmount');
@@ -124,6 +127,18 @@ export default function IslemDuzenlePage() {
 
     if (needsHesap && !hesapId) {
       newErrors.hesap = t('errors:account.selectAccount');
+    }
+
+    // İleri tarihli işlem yapılacaksa tarih kontrolü
+    if (isIleriTarihli) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const selectedDate = date ? parseDateFromDB(date) : new Date();
+      selectedDate.setHours(0, 0, 0, 0);
+
+      if (selectedDate <= today) {
+        newErrors.date = t('errors:transaction.futureDateRequired');
+      }
     }
 
     setErrors(newErrors);
@@ -134,9 +149,13 @@ export default function IslemDuzenlePage() {
     if (!validate() || !id) return;
 
     try {
-      await updateIslem.mutateAsync({
-        id,
-        updates: {
+      // İleri tarihli işleme dönüştürülecekse
+      if (isIleriTarihli) {
+        const selectedDate = date ? parseDateFromDB(date) : new Date();
+
+        // Önce ileri tarihli işlem oluştur
+        await createIleriTarihliIslem.mutateAsync({
+          type: islemType!,
           amount: parseCurrency(amount),
           description: description.trim() || null,
           hesap_id: hesapId,
@@ -144,13 +163,37 @@ export default function IslemDuzenlePage() {
           kategori_id: kategoriId,
           cari_id: cariId,
           personel_id: personelId,
-          date,
-        },
-      });
+          scheduled_date: formatDateForDB(selectedDate),
+        });
 
-      Alert.alert(t('common:status.success'), t('transactions:messages.transactionUpdated'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+        // Sonra eski işlemi sil (bu bakiyeleri geri alacak)
+        await deleteIslem.mutateAsync(id);
+
+        Alert.alert(
+          t('common:status.success'),
+          t('transactions:messages.convertedToScheduled'),
+          [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
+        );
+      } else {
+        // Normal güncelleme
+        await updateIslem.mutateAsync({
+          id,
+          updates: {
+            amount: parseCurrency(amount),
+            description: description.trim() || null,
+            hesap_id: hesapId,
+            hedef_hesap_id: hedefHesapId,
+            kategori_id: kategoriId,
+            cari_id: cariId,
+            personel_id: personelId,
+            date,
+          },
+        });
+
+        Alert.alert(t('common:status.success'), t('transactions:messages.transactionUpdated'), [
+          { text: t('common:buttons.ok'), onPress: () => router.back() },
+        ]);
+      }
     } catch (error: any) {
       Alert.alert(t('common:status.error'), error.message || t('errors:transaction.updateFailed'));
     }
@@ -224,10 +267,27 @@ export default function IslemDuzenlePage() {
           >
             {/* Header */}
             <View style={styles.header}>
-              <Text variant="h2">{t(`transactions:types.${islemType}`)} {t('common:buttons.edit')}</Text>
-              <Text variant="caption" color="secondary">
-                {t('transactions:messages.typeCannotChange')}
-              </Text>
+              <View style={styles.headerRow}>
+                <View style={styles.headerTitleContainer}>
+                  <Text variant="h2">{t(`transactions:types.${islemType}`)} {t('common:buttons.edit')}</Text>
+                  <Text variant="caption" color="secondary">
+                    {t('transactions:messages.typeCannotChange')}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
+                  onPress={() => setIsIleriTarihli(!isIleriTarihli)}
+                >
+                  <Bell size={22} color={isIleriTarihli ? colors.warning : colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              {isIleriTarihli && (
+                <View style={styles.ileriTarihliIndicator}>
+                  <Text variant="caption" style={styles.ileriTarihliText}>
+                    {t('transactions:messages.willConvertToScheduled')}
+                  </Text>
+                </View>
+              )}
             </View>
 
             {/* Form */}
@@ -397,9 +457,11 @@ export default function IslemDuzenlePage() {
 
               {/* Tarih ve Saat */}
               <DateTimePicker
-                label={t('transactions:form.dateTime')}
+                label={isIleriTarihli ? t('transactions:form.transactionDate') : t('transactions:form.dateTime')}
                 value={date ? parseDateFromDB(date) : new Date()}
                 onChange={(newDate) => setDate(formatDateTimeForDB(newDate))}
+                mode={isIleriTarihli ? "date" : "datetime"}
+                error={errors.date}
               />
 
               {/* Açıklama */}
@@ -426,11 +488,11 @@ export default function IslemDuzenlePage() {
               <Button
                 variant="primary"
                 size="lg"
-                loading={updateIslem.isPending}
+                loading={updateIslem.isPending || createIleriTarihliIslem.isPending || deleteIslem.isPending}
                 onPress={handleSubmit}
-                style={styles.button}
+                style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
               >
-                {t('common:buttons.update')}
+                {isIleriTarihli ? t('transactions:form.convertToScheduled') : t('common:buttons.update')}
               </Button>
             </View>
 
@@ -780,6 +842,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  headerTitleContainer: {
+    flex: 1,
+  },
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  bellButtonActive: {
+    backgroundColor: colors.warning + '20',
+    borderColor: colors.warning,
+  },
+  ileriTarihliIndicator: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.warning + '20',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+  },
+  ileriTarihliText: {
+    color: colors.warning,
+    fontWeight: '600',
+  },
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
@@ -942,5 +1038,8 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     borderColor: colors.error,
+  },
+  buttonIleriTarihli: {
+    backgroundColor: colors.warning,
   },
 });

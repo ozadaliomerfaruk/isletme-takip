@@ -136,6 +136,15 @@ export function useDeletePersonel() {
         throw new Error('Personel bulunamadı veya erişim yetkiniz yok');
       }
 
+      // İlişkili ileri tarihli işlemleri sil (ownership kontrolü ile)
+      const { error: scheduledError } = await supabase
+        .from('ileri_tarihli_islemler')
+        .delete()
+        .eq('personel_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (scheduledError) throw scheduledError;
+
       // İlişkili işlemleri sil (ownership kontrolü ile)
       const { error: islemError } = await supabase
         .from('islemler')
