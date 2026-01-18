@@ -21,6 +21,8 @@
   "auth": {
     "invalidEmail": "Please enter a valid email address",
     "invalidPassword": "Password must be at least 6 characters",
+    "passwordMinLength": "At least 6 characters",
+    "wrongPassword": "Current password is incorrect",
     "passwordMismatch": "Passwords do not match",
     "emailInUse": "This email is already registered",
     "invalidCredentials": "Invalid email or password",

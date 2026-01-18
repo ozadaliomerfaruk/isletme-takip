@@ -21,7 +21,7 @@ import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { Currency } from '@/types/database';
 import { getCurrencySymbol, getExchangeRateDisplay } from '@/constants/currencies';
-import { parseCurrency, formatCurrency, formatNumber } from '@/lib/currency';
+import { parseCurrency, formatCurrency } from '@/lib/currency';
 
 export interface ExchangeRateBarProps {
   visible: boolean;

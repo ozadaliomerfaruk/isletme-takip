@@ -15,10 +15,8 @@ import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
 import { CashFlowCard } from './CashFlowCard';
-import { PeriodDropdown } from './PeriodDropdown';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
-import type { PeriodType } from '@/lib/date';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_PADDING = 16;
@@ -33,7 +31,6 @@ interface SummaryCarouselProps {
   // Gelir/Gider
   income: number;
   expense: number;
-  periodLabel: string;
   // Nakit Akışı (4. kart)
   totalInflow?: number;
   totalOutflow?: number;
@@ -43,11 +40,6 @@ interface SummaryCarouselProps {
   endDate?: string;
   // Sayfa değişikliği callback'i
   onPageChange?: (index: number) => void;
-  // Period selection (for cards 2 and 4)
-  periodType?: PeriodType;
-  onPeriodChange?: (type: PeriodType) => void;
-  onPeriodNavigate?: (direction: -1 | 1) => void;
-  onCustomDatePress?: () => void;
 }
 
 export function SummaryCarousel({
@@ -57,17 +49,12 @@ export function SummaryCarousel({
   generalStatus,
   income,
   expense,
-  periodLabel,
   totalInflow = 0,
   totalOutflow = 0,
   netCashFlow = 0,
   startDate,
   endDate,
   onPageChange,
-  periodType = 'monthly',
-  onPeriodChange,
-  onPeriodNavigate,
-  onCustomDatePress,
 }: SummaryCarouselProps) {
   const { t } = useTranslation(['common']);
   const router = useRouter();
@@ -209,17 +196,6 @@ export function SummaryCarousel({
             {/* Header */}
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>{t('common:dashboard.incomeExpense')}</Text>
-              {onPeriodChange && onPeriodNavigate ? (
-                <PeriodDropdown
-                  periodLabel={periodLabel}
-                  periodType={periodType}
-                  onPeriodChange={onPeriodChange}
-                  onNavigate={onPeriodNavigate}
-                  onCustomDatePress={onCustomDatePress}
-                />
-              ) : (
-                <Text style={styles.periodBadge}>{periodLabel}</Text>
-              )}
             </View>
 
             {/* Main Value */}
@@ -333,11 +309,6 @@ export function SummaryCarousel({
             totalInflow={totalInflow}
             totalOutflow={totalOutflow}
             netCashFlow={netCashFlow}
-            periodLabel={periodLabel}
-            periodType={periodType}
-            onPeriodChange={onPeriodChange}
-            onPeriodNavigate={onPeriodNavigate}
-            onCustomDatePress={onCustomDatePress}
             onPress={() => router.push({
               pathname: '/nakit-akisi',
               params: startDate && endDate ? { startDate, endDate } : undefined,

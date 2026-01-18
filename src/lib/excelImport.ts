@@ -145,6 +145,40 @@ export const TRANSACTION_TYPE_MAP: Record<string, string> = {
   'CARI ALIS': 'cari_alis',
   'CARİ SATIŞ': 'cari_satis',
   'CARI SATIS': 'cari_satis',
+
+  // Cari iade işlemleri
+  'CARİ ALIŞ İADE': 'cari_alis_iade',
+  'CARI ALIS IADE': 'cari_alis_iade',
+  'CARİ ALIŞ IADE': 'cari_alis_iade',
+  'CARI ALIŞ İADE': 'cari_alis_iade',
+  'ALIŞ İADE': 'cari_alis_iade',
+  'ALIS IADE': 'cari_alis_iade',
+  'PURCHASE RETURN': 'cari_alis_iade',
+
+  'CARİ SATIŞ İADE': 'cari_satis_iade',
+  'CARI SATIS IADE': 'cari_satis_iade',
+  'CARİ SATIŞ IADE': 'cari_satis_iade',
+  'CARI SATIŞ İADE': 'cari_satis_iade',
+  'SATIŞ İADE': 'cari_satis_iade',
+  'SATIS IADE': 'cari_satis_iade',
+  'SALE RETURN': 'cari_satis_iade',
+};
+
+/**
+ * İşlem tipine göre tutarın yönünü belirle
+ * true = gider (para çıkışı), false = gelir (para girişi)
+ */
+export const getIsExpenseByType = (mappedType: string): boolean => {
+  const expenseTypes = [
+    'gider',
+    'cari_alis',
+    'cari_odeme',
+    'cari_satis_iade',
+    'personel_gider',
+    'personel_odeme',
+    'transfer', // kaynak hesap için
+  ];
+  return expenseTypes.includes(mappedType);
 };
 
 /**
@@ -653,6 +687,9 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       // Tarih geçersizse de işlemi ekle (önizlemede gösterilecek, import'ta atlanacak)
       const isoDate = jsDate ? formatDateTimeForDB(jsDate) : '';
 
+      // İşlem tipine göre tutarın yönünü belirle (negatif/pozitif yazmaya gerek yok)
+      const isExpense = getIsExpenseByType(mappedType);
+
       transactions.push({
         date: isoDate,
         type,
@@ -668,7 +705,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         karsiHesapAmount,
         karsiHesapCurrency,
         amount: Math.abs(amount),
-        isExpense: amount < 0,
+        isExpense,
         dateValid,
         dateError,
         amountValid,

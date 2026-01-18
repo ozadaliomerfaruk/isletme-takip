@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
   Platform,
   Keyboard,
+  KeyboardEvent,
   Easing,
   Alert,
   ScrollView,
@@ -20,9 +21,9 @@ import { Calendar, X, Wallet } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import DateTimePickerRN from '@react-native-community/datetimepicker';
+import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { Text, Button, CategoryPicker, EmptyState } from '@/components/ui';
+import { Text, Button, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
@@ -131,7 +132,7 @@ export function DailyCashModal({
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const handleShow = (e: any) => {
+    const handleShow = (e: KeyboardEvent) => {
       setIsKeyboardVisible(true);
       setKeyboardHeight(e.endCoordinates.height);
     };
@@ -291,7 +292,7 @@ export function DailyCashModal({
       Alert.alert(t('common:status.success'), t('transactions:dailyCash.success'));
       onSuccess?.();
       handleDismiss();
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Rollback: delete any successfully created islemler
       if (createdIslemIds.length > 0) {
         try {
@@ -313,14 +314,14 @@ export function DailyCashModal({
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      Alert.alert(t('common:status.error'), error.message || t('transactions:messages.saveFailed'));
+      Alert.alert(t('common:status.error'), error instanceof Error ? error.message : t('transactions:messages.saveFailed'));
     } finally {
       setIsSaving(false);
     }
   }, [entries, date, createIslem, t, onSuccess, handleDismiss]);
 
   // Handle date change - always set time to 23:59
-  const handleDateChange = useCallback((event: any, selectedDate?: Date) => {
+  const handleDateChange = useCallback((event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }

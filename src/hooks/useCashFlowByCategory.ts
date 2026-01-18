@@ -318,7 +318,7 @@ export function useCashFlowByCategory(
     const otherOutflowTotal = otherOutflowItems.reduce((acc, item) => acc + item.total, 0);
     const otherOutflowCount = otherOutflowItems.reduce((acc, item) => acc + item.count, 0);
 
-    let outflowItems = [...topOutflowItems];
+    const outflowItems = [...topOutflowItems];
     if (otherOutflowTotal > 0) {
       outflowItems.push({
         kategori: null,
@@ -346,7 +346,7 @@ export function useCashFlowByCategory(
     const otherInflowTotal = otherInflowItems.reduce((acc, item) => acc + item.total, 0);
     const otherInflowCount = otherInflowItems.reduce((acc, item) => acc + item.count, 0);
 
-    let inflowItems = [...topInflowItems];
+    const inflowItems = [...topInflowItems];
     if (otherInflowTotal > 0) {
       inflowItems.push({
         kategori: null,
@@ -374,7 +374,7 @@ export function useCashFlowByCategory(
     const otherCreditCardSpendingTotal = otherCreditCardSpendingItems.reduce((acc, item) => acc + item.total, 0);
     const otherCreditCardSpendingCount = otherCreditCardSpendingItems.reduce((acc, item) => acc + item.count, 0);
 
-    let creditCardSpendingItems = [...topCreditCardSpendingItems];
+    const creditCardSpendingItems = [...topCreditCardSpendingItems];
     if (otherCreditCardSpendingTotal > 0) {
       creditCardSpendingItems.push({
         kategori: null,

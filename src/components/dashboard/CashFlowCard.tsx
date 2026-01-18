@@ -2,34 +2,21 @@ import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
-import { PeriodDropdown } from './PeriodDropdown';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
-import type { PeriodType } from '@/lib/date';
 
 interface CashFlowCardProps {
   totalInflow: number;
   totalOutflow: number;
   netCashFlow: number;
-  periodLabel: string;
   onPress?: () => void;
-  // Period selection
-  periodType?: PeriodType;
-  onPeriodChange?: (type: PeriodType) => void;
-  onPeriodNavigate?: (direction: -1 | 1) => void;
-  onCustomDatePress?: () => void;
 }
 
 export function CashFlowCard({
   totalInflow,
   totalOutflow,
   netCashFlow,
-  periodLabel,
   onPress,
-  periodType = 'monthly',
-  onPeriodChange,
-  onPeriodNavigate,
-  onCustomDatePress,
 }: CashFlowCardProps) {
   const { t } = useTranslation(['common']);
   // Progress bar calculation
@@ -44,17 +31,6 @@ export function CashFlowCard({
       {/* Header */}
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{t('common:dashboard.cashFlow')}</Text>
-        {onPeriodChange && onPeriodNavigate ? (
-          <PeriodDropdown
-            periodLabel={periodLabel}
-            periodType={periodType}
-            onPeriodChange={onPeriodChange}
-            onNavigate={onPeriodNavigate}
-            onCustomDatePress={onCustomDatePress}
-          />
-        ) : (
-          <Text style={styles.periodBadge}>{periodLabel}</Text>
-        )}
       </View>
 
       {/* Main Value */}
@@ -127,16 +103,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textMuted,
     letterSpacing: 0.3,
-  },
-  periodBadge: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.primary,
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    overflow: 'hidden',
   },
   mainValue: {
     alignItems: 'center',

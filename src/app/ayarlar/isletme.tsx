@@ -6,30 +6,47 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
+  Pressable,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Building2 } from 'lucide-react-native';
+import { Building2, Lock, X } from 'lucide-react-native';
 import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUpdateIsletme } from '@/hooks/useIsletme';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function IsletmeBilgileriPage() {
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
-  const { locale, formatDateLong } = useDateFormat();
+  const { formatDateLong } = useDateFormat();
   const { isletme, user } = useAuthContext();
   const updateIsletme = useUpdateIsletme();
+  const { changePassword } = useAuth();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [taxNumber, setTaxNumber] = useState('');
   const [errors, setErrors] = useState<{ name?: string }>({});
+
+  // Şifre değiştirme modal state'leri
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<{
+    currentPassword?: string;
+    newPassword?: string;
+    confirmPassword?: string;
+  }>({});
 
   useEffect(() => {
     if (isletme) {
@@ -65,9 +82,69 @@ export default function IsletmeBilgileriPage() {
       Alert.alert(t('common:status.success'), t('settings:messages.businessInfoUpdated'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('settings:messages.businessUpdateFailed'));
+    } catch (error: unknown) {
+      Alert.alert(t('common:status.error'), error instanceof Error ? error.message : t('settings:messages.businessUpdateFailed'));
     }
+  };
+
+  // Şifre değiştirme validasyonu
+  const validatePassword = () => {
+    const newErrors: typeof passwordErrors = {};
+
+    if (!currentPassword) {
+      newErrors.currentPassword = t('errors:validation.required');
+    }
+
+    if (!newPassword) {
+      newErrors.newPassword = t('errors:validation.required');
+    } else if (newPassword.length < 6) {
+      newErrors.newPassword = t('errors:auth.invalidPassword');
+    }
+
+    if (!confirmPassword) {
+      newErrors.confirmPassword = t('errors:validation.required');
+    } else if (newPassword !== confirmPassword) {
+      newErrors.confirmPassword = t('errors:auth.passwordMismatch');
+    }
+
+    setPasswordErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Şifre değiştirme submit
+  const handlePasswordSubmit = async () => {
+    if (!validatePassword()) return;
+
+    setPasswordLoading(true);
+    try {
+      await changePassword(currentPassword, newPassword);
+
+      // Başarılı - modal'ı kapat ve formu temizle
+      setShowPasswordModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setPasswordErrors({});
+
+      Alert.alert(t('common:status.success'), t('settings:messages.passwordChanged'));
+    } catch (error: unknown) {
+      if (error instanceof Error && error.message === 'WRONG_PASSWORD') {
+        setPasswordErrors({ currentPassword: t('errors:auth.wrongPassword') });
+      } else {
+        Alert.alert(t('common:status.error'), t('errors:general.generic'));
+      }
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Şifre modal'ını kapat ve temizle
+  const closePasswordModal = () => {
+    setShowPasswordModal(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordErrors({});
   };
 
   if (!isletme) {
@@ -156,6 +233,22 @@ export default function IsletmeBilgileriPage() {
               </Text>
             </Card>
 
+            {/* Şifre Değiştir */}
+            <TouchableOpacity
+              style={styles.passwordButton}
+              onPress={() => setShowPasswordModal(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.passwordButtonContent}>
+                <View style={styles.passwordIconContainer}>
+                  <Lock size={20} color={colors.primary} />
+                </View>
+                <Text variant="body" style={styles.passwordButtonText}>
+                  {t('settings:profile.changePassword')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
             {/* Buttons */}
             <View style={styles.buttons}>
               <Button
@@ -178,6 +271,70 @@ export default function IsletmeBilgileriPage() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* Şifre Değiştirme Modal */}
+        <Modal visible={showPasswordModal} transparent animationType="slide">
+          <Pressable style={styles.modalOverlay} onPress={closePasswordModal}>
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              style={styles.modalKeyboardView}
+            >
+              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                {/* Header */}
+                <View style={styles.modalHeader}>
+                  <Text variant="h3">{t('settings:profile.changePassword')}</Text>
+                  <TouchableOpacity onPress={closePasswordModal}>
+                    <X size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Form */}
+                <View style={styles.modalForm}>
+                  {/* Mevcut Şifre */}
+                  <Input
+                    label={t('settings:profile.currentPassword')}
+                    placeholder="••••••••"
+                    secureTextEntry
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    error={passwordErrors.currentPassword}
+                  />
+
+                  {/* Yeni Şifre */}
+                  <Input
+                    label={`${t('settings:profile.newPassword')} (${t('errors:auth.passwordMinLength')})`}
+                    placeholder="••••••••"
+                    secureTextEntry
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    error={passwordErrors.newPassword}
+                  />
+
+                  {/* Şifre Tekrar */}
+                  <Input
+                    label={t('settings:profile.confirmPassword')}
+                    placeholder="••••••••"
+                    secureTextEntry
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    error={passwordErrors.confirmPassword}
+                  />
+                </View>
+
+                {/* Submit Button */}
+                <Button
+                  variant="primary"
+                  size="lg"
+                  loading={passwordLoading}
+                  onPress={handlePasswordSubmit}
+                  style={styles.modalButton}
+                >
+                  {t('settings:profile.changePassword')}
+                </Button>
+              </Pressable>
+            </KeyboardAvoidingView>
+          </Pressable>
+        </Modal>
     </SafeAreaView>
   );
 }
@@ -233,5 +390,59 @@ const styles = StyleSheet.create({
   },
   button: {
     flex: 1,
+  },
+  // Şifre değiştir butonu stilleri
+  passwordButton: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  passwordButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  passwordIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  passwordButtonText: {
+    color: colors.text,
+  },
+  // Modal stilleri
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalKeyboardView: {
+    width: '100%',
+  },
+  modalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.lg,
+    paddingBottom: spacing['2xl'],
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalForm: {
+    gap: spacing.sm,
+  },
+  modalButton: {
+    marginTop: spacing.lg,
   },
 });

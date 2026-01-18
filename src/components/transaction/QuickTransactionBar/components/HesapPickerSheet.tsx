@@ -56,7 +56,7 @@ export function HesapPickerSheet({
 
   // Filter hesaplar
   const filteredHesaplar = useMemo(() => {
-    let list = excludeId ? hesaplar.filter((h) => h.id !== excludeId) : hesaplar;
+    const list = excludeId ? hesaplar.filter((h) => h.id !== excludeId) : hesaplar;
     if (!searchQuery.trim()) return list;
     const query = searchQuery.toLowerCase().trim();
     return list.filter((h) => h.name.toLowerCase().includes(query));

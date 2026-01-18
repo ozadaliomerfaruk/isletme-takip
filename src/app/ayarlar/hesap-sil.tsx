@@ -99,7 +99,7 @@ export default function HesapSilPage() {
           </Text>
 
           <Text variant="h3" color="primary" style={styles.isletmeAdi}>
-            "{isletmeAdi}"
+            {`"${isletmeAdi}"`}
           </Text>
 
           <Input

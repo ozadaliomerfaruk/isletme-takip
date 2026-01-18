@@ -733,21 +733,23 @@ export function getPeriodDateRange(
   let label: string;
 
   switch (period) {
-    case 'yearly':
+    case 'yearly': {
       // Yıl hesapla (offset: -1 = geçen yıl, 0 = bu yıl, 1 = gelecek yıl)
       const targetYear = now.getFullYear() + offset;
       startDate = new Date(targetYear, 0, 1);
       endDate = new Date(targetYear, 11, 31);
       label = targetYear.toString();
       break;
-    case 'monthly':
+    }
+    case 'monthly': {
       // Ay hesapla (offset: -1 = geçen ay, 0 = bu ay, 1 = gelecek ay)
       const targetMonth = new Date(now.getFullYear(), now.getMonth() + offset, 1);
       startDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
       endDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
       label = `${months[targetMonth.getMonth()]} ${targetMonth.getFullYear()}`;
       break;
-    case 'weekly':
+    }
+    case 'weekly': {
       // Hafta hesapla (offset: -1 = geçen hafta, 0 = bu hafta, 1 = gelecek hafta)
       const dayOfWeek = now.getDay();
       const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
@@ -763,6 +765,7 @@ export function getPeriodDateRange(
         label = `${startDate.getDate()} ${monthsShort[startDate.getMonth()]} - ${endDate.getDate()} ${monthsShort[endDate.getMonth()]}`;
       }
       break;
+    }
     case 'daily':
       // Gün hesapla (offset: -1 = dün, 0 = bugün, 1 = yarın)
       startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);

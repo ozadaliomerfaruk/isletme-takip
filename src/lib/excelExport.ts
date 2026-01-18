@@ -597,7 +597,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ws[`I${openingRow}`] = { v: formatAmount(openingCreditBalance), s: summaryCurrencyStyle };
 
   // ============ İŞLEMLER ============
-  let dataRowStart = 10;
+  const dataRowStart = 10;
   rows.forEach((r, i) => {
     const rowNum = dataRowStart + i;
     ws[`A${rowNum}`] = { v: r.date, s: cellStyle };

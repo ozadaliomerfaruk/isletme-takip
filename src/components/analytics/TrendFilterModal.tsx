@@ -126,9 +126,10 @@ export function TrendFilterModal({
         return (item as Cari).name;
       case 'kategori':
         return (item as Kategori).name;
-      case 'personel':
+      case 'personel': {
         const p = item as Personel;
         return `${p.first_name} ${p.last_name}`;
+      }
       default:
         return '';
     }

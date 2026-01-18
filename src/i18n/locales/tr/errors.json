@@ -20,6 +20,8 @@
   "auth": {
     "invalidEmail": "Geçerli bir e-posta adresi girin",
     "invalidPassword": "Şifre en az 6 karakter olmalı",
+    "passwordMinLength": "En az 6 karakter",
+    "wrongPassword": "Mevcut şifre hatalı",
     "passwordMismatch": "Şifreler eşleşmiyor",
     "emailInUse": "Bu e-posta adresi zaten kayıtlı",
     "invalidCredentials": "E-posta veya şifre hatalı",

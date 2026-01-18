@@ -353,7 +353,7 @@ export function CreditCardTransactionBar({
 
       // İşlem tipine göre API tipi belirleme
       let apiType: string;
-      let transactionData: any = {
+      const transactionData: Record<string, unknown> = {
         amount: parsedAmount,
         description: description.trim() || null,
         kategori_id: kategoriId,
@@ -421,6 +421,7 @@ export function CreditCardTransactionBar({
     description,
     date,
     kategoriId,
+    categorySkipped,
     isScheduled,
     sourceHesapId,
     cariId,

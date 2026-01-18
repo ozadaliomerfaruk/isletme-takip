@@ -718,6 +718,30 @@ export function useAuth() {
     }
   };
 
+  // Şifre değiştir
+  const changePassword = async (currentPassword: string, newPassword: string) => {
+    if (!state.user?.email) {
+      throw new Error('Kullanıcı bulunamadı');
+    }
+
+    // 1. Mevcut şifreyi doğrula (email + currentPassword ile sign in)
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email: state.user.email,
+      password: currentPassword,
+    });
+
+    if (verifyError) {
+      throw new Error('WRONG_PASSWORD');
+    }
+
+    // 2. Yeni şifreyi güncelle
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (updateError) throw updateError;
+  };
+
   // Apple Sign-In kullanılabilir mi kontrol et
   const isAppleSignInAvailable = Platform.OS === 'ios';
 
@@ -732,5 +756,6 @@ export function useAuth() {
     signInWithApple,
     signInWithGoogle,
     isAppleSignInAvailable,
+    changePassword,
   };
 }
