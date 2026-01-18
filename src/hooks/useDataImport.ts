@@ -3,7 +3,7 @@
  * Excel'den parse edilen verileri Supabase'e batch olarak insert eder
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
@@ -84,12 +84,29 @@ export interface DuplicateInfo {
 }
 
 /**
+ * Progress mesajları için çeviri arayüzü
+ */
+export interface ProgressTranslations {
+  categories: string;
+  accounts: string;
+  clients: string;
+  personel: string;
+  transactions: string;
+  balances: string;
+  done: string;
+  simulation: string;
+  starting?: string;
+  etaRemaining?: string; // "remaining" veya "kaldı"
+}
+
+/**
  * Import seçenekleri
  */
 export interface ImportOptions {
   dryRun?: boolean;
   skipDuplicates?: boolean;
   categoryMappings?: Record<string, 'gelir' | 'gider'>; // Kullanıcının belirlediği kategori tipleri
+  translations?: ProgressTranslations; // Lokalize edilmiş progress mesajları
 }
 
 // ============================================================================
@@ -314,9 +331,26 @@ async function checkForDuplicates(
 // HOOK
 // ============================================================================
 
+// Varsayılan çeviriler (Türkçe fallback)
+const DEFAULT_TRANSLATIONS: ProgressTranslations = {
+  categories: 'Kategoriler oluşturuluyor...',
+  accounts: 'Hesaplar oluşturuluyor...',
+  clients: 'Cariler oluşturuluyor...',
+  personel: 'Personeller oluşturuluyor...',
+  transactions: 'İşlemler import ediliyor...',
+  balances: 'Bakiyeler güncelleniyor...',
+  done: 'Tamamlandı!',
+  simulation: 'Simülasyon yapılıyor...',
+  starting: 'Başlatılıyor...',
+  etaRemaining: 'kaldı',
+};
+
 export function useDataImport() {
   const { isletme } = useAuthContext();
   const queryClient = useQueryClient();
+
+  // Aktif çeviriler ref'i - runImport çağrıldığında güncellenir
+  const translationsRef = useRef<ProgressTranslations>(DEFAULT_TRANSLATIONS);
 
   const [progress, setProgress] = useState<ImportProgress>({
     phase: 'idle',
@@ -556,7 +590,7 @@ export function useDataImport() {
     setProgress(p => ({
       ...p,
       phase: 'categories',
-      message: `${newCategories.length} kategori oluşturuluyor...`,
+      message: translationsRef.current.categories,
     }));
 
     // Batch insert
@@ -616,6 +650,7 @@ export function useDataImport() {
           isletme_id: isletme.id,
           name: mapping.name,
           type: (mapping.hesapType || 'banka') as HesapType,
+          currency: (mapping.currency || 'TRY') as 'TRY' | 'USD' | 'EUR' | 'GBP' | 'XAU' | 'XAG', // Import'tan tespit edilen para birimi
           balance: 0, // Başlangıç bakiyesi 0, kullanıcı manuel değiştirebilir
         });
       }
@@ -626,7 +661,7 @@ export function useDataImport() {
     setProgress(p => ({
       ...p,
       phase: 'accounts',
-      message: `${newAccounts.length} hesap oluşturuluyor...`,
+      message: translationsRef.current.accounts,
     }));
 
     const createdIds: string[] = [];
@@ -681,7 +716,7 @@ export function useDataImport() {
     setProgress(p => ({
       ...p,
       phase: 'clients',
-      message: `${newClients.length} cari oluşturuluyor...`,
+      message: translationsRef.current.clients,
     }));
 
     const createdIds: string[] = [];
@@ -760,7 +795,7 @@ export function useDataImport() {
     setProgress(p => ({
       ...p,
       phase: 'personel',
-      message: `${newPersonel.length} personel oluşturuluyor...`,
+      message: translationsRef.current.personel,
     }));
 
     const createdIds: string[] = [];
@@ -840,14 +875,14 @@ export function useDataImport() {
       }
 
       const etaText = estimatedTimeRemaining !== undefined && estimatedTimeRemaining > 0
-        ? ` (~${estimatedTimeRemaining}s kaldı)`
+        ? ` (~${estimatedTimeRemaining}s ${translationsRef.current.etaRemaining || 'kaldı'})`
         : '';
 
       setProgress({
         phase: 'transactions',
         current: currentProgress,
         total: transactions.length,
-        message: `İşlemler import ediliyor (${chunkIndex + 1}/${totalChunks})...${etaText}`,
+        message: `${translationsRef.current.transactions} (${chunkIndex + 1}/${totalChunks})${etaText}`,
         estimatedTimeRemaining,
         startTime,
       });
@@ -1133,7 +1168,7 @@ export function useDataImport() {
             setProgress(p => ({
               ...p,
               phase: 'balances',
-              message: `Bakiyeler güncelleniyor (${chunkIndex + 1}/${totalChunks})...`,
+              message: `${translationsRef.current.balances} (${chunkIndex + 1}/${totalChunks})`,
             }));
 
             // Her başarılı işlem için bakiye güncelle, hataları takip et
@@ -1243,7 +1278,7 @@ export function useDataImport() {
       };
     }
 
-    setProgress({ phase: 'categories', current: 0, total: 100, message: 'Simülasyon yapılıyor...' });
+    setProgress({ phase: 'categories', current: 0, total: 100, message: translationsRef.current.simulation });
 
     // 1. Mevcut verileri al (sadece kontrol için)
     const [existingCategories, existingAccounts, existingClients, existingPersonel] = await Promise.all([
@@ -1286,7 +1321,7 @@ export function useDataImport() {
     // 4. Duplicate kontrolü
     const duplicateMap = await runDuplicateCheck(preview.transactions);
 
-    setProgress({ phase: 'done', current: 100, total: 100, message: 'Simülasyon tamamlandı' });
+    setProgress({ phase: 'done', current: 100, total: 100, message: translationsRef.current.done });
 
     const simulationResult: ImportResult = {
       success: true,
@@ -1324,6 +1359,11 @@ export function useDataImport() {
     accountMappings: Record<string, AccountMapping>,
     options: ImportOptions = {}
   ): Promise<ImportResult> => {
+    // Çevirileri güncelle (verilmişse)
+    if (options.translations) {
+      translationsRef.current = options.translations;
+    }
+
     // Dry run modunda simülasyon yap
     if (options.dryRun) {
       return simulateImport(preview, accountMappings);
@@ -1352,7 +1392,7 @@ export function useDataImport() {
     }
 
     try {
-      setProgress({ phase: 'categories', current: 0, total: 100, message: 'Başlatılıyor...' });
+      setProgress({ phase: 'categories', current: 0, total: 100, message: translationsRef.current.starting || translationsRef.current.categories });
 
       // 1. Mevcut verileri al
       const [existingCategories, existingAccounts, existingClients, existingPersonel] = await Promise.all([
@@ -1395,7 +1435,7 @@ export function useDataImport() {
       );
 
       // 7. Cache'i invalidate et ve refetch yap
-      setProgress({ phase: 'done', current: 100, total: 100, message: 'Tamamlandı!' });
+      setProgress({ phase: 'done', current: 100, total: 100, message: translationsRef.current.done });
 
       invalidateRelatedQueries(queryClient, 'islem');
       invalidateRelatedQueries(queryClient, 'hesap');

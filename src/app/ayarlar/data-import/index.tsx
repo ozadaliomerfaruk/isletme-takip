@@ -54,7 +54,7 @@ import {
   groupSkippedByReason,
   calculateFileHash,
 } from '@/lib/excelImport';
-import { useDataImport, SkippedTransaction, DuplicateInfo } from '@/hooks/useDataImport';
+import { useDataImport, SkippedTransaction, DuplicateInfo, ProgressTranslations } from '@/hooks/useDataImport';
 import { useImportHistory } from '@/hooks/useImportHistory';
 import {
   useCreatePendingIslemler,
@@ -70,6 +70,7 @@ import { PendingTransactionForm } from '@/components/import';
 import { SkippedTransactionCard } from '@/components/import/SkippedTransactionCard';
 import type { PendingIslemRawData, PendingIslem } from '@/types/database';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { getLocalizedCurrencies, CURRENCIES } from '@/constants/currencies';
 
 type Step = 'select' | 'preview' | 'mapping' | 'importing' | 'result';
 type ModalType = 'transactions' | 'accounts' | 'clients' | 'categories' | 'categoryTypes' | 'skipped' | null;
@@ -145,37 +146,43 @@ export default function VeriIceAktarPage() {
       const h = t('dataImport.template.headers', { returnObjects: true }) as Record<string, string>;
       const s = t('dataImport.template.sampleData', { returnObjects: true }) as Record<string, string>;
 
+      // Dile göre varsayılan para birimi
+      const isEnglish = i18n.language.startsWith('en');
+      const defaultCurrency = isEnglish ? 'USD' : 'TRY';
+      const secondaryCurrency = isEnglish ? 'EUR' : 'USD';
+      const secondaryAccount = isEnglish ? (s.eurAccount || 'EUR Account') : s.usdAccount;
+
       const templateData = [
         // Header row
         [h.date, h.type, h.description, h.category, h.account, h.staff, h.supplier, h.customer, h.targetAccount, h.amount, h.currency],
         // 1. GELİR - Genel gelir (cari bağımsız)
-        ['2024-01-15 10:30', s.income, s.cashSale, s.sales, s.cash, '', '', '', '', '1500', 'TRY'],
+        ['2024-01-15 10:30', s.income, s.cashSale, s.sales, s.cash, '', '', '', '', '1500', defaultCurrency],
         // 2. GİDER - Genel gider (cari bağımsız)
-        ['2024-01-15 14:00', s.expense, s.officeSupplies, s.officeExpenses, s.bankAccount, '', '', '', '', '250', 'TRY'],
+        ['2024-01-15 14:00', s.expense, s.officeSupplies, s.officeExpenses, s.bankAccount, '', '', '', '', '250', defaultCurrency],
         // 3. CARİ ALIŞ - Tedarikçiden alış
-        ['2024-01-16 09:00', s.cariPurchase, s.goodsPurchase, s.purchase, '', '', s.sampleSupplier, '', '', '10000', 'TRY'],
+        ['2024-01-16 09:00', s.cariPurchase, s.goodsPurchase, s.purchase, '', '', s.sampleSupplier, '', '', '10000', defaultCurrency],
         // 4. CARİ SATIŞ - Müşteriye satış
-        ['2024-01-16 11:30', s.cariSale, s.goodsSale, s.sales, '', '', '', s.sampleCustomer, '', '15000', 'TRY'],
+        ['2024-01-16 11:30', s.cariSale, s.goodsSale, s.sales, '', '', '', s.sampleCustomer, '', '15000', defaultCurrency],
         // 5. ÖDEME - Tedarikçiye ödeme
-        ['2024-01-17 08:00', s.payment, s.supplierPayment, '', s.bankAccount, '', s.sampleSupplier, '', '', '5000', 'TRY'],
+        ['2024-01-17 08:00', s.payment, s.supplierPayment, '', s.bankAccount, '', s.sampleSupplier, '', '', '5000', defaultCurrency],
         // 6. TAHSİLAT - Müşteriden tahsilat
-        ['2024-01-17 10:00', s.collection, s.customerCollection, '', s.bankAccount, '', '', s.sampleCustomer, '', '8000', 'TRY'],
+        ['2024-01-17 10:00', s.collection, s.customerCollection, '', s.bankAccount, '', '', s.sampleCustomer, '', '8000', defaultCurrency],
         // 7. CARİ ALIŞ İADE - Tedarikçiye iade (para geri alıyoruz)
-        ['2024-01-18 09:00', s.cariPurchaseReturn, s.purchaseReturn, s.returnCategory, '', '', s.sampleSupplier, '', '', '500', 'TRY'],
+        ['2024-01-18 09:00', s.cariPurchaseReturn, s.purchaseReturn, s.returnCategory, '', '', s.sampleSupplier, '', '', '500', defaultCurrency],
         // 8. CARİ SATIŞ İADE - Müşteriden iade aldık (para geri veriyoruz)
-        ['2024-01-18 11:00', s.cariSaleReturn, s.saleReturn, s.returnCategory, '', '', '', s.sampleCustomer, '', '1000', 'TRY'],
-        // 9. TRANSFER - Hesaplar arası aktarım (TRY → TRY)
-        ['2024-01-19 08:00', s.transfer, s.betweenAccounts, '', s.cash, '', '', '', s.bankAccount, '2000', 'TRY'],
-        // 10. TRANSFER - Dövize aktarım (TRY → USD)
-        ['2024-01-19 10:00', s.transfer, s.currencyTransferTo, '', s.bankAccount, '', '', '', `${s.usdAccount} (100 USD)`, '3200', 'TRY'],
-        // 11. TRANSFER - Dövizden aktarım (USD → TRY)
-        ['2024-01-19 12:00', s.transfer, s.currencyTransferFrom, '', s.usdAccount, '', '', '', `${s.bankAccount} (3400 TRY)`, '100', 'USD'],
+        ['2024-01-18 11:00', s.cariSaleReturn, s.saleReturn, s.returnCategory, '', '', '', s.sampleCustomer, '', '1000', defaultCurrency],
+        // 9. TRANSFER - Hesaplar arası aktarım (aynı para birimi)
+        ['2024-01-19 08:00', s.transfer, s.betweenAccounts, '', s.cash, '', '', '', s.bankAccount, '2000', defaultCurrency],
+        // 10. TRANSFER - Dövize aktarım (EN: USD → EUR, TR: TRY → USD)
+        ['2024-01-19 10:00', s.transfer, s.currencyTransferTo, '', s.bankAccount, '', '', '', `${secondaryAccount} (${isEnglish ? '90 EUR' : '100 USD'})`, isEnglish ? '100' : '3200', defaultCurrency],
+        // 11. TRANSFER - Dövizden aktarım (EN: EUR → USD, TR: USD → TRY)
+        ['2024-01-19 12:00', s.transfer, s.currencyTransferFrom, '', secondaryAccount, '', '', '', `${s.bankAccount} (${isEnglish ? '110 USD' : '3400 TRY'})`, isEnglish ? '100' : '100', secondaryCurrency],
         // 12. PERSONEL GİDERİ - Maaş
-        ['2024-01-20 16:00', s.staffExpense, s.salaryPayment, s.salary, s.bankAccount, s.sampleStaff1, '', '', '', '8500', 'TRY'],
+        ['2024-01-20 16:00', s.staffExpense, s.salaryPayment, s.salary, s.bankAccount, s.sampleStaff1, '', '', '', '8500', defaultCurrency],
         // 13. PERSONEL ÖDEMESİ - Avans ödemesi
-        ['2024-01-21 10:00', s.staffPayment, s.advancePayment, '', s.cash, s.sampleStaff2, '', '', '', '500', 'TRY'],
+        ['2024-01-21 10:00', s.staffPayment, s.advancePayment, '', s.cash, s.sampleStaff2, '', '', '', '500', defaultCurrency],
         // 14. PERSONEL TAHSİLATI - Avans iadesi
-        ['2024-01-21 14:00', s.staffCollection, s.advanceReturn, '', s.cash, s.sampleStaff2, '', '', '', '300', 'TRY'],
+        ['2024-01-21 14:00', s.staffCollection, s.advanceReturn, '', s.cash, s.sampleStaff2, '', '', '', '300', defaultCurrency],
       ];
 
       // Excel dosyası oluştur
@@ -294,8 +301,8 @@ export default function VeriIceAktarPage() {
       const parsed = parseExcelFile(buffer);
       setPreview(parsed);
 
-      // Otomatik hesap/cari/personel sınıflandırması
-      const mappings = autoClassifyAccounts(parsed);
+      // Otomatik hesap/cari/personel sınıflandırması (dile göre varsayılan currency)
+      const mappings = autoClassifyAccounts(parsed, i18n.language);
       setAccountMappings(mappings);
 
       // Otomatik kategori tipi sınıflandırması (gelir/gider)
@@ -377,6 +384,20 @@ export default function VeriIceAktarPage() {
     }));
   };
 
+  // Hesap para birimini döngüsel değiştir (TRY → USD → EUR → GBP → TRY)
+  const cycleAccountCurrency = (name: string) => {
+    const currencies = getLocalizedCurrencies(i18n.language);
+    setAccountMappings(prev => {
+      const currentCurrency = prev[name]?.currency || 'TRY';
+      const currentIndex = currencies.findIndex(c => c.code === currentCurrency);
+      const nextIndex = (currentIndex + 1) % currencies.length;
+      return {
+        ...prev,
+        [name]: { ...prev[name], currency: currencies[nextIndex].code },
+      };
+    });
+  };
+
   // Kategori tipini değiştir (gelir <-> gider)
   const toggleCategoryType = (name: string) => {
     setCategoryMappings(prev => ({
@@ -421,11 +442,26 @@ export default function VeriIceAktarPage() {
   const proceedWithImport = async (dryRun: boolean, skipDuplicates: boolean) => {
     if (!preview) return;
 
+    // Progress çevirilerini al
+    const progressTranslations: ProgressTranslations = {
+      categories: t('dataImport.progress.categories'),
+      accounts: t('dataImport.progress.accounts'),
+      clients: t('dataImport.progress.clients'),
+      personel: t('dataImport.progress.personel'),
+      transactions: t('dataImport.progress.transactions'),
+      balances: t('dataImport.progress.balances'),
+      done: t('dataImport.progress.done'),
+      simulation: t('dataImport.progress.simulation'),
+      starting: t('dataImport.progress.starting'),
+      etaRemaining: t('dataImport.progress.etaRemaining'),
+    };
+
     setStep('importing');
     const importResult = await runImport(preview, accountMappings, {
       dryRun,
       skipDuplicates,
       categoryMappings, // Kategori tiplerini geçir
+      translations: progressTranslations,
     });
 
     // Başarılı import sonrası history'ye kaydet (dry run değilse)
@@ -842,6 +878,7 @@ export default function VeriIceAktarPage() {
                           mapping={item}
                           onToggleType={() => toggleFromHesap(item.name)}
                           onSubTypeChange={(subType) => setHesapSubType(item.name, subType as any)}
+                          onCurrencyChange={() => cycleAccountCurrency(item.name)}
                         />
                       ))}
                       {filteredAccounts.length === 0 && (
@@ -1656,11 +1693,13 @@ function AccountItem({
   mapping,
   onToggleType,
   onSubTypeChange,
+  onCurrencyChange,
 }: {
   name: string;
   mapping: AccountMapping;
   onToggleType: () => void;
   onSubTypeChange: (subType: string) => void;
+  onCurrencyChange: () => void;
 }) {
   const { t } = useTranslation('settings');
   return (
@@ -1675,6 +1714,15 @@ function AccountItem({
             <View style={[styles.typeBadge, { backgroundColor: colors.infoLight }]}>
               <Text variant="caption" style={{ color: colors.info, fontWeight: '600' }}>{t('dataImport.badges.account')}</Text>
             </View>
+            {/* Currency badge - tıklanabilir */}
+            {mapping.currency && (
+              <TouchableOpacity
+                onPress={onCurrencyChange}
+                style={[styles.typeBadge, { backgroundColor: colors.primaryLight, marginLeft: 4 }]}
+              >
+                <Text variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>{mapping.currency}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
         <TouchableOpacity onPress={onToggleType} style={styles.toggleButton}>

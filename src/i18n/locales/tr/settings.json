@@ -162,7 +162,9 @@
       "transactions": "İşlemler import ediliyor...",
       "balances": "Bakiyeler güncelleniyor...",
       "done": "Tamamlandı!",
-      "simulation": "Simülasyon yapılıyor..."
+      "simulation": "Simülasyon yapılıyor...",
+      "starting": "Başlatılıyor...",
+      "etaRemaining": "kaldı"
     },
     "steps": {
       "downloadTemplate": "Şablon İndir (Opsiyonel)",
@@ -280,7 +282,11 @@
       "showingFirst100": "İlk 100 işlem gösteriliyor ({{total}} toplam)",
       "fileAnalyzed": "Dosya Analiz Edildi",
       "tapForDetails": "Detayları görmek için kartlara dokunun",
-      "dateRange": "Tarih Aralığı"
+      "dateRange": "Tarih Aralığı",
+      "accountCurrency": "Para Birimi",
+      "multipleCurrencies": "Birden fazla para birimi tespit edildi",
+      "detectedCurrency": "Tespit edilen: {{currency}}",
+      "tapToChangeCurrency": "Değiştirmek için dokun"
     },
     "labels": {
       "transaction": "İşlem",

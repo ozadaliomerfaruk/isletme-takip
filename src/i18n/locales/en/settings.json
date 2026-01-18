@@ -162,7 +162,9 @@
       "transactions": "Importing transactions...",
       "balances": "Updating balances...",
       "done": "Done!",
-      "simulation": "Running simulation..."
+      "simulation": "Running simulation...",
+      "starting": "Starting...",
+      "etaRemaining": "remaining"
     },
     "steps": {
       "downloadTemplate": "Download Template (Optional)",
@@ -235,14 +237,15 @@
         "purchaseReturn": "Defective product return (to supplier)",
         "saleReturn": "Customer returned goods",
         "betweenAccounts": "Cash to bank",
-        "currencyTransferTo": "Transfer TRY to USD",
-        "currencyTransferFrom": "Transfer USD to TRY",
+        "currencyTransferTo": "Transfer USD to EUR",
+        "currencyTransferFrom": "Transfer EUR to USD",
         "salaryPayment": "Salary",
         "advancePayment": "Advance payment",
         "advanceReturn": "Advance return",
         "bankAccount": "Bank",
         "cash": "Cash",
         "usdAccount": "USD Account",
+        "eurAccount": "EUR Account",
         "sales": "SALES",
         "purchase": "PURCHASE",
         "officeExpenses": "OFFICE",
@@ -280,7 +283,11 @@
       "showingFirst100": "Showing first 100 of {{total}} transactions",
       "fileAnalyzed": "File Analyzed",
       "tapForDetails": "Tap cards to view details",
-      "dateRange": "Date Range"
+      "dateRange": "Date Range",
+      "accountCurrency": "Currency",
+      "multipleCurrencies": "Multiple currencies detected",
+      "detectedCurrency": "Detected: {{currency}}",
+      "tapToChangeCurrency": "Tap to change"
     },
     "labels": {
       "transaction": "Transaction",

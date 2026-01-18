@@ -25,6 +25,7 @@ export interface ParsedTransaction {
   karsiHesapAmount: number | null; // KARŞI HESAP'taki tutar değeri (transfer için)
   karsiHesapCurrency: string | null; // KARŞI HESAP'taki para birimi
   amount: number;
+  currency: string | null; // BIRIM/CURRENCY kolonundan - ana hesabın para birimi
   isExpense: boolean;
   dateValid: boolean; // Tarih geçerli mi?
   dateError?: string; // Tarih hatası varsa açıklama
@@ -57,6 +58,8 @@ export interface AccountMapping {
   type: 'hesap' | 'cari' | 'personel';
   hesapType?: 'nakit' | 'banka' | 'kredi_karti' | 'birikim' | 'diger';
   cariType?: 'musteri' | 'tedarikci';
+  currency?: string; // Tespit edilen veya kullanıcı tarafından seçilen para birimi
+  currencyStats?: Record<string, number>; // Her para biriminin kullanım sayısı (örn: { USD: 45, TRY: 5 })
 }
 
 /**
@@ -587,6 +590,9 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       const karsiHesapAmount = parsedKarsiHesap?.amount ?? null;
       const karsiHesapCurrency = parsedKarsiHesap?.currency ?? null;
 
+      // BIRIM/CURRENCY kolonu - ana hesabın para birimi
+      const currency = cols.birim >= 0 ? row[cols.birim]?.toString().trim().toUpperCase() || null : null;
+
       // Tutar dönüşümü ve validasyonu
       let amount = 0;
       let amountValid = true;
@@ -734,6 +740,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         karsiHesapAmount,
         karsiHesapCurrency,
         amount: Math.abs(amount),
+        currency,
         isExpense,
         dateValid,
         dateError,
@@ -915,11 +922,77 @@ export function guessAccountType(name: string): AccountMapping {
 }
 
 /**
+ * Her hesap için en çok kullanılan para birimini tespit et
+ * Transactions'daki currency alanından sayım yaparak en çok kullanılanı belirler
+ * @param transactions - Parse edilmiş işlemler
+ * @param accountMappings - Mevcut hesap sınıflandırmaları
+ * @param defaultCurrency - Varsayılan para birimi (currency kolonu yoksa)
+ */
+export function detectAccountCurrencies(
+  transactions: ParsedTransaction[],
+  accountMappings: Record<string, AccountMapping>,
+  defaultCurrency: string = 'TRY'
+): Record<string, AccountMapping> {
+  // Her hesap için currency sayımı: hesapAdı -> { currency -> count }
+  const currencyCountByAccount = new Map<string, Map<string, number>>();
+
+  transactions.forEach(tx => {
+    // Ana hesap (HESAP kolonu)
+    if (tx.account && tx.currency) {
+      const key = tx.account.toLowerCase();
+      if (!currencyCountByAccount.has(key)) {
+        currencyCountByAccount.set(key, new Map());
+      }
+      const counts = currencyCountByAccount.get(key)!;
+      counts.set(tx.currency, (counts.get(tx.currency) || 0) + 1);
+    }
+
+    // Karşı hesap (KARŞI HESAP kolonu) - karsiHesapCurrency kullan
+    if (tx.karsiHesap && tx.karsiHesapCurrency) {
+      const key = tx.karsiHesap.toLowerCase();
+      if (!currencyCountByAccount.has(key)) {
+        currencyCountByAccount.set(key, new Map());
+      }
+      const counts = currencyCountByAccount.get(key)!;
+      counts.set(tx.karsiHesapCurrency, (counts.get(tx.karsiHesapCurrency) || 0) + 1);
+    }
+  });
+
+  // Mapping'leri güncelle - en çok kullanılan currency'yi ata
+  const result = { ...accountMappings };
+  Object.keys(result).forEach(name => {
+    const counts = currencyCountByAccount.get(name.toLowerCase());
+    if (counts && counts.size > 0) {
+      // En yüksek sayılı para birimini bul
+      let maxCurrency = defaultCurrency;
+      let maxCount = 0;
+      counts.forEach((count, currency) => {
+        if (count > maxCount) {
+          maxCount = count;
+          maxCurrency = currency;
+        }
+      });
+      result[name].currency = maxCurrency;
+      // İstatistikleri de kaydet (UI'da göstermek için)
+      result[name].currencyStats = Object.fromEntries(counts);
+    } else {
+      // Hiç currency bilgisi yoksa varsayılanı kullan
+      result[name].currency = defaultCurrency;
+    }
+  });
+
+  return result;
+}
+
+/**
  * Tüm hesapları otomatik sınıflandır
  * Yeni şablon formatında kolonlar zaten ayrı olduğu için sadece HESAP ve KARŞI HESAP kolonlarını sınıflandırır
+ * @param preview - Import önizlemesi
+ * @param locale - Dil kodu (varsayılan para birimi için: 'en' → USD, 'tr' → TRY)
  */
 export function autoClassifyAccounts(
-  preview: ImportPreview
+  preview: ImportPreview,
+  locale: string = 'tr'
 ): Record<string, AccountMapping> {
   const mappings: Record<string, AccountMapping> = {};
 
@@ -964,7 +1037,9 @@ export function autoClassifyAccounts(
     mappings[name] = { name, type: 'cari', cariType: 'musteri' };
   });
 
-  return mappings;
+  // Para birimi tespiti - dile göre varsayılan belirle
+  const defaultCurrency = locale.startsWith('en') ? 'USD' : 'TRY';
+  return detectAccountCurrencies(preview.transactions, mappings, defaultCurrency);
 }
 
 // ============================================================================
