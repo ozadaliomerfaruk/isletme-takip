@@ -109,6 +109,14 @@ export function useQuickTransactionForm({
   const [isCariMode, setIsCariMode] = useState(!!defaultCariId);
   const [isPersonelMode, setIsPersonelMode] = useState(!!defaultPersonelId);
 
+  // Update mode flags when props change (important when cari/personel data loads after component mount)
+  useEffect(() => {
+    if (!isEditMode) {
+      setIsCariMode(!!defaultCariId);
+      setIsPersonelMode(!!defaultPersonelId);
+    }
+  }, [defaultCariId, defaultPersonelId, isEditMode]);
+
   // Track if we've loaded edit data
   const [editDataLoaded, setEditDataLoaded] = useState(false);
 

@@ -483,6 +483,7 @@ export default function PersonelHareketleriPage() {
           mode="edit"
           transactionId={editTransactionId ?? undefined}
           isScheduledTransaction={false}
+          defaultPersonelId={personel?.id}
           onSuccess={() => {
             setShowEditBar(false);
             setEditTransactionId(null);

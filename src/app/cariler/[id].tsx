@@ -541,6 +541,8 @@ export default function CariHareketleriPage() {
           mode="edit"
           transactionId={editTransactionId ?? undefined}
           isScheduledTransaction={false}
+          defaultCariId={cari?.id}
+          defaultCariType={cari?.type}
           onSuccess={() => {
             setShowEditBar(false);
             setEditTransactionId(null);
