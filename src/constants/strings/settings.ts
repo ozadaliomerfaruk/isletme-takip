@@ -115,7 +115,7 @@ export const SETTINGS = {
   about: {
     title: 'Hakkında',
     version: 'Sürüm',
-    appName: 'Defter',
+    appName: 'İşletme Takip',
     developer: 'Geliştirici',
     website: 'Web Sitesi',
     support: 'Destek',

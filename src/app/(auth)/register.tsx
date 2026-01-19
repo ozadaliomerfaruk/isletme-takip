@@ -55,7 +55,7 @@ export default function RegisterPage() {
 
     if (!password) {
       newErrors.password = t('errors:validation.required');
-    } else if (password.length < 6) {
+    } else if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
       newErrors.password = t('errors:auth.invalidPassword');
     }
 
@@ -217,7 +217,7 @@ export default function RegisterPage() {
             <>
               <View style={styles.header}>
                 <Text variant="h1" style={styles.logo}>
-                  Defter
+                  {t('common:appName')}
                 </Text>
                 <Text variant="body" color="secondary" center>
                   {t('auth:register.subtitle')}

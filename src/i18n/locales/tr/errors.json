@@ -19,8 +19,8 @@
   },
   "auth": {
     "invalidEmail": "Geçerli bir e-posta adresi girin",
-    "invalidPassword": "Şifre en az 6 karakter olmalı",
-    "passwordMinLength": "En az 6 karakter",
+    "invalidPassword": "Şifre en az 8 karakter olmalı ve büyük harf, küçük harf ve rakam içermeli",
+    "passwordMinLength": "En az 8 karakter, büyük harf, küçük harf ve rakam",
     "wrongPassword": "Mevcut şifre hatalı",
     "passwordMismatch": "Şifreler eşleşmiyor",
     "emailInUse": "Bu e-posta adresi zaten kayıtlı",

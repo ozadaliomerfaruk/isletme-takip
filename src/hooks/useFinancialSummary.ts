@@ -84,12 +84,10 @@ export function useFinancialSummary(): FinancialSummary {
         if (accountCurrency === baseCurrency) {
           convertedBalance = balance;
         } else {
-          // Döviz kuru yoksa bu hesabı atla
+          // Döviz kuru ile çevir, bulunamazsa orijinal bakiyeyi kullan
           const converted = convertCurrency(balance, accountCurrency, baseCurrency, exchangeRates);
-          if (converted === null) {
-            return acc;
-          }
-          convertedBalance = converted;
+          // Fallback: Döviz kuru yoksa orijinal bakiyeyi kullan (veri kaybı olmasın)
+          convertedBalance = converted ?? balance;
         }
 
         if (convertedBalance > 0) {

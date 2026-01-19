@@ -138,7 +138,7 @@ export default function LoginPage() {
           {/* Logo / Başlık */}
           <View style={styles.header}>
             <Text variant="h1" style={styles.logo}>
-              Defter
+              {t('common:appName')}
             </Text>
             <Text variant="body" color="secondary" center>
               {t('auth:login.subtitle')}

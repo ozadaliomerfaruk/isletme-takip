@@ -93,13 +93,17 @@ export function useCreateCari() {
 
 export function useUpdateCari() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: CariUpdate & { id: string }) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { data, error } = await supabase
         .from('cariler')
         .update(input)
         .eq('id', id)
+        .eq('isletme_id', isletme.id) // Ownership kontrolü
         .select()
         .single();
 

@@ -20,8 +20,8 @@
   },
   "auth": {
     "invalidEmail": "Please enter a valid email address",
-    "invalidPassword": "Password must be at least 6 characters",
-    "passwordMinLength": "At least 6 characters",
+    "invalidPassword": "Password must be at least 8 characters and contain uppercase, lowercase, and a number",
+    "passwordMinLength": "At least 8 characters with uppercase, lowercase, and number",
     "wrongPassword": "Current password is incorrect",
     "passwordMismatch": "Passwords do not match",
     "emailInUse": "This email is already registered",

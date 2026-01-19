@@ -289,7 +289,7 @@ export default function DahaPage() {
         {/* Versiyon */}
         <View style={styles.versionContainer}>
           <Text variant="caption" color="muted">
-            Defter v1.0.0
+            {t('common:appName')} v1.2.0
           </Text>
         </View>
       </ScrollView>

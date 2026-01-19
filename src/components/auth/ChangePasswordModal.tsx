@@ -38,7 +38,7 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
 
     if (!password) {
       newErrors.password = t('errors:validation.required');
-    } else if (password.length < 6) {
+    } else if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
       newErrors.password = t('errors:auth.invalidPassword');
     }
 

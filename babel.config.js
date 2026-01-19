@@ -1,7 +1,15 @@
 module.exports = function (api) {
   api.cache(true);
+
+  const plugins = ['react-native-reanimated/plugin'];
+
+  // Production build'de console.* statement'larını kaldır
+  if (process.env.NODE_ENV === 'production') {
+    plugins.push('transform-remove-console');
+  }
+
   return {
     presets: ['babel-preset-expo'],
-    plugins: ['react-native-reanimated/plugin'],
+    plugins,
   };
 };
