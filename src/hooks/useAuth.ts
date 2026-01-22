@@ -565,7 +565,9 @@ export function useAuth() {
 
     const { error } = await supabase.auth.signOut();
 
-    if (error) {
+    // AuthSessionMissingError durumunda da çıkış başarılı sayılmalı
+    // Çünkü session zaten yok, kullanıcı fiilen çıkış yapmış
+    if (error && error.name !== 'AuthSessionMissingError') {
       setState((prev) => ({ ...prev, loading: false }));
       throw error;
     }

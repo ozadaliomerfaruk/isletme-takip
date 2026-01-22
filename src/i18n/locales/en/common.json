@@ -257,6 +257,8 @@
     "shareAsExcel": "Share as Excel",
     "exporting": "Exporting...",
     "preparing": "Preparing...",
+    "shareDialogTitle": "Share as Excel",
+    "sharingNotSupported": "Sharing is not supported on this device",
     "largeDataWarning": {
       "title": "Large Data Warning",
       "message": "This period contains {{count}} transactions. Export may take a while."
@@ -284,7 +286,8 @@
       "openingBalance": "OPENING BALANCE",
       "periodTotal": "PERIOD TOTAL",
       "closingBalance": "CLOSING BALANCE",
-      "sheetName": "Statement"
+      "sheetName": "Statement",
+      "statementFileName": "Statement"
     }
   },
   "archive": {
@@ -312,5 +315,34 @@
     "search": {
       "placeholder": "Search archive..."
     }
+  },
+  "photo": {
+    "title": "Photo",
+    "addPhoto": "Add Photo",
+    "selectSource": "Select photo source",
+    "camera": "Camera",
+    "gallery": "Gallery",
+    "view": "View",
+    "remove": "Remove",
+    "existingPhotoOptions": "What would you like to do?",
+    "uploading": "Uploading...",
+    "uploadError": "Failed to upload photo",
+    "loadError": "Failed to load photo",
+    "permissionDenied": "Photo permission required",
+    "cameraPermissionDenied": "Camera permission required",
+    "deleteTitle": "Delete Photo",
+    "deleteConfirm": "Are you sure you want to delete this photo?",
+    "zoomHint": "Swipe down to close • Double tap to zoom",
+    "change": "Change",
+    "delete": "Delete",
+    "share": "Share",
+    "shareTitle": "Share Photo",
+    "shareMessage": "Transaction photo",
+    "shareError": "Failed to share photo"
+  },
+  "review": {
+    "thankYouMessage": "As a small team, your feedback means a lot to us. You can support us by leaving a review on the App Store.",
+    "writeReview": "Write a Review",
+    "done": "Done"
   }
 }

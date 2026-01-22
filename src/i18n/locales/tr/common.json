@@ -272,6 +272,8 @@
     "shareAsExcel": "Excel Olarak Paylaş",
     "exporting": "Export ediliyor...",
     "preparing": "Hazırlanıyor...",
+    "shareDialogTitle": "Excel Olarak Paylaş",
+    "sharingNotSupported": "Paylaşım bu cihazda desteklenmiyor",
     "largeDataWarning": {
       "title": "Büyük Veri Uyarısı",
       "message": "Bu dönemde {{count}} işlem bulunuyor. Export işlemi biraz sürebilir."
@@ -299,7 +301,8 @@
       "openingBalance": "BAŞLANGIÇ BAKİYESİ",
       "periodTotal": "DÖNEM TOPLAMI",
       "closingBalance": "SON BAKİYE",
-      "sheetName": "Ekstre"
+      "sheetName": "Ekstre",
+      "statementFileName": "Ekstre"
     }
   },
   "archive": {
@@ -327,5 +330,34 @@
     "search": {
       "placeholder": "Arşivde ara..."
     }
+  },
+  "photo": {
+    "title": "Fotoğraf",
+    "addPhoto": "Fotoğraf Ekle",
+    "selectSource": "Fotoğraf kaynağını seçin",
+    "camera": "Kamera",
+    "gallery": "Galeri",
+    "view": "Görüntüle",
+    "remove": "Kaldır",
+    "existingPhotoOptions": "Ne yapmak istiyorsunuz?",
+    "uploading": "Yükleniyor...",
+    "uploadError": "Fotoğraf yüklenemedi",
+    "loadError": "Fotoğraf yüklenemedi",
+    "permissionDenied": "Fotoğraf izni gerekli",
+    "cameraPermissionDenied": "Kamera izni gerekli",
+    "deleteTitle": "Fotoğrafı Sil",
+    "deleteConfirm": "Bu fotoğrafı silmek istediğinize emin misiniz?",
+    "zoomHint": "Aşağı kaydırarak kapatın • Yakınlaştırmak için çift dokunun",
+    "change": "Değiştir",
+    "delete": "Sil",
+    "share": "Paylaş",
+    "shareTitle": "Fotoğrafı Paylaş",
+    "shareMessage": "İşlem fotoğrafı",
+    "shareError": "Fotoğraf paylaşılamadı"
+  },
+  "review": {
+    "thankYouMessage": "Küçük bir ekip olarak geliştirdiğimiz bu uygulamada görüşleriniz bizim için çok değerli. App Store'da değerlendirme yaparak bizi destekleyebilirsiniz.",
+    "writeReview": "Yorum Yaz",
+    "done": "Tamam"
   }
 }

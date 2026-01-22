@@ -241,6 +241,7 @@ export default function LoginPage() {
               </Text>
             </TouchableOpacity>
           </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

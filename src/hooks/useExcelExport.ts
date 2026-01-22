@@ -67,6 +67,27 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
         periodTotal: t('common:export.excel.periodTotal'),
         closingBalance: t('common:export.excel.closingBalance'),
         sheetName: t('common:export.excel.sheetName'),
+        // Transaction type labels
+        transactionTypes: {
+          gelir: t('transactions:types.gelir'),
+          gider: t('transactions:types.gider'),
+          transfer: t('transactions:types.transfer'),
+          cari_alis: t('transactions:types.cari_alis'),
+          cari_satis: t('transactions:types.cari_satis'),
+          cari_odeme: t('transactions:types.cari_odeme'),
+          cari_tahsilat: t('transactions:types.cari_tahsilat'),
+          cari_alis_iade: t('transactions:types.cari_alis_iade'),
+          cari_satis_iade: t('transactions:types.cari_satis_iade'),
+          personel_gider: t('transactions:types.personel_gider'),
+          personel_odeme: t('transactions:types.personel_odeme'),
+          personel_tahsilat: t('transactions:types.personel_tahsilat'),
+          personel_satis: t('transactions:types.personel_satis'),
+          nakit_avans_taksit: t('transactions:types.nakit_avans_taksit'),
+          kredi_karti_harcama: t('transactions:types.kredi_karti_harcama'),
+        },
+        statementFileName: t('common:export.excel.statementFileName'),
+        shareDialogTitle: t('common:export.shareDialogTitle'),
+        sharingNotSupported: t('common:export.sharingNotSupported'),
       };
 
       // Export işlemini gerçekleştiren fonksiyon

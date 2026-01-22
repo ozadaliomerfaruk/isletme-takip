@@ -14,7 +14,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Wallet,
   Users,
+  UserCheck,
   TrendingUp,
+  FileSpreadsheet,
   ChevronRight,
 } from 'lucide-react-native';
 import { Text, Button } from '@/components/ui';
@@ -42,27 +44,43 @@ export default function OnboardingScreen() {
   const slides: OnboardingSlide[] = [
     {
       id: '1',
-      title: t('auth:onboarding.accountsTitle'),
-      description: t('auth:onboarding.accountsDescription'),
+      title: t('auth:onboarding.slides.accounts.title'),
+      description: t('auth:onboarding.slides.accounts.description'),
       icon: <Wallet size={80} color={colors.primary} />,
       backgroundColor: colors.background,
       iconBgColor: colors.primaryLight + '40',
     },
     {
       id: '2',
-      title: t('auth:onboarding.clientsPersonnelTitle'),
-      description: t('auth:onboarding.clientsPersonnelDescription'),
+      title: t('auth:onboarding.slides.contacts.title'),
+      description: t('auth:onboarding.slides.contacts.description'),
       icon: <Users size={80} color={colors.info} />,
       backgroundColor: colors.background,
       iconBgColor: colors.infoLight + '40',
     },
     {
       id: '3',
-      title: t('auth:onboarding.incomeExpenseTitle'),
-      description: t('auth:onboarding.incomeExpenseDescription'),
+      title: t('auth:onboarding.slides.staff.title'),
+      description: t('auth:onboarding.slides.staff.description'),
+      icon: <UserCheck size={80} color={colors.warning} />,
+      backgroundColor: colors.background,
+      iconBgColor: colors.warningLight + '40',
+    },
+    {
+      id: '4',
+      title: t('auth:onboarding.slides.analysis.title'),
+      description: t('auth:onboarding.slides.analysis.description'),
       icon: <TrendingUp size={80} color={colors.success} />,
       backgroundColor: colors.background,
       iconBgColor: colors.successLight + '40',
+    },
+    {
+      id: '5',
+      title: t('auth:onboarding.slides.professional.title'),
+      description: t('auth:onboarding.slides.professional.description'),
+      icon: <FileSpreadsheet size={80} color={colors.orange} />,
+      backgroundColor: colors.background,
+      iconBgColor: colors.orangeLight + '40',
     },
   ];
   const scrollX = useRef(new Animated.Value(0)).current;

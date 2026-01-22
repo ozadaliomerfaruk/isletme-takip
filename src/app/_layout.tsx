@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { ReviewProvider } from '@/contexts/ReviewContext';
 import { ToastContainer } from '@/components/ui';
 import { ChangePasswordModal } from '@/components/auth';
 import { colors } from '@/constants/colors';
@@ -114,7 +115,7 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
 
-    if (!user && !inAuthGroup) {
+    if (!user && !inAuthGroup && !inOnboarding) {
       // Kullanici giris yapmamis, login'e yonlendir
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
@@ -594,7 +595,9 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <AuthProvider>
             <ToastProvider>
-              <RootLayoutNav />
+              <ReviewProvider>
+                <RootLayoutNav />
+              </ReviewProvider>
             </ToastProvider>
           </AuthProvider>
         </QueryClientProvider>

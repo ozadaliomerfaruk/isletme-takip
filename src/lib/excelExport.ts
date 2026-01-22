@@ -9,8 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
 import { formatCurrency, toNumber } from './currency';
-import { IslemType, IslemWithRelations, Hesap, Cari, Personel, Currency } from '@/types/database';
-import { ISLEM_TYPE_LABELS } from '@/constants/islemTypes';
+import { IslemWithRelations, Currency } from '@/types/database';
 
 // ============================================================================
 // STYLE DEFINITIONS
@@ -132,6 +131,11 @@ export interface ExcelTranslations {
   periodTotal: string;
   closingBalance: string;
   sheetName: string;
+  // Additional translations
+  transactionTypes: Record<string, string>;
+  statementFileName: string;
+  shareDialogTitle: string;
+  sharingNotSupported: string;
 }
 
 export interface ExportOptions {
@@ -488,7 +492,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
 
     rows.push({
       date: formatDateShort(islem.date),
-      type: ISLEM_TYPE_LABELS[islem.type as IslemType] || islem.type,
+      type: t.transactionTypes[islem.type] || islem.type,
       description: islem.description || '',
       category: islem.kategori?.name || '',
       account: getAccountName(islem),
@@ -664,7 +668,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
 
   // Dosya adı oluştur
   const safeEntityName = entityName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\s]/g, '').trim();
-  const fileName = `${safeEntityName}_Ekstre_${startDate}_${endDate}.xlsx`;
+  const fileName = `${safeEntityName}_${t.statementFileName}_${startDate}_${endDate}.xlsx`;
   const filePath = `${FileSystem.cacheDirectory}${fileName}`;
 
   // Dosyayı yaz
@@ -677,10 +681,10 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   if (isAvailable) {
     await Sharing.shareAsync(filePath, {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle: 'Excel Olarak Paylaş',
+      dialogTitle: t.shareDialogTitle,
       UTI: 'com.microsoft.excel.xlsx',
     });
   } else {
-    throw new Error('Paylaşım bu cihazda desteklenmiyor');
+    throw new Error(t.sharingNotSupported);
   }
 }
