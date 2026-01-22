@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/verify",
-      "destination": "/verify/index.html"
+      "destination": "/docs/verify/index.html"
     }
   ],
   "headers": [
