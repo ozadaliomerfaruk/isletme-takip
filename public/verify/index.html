@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email Doğrulama - İşletme Takip</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 48px 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      max-width: 420px;
+      width: 100%;
+    }
+    .icon {
+      width: 80px;
+      height: 80px;
+      background: rgba(13, 92, 77, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      color: #0D5C4D;
+    }
+    h1 {
+      color: #0D5C4D;
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    p {
+      color: #666;
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .button {
+      background: #0D5C4D;
+      color: white;
+      padding: 16px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      display: inline-block;
+      font-weight: 600;
+      font-size: 16px;
+      transition: background 0.2s ease;
+    }
+    .button:hover {
+      background: #0a4a3d;
+    }
+    .fallback {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #999;
+    }
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(13, 92, 77, 0.2);
+      border-top-color: #0D5C4D;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .error {
+      color: #dc3545;
+    }
+    .error-container {
+      display: none;
+    }
+    .error-container.show {
+      display: block;
+    }
+    .success-container {
+      display: block;
+    }
+    .success-container.hide {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Success State -->
+    <div class="success-container" id="successContainer">
+      <div class="icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <h1>Email Doğrulandı!</h1>
+      <p id="message">Uygulamaya yönlendiriliyorsunuz...</p>
+      <div class="spinner" id="spinner"></div>
+      <a id="openApp" class="button" href="#" style="display: none;">Uygulamayı Aç</a>
+      <p class="fallback" id="fallback" style="display: none;">Otomatik açılmazsa butona tıklayın</p>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-container" id="errorContainer">
+      <div class="icon" style="background: rgba(220, 53, 69, 0.1);">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="#dc3545">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+      <h1 class="error">Doğrulama Başarısız</h1>
+      <p>Link geçersiz veya süresi dolmuş. Lütfen tekrar kayıt olun veya yeni bir doğrulama linki isteyin.</p>
+      <a class="button" href="isletmetakip://login">Uygulamaya Dön</a>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // URL parametrelerini al
+      const params = new URLSearchParams(window.location.search);
+      const hash = window.location.hash.substring(1);
+      const hashParams = new URLSearchParams(hash);
+
+      // Token ve type'ı bul (query veya hash'ten)
+      // Supabase genelde hash ile gönderir: #access_token=xxx&refresh_token=xxx&type=signup
+      let accessToken = params.get('access_token') || hashParams.get('access_token');
+      let refreshToken = params.get('refresh_token') || hashParams.get('refresh_token');
+      let type = params.get('type') || hashParams.get('type') || 'signup';
+      let tokenHash = params.get('token_hash') || hashParams.get('token_hash');
+
+      // Hata kontrolü
+      const errorCode = params.get('error_code') || hashParams.get('error_code');
+      const errorDescription = params.get('error_description') || hashParams.get('error_description');
+
+      if (errorCode || errorDescription) {
+        showError();
+        return;
+      }
+
+      // Token yoksa hata göster
+      if (!accessToken && !tokenHash) {
+        showError();
+        return;
+      }
+
+      // Deep link oluştur
+      let deepLink = 'isletmetakip://verify?';
+      const deepLinkParams = [];
+
+      if (accessToken) {
+        deepLinkParams.push('access_token=' + encodeURIComponent(accessToken));
+      }
+      if (refreshToken) {
+        deepLinkParams.push('refresh_token=' + encodeURIComponent(refreshToken));
+      }
+      if (type) {
+        deepLinkParams.push('type=' + encodeURIComponent(type));
+      }
+      if (tokenHash) {
+        deepLinkParams.push('token_hash=' + encodeURIComponent(tokenHash));
+      }
+
+      deepLink += deepLinkParams.join('&');
+
+      // Butona link ekle
+      const openAppBtn = document.getElementById('openApp');
+      openAppBtn.href = deepLink;
+
+      // 1 saniye sonra butonu göster ve otomatik yönlendir
+      setTimeout(function() {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('message').textContent = 'Uygulamayı açmak için butona tıklayın';
+        openAppBtn.style.display = 'inline-block';
+        document.getElementById('fallback').style.display = 'block';
+
+        // Otomatik yönlendirme dene
+        window.location.href = deepLink;
+      }, 1000);
+
+      function showError() {
+        document.getElementById('successContainer').classList.add('hide');
+        document.getElementById('errorContainer').classList.add('show');
+      }
+    })();
+  </script>
+</body>
+</html>

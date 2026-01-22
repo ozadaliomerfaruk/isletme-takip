@@ -55,8 +55,8 @@ export default function RegisterPage() {
 
     if (!password) {
       newErrors.password = t('errors:validation.required');
-    } else if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      newErrors.password = t('errors:auth.invalidPassword');
+    } else if (password.length < 6) {
+      newErrors.password = t('errors:validation.minLength', { min: 6 });
     }
 
     if (!passwordConfirm) {
@@ -241,6 +241,8 @@ export default function RegisterPage() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  textContentType="emailAddress"
+                  autoComplete="email"
                   value={email}
                   onChangeText={setEmail}
                   error={errors.email}
@@ -251,6 +253,8 @@ export default function RegisterPage() {
                   label={t('auth:login.password')}
                   placeholder={t('auth:login.passwordPlaceholder')}
                   secureTextEntry
+                  textContentType="newPassword"
+                  autoComplete="password-new"
                   value={password}
                   onChangeText={setPassword}
                   error={errors.password}
@@ -261,6 +265,8 @@ export default function RegisterPage() {
                   label={t('auth:register.confirmPassword')}
                   placeholder={t('auth:register.confirmPasswordPlaceholder')}
                   secureTextEntry
+                  textContentType="newPassword"
+                  autoComplete="password-new"
                   value={passwordConfirm}
                   onChangeText={setPasswordConfirm}
                   error={errors.passwordConfirm}

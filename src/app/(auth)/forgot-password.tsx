@@ -235,6 +235,8 @@ export default function ForgotPasswordPage() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  textContentType="emailAddress"
+                  autoComplete="email"
                   value={email}
                   onChangeText={setEmail}
                   error={errors.email}
@@ -320,6 +322,8 @@ export default function ForgotPasswordPage() {
                   label={t('auth:resetPassword.newPassword')}
                   placeholder={t('auth:resetPassword.newPasswordPlaceholder')}
                   secureTextEntry
+                  textContentType="newPassword"
+                  autoComplete="password-new"
                   value={password}
                   onChangeText={setPassword}
                   error={errors.password}
@@ -330,6 +334,8 @@ export default function ForgotPasswordPage() {
                   label={t('auth:resetPassword.confirmPassword')}
                   placeholder={t('auth:resetPassword.confirmPasswordPlaceholder')}
                   secureTextEntry
+                  textContentType="newPassword"
+                  autoComplete="password-new"
                   value={passwordConfirm}
                   onChangeText={setPasswordConfirm}
                   error={errors.passwordConfirm}

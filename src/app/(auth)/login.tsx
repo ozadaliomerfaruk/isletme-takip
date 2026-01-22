@@ -192,6 +192,8 @@ export default function LoginPage() {
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              textContentType="emailAddress"
+              autoComplete="email"
               value={email}
               onChangeText={setEmail}
               error={errors.email}
@@ -202,6 +204,8 @@ export default function LoginPage() {
               label={t('auth:login.password')}
               placeholder={t('auth:login.passwordPlaceholder')}
               secureTextEntry
+              textContentType="password"
+              autoComplete="password"
               value={password}
               onChangeText={setPassword}
               error={errors.password}

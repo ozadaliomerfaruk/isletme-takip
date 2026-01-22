@@ -38,8 +38,8 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
 
     if (!password) {
       newErrors.password = t('errors:validation.required');
-    } else if (password.length < 8 || !/[A-Z]/.test(password) || !/[a-z]/.test(password) || !/[0-9]/.test(password)) {
-      newErrors.password = t('errors:auth.invalidPassword');
+    } else if (password.length < 6) {
+      newErrors.password = t('errors:validation.minLength', { min: 6 });
     }
 
     if (!passwordConfirm) {
@@ -127,6 +127,8 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
                 label={t('auth:resetPassword.newPassword')}
                 placeholder={t('auth:resetPassword.newPasswordPlaceholder')}
                 secureTextEntry
+                textContentType="newPassword"
+                autoComplete="password-new"
                 value={password}
                 onChangeText={setPassword}
                 error={errors.password}
@@ -137,6 +139,8 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
                 label={t('auth:resetPassword.confirmPassword')}
                 placeholder={t('auth:resetPassword.confirmPasswordPlaceholder')}
                 secureTextEntry
+                textContentType="newPassword"
+                autoComplete="password-new"
                 value={passwordConfirm}
                 onChangeText={setPasswordConfirm}
                 error={errors.passwordConfirm}

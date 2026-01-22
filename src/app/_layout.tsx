@@ -114,8 +114,9 @@ function RootLayoutNav() {
 
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
+    const inVerify = segments[0] === 'verify';
 
-    if (!user && !inAuthGroup && !inOnboarding) {
+    if (!user && !inAuthGroup && !inOnboarding && !inVerify) {
       // Kullanici giris yapmamis, login'e yonlendir
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup) {
@@ -160,6 +161,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="verify" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen
           name="hesaplar/[id]"
           options={{
