@@ -16,10 +16,11 @@ import {
   FileCheck,
   X,
   Share2,
+  Image as ImageIcon,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
-import { QuickTransactionBar, CreditCardTransactionBar, TransactionType } from '@/components/transaction';
+import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal } from '@/components/transaction';
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -27,7 +28,9 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateShort, formatDateSmart, formatTime, isSameYear } from '@/lib/date';
 import { useHesap, useDeleteHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { useUnarchiveHesap } from '@/hooks/useArchive';
-import { useIslemlerByHesap, useDeleteIslem } from '@/hooks/useIslemler';
+import { useIslemlerByHesap, useDeleteIslem, useUpdateIslem } from '@/hooks/useIslemler';
+import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByHesap } from '@/hooks/useCekler';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
@@ -51,6 +54,12 @@ export default function HesapHareketleriPage() {
   const deleteHesap = useDeleteHesap();
   const updateHesap = useUpdateHesap();
   const unarchiveHesap = useUnarchiveHesap();
+  const updateIslem = useUpdateIslem();
+  const deletePhoto = useDeleteIslemPhoto();
+  const pickImage = usePickImage();
+  const takePhoto = useTakePhoto();
+  const uploadPhoto = useUploadIslemPhoto();
+  const { isletme } = useAuthContext();
 
   // Döviz kurları ve kullanıcı para birimi
   const { data: exchangeRatesData } = useExchangeRates();
@@ -77,6 +86,10 @@ export default function HesapHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Photo viewer state
+  const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
+  const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
+  const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
   const isOpeningRef = useRef(false);
 
   // Debounced transaction opener to prevent race conditions
@@ -394,6 +407,87 @@ export default function HesapHareketleriPage() {
     );
   };
 
+  // Photo delete handler
+  const handleDeletePhoto = async () => {
+    if (!viewPhotoPath || !viewPhotoIslemId) return;
+
+    setIsPhotoActionLoading(true);
+    try {
+      await deletePhoto.mutateAsync(viewPhotoPath);
+      await updateIslem.mutateAsync({
+        id: viewPhotoIslemId,
+        updates: { photo_path: null },
+      });
+      setViewPhotoPath(null);
+      setViewPhotoIslemId(null);
+    } catch (error) {
+      console.error('[PhotoDelete] Error:', error);
+      Alert.alert(t('common:status.error'), t('common:photo.uploadError'));
+    } finally {
+      setIsPhotoActionLoading(false);
+    }
+  };
+
+  // Photo change handler
+  const handleChangePhoto = () => {
+    Alert.alert(
+      t('common:photo.change'),
+      t('common:photo.selectSource'),
+      [
+        {
+          text: t('common:photo.camera'),
+          onPress: async () => {
+            try {
+              const uri = await takePhoto.mutateAsync();
+              if (uri) await uploadNewPhoto(uri);
+            } catch (error) {
+              console.error('[PhotoChange] Camera error:', error);
+            }
+          },
+        },
+        {
+          text: t('common:photo.gallery'),
+          onPress: async () => {
+            try {
+              const uri = await pickImage.mutateAsync();
+              if (uri) await uploadNewPhoto(uri);
+            } catch (error) {
+              console.error('[PhotoChange] Gallery error:', error);
+            }
+          },
+        },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+      ]
+    );
+  };
+
+  // Upload new photo (for change)
+  const uploadNewPhoto = async (uri: string) => {
+    if (!viewPhotoIslemId || !isletme?.id) return;
+
+    setIsPhotoActionLoading(true);
+    try {
+      if (viewPhotoPath) {
+        await deletePhoto.mutateAsync(viewPhotoPath);
+      }
+      const newPath = await uploadPhoto.mutateAsync({
+        uri,
+        isletmeId: isletme.id,
+        islemId: viewPhotoIslemId,
+      });
+      await updateIslem.mutateAsync({
+        id: viewPhotoIslemId,
+        updates: { photo_path: newPath },
+      });
+      setViewPhotoPath(newPath);
+    } catch (error) {
+      console.error('[PhotoChange] Upload error:', error);
+      Alert.alert(t('common:status.error'), t('common:photo.uploadError'));
+    } finally {
+      setIsPhotoActionLoading(false);
+    }
+  };
+
   const getHesapIcon = (type: string) => {
     switch (type) {
       case 'nakit':
@@ -627,9 +721,14 @@ export default function HesapHareketleriPage() {
                               </Text>
                             )}
                           </View>
-                          <Text variant="h3" color={colorType}>
-                            {sign}{formatCurrency(getDisplayAmount(islem as IslemWithRelations), hesap.currency)}
-                          </Text>
+                          <View style={styles.amountContainer}>
+                            {islem.photo_path && (
+                              <ImageIcon size={16} color={colors.primary} style={styles.photoIndicator} />
+                            )}
+                            <Text variant="h3" color={colorType}>
+                              {sign}{formatCurrency(getDisplayAmount(islem as IslemWithRelations), hesap.currency)}
+                            </Text>
+                          </View>
                         </View>
                       }
                     >
@@ -643,6 +742,21 @@ export default function HesapHareketleriPage() {
                         </View>
                       )}
                       <View style={styles.hareketActions}>
+                        {/* Photo button - only show if photo exists */}
+                        {islem.photo_path && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<ImageIcon size={16} color={colors.primary} />}
+                            onPress={() => {
+                              setViewPhotoPath(islem.photo_path);
+                              setViewPhotoIslemId(islem.id);
+                            }}
+                            style={styles.actionButton}
+                          >
+                            {t('common:photo.title')}
+                          </Button>
+                        )}
                         <Button
                           variant="secondary"
                           size="sm"
@@ -844,6 +958,19 @@ export default function HesapHareketleriPage() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* Photo Viewer Modal */}
+      <PhotoViewerModal
+        visible={!!viewPhotoPath}
+        photoPath={viewPhotoPath}
+        onClose={() => {
+          setViewPhotoPath(null);
+          setViewPhotoIslemId(null);
+        }}
+        onDelete={handleDeletePhoto}
+        onChange={handleChangePhoto}
+        isLoading={isPhotoActionLoading}
+      />
     </>
   );
 }
@@ -932,6 +1059,14 @@ const styles = StyleSheet.create({
   },
   hareketInfo: {
     flex: 1,
+  },
+  amountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  photoIndicator: {
+    marginRight: 2,
   },
   hareketCard: {
     marginBottom: spacing.sm,

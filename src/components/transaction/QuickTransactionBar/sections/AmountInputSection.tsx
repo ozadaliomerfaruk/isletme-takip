@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Text, CategoryPicker } from '@/components/ui';
 import { TransactionTypeTabs } from '../../TransactionTypeTabs';
+import { PhotoButton } from '../../PhotoButton';
 import { colors } from '@/constants/colors';
 import { styles } from '../styles';
 import type { TransactionType, TransactionTabMode } from '../types';
@@ -24,6 +25,12 @@ export interface AmountInputSectionProps {
   categoryPickerOpen: boolean;
   onCategoryPickerOpenChange: (open: boolean) => void;
   onNavigateAway: () => void;
+  // Photo
+  hasPhoto: boolean;
+  onPickImage: () => void;
+  onTakePhoto: () => void;
+  onRemovePhoto: () => void;
+  photoLoading?: boolean;
   // Scheduled
   isScheduled: boolean;
   // Save
@@ -49,6 +56,11 @@ export function AmountInputSection({
   categoryPickerOpen,
   onCategoryPickerOpenChange,
   onNavigateAway,
+  hasPhoto,
+  onPickImage,
+  onTakePhoto,
+  onRemovePhoto,
+  photoLoading,
   isScheduled,
   isSaving,
   buttonColor,
@@ -108,6 +120,17 @@ export function AmountInputSection({
             <Bell size={20} color={colors.warning} />
           </View>
         )}
+
+        {/* Photo Button */}
+        <PhotoButton
+          hasPhoto={hasPhoto}
+          onPickImage={onPickImage}
+          onTakePhoto={onTakePhoto}
+          onRemovePhoto={onRemovePhoto}
+          loading={photoLoading}
+          disabled={isSaving}
+          size="small"
+        />
 
         <TouchableOpacity
           style={[

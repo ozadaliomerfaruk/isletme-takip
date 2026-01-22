@@ -12,16 +12,20 @@ import {
   Users,
   UserCheck,
   Clock,
+  Image as ImageIcon,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { getIslemIcon, getIslemIconBg, getIslemAmountColor, getIslemAmountPrefix } from '@/lib/icons';
-import { useIslemler, useDeleteIslem } from '@/hooks/useIslemler';
+import { useIslemler, useDeleteIslem, useUpdateIslem } from '@/hooks/useIslemler';
+import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { IslemType, IslemWithRelations } from '@/types/database';
 
 export default function IslemlerPage() {
@@ -35,9 +39,28 @@ export default function IslemlerPage() {
   // Edit mode state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Photo viewer state
+  const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
+  const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
+  const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
 
+  const { isletme } = useAuthContext();
   const { data: islemler, isLoading, isFetching } = useIslemler();
   const deleteIslem = useDeleteIslem();
+  const updateIslem = useUpdateIslem();
+  const deletePhoto = useDeleteIslemPhoto();
+  const pickImage = usePickImage();
+  const takePhoto = useTakePhoto();
+  const uploadPhoto = useUploadIslemPhoto();
+
+  // Debug: Log photo_path values
+  useEffect(() => {
+    if (islemler) {
+      const withPhotos = islemler.filter(i => i.photo_path);
+      console.log('[Islemler] Total:', islemler.length, 'With photos:', withPhotos.length);
+      withPhotos.forEach(i => console.log('[Islemler] Photo:', i.id, i.photo_path));
+    }
+  }, [islemler]);
 
   // Uzun süren yükleme için mesaj göster
   useEffect(() => {
@@ -109,6 +132,92 @@ export default function IslemlerPage() {
         },
       ]
     );
+  };
+
+  // Photo delete handler
+  const handleDeletePhoto = async () => {
+    if (!viewPhotoPath || !viewPhotoIslemId) return;
+
+    setIsPhotoActionLoading(true);
+    try {
+      // Delete from storage
+      await deletePhoto.mutateAsync(viewPhotoPath);
+      // Update transaction to remove photo_path
+      await updateIslem.mutateAsync({
+        id: viewPhotoIslemId,
+        updates: { photo_path: null },
+      });
+      setViewPhotoPath(null);
+      setViewPhotoIslemId(null);
+    } catch (error) {
+      console.error('[PhotoDelete] Error:', error);
+      Alert.alert(t('common:status.error'), t('common:photo.uploadError'));
+    } finally {
+      setIsPhotoActionLoading(false);
+    }
+  };
+
+  // Photo change handler
+  const handleChangePhoto = () => {
+    Alert.alert(
+      t('common:photo.change'),
+      t('common:photo.selectSource'),
+      [
+        {
+          text: t('common:photo.camera'),
+          onPress: async () => {
+            try {
+              const uri = await takePhoto.mutateAsync();
+              if (uri) await uploadNewPhoto(uri);
+            } catch (error) {
+              console.error('[PhotoChange] Camera error:', error);
+            }
+          },
+        },
+        {
+          text: t('common:photo.gallery'),
+          onPress: async () => {
+            try {
+              const uri = await pickImage.mutateAsync();
+              if (uri) await uploadNewPhoto(uri);
+            } catch (error) {
+              console.error('[PhotoChange] Gallery error:', error);
+            }
+          },
+        },
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+      ]
+    );
+  };
+
+  // Upload new photo (for change)
+  const uploadNewPhoto = async (uri: string) => {
+    if (!viewPhotoIslemId || !isletme?.id) return;
+
+    setIsPhotoActionLoading(true);
+    try {
+      // Delete old photo if exists
+      if (viewPhotoPath) {
+        await deletePhoto.mutateAsync(viewPhotoPath);
+      }
+      // Upload new photo
+      const newPath = await uploadPhoto.mutateAsync({
+        uri,
+        isletmeId: isletme.id,
+        islemId: viewPhotoIslemId,
+      });
+      // Update transaction
+      await updateIslem.mutateAsync({
+        id: viewPhotoIslemId,
+        updates: { photo_path: newPath },
+      });
+      setViewPhotoPath(newPath);
+    } catch (error) {
+      console.error('[PhotoChange] Upload error:', error);
+      Alert.alert(t('common:status.error'), t('common:photo.uploadError'));
+    } finally {
+      setIsPhotoActionLoading(false);
+    }
   };
 
   // İşlem tipi + ilgili kişi/hesap bilgisi
@@ -202,17 +311,37 @@ export default function IslemlerPage() {
                           </Text>
                         )}
                       </View>
-                      <Text
-                        variant="h3"
-                        color={getIslemAmountColor(islem.type)}
-                      >
-                        {getIslemAmountPrefix(islem.type)}
-                        {formatCurrency(toNumber(islem.amount))}
-                      </Text>
+                      <View style={styles.amountContainer}>
+                        {islem.photo_path && (
+                          <ImageIcon size={16} color={colors.primary} style={styles.photoIndicator} />
+                        )}
+                        <Text
+                          variant="h3"
+                          color={getIslemAmountColor(islem.type)}
+                        >
+                          {getIslemAmountPrefix(islem.type)}
+                          {formatCurrency(toNumber(islem.amount))}
+                        </Text>
+                      </View>
                     </View>
                   }
                 >
                   <View style={styles.islemActions}>
+                    {/* Photo button - only show if photo exists */}
+                    {islem.photo_path && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<ImageIcon size={16} color={colors.primary} />}
+                        onPress={() => {
+                          setViewPhotoPath(islem.photo_path);
+                          setViewPhotoIslemId(islem.id);
+                        }}
+                        style={styles.actionButton}
+                      >
+                        {t('common:photo.title')}
+                      </Button>
+                    )}
                     <Button
                       variant="secondary"
                       size="sm"
@@ -256,6 +385,19 @@ export default function IslemlerPage() {
           setShowEditBar(false);
           setEditTransactionId(null);
         }}
+      />
+
+      {/* Photo Viewer Modal */}
+      <PhotoViewerModal
+        visible={!!viewPhotoPath}
+        photoPath={viewPhotoPath}
+        onClose={() => {
+          setViewPhotoPath(null);
+          setViewPhotoIslemId(null);
+        }}
+        onDelete={handleDeletePhoto}
+        onChange={handleChangePhoto}
+        isLoading={isPhotoActionLoading}
       />
     </SafeAreaView>
   );
@@ -319,6 +461,14 @@ const styles = StyleSheet.create({
   },
   islemInfo: {
     flex: 1,
+  },
+  amountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  photoIndicator: {
+    marginRight: 2,
   },
   islemActions: {
     flexDirection: 'row',

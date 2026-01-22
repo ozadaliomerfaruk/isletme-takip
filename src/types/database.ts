@@ -282,6 +282,8 @@ export interface Islem {
   source_currency: string | null;  // Kaynak para birimi
   target_currency: string | null;  // Hedef para birimi
   exchange_rate: number | null;    // Dönüşüm kuru
+  // Fotoğraf
+  photo_path: string | null;       // Storage path for receipt/document photo
   created_at: string;
   updated_at: string;
 }
@@ -302,6 +304,8 @@ export interface IslemInsert {
   source_currency?: string | null;
   target_currency?: string | null;
   exchange_rate?: number | null;
+  // Fotoğraf
+  photo_path?: string | null;
 }
 
 export interface IslemUpdate {
@@ -318,6 +322,8 @@ export interface IslemUpdate {
   source_currency?: string | null;
   target_currency?: string | null;
   exchange_rate?: number | null;
+  // Fotoğraf
+  photo_path?: string | null;
 }
 
 // İlişkili verilerle birlikte işlem

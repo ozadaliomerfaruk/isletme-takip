@@ -47,6 +47,7 @@ import {
   useTransactionSubmit,
 } from './hooks';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { usePickImage, useTakePhoto } from '@/hooks/useIslemPhoto';
 
 export function QuickTransactionBar({
   visible,
@@ -137,6 +138,29 @@ export function QuickTransactionBar({
     amountInputRef,
   });
 
+  // Photo hooks
+  const pickImage = usePickImage();
+  const takePhoto = useTakePhoto();
+
+  // Photo handlers
+  const handlePickImage = useCallback(async () => {
+    const uri = await pickImage.mutateAsync();
+    if (uri) {
+      form.setPhotoUri(uri);
+    }
+  }, [pickImage, form]);
+
+  const handleTakePhoto = useCallback(async () => {
+    const uri = await takePhoto.mutateAsync();
+    if (uri) {
+      form.setPhotoUri(uri);
+    }
+  }, [takePhoto, form]);
+
+  const handleRemovePhoto = useCallback(() => {
+    form.setPhotoUri(null);
+  }, [form]);
+
   // Handle dismiss with animation
   const handleDismiss = useCallback(() => {
     animation.animateClose(() => {
@@ -175,6 +199,7 @@ export function QuickTransactionBar({
     isScheduled: form.isScheduled,
     odemeHedefType: form.odemeHedefType,
     categorySkipped: modals.categorySkipped,
+    photoUri: form.photoUri,
     hesapId: form.hesapId,
     hedefHesapId: form.hedefHesapId,
     sourceHesapId: form.sourceHesapId,
@@ -470,6 +495,11 @@ export function QuickTransactionBar({
             }
           }}
           onNavigateAway={onDismiss}
+          hasPhoto={!!form.photoUri}
+          onPickImage={handlePickImage}
+          onTakePhoto={handleTakePhoto}
+          onRemovePhoto={handleRemovePhoto}
+          photoLoading={pickImage.isPending || takePhoto.isPending}
           isScheduled={form.isScheduled}
           isSaving={form.isSaving || form.isLoadingTransaction}
           buttonColor={buttonColor}

@@ -59,6 +59,10 @@ interface UseQuickTransactionFormReturn {
   isSaving: boolean;
   setIsSaving: (saving: boolean) => void;
 
+  // Photo state
+  photoUri: string | null;
+  setPhotoUri: (uri: string | null) => void;
+
   // Entity IDs
   hedefHesapId: string | null;
   setHedefHesapId: (id: string | null) => void;
@@ -139,6 +143,7 @@ export function useQuickTransactionForm({
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [isScheduled, setIsScheduled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   // Safe date
   const safeDate = useMemo(() => ensureValidDate(date), [date]);
@@ -174,6 +179,7 @@ export function useQuickTransactionForm({
     setKategoriId(null);
     setIsScheduled(false);
     setIsSaving(false);
+    setPhotoUri(null);
     setHedefHesapId(null);
     setSourceHesapId(null);
     setCariId(null);
@@ -329,6 +335,10 @@ export function useQuickTransactionForm({
     setIsScheduled,
     isSaving,
     setIsSaving,
+
+    // Photo state
+    photoUri,
+    setPhotoUri,
 
     // Entity IDs
     hedefHesapId,

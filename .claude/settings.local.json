@@ -50,7 +50,9 @@
       "Bash(npx kill-port 8081)",
       "WebSearch",
       "WebFetch(domain:mobbin.com)",
-      "Bash(npx expo lint)"
+      "Bash(npx expo lint)",
+      "Bash(xargs:*)",
+      "Bash(npx supabase storage:*)"
     ]
   }
 }

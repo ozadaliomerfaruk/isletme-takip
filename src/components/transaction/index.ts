@@ -8,3 +8,4 @@ export { TransactionTypeTabs } from './TransactionTypeTabs';
 export type { TransactionType } from './TransactionTypeTabs';
 export { ExchangeRateBar } from './ExchangeRateBar';
 export type { ExchangeRateBarProps } from './ExchangeRateBar';
+export { PhotoViewerModal } from './PhotoViewerModal';

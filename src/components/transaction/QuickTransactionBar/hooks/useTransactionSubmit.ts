@@ -4,11 +4,14 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useCreateIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
+import { useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
 import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode } from '../types';
 import type { Currency } from '@/types/database';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useReview } from '@/contexts/ReviewContext';
 
 interface Hesap {
   id: string;
@@ -56,6 +59,9 @@ interface UseTransactionSubmitOptions {
   isScheduled: boolean;
   odemeHedefType: OdemeHedefType;
   categorySkipped: boolean;
+
+  // Photo
+  photoUri: string | null;
 
   // IDs
   hesapId: string | undefined;
@@ -155,6 +161,7 @@ export function useTransactionSubmit({
   isScheduled,
   odemeHedefType,
   categorySkipped,
+  photoUri,
   hesapId,
   hedefHesapId,
   sourceHesapId,
@@ -180,10 +187,13 @@ export function useTransactionSubmit({
   handleDismiss,
 }: UseTransactionSubmitOptions): UseTransactionSubmitReturn {
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
+  const { isletme } = useAuthContext();
+  const { triggerReviewIfEligible } = useReview();
   const createIslem = useCreateIslem();
   const updateIslem = useUpdateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
   const updateIleriTarihliIslem = useUpdateIleriTarihliIslem();
+  const uploadPhoto = useUploadIslemPhoto();
 
   // Build transaction data
   const buildTransactionData = useCallback(
@@ -504,6 +514,7 @@ export function useTransactionSubmit({
 
       // Edit mode - update existing transaction
       if (isEditMode && transactionId) {
+        // Upload photo if present (for edit mode, we don't change photo here)
         if (isScheduledTransaction) {
           await updateIleriTarihliIslem.mutateAsync({
             id: transactionId,
@@ -525,20 +536,53 @@ export function useTransactionSubmit({
       // Create mode - create new transaction
       else {
         if (isScheduled) {
+          // Scheduled transactions don't support photos yet
           await createIleriTarihliIslem.mutateAsync({
             ...transactionData,
             scheduled_date: formatDateForDB(safeDate),
           });
         } else {
-          await createIslem.mutateAsync({
+          // Create transaction first to get the ID
+          const newIslem = await createIslem.mutateAsync({
             ...transactionData,
             date: formatDateTimeForDB(safeDate),
           });
+
+          // Upload photo if present
+          if (photoUri && isletme?.id && newIslem?.id) {
+            try {
+              console.log('[PhotoUpload] Starting upload for islem:', newIslem.id);
+              const photoPath = await uploadPhoto.mutateAsync({
+                uri: photoUri,
+                isletmeId: isletme.id,
+                islemId: newIslem.id,
+              });
+              console.log('[PhotoUpload] Upload success, path:', photoPath);
+              // Update the transaction with the photo path
+              await updateIslem.mutateAsync({
+                id: newIslem.id,
+                updates: { photo_path: photoPath },
+              });
+              console.log('[PhotoUpload] Transaction updated with photo_path');
+            } catch (photoError) {
+              // Log photo upload error but don't fail the transaction
+              console.error('[PhotoUpload] Error:', photoError);
+              // Transaction was created successfully, just photo upload failed
+            }
+          }
         }
       }
 
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+
+      // Trigger review prompt for new transactions (not edits)
+      if (!isEditMode) {
+        // Async call, don't await - we don't want to block the UI
+        triggerReviewIfEligible().catch((err) => {
+          console.log('[Review] Error triggering review:', err);
+        });
       }
 
       onSuccess?.();
@@ -571,6 +615,8 @@ export function useTransactionSubmit({
     hesapId,
     isScheduled,
     safeDate,
+    photoUri,
+    isletme,
     t,
     setHesapPickerTarget,
     setShowHesapPicker,
@@ -587,6 +633,8 @@ export function useTransactionSubmit({
     createIslem,
     updateIslem,
     updateIleriTarihliIslem,
+    uploadPhoto,
+    triggerReviewIfEligible,
     onSuccess,
     handleDismiss,
   ]);
@@ -649,6 +697,13 @@ export function useTransactionSubmit({
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
 
+        // Trigger review prompt for new transactions (not edits)
+        if (!isEditMode) {
+          triggerReviewIfEligible().catch((err) => {
+            console.log('[Review] Error triggering review:', err);
+          });
+        }
+
         setPendingExchangeData(null);
         onSuccess?.();
         handleDismiss();
@@ -678,6 +733,7 @@ export function useTransactionSubmit({
       createIslem,
       updateIslem,
       updateIleriTarihliIslem,
+      triggerReviewIfEligible,
       setPendingExchangeData,
       onSuccess,
       handleDismiss,
