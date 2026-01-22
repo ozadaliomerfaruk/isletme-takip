@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, KeyRound } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
@@ -27,6 +27,7 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>('weak');
   const [errors, setErrors] = useState<{
     password?: string;
     passwordConfirm?: string;
@@ -40,6 +41,8 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
       newErrors.password = t('errors:validation.required');
     } else if (password.length < 6) {
       newErrors.password = t('errors:validation.minLength', { min: 6 });
+    } else if (passwordStrength === 'weak') {
+      newErrors.password = t('errors:auth.passwordWeak');
     }
 
     if (!passwordConfirm) {
@@ -73,6 +76,7 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
               // Reset form
               setPassword('');
               setPasswordConfirm('');
+              setPasswordStrength('weak');
               setErrors({});
               onSuccess();
             },
@@ -80,10 +84,14 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
         ]
       );
     } catch (err: any) {
-      Alert.alert(
-        t('common:status.error'),
-        err.message || t('errors:general.generic')
-      );
+      let errorMessage = err.message || t('errors:general.generic');
+
+      // Translate Supabase error messages
+      if (err.message?.includes('weak and easy to guess') || err.message?.includes('leaked')) {
+        errorMessage = t('errors:auth.leakedPassword');
+      }
+
+      Alert.alert(t('common:status.error'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -134,6 +142,12 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
                 error={errors.password}
                 leftIcon={<Lock size={20} color={colors.textMuted} />}
               />
+              {password.length > 0 && (
+                <PasswordStrengthIndicator
+                  password={password}
+                  onStrengthChange={setPasswordStrength}
+                />
+              )}
 
               <Input
                 label={t('auth:resetPassword.confirmPassword')}

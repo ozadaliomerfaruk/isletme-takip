@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, Building2, KeyRound, CheckCircle, ArrowLeft } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
@@ -30,6 +30,7 @@ export default function RegisterPage() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>('weak');
   const [errors, setErrors] = useState<{
     isletmeName?: string;
     email?: string;
@@ -57,6 +58,8 @@ export default function RegisterPage() {
       newErrors.password = t('errors:validation.required');
     } else if (password.length < 6) {
       newErrors.password = t('errors:validation.minLength', { min: 6 });
+    } else if (passwordStrength === 'weak') {
+      newErrors.password = t('errors:auth.passwordWeak');
     }
 
     if (!passwordConfirm) {
@@ -108,12 +111,16 @@ export default function RegisterPage() {
         router.replace('/(tabs)');
       }
     } catch (error: any) {
-      Alert.alert(
-        t('common:status.error'),
-        error.message === 'User already registered'
-          ? t('errors:auth.emailInUse')
-          : error.message || t('errors:general.generic')
-      );
+      let errorMessage = error.message || t('errors:general.generic');
+
+      // Translate Supabase error messages
+      if (error.message?.includes('weak and easy to guess') || error.message?.includes('leaked')) {
+        errorMessage = t('errors:auth.leakedPassword');
+      } else if (error.message === 'User already registered') {
+        errorMessage = t('errors:auth.emailInUse');
+      }
+
+      Alert.alert(t('common:status.error'), errorMessage);
     } finally {
       setLoading(false);
     }
@@ -260,6 +267,12 @@ export default function RegisterPage() {
                   error={errors.password}
                   leftIcon={<Lock size={20} color={colors.textMuted} />}
                 />
+                {password.length > 0 && (
+                  <PasswordStrengthIndicator
+                    password={password}
+                    onStrengthChange={setPasswordStrength}
+                  />
+                )}
 
                 <Input
                   label={t('auth:register.confirmPassword')}

@@ -20,7 +20,9 @@
   },
   "auth": {
     "invalidEmail": "Please enter a valid email address",
-    "invalidPassword": "Password must be at least 8 characters and contain uppercase, lowercase, and a number",
+    "invalidPassword": "Password must be at least 6 characters",
+    "passwordWeak": "Password is too weak. Please choose a stronger password.",
+    "leakedPassword": "This password was found in data breaches. Please choose a more unique password.",
     "passwordMinLength": "At least 8 characters with uppercase, lowercase, and number",
     "wrongPassword": "Current password is incorrect",
     "passwordMismatch": "Passwords do not match",

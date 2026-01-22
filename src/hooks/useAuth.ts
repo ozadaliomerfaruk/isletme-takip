@@ -354,18 +354,12 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
-      // PASSWORD_RECOVERY event'ini özel olarak ele al
-      // Kullanıcı şifremi unuttum akışından geldiğinde şifre değiştirme modal'ı göster
+      // PASSWORD_RECOVERY event'ini normal giriş gibi ele al
+      // Kullanıcı şifremi unuttum akışından geldiğinde direkt uygulamaya girsin
+      // İsterse ayarlardan şifresini değiştirebilir
       if (event === 'PASSWORD_RECOVERY') {
-        setState((prev) => ({
-          ...prev,
-          session,
-          user: session?.user ?? null,
-          needsPasswordReset: true,
-          loading: false,
-          initialized: true,
-        }));
-        return;
+        // Normal SIGNED_IN gibi davran, needsPasswordReset'i set etme
+        // Aşağıdaki kod bloğu işleyecek
       }
 
       // TOKEN_REFRESHED eventinde sadece session'ı güncelle, isletme'yi tekrar çekme
@@ -749,23 +743,12 @@ export function useAuth() {
     }
   };
 
-  // Şifre değiştir
-  const changePassword = async (currentPassword: string, newPassword: string) => {
+  // Şifre değiştir (mevcut şifre doğrulaması yok - kullanıcı zaten giriş yapmış)
+  const changePassword = async (newPassword: string) => {
     if (!state.user?.email) {
       throw new Error('Kullanıcı bulunamadı');
     }
 
-    // 1. Mevcut şifreyi doğrula (email + currentPassword ile sign in)
-    const { error: verifyError } = await supabase.auth.signInWithPassword({
-      email: state.user.email,
-      password: currentPassword,
-    });
-
-    if (verifyError) {
-      throw new Error('WRONG_PASSWORD');
-    }
-
-    // 2. Yeni şifreyi güncelle
     const { error: updateError } = await supabase.auth.updateUser({
       password: newPassword,
     });

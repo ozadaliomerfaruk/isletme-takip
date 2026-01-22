@@ -39,12 +39,10 @@ export default function IsletmeBilgileriPage() {
 
   // Şifre değiştirme modal state'leri
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordErrors, setPasswordErrors] = useState<{
-    currentPassword?: string;
     newPassword?: string;
     confirmPassword?: string;
   }>({});
@@ -92,10 +90,6 @@ export default function IsletmeBilgileriPage() {
   const validatePassword = () => {
     const newErrors: typeof passwordErrors = {};
 
-    if (!currentPassword) {
-      newErrors.currentPassword = t('errors:validation.required');
-    }
-
     if (!newPassword) {
       newErrors.newPassword = t('errors:validation.required');
     } else if (newPassword.length < 6) {
@@ -118,22 +112,25 @@ export default function IsletmeBilgileriPage() {
 
     setPasswordLoading(true);
     try {
-      await changePassword(currentPassword, newPassword);
+      await changePassword(newPassword);
 
       // Başarılı - modal'ı kapat ve formu temizle
       setShowPasswordModal(false);
-      setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
       setPasswordErrors({});
 
       Alert.alert(t('common:status.success'), t('settings:messages.passwordChanged'));
     } catch (error: unknown) {
-      if (error instanceof Error && error.message === 'WRONG_PASSWORD') {
-        setPasswordErrors({ currentPassword: t('errors:auth.wrongPassword') });
-      } else {
-        Alert.alert(t('common:status.error'), t('errors:general.generic'));
+      let errorMessage = t('errors:general.generic');
+
+      // Supabase leaked password error
+      if (error instanceof Error &&
+          (error.message?.includes('weak and easy to guess') || error.message?.includes('leaked'))) {
+        errorMessage = t('errors:auth.leakedPassword');
       }
+
+      Alert.alert(t('common:status.error'), errorMessage);
     } finally {
       setPasswordLoading(false);
     }
@@ -142,7 +139,6 @@ export default function IsletmeBilgileriPage() {
   // Şifre modal'ını kapat ve temizle
   const closePasswordModal = () => {
     setShowPasswordModal(false);
-    setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
     setPasswordErrors({});
@@ -291,16 +287,6 @@ export default function IsletmeBilgileriPage() {
 
                 {/* Form */}
                 <View style={styles.modalForm}>
-                  {/* Mevcut Şifre */}
-                  <Input
-                    label={t('settings:profile.currentPassword')}
-                    placeholder="••••••••"
-                    secureTextEntry
-                    value={currentPassword}
-                    onChangeText={setCurrentPassword}
-                    error={passwordErrors.currentPassword}
-                  />
-
                   {/* Yeni Şifre */}
                   <Input
                     label={`${t('settings:profile.newPassword')} (${t('errors:auth.passwordMinLength')})`}

@@ -25,3 +25,4 @@ export { ActionSheet, type ActionSheetOption } from './ActionSheet';
 export { ArchivedBanner } from './ArchivedBanner';
 export { ToastContainer } from './Toast';
 export { Skeleton, SkeletonText, SkeletonCard, SkeletonListItem, SkeletonAccountList, SkeletonSummaryCard, SkeletonSummaryPair } from './Skeleton';
+export { PasswordStrengthIndicator, type PasswordStrength } from './PasswordStrengthIndicator';

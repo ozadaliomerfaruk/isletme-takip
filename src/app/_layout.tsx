@@ -119,8 +119,8 @@ function RootLayoutNav() {
     if (!user && !inAuthGroup && !inOnboarding && !inVerify) {
       // Kullanici giris yapmamis, login'e yonlendir
       router.replace('/(auth)/login');
-    } else if (user && inAuthGroup) {
-      // Kullanici giris yapmis
+    } else if (user && inAuthGroup && !needsPasswordReset) {
+      // Kullanici giris yapmis ve sifre sifirlama modunda degil
       if (showOnboarding) {
         // Onboarding gosterilmemis, onboarding'e yonlendir
         router.replace('/onboarding');
@@ -129,7 +129,7 @@ function RootLayoutNav() {
         router.replace('/(tabs)');
       }
     }
-  }, [user, segments, initialized, onboardingChecked, showOnboarding]);
+  }, [user, segments, initialized, onboardingChecked, showOnboarding, needsPasswordReset]);
 
   // Yukleniyor - sadece initialized ve onboardingChecked kontrol et
   // loading'i burada kontrol etmiyoruz çünkü login/logout sırasında da true oluyor
@@ -582,8 +582,9 @@ function RootLayoutNav() {
       </Stack>
 
       {/* Şifre değiştirme modal'ı - şifremi unuttum akışı sonrası gösterilir */}
+      {/* OTP doğrulandıktan sonra kullanıcı /(tabs)'a yönlendirilir ve modal burada gösterilir */}
       <ChangePasswordModal
-        visible={!!user && needsPasswordReset}
+        visible={!!user && needsPasswordReset && segments[1] !== 'forgot-password'}
         onSuccess={clearPasswordReset}
       />
     </>
