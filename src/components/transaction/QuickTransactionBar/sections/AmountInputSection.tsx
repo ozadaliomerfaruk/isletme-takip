@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 
 import { Text, CategoryPicker } from '@/components/ui';
 import { TransactionTypeTabs } from '../../TransactionTypeTabs';
-import { PhotoButton } from '../../PhotoButton';
+// PhotoButton temporarily disabled
+// import { PhotoButton } from '../../PhotoButton';
 import { colors } from '@/constants/colors';
 import { styles } from '../styles';
 import type { TransactionType, TransactionTabMode } from '../types';
@@ -121,8 +122,8 @@ export function AmountInputSection({
           </View>
         )}
 
-        {/* Photo Button */}
-        <PhotoButton
+        {/* Photo Button - temporarily disabled */}
+        {/* <PhotoButton
           hasPhoto={hasPhoto}
           onPickImage={onPickImage}
           onTakePhoto={onTakePhoto}
@@ -130,7 +131,7 @@ export function AmountInputSection({
           loading={photoLoading}
           disabled={isSaving}
           size="small"
-        />
+        /> */}
 
         <TouchableOpacity
           style={[

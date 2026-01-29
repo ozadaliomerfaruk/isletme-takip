@@ -52,7 +52,8 @@
       "WebFetch(domain:mobbin.com)",
       "Bash(npx expo lint)",
       "Bash(xargs:*)",
-      "Bash(npx supabase storage:*)"
+      "Bash(npx supabase storage:*)",
+      "Bash(npx expo export:*)"
     ]
   }
 }

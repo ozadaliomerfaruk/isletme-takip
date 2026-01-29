@@ -1,7 +1,8 @@
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, TextInput } from 'react-native';
-import { useState, useMemo, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, TextInput, Keyboard, Platform } from 'react-native';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import {
   X,
   Check,
@@ -72,7 +73,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 interface CategoryPickerProps {
   value: string | null;
   onChange: (categoryId: string | null) => void;
-  type: KategoriType;
+  type?: KategoriType;
   label?: string;
   placeholder?: string;
   optional?: boolean;
@@ -98,8 +99,27 @@ export function CategoryPicker({
   const { t } = useTranslation(['common', 'categories']);
   const [internalOpen, setInternalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
+
+  // Keyboard visibility tracking
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   // Controlled/uncontrolled pattern
   const isControlled = externalOpen !== undefined;
@@ -149,15 +169,17 @@ export function CategoryPicker({
 
   const getCategoryIcon = (category: FlattenedCategory, size: number = 20) => {
     const iconName = category.icon;
-    const categoryColor = category.color || colors.primary;
+    const isGelir = category.type === 'gelir';
+    const defaultColor = isGelir ? colors.success : colors.error;
+    const categoryColor = category.color || defaultColor;
 
     if (iconName && ICON_MAP[iconName]) {
       const IconComponent = ICON_MAP[iconName];
       return <IconComponent size={size} color={categoryColor} />;
     }
 
-    // Varsayılan icon
-    return type === 'gelir' ? (
+    // Varsayılan icon - kategorinin kendi tipine göre
+    return isGelir ? (
       <TrendingUp size={size} color={colors.success} />
     ) : (
       <TrendingDown size={size} color={colors.error} />
@@ -165,7 +187,9 @@ export function CategoryPicker({
   };
 
   const getCategoryBgColor = (category: FlattenedCategory) => {
-    const categoryColor = category.color || (type === 'gelir' ? colors.success : colors.error);
+    const isGelir = category.type === 'gelir';
+    const defaultColor = isGelir ? colors.success : colors.error;
+    const categoryColor = category.color || defaultColor;
     return categoryColor + '20';
   };
 

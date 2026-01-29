@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, BarChart3, Users, UserCircle, MoreHorizontal } from 'lucide-react-native';
+import { Home, BarChart3, Users, UserCircle, Package, MoreHorizontal } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { colors } from '@/constants/colors';
@@ -82,6 +82,13 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.personnel'),
           tabBarIcon: ({ color }) => <UserCircle size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="stok"
+        options={{
+          title: t('tabs.stock'),
+          tabBarIcon: ({ color }) => <Package size={28} color={color} />,
         }}
       />
       <Tabs.Screen

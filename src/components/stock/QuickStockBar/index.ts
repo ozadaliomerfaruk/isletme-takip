@@ -1,0 +1,1 @@
+export { QuickStockBar } from './QuickStockBar';

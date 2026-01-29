@@ -30,7 +30,7 @@ function RootLayoutNav() {
   const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
-  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings']);
+  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);
@@ -576,6 +576,69 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('common:archive.title'),
+            headerShadowVisible: false,
+          }}
+        />
+        {/* Stok/Ürünler */}
+        <Stack.Screen
+          name="urunler/index"
+          options={{
+            presentation: 'card',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="urunler/[id]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('products:stock.movements'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="urunler/ekle"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('products:addProduct'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="urunler/duzenle/[id]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('products:editProduct'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="urunler/toplu-giris"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('products:bulk.stockIn'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="urunler/toplu-cikis"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('products:bulk.stockOut'),
             headerShadowVisible: false,
           }}
         />

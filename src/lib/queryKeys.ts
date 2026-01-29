@@ -128,6 +128,22 @@ export const queryKeys = {
       ['nakit-avanslar', 'kredi-karti', krediKartiId, isletmeId] as const,
     detail: (id: string) => ['nakit-avans', id] as const,
   },
+
+  // Ürünler (Stok Yönetimi)
+  urunler: {
+    all: () => ['urunler'] as const,
+    list: (isletmeId: string) => ['urunler', isletmeId] as const,
+    detail: (id: string) => ['urun', id] as const,
+  },
+
+  // Stok Hareketler
+  stokHareketler: {
+    all: () => ['stok-hareketler'] as const,
+    byUrun: (urunId: string, isletmeId: string) =>
+      ['stok-hareketler', 'urun', urunId, isletmeId] as const,
+    aylikOzet: (urunId: string, isletmeId: string) =>
+      ['stok-hareketler', 'aylik-ozet', urunId, isletmeId] as const,
+  },
 } as const;
 
 // ============================================================================
@@ -247,6 +263,22 @@ const invalidationMap = {
     'cash-flow-by-category',
     'analytics-periods',
     'analytics-trend',
+    'urunler',
+    'stok-hareketler',
+  ],
+
+  // Ürün değişikliği
+  urun: [
+    'urunler',
+    'urun',
+    'stok-hareketler',
+  ],
+
+  // Stok hareket değişikliği
+  stokHareket: [
+    'stok-hareketler',
+    'urunler',
+    'urun',
   ],
 } as const;
 
@@ -343,4 +375,14 @@ export const createInvalidators = (queryClient: QueryClient) => ({
    * Nakit avans mutation'ları için
    */
   onNakitAvansMutation: () => invalidateRelatedQueries(queryClient, 'nakitAvans'),
+
+  /**
+   * Ürün mutation'ları için
+   */
+  onUrunMutation: () => invalidateRelatedQueries(queryClient, 'urun'),
+
+  /**
+   * Stok hareket mutation'ları için
+   */
+  onStokHareketMutation: () => invalidateRelatedQueries(queryClient, 'stokHareket'),
 });

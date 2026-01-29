@@ -1,0 +1,86 @@
+{
+  "title": "Stok",
+  "addProduct": "Stok Ekle",
+  "editProduct": "Stok Düzenle",
+  "productDetails": "Stok Detayı",
+  "form": {
+    "name": "Ürün Adı",
+    "code": "Ürün Kodu",
+    "unit": "Birim",
+    "purchasePrice": "Alış Fiyatı",
+    "salePrice": "Satış Fiyatı",
+    "description": "Açıklama",
+    "currency": "Para Birimi"
+  },
+  "units": {
+    "adet": "Adet",
+    "kg": "Kilogram",
+    "lt": "Litre",
+    "m": "Metre",
+    "m2": "Metrekare",
+    "paket": "Paket",
+    "kutu": "Kutu"
+  },
+  "stock": {
+    "currentStock": "Mevcut Stok",
+    "stockIn": "Stok Girişi",
+    "stockOut": "Stok Çıkışı",
+    "adjustment": "Düzeltme",
+    "quantity": "Miktar",
+    "unitPrice": "Birim Fiyat",
+    "monthlyReport": "Aylık Özet",
+    "movements": "Stok Hareketleri",
+    "totalIn": "Toplam Giriş",
+    "totalOut": "Toplam Çıkış",
+    "noMovements": "Henüz stok hareketi yok"
+  },
+  "messages": {
+    "createSuccess": "Ürün oluşturuldu",
+    "updateSuccess": "Ürün güncellendi",
+    "deleteSuccess": "Ürün silindi",
+    "stockUpdated": "Stok güncellendi",
+    "stockInSuccess": "Stok girişi yapıldı",
+    "stockOutSuccess": "Stok çıkışı yapıldı"
+  },
+  "validation": {
+    "nameRequired": "Ürün adı zorunludur",
+    "quantityRequired": "Miktar zorunludur",
+    "quantityPositive": "Miktar 0'dan büyük olmalıdır"
+  },
+  "empty": {
+    "title": "Henüz ürün yok",
+    "description": "Ürün ekleyerek stok takibine başlayın"
+  },
+  "deleteConfirm": {
+    "title": "Ürünü Sil",
+    "message": "\"{{name}}\" ürününü silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
+  },
+  "months": {
+    "01": "Ocak",
+    "02": "Şubat",
+    "03": "Mart",
+    "04": "Nisan",
+    "05": "Mayıs",
+    "06": "Haziran",
+    "07": "Temmuz",
+    "08": "Ağustos",
+    "09": "Eylül",
+    "10": "Ekim",
+    "11": "Kasım",
+    "12": "Aralık"
+  },
+  "actions": {
+    "newTransaction": "Yeni İşlem",
+    "viewMovements": "Hareketler"
+  },
+  "bulk": {
+    "stockIn": "Toplu Stok Girişi",
+    "stockOut": "Toplu Stok Çıkışı",
+    "addRow": "Satır Ekle",
+    "selectProduct": "Ürün Seç",
+    "noProducts": "Henüz ürün eklenmedi",
+    "success": "{{count}} adet stok hareketi kaydedildi",
+    "selectAll": "Tümünü Seç",
+    "selectNone": "Hiçbirini Seçme"
+  }
+}

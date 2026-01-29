@@ -629,3 +629,78 @@ export interface ExchangeRates {
   source: string;
   created_at: string;
 }
+
+// ============ STOK YÖNETİMİ ============
+
+export type BirimType = 'adet' | 'kg' | 'lt' | 'm' | 'm2' | 'paket' | 'kutu';
+export type StokHareketTipi = 'giris' | 'cikis' | 'duzeltme';
+
+// Ürün
+export interface Urun {
+  id: string;
+  isletme_id: string;
+  ad: string;
+  kod: string | null;
+  birim: BirimType;
+  miktar: number;
+  alis_fiyati: number;
+  satis_fiyati: number;
+  currency: Currency;
+  kategori_id: string | null;
+  aciklama: string | null;
+  is_active: boolean;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UrunInsert {
+  ad: string;
+  kod?: string | null;
+  birim?: BirimType;
+  miktar?: number;
+  alis_fiyati?: number;
+  satis_fiyati?: number;
+  currency?: Currency;
+  kategori_id?: string | null;
+  aciklama?: string | null;
+}
+
+export interface UrunUpdate {
+  ad?: string;
+  kod?: string | null;
+  birim?: BirimType;
+  alis_fiyati?: number;
+  satis_fiyati?: number;
+  currency?: Currency;
+  kategori_id?: string | null;
+  aciklama?: string | null;
+  is_active?: boolean;
+  is_archived?: boolean;
+}
+
+// Stok Hareket
+export interface StokHareket {
+  id: string;
+  isletme_id: string;
+  urun_id: string;
+  hareket_tipi: StokHareketTipi;
+  miktar: number;
+  birim_fiyat: number | null;
+  onceki_miktar: number | null;
+  yeni_miktar: number | null;
+  aciklama: string | null;
+  created_at: string;
+}
+
+export interface StokHareketInsert {
+  urun_id: string;
+  hareket_tipi: StokHareketTipi;
+  miktar: number;
+  birim_fiyat?: number | null;
+  aciklama?: string | null;
+}
+
+export interface StokHareketWithUrun extends StokHareket {
+  urun?: Urun;
+}

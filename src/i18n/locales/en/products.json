@@ -1,0 +1,86 @@
+{
+  "title": "Products",
+  "addProduct": "Add Product",
+  "editProduct": "Edit Product",
+  "productDetails": "Product Details",
+  "form": {
+    "name": "Product Name",
+    "code": "Product Code",
+    "unit": "Unit",
+    "purchasePrice": "Purchase Price",
+    "salePrice": "Sale Price",
+    "description": "Description",
+    "currency": "Currency"
+  },
+  "units": {
+    "adet": "Piece",
+    "kg": "Kilogram",
+    "lt": "Liter",
+    "m": "Meter",
+    "m2": "Square Meter",
+    "paket": "Package",
+    "kutu": "Box"
+  },
+  "stock": {
+    "currentStock": "Current Stock",
+    "stockIn": "Stock In",
+    "stockOut": "Stock Out",
+    "adjustment": "Adjustment",
+    "quantity": "Quantity",
+    "unitPrice": "Unit Price",
+    "monthlyReport": "Monthly Summary",
+    "movements": "Stock Movements",
+    "totalIn": "Total In",
+    "totalOut": "Total Out",
+    "noMovements": "No stock movements yet"
+  },
+  "messages": {
+    "createSuccess": "Product created",
+    "updateSuccess": "Product updated",
+    "deleteSuccess": "Product deleted",
+    "stockUpdated": "Stock updated",
+    "stockInSuccess": "Stock entry completed",
+    "stockOutSuccess": "Stock exit completed"
+  },
+  "validation": {
+    "nameRequired": "Product name is required",
+    "quantityRequired": "Quantity is required",
+    "quantityPositive": "Quantity must be greater than 0"
+  },
+  "empty": {
+    "title": "No products yet",
+    "description": "Add a product to start tracking inventory"
+  },
+  "deleteConfirm": {
+    "title": "Delete Product",
+    "message": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+  },
+  "months": {
+    "01": "January",
+    "02": "February",
+    "03": "March",
+    "04": "April",
+    "05": "May",
+    "06": "June",
+    "07": "July",
+    "08": "August",
+    "09": "September",
+    "10": "October",
+    "11": "November",
+    "12": "December"
+  },
+  "actions": {
+    "newTransaction": "New Transaction",
+    "viewMovements": "Movements"
+  },
+  "bulk": {
+    "stockIn": "Bulk Stock In",
+    "stockOut": "Bulk Stock Out",
+    "addRow": "Add Row",
+    "selectProduct": "Select Product",
+    "noProducts": "No products added yet",
+    "success": "{{count}} stock movements saved",
+    "selectAll": "Select All",
+    "selectNone": "Select None"
+  }
+}

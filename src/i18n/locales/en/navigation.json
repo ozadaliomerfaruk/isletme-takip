@@ -4,6 +4,7 @@
     "analytics": "Analytics",
     "clients": "Contacts",
     "personnel": "Staff",
+    "stock": "Stock",
     "more": "More"
   },
   "screens": {
@@ -58,13 +59,18 @@
     "register": "Register",
     "forgotPassword": "Forgot Password",
     "resetPassword": "Reset Password",
-    "onboarding": "Welcome"
+    "onboarding": "Welcome",
+    "products": "Products",
+    "addProduct": "Add Product",
+    "editProduct": "Edit Product",
+    "productDetails": "Product Details"
   },
   "menu": {
     "allTransactions": "All Transactions",
     "reports": "Reports",
     "businessInfo": "Business Info",
     "categories": "Categories",
+    "products": "Products",
     "accounts": "Assets",
     "reminders": "Reminders",
     "importData": "Import Data",
