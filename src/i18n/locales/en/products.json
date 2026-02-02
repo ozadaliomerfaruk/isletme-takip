@@ -7,19 +7,43 @@
     "name": "Product Name",
     "code": "Product Code",
     "unit": "Unit",
+    "vatRate": "VAT Rate",
     "purchasePrice": "Purchase Price",
     "salePrice": "Sale Price",
+    "initialStock": "Initial Stock",
     "description": "Description",
     "currency": "Currency"
   },
   "units": {
     "adet": "Piece",
+    "parca": "Part",
+    "cift": "Pair",
+    "takim": "Set",
+    "gram": "Gram",
     "kg": "Kilogram",
+    "ton": "Ton",
+    "ml": "Milliliter",
     "lt": "Liter",
+    "cm": "Centimeter",
     "m": "Meter",
     "m2": "Square Meter",
+    "m3": "Cubic Meter",
     "paket": "Package",
-    "kutu": "Box"
+    "kutu": "Box",
+    "koli": "Carton",
+    "porsiyon": "Portion"
+  },
+  "unitCategories": {
+    "piece": "Piece/Part",
+    "weight": "Weight",
+    "volume": "Volume",
+    "length": "Length/Area",
+    "package": "Packaging",
+    "consumption": "Consumption"
+  },
+  "unitPicker": {
+    "title": "Select Unit",
+    "search": "Search units..."
   },
   "stock": {
     "currentStock": "Current Stock",
@@ -32,12 +56,25 @@
     "movements": "Stock Movements",
     "totalIn": "Total In",
     "totalOut": "Total Out",
-    "noMovements": "No stock movements yet"
+    "noMovements": "No stock movements yet",
+    "noPeriodMovements": "No movements in this period",
+    "deleteMovementConfirm": "Are you sure you want to delete this stock movement? The stock quantity will also be updated."
+  },
+  "period": {
+    "yearly": "Yearly",
+    "monthly": "Monthly",
+    "weekly": "Weekly",
+    "daily": "Daily",
+    "custom": "Custom",
+    "startDate": "Start",
+    "endDate": "End"
   },
   "messages": {
     "createSuccess": "Product created",
     "updateSuccess": "Product updated",
     "deleteSuccess": "Product deleted",
+    "archiveSuccess": "Product archived",
+    "unarchiveSuccess": "Product unarchived",
     "stockUpdated": "Stock updated",
     "stockInSuccess": "Stock entry completed",
     "stockOutSuccess": "Stock exit completed"
@@ -47,9 +84,18 @@
     "quantityRequired": "Quantity is required",
     "quantityPositive": "Quantity must be greater than 0"
   },
+  "search": {
+    "placeholder": "Search product, category..."
+  },
   "empty": {
     "title": "No products yet",
-    "description": "Add a product to start tracking inventory"
+    "description": "Add a product to start tracking inventory",
+    "archivedTitle": "No archived products",
+    "archivedDescription": "Archived products will appear here"
+  },
+  "tabs": {
+    "active": "Active",
+    "archived": "Archived"
   },
   "deleteConfirm": {
     "title": "Delete Product",
@@ -71,7 +117,9 @@
   },
   "actions": {
     "newTransaction": "New Transaction",
-    "viewMovements": "Movements"
+    "viewMovements": "Movements",
+    "archive": "Archive",
+    "unarchive": "Unarchive"
   },
   "bulk": {
     "stockIn": "Bulk Stock In",

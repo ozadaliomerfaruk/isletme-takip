@@ -311,7 +311,8 @@
       "accounts": "Hesaplar",
       "suppliers": "Tedarikçiler",
       "customers": "Müşteriler",
-      "staff": "Personel"
+      "staff": "Personel",
+      "products": "Stok"
     },
     "actions": {
       "archive": "Arşive At",

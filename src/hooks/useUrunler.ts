@@ -117,7 +117,57 @@ export function useUpdateUrun() {
 }
 
 /**
- * Ürün sil (soft delete - arşivle)
+ * Ürünü arşivle (soft delete - sadece arşivle, is_active kalır)
+ */
+export function useArchiveUrun() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
+      const { error } = await supabase
+        .from('urunler')
+        .update({ is_archived: true })
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'urun');
+    },
+  });
+}
+
+/**
+ * Ürünü arşivden çıkar
+ */
+export function useUnarchiveUrun() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
+      const { error } = await supabase
+        .from('urunler')
+        .update({ is_archived: false })
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'urun');
+    },
+  });
+}
+
+/**
+ * Ürün sil (soft delete - arşivle ve deaktif et)
  */
 export function useDeleteUrun() {
   const queryClient = useQueryClient();
@@ -137,6 +187,43 @@ export function useDeleteUrun() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'urun');
+    },
+  });
+}
+
+/**
+ * Ürünü kalıcı olarak sil (hard delete)
+ * Önce ilişkili stok hareketlerini siler, sonra ürünü siler
+ */
+export function usePermanentDeleteUrun() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
+      // Önce ilişkili stok hareketlerini sil
+      const { error: hareketError } = await supabase
+        .from('stok_hareketler')
+        .delete()
+        .eq('urun_id', id);
+
+      if (hareketError) throw hareketError;
+
+      // Sonra ürünü sil
+      const { error } = await supabase
+        .from('urunler')
+        .delete()
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'urun');
+      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: ['stok_hareketleri'] });
     },
   });
 }

@@ -1,6 +1,6 @@
 import { useRef } from 'react';
-import { View, TextInput, TouchableOpacity } from 'react-native';
-import { Bell } from 'lucide-react-native';
+import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { Bell, Package } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Text, CategoryPicker } from '@/components/ui';
@@ -43,6 +43,10 @@ export interface AmountInputSectionProps {
   type: TransactionType;
   onTypeChange: (type: TransactionType) => void;
   tabMode: TransactionTabMode;
+  // Stock
+  showStokButton?: boolean;
+  stokItemCount?: number;
+  onStokButtonPress?: () => void;
 }
 
 export function AmountInputSection({
@@ -70,8 +74,11 @@ export function AmountInputSection({
   type,
   onTypeChange,
   tabMode,
+  showStokButton,
+  stokItemCount = 0,
+  onStokButtonPress,
 }: AmountInputSectionProps) {
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(['common', 'transactions']);
   const localAmountRef = useRef<TextInput>(null);
   const inputRef = amountInputRef || localAmountRef;
 
@@ -133,6 +140,25 @@ export function AmountInputSection({
           size="small"
         /> */}
 
+        {/* Stock Button - only show when hasUrunler and type is alis/satis/alis_iade/satis_iade */}
+        {showStokButton && onStokButtonPress && (
+          <TouchableOpacity
+            style={localStyles.stokButton}
+            onPress={onStokButtonPress}
+            disabled={isSaving}
+          >
+            <Package size={18} color={colors.primary} />
+            <Text style={localStyles.stokButtonText}>
+              {t('transactions:stock.stockButton')}
+            </Text>
+            {stokItemCount > 0 && (
+              <View style={localStyles.stokBadge}>
+                <Text style={localStyles.stokBadgeText}>{stokItemCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={[
             styles.saveButton,
@@ -151,3 +177,37 @@ export function AmountInputSection({
     </>
   );
 }
+
+const localStyles = StyleSheet.create({
+  stokButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  stokButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  stokBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    marginLeft: 2,
+  },
+  stokBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+});

@@ -8,6 +8,7 @@ import {
   Users,
   UserCircle,
   Truck,
+  Package,
   MoreVertical,
   RotateCcw,
   Trash2,
@@ -23,21 +24,24 @@ import {
   useArchivedHesaplar,
   useArchivedCariler,
   useArchivedPersonel,
+  useArchivedUrunler,
   useUnarchiveHesap,
   useUnarchiveCari,
   useUnarchivePersonel,
+  useUnarchiveUrun,
   useArchiveCounts,
 } from '@/hooks/useArchive';
 import { useDeleteHesap } from '@/hooks/useHesaplar';
 import { useDeleteCari } from '@/hooks/useCariler';
 import { useDeletePersonel } from '@/hooks/usePersonel';
-import type { Hesap, Cari, Personel } from '@/types/database';
+import { usePermanentDeleteUrun } from '@/hooks/useUrunler';
+import type { Hesap, Cari, Personel, Urun, BirimType } from '@/types/database';
 
-type TabType = 'hesaplar' | 'tedarikci' | 'musteri' | 'personel';
+type TabType = 'hesaplar' | 'tedarikci' | 'musteri' | 'personel' | 'urunler';
 
 export default function ArsivPage() {
   const router = useRouter();
-  const { t } = useTranslation(['common', 'accounts', 'clients', 'staff']);
+  const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
   const [activeTab, setActiveTab] = useState<TabType>('hesaplar');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -51,27 +55,32 @@ export default function ArsivPage() {
   const { data: tedarikciler, isLoading: tedarikciLoading } = useArchivedCariler('tedarikci');
   const { data: musteriler, isLoading: musteriLoading } = useArchivedCariler('musteri');
   const { data: personelList, isLoading: personelLoading } = useArchivedPersonel();
+  const { data: urunler, isLoading: urunlerLoading } = useArchivedUrunler();
 
   // Mutations
   const unarchiveHesap = useUnarchiveHesap();
   const unarchiveCari = useUnarchiveCari();
   const unarchivePersonel = useUnarchivePersonel();
+  const unarchiveUrun = useUnarchiveUrun();
   const deleteHesap = useDeleteHesap();
   const deleteCari = useDeleteCari();
   const deletePersonel = useDeletePersonel();
+  const permanentDeleteUrun = usePermanentDeleteUrun();
 
   const tabs = [
     { key: 'hesaplar' as TabType, label: t('common:archive.tabs.accounts'), count: counts?.hesaplar || 0 },
     { key: 'tedarikci' as TabType, label: t('common:archive.tabs.suppliers'), count: counts?.tedarikci || 0 },
     { key: 'musteri' as TabType, label: t('common:archive.tabs.customers'), count: counts?.musteri || 0 },
     { key: 'personel' as TabType, label: t('common:archive.tabs.staff'), count: counts?.personel || 0 },
+    { key: 'urunler' as TabType, label: t('common:archive.tabs.products'), count: counts?.urunler || 0 },
   ];
 
   const isLoading =
     (activeTab === 'hesaplar' && hesaplarLoading) ||
     (activeTab === 'tedarikci' && tedarikciLoading) ||
     (activeTab === 'musteri' && musteriLoading) ||
-    (activeTab === 'personel' && personelLoading);
+    (activeTab === 'personel' && personelLoading) ||
+    (activeTab === 'urunler' && urunlerLoading);
 
   // Filtered data based on search
   const filteredHesaplar = hesaplar?.filter((h) =>
@@ -85,6 +94,10 @@ export default function ArsivPage() {
   );
   const filteredPersonel = personelList?.filter((p) =>
     `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const filteredUrunler = urunler?.filter((u) =>
+    u.ad.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (u.kod && u.kod.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const handleItemPress = useCallback((id: string, type: TabType, name: string) => {
@@ -102,12 +115,14 @@ export default function ArsivPage() {
         await unarchiveCari.mutateAsync(selectedItem.id);
       } else if (selectedItem.type === 'personel') {
         await unarchivePersonel.mutateAsync(selectedItem.id);
+      } else if (selectedItem.type === 'urunler') {
+        await unarchiveUrun.mutateAsync(selectedItem.id);
       }
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
-  }, [selectedItem, unarchiveHesap, unarchiveCari, unarchivePersonel, t]);
+  }, [selectedItem, unarchiveHesap, unarchiveCari, unarchivePersonel, unarchiveUrun, t]);
 
   const handlePermanentDelete = useCallback(() => {
     if (!selectedItem) return;
@@ -128,6 +143,8 @@ export default function ArsivPage() {
                 await deleteCari.mutateAsync(selectedItem.id);
               } else if (selectedItem.type === 'personel') {
                 await deletePersonel.mutateAsync(selectedItem.id);
+              } else if (selectedItem.type === 'urunler') {
+                await permanentDeleteUrun.mutateAsync(selectedItem.id);
               }
               Alert.alert(t('common:status.success'), t('common:messages.deletedSuccessfully'));
             } catch (error) {
@@ -137,7 +154,7 @@ export default function ArsivPage() {
         },
       ]
     );
-  }, [selectedItem, deleteHesap, deleteCari, deletePersonel, t]);
+  }, [selectedItem, deleteHesap, deleteCari, deletePersonel, permanentDeleteUrun, t]);
 
   const actionSheetOptions: ActionSheetOption[] = [
     {
@@ -278,6 +295,50 @@ export default function ArsivPage() {
     );
   };
 
+  const getBirimLabel = (birim: BirimType) => {
+    return t(`products:units.${birim}`);
+  };
+
+  const renderUrunItem = (urun: Urun) => {
+    const isPassive = urun.is_active === false;
+    return (
+      <Card key={urun.id} style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+        <TouchableOpacity
+          style={styles.itemContent}
+          onPress={() => router.push(`/urunler/${urun.id}`)}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.itemIcon, { backgroundColor: isPassive ? colors.surfaceLight : colors.primaryLight }, isPassive && styles.itemIconPassive]}>
+            <Package size={20} color={isPassive ? colors.textMuted : colors.primary} />
+          </View>
+          <View style={styles.itemInfo}>
+            <View style={styles.itemNameRow}>
+              <Text variant="body" style={isPassive && styles.textPassive}>{urun.ad}</Text>
+              {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
+            </View>
+            <Text variant="caption" color="secondary">
+              {urun.miktar} {getBirimLabel(urun.birim)}
+              {urun.kod && ` • ${urun.kod}`}
+            </Text>
+          </View>
+          <View style={styles.itemBalance}>
+            {urun.satis_fiyati > 0 && (
+              <Text variant="body" color="primary" style={isPassive && styles.textPassive}>
+                {formatCurrency(urun.satis_fiyati, urun.currency)}
+              </Text>
+            )}
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.moreButton}
+          onPress={() => handleItemPress(urun.id, 'urunler', urun.ad)}
+        >
+          <MoreVertical size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+      </Card>
+    );
+  };
+
   const renderContent = () => {
     if (isLoading) {
       return <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />;
@@ -303,6 +364,10 @@ export default function ArsivPage() {
         items = filteredPersonel?.map(renderPersonelItem) || [];
         isEmpty = !filteredPersonel || filteredPersonel.length === 0;
         break;
+      case 'urunler':
+        items = filteredUrunler?.map(renderUrunItem) || [];
+        isEmpty = !filteredUrunler || filteredUrunler.length === 0;
+        break;
     }
 
     if (isEmpty) {
@@ -317,7 +382,7 @@ export default function ArsivPage() {
     return <View style={styles.listContainer}>{items}</View>;
   };
 
-  const totalArchived = (counts?.hesaplar || 0) + (counts?.tedarikci || 0) + (counts?.musteri || 0) + (counts?.personel || 0);
+  const totalArchived = (counts?.hesaplar || 0) + (counts?.tedarikci || 0) + (counts?.musteri || 0) + (counts?.personel || 0) + (counts?.urunler || 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

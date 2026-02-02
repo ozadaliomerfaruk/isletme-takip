@@ -296,7 +296,8 @@
       "accounts": "Accounts",
       "suppliers": "Suppliers",
       "customers": "Customers",
-      "staff": "Staff"
+      "staff": "Staff",
+      "products": "Products"
     },
     "actions": {
       "archive": "Move to Archive",

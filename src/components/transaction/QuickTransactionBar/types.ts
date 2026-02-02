@@ -1,8 +1,52 @@
-import { CariType, Currency } from '@/types/database';
+import { CariType, Currency, BirimType } from '@/types/database';
 import { TransactionType, TransactionTabMode } from '../TransactionTypeTabs';
 
 // Re-export for convenience
 export type { TransactionType, TransactionTabMode };
+
+// Stok item (işlem ile birlikte kaydedilecek stok hareketleri)
+export interface StokItem {
+  urunId: string;
+  urunAd: string;
+  miktar: number;
+  birimFiyat: number;
+  kdvOrani: number; // 0, 1, 10, 20 vb.
+  birim: BirimType;
+}
+
+// KDV oranları
+export const KDV_ORANLARI = [0, 1, 10, 20] as const;
+export type KdvOrani = typeof KDV_ORANLARI[number];
+
+// Stok hesaplama yardımcıları
+export function calculateStokLineTotal(item: StokItem): {
+  subtotal: number;
+  kdvAmount: number;
+  total: number;
+} {
+  const subtotal = item.miktar * item.birimFiyat;
+  const kdvAmount = subtotal * (item.kdvOrani / 100);
+  const total = subtotal + kdvAmount;
+  return { subtotal, kdvAmount, total };
+}
+
+export function calculateStokGrandTotal(items: StokItem[]): {
+  subtotal: number;
+  kdvTotal: number;
+  grandTotal: number;
+} {
+  return items.reduce(
+    (acc, item) => {
+      const { subtotal, kdvAmount, total } = calculateStokLineTotal(item);
+      return {
+        subtotal: acc.subtotal + subtotal,
+        kdvTotal: acc.kdvTotal + kdvAmount,
+        grandTotal: acc.grandTotal + total,
+      };
+    },
+    { subtotal: 0, kdvTotal: 0, grandTotal: 0 }
+  );
+}
 
 // Odeme hedef tipi
 export type OdemeHedefType = 'tedarikci' | 'staff' | 'kredi_karti' | null;

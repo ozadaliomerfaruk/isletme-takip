@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ensureValidDate } from '@/lib/date';
-import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode } from '../types';
-import type { CariType, Currency } from '@/types/database';
+import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, StokItem } from '../types';
+import type { CariType, Currency, BirimType } from '@/types/database';
 import { useIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
+import { useStokHareketlerByIslemId } from '@/hooks/useStokHareketler';
 import { mapApiTypeToFormState } from '../utils/reverseTypeMapper';
 
 interface Hesap {
@@ -83,6 +84,14 @@ interface UseQuickTransactionFormReturn {
   pendingExchangeData: PendingExchangeData | null;
   setPendingExchangeData: (data: PendingExchangeData | null) => void;
 
+  // Stok items (alış/satış/iade işlemlerinde stok hareketi)
+  stokItems: StokItem[];
+  setStokItems: React.Dispatch<React.SetStateAction<StokItem[]>>;
+  addStokItem: (item: StokItem) => void;
+  removeStokItem: (urunId: string) => void;
+  updateStokItem: (urunId: string, updates: Partial<StokItem>) => void;
+  clearStokItems: () => void;
+
   // Computed hesapId
   hesapId: string | undefined;
 
@@ -132,8 +141,13 @@ export function useQuickTransactionForm({
     isEditMode && isScheduledTransaction ? transactionId : undefined
   );
 
+  // Fetch stok hareketler for edit mode (only for normal transactions)
+  const { data: stokHareketler, isLoading: isLoadingStokHareketler } = useStokHareketlerByIslemId(
+    isEditMode && !isScheduledTransaction ? transactionId : undefined
+  );
+
   // Combined loading state
-  const isLoadingTransaction = isEditMode && (isLoadingNormal || isLoadingScheduled);
+  const isLoadingTransaction = isEditMode && (isLoadingNormal || isLoadingScheduled || isLoadingStokHareketler);
 
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType);
@@ -161,6 +175,37 @@ export function useQuickTransactionForm({
   // Exchange rate state
   const [pendingExchangeData, setPendingExchangeData] = useState<PendingExchangeData | null>(null);
 
+  // Stok items state (alış/satış/iade işlemlerinde stok hareketi)
+  const [stokItems, setStokItems] = useState<StokItem[]>([]);
+
+  // Stok items helper functions
+  const addStokItem = useCallback((item: StokItem) => {
+    setStokItems(prev => {
+      // Aynı ürün zaten eklenmişse güncelle
+      const existingIndex = prev.findIndex(i => i.urunId === item.urunId);
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        updated[existingIndex] = item;
+        return updated;
+      }
+      return [...prev, item];
+    });
+  }, []);
+
+  const removeStokItem = useCallback((urunId: string) => {
+    setStokItems(prev => prev.filter(item => item.urunId !== urunId));
+  }, []);
+
+  const updateStokItem = useCallback((urunId: string, updates: Partial<StokItem>) => {
+    setStokItems(prev => prev.map(item =>
+      item.urunId === urunId ? { ...item, ...updates } : item
+    ));
+  }, []);
+
+  const clearStokItems = useCallback(() => {
+    setStokItems([]);
+  }, []);
+
   // Computed hesapId (fallback)
   const hesapId = sourceHesapId || defaultHesapId || hesaplar?.[0]?.id;
 
@@ -187,6 +232,7 @@ export function useQuickTransactionForm({
     setOdemeHedefType(null);
     setTahsilatHedefType(null);
     setPendingExchangeData(null);
+    setStokItems([]); // Stok items'ı temizle
     setEditDataLoaded(false);
     setIsCariMode(!!defaultCariId);
     setIsPersonelMode(!!defaultPersonelId);
@@ -248,6 +294,19 @@ export function useQuickTransactionForm({
       setIsScheduled(true);
     }
 
+    // Load stok items from stok hareketler (if available)
+    if (stokHareketler && stokHareketler.length > 0) {
+      const loadedStokItems: StokItem[] = stokHareketler.map(hareket => ({
+        urunId: hareket.urun_id,
+        urunAd: hareket.urunler?.ad || '',
+        miktar: Math.abs(hareket.miktar),
+        birimFiyat: hareket.birim_fiyat || 0,
+        kdvOrani: hareket.kdv_orani || 0,
+        birim: (hareket.urunler?.birim || 'adet') as BirimType,
+      }));
+      setStokItems(loadedStokItems);
+    }
+
     setEditDataLoaded(true);
   }, [
     isEditMode,
@@ -256,6 +315,7 @@ export function useQuickTransactionForm({
     isScheduledTransaction,
     normalTransaction,
     scheduledTransaction,
+    stokHareketler,
   ]);
 
   // Update type and cari/personel when modal opens (only in create mode)
@@ -359,6 +419,14 @@ export function useQuickTransactionForm({
     // Exchange rate state
     pendingExchangeData,
     setPendingExchangeData,
+
+    // Stok items
+    stokItems,
+    setStokItems,
+    addStokItem,
+    removeStokItem,
+    updateStokItem,
+    clearStokItems,
 
     // Computed
     hesapId,

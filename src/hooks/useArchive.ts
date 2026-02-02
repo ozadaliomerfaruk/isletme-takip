@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Hesap, Cari, Personel, CariType } from '@/types/database';
+import { Hesap, Cari, Personel, CariType, Urun } from '@/types/database';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
 
 // ============================================================================
 // ARŞİVLENMİŞ ÖĞELERİ GETİREN HOOKS
@@ -84,6 +85,31 @@ export function useArchivedPersonel() {
 
       if (error) throw error;
       return data as Personel[];
+    },
+    enabled: !!isletme,
+  });
+}
+
+/**
+ * Arşivlenmiş ürünleri getir
+ */
+export function useArchivedUrunler() {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: ['urunler', 'archived', isletme?.id],
+    queryFn: async () => {
+      if (!isletme) return [];
+
+      const { data, error } = await supabase
+        .from('urunler')
+        .select('*')
+        .eq('isletme_id', isletme.id)
+        .eq('is_archived', true)
+        .order('ad', { ascending: true });
+
+      if (error) throw error;
+      return data as Urun[];
     },
     enabled: !!isletme,
   });
@@ -243,6 +269,32 @@ export function useUnarchivePersonel() {
   });
 }
 
+/**
+ * Ürünü arşivden çıkar (arsiv sayfası için)
+ */
+export function useUnarchiveUrun() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
+      const { error } = await supabase
+        .from('urunler')
+        .update({ is_archived: false })
+        .eq('id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'urun');
+      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+    },
+  });
+}
+
 // ============================================================================
 // ARŞİV SAYILARI
 // ============================================================================
@@ -256,9 +308,9 @@ export function useArchiveCounts() {
   return useQuery({
     queryKey: ['archive', 'counts', isletme?.id],
     queryFn: async () => {
-      if (!isletme) return { hesaplar: 0, tedarikci: 0, musteri: 0, personel: 0 };
+      if (!isletme) return { hesaplar: 0, tedarikci: 0, musteri: 0, personel: 0, urunler: 0 };
 
-      const [hesaplarResult, tedarikciResult, musteriResult, personelResult] = await Promise.all([
+      const [hesaplarResult, tedarikciResult, musteriResult, personelResult, urunlerResult] = await Promise.all([
         supabase
           .from('hesaplar')
           .select('id', { count: 'exact', head: true })
@@ -281,6 +333,11 @@ export function useArchiveCounts() {
           .select('id', { count: 'exact', head: true })
           .eq('isletme_id', isletme.id)
           .eq('is_archived', true),
+        supabase
+          .from('urunler')
+          .select('id', { count: 'exact', head: true })
+          .eq('isletme_id', isletme.id)
+          .eq('is_archived', true),
       ]);
 
       return {
@@ -288,6 +345,7 @@ export function useArchiveCounts() {
         tedarikci: tedarikciResult.count || 0,
         musteri: musteriResult.count || 0,
         personel: personelResult.count || 0,
+        urunler: urunlerResult.count || 0,
       };
     },
     enabled: !!isletme,

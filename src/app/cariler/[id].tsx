@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -19,6 +19,7 @@ import {
   FileCheck,
   X,
   Share2,
+  Package,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
@@ -34,12 +35,13 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
+import { useIslemlerWithStok } from '@/hooks/useStokHareketler';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
 import { IslemWithRelations } from '@/types/database';
 
 export default function CariHareketleriPage() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const { t } = useTranslation(['clients', 'common', 'errors', 'checks']);
   const { formatDateSmart } = useDateFormat();
@@ -51,6 +53,10 @@ export default function CariHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
+
+  // İşlemlerin stoklu olup olmadığını kontrol et
+  const islemIds = islemler?.map(i => i.id) || [];
+  const { hasStok } = useIslemlerWithStok(islemIds);
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
   const updateCari = useUpdateCari();
@@ -58,6 +64,13 @@ export default function CariHareketleriPage() {
 
   const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
+
+  // URL'den gelen expandIslemId parametresini işle
+  useEffect(() => {
+    if (expandIslemId) {
+      setExpandedIslemId(expandIslemId);
+    }
+  }, [expandIslemId]);
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
@@ -399,7 +412,14 @@ export default function CariHareketleriPage() {
                           {getHareketIcon(islem.type)}
                         </View>
                         <View style={styles.hareketInfo}>
-                          <Text variant="body">{formatDateSmart(islem.date)}</Text>
+                          <View style={styles.hareketTitleRow}>
+                            <Text variant="body">{formatDateSmart(islem.date)}</Text>
+                            {hasStok(islem.id) && (
+                              <View style={styles.stokBadge}>
+                                <Package size={12} color={colors.primary} />
+                              </View>
+                            )}
+                          </View>
                           <Text variant="caption" color="secondary">
                             {getHareketLabel(islem.type)}
                           </Text>
@@ -699,6 +719,19 @@ const styles = StyleSheet.create({
   },
   hareketInfo: {
     flex: 1,
+  },
+  hareketTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  stokBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   hareketCard: {
     marginBottom: spacing.sm,

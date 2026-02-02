@@ -141,8 +141,12 @@ export const queryKeys = {
     all: () => ['stok-hareketler'] as const,
     byUrun: (urunId: string, isletmeId: string) =>
       ['stok-hareketler', 'urun', urunId, isletmeId] as const,
+    byIslem: (islemId: string, isletmeId: string) =>
+      ['stok-hareketler', 'islem', islemId, isletmeId] as const,
     aylikOzet: (urunId: string, isletmeId: string) =>
       ['stok-hareketler', 'aylik-ozet', urunId, isletmeId] as const,
+    donemOzet: (isletmeId: string, startDate: string, endDate: string) =>
+      ['stok-hareketler', 'donem-ozet', isletmeId, startDate, endDate] as const,
   },
 } as const;
 

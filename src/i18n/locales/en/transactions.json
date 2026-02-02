@@ -199,5 +199,23 @@
     "success": "Daily revenue saved",
     "noEntries": "Enter amount for at least one account",
     "saving": "Saving..."
+  },
+  "stock": {
+    "addStock": "Add Stock",
+    "selectProduct": "Select Product",
+    "searchProduct": "Search product...",
+    "addedProducts": "Added Products",
+    "quantity": "Quantity",
+    "unitPrice": "Unit Price",
+    "vatRate": "VAT Rate",
+    "lineTotal": "Line Total",
+    "subtotal": "Subtotal",
+    "vatTotal": "VAT Total",
+    "grandTotal": "Grand Total",
+    "noProducts": "No products added yet",
+    "searchToAdd": "Search and add products above",
+    "added": "Added",
+    "productCount": "{{count}} products",
+    "stockButton": "Stock"
   }
 }

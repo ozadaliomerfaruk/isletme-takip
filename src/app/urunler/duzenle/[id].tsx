@@ -8,18 +8,20 @@ import {
   Alert,
   TouchableOpacity,
   ActivityIndicator,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Stack } from 'expo-router';
-import { Text, Input, Button, CategoryPicker } from '@/components/ui';
+import { Text, Input, Button, CategoryPicker, UnitPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, useUpdateUrun } from '@/hooks/useUrunler';
-import { BirimType, Currency } from '@/types/database';
+import { BirimType, Currency, KdvOrani } from '@/types/database';
 
-const BIRIMLER: BirimType[] = ['adet', 'kg', 'lt', 'm', 'm2', 'paket', 'kutu'];
+const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
 export default function UrunDuzenlePage() {
   const router = useRouter();
@@ -31,6 +33,7 @@ export default function UrunDuzenlePage() {
   const [ad, setAd] = useState('');
   const [kod, setKod] = useState('');
   const [birim, setBirim] = useState<BirimType>('adet');
+  const [kdvOrani, setKdvOrani] = useState<KdvOrani>(0);
   const [alisFiyati, setAlisFiyati] = useState('');
   const [satisFiyati, setSatisFiyati] = useState('');
   const [kategoriId, setKategoriId] = useState<string | null>(null);
@@ -43,6 +46,7 @@ export default function UrunDuzenlePage() {
       setAd(urun.ad);
       setKod(urun.kod || '');
       setBirim(urun.birim);
+      setKdvOrani(urun.kdv_orani || 0);
       setAlisFiyati(urun.alis_fiyati > 0 ? urun.alis_fiyati.toString() : '');
       setSatisFiyati(urun.satis_fiyati > 0 ? urun.satis_fiyati.toString() : '');
       setKategoriId(urun.kategori_id || null);
@@ -70,6 +74,7 @@ export default function UrunDuzenlePage() {
         ad: ad.trim(),
         kod: kod.trim() || null,
         birim,
+        kdv_orani: kdvOrani,
         alis_fiyati: alisFiyati ? parseFloat(alisFiyati.replace(',', '.')) : 0,
         satis_fiyati: satisFiyati ? parseFloat(satisFiyati.replace(',', '.')) : 0,
         kategori_id: kategoriId,
@@ -130,15 +135,18 @@ export default function UrunDuzenlePage() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
         >
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
             {/* Urun Adi */}
             <View style={styles.section}>
               <Input
@@ -162,25 +170,34 @@ export default function UrunDuzenlePage() {
 
             {/* Birim Secimi */}
             <View style={styles.section}>
+              <UnitPicker
+                value={birim}
+                onChange={setBirim}
+                label={t('products:form.unit')}
+              />
+            </View>
+
+            {/* KDV Orani */}
+            <View style={styles.section}>
               <Text variant="label" style={styles.sectionTitle}>
-                {t('products:form.unit')}
+                {t('products:form.vatRate')}
               </Text>
               <View style={styles.birimGrid}>
-                {BIRIMLER.map((b) => (
+                {KDV_ORANLARI.map((k) => (
                   <TouchableOpacity
-                    key={b}
+                    key={k}
                     style={[
                       styles.birimChip,
-                      birim === b && styles.birimChipSelected,
+                      kdvOrani === k && styles.birimChipSelected,
                     ]}
-                    onPress={() => setBirim(b)}
+                    onPress={() => setKdvOrani(k)}
                     activeOpacity={0.7}
                   >
                     <Text
                       variant="caption"
-                      style={birim === b ? styles.birimTextSelected : undefined}
+                      style={kdvOrani === k ? styles.birimTextSelected : undefined}
                     >
-                      {t(`products:units.${b}`)}
+                      %{k}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -253,7 +270,8 @@ export default function UrunDuzenlePage() {
                 {t('common:buttons.save')}
               </Button>
             </View>
-          </ScrollView>
+            </ScrollView>
+          </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </>

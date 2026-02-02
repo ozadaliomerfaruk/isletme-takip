@@ -2,8 +2,9 @@ import { useMemo } from 'react';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
+import { useUrunler } from '@/hooks/useUrunler';
 import type { TransactionType, TahsilatHedefType, HesapPickerTarget } from '../types';
-import type { CariType } from '@/types/database';
+import type { CariType, Urun } from '@/types/database';
 
 interface UseQuickTransactionEntitiesOptions {
   // Mode flags
@@ -24,6 +25,7 @@ interface UseQuickTransactionEntitiesOptions {
   hesapSearchQuery: string;
   cariSearchQuery: string;
   personelSearchQuery: string;
+  urunSearchQuery: string;
 }
 
 interface Hesap {
@@ -53,6 +55,7 @@ interface UseQuickTransactionEntitiesReturn {
   tedarikciCariler: Cari[] | undefined;
   musteriCariler: Cari[] | undefined;
   personelList: Personel[] | undefined;
+  urunler: Urun[] | undefined;
 
   // Selected entities
   selectedHesap: Hesap | undefined;
@@ -70,6 +73,10 @@ interface UseQuickTransactionEntitiesReturn {
   filteredHesaplar: Hesap[];
   filteredCariler: Cari[];
   filteredPersonel: Personel[];
+  filteredUrunler: Urun[];
+
+  // Stok flags
+  hasUrunler: boolean;
 }
 
 export function useQuickTransactionEntities({
@@ -86,12 +93,19 @@ export function useQuickTransactionEntities({
   hesapSearchQuery,
   cariSearchQuery,
   personelSearchQuery,
+  urunSearchQuery,
 }: UseQuickTransactionEntitiesOptions): UseQuickTransactionEntitiesReturn {
   // Data hooks
   const { data: hesaplar } = useHesaplar();
   const { data: tedarikciCariler } = useCariler('tedarikci');
   const { data: musteriCariler } = useCariler('musteri');
   const { data: personelList } = usePersonelList();
+  const { data: urunler } = useUrunler();
+
+  // Check if user has any products (for showing stock button)
+  const hasUrunler = useMemo(() => {
+    return (urunler?.length || 0) > 0;
+  }, [urunler]);
 
   // Selected entities - memoized to prevent unnecessary re-renders
   const selectedHesap = useMemo(
@@ -173,12 +187,23 @@ export function useQuickTransactionEntities({
     );
   }, [personelList, personelSearchQuery]);
 
+  const filteredUrunler = useMemo(() => {
+    if (!urunler) return [];
+    if (!urunSearchQuery.trim()) return urunler;
+    const query = urunSearchQuery.toLowerCase().trim();
+    return urunler.filter((u) =>
+      u.ad.toLowerCase().includes(query) ||
+      (u.kod && u.kod.toLowerCase().includes(query))
+    );
+  }, [urunler, urunSearchQuery]);
+
   return {
     // Raw data
     hesaplar,
     tedarikciCariler,
     musteriCariler,
     personelList,
+    urunler,
 
     // Selected entities
     selectedHesap,
@@ -196,5 +221,9 @@ export function useQuickTransactionEntities({
     filteredHesaplar,
     filteredCariler,
     filteredPersonel,
+    filteredUrunler,
+
+    // Stok flags
+    hasUrunler,
   };
 }

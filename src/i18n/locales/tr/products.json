@@ -7,19 +7,43 @@
     "name": "Ürün Adı",
     "code": "Ürün Kodu",
     "unit": "Birim",
+    "vatRate": "KDV Oranı",
     "purchasePrice": "Alış Fiyatı",
     "salePrice": "Satış Fiyatı",
+    "initialStock": "Başlangıç Stoku",
     "description": "Açıklama",
     "currency": "Para Birimi"
   },
   "units": {
     "adet": "Adet",
+    "parca": "Parça",
+    "cift": "Çift",
+    "takim": "Takım",
+    "gram": "Gram",
     "kg": "Kilogram",
+    "ton": "Ton",
+    "ml": "Mililitre",
     "lt": "Litre",
+    "cm": "Santimetre",
     "m": "Metre",
     "m2": "Metrekare",
+    "m3": "Metreküp",
     "paket": "Paket",
-    "kutu": "Kutu"
+    "kutu": "Kutu",
+    "koli": "Koli",
+    "porsiyon": "Porsiyon"
+  },
+  "unitCategories": {
+    "piece": "Adet/Parça",
+    "weight": "Ağırlık",
+    "volume": "Hacim",
+    "length": "Uzunluk/Alan",
+    "package": "Ambalaj",
+    "consumption": "Tüketim"
+  },
+  "unitPicker": {
+    "title": "Birim Seç",
+    "search": "Birim ara..."
   },
   "stock": {
     "currentStock": "Mevcut Stok",
@@ -32,12 +56,25 @@
     "movements": "Stok Hareketleri",
     "totalIn": "Toplam Giriş",
     "totalOut": "Toplam Çıkış",
-    "noMovements": "Henüz stok hareketi yok"
+    "noMovements": "Henüz stok hareketi yok",
+    "noPeriodMovements": "Bu dönemde hareket yok",
+    "deleteMovementConfirm": "Bu stok hareketini silmek istediğinizden emin misiniz? Stok miktarı da güncellenecek."
+  },
+  "period": {
+    "yearly": "Yıllık",
+    "monthly": "Aylık",
+    "weekly": "Haftalık",
+    "daily": "Günlük",
+    "custom": "Özel",
+    "startDate": "Başlangıç",
+    "endDate": "Bitiş"
   },
   "messages": {
     "createSuccess": "Ürün oluşturuldu",
     "updateSuccess": "Ürün güncellendi",
     "deleteSuccess": "Ürün silindi",
+    "archiveSuccess": "Ürün arşivlendi",
+    "unarchiveSuccess": "Ürün arşivden çıkarıldı",
     "stockUpdated": "Stok güncellendi",
     "stockInSuccess": "Stok girişi yapıldı",
     "stockOutSuccess": "Stok çıkışı yapıldı"
@@ -47,9 +84,18 @@
     "quantityRequired": "Miktar zorunludur",
     "quantityPositive": "Miktar 0'dan büyük olmalıdır"
   },
+  "search": {
+    "placeholder": "Ürün, kategori ara..."
+  },
   "empty": {
     "title": "Henüz ürün yok",
-    "description": "Ürün ekleyerek stok takibine başlayın"
+    "description": "Ürün ekleyerek stok takibine başlayın",
+    "archivedTitle": "Arşivde ürün yok",
+    "archivedDescription": "Arşivlenen ürünler burada görünecek"
+  },
+  "tabs": {
+    "active": "Aktif",
+    "archived": "Arşiv"
   },
   "deleteConfirm": {
     "title": "Ürünü Sil",
@@ -71,7 +117,9 @@
   },
   "actions": {
     "newTransaction": "Yeni İşlem",
-    "viewMovements": "Hareketler"
+    "viewMovements": "Hareketler",
+    "archive": "Arşivle",
+    "unarchive": "Arşivden Çıkar"
   },
   "bulk": {
     "stockIn": "Toplu Stok Girişi",

@@ -7,20 +7,22 @@ import {
   TouchableWithoutFeedback,
   TextInput,
   Keyboard,
+  KeyboardEvent,
   Alert,
   ActivityIndicator,
   Text as RNText,
   Platform,
-  KeyboardAvoidingView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { X, Package, Calendar } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
-import { useCreateStokHareket } from '@/hooks/useStokHareketler';
+import { TAB_BAR_HEIGHT } from '@/constants/spacing';
+import { useCreateStokHareket, useUpdateStokHareket } from '@/hooks/useStokHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { Urun, BirimType } from '@/types/database';
+import { Urun, BirimType, StokHareketTipi } from '@/types/database';
 import { styles } from './styles';
 
 type StokType = 'giris' | 'cikis';
@@ -30,6 +32,14 @@ interface QuickStockBarProps {
   onDismiss: () => void;
   urun: Urun | null;
   defaultType?: StokType;
+  // Edit mode props
+  mode?: 'create' | 'edit';
+  editHareketId?: string;
+  editInitialValues?: {
+    miktar: number;
+    birimFiyat: number | null;
+    stokType: StokType;
+  };
 }
 
 export function QuickStockBar({
@@ -37,17 +47,23 @@ export function QuickStockBar({
   onDismiss,
   urun,
   defaultType = 'giris',
+  mode = 'create',
+  editHareketId,
+  editInitialValues,
 }: QuickStockBarProps) {
   const { t } = useTranslation(['products', 'common', 'errors']);
   const createStokHareket = useCreateStokHareket();
+  const updateStokHareket = useUpdateStokHareket();
+  const isEditMode = mode === 'edit' && editHareketId;
   const { formatDateMedium, locale } = useDateFormat();
+  const insets = useSafeAreaInsets();
 
   // Refs
   const amountInputRef = useRef<TextInput>(null);
 
   // Animation values
   const opacity = useRef(new Animated.Value(0)).current;
-  const translateY = useRef(new Animated.Value(50)).current;
+  const translateY = useRef(new Animated.Value(100)).current;
 
   // Form state
   const [stokType, setStokType] = useState<StokType>(defaultType);
@@ -55,37 +71,63 @@ export function QuickStockBar({
   const [birimFiyat, setBirimFiyat] = useState('');
   const [tarih, setTarih] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Keyboard state
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
-  // Keyboard visibility tracking
+  // Keyboard tracking (like QuickTransactionBar)
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const showSubscription = Keyboard.addListener(showEvent, () => {
+    const handleShow = (e: KeyboardEvent) => {
+      const height = e.endCoordinates.height;
+      setKeyboardHeight(height);
       setIsKeyboardVisible(true);
-    });
-    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+    };
+
+    const handleHide = () => {
       setIsKeyboardVisible(false);
-    });
+    };
+
+    const showSub = Keyboard.addListener(showEvent, handleShow);
+    const hideSub = Keyboard.addListener(hideEvent, handleHide);
 
     return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
+      showSub.remove();
+      hideSub.remove();
     };
   }, []);
+
+  // Helper to get price based on stock type
+  const getPriceForType = useCallback((type: StokType) => {
+    if (!urun) return '';
+    const price = type === 'giris' ? urun.alis_fiyati : urun.satis_fiyati;
+    return price > 0 ? price.toString() : '';
+  }, [urun]);
 
   // Animate in/out
   useEffect(() => {
     if (visible) {
-      // Reset form
-      setStokType(defaultType);
-      setMiktar('');
-      setBirimFiyat('');
+      // Reset form - use edit values if in edit mode
+      if (isEditMode && editInitialValues) {
+        setStokType(editInitialValues.stokType);
+        setMiktar(editInitialValues.miktar.toString());
+        setBirimFiyat(editInitialValues.birimFiyat?.toString() || '');
+      } else {
+        setStokType(defaultType);
+        setMiktar('');
+        // Auto-fill price based on stock type
+        setBirimFiyat(getPriceForType(defaultType));
+      }
       setTarih(new Date());
       setShowDatePicker(false);
 
       // Animate in
+      opacity.setValue(0);
+      translateY.setValue(100);
+
       Animated.parallel([
         Animated.timing(opacity, {
           toValue: 1,
@@ -110,8 +152,8 @@ export function QuickStockBar({
           useNativeDriver: true,
         }),
         Animated.timing(translateY, {
-          toValue: 50,
-          duration: 150,
+          toValue: 100,
+          duration: 200,
           useNativeDriver: true,
         }),
       ]).start();
@@ -173,21 +215,38 @@ export function QuickStockBar({
     const fiyatNum = birimFiyat ? parseFloat(birimFiyat.replace(',', '.')) : null;
 
     try {
-      await createStokHareket.mutateAsync({
-        urun_id: urun.id,
-        hareket_tipi: stokType,
-        miktar: miktarNum,
-        birim_fiyat: fiyatNum,
-        aciklama: null,
-      });
+      if (isEditMode && editHareketId) {
+        // Update existing movement
+        await updateStokHareket.mutateAsync({
+          id: editHareketId,
+          miktar: miktarNum,
+          birim_fiyat: fiyatNum,
+          hareket_tipi: stokType,
+        });
 
-      handleDismiss();
-      Alert.alert(
-        t('common:status.success'),
-        stokType === 'giris'
-          ? t('products:messages.stockInSuccess')
-          : t('products:messages.stockOutSuccess')
-      );
+        handleDismiss();
+        Alert.alert(
+          t('common:status.success'),
+          t('products:messages.stockUpdated')
+        );
+      } else {
+        // Create new movement
+        await createStokHareket.mutateAsync({
+          urun_id: urun.id,
+          hareket_tipi: stokType,
+          miktar: miktarNum,
+          birim_fiyat: fiyatNum,
+          aciklama: null,
+        });
+
+        handleDismiss();
+        Alert.alert(
+          t('common:status.success'),
+          stokType === 'giris'
+            ? t('products:messages.stockInSuccess')
+            : t('products:messages.stockOutSuccess')
+        );
+      }
     } catch (error: any) {
       Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
     }
@@ -197,6 +256,12 @@ export function QuickStockBar({
 
   const miktarNum = parseFloat(miktar.replace(',', '.'));
   const isValidAmount = !isNaN(miktarNum) && miktarNum > 0;
+  const isPending = createStokHareket.isPending || updateStokHareket.isPending;
+
+  // Position card above keyboard (like QuickTransactionBar)
+  const cardBottom = keyboardHeight > 0
+    ? keyboardHeight
+    : insets.bottom + TAB_BAR_HEIGHT + 10;
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
@@ -205,145 +270,146 @@ export function QuickStockBar({
         <View style={styles.backdrop} />
       </TouchableWithoutFeedback>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardAvoid}
-        pointerEvents="box-none"
+      {/* Card - absolutely positioned above keyboard */}
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            bottom: cardBottom,
+            opacity: opacity,
+            transform: [{ translateY: translateY }],
+          },
+        ]}
       >
-        {/* Centered Floating Card */}
-        <Animated.View
-          style={[
-            styles.card,
-            {
-              opacity: opacity,
-              transform: [{ translateY: translateY }],
-            },
-          ]}
-        >
-          {/* Header: Urun Info + Close */}
-          <View style={styles.header}>
-            <View style={styles.urunInfo}>
-              <View style={styles.urunIcon}>
-                <Package size={20} color={colors.primary} />
-              </View>
-              <View style={styles.urunDetails}>
-                <RNText style={styles.urunName} numberOfLines={1}>
-                  {urun.ad}
-                </RNText>
-                <RNText style={styles.urunStock}>
-                  {t('products:stock.currentStock')}: {urun.miktar} {getBirimLabel(urun.birim)}
-                </RNText>
-              </View>
+        {/* Header: Urun Info + Close */}
+        <View style={styles.header}>
+          <View style={styles.urunInfo}>
+            <View style={styles.urunIcon}>
+              <Package size={20} color={colors.primary} />
             </View>
-            <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
-              <X size={22} color={colors.textMuted} />
-            </TouchableOpacity>
+            <View style={styles.urunDetails}>
+              <RNText style={styles.urunName} numberOfLines={1}>
+                {urun.ad}
+              </RNText>
+              <RNText style={styles.urunStock}>
+                {t('products:stock.currentStock')}: {urun.miktar} {getBirimLabel(urun.birim)}
+              </RNText>
+            </View>
           </View>
-
-          {/* Date Picker Button */}
-          <TouchableOpacity
-            style={styles.dateButton}
-            onPress={() => {
-              Keyboard.dismiss();
-              setShowDatePicker(true);
-            }}
-          >
-            <Calendar size={18} color={colors.textSecondary} />
-            <RNText style={styles.dateText}>{formatDateMedium(tarih)}</RNText>
+          <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
+            <X size={22} color={colors.textMuted} />
           </TouchableOpacity>
+        </View>
 
-          {/* Amount Input Row */}
-          <View style={styles.inputRow}>
-            <View style={styles.amountInputContainer}>
-              <TextInput
-                ref={amountInputRef}
-                style={styles.amountInput}
-                value={miktar}
-                onChangeText={setMiktar}
-                placeholder={t('products:stock.quantity')}
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-                returnKeyType="next"
-              />
-            </View>
-            <RNText style={styles.unitLabel}>{getBirimLabel(urun.birim)}</RNText>
+        {/* Date Picker Button */}
+        <TouchableOpacity
+          style={styles.dateButton}
+          onPress={() => {
+            Keyboard.dismiss();
+            setShowDatePicker(true);
+          }}
+        >
+          <Calendar size={18} color={colors.textSecondary} />
+          <RNText style={styles.dateText}>{formatDateMedium(tarih)}</RNText>
+        </TouchableOpacity>
+
+        {/* Amount Input Row */}
+        <View style={styles.inputRow}>
+          <View style={styles.amountInputContainer}>
+            <TextInput
+              ref={amountInputRef}
+              style={styles.amountInput}
+              value={miktar}
+              onChangeText={setMiktar}
+              placeholder={t('products:stock.quantity')}
+              placeholderTextColor={colors.textMuted}
+              keyboardType="decimal-pad"
+              returnKeyType="next"
+            />
           </View>
+          <RNText style={styles.unitLabel}>{getBirimLabel(urun.birim)}</RNText>
+        </View>
 
-          {/* Price Input Row */}
-          <View style={styles.inputRow}>
-            <View style={styles.amountInputContainer}>
-              <TextInput
-                style={styles.priceInput}
-                value={birimFiyat}
-                onChangeText={setBirimFiyat}
-                placeholder={`${t('products:stock.unitPrice')} (${t('common:optional')})`}
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-                returnKeyType="done"
-                onSubmitEditing={handleSave}
-              />
-            </View>
-            <RNText style={styles.unitLabel}>₺</RNText>
+        {/* Price Input Row */}
+        <View style={styles.inputRow}>
+          <View style={styles.amountInputContainer}>
+            <TextInput
+              style={styles.priceInput}
+              value={birimFiyat}
+              onChangeText={setBirimFiyat}
+              placeholder={`${t('products:stock.unitPrice')} (${t('common:optional')})`}
+              placeholderTextColor={colors.textMuted}
+              keyboardType="decimal-pad"
+              returnKeyType="done"
+              onSubmitEditing={handleSave}
+            />
           </View>
+          <RNText style={styles.unitLabel}>₺</RNText>
+        </View>
 
-          {/* Save Button */}
+        {/* Save Button */}
+        <TouchableOpacity
+          style={[
+            styles.saveButton,
+            stokType === 'giris' ? styles.saveButtonGiris : styles.saveButtonCikis,
+            (!isValidAmount || isPending) && styles.saveButtonDisabled,
+          ]}
+          onPress={handleSave}
+          disabled={!isValidAmount || isPending}
+        >
+          {isPending ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <RNText style={styles.saveButtonText}>
+              {isEditMode ? t('common:buttons.update') : t('common:buttons.save')}
+            </RNText>
+          )}
+        </TouchableOpacity>
+
+        {/* Tabs: Stok Giriş / Stok Çıkış */}
+        <View style={styles.tabs}>
           <TouchableOpacity
             style={[
-              styles.saveButton,
-              stokType === 'giris' ? styles.saveButtonGiris : styles.saveButtonCikis,
-              (!isValidAmount || createStokHareket.isPending) && styles.saveButtonDisabled,
+              styles.tab,
+              stokType === 'giris' && styles.tabGiris,
             ]}
-            onPress={handleSave}
-            disabled={!isValidAmount || createStokHareket.isPending}
+            onPress={() => {
+              setStokType('giris');
+              if (!isEditMode) setBirimFiyat(getPriceForType('giris'));
+            }}
+            activeOpacity={0.7}
           >
-            {createStokHareket.isPending ? (
-              <ActivityIndicator size="small" color={colors.white} />
-            ) : (
-              <RNText style={styles.saveButtonText}>
-                {t('common:buttons.save')}
-              </RNText>
-            )}
+            <RNText
+              style={[
+                styles.tabText,
+                stokType === 'giris' && styles.tabTextGiris,
+              ]}
+            >
+              {t('products:stock.stockIn')}
+            </RNText>
           </TouchableOpacity>
-
-          {/* Tabs: Stok Giriş / Stok Çıkış */}
-          <View style={styles.tabs}>
-            <TouchableOpacity
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              stokType === 'cikis' && styles.tabCikis,
+            ]}
+            onPress={() => {
+              setStokType('cikis');
+              if (!isEditMode) setBirimFiyat(getPriceForType('cikis'));
+            }}
+            activeOpacity={0.7}
+          >
+            <RNText
               style={[
-                styles.tab,
-                stokType === 'giris' && styles.tabGiris,
+                styles.tabText,
+                stokType === 'cikis' && styles.tabTextCikis,
               ]}
-              onPress={() => setStokType('giris')}
-              activeOpacity={0.7}
             >
-              <RNText
-                style={[
-                  styles.tabText,
-                  stokType === 'giris' && styles.tabTextGiris,
-                ]}
-              >
-                {t('products:stock.stockIn')}
-              </RNText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.tab,
-                stokType === 'cikis' && styles.tabCikis,
-              ]}
-              onPress={() => setStokType('cikis')}
-              activeOpacity={0.7}
-            >
-              <RNText
-                style={[
-                  styles.tabText,
-                  stokType === 'cikis' && styles.tabTextCikis,
-                ]}
-              >
-                {t('products:stock.stockOut')}
-              </RNText>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </KeyboardAvoidingView>
+              {t('products:stock.stockOut')}
+            </RNText>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
 
       {/* Date Picker Modal (iOS) / Inline (Android) */}
       {showDatePicker && Platform.OS === 'ios' && (

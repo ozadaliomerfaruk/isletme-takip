@@ -632,8 +632,21 @@ export interface ExchangeRates {
 
 // ============ STOK YÖNETİMİ ============
 
-export type BirimType = 'adet' | 'kg' | 'lt' | 'm' | 'm2' | 'paket' | 'kutu';
+export type BirimType =
+  // Adet/Parça
+  | 'adet' | 'parca' | 'cift' | 'takim'
+  // Ağırlık
+  | 'gram' | 'kg' | 'ton'
+  // Hacim
+  | 'ml' | 'lt'
+  // Uzunluk/Alan/Hacim
+  | 'cm' | 'm' | 'm2' | 'm3'
+  // Ambalaj
+  | 'paket' | 'kutu' | 'koli'
+  // Tüketim
+  | 'porsiyon';
 export type StokHareketTipi = 'giris' | 'cikis' | 'duzeltme';
+export type KdvOrani = 0 | 1 | 10 | 20;
 
 // Ürün
 export interface Urun {
@@ -645,6 +658,7 @@ export interface Urun {
   miktar: number;
   alis_fiyati: number;
   satis_fiyati: number;
+  kdv_orani: KdvOrani;
   currency: Currency;
   kategori_id: string | null;
   aciklama: string | null;
@@ -661,6 +675,7 @@ export interface UrunInsert {
   miktar?: number;
   alis_fiyati?: number;
   satis_fiyati?: number;
+  kdv_orani?: KdvOrani;
   currency?: Currency;
   kategori_id?: string | null;
   aciklama?: string | null;
@@ -672,6 +687,7 @@ export interface UrunUpdate {
   birim?: BirimType;
   alis_fiyati?: number;
   satis_fiyati?: number;
+  kdv_orani?: KdvOrani;
   currency?: Currency;
   kategori_id?: string | null;
   aciklama?: string | null;
@@ -684,9 +700,11 @@ export interface StokHareket {
   id: string;
   isletme_id: string;
   urun_id: string;
+  islem_id: string | null;
   hareket_tipi: StokHareketTipi;
   miktar: number;
   birim_fiyat: number | null;
+  kdv_orani: number | null;
   onceki_miktar: number | null;
   yeni_miktar: number | null;
   aciklama: string | null;
@@ -695,9 +713,11 @@ export interface StokHareket {
 
 export interface StokHareketInsert {
   urun_id: string;
+  islem_id?: string | null;
   hareket_tipi: StokHareketTipi;
   miktar: number;
   birim_fiyat?: number | null;
+  kdv_orani?: number | null;
   aciklama?: string | null;
 }
 

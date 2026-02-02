@@ -19,6 +19,8 @@ interface UseQuickTransactionModalsReturn {
   setShowKrediKartiPicker: (show: boolean) => void;
   showExchangeRateBar: boolean;
   setShowExchangeRateBar: (show: boolean) => void;
+  showStokPicker: boolean;
+  setShowStokPicker: (show: boolean) => void;
 
   // Search queries
   hesapSearchQuery: string;
@@ -27,6 +29,8 @@ interface UseQuickTransactionModalsReturn {
   setCariSearchQuery: (query: string) => void;
   personelSearchQuery: string;
   setPersonelSearchQuery: (query: string) => void;
+  urunSearchQuery: string;
+  setUrunSearchQuery: (query: string) => void;
 
   // Category picker state
   categoryPickerOpen: boolean;
@@ -64,11 +68,13 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
   const [showTahsilatHedefTypePicker, setShowTahsilatHedefTypePicker] = useState(false);
   const [showKrediKartiPicker, setShowKrediKartiPicker] = useState(false);
   const [showExchangeRateBar, setShowExchangeRateBar] = useState(false);
+  const [showStokPicker, setShowStokPicker] = useState(false);
 
   // Search queries
   const [hesapSearchQuery, setHesapSearchQuery] = useState('');
   const [cariSearchQuery, setCariSearchQuery] = useState('');
   const [personelSearchQuery, setPersonelSearchQuery] = useState('');
+  const [urunSearchQuery, setUrunSearchQuery] = useState('');
 
   // Category picker state
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
@@ -91,9 +97,11 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
     setShowTahsilatHedefTypePicker(false);
     setShowKrediKartiPicker(false);
     setShowExchangeRateBar(false);
+    setShowStokPicker(false);
     setHesapSearchQuery('');
     setCariSearchQuery('');
     setPersonelSearchQuery('');
+    setUrunSearchQuery('');
     setCategoryPickerOpen(false);
     setCategorySkipped(false);
     setSelectedCategoryType(null);
@@ -153,6 +161,8 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
     setShowKrediKartiPicker,
     showExchangeRateBar,
     setShowExchangeRateBar,
+    showStokPicker,
+    setShowStokPicker,
 
     // Search queries
     hesapSearchQuery,
@@ -161,6 +171,8 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
     setCariSearchQuery,
     personelSearchQuery,
     setPersonelSearchQuery,
+    urunSearchQuery,
+    setUrunSearchQuery,
 
     // Category picker state
     categoryPickerOpen,

@@ -1,28 +1,67 @@
 import { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, TouchableWithoutFeedback, Animated } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, TouchableWithoutFeedback, Animated, Modal, Pressable, Platform } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, Button, Input, EmptyState, ExpandableCard } from '@/components/ui';
+import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, Trash2 } from 'lucide-react-native';
+import { Text, Button, Input, EmptyState, ExpandableCard, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickStockBar } from '@/components/stock/QuickStockBar';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useUrunler, useDeleteUrun } from '@/hooks/useUrunler';
+import { useUrunler, useDeleteUrun, useArchiveUrun } from '@/hooks/useUrunler';
+import { useToast } from '@/contexts/ToastContext';
+import { useDonemStokOzet } from '@/hooks/useStokHareketler';
+import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
+import { formatDateForDB } from '@/lib/date';
+
+type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 
 export default function UrunlerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
   const { t } = useTranslation(['products', 'common', 'errors']);
+  const { getDateRangeLabel, locale } = useDateFormat();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [quickStockVisible, setQuickStockVisible] = useState(false);
   const [selectedUrun, setSelectedUrun] = useState<Urun | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
+
+  // ActionSheet için state
+  const [actionSheetVisible, setActionSheetVisible] = useState(false);
+  const [actionSheetUrun, setActionSheetUrun] = useState<Urun | null>(null);
+
+  // Dönem seçici state'leri
+  const [period, setPeriod] = useState<PeriodType>('monthly');
+  const [periodOffset, setPeriodOffset] = useState(0);
+
+  // Özel tarih aralığı state'leri
+  const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
+  const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
+  // Dönem seçici seçenekleri
+  const PERIOD_OPTIONS = [
+    { label: t('products:period.yearly'), value: 'yearly' },
+    { label: t('products:period.monthly'), value: 'monthly' },
+    { label: t('products:period.weekly'), value: 'weekly' },
+    { label: t('products:period.daily'), value: 'daily' },
+    { label: t('products:period.custom'), value: 'custom' },
+  ];
+
+  // Dönem tarih aralığını hesapla
+  const customRange = period === 'custom' ? {
+    startDate: formatDateForDB(customStartDate),
+    endDate: formatDateForDB(customEndDate),
+  } : undefined;
+  const { startDate, endDate, label: periodLabel } = getDateRangeLabel(period, periodOffset, customRange);
 
   // FAB animation
   const fabRotation = useRef(new Animated.Value(0)).current;
@@ -71,17 +110,50 @@ export default function UrunlerPage() {
 
   const { data: urunler, isLoading } = useUrunler();
   const deleteUrun = useDeleteUrun();
+  const archiveUrun = useArchiveUrun();
+  const { data: kategoriler } = useKategoriler();
+  const { showToast } = useToast();
 
-  // Arama filtresi
-  const filteredUrunler = urunler?.filter((urun) =>
-    urun.ad.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (urun.kod && urun.kod.toLowerCase().includes(searchQuery.toLowerCase()))
-  ) || [];
+  // Dönem bazlı stok hareketleri özeti
+  const { data: donemStokOzet } = useDonemStokOzet({ startDate, endDate });
 
-  const handleDelete = (urun: Urun) => {
+  // Kategori id -> ad map'i
+  const kategoriMap = new Map(kategoriler?.map(k => [k.id, k.name]) || []);
+
+  // Arama filtresi (ürün adı, kodu ve kategori adı)
+  const filteredUrunler = urunler?.filter((urun) => {
+    const query = searchQuery.toLowerCase();
+    const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
+    return (
+      urun.ad.toLowerCase().includes(query) ||
+      (urun.kod && urun.kod.toLowerCase().includes(query)) ||
+      (kategoriAdi && kategoriAdi.includes(query))
+    );
+  }) || [];
+
+  // ActionSheet handlers
+  const handleOpenActionSheet = (urun: Urun) => {
+    setActionSheetUrun(urun);
+    setActionSheetVisible(true);
+  };
+
+  const handleArchive = async () => {
+    if (!actionSheetUrun) return;
+    try {
+      await archiveUrun.mutateAsync(actionSheetUrun.id);
+      haptics.success();
+      showToast(t('common:archive.messages.archiveSuccess'), 'success');
+    } catch (error) {
+      haptics.error();
+      showToast(t('common:messages.operationFailed'), 'error');
+    }
+  };
+
+  const handleDelete = () => {
+    if (!actionSheetUrun) return;
     Alert.alert(
-      t('products:deleteConfirm.title'),
-      t('products:deleteConfirm.message', { name: urun.ad }),
+      t('common:confirm.deleteTitle'),
+      t('common:confirm.deleteMessage', { item: actionSheetUrun.ad }),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -89,15 +161,41 @@ export default function UrunlerPage() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteUrun.mutateAsync(urun.id);
+              await deleteUrun.mutateAsync(actionSheetUrun.id);
+              haptics.success();
+              showToast(t('common:messages.deletedSuccessfully'), 'success');
             } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+              haptics.error();
+              showToast(t('common:messages.operationFailed'), 'error');
             }
           },
         },
       ]
     );
   };
+
+  const actionSheetOptions: ActionSheetOption[] = [
+    {
+      label: t('common:buttons.edit'),
+      icon: <Edit3 size={20} color={colors.primary} />,
+      onPress: () => {
+        if (actionSheetUrun) {
+          router.push(`/urunler/duzenle/${actionSheetUrun.id}` as any);
+        }
+      },
+    },
+    {
+      label: t('common:archive.actions.archive'),
+      icon: <Archive size={20} color={colors.warning} />,
+      onPress: handleArchive,
+    },
+    {
+      label: t('common:buttons.delete'),
+      icon: <Trash2 size={20} color={colors.error} />,
+      onPress: handleDelete,
+      destructive: true,
+    },
+  ];
 
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
@@ -147,11 +245,66 @@ export default function UrunlerPage() {
         {(urunler && urunler.length > 0) && (
           <View style={styles.searchSection}>
             <Input
-              placeholder={t('common:search.searchPlaceholder')}
+              placeholder={t('products:search.placeholder')}
               value={searchQuery}
               onChangeText={setSearchQuery}
               leftIcon={<Search size={20} color={colors.textMuted} />}
             />
+          </View>
+        )}
+
+        {/* Dönem Seçici */}
+        {(urunler && urunler.length > 0) && (
+          <View style={styles.periodSection}>
+            <TabFilter
+              options={PERIOD_OPTIONS}
+              value={period}
+              onChange={(value) => {
+                setPeriod(value as PeriodType);
+                setPeriodOffset(0);
+              }}
+            />
+            {period === 'custom' ? (
+              <View style={styles.customDateRow}>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={() => setShowStartPicker(true)}
+                >
+                  <Calendar size={16} color={colors.primary} />
+                  <Text variant="caption">{t('products:period.startDate')}: {formatDateForDB(customStartDate)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={() => setShowEndPicker(true)}
+                >
+                  <Calendar size={16} color={colors.primary} />
+                  <Text variant="caption">{t('products:period.endDate')}: {formatDateForDB(customEndDate)}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.periodNav}>
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.light();
+                    setPeriodOffset(periodOffset - 1);
+                  }}
+                  style={styles.periodNavButton}
+                >
+                  <ChevronLeft size={20} color={colors.primary} />
+                </TouchableOpacity>
+                <Text variant="body" style={styles.periodLabel}>{periodLabel}</Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.light();
+                    setPeriodOffset(periodOffset + 1);
+                  }}
+                  style={styles.periodNavButton}
+                  disabled={periodOffset >= 0}
+                >
+                  <ChevronRight size={20} color={periodOffset >= 0 ? colors.textMuted : colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 
@@ -166,31 +319,58 @@ export default function UrunlerPage() {
               onAction={() => router.push('/urunler/ekle' as any)}
             />
           ) : (
-            filteredUrunler.map((urun) => (
+            filteredUrunler.map((urun) => {
+              const urunOzet = donemStokOzet?.[urun.id];
+              const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
+
+              return (
               <ExpandableCard
                 key={urun.id}
                 expanded={expandedId === urun.id}
                 onToggle={() => handleToggle(urun.id)}
                 header={
                   <View style={styles.urunHeader}>
-                    <View style={styles.urunIcon}>
-                      <Package size={24} color={colors.primary} />
-                    </View>
+                    <Package size={24} color={colors.primary} />
                     <View style={styles.urunInfo}>
-                      <Text variant="body" style={styles.urunName}>
-                        {urun.ad}
+                      <Text variant="body">{urun.ad}</Text>
+                      <Text variant="caption" color="secondary">
+                        {urun.miktar} {getBirimLabel(urun.birim)}
+                        {urun.satis_fiyati > 0 && ` • ${formatCurrency(urun.satis_fiyati, urun.currency)}/${getBirimLabel(urun.birim)}`}
                       </Text>
-                      <View style={styles.urunDetails}>
-                        <Text variant="caption" color="secondary">
-                          {urun.miktar} {getBirimLabel(urun.birim)}
-                        </Text>
-                        {urun.satis_fiyati > 0 && (
-                          <Text variant="caption" color="muted">
-                            {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
-                          </Text>
-                        )}
-                      </View>
                     </View>
+                    {/* Dönem özeti */}
+                    <View style={styles.periodSummary}>
+                      {hasMovements ? (
+                        <>
+                          {urunOzet.giris > 0 && (
+                            <View style={styles.periodSummaryItem}>
+                              <TrendingUp size={12} color={colors.success} />
+                              <Text variant="caption" color="success">
+                                +{urunOzet.giris}
+                              </Text>
+                            </View>
+                          )}
+                          {urunOzet.cikis > 0 && (
+                            <View style={styles.periodSummaryItem}>
+                              <TrendingDown size={12} color={colors.error} />
+                              <Text variant="caption" color="error">
+                                -{urunOzet.cikis}
+                              </Text>
+                            </View>
+                          )}
+                        </>
+                      ) : null}
+                    </View>
+                    <TouchableOpacity
+                      style={styles.moreButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        handleOpenActionSheet(urun);
+                      }}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <MoreVertical size={20} color={colors.textMuted} />
+                    </TouchableOpacity>
                   </View>
                 }
               >
@@ -218,7 +398,8 @@ export default function UrunlerPage() {
                   </Button>
                 </View>
               </ExpandableCard>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
@@ -232,6 +413,110 @@ export default function UrunlerPage() {
         }}
         urun={selectedUrun}
       />
+
+      {/* ActionSheet */}
+      <ActionSheet
+        visible={actionSheetVisible}
+        onClose={() => {
+          setActionSheetVisible(false);
+          setActionSheetUrun(null);
+        }}
+        title={actionSheetUrun?.ad}
+        options={actionSheetOptions}
+        cancelLabel={t('common:buttons.cancel')}
+      />
+
+      {/* Date Pickers for Custom Period - iOS */}
+      {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (
+        <Modal visible={showStartPicker || showEndPicker} transparent animationType="slide">
+          <Pressable
+            style={styles.datePickerOverlay}
+            onPress={() => {
+              setShowStartPicker(false);
+              setShowEndPicker(false);
+            }}
+          >
+            <Pressable style={styles.datePickerModal} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.datePickerHeader}>
+                <Text variant="h3">
+                  {showStartPicker ? t('products:period.startDate') : t('products:period.endDate')}
+                </Text>
+                <TouchableOpacity onPress={() => {
+                  setShowStartPicker(false);
+                  setShowEndPicker(false);
+                }}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.datePickerWrapper}>
+                <DateTimePicker
+                  value={showStartPicker ? customStartDate : customEndDate}
+                  mode="date"
+                  display="inline"
+                  themeVariant="light"
+                  accentColor={colors.primary}
+                  locale={locale}
+                  style={{ height: 350 }}
+                  onChange={(_, date) => {
+                    if (date) {
+                      if (showStartPicker) {
+                        setCustomStartDate(date);
+                        if (date > customEndDate) {
+                          setCustomEndDate(date);
+                        }
+                      } else {
+                        setCustomEndDate(date);
+                      }
+                    }
+                  }}
+                  minimumDate={showEndPicker ? customStartDate : undefined}
+                  maximumDate={new Date()}
+                />
+              </View>
+              <Button variant="primary" onPress={() => {
+                setShowStartPicker(false);
+                setShowEndPicker(false);
+              }}>
+                {t('common:buttons.ok')}
+              </Button>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* Date Pickers for Custom Period - Android */}
+      {Platform.OS === 'android' && showStartPicker && (
+        <DateTimePicker
+          value={customStartDate}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowStartPicker(false);
+            if (event.type === 'set' && date) {
+              setCustomStartDate(date);
+              if (date > customEndDate) {
+                setCustomEndDate(date);
+              }
+            }
+          }}
+          maximumDate={new Date()}
+        />
+      )}
+      {Platform.OS === 'android' && showEndPicker && (
+        <DateTimePicker
+          value={customEndDate}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowEndPicker(false);
+            if (event.type === 'set' && date) {
+              setCustomEndDate(date);
+            }
+          }}
+          minimumDate={customStartDate}
+          maximumDate={new Date()}
+        />
+      )}
 
       {/* FAB Backdrop */}
       {fabMenuVisible && (
@@ -337,7 +622,62 @@ const styles = StyleSheet.create({
   },
   searchSection: {
     paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  periodSection: {
+    paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  periodNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  periodNavButton: {
+    padding: spacing.sm,
+  },
+  periodLabel: {
+    fontWeight: '600',
+    minWidth: 120,
+    textAlign: 'center',
+  },
+  customDateRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  datePickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  datePickerModal: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  datePickerWrapper: {
+    alignItems: 'center',
   },
   listSection: {
     paddingHorizontal: spacing.lg,
@@ -348,24 +688,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  urunIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   urunInfo: {
     flex: 1,
-    gap: spacing.xs,
   },
-  urunName: {
-    fontWeight: '500',
+  moreButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
   },
-  urunDetails: {
+  periodSummary: {
     flexDirection: 'row',
-    gap: spacing.md,
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+  },
+  periodSummaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   actionButtons: {
     flexDirection: 'row',

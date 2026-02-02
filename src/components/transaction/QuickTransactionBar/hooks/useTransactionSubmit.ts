@@ -5,11 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { useCreateIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
+import { useCreateStokHareket } from '@/hooks/useStokHareketler';
 import { parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
-import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode } from '../types';
-import type { Currency } from '@/types/database';
+import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode, StokItem } from '../types';
+import type { Currency, StokHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
 
@@ -74,6 +75,9 @@ interface UseTransactionSubmitOptions {
   hesaplar: Hesap[] | undefined;
   cariler: Cari[] | undefined;
   personelList: Personel[] | undefined;
+
+  // Stok items for alis/satis/iade transactions
+  stokItems?: StokItem[];
 
   // State setters
   setIsSaving: (saving: boolean) => void;
@@ -170,6 +174,7 @@ export function useTransactionSubmit({
   hesaplar,
   cariler,
   personelList,
+  stokItems = [],
   setIsSaving,
   setHesapPickerTarget,
   setShowHesapPicker,
@@ -194,6 +199,43 @@ export function useTransactionSubmit({
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
   const updateIleriTarihliIslem = useUpdateIleriTarihliIslem();
   const uploadPhoto = useUploadIslemPhoto();
+  const createStokHareket = useCreateStokHareket();
+
+  // Helper: Get stock movement type based on transaction type
+  const getStokHareketTipi = useCallback((txnType: TransactionType): StokHareketTipi | null => {
+    // alis: Tedarikçiden mal alındı → Stok Girişi
+    if (txnType === 'alis') return 'giris';
+    // satis: Müşteriye mal satıldı → Stok Çıkışı
+    if (txnType === 'satis') return 'cikis';
+    // alis_iade: Tedarikçiye mal iade edildi → Stok Çıkışı
+    if (txnType === 'alis_iade') return 'cikis';
+    // satis_iade: Müşteriden mal iade alındı → Stok Girişi
+    if (txnType === 'satis_iade') return 'giris';
+    return null;
+  }, []);
+
+  // Helper: Create stock movements for transaction
+  const createStokHareketler = useCallback(async (txnType: TransactionType, desc: string, islemId: string) => {
+    if (stokItems.length === 0) return;
+
+    const hareketTipi = getStokHareketTipi(txnType);
+    if (!hareketTipi) return;
+
+    // Create stock movement for each item
+    const promises = stokItems.map(item =>
+      createStokHareket.mutateAsync({
+        urun_id: item.urunId,
+        islem_id: islemId,
+        hareket_tipi: hareketTipi,
+        miktar: item.miktar,
+        birim_fiyat: item.birimFiyat,
+        kdv_orani: item.kdvOrani,
+        aciklama: desc || undefined,
+      })
+    );
+
+    await Promise.all(promises);
+  }, [stokItems, getStokHareketTipi, createStokHareket]);
 
   // Build transaction data
   const buildTransactionData = useCallback(
@@ -570,6 +612,18 @@ export function useTransactionSubmit({
               // Transaction was created successfully, just photo upload failed
             }
           }
+
+          // Create stock movements if stokItems present (for alis/satis/iade)
+          if (stokItems.length > 0 && newIslem?.id) {
+            try {
+              await createStokHareketler(type, description.trim(), newIslem.id);
+              console.log('[StokHareket] Stock movements created successfully');
+            } catch (stokError) {
+              // Log stock movement error but don't fail the transaction
+              console.error('[StokHareket] Error creating stock movements:', stokError);
+              // Transaction was created successfully, stock movement creation failed
+            }
+          }
         }
       }
 
@@ -637,6 +691,9 @@ export function useTransactionSubmit({
     triggerReviewIfEligible,
     onSuccess,
     handleDismiss,
+    stokItems,
+    createStokHareketler,
+    description,
   ]);
 
   // Handle exchange rate confirmation

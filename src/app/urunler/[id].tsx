@@ -6,8 +6,6 @@ import {
   Alert,
   TouchableOpacity,
   Modal,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
@@ -21,14 +19,20 @@ import {
   MoreVertical,
   Pencil,
   Trash2,
-  X,
+  Archive,
+  ArchiveRestore,
+  Building2,
+  User,
 } from 'lucide-react-native';
-import { Text, Card, Button, Input } from '@/components/ui';
+import { Text, Card, Button, ExpandableCard } from '@/components/ui';
+import { QuickStockBar } from '@/components/stock/QuickStockBar';
+import { useToast } from '@/contexts/ToastContext';
+import { useHaptics } from '@/hooks/useHaptics';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useUrun, useDeleteUrun } from '@/hooks/useUrunler';
-import { useStokHareketler, useAylikStokOzet, useCreateStokHareket } from '@/hooks/useStokHareketler';
-import { BirimType, StokHareketTipi } from '@/types/database';
+import { useUrun, useDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
+import { useStokHareketler, useAylikStokOzet, useDeleteStokHareket, StokHareketWithCari } from '@/hooks/useStokHareketler';
+import { BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 
 export default function UrunDetayPage() {
@@ -39,15 +43,28 @@ export default function UrunDetayPage() {
   const { data: urun, isLoading: urunLoading } = useUrun(id);
   const { data: hareketler, isLoading: hareketlerLoading } = useStokHareketler(id);
   const { data: aylikOzet } = useAylikStokOzet(id);
-  const createStokHareket = useCreateStokHareket();
   const deleteUrun = useDeleteUrun();
+  const archiveUrun = useArchiveUrun();
+  const unarchiveUrun = useUnarchiveUrun();
+  const deleteStokHareket = useDeleteStokHareket();
+  const { showToast } = useToast();
+  const haptics = useHaptics();
 
   const [menuVisible, setMenuVisible] = useState(false);
-  const [stokModalVisible, setStokModalVisible] = useState(false);
-  const [stokModalType, setStokModalType] = useState<'giris' | 'cikis'>('giris');
-  const [stokMiktar, setStokMiktar] = useState('');
-  const [stokFiyat, setStokFiyat] = useState('');
-  const [stokAciklama, setStokAciklama] = useState('');
+  const [quickStockVisible, setQuickStockVisible] = useState(false);
+  const [quickStockType, setQuickStockType] = useState<'giris' | 'cikis'>('giris');
+
+  // Expanded hareket state
+  const [expandedHareketId, setExpandedHareketId] = useState<string | null>(null);
+
+  // Edit mode state
+  const [editMode, setEditMode] = useState(false);
+  const [editHareketId, setEditHareketId] = useState<string | undefined>(undefined);
+  const [editInitialValues, setEditInitialValues] = useState<{
+    miktar: number;
+    birimFiyat: number | null;
+    stokType: 'giris' | 'cikis';
+  } | undefined>(undefined);
 
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
@@ -58,39 +75,26 @@ export default function UrunDetayPage() {
     return `${t(`products:months.${month}`)} ${year}`;
   };
 
-  const openStokModal = (type: 'giris' | 'cikis') => {
-    setStokModalType(type);
-    setStokMiktar('');
-    setStokFiyat('');
-    setStokAciklama('');
-    setStokModalVisible(true);
+  const openQuickStock = (type: 'giris' | 'cikis') => {
+    setEditMode(false);
+    setEditHareketId(undefined);
+    setEditInitialValues(undefined);
+    setQuickStockType(type);
+    setQuickStockVisible(true);
   };
 
-  const handleStokKaydet = async () => {
-    if (!stokMiktar || parseFloat(stokMiktar.replace(',', '.')) <= 0) {
-      Alert.alert(t('common:status.error'), t('products:validation.quantityPositive'));
-      return;
-    }
-
-    try {
-      await createStokHareket.mutateAsync({
-        urun_id: id!,
-        hareket_tipi: stokModalType,
-        miktar: parseFloat(stokMiktar.replace(',', '.')),
-        birim_fiyat: stokFiyat ? parseFloat(stokFiyat.replace(',', '.')) : null,
-        aciklama: stokAciklama.trim() || null,
-      });
-
-      setStokModalVisible(false);
-      Alert.alert(
-        t('common:status.success'),
-        stokModalType === 'giris'
-          ? t('products:messages.stockInSuccess')
-          : t('products:messages.stockOutSuccess')
-      );
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
-    }
+  // Doğrudan stok hareketi düzenleme
+  const handleEditDirectHareket = (hareket: StokHareketWithCari) => {
+    setEditMode(true);
+    setEditHareketId(hareket.id);
+    setEditInitialValues({
+      miktar: hareket.miktar,
+      birimFiyat: hareket.birim_fiyat,
+      stokType: hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis',
+    });
+    setQuickStockType(hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis');
+    setQuickStockVisible(true);
+    setExpandedHareketId(null);
   };
 
   const handleDelete = () => {
@@ -109,6 +113,65 @@ export default function UrunDetayPage() {
               router.back();
             } catch (error: any) {
               Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleArchive = async () => {
+    setMenuVisible(false);
+    try {
+      await archiveUrun.mutateAsync(id!);
+      Alert.alert(t('common:status.success'), t('products:messages.archiveSuccess'));
+      router.back();
+    } catch (error: any) {
+      Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+    }
+  };
+
+  const handleUnarchive = async () => {
+    setMenuVisible(false);
+    try {
+      await unarchiveUrun.mutateAsync(id!);
+      Alert.alert(t('common:status.success'), t('products:messages.unarchiveSuccess'));
+    } catch (error: any) {
+      Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+    }
+  };
+
+  // Stok hareketi düzenleme (cari işlem üzerinden)
+  const handleEditHareket = (hareket: StokHareketWithCari) => {
+    if (hareket.islem_id && hareket.cari) {
+      // Cari hareketler sayfasına git, ilgili işlem açık olsun
+      router.push({
+        pathname: '/cariler/[id]',
+        params: { id: hareket.cari.id, expandIslemId: hareket.islem_id },
+      });
+    }
+    setExpandedHareketId(null);
+  };
+
+  // Stok hareketi silme (doğrudan girişler için)
+  const handleDeleteHareket = (hareket: StokHareketWithCari) => {
+    Alert.alert(
+      t('common:confirm.deleteTitle'),
+      t('products:stock.deleteMovementConfirm'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteStokHareket.mutateAsync(hareket.id);
+              haptics.success();
+              showToast(t('common:messages.deletedSuccessfully'), 'success');
+              setExpandedHareketId(null);
+            } catch (error: any) {
+              haptics.error();
+              showToast(error.message || t('common:messages.operationFailed'), 'error');
             }
           },
         },
@@ -145,20 +208,29 @@ export default function UrunDetayPage() {
           <View style={styles.section}>
             <Card>
               <View style={styles.stokCard}>
-                <View style={styles.stokIcon}>
-                  <Package size={32} color={colors.primary} />
+                <View style={styles.stokLeft}>
+                  <View style={styles.stokIcon}>
+                    <Package size={24} color={colors.primary} />
+                  </View>
+                  <View style={styles.stokInfo}>
+                    <Text variant="body" style={styles.stokName} numberOfLines={1}>
+                      {urun.ad}
+                    </Text>
+                    {urun.satis_fiyati > 0 && (
+                      <Text variant="caption" color="muted">
+                        {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
+                      </Text>
+                    )}
+                  </View>
                 </View>
-                <Text variant="caption" color="secondary">
-                  {t('products:stock.currentStock')}
-                </Text>
-                <Text variant="h1" style={styles.stokMiktar}>
-                  {urun.miktar} {getBirimLabel(urun.birim)}
-                </Text>
-                {urun.satis_fiyati > 0 && (
-                  <Text variant="caption" color="muted">
-                    {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
+                <View style={styles.stokRight}>
+                  <Text variant="caption" color="secondary">
+                    {t('products:stock.currentStock')}
                   </Text>
-                )}
+                  <Text variant="h2" color="primary">
+                    {urun.miktar} {getBirimLabel(urun.birim)}
+                  </Text>
+                </View>
               </View>
             </Card>
           </View>
@@ -171,7 +243,7 @@ export default function UrunDetayPage() {
                 size="lg"
                 icon={<Plus size={20} color={colors.white} />}
                 iconPosition="left"
-                onPress={() => openStokModal('giris')}
+                onPress={() => openQuickStock('giris')}
                 style={styles.actionButton}
               >
                 {t('products:stock.stockIn')}
@@ -181,7 +253,7 @@ export default function UrunDetayPage() {
                 size="lg"
                 icon={<Minus size={20} color={colors.primary} />}
                 iconPosition="left"
-                onPress={() => openStokModal('cikis')}
+                onPress={() => openQuickStock('cikis')}
                 style={styles.actionButton}
               >
                 {t('products:stock.stockOut')}
@@ -230,48 +302,71 @@ export default function UrunDetayPage() {
             {hareketlerLoading ? (
               <Text color="secondary">{t('common:status.loading')}</Text>
             ) : hareketler && hareketler.length > 0 ? (
-              <Card padding="none">
-                {hareketler.slice(0, 10).map((hareket, index) => (
-                  <View key={hareket.id}>
-                    <View style={styles.hareketItem}>
-                      <View
-                        style={[
-                          styles.hareketIcon,
-                          {
-                            backgroundColor:
-                              hareket.hareket_tipi === 'giris'
-                                ? colors.successLight
-                                : hareket.hareket_tipi === 'cikis'
-                                ? colors.errorLight
-                                : colors.warningLight,
-                          },
-                        ]}
-                      >
-                        {hareket.hareket_tipi === 'giris' ? (
-                          <TrendingUp size={16} color={colors.success} />
-                        ) : hareket.hareket_tipi === 'cikis' ? (
-                          <TrendingDown size={16} color={colors.error} />
-                        ) : (
-                          <Package size={16} color={colors.warning} />
-                        )}
-                      </View>
-                      <View style={styles.hareketInfo}>
-                        <Text variant="body">
-                          {hareket.hareket_tipi === 'giris'
-                            ? t('products:stock.stockIn')
-                            : hareket.hareket_tipi === 'cikis'
-                            ? t('products:stock.stockOut')
-                            : t('products:stock.adjustment')}
-                        </Text>
-                        {hareket.aciklama && (
-                          <Text variant="caption" color="secondary" numberOfLines={1}>
-                            {hareket.aciklama}
+              <>
+                {hareketler.slice(0, 20).map((hareket) => (
+                  <ExpandableCard
+                    key={hareket.id}
+                    expanded={expandedHareketId === hareket.id}
+                    onToggle={() => setExpandedHareketId(expandedHareketId === hareket.id ? null : hareket.id)}
+                    header={
+                      <View style={styles.hareketHeader}>
+                        <View
+                          style={[
+                            styles.hareketIcon,
+                            {
+                              backgroundColor:
+                                hareket.hareket_tipi === 'giris'
+                                  ? colors.successLight
+                                  : hareket.hareket_tipi === 'cikis'
+                                  ? colors.errorLight
+                                  : colors.warningLight,
+                            },
+                          ]}
+                        >
+                          {hareket.hareket_tipi === 'giris' ? (
+                            <TrendingUp size={16} color={colors.success} />
+                          ) : hareket.hareket_tipi === 'cikis' ? (
+                            <TrendingDown size={16} color={colors.error} />
+                          ) : (
+                            <Package size={16} color={colors.warning} />
+                          )}
+                        </View>
+                        <View style={styles.hareketInfo}>
+                          <View style={styles.hareketTitleRow}>
+                            <Text variant="body">
+                              {new Date(hareket.created_at).toLocaleDateString('tr-TR', {
+                                day: 'numeric',
+                                month: 'short',
+                              })}
+                            </Text>
+                            {hareket.cari && (
+                              <View style={styles.cariBadge}>
+                                {hareket.cari.type === 'tedarikci' ? (
+                                  <Building2 size={10} color={colors.warning} />
+                                ) : (
+                                  <User size={10} color={colors.info} />
+                                )}
+                                <Text variant="caption" style={styles.cariName} numberOfLines={1}>
+                                  {hareket.cari.name}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text variant="caption" color="secondary">
+                            {hareket.hareket_tipi === 'giris'
+                              ? t('products:stock.stockIn')
+                              : hareket.hareket_tipi === 'cikis'
+                              ? t('products:stock.stockOut')
+                              : t('products:stock.adjustment')}
                           </Text>
-                        )}
-                      </View>
-                      <View style={styles.hareketRight}>
+                          {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
+                            <Text variant="caption" color="secondary">
+                              {formatCurrency(hareket.birim_fiyat)}/{getBirimLabel(urun.birim)}
+                            </Text>
+                          )}
+                        </View>
                         <Text
-                          variant="body"
+                          variant="h3"
                           style={{
                             color:
                               hareket.hareket_tipi === 'giris'
@@ -284,18 +379,48 @@ export default function UrunDetayPage() {
                           {hareket.hareket_tipi === 'giris' ? '+' : '-'}
                           {Math.abs(hareket.miktar)}
                         </Text>
-                        <Text variant="caption" color="muted">
-                          {new Date(hareket.created_at).toLocaleDateString('tr-TR', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                        </Text>
                       </View>
+                    }
+                  >
+                    <View style={styles.hareketActions}>
+                      {hareket.islem_id && hareket.cari ? (
+                        // Cari işlem üzerinden yapılmış - sadece düzenle
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<Pencil size={16} color={colors.text} />}
+                          onPress={() => handleEditHareket(hareket)}
+                          style={styles.actionButton}
+                        >
+                          {t('common:buttons.edit')}
+                        </Button>
+                      ) : (
+                        // Doğrudan stok girişi - düzenle ve sil
+                        <>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            icon={<Pencil size={16} color={colors.text} />}
+                            onPress={() => handleEditDirectHareket(hareket)}
+                            style={styles.actionButton}
+                          >
+                            {t('common:buttons.edit')}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<Trash2 size={16} color={colors.error} />}
+                            onPress={() => handleDeleteHareket(hareket)}
+                            style={styles.actionButton}
+                          >
+                            {t('common:buttons.delete')}
+                          </Button>
+                        </>
+                      )}
                     </View>
-                    {index < Math.min(hareketler.length, 10) - 1 && <View style={styles.divider} />}
-                  </View>
+                  </ExpandableCard>
                 ))}
-              </Card>
+              </>
             ) : (
               <Card>
                 <Text variant="body" color="secondary" style={styles.emptyText}>
@@ -330,6 +455,22 @@ export default function UrunDetayPage() {
                 <Text variant="body">{t('products:editProduct')}</Text>
               </TouchableOpacity>
               <View style={styles.menuDivider} />
+              {urun.is_archived ? (
+                <TouchableOpacity style={styles.menuItem} onPress={handleUnarchive}>
+                  <ArchiveRestore size={20} color={colors.success} />
+                  <Text variant="body" style={{ color: colors.success }}>
+                    {t('products:actions.unarchive')}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity style={styles.menuItem} onPress={handleArchive}>
+                  <Archive size={20} color={colors.warning} />
+                  <Text variant="body" style={{ color: colors.warning }}>
+                    {t('products:actions.archive')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <View style={styles.menuDivider} />
               <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
                 <Trash2 size={20} color={colors.error} />
                 <Text variant="body" style={{ color: colors.error }}>
@@ -340,79 +481,21 @@ export default function UrunDetayPage() {
           </TouchableOpacity>
         </Modal>
 
-        {/* Stok Giris/Cikis Modal */}
-        <Modal
-          visible={stokModalVisible}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setStokModalVisible(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.stokModalContainer}
-          >
-            <View style={styles.stokModalContent}>
-              <View style={styles.stokModalHeader}>
-                <Text variant="h3">
-                  {stokModalType === 'giris'
-                    ? t('products:stock.stockIn')
-                    : t('products:stock.stockOut')}
-                </Text>
-                <TouchableOpacity onPress={() => setStokModalVisible(false)}>
-                  <X size={24} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.stokModalBody}>
-                <Input
-                  label={t('products:stock.quantity')}
-                  placeholder="0"
-                  value={stokMiktar}
-                  onChangeText={setStokMiktar}
-                  keyboardType="decimal-pad"
-                  autoFocus
-                />
-
-                <Input
-                  label={`${t('products:stock.unitPrice')} (${t('common:optional')})`}
-                  placeholder="0.00"
-                  value={stokFiyat}
-                  onChangeText={setStokFiyat}
-                  keyboardType="decimal-pad"
-                />
-
-                <Input
-                  label={`${t('products:form.description')} (${t('common:optional')})`}
-                  placeholder={t('products:form.description')}
-                  value={stokAciklama}
-                  onChangeText={setStokAciklama}
-                  multiline
-                  numberOfLines={2}
-                />
-              </View>
-
-              <View style={styles.stokModalButtons}>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  onPress={() => setStokModalVisible(false)}
-                  style={styles.stokModalButton}
-                >
-                  {t('common:buttons.cancel')}
-                </Button>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  loading={createStokHareket.isPending}
-                  onPress={handleStokKaydet}
-                  style={styles.stokModalButton}
-                >
-                  {t('common:buttons.save')}
-                </Button>
-              </View>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+        {/* QuickStockBar */}
+        <QuickStockBar
+          visible={quickStockVisible}
+          onDismiss={() => {
+            setQuickStockVisible(false);
+            setEditMode(false);
+            setEditHareketId(undefined);
+            setEditInitialValues(undefined);
+          }}
+          urun={urun}
+          defaultType={quickStockType}
+          mode={editMode ? 'edit' : 'create'}
+          editHareketId={editHareketId}
+          editInitialValues={editInitialValues}
+        />
       </SafeAreaView>
     </>
   );
@@ -439,22 +522,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   stokCard: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.lg,
-    gap: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  stokLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
   },
   stokIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
-  stokMiktar: {
-    fontSize: 36,
-    fontWeight: '700',
+  stokInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  stokName: {
+    fontWeight: '600',
+  },
+  stokRight: {
+    alignItems: 'flex-end',
   },
   actionButtons: {
     flexDirection: 'row',
@@ -478,10 +572,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  hareketItem: {
+  hareketHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: spacing.lg,
     gap: spacing.md,
   },
   hareketIcon: {
@@ -493,11 +586,29 @@ const styles = StyleSheet.create({
   },
   hareketInfo: {
     flex: 1,
-    gap: 2,
   },
-  hareketRight: {
-    alignItems: 'flex-end',
-    gap: 2,
+  hareketTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  hareketActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  cariBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.background,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  cariName: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    maxWidth: 100,
   },
   divider: {
     height: 1,
@@ -529,36 +640,5 @@ const styles = StyleSheet.create({
   menuDivider: {
     height: 1,
     backgroundColor: colors.border,
-  },
-  stokModalContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  stokModalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    padding: spacing.lg,
-    paddingBottom: spacing['3xl'],
-  },
-  stokModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  stokModalBody: {
-    gap: spacing.lg,
-  },
-  stokModalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xl,
-  },
-  stokModalButton: {
-    flex: 1,
   },
 });

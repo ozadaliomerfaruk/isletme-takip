@@ -7,29 +7,35 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Stack } from 'expo-router';
-import { Text, Input, Button, Card, CategoryPicker } from '@/components/ui';
+import { Text, Input, Button, Card, CategoryPicker, UnitPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCreateUrun } from '@/hooks/useUrunler';
-import { BirimType, Currency } from '@/types/database';
+import { useCreateStokHareket } from '@/hooks/useStokHareketler';
+import { BirimType, Currency, KdvOrani } from '@/types/database';
 
-const BIRIMLER: BirimType[] = ['adet', 'kg', 'lt', 'm', 'm2', 'paket', 'kutu'];
+const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
 export default function UrunEklePage() {
   const router = useRouter();
   const { t } = useTranslation(['products', 'common', 'errors', 'transactions']);
   const createUrun = useCreateUrun();
+  const createStokHareket = useCreateStokHareket();
 
   const [ad, setAd] = useState('');
   const [kod, setKod] = useState('');
   const [birim, setBirim] = useState<BirimType>('adet');
+  const [kdvOrani, setKdvOrani] = useState<KdvOrani>(0);
   const [alisFiyati, setAlisFiyati] = useState('');
   const [satisFiyati, setSatisFiyati] = useState('');
+  const [baslangicStok, setBaslangicStok] = useState('');
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [aciklama, setAciklama] = useState('');
   const [errors, setErrors] = useState<{ ad?: string }>({});
@@ -48,17 +54,33 @@ export default function UrunEklePage() {
   const handleSubmit = async () => {
     if (!validate()) return;
 
+    const initialStockNum = baslangicStok ? parseFloat(baslangicStok.replace(',', '.')) : 0;
+    const purchasePrice = alisFiyati ? parseFloat(alisFiyati.replace(',', '.')) : 0;
+
     try {
-      await createUrun.mutateAsync({
+      // Create the product
+      const urun = await createUrun.mutateAsync({
         ad: ad.trim(),
         kod: kod.trim() || null,
         birim,
-        alis_fiyati: alisFiyati ? parseFloat(alisFiyati.replace(',', '.')) : 0,
+        kdv_orani: kdvOrani,
+        alis_fiyati: purchasePrice,
         satis_fiyati: satisFiyati ? parseFloat(satisFiyati.replace(',', '.')) : 0,
         kategori_id: kategoriId,
         aciklama: aciklama.trim() || null,
         currency: 'TRY' as Currency,
       });
+
+      // Create initial stock movement if initial stock > 0
+      if (initialStockNum > 0) {
+        await createStokHareket.mutateAsync({
+          urun_id: urun.id,
+          hareket_tipi: 'giris',
+          miktar: initialStockNum,
+          birim_fiyat: purchasePrice > 0 ? purchasePrice : null,
+          aciklama: t('products:form.initialStock'),
+        });
+      }
 
       Alert.alert(t('common:status.success'), t('products:messages.createSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
@@ -78,15 +100,18 @@ export default function UrunEklePage() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
         >
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+            >
             {/* Urun Adi */}
             <View style={styles.section}>
               <Input
@@ -110,25 +135,34 @@ export default function UrunEklePage() {
 
             {/* Birim Secimi */}
             <View style={styles.section}>
+              <UnitPicker
+                value={birim}
+                onChange={setBirim}
+                label={t('products:form.unit')}
+              />
+            </View>
+
+            {/* KDV Orani */}
+            <View style={styles.section}>
               <Text variant="label" style={styles.sectionTitle}>
-                {t('products:form.unit')}
+                {t('products:form.vatRate')}
               </Text>
               <View style={styles.birimGrid}>
-                {BIRIMLER.map((b) => (
+                {KDV_ORANLARI.map((k) => (
                   <TouchableOpacity
-                    key={b}
+                    key={k}
                     style={[
                       styles.birimChip,
-                      birim === b && styles.birimChipSelected,
+                      kdvOrani === k && styles.birimChipSelected,
                     ]}
-                    onPress={() => setBirim(b)}
+                    onPress={() => setKdvOrani(k)}
                     activeOpacity={0.7}
                   >
                     <Text
                       variant="caption"
-                      style={birim === b ? styles.birimTextSelected : undefined}
+                      style={kdvOrani === k ? styles.birimTextSelected : undefined}
                     >
-                      {t(`products:units.${b}`)}
+                      %{k}
                     </Text>
                   </TouchableOpacity>
                 ))}
@@ -169,6 +203,17 @@ export default function UrunEklePage() {
               </View>
             </View>
 
+            {/* Baslangic Stoku */}
+            <View style={styles.section}>
+              <Input
+                label={t('products:form.initialStock')}
+                placeholder="0"
+                value={baslangicStok}
+                onChangeText={setBaslangicStok}
+                keyboardType="decimal-pad"
+              />
+            </View>
+
             {/* Aciklama */}
             <View style={styles.section}>
               <Input
@@ -194,14 +239,15 @@ export default function UrunEklePage() {
               <Button
                 variant="primary"
                 size="lg"
-                loading={createUrun.isPending}
+                loading={createUrun.isPending || createStokHareket.isPending}
                 onPress={handleSubmit}
                 style={styles.button}
               >
                 {t('common:buttons.add')}
               </Button>
             </View>
-          </ScrollView>
+            </ScrollView>
+          </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
       </SafeAreaView>
     </>

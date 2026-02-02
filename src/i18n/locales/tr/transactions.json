@@ -199,5 +199,23 @@
     "success": "Günlük ciro kaydedildi",
     "noEntries": "En az bir hesap için tutar girin",
     "saving": "Kaydediliyor..."
+  },
+  "stock": {
+    "addStock": "Stok Ekle",
+    "selectProduct": "Ürün Seç",
+    "searchProduct": "Ürün ara...",
+    "addedProducts": "Eklenen Ürünler",
+    "quantity": "Miktar",
+    "unitPrice": "Birim Fiyat",
+    "vatRate": "KDV Oranı",
+    "lineTotal": "Satır Toplamı",
+    "subtotal": "Ara Toplam",
+    "vatTotal": "KDV Toplamı",
+    "grandTotal": "Genel Toplam",
+    "noProducts": "Henüz ürün eklenmedi",
+    "searchToAdd": "Yukarıdan ürün arayın ve ekleyin",
+    "added": "Eklendi",
+    "productCount": "{{count}} ürün",
+    "stockButton": "Stok"
   }
 }
