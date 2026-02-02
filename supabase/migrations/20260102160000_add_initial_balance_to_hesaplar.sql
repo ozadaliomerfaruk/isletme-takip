@@ -1,0 +1,1 @@
+ALTER TABLE hesaplar ADD COLUMN initial_balance NUMERIC DEFAULT NULL;

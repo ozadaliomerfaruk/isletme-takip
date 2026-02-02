@@ -53,7 +53,9 @@
       "Bash(npx expo lint)",
       "Bash(xargs:*)",
       "Bash(npx supabase storage:*)",
-      "Bash(npx expo export:*)"
+      "Bash(npx expo export:*)",
+      "Bash(where:*)",
+      "Bash(powershell -Command \"Get-NetFirewallRule | Where-Object { $_.DisplayName -like ''*node*'' -or $_.DisplayName -like ''*Node*'' } | Select-Object DisplayName, Enabled, Action, Direction\")"
     ]
   }
 }
