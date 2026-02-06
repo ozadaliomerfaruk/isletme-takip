@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput, ListRenderItemInfo } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -39,6 +39,161 @@ import { useIslemlerWithStok } from '@/hooks/useStokHareketler';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
 import { IslemWithRelations } from '@/types/database';
+
+// ============================================================================
+// MEMOIZED TRANSACTION ITEM COMPONENT
+// ============================================================================
+
+interface CariTransactionItemProps {
+  islem: IslemWithRelations;
+  isExpanded: boolean;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
+  hasStokFn: (id: string) => boolean;
+  formatDateSmart: (date: string) => string;
+  t: (key: string) => string;
+}
+
+function getCariHareketIcon(type: string) {
+  switch (type) {
+    case 'cari_alis':
+      return <ShoppingCart size={20} color={colors.error} />;
+    case 'cari_odeme':
+      return <Banknote size={20} color={colors.success} />;
+    case 'cari_satis':
+      return <Receipt size={20} color={colors.success} />;
+    case 'cari_tahsilat':
+      return <Banknote size={20} color={colors.info} />;
+    case 'cari_alis_iade':
+      return <RotateCcw size={20} color={colors.warning} />;
+    case 'cari_satis_iade':
+      return <RotateCcw size={20} color={colors.warning} />;
+    default:
+      return <Receipt size={20} color={colors.textMuted} />;
+  }
+}
+
+function getCariHareketLabelKey(type: string): string {
+  switch (type) {
+    case 'cari_alis': return 'clients:transactionLabels.alis';
+    case 'cari_odeme': return 'clients:transactionLabels.odeme';
+    case 'cari_satis': return 'clients:transactionLabels.satis';
+    case 'cari_tahsilat': return 'clients:transactionLabels.tahsilat';
+    case 'cari_alis_iade': return 'clients:transactionLabels.alisIade';
+    case 'cari_satis_iade': return 'clients:transactionLabels.satisIade';
+    default: return '';
+  }
+}
+
+function getCariIconBgColor(type: string): string {
+  if (type === 'cari_alis' || type === 'cari_satis') return colors.errorLight;
+  if (type === 'cari_alis_iade' || type === 'cari_satis_iade') return colors.warningLight;
+  return colors.successLight;
+}
+
+function getCariAmountColor(type: string): 'error' | 'warning' | 'success' {
+  if (type === 'cari_alis' || type === 'cari_satis') return 'error';
+  if (type === 'cari_alis_iade' || type === 'cari_satis_iade') return 'warning';
+  return 'success';
+}
+
+function getCariAmountPrefix(type: string): string {
+  if (type === 'cari_alis' || type === 'cari_satis') return '-';
+  if (type === 'cari_alis_iade' || type === 'cari_satis_iade') return '↩ ';
+  if (type === 'cari_odeme' || type === 'cari_tahsilat') return '+';
+  return '';
+}
+
+const CariTransactionItem = memo(function CariTransactionItem({
+  islem,
+  isExpanded,
+  onToggle,
+  onDelete,
+  onEdit,
+  hasStokFn,
+  formatDateSmart,
+  t,
+}: CariTransactionItemProps) {
+  const labelKey = getCariHareketLabelKey(islem.type);
+
+  return (
+    <ExpandableCard
+      expanded={isExpanded}
+      onToggle={() => onToggle(islem.id)}
+      disableAnimation
+      header={
+        <View style={styles.hareketHeader}>
+          <View style={[
+            styles.hareketIcon,
+            { backgroundColor: getCariIconBgColor(islem.type) }
+          ]}>
+            {getCariHareketIcon(islem.type)}
+          </View>
+          <View style={styles.hareketInfo}>
+            <View style={styles.hareketTitleRow}>
+              <Text variant="body">{formatDateSmart(islem.date)}</Text>
+              {hasStokFn(islem.id) && (
+                <View style={styles.stokBadge}>
+                  <Package size={12} color={colors.primary} />
+                </View>
+              )}
+            </View>
+            <Text variant="caption" color="secondary">
+              {labelKey ? t(labelKey) : islem.type}
+            </Text>
+            {islem.kategori?.name && (
+              <Text variant="caption" color="secondary">
+                {islem.kategori.name}
+              </Text>
+            )}
+            {islem.description && (
+              <Text variant="caption" color="secondary" numberOfLines={1}>
+                {islem.description}
+              </Text>
+            )}
+          </View>
+          <Text
+            variant="h3"
+            color={getCariAmountColor(islem.type)}
+          >
+            {getCariAmountPrefix(islem.type)}
+            {formatCurrency(Number(islem.amount))}
+          </Text>
+        </View>
+      }
+    >
+      <View style={styles.hareketActions}>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Pencil size={16} color={colors.text} />}
+          onPress={() => onEdit(islem.id)}
+          style={styles.actionButton}
+        >
+          {t('common:buttons.edit')}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<Trash2 size={16} color={colors.error} />}
+          onPress={() => onDelete(islem.id)}
+          style={styles.actionButton}
+        >
+          {t('common:buttons.delete')}
+        </Button>
+      </View>
+    </ExpandableCard>
+  );
+}, (prev, next) => {
+  return prev.islem.id === next.islem.id
+    && prev.isExpanded === next.isExpanded
+    && prev.islem.updated_at === next.islem.updated_at;
+});
+
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
 
 export default function CariHareketleriPage() {
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
@@ -80,38 +235,36 @@ export default function CariHareketleriPage() {
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
 
-  // Başlangıç bakiyesini hesapla
-  const calculateInitialBalance = () => {
+  // Başlangıç bakiyesini hesapla - MEMOIZED
+  const initialBalance = useMemo(() => {
     if (!cari || !islemler) return 0;
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      const amount = toNumber(islem.amount); // Güvenli NaN koruması
+      const amount = toNumber(islem.amount);
       if (islem.type === 'cari_alis') {
-        totalEffect -= amount; // Borç artar
+        totalEffect -= amount;
       } else if (islem.type === 'cari_odeme') {
-        totalEffect += amount; // Borç azalır
+        totalEffect += amount;
       } else if (islem.type === 'cari_satis') {
-        totalEffect += amount; // Alacak artar
+        totalEffect += amount;
       } else if (islem.type === 'cari_tahsilat') {
-        totalEffect -= amount; // Alacak azalır
+        totalEffect -= amount;
       } else if (islem.type === 'cari_alis_iade') {
-        totalEffect += amount; // Alış iadesi borcu azaltır
+        totalEffect += amount;
       } else if (islem.type === 'cari_satis_iade') {
-        totalEffect -= amount; // Satış iadesi alacağı azaltır
+        totalEffect -= amount;
       }
     });
 
     return toNumber(cari.balance) - totalEffect;
-  };
-
-  const initialBalance = calculateInitialBalance();
+  }, [cari, islemler]);
 
   // Başlangıç bakiyesi düzenleme
-  const handleOpenEditBalance = () => {
+  const handleOpenEditBalance = useCallback(() => {
     setNewInitialBalance(initialBalance.toString());
     setEditBalanceModalVisible(true);
-  };
+  }, [initialBalance]);
 
   const handleSaveInitialBalance = () => {
     const newInitial = parseFloat(newInitialBalance) || 0;
@@ -125,8 +278,6 @@ export default function CariHareketleriPage() {
           text: t('common:buttons.confirm'),
           onPress: async () => {
             try {
-              // Yeni cari balance = newInitialBalance + işlem etkileri
-              // işlem etkileri = mevcut balance - mevcut initialBalance
               const transactionEffect = Number(cari!.balance) - initialBalance;
               const newCariBalance = newInitial + transactionEffect;
 
@@ -146,46 +297,12 @@ export default function CariHareketleriPage() {
     );
   };
 
-  const getHareketIcon = (type: string) => {
-    switch (type) {
-      case 'cari_alis':
-        return <ShoppingCart size={20} color={colors.error} />;
-      case 'cari_odeme':
-        return <Banknote size={20} color={colors.success} />;
-      case 'cari_satis':
-        return <Receipt size={20} color={colors.success} />;
-      case 'cari_tahsilat':
-        return <Banknote size={20} color={colors.info} />;
-      case 'cari_alis_iade':
-        return <RotateCcw size={20} color={colors.warning} />;
-      case 'cari_satis_iade':
-        return <RotateCcw size={20} color={colors.warning} />;
-      default:
-        return <Receipt size={20} color={colors.textMuted} />;
-    }
-  };
+  // === MEMOIZED HANDLERS for FlatList items ===
+  const handleToggleIslem = useCallback((islemId: string) => {
+    setExpandedIslemId(prev => prev === islemId ? null : islemId);
+  }, []);
 
-  const getHareketLabel = (type: string) => {
-    switch (type) {
-      case 'cari_alis':
-        return t('clients:transactionLabels.alis');
-      case 'cari_odeme':
-        return t('clients:transactionLabels.odeme');
-      case 'cari_satis':
-        return t('clients:transactionLabels.satis');
-      case 'cari_tahsilat':
-        return t('clients:transactionLabels.tahsilat');
-      case 'cari_alis_iade':
-        return t('clients:transactionLabels.alisIade');
-      case 'cari_satis_iade':
-        return t('clients:transactionLabels.satisIade');
-      default:
-        return type;
-    }
-  };
-
-
-  const handleDelete = (islemId: string) => {
+  const handleDeleteIslem = useCallback((islemId: string) => {
     Alert.alert(
       t('clients:deleteConfirm.transactionTitle'),
       t('clients:deleteConfirm.transactionMessage'),
@@ -204,7 +321,13 @@ export default function CariHareketleriPage() {
         },
       ]
     );
-  };
+  }, [deleteIslem, t]);
+
+  const handleEditIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+    setExpandedIslemId(null);
+  }, []);
 
   const handleDeleteCari = () => {
     setShowMenu(false);
@@ -258,6 +381,166 @@ export default function CariHareketleriPage() {
     </View>
   );
 
+  // === FlatList renderItem ===
+  const renderTransactionItem = useCallback(({ item: islem }: ListRenderItemInfo<IslemWithRelations>) => {
+    return (
+      <CariTransactionItem
+        islem={islem}
+        isExpanded={expandedIslemId === islem.id}
+        onToggle={handleToggleIslem}
+        onDelete={handleDeleteIslem}
+        onEdit={handleEditIslem}
+        hasStokFn={hasStok}
+        formatDateSmart={formatDateSmart}
+        t={t}
+      />
+    );
+  }, [expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, hasStok, formatDateSmart, t]);
+
+  const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
+
+  // === FlatList ListHeaderComponent ===
+  const ListHeader = useMemo(() => {
+    if (!cari) return null;
+    const isTedarikci = cari.type === 'tedarikci';
+
+    return (
+      <View>
+        {/* Cari Özeti */}
+        <Card style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View style={[styles.summaryIcon, { backgroundColor: isTedarikci ? colors.warningLight : colors.infoLight }]}>
+              {isTedarikci ? (
+                <Building2 size={32} color={colors.warning} />
+              ) : (
+                <User size={32} color={colors.info} />
+              )}
+            </View>
+            <View style={styles.summaryInfo}>
+              <Text variant="body" color="secondary">
+                {isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}
+              </Text>
+              {cari.phone && (
+                <View style={styles.phoneRow}>
+                  <Phone size={14} color={colors.textMuted} />
+                  <Text variant="caption" color="secondary">
+                    {cari.phone}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.balanceInfo}>
+              <Text variant="caption" color="secondary">
+                {Number(cari.balance) < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe')}
+              </Text>
+              <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
+                {formatCurrency(Math.abs(Number(cari.balance)), cari.currency)}
+              </Text>
+              {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
+                <Text variant="caption" color="secondary">
+                  ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                </Text>
+              )}
+            </View>
+          </View>
+        </Card>
+
+        {/* Arşiv Banner */}
+        {cari.is_archived && (
+          <View style={styles.bannerContainer}>
+            <ArchivedBanner
+              onUnarchive={handleUnarchive}
+              loading={unarchiveCari.isPending}
+            />
+          </View>
+        )}
+
+        {/* Aksiyon Butonlari */}
+        {!cari.is_archived && (
+          <View style={styles.actionButtons}>
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Zap size={18} color={colors.surface} />}
+              onPress={() => setQuickBarVisible(true)}
+              style={styles.actionBtn}
+            >
+              {t('clients:details.newTransaction')}
+            </Button>
+            {cari.type === 'tedarikci' && (
+              <Button
+                variant="outline"
+                size="md"
+                icon={<FileCheck size={18} color={colors.info} />}
+                onPress={() => setShowCekKesSheet(true)}
+                style={[styles.actionBtn, { borderColor: colors.info }]}
+              >
+                {t('checks:create')}
+              </Button>
+            )}
+          </View>
+        )}
+
+        {/* İleri Tarihli İşlemler ve Hareketler */}
+        <View style={styles.section}>
+          <IleriTarihliIslemlerSection
+            ileriTarihliIslemler={ileriTarihliIslemler}
+            isLoading={ileriTarihliLoading}
+          />
+
+          {cari?.type === 'tedarikci' && (
+            <BekleyenCeklerSection
+              cekler={bekleyenCekler}
+              isLoading={ceklerLoading}
+            />
+          )}
+
+          <Text variant="h3" style={styles.sectionTitle}>
+            {t('clients:details.transactions')}
+          </Text>
+
+          {islemlerLoading && (
+            <Text color="secondary">{t('common:status.loading')}</Text>
+          )}
+        </View>
+      </View>
+    );
+  }, [cari, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending]);
+
+  // === FlatList ListFooterComponent ===
+  const ListFooter = useMemo(() => {
+    if (!cari || islemlerLoading) return null;
+    return (
+      <View style={styles.section}>
+        <Card style={styles.hareketCard}>
+          <View style={styles.hareketHeader}>
+            <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+              <CircleDollarSign size={20} color={colors.primary} />
+            </View>
+            <View style={styles.hareketInfo}>
+              <Text variant="body">{t('clients:details.initialBalance')}</Text>
+              <Text variant="caption" color="secondary">
+                {t('clients:details.cariOpening')} • {formatDateShort(cari.created_at)}
+              </Text>
+            </View>
+            <View style={styles.initialBalanceRow}>
+              <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
+                {formatCurrency(initialBalance)}
+              </Text>
+              <TouchableOpacity
+                onPress={handleOpenEditBalance}
+                style={styles.editBalanceBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Pencil size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Card>
+      </View>
+    );
+  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance]);
+
   if (cariLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -280,8 +563,6 @@ export default function CariHareketleriPage() {
     );
   }
 
-  const isTedarikci = cari.type === 'tedarikci';
-
   return (
     <>
       <Stack.Screen
@@ -291,224 +572,20 @@ export default function CariHareketleriPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Cari Özeti */}
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={[styles.summaryIcon, { backgroundColor: isTedarikci ? colors.warningLight : colors.infoLight }]}>
-                {isTedarikci ? (
-                  <Building2 size={32} color={colors.warning} />
-                ) : (
-                  <User size={32} color={colors.info} />
-                )}
-              </View>
-              <View style={styles.summaryInfo}>
-                <Text variant="body" color="secondary">
-                  {isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-                </Text>
-                {cari.phone && (
-                  <View style={styles.phoneRow}>
-                    <Phone size={14} color={colors.textMuted} />
-                    <Text variant="caption" color="secondary">
-                      {cari.phone}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.balanceInfo}>
-                <Text variant="caption" color="secondary">
-                  {Number(cari.balance) < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe')}
-                </Text>
-                <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
-                  {formatCurrency(Math.abs(Number(cari.balance)), cari.currency)}
-                </Text>
-                {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
-                  <Text variant="caption" color="secondary">
-                    ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </Card>
-
-          {/* Arşiv Banner */}
-          {cari.is_archived && (
-            <View style={styles.bannerContainer}>
-              <ArchivedBanner
-                onUnarchive={handleUnarchive}
-                loading={unarchiveCari.isPending}
-              />
-            </View>
-          )}
-
-          {/* Aksiyon Butonlari */}
-          {!cari.is_archived && (
-            <View style={styles.actionButtons}>
-              <Button
-                variant="primary"
-                size="md"
-                icon={<Zap size={18} color={colors.surface} />}
-                onPress={() => setQuickBarVisible(true)}
-                style={styles.actionBtn}
-              >
-                {t('clients:details.newTransaction')}
-              </Button>
-              {/* Çek Kes - Sadece tedarikçiler için */}
-              {cari.type === 'tedarikci' && (
-                <Button
-                  variant="outline"
-                  size="md"
-                  icon={<FileCheck size={18} color={colors.info} />}
-                  onPress={() => setShowCekKesSheet(true)}
-                  style={[styles.actionBtn, { borderColor: colors.info }]}
-                >
-                  {t('checks:create')}
-                </Button>
-              )}
-            </View>
-          )}
-
-          {/* İleri Tarihli İşlemler ve Hareketler */}
-          <View style={styles.section}>
-            <IleriTarihliIslemlerSection
-              ileriTarihliIslemler={ileriTarihliIslemler}
-              isLoading={ileriTarihliLoading}
-            />
-
-            {/* Bekleyen Çekler - Sadece tedarikçiler için */}
-            {cari?.type === 'tedarikci' && (
-              <BekleyenCeklerSection
-                cekler={bekleyenCekler}
-                isLoading={ceklerLoading}
-              />
-            )}
-
-            <Text variant="h3" style={styles.sectionTitle}>
-              {t('clients:details.transactions')}
-            </Text>
-
-            {islemlerLoading ? (
-              <Text color="secondary">{t('common:status.loading')}</Text>
-            ) : (
-              <>
-                {islemler && islemler.length > 0 && islemler.map((islem) => (
-                  <ExpandableCard
-                    key={islem.id}
-                    expanded={expandedIslemId === islem.id}
-                    onToggle={() => setExpandedIslemId(expandedIslemId === islem.id ? null : islem.id)}
-                    header={
-                      <View style={styles.hareketHeader}>
-                        <View style={[
-                          styles.hareketIcon,
-                          {
-                            backgroundColor:
-                              islem.type === 'cari_alis' || islem.type === 'cari_satis'
-                                ? colors.errorLight
-                                : islem.type === 'cari_alis_iade' || islem.type === 'cari_satis_iade'
-                                ? colors.warningLight
-                                : colors.successLight
-                          }
-                        ]}>
-                          {getHareketIcon(islem.type)}
-                        </View>
-                        <View style={styles.hareketInfo}>
-                          <View style={styles.hareketTitleRow}>
-                            <Text variant="body">{formatDateSmart(islem.date)}</Text>
-                            {hasStok(islem.id) && (
-                              <View style={styles.stokBadge}>
-                                <Package size={12} color={colors.primary} />
-                              </View>
-                            )}
-                          </View>
-                          <Text variant="caption" color="secondary">
-                            {getHareketLabel(islem.type)}
-                          </Text>
-                          {islem.kategori?.name && (
-                            <Text variant="caption" color="secondary">
-                              {islem.kategori.name}
-                            </Text>
-                          )}
-                          {islem.description && (
-                            <Text variant="caption" color="secondary" numberOfLines={1}>
-                              {islem.description}
-                            </Text>
-                          )}
-                        </View>
-                        <Text
-                          variant="h3"
-                          color={
-                            islem.type === 'cari_alis' || islem.type === 'cari_satis'
-                              ? 'error'
-                              : islem.type === 'cari_alis_iade' || islem.type === 'cari_satis_iade'
-                              ? 'warning'
-                              : 'success'
-                          }
-                        >
-                          {islem.type === 'cari_alis' || islem.type === 'cari_satis' ? '-' : ''}
-                          {islem.type === 'cari_alis_iade' || islem.type === 'cari_satis_iade' ? '↩ ' : ''}
-                          {islem.type === 'cari_odeme' || islem.type === 'cari_tahsilat' ? '+' : ''}
-                          {formatCurrency(Number(islem.amount))}
-                        </Text>
-                      </View>
-                    }
-                  >
-                    <View style={styles.hareketActions}>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Pencil size={16} color={colors.text} />}
-                        onPress={() => {
-                          setEditTransactionId(islem.id);
-                          setShowEditBar(true);
-                          setExpandedIslemId(null);
-                        }}
-                        style={styles.actionButton}
-                      >
-                        {t('common:buttons.edit')}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Trash2 size={16} color={colors.error} />}
-                        onPress={() => handleDelete(islem.id)}
-                        style={styles.actionButton}
-                      >
-                        {t('common:buttons.delete')}
-                      </Button>
-                    </View>
-                  </ExpandableCard>
-                ))}
-
-                {/* Başlangıç Bakiyesi - düzenleme mümkün */}
-                <Card style={styles.hareketCard}>
-                  <View style={styles.hareketHeader}>
-                    <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-                      <CircleDollarSign size={20} color={colors.primary} />
-                    </View>
-                    <View style={styles.hareketInfo}>
-                      <Text variant="body">{t('clients:details.initialBalance')}</Text>
-                      <Text variant="caption" color="secondary">
-                        {t('clients:details.cariOpening')} • {formatDateShort(cari.created_at)}
-                      </Text>
-                    </View>
-                    <View style={styles.initialBalanceRow}>
-                      <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                        {formatCurrency(initialBalance)}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={handleOpenEditBalance}
-                        style={styles.editBalanceBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Pencil size={16} color={colors.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </Card>
-              </>
-            )}
-          </View>
-        </ScrollView>
+        <FlatList
+          data={islemler ?? []}
+          keyExtractor={keyExtractor}
+          renderItem={renderTransactionItem}
+          ListHeaderComponent={ListHeader}
+          ListFooterComponent={ListFooter}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={true}
+          extraData={expandedIslemId}
+          contentContainerStyle={styles.flatListContent}
+        />
 
         {/* 3 Nokta Menüsü */}
         <Modal visible={showMenu} transparent animationType="fade">
@@ -518,7 +595,6 @@ export default function CariHareketleriPage() {
             onPress={() => setShowMenu(false)}
           >
             <View style={styles.menuContainer}>
-              {/* Düzenle */}
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -530,7 +606,6 @@ export default function CariHareketleriPage() {
                 <Text variant="body">{t('common:buttons.edit')}</Text>
               </TouchableOpacity>
 
-              {/* Sil */}
               <TouchableOpacity
                 style={[styles.menuItem, styles.menuItemDanger]}
                 onPress={handleDeleteCari}
@@ -655,8 +730,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scrollView: {
-    flex: 1,
+  flatListContent: {
+    flexGrow: 1,
   },
   summaryCard: {
     margin: spacing.lg,
@@ -700,7 +775,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing.sm,
   },
   sectionTitle: {
     marginBottom: spacing.lg,

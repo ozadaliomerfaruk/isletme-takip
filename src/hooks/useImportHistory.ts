@@ -295,6 +295,7 @@ export function useImportHistory() {
   /**
    * Bir işlemin bakiyesini geri al
    * Helper function for undoLastImport
+   * OPTIMIZED: Tüm RPC çağrıları paralel çalıştırılır
    */
   const revertTransactionBalance = async (tx: {
     id: string;
@@ -306,54 +307,45 @@ export function useImportHistory() {
     personel_id: string | null;
   }) => {
     const amount = Number(tx.amount) || 0;
+    const promises: Promise<void>[] = [];
+
+    // Helper: RPC çağrısını Promise'e çevir
+    const incrementBalance = async (tableName: string, rowId: string, amt: number): Promise<void> => {
+      const { error } = await supabase.rpc('increment_balance', {
+        table_name: tableName,
+        row_id: rowId,
+        amount: amt,
+      });
+      if (error) throw error;
+    };
 
     // Hesap bakiyesini geri al
     if (tx.hesap_id) {
       const isIncomeType = ['gelir', 'cari_tahsilat', 'personel_tahsilat'].includes(tx.type);
-      const reverseAmount = isIncomeType ? -amount : amount;
-
-      if (tx.type === 'transfer') {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: tx.hesap_id,
-          amount: amount,
-        });
-      } else {
-        await supabase.rpc('increment_balance', {
-          table_name: 'hesaplar',
-          row_id: tx.hesap_id,
-          amount: reverseAmount,
-        });
-      }
+      const reverseAmount = tx.type === 'transfer' ? amount : (isIncomeType ? -amount : amount);
+      promises.push(incrementBalance('hesaplar', tx.hesap_id, reverseAmount));
     }
 
     // Transfer hedef hesabını geri al
     if (tx.type === 'transfer' && tx.hedef_hesap_id) {
-      await supabase.rpc('increment_balance', {
-        table_name: 'hesaplar',
-        row_id: tx.hedef_hesap_id,
-        amount: -amount,
-      });
+      promises.push(incrementBalance('hesaplar', tx.hedef_hesap_id, -amount));
     }
 
     // Cari bakiyesini geri al
     if (tx.cari_id) {
       const reverseAmount = ['cari_tahsilat', 'cari_alis'].includes(tx.type) ? amount : -amount;
-      await supabase.rpc('increment_balance', {
-        table_name: 'cariler',
-        row_id: tx.cari_id,
-        amount: reverseAmount,
-      });
+      promises.push(incrementBalance('cariler', tx.cari_id, reverseAmount));
     }
 
     // Personel bakiyesini geri al
     if (tx.personel_id) {
       const reverseAmount = tx.type === 'personel_odeme' ? amount : -amount;
-      await supabase.rpc('increment_balance', {
-        table_name: 'personel',
-        row_id: tx.personel_id,
-        amount: reverseAmount,
-      });
+      promises.push(incrementBalance('personel', tx.personel_id, reverseAmount));
+    }
+
+    // Tüm RPC'leri paralel çalıştır
+    if (promises.length > 0) {
+      await Promise.all(promises);
     }
   };
 
@@ -493,9 +485,19 @@ export function useImportHistory() {
             continue;
           }
 
-          if (transactions) {
-            for (const tx of transactions) {
-              await revertTransactionBalance(tx);
+          // OPTIMIZED: Batch parallel balance reversion (100'lük gruplar)
+          if (transactions && transactions.length > 0) {
+            const REVERT_BATCH_SIZE = 100;
+            for (let j = 0; j < transactions.length; j += REVERT_BATCH_SIZE) {
+              const revertBatch = transactions.slice(j, j + REVERT_BATCH_SIZE);
+              const revertPromises = revertBatch.map(tx =>
+                revertTransactionBalance(tx).catch(err => {
+                  if (__DEV__) {
+                    console.error('Balance revert error:', err);
+                  }
+                })
+              );
+              await Promise.all(revertPromises);
             }
           }
         }

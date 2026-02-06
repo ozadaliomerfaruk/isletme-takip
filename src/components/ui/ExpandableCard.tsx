@@ -23,6 +23,8 @@ interface ExpandableCardProps {
   // Controlled mode props
   expanded?: boolean;
   onToggle?: () => void;
+  // Performance: FlatList içinde LayoutAnimation kapatmak için
+  disableAnimation?: boolean;
 }
 
 export function ExpandableCard({
@@ -31,6 +33,7 @@ export function ExpandableCard({
   defaultExpanded = false,
   expanded: controlledExpanded,
   onToggle,
+  disableAnimation = false,
 }: ExpandableCardProps) {
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
 
@@ -39,7 +42,9 @@ export function ExpandableCard({
   const expanded = isControlled ? controlledExpanded : internalExpanded;
 
   const toggleExpand = () => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (!disableAnimation) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
     if (isControlled && onToggle) {
       onToggle();
     } else {

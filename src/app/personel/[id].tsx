@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { useState, useCallback, useMemo, memo } from 'react';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -35,6 +35,163 @@ import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
 
+// ============================================================================
+// PURE HELPER FUNCTIONS (module-level, no re-creation per render)
+// ============================================================================
+
+function getHareketIcon(type: string) {
+  switch (type) {
+    case 'personel_gider':
+      return <MinusCircle size={20} color={colors.error} />;
+    case 'personel_odeme':
+      return <Banknote size={20} color={colors.success} />;
+    case 'personel_tahsilat':
+      return <ArrowDownCircle size={20} color={colors.info} />;
+    default:
+      return <UserCircle size={20} color={colors.textMuted} />;
+  }
+}
+
+function getIconBgColor(type: string) {
+  switch (type) {
+    case 'personel_odeme':
+      return colors.successLight;
+    case 'personel_tahsilat':
+      return colors.infoLight;
+    default:
+      return colors.errorLight;
+  }
+}
+
+function getAmountColor(type: string): 'success' | 'info' | 'error' {
+  switch (type) {
+    case 'personel_odeme':
+      return 'success';
+    case 'personel_tahsilat':
+      return 'info';
+    default:
+      return 'error';
+  }
+}
+
+function getAmountPrefix(type: string): string {
+  switch (type) {
+    case 'personel_odeme':
+      return '+';
+    case 'personel_tahsilat':
+      return '↓ ';
+    default:
+      return '-';
+  }
+}
+
+function getHareketLabelKey(type: string): string {
+  switch (type) {
+    case 'personel_gider':
+      return 'staff:transactionLabels.gider';
+    case 'personel_odeme':
+      return 'staff:transactionLabels.odeme';
+    case 'personel_tahsilat':
+      return 'staff:transactionLabels.tahsilat';
+    default:
+      return type;
+  }
+}
+
+// ============================================================================
+// MEMOIZED TRANSACTION ITEM
+// ============================================================================
+
+interface PersonelTransactionItemProps {
+  islem: IslemWithRelations;
+  isExpanded: boolean;
+  onToggle: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  formatDateSmart: (date: string) => string;
+  t: (key: string) => string;
+}
+
+const PersonelTransactionItem = memo(function PersonelTransactionItem({
+  islem,
+  isExpanded,
+  onToggle,
+  onEdit,
+  onDelete,
+  formatDateSmart,
+  t,
+}: PersonelTransactionItemProps) {
+  const handleToggle = useCallback(() => onToggle(islem.id), [onToggle, islem.id]);
+  const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
+  const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
+
+  const labelKey = getHareketLabelKey(islem.type);
+
+  return (
+    <ExpandableCard
+      expanded={isExpanded}
+      onToggle={handleToggle}
+      disableAnimation
+      header={
+        <View style={styles.hareketHeader}>
+          <View style={[styles.hareketIcon, { backgroundColor: getIconBgColor(islem.type) }]}>
+            {getHareketIcon(islem.type)}
+          </View>
+          <View style={styles.hareketInfo}>
+            <Text variant="body">{formatDateSmart(islem.date)}</Text>
+            <Text variant="caption" color="secondary">
+              {t(labelKey)}
+            </Text>
+            {islem.kategori?.name && (
+              <Text variant="caption" color="secondary">
+                {islem.kategori.name}
+              </Text>
+            )}
+            {islem.description && (
+              <Text variant="caption" color="secondary" numberOfLines={1}>
+                {islem.description}
+              </Text>
+            )}
+          </View>
+          <Text variant="h3" color={getAmountColor(islem.type)}>
+            {getAmountPrefix(islem.type)}
+            {formatCurrency(Number(islem.amount))}
+          </Text>
+        </View>
+      }
+    >
+      <View style={styles.hareketActions}>
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Pencil size={16} color={colors.text} />}
+          onPress={handleEdit}
+          style={styles.actionButton}
+        >
+          {t('common:buttons.edit')}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<Trash2 size={16} color={colors.error} />}
+          onPress={handleDelete}
+          style={styles.actionButton}
+        >
+          {t('common:buttons.delete')}
+        </Button>
+      </View>
+    </ExpandableCard>
+  );
+}, (prev, next) => {
+  return prev.islem.id === next.islem.id
+    && prev.isExpanded === next.isExpanded
+    && prev.islem.updated_at === next.islem.updated_at;
+});
+
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
+
 export default function PersonelHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -64,34 +221,32 @@ export default function PersonelHareketleriPage() {
 
   const fullName = personel ? `${personel.first_name} ${personel.last_name}` : t('common:status.loading');
 
-  // Başlangıç bakiyesini hesapla
-  const calculateInitialBalance = () => {
+  // Memoized başlangıç bakiyesi hesaplaması
+  const initialBalance = useMemo(() => {
     if (!personel || !islemler) return 0;
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      const amount = toNumber(islem.amount); // Güvenli NaN koruması
+      const amount = toNumber(islem.amount);
       if (islem.type === 'personel_gider') {
-        totalEffect -= amount; // Borç artar
+        totalEffect -= amount;
       } else if (islem.type === 'personel_odeme') {
-        totalEffect += amount; // Borç azalır
+        totalEffect += amount;
       } else if (islem.type === 'personel_tahsilat') {
-        totalEffect -= amount; // Tahsilat: Alacak azalır
+        totalEffect -= amount;
       }
     });
 
     return toNumber(personel.balance) - totalEffect;
-  };
-
-  const initialBalance = calculateInitialBalance();
+  }, [personel, islemler]);
 
   // Başlangıç bakiyesi düzenleme
-  const handleOpenEditBalance = () => {
+  const handleOpenEditBalance = useCallback(() => {
     setNewInitialBalance(initialBalance.toString());
     setEditBalanceModalVisible(true);
-  };
+  }, [initialBalance]);
 
-  const handleSaveInitialBalance = () => {
+  const handleSaveInitialBalance = useCallback(() => {
     const newInitial = parseFloat(newInitialBalance) || 0;
 
     Alert.alert(
@@ -103,7 +258,6 @@ export default function PersonelHareketleriPage() {
           text: t('common:buttons.confirm'),
           onPress: async () => {
             try {
-              // Yeni personel balance = newInitialBalance + işlem etkileri
               const transactionEffect = Number(personel!.balance) - initialBalance;
               const newPersonelBalance = newInitial + transactionEffect;
 
@@ -121,35 +275,14 @@ export default function PersonelHareketleriPage() {
         },
       ]
     );
-  };
+  }, [newInitialBalance, personel, initialBalance, updatePersonel, refetchPersonel, t]);
 
-  const getHareketIcon = (type: string) => {
-    switch (type) {
-      case 'personel_gider':
-        return <MinusCircle size={20} color={colors.error} />;
-      case 'personel_odeme':
-        return <Banknote size={20} color={colors.success} />;
-      case 'personel_tahsilat':
-        return <ArrowDownCircle size={20} color={colors.info} />;
-      default:
-        return <UserCircle size={20} color={colors.textMuted} />;
-    }
-  };
+  // Stable callback handlers for memoized item
+  const handleToggle = useCallback((islemId: string) => {
+    setExpandedIslemId(prev => prev === islemId ? null : islemId);
+  }, []);
 
-  const getHareketLabel = (type: string) => {
-    switch (type) {
-      case 'personel_gider':
-        return t('staff:transactionLabels.gider');
-      case 'personel_odeme':
-        return t('staff:transactionLabels.odeme');
-      case 'personel_tahsilat':
-        return t('staff:transactionLabels.tahsilat');
-      default:
-        return type;
-    }
-  };
-
-  const handleDelete = (islemId: string) => {
+  const handleDeleteIslem = useCallback((islemId: string) => {
     Alert.alert(
       t('staff:deleteConfirm.transactionTitle'),
       t('staff:deleteConfirm.transactionMessage'),
@@ -168,9 +301,15 @@ export default function PersonelHareketleriPage() {
         },
       ]
     );
-  };
+  }, [deleteIslem, t]);
 
-  const handleDeletePersonel = () => {
+  const handleEditIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+    setExpandedIslemId(null);
+  }, []);
+
+  const handleDeletePersonel = useCallback(() => {
     setShowMenu(false);
     Alert.alert(
       t('staff:deleteConfirm.staffTitle'),
@@ -191,19 +330,19 @@ export default function PersonelHareketleriPage() {
         },
       ]
     );
-  };
+  }, [deletePersonel, id, router, t]);
 
-  const handleUnarchive = async () => {
+  const handleUnarchive = useCallback(async () => {
     try {
       await unarchivePersonel.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
-  };
+  }, [unarchivePersonel, id, t]);
 
-  // Header right buttons (share + menu)
-  const HeaderRightButtons = () => (
+  // Header right buttons
+  const HeaderRightButtons = useCallback(() => (
     <View style={styles.headerRightContainer}>
       <TouchableOpacity
         onPress={() => setShowExportSheet(true)}
@@ -220,7 +359,199 @@ export default function PersonelHareketleriPage() {
         <MoreVertical size={24} color={colors.text} />
       </TouchableOpacity>
     </View>
-  );
+  ), []);
+
+  // ============================================================================
+  // FlatList renderItem + key extractor
+  // ============================================================================
+
+  const renderTransactionItem = useCallback(({ item }: { item: IslemWithRelations }) => (
+    <PersonelTransactionItem
+      islem={item}
+      isExpanded={expandedIslemId === item.id}
+      onToggle={handleToggle}
+      onEdit={handleEditIslem}
+      onDelete={handleDeleteIslem}
+      formatDateSmart={formatDateSmart}
+      t={t}
+    />
+  ), [expandedIslemId, handleToggle, handleEditIslem, handleDeleteIslem, formatDateSmart, t]);
+
+  const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
+
+  // ============================================================================
+  // FlatList Header (personel summary + action buttons + ileri tarihli + section title)
+  // ============================================================================
+
+  const ListHeader = useMemo(() => {
+    if (!personel) return null;
+    return (
+      <View>
+        {/* Personel Özeti */}
+        <Card style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View style={styles.avatar}>
+              <Text variant="h2" style={{ color: colors.primary }}>
+                {getInitials(fullName)}
+              </Text>
+            </View>
+            <View style={styles.summaryInfo}>
+              {personel.position && (
+                <View style={styles.infoRow}>
+                  <Briefcase size={14} color={colors.textMuted} />
+                  <Text variant="body" color="secondary">
+                    {personel.position}
+                  </Text>
+                </View>
+              )}
+              {personel.phone && (
+                <View style={styles.infoRow}>
+                  <Phone size={14} color={colors.textMuted} />
+                  <Text variant="caption" color="secondary">
+                    {personel.phone}
+                  </Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.balanceInfo}>
+              <Text variant="caption" color="secondary">
+                {Number(personel.balance) < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
+              </Text>
+              <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
+                {formatCurrency(Math.abs(Number(personel.balance)), personel.currency)}
+              </Text>
+              {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
+                <Text variant="caption" color="secondary">
+                  ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                </Text>
+              )}
+            </View>
+          </View>
+        </Card>
+
+        {/* Arşiv Banner */}
+        {personel.is_archived && (
+          <View style={styles.bannerContainer}>
+            <ArchivedBanner
+              onUnarchive={handleUnarchive}
+              loading={unarchivePersonel.isPending}
+            />
+          </View>
+        )}
+
+        {/* Aksiyon Butonları */}
+        {!personel.is_archived && (
+          <View style={styles.actionButtons}>
+            <Button
+              variant="primary"
+              size="md"
+              icon={<Zap size={18} color={colors.surface} />}
+              onPress={() => setQuickBarVisible(true)}
+              style={styles.actionBtn}
+            >
+              {t('staff:details.newTransaction')}
+            </Button>
+          </View>
+        )}
+
+        {/* İleri Tarihli İşlemler */}
+        <View style={styles.section}>
+          <IleriTarihliIslemlerSection
+            ileriTarihliIslemler={ileriTarihliIslemler}
+            isLoading={ileriTarihliLoading}
+          />
+
+          <Text variant="h3" style={styles.sectionTitle}>
+            {t('staff:details.transactions')}
+          </Text>
+
+          {islemlerLoading && (
+            <Text color="secondary">{t('common:status.loading')}</Text>
+          )}
+        </View>
+      </View>
+    );
+  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, t]);
+
+  // ============================================================================
+  // FlatList Footer (başlangıç bakiyesi kartı)
+  // ============================================================================
+
+  const ListFooter = useMemo(() => {
+    if (!personel) return null;
+    return (
+      <View style={styles.section}>
+        <Card style={styles.hareketCard}>
+          <View style={styles.hareketHeader}>
+            <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+              <CircleDollarSign size={20} color={colors.primary} />
+            </View>
+            <View style={styles.hareketInfo}>
+              <Text variant="body">{t('staff:details.initialBalance')}</Text>
+              <Text variant="caption" color="secondary">
+                {t('staff:details.personelRecord')} • {formatDateShort(personel.created_at)}
+              </Text>
+            </View>
+            <View style={styles.initialBalanceRow}>
+              <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
+                {formatCurrency(initialBalance)}
+              </Text>
+              <TouchableOpacity
+                onPress={handleOpenEditBalance}
+                style={styles.editBalanceBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Pencil size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Card>
+      </View>
+    );
+  }, [personel, initialBalance, handleOpenEditBalance, t]);
+
+  // ============================================================================
+  // FlatList Empty component
+  // ============================================================================
+
+  const ListEmpty = useMemo(() => {
+    if (islemlerLoading) return null;
+    return (
+      <View style={styles.section}>
+        <Card style={styles.hareketCard}>
+          <View style={styles.hareketHeader}>
+            <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+              <CircleDollarSign size={20} color={colors.primary} />
+            </View>
+            <View style={styles.hareketInfo}>
+              <Text variant="body">{t('staff:details.initialBalance')}</Text>
+              {personel && (
+                <Text variant="caption" color="secondary">
+                  {t('staff:details.personelRecord')} • {formatDateShort(personel.created_at)}
+                </Text>
+              )}
+            </View>
+            <View style={styles.initialBalanceRow}>
+              <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
+                {formatCurrency(initialBalance)}
+              </Text>
+              <TouchableOpacity
+                onPress={handleOpenEditBalance}
+                style={styles.editBalanceBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Pencil size={16} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Card>
+      </View>
+    );
+  }, [islemlerLoading, personel, initialBalance, handleOpenEditBalance, t]);
+
+  // ============================================================================
+  // LOADING / NOT FOUND STATES
+  // ============================================================================
 
   if (personelLoading) {
     return (
@@ -253,185 +584,21 @@ export default function PersonelHareketleriPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Personel Özeti */}
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={styles.avatar}>
-                <Text variant="h2" style={{ color: colors.primary }}>
-                  {getInitials(fullName)}
-                </Text>
-              </View>
-              <View style={styles.summaryInfo}>
-                {personel.position && (
-                  <View style={styles.infoRow}>
-                    <Briefcase size={14} color={colors.textMuted} />
-                    <Text variant="body" color="secondary">
-                      {personel.position}
-                    </Text>
-                  </View>
-                )}
-                {personel.phone && (
-                  <View style={styles.infoRow}>
-                    <Phone size={14} color={colors.textMuted} />
-                    <Text variant="caption" color="secondary">
-                      {personel.phone}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.balanceInfo}>
-                <Text variant="caption" color="secondary">
-                  {Number(personel.balance) < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
-                </Text>
-                <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
-                  {formatCurrency(Math.abs(Number(personel.balance)), personel.currency)}
-                </Text>
-                {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
-                  <Text variant="caption" color="secondary">
-                    ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </Card>
-
-          {/* Arşiv Banner */}
-          {personel.is_archived && (
-            <View style={styles.bannerContainer}>
-              <ArchivedBanner
-                onUnarchive={handleUnarchive}
-                loading={unarchivePersonel.isPending}
-              />
-            </View>
-          )}
-
-          {/* Aksiyon Butonları */}
-          {!personel.is_archived && (
-            <View style={styles.actionButtons}>
-              <Button
-                variant="primary"
-                size="md"
-                icon={<Zap size={18} color={colors.surface} />}
-                onPress={() => setQuickBarVisible(true)}
-                style={styles.actionBtn}
-              >
-                {t('staff:details.newTransaction')}
-              </Button>
-            </View>
-          )}
-
-          {/* İleri Tarihli İşlemler ve Hareketler */}
-          <View style={styles.section}>
-            <IleriTarihliIslemlerSection
-              ileriTarihliIslemler={ileriTarihliIslemler}
-              isLoading={ileriTarihliLoading}
-            />
-
-            <Text variant="h3" style={styles.sectionTitle}>
-              {t('staff:details.transactions')}
-            </Text>
-
-            {islemlerLoading ? (
-              <Text color="secondary">{t('common:status.loading')}</Text>
-            ) : (
-              <>
-                {islemler && islemler.length > 0 && islemler.map((islem) => (
-                  <ExpandableCard
-                    key={islem.id}
-                    expanded={expandedIslemId === islem.id}
-                    onToggle={() => setExpandedIslemId(expandedIslemId === islem.id ? null : islem.id)}
-                    header={
-                      <View style={styles.hareketHeader}>
-                        <View style={[
-                          styles.hareketIcon,
-                          { backgroundColor: islem.type === 'personel_odeme' ? colors.successLight : islem.type === 'personel_tahsilat' ? colors.infoLight : colors.errorLight }
-                        ]}>
-                          {getHareketIcon(islem.type)}
-                        </View>
-                        <View style={styles.hareketInfo}>
-                          <Text variant="body">{formatDateSmart(islem.date)}</Text>
-                          <Text variant="caption" color="secondary">
-                            {getHareketLabel(islem.type)}
-                          </Text>
-                          {(islem as IslemWithRelations).kategori?.name && (
-                            <Text variant="caption" color="secondary">
-                              {(islem as IslemWithRelations).kategori?.name}
-                            </Text>
-                          )}
-                          {islem.description && (
-                            <Text variant="caption" color="secondary" numberOfLines={1}>
-                              {islem.description}
-                            </Text>
-                          )}
-                        </View>
-                        <Text
-                          variant="h3"
-                          color={islem.type === 'personel_odeme' ? 'success' : islem.type === 'personel_tahsilat' ? 'info' : 'error'}
-                        >
-                          {islem.type === 'personel_odeme' ? '+' : islem.type === 'personel_tahsilat' ? '↓ ' : '-'}
-                          {formatCurrency(Number(islem.amount))}
-                        </Text>
-                      </View>
-                    }
-                  >
-                    <View style={styles.hareketActions}>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<Pencil size={16} color={colors.text} />}
-                        onPress={() => {
-                          setEditTransactionId(islem.id);
-                          setShowEditBar(true);
-                          setExpandedIslemId(null);
-                        }}
-                        style={styles.actionButton}
-                      >
-                        {t('common:buttons.edit')}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={<Trash2 size={16} color={colors.error} />}
-                        onPress={() => handleDelete(islem.id)}
-                        style={styles.actionButton}
-                      >
-                        {t('common:buttons.delete')}
-                      </Button>
-                    </View>
-                  </ExpandableCard>
-                ))}
-
-                {/* Başlangıç Bakiyesi - düzenleme mümkün */}
-                <Card style={styles.hareketCard}>
-                  <View style={styles.hareketHeader}>
-                    <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-                      <CircleDollarSign size={20} color={colors.primary} />
-                    </View>
-                    <View style={styles.hareketInfo}>
-                      <Text variant="body">{t('staff:details.initialBalance')}</Text>
-                      <Text variant="caption" color="secondary">
-                        {t('staff:details.personelRecord')} • {formatDateShort(personel.created_at)}
-                      </Text>
-                    </View>
-                    <View style={styles.initialBalanceRow}>
-                      <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                        {formatCurrency(initialBalance)}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={handleOpenEditBalance}
-                        style={styles.editBalanceBtn}
-                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      >
-                        <Pencil size={16} color={colors.primary} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </Card>
-              </>
-            )}
-          </View>
-        </ScrollView>
+        <FlatList
+          data={islemler ?? []}
+          keyExtractor={keyExtractor}
+          renderItem={renderTransactionItem}
+          ListHeaderComponent={ListHeader}
+          ListFooterComponent={(islemler && islemler.length > 0) ? ListFooter : undefined}
+          ListEmptyComponent={ListEmpty}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={true}
+          extraData={expandedIslemId}
+          contentContainerStyle={styles.flatListContent}
+        />
 
         {/* 3 Nokta Menüsü */}
         <Modal visible={showMenu} transparent animationType="fade">
@@ -568,8 +735,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scrollView: {
-    flex: 1,
+  flatListContent: {
+    flexGrow: 1,
   },
   summaryCard: {
     margin: spacing.lg,

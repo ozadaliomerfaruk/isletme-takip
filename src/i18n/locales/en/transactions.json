@@ -15,7 +15,8 @@
     "personel_tahsilat": "Staff Payment Received",
     "personel_satis": "Staff Sale",
     "kredi_karti_harcama": "Credit Card Expense",
-    "nakit_avans_taksit": "Cash Advance Installment"
+    "nakit_avans_taksit": "Cash Advance Installment",
+    "baslangic_bakiyesi": "Opening Balance"
   },
   "groups": {
     "basic": "Basic Transactions",

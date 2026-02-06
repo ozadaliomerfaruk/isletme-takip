@@ -4,14 +4,14 @@
  */
 
 import * as XLSX from 'xlsx';
-import { formatDateTimeForDB, formatDateForDB } from './date';
+import { formatDateForDB } from './date';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export interface ParsedTransaction {
-  date: string; // ISO format with timezone
+  date: string; // YYYY-MM-DD format (DATE column compatible)
   type: string; // DefterApp type (GELİR, GİDER, etc.)
   mappedType: string; // Our app type (gelir, gider, etc.)
   description: string | null;
@@ -24,14 +24,27 @@ export interface ParsedTransaction {
   karsiHesapRaw: string | null; // KARŞI HESAP orijinal değer (örn: "Nakit [-58750 TRY]")
   karsiHesapAmount: number | null; // KARŞI HESAP'taki tutar değeri (transfer için)
   karsiHesapCurrency: string | null; // KARŞI HESAP'taki para birimi
-  amount: number;
+  amount: number; // Mutlak değer (her zaman pozitif)
+  signedAmount: number; // Orijinal işaretli değer (başlangıç bakiyesi için)
   currency: string | null; // BIRIM/CURRENCY kolonundan - ana hesabın para birimi
   isExpense: boolean;
   dateValid: boolean; // Tarih geçerli mi?
   dateError?: string; // Tarih hatası varsa açıklama
   amountValid: boolean; // Tutar geçerli mi?
   amountError?: string; // Tutar hatası varsa açıklama
+  entityValid: boolean; // Hesap/cari/personel bilgisi var mı?
+  entityError?: string; // Entity hatası varsa açıklama
   rowNumber: number; // Excel satır numarası
+}
+
+/**
+ * Parse aşamasında sessizce atlanan satır bilgisi
+ * Bu satırlar hiçbir listeye eklenmeden atlanır, kullanıcı göremez
+ */
+export interface SilentlySkippedRow {
+  rowNumber: number;
+  reason: 'empty' | 'no_date_or_type' | 'no_entity';
+  rawData?: string[]; // Satırın ham verisi (debug için)
 }
 
 export interface ImportPreview {
@@ -50,6 +63,12 @@ export interface ImportPreview {
   validRows: number; // Geçerli tarihli satır sayısı
   invalidDateCount: number; // Geçersiz tarihli satır sayısı
   invalidAmountCount: number; // Geçersiz tutarlı satır sayısı
+  // Atlanan satır sayaçları (debug/tracking)
+  skippedEmptyRows: number; // Tamamen boş satırlar
+  skippedNoDateOrType: number; // Tarih veya tip eksik satırlar
+  skippedNoEntity: number; // Hesap/cari/personel olmayan satırlar
+  // Sessizce atlanan satırların detayları (kullanıcıya gösterilecek)
+  silentlySkipped: SilentlySkippedRow[];
   errors: string[];
 }
 
@@ -100,6 +119,58 @@ export function parseKarsiHesap(value: string): ParsedKarsiHesap {
 export interface ImportConfig {
   accountMappings: Record<string, AccountMapping>;
   skipErrors: boolean;
+}
+
+// ============================================================================
+// VALIDATION TYPES (UX İyileştirmeleri)
+// ============================================================================
+
+/**
+ * Hata kategorileri - Kullanıcıya anlaşılır gruplamalar sunmak için
+ */
+export type ErrorCategory =
+  | 'date_invalid'      // Tarih formatı hatası
+  | 'amount_invalid'    // Tutar hatası (0, negatif, çok küçük)
+  | 'entity_not_found'  // Hesap/Cari/Personel bulunamadı
+  | 'type_unknown'      // Bilinmeyen işlem tipi
+  | 'duplicate'         // Duplicate işlem
+  | 'starting_balance'  // Başlangıç bakiyesi (atlanacak ama hata değil)
+  | 'other';            // Diğer hatalar
+
+/**
+ * Kategorize edilmiş hata bilgisi
+ */
+export interface CategorizedError {
+  category: ErrorCategory;
+  count: number;
+  example?: string;      // İlk örnek
+  examples?: string[];   // Tüm örnekler (max 3)
+  rows?: number[];       // Etkilenen satır numaraları
+}
+
+/**
+ * Validasyon sonucu - Import öncesi veri kalitesi özeti
+ */
+export interface ValidationResult {
+  score: number;           // 0-100 arası kalite skoru
+  validCount: number;      // Geçerli işlem sayısı
+  warningCount: number;    // Uyarı sayısı (düzeltilebilir)
+  errorCount: number;      // Hata sayısı (atlanacak)
+  issues: ValidationIssue[];
+  categorizedErrors: CategorizedError[];
+}
+
+/**
+ * Validasyon sorunu
+ */
+export interface ValidationIssue {
+  type: 'error' | 'warning' | 'info';
+  category: ErrorCategory;
+  messageKey: string;      // i18n key
+  message: string;         // Fallback mesaj
+  count: number;
+  rows?: number[];
+  suggestion?: string;     // Çözüm önerisi
 }
 
 // ============================================================================
@@ -184,6 +255,17 @@ export const TRANSACTION_TYPE_MAP: Record<string, string> = {
   // Cari iade işlemleri (EN)
   'PURCHASE RETURN': 'cari_alis_iade',
   'SALE RETURN': 'cari_satis_iade',
+
+  // Başlangıç bakiyesi (TR)
+  // normalizeTurkishChars() ile lookup yapıldığı için sadece temel varyasyonlar gerekli
+  'BAŞLANGIÇ BAKİYESİ': 'baslangic_bakiyesi', // Tam Türkçe
+  'BASLANGIC BAKIYESI': 'baslangic_bakiyesi', // ASCII (normalizeTurkishChars sonucu)
+  'BAŞLANGIÇ': 'baslangic_bakiyesi',          // Kısa versiyon
+
+  // Başlangıç bakiyesi (EN)
+  'OPENING BALANCE': 'baslangic_bakiyesi',
+  'INITIAL BALANCE': 'baslangic_bakiyesi',
+  'STARTING BALANCE': 'baslangic_bakiyesi',
 };
 
 /**
@@ -250,10 +332,10 @@ function normalizeTurkishChars(str: string): string {
 
 /**
  * Excel serial date'i JavaScript Date'e çevir
+ * Timezone sorunlarını önlemek için LOCAL saat diliminde oluşturur
  */
 export function excelDateToJS(excelDate: number): Date {
   // Excel'in epoch'u 1900-01-01 (25569 gün fark var Unix epoch'a)
-  const millisecondsPerDay = 86400 * 1000;
   const excelEpochDiff = 25569;
 
   // Tam gün kısmı
@@ -261,11 +343,22 @@ export function excelDateToJS(excelDate: number): Date {
   // Gün içi saat kısmı (kesirli kısım)
   const timeFraction = excelDate - days;
 
-  // Unix timestamp hesapla
-  const unixTimestamp = (days - excelEpochDiff) * millisecondsPerDay;
-  const timeOfDay = timeFraction * millisecondsPerDay;
+  // Gün sayısını tarihe çevir (1970-01-01'den itibaren)
+  const daysSince1970 = days - excelEpochDiff;
 
-  return new Date(unixTimestamp + timeOfDay);
+  // Yıl, ay, gün hesapla (UTC'de)
+  const tempDate = new Date(Date.UTC(1970, 0, 1 + daysSince1970));
+  const year = tempDate.getUTCFullYear();
+  const month = tempDate.getUTCMonth();
+  const day = tempDate.getUTCDate();
+
+  // Saat hesapla (kesirli kısımdan)
+  const totalMinutes = Math.round(timeFraction * 24 * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  // LOCAL saat diliminde Date oluştur (timezone kaymasını önler)
+  return new Date(year, month, day, hours, minutes, 0, 0);
 }
 
 /**
@@ -537,6 +630,10 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       validRows: 0,
       invalidDateCount: 0,
       invalidAmountCount: 0,
+      skippedEmptyRows: 0,
+      skippedNoDateOrType: 0,
+      skippedNoEntity: 0,
+      silentlySkipped: [],
       errors,
     };
   }
@@ -547,12 +644,23 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
   let minDate: Date | null = null;
   let maxDate: Date | null = null;
 
+  // Atlanan satır sayaçları
+  let skippedEmptyRows = 0;
+  let skippedNoDateOrType = 0;
+  let skippedNoEntity = 0;
+  // Sessizce atlanan satırların detayları (kullanıcıya gösterilecek)
+  const silentlySkipped: SilentlySkippedRow[] = [];
+
   for (let i = headerRowIndex + 1; i < rawData.length; i++) {
     const row = rawData[i];
     const rowNumber = i + 1; // Excel satır numarası (1-based, header dahil)
 
     // Boş satırları atla
-    if (!row || row.length < 3) continue;
+    if (!row || row.length < 3) {
+      skippedEmptyRows++;
+      silentlySkipped.push({ rowNumber, reason: 'empty', rawData: row ? row.map(c => String(c || '')) : [] });
+      continue;
+    }
 
     try {
       const rawDate = row[cols.tarih];
@@ -594,7 +702,9 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       const currency = cols.birim >= 0 ? row[cols.birim]?.toString().trim().toUpperCase() || null : null;
 
       // Tutar dönüşümü ve validasyonu
+      // NOT: Veritabanı DECIMAL(15,2) kullanıyor, bu yüzden 2 ondalık basamağa yuvarlamalıyız
       let amount = 0;
+      let signedAmount = 0; // Orijinal işaretli değer (başlangıç bakiyesi için)
       let amountValid = true;
       let amountError: string | undefined;
       const rawAmount = row[cols.miktar];
@@ -607,23 +717,46 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         if (isNaN(parsedAmount)) {
           amountValid = false;
           amountError = `Geçersiz tutar değeri: "${rawAmount}"`;
-        } else if (parsedAmount < 0) {
-          // Negatif tutarlar mutlak değer olarak alınır
-          amount = Math.abs(parsedAmount);
         } else {
-          amount = parsedAmount;
+          // Mutlak değer al ve 2 ondalık basamağa yuvarla (DECIMAL(15,2) ile uyumlu)
+          const roundedAmount = Math.round(Math.abs(parsedAmount) * 100) / 100;
+          // Orijinal işaretli değeri de sakla (başlangıç bakiyesi için)
+          signedAmount = Math.round(parsedAmount * 100) / 100;
+
+          if (roundedAmount <= 0) {
+            // Sıfır veya çok küçük tutarlar geçersiz (veritabanı constraint: amount > 0)
+            amountValid = false;
+            amountError = 'Tutar sıfır veya çok küçük olamaz';
+          } else {
+            amount = roundedAmount;
+          }
         }
       }
 
       // Gerekli alanları kontrol et
-      // NOT: TEDARİKÇİ veya MÜŞTERİ varsa HESAP zorunlu DEĞİL (cari_alis/cari_satis için)
+      // NOT: TEDARİKÇİ, MÜŞTERİ veya PERSONEL varsa HESAP zorunlu DEĞİL
       const hasCariEntity = tedarikci || musteri;
+      const hasPersonelEntity = !!personel;
+
+      // Entity validation - hesap/cari/personel kontrolü
+      let entityValid = true;
+      let entityError: string | undefined;
+
+      // Tarih veya tip eksikse hata flag'i set et (artık skip etmiyoruz)
+      let hasDateOrTypeError = false;
       if (!rawDate || !type) {
-        continue;
+        hasDateOrTypeError = true;
+        skippedNoDateOrType++;
+        // silentlySkipped yerine hata flag'i ile devam et
       }
-      // HESAP kontrolü: Sadece cari entity yoksa zorunlu
-      if (!account && !hasCariEntity) {
-        continue;
+
+      // HESAP kontrolü: Sadece hiçbir entity yoksa zorunlu
+      // Cari işlemler (tedarikci/musteri) ve personel işlemleri hesapsız olabilir
+      if (!account && !hasCariEntity && !hasPersonelEntity) {
+        entityValid = false;
+        entityError = 'Hesap, cari veya personel bilgisi eksik';
+        skippedNoEntity++;
+        // silentlySkipped yerine hata flag'i ile devam et
       }
 
       // Tarih dönüşümü (Excel serial veya string olabilir)
@@ -631,7 +764,11 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       let dateValid = true;
       let dateError: string | undefined;
 
-      if (typeof rawDate === 'number') {
+      // Tarih eksikse (hasDateOrTypeError durumunda rawDate boş olabilir)
+      if (!rawDate) {
+        dateValid = false;
+        dateError = 'Tarih bilgisi eksik';
+      } else if (typeof rawDate === 'number') {
         jsDate = excelDateToJS(rawDate);
         if (isNaN(jsDate.getTime())) {
           dateValid = false;
@@ -652,8 +789,20 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       }
 
       // İşlem tipi mapping - context-aware
-      let mappedType = TRANSACTION_TYPE_MAP[type] || 'gider';
+      // Turkish character normalization for better matching (İ→I, Ş→S, Ğ→G, etc.)
+      const normalizedType = normalizeTurkishChars(type || '').toUpperCase();
+      let mappedType = TRANSACTION_TYPE_MAP[normalizedType] || TRANSACTION_TYPE_MAP[type || ''] || 'gider';
       const originalMappedType = mappedType;
+
+      // İşlem tipi eksikse dateError'a ekle
+      if (!type) {
+        if (dateError) {
+          dateError += ', İşlem tipi eksik';
+        } else {
+          dateValid = false;
+          dateError = 'İşlem tipi eksik';
+        }
+      }
 
       // Context-aware type correction:
       // 1. KARŞI HESAP doluysa → transfer (hesaplar arası)
@@ -720,18 +869,19 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       transactionTypes[type] = (transactionTypes[type] || 0) + 1;
 
       // Tarih geçersizse de işlemi ekle (önizlemede gösterilecek, import'ta atlanacak)
-      const isoDate = jsDate ? formatDateTimeForDB(jsDate) : '';
+      // DATE kolonu için sadece YYYY-MM-DD formatı kullan (timezone kayması önlenir)
+      const isoDate = jsDate ? formatDateForDB(jsDate) : '';
 
       // İşlem tipine göre tutarın yönünü belirle (negatif/pozitif yazmaya gerek yok)
       const isExpense = getIsExpenseByType(mappedType);
 
       transactions.push({
         date: isoDate,
-        type,
+        type: type || '',
         mappedType,
         description,
         category,
-        account,
+        account: account || '',
         personel,
         tedarikci,
         musteri,
@@ -740,12 +890,15 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         karsiHesapAmount,
         karsiHesapCurrency,
         amount: Math.abs(amount),
+        signedAmount, // Orijinal işaretli değer (başlangıç bakiyesi için)
         currency,
         isExpense,
         dateValid,
         dateError,
         amountValid,
         amountError,
+        entityValid,
+        entityError,
         rowNumber,
       });
     } catch (err) {
@@ -753,8 +906,8 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
     }
   }
 
-  // Geçerli/geçersiz tarih ve tutar sayıları
-  const validRows = transactions.filter(t => t.dateValid && t.amountValid).length;
+  // Geçerli/geçersiz tarih, tutar ve entity sayıları
+  const validRows = transactions.filter(t => t.dateValid && t.amountValid && t.entityValid).length;
   const invalidDateCount = transactions.filter(t => !t.dateValid).length;
   const invalidAmountCount = transactions.filter(t => !t.amountValid).length;
 
@@ -879,6 +1032,10 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
     validRows,
     invalidDateCount,
     invalidAmountCount,
+    skippedEmptyRows,
+    skippedNoDateOrType,
+    skippedNoEntity,
+    silentlySkipped,
     errors,
   };
 }
@@ -1164,6 +1321,212 @@ export function groupSkippedByReason(
   });
 
   return grouped;
+}
+
+// ============================================================================
+// VALIDATION (UX İyileştirmeleri)
+// ============================================================================
+
+/**
+ * Hata nedenini kategorize et
+ */
+export function categorizeError(reason: string): ErrorCategory {
+  const reasonLower = reason.toLowerCase();
+
+  // Tarih hataları
+  if (reasonLower.includes('tarih') || reasonLower.includes('date') || reasonLower.includes('geçersiz tarih')) {
+    return 'date_invalid';
+  }
+
+  // Tutar hataları
+  if (reasonLower.includes('tutar') || reasonLower.includes('amount') || reasonLower.includes('sıfır') || reasonLower.includes('küçük')) {
+    return 'amount_invalid';
+  }
+
+  // Entity bulunamadı
+  if (reasonLower.includes('bulunamadı') || reasonLower.includes('not found')) {
+    return 'entity_not_found';
+  }
+
+  // Bilinmeyen tip
+  if (reasonLower.includes('bilinmeyen') || reasonLower.includes('unknown') || reasonLower.includes('tanınmayan')) {
+    return 'type_unknown';
+  }
+
+  // Duplicate
+  if (reasonLower.includes('duplicate') || reasonLower.includes('tekrar') || reasonLower.includes('mevcut')) {
+    return 'duplicate';
+  }
+
+  // Başlangıç bakiyesi
+  if (reasonLower.includes('başlangıç') || reasonLower.includes('opening') || reasonLower.includes('bakiye')) {
+    return 'starting_balance';
+  }
+
+  return 'other';
+}
+
+/**
+ * Import preview verilerini valide et ve sonuç döndür
+ * Bu fonksiyon import öncesi çağrılarak kullanıcıya veri kalitesi gösterilir
+ */
+export function validateImportData(preview: ImportPreview): ValidationResult {
+  const issues: ValidationIssue[] = [];
+  const errorsByCategory: Record<ErrorCategory, { count: number; examples: string[]; rows: number[] }> = {
+    date_invalid: { count: 0, examples: [], rows: [] },
+    amount_invalid: { count: 0, examples: [], rows: [] },
+    entity_not_found: { count: 0, examples: [], rows: [] },
+    type_unknown: { count: 0, examples: [], rows: [] },
+    duplicate: { count: 0, examples: [], rows: [] },
+    starting_balance: { count: 0, examples: [], rows: [] },
+    other: { count: 0, examples: [], rows: [] },
+  };
+
+  let validCount = 0;
+  let warningCount = 0;
+  let errorCount = 0;
+
+  // Her işlemi kontrol et
+  preview.transactions.forEach((tx) => {
+    const rowNum = tx.rowNumber;
+
+    // Tarih kontrolü
+    if (!tx.dateValid) {
+      errorCount++;
+      const cat = errorsByCategory.date_invalid;
+      cat.count++;
+      cat.rows.push(rowNum);
+      if (cat.examples.length < 3 && tx.dateError) {
+        cat.examples.push(tx.dateError);
+      }
+      return;
+    }
+
+    // Tutar kontrolü
+    if (!tx.amountValid) {
+      errorCount++;
+      const cat = errorsByCategory.amount_invalid;
+      cat.count++;
+      cat.rows.push(rowNum);
+      if (cat.examples.length < 3 && tx.amountError) {
+        cat.examples.push(tx.amountError);
+      }
+      return;
+    }
+
+    // Başlangıç bakiyesi - otomatik olarak entity'lere uygulanacak
+    // Geçerli olarak say, uyarı veya hata olarak gösterme
+    if (tx.mappedType === 'baslangic_bakiyesi') {
+      validCount++; // Başarıyla işlenecek
+      const cat = errorsByCategory.starting_balance;
+      cat.count++;
+      cat.rows.push(rowNum);
+      return;
+    }
+
+    // Bilinmeyen işlem tipi
+    if (!tx.mappedType || tx.mappedType === 'unknown') {
+      errorCount++;
+      const cat = errorsByCategory.type_unknown;
+      cat.count++;
+      cat.rows.push(rowNum);
+      if (cat.examples.length < 3) {
+        cat.examples.push(`"${tx.type}" (satır ${rowNum})`);
+      }
+      return;
+    }
+
+    validCount++;
+  });
+
+  // Kategorize edilmiş hataları oluştur
+  const categorizedErrors: CategorizedError[] = [];
+
+  if (errorsByCategory.date_invalid.count > 0) {
+    categorizedErrors.push({
+      category: 'date_invalid',
+      count: errorsByCategory.date_invalid.count,
+      example: errorsByCategory.date_invalid.examples[0],
+      examples: errorsByCategory.date_invalid.examples,
+      rows: errorsByCategory.date_invalid.rows,
+    });
+
+    issues.push({
+      type: 'error',
+      category: 'date_invalid',
+      messageKey: 'dataImport.validation.dateInvalid',
+      message: `${errorsByCategory.date_invalid.count} işlemde geçersiz tarih`,
+      count: errorsByCategory.date_invalid.count,
+      rows: errorsByCategory.date_invalid.rows.slice(0, 10),
+      suggestion: 'GG/AA/YYYY veya YYYY-MM-DD formatı kullanın',
+    });
+  }
+
+  if (errorsByCategory.amount_invalid.count > 0) {
+    categorizedErrors.push({
+      category: 'amount_invalid',
+      count: errorsByCategory.amount_invalid.count,
+      example: errorsByCategory.amount_invalid.examples[0],
+      examples: errorsByCategory.amount_invalid.examples,
+      rows: errorsByCategory.amount_invalid.rows,
+    });
+
+    issues.push({
+      type: 'error',
+      category: 'amount_invalid',
+      messageKey: 'dataImport.validation.amountInvalid',
+      message: `${errorsByCategory.amount_invalid.count} işlemde geçersiz tutar`,
+      count: errorsByCategory.amount_invalid.count,
+      rows: errorsByCategory.amount_invalid.rows.slice(0, 10),
+      suggestion: 'Tutar 0.01 ve üzeri olmalı',
+    });
+  }
+
+  if (errorsByCategory.type_unknown.count > 0) {
+    categorizedErrors.push({
+      category: 'type_unknown',
+      count: errorsByCategory.type_unknown.count,
+      example: errorsByCategory.type_unknown.examples[0],
+      examples: errorsByCategory.type_unknown.examples,
+      rows: errorsByCategory.type_unknown.rows,
+    });
+
+    issues.push({
+      type: 'error',
+      category: 'type_unknown',
+      messageKey: 'dataImport.validation.typeUnknown',
+      message: `${errorsByCategory.type_unknown.count} işlemde bilinmeyen tip`,
+      count: errorsByCategory.type_unknown.count,
+      rows: errorsByCategory.type_unknown.rows.slice(0, 10),
+      suggestion: 'GELİR, GİDER, TRANSFER vb. standart tipler kullanın',
+    });
+  }
+
+  // Başlangıç bakiyelerini issues listesine EKLEMİYORUZ
+  // Bunlar otomatik olarak entity bakiyelerine uygulanacak ve kullanıcıyı rahatsız etmeye gerek yok
+  // Sadece istatistik için categorizedErrors'a ekliyoruz (UI'da gösterilmeyecek)
+  if (errorsByCategory.starting_balance.count > 0) {
+    categorizedErrors.push({
+      category: 'starting_balance',
+      count: errorsByCategory.starting_balance.count,
+      rows: errorsByCategory.starting_balance.rows,
+    });
+  }
+
+  // Kalite skorunu hesapla (0-100)
+  const totalTransactions = preview.totalRows;
+  const score = totalTransactions > 0
+    ? Math.round((validCount / totalTransactions) * 100)
+    : 0;
+
+  return {
+    score,
+    validCount,
+    warningCount,
+    errorCount,
+    issues,
+    categorizedErrors,
+  };
 }
 
 // ============================================================================

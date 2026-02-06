@@ -54,18 +54,33 @@ import {
   useDismissPendingIslem,
   buildIslemFromPending,
 } from '@/hooks/usePendingIslemler';
+import { supabase } from '@/lib/supabase';
 import type { PendingIslem, IslemType, KategoriType } from '@/types/database';
+
+// Başlangıç bakiyesi dahil genişletilmiş işlem tipi
+type ExtendedIslemType = IslemType | 'baslangic_bakiyesi';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // İşlem tipi seçenekleri - database IslemType değerleri
 // Gruplandırılmış: Temel, Cari, Personel
 // isCustomerVariant: cari_alis'in müşteri versiyonu için (müşteriden alış)
-const ISLEM_TYPES: { value: IslemType; labelKey: string; color: string; group: string; isCustomerVariant?: boolean }[] = [
+// isSpecial: özel işlem (işlem oluşturmaz, entity bakiyesi günceller)
+type IslemTypeOption = {
+  value: IslemType | 'baslangic_bakiyesi';
+  labelKey: string;
+  color: string;
+  group: string;
+  isCustomerVariant?: boolean;
+  isSpecial?: boolean;
+};
+const ISLEM_TYPES: IslemTypeOption[] = [
   // Temel işlemler
   { value: 'gelir', labelKey: 'transactions:tabs.gelir', color: colors.success, group: 'basic' },
   { value: 'gider', labelKey: 'transactions:tabs.gider', color: colors.error, group: 'basic' },
   { value: 'transfer', labelKey: 'transactions:tabs.transfer', color: colors.info, group: 'basic' },
+  // Başlangıç Bakiyesi - özel işlem (entity bakiyesi günceller)
+  { value: 'baslangic_bakiyesi', labelKey: 'transactions:types.baslangic_bakiyesi', color: colors.warning, group: 'basic', isSpecial: true },
   // Cari işlemleri (Tedarikçi)
   { value: 'cari_alis', labelKey: 'transactions:types.cari_alis', color: colors.error, group: 'supplier' },
   { value: 'cari_alis_iade', labelKey: 'transactions:types.cari_alis_iade', color: colors.success, group: 'supplier' },
@@ -111,7 +126,7 @@ export function PendingTransactionForm({
   const dismissPending = useDismissPendingIslem();
 
   // Form state
-  const [type, setType] = useState<IslemType>('gider');
+  const [type, setType] = useState<ExtendedIslemType>('gider');
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(new Date());
@@ -413,7 +428,7 @@ export function PendingTransactionForm({
   }, [type]);
 
   // Get type color
-  const getTypeColor = (typeValue: IslemType, isCustomerVar: boolean = false) => {
+  const getTypeColor = (typeValue: ExtendedIslemType, isCustomerVar: boolean = false) => {
     // For cari_alis, consider the variant
     if (typeValue === 'cari_alis') {
       const matchingType = ISLEM_TYPES.find((t) =>
@@ -444,8 +459,79 @@ export function PendingTransactionForm({
       return;
     }
 
+    // =====================================================
+    // BAŞLANGIÇ BAKİYESİ - Özel İşlem
+    // İşlem oluşturmaz, entity bakiyesini günceller
+    // =====================================================
+    if (type === 'baslangic_bakiyesi') {
+      // En az bir entity seçilmiş olmalı
+      if (!hesapId && !cariId && !personelId) {
+        Alert.alert(
+          t('common:status.error'),
+          'Başlangıç bakiyesi için hesap, cari veya personel seçmelisiniz.'
+        );
+        return;
+      }
+
+      setIsSaving(true);
+
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+
+      try {
+        // Seçilen entity'nin bakiyesini güncelle
+        if (hesapId) {
+          const { error } = await supabase
+            .from('hesaplar')
+            .update({ balance: parsedAmount, initial_balance: parsedAmount })
+            .eq('id', hesapId);
+          if (error) throw error;
+        }
+
+        if (cariId) {
+          const { error } = await supabase
+            .from('cariler')
+            .update({ balance: parsedAmount })
+            .eq('id', cariId);
+          if (error) throw error;
+        }
+
+        if (personelId) {
+          const { error } = await supabase
+            .from('personel')
+            .update({ balance: parsedAmount })
+            .eq('id', personelId);
+          if (error) throw error;
+        }
+
+        // Pending işlemi sil (dismiss)
+        await dismissPending.mutateAsync(pendingIslem.id);
+
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+
+        handleDismiss();
+        onSuccess?.();
+      } catch (error: any) {
+        console.error('Error applying opening balance:', error);
+        Alert.alert(t('common:status.error'), error.message || t('common:status.error'));
+      } finally {
+        setIsSaving(false);
+      }
+      return; // Başlangıç bakiyesi işlemi burada biter
+    }
+
+    // =====================================================
+    // Normal İşlemler
+    // =====================================================
+
     // Validate required fields based on type
-    const needsHesap = !['cari_alis', 'cari_satis', 'cari_alis_iade', 'cari_satis_iade'].includes(type);
+    // personel_gider: Sadece personel bakiyesini günceller, hesap gerekmez
+    // cari işlemleri ve iadeler: Cari bakiyesini günceller, hesap opsiyonel
+    const hesapGerekmeyenTipler = ['cari_alis', 'cari_satis', 'cari_alis_iade', 'cari_satis_iade', 'personel_gider'];
+    const needsHesap = !hesapGerekmeyenTipler.includes(type);
     if (needsHesap && !hesapId) {
       Alert.alert(t('common:status.error'), t('accounts:messages.noAccounts'));
       return;
@@ -494,7 +580,7 @@ export function PendingTransactionForm({
 
     try {
       const corrections = {
-        type,
+        type: type as IslemType, // baslangic_bakiyesi zaten yukarıda işlendi
         amount: parsedAmount,
         description: description || null,
         date: formatDateForDB(safeDate),
@@ -536,6 +622,7 @@ export function PendingTransactionForm({
     safeDate,
     kategoriId,
     savePendingAsIslem,
+    dismissPending,
     handleDismiss,
     onSuccess,
     t,

@@ -155,141 +155,198 @@ export const queryKeys = {
 // ============================================================================
 
 /**
- * Hangi entity değiştiğinde hangi query'lerin invalidate edileceğini tanımlar
+ * Performans optimizasyonu: İki katmanlı invalidation stratejisi
+ *
+ * immediate: Aktif ekrandaki veriler - hemen refetch edilir (refetchType: 'active')
+ *   Sadece ekranda görünen query'ler yeniden çekilir.
+ *
+ * deferred: Raporlar, dashboard, analytics - sadece stale olarak işaretlenir (refetchType: 'none')
+ *   Kullanıcı o sayfaya gittiğinde staleTime dolmuşsa otomatik refetch olur.
+ *   Bu, 660 işlemli bir hesaptan geri dönüldüğünde diğer ekranların
+ *   gereksiz yere yeniden yüklenmesini engeller.
  */
-const invalidationMap = {
+interface InvalidationConfig {
+  immediate: readonly string[];  // refetchType: 'active'
+  deferred: readonly string[];   // refetchType: 'none'
+}
+
+const invalidationMap: Record<string, InvalidationConfig> = {
   // İşlem değişikliği - en kapsamlı, tüm finansal verileri etkiler
-  islem: [
-    'islemler',
-    'islem',
-    'hesaplar',
-    'hesap',
-    'cariler',
-    'cari',
-    'personel',
-    'personel-detail',
-    'dashboard',
-    'month-summary',
-    'category-report',
-    'category-transactions',
-    'cash-flow-by-category',
-    'analytics-periods',
-    'analytics-trend',
-  ],
+  islem: {
+    immediate: [
+      'islemler',
+      'islem',
+      'hesaplar',
+      'hesap',
+      'cariler',
+      'cari',
+      'personel',
+      'personel-detail',
+    ],
+    deferred: [
+      'dashboard',
+      'month-summary',
+      'category-report',
+      'category-transactions',
+      'cash-flow-by-category',
+      'analytics-periods',
+      'analytics-trend',
+    ],
+  },
 
   // İleri tarihli işlem değişikliği
-  ileriTarihliIslem: [
-    'ileri-tarihli-islemler',
-    'ileri-tarihli-islem',
-  ],
+  ileriTarihliIslem: {
+    immediate: [
+      'ileri-tarihli-islemler',
+      'ileri-tarihli-islem',
+    ],
+    deferred: [],
+  },
 
   // Çek değişikliği
-  cek: [
-    'cekler',
-    'cek',
-    'ileri-tarihli-islemler', // Çekler ileri tarihli işlemlerle birlikte gösteriliyor
-    'cariler', // Çek ödemesi cari bakiyesini etkiler
-    'cari',
-    'hesaplar', // Çek ödemesi hesap bakiyesini etkiler
-    'hesap',
-  ],
+  cek: {
+    immediate: [
+      'cekler',
+      'cek',
+      'ileri-tarihli-islemler',
+      'cariler',
+      'cari',
+      'hesaplar',
+      'hesap',
+    ],
+    deferred: [],
+  },
 
   // Nakit avans değişikliği
-  nakitAvans: [
-    'nakit-avanslar',
-    'nakit-avans',
-    'hesaplar',
-    'hesap',
-    'month-summary',
-    'dashboard',
-    'islemler', // Nakit avans taksit işlemleri oluşturuyor
-  ],
+  nakitAvans: {
+    immediate: [
+      'nakit-avanslar',
+      'nakit-avans',
+      'hesaplar',
+      'hesap',
+      'islemler',
+    ],
+    deferred: [
+      'month-summary',
+      'dashboard',
+    ],
+  },
 
   // Hesap değişikliği
-  hesap: [
-    'hesaplar',
-    'hesap',
-    'islemler',
-    'month-summary',
-    'dashboard',
-    'analytics-periods',
-    'analytics-trend',
-  ],
+  hesap: {
+    immediate: [
+      'hesaplar',
+      'hesap',
+      'islemler',
+    ],
+    deferred: [
+      'month-summary',
+      'dashboard',
+      'analytics-periods',
+      'analytics-trend',
+    ],
+  },
 
   // Cari değişikliği
-  cari: [
-    'cariler',
-    'cari',
-    'islemler',
-    'month-summary',
-    'dashboard',
-    'category-report',
-    'category-transactions',
-    'cash-flow-by-category',
-    'analytics-periods',
-    'analytics-trend',
-  ],
+  cari: {
+    immediate: [
+      'cariler',
+      'cari',
+      'islemler',
+    ],
+    deferred: [
+      'month-summary',
+      'dashboard',
+      'category-report',
+      'category-transactions',
+      'cash-flow-by-category',
+      'analytics-periods',
+      'analytics-trend',
+    ],
+  },
 
   // Personel değişikliği
-  personel: [
-    'personel',
-    'personel-detail',
-    'islemler',
-    'month-summary',
-    'dashboard',
-    'category-report',
-    'category-transactions',
-    'cash-flow-by-category',
-    'analytics-periods',
-    'analytics-trend',
-  ],
+  personel: {
+    immediate: [
+      'personel',
+      'personel-detail',
+      'islemler',
+    ],
+    deferred: [
+      'month-summary',
+      'dashboard',
+      'category-report',
+      'category-transactions',
+      'cash-flow-by-category',
+      'analytics-periods',
+      'analytics-trend',
+    ],
+  },
 
   // Kategori değişikliği
-  kategori: [
-    'kategoriler',
-    'kategori',
-    'category-report',
-    'category-transactions',
-    'cash-flow-by-category',
-  ],
+  kategori: {
+    immediate: [
+      'kategoriler',
+      'kategori',
+    ],
+    deferred: [
+      'category-report',
+      'category-transactions',
+      'cash-flow-by-category',
+    ],
+  },
 
   // İşletme değişikliği - her şeyi invalidate et
-  isletme: [
-    'islemler',
-    'hesaplar',
-    'cariler',
-    'personel',
-    'kategoriler',
-    'dashboard',
-    'month-summary',
-    'category-report',
-    'category-transactions',
-    'cash-flow-by-category',
-    'analytics-periods',
-    'analytics-trend',
-    'urunler',
-    'stok-hareketler',
-  ],
+  isletme: {
+    immediate: [
+      'islemler',
+      'hesaplar',
+      'cariler',
+      'personel',
+      'kategoriler',
+      'urunler',
+      'stok-hareketler',
+    ],
+    deferred: [
+      'dashboard',
+      'month-summary',
+      'category-report',
+      'category-transactions',
+      'cash-flow-by-category',
+      'analytics-periods',
+      'analytics-trend',
+    ],
+  },
 
   // Ürün değişikliği
-  urun: [
-    'urunler',
-    'urun',
-    'stok-hareketler',
-  ],
+  urun: {
+    immediate: [
+      'urunler',
+      'urun',
+      'stok-hareketler',
+    ],
+    deferred: [],
+  },
 
   // Stok hareket değişikliği
-  stokHareket: [
-    'stok-hareketler',
-    'urunler',
-    'urun',
-  ],
+  stokHareket: {
+    immediate: [
+      'stok-hareketler',
+      'urunler',
+      'urun',
+    ],
+    deferred: [],
+  },
 } as const;
 
 export type EntityType = keyof typeof invalidationMap;
 
 /**
  * Belirli bir entity değiştiğinde ilgili tüm query'leri invalidate et
+ *
+ * İki katmanlı strateji:
+ * - immediate: Aktif ekrandaki query'ler hemen refetch edilir
+ * - deferred: Rapor/dashboard query'leri sadece stale olarak işaretlenir
  *
  * @example
  * // İşlem oluşturulduktan sonra
@@ -302,12 +359,22 @@ export function invalidateRelatedQueries(
   queryClient: QueryClient,
   entityType: EntityType
 ): void {
-  const keysToInvalidate = invalidationMap[entityType];
+  const config = invalidationMap[entityType];
 
-  keysToInvalidate.forEach((key) => {
+  // Immediate: Aktif ekrandaki veriler hemen refetch edilir
+  config.immediate.forEach((key) => {
     queryClient.invalidateQueries({
       queryKey: [key],
-      refetchType: 'all', // Tüm aktif query'leri hemen refetch et
+      refetchType: 'active',
+    });
+  });
+
+  // Deferred: Raporlar ve dashboard sadece stale olarak işaretlenir
+  // Kullanıcı o sayfaya gittiğinde otomatik refetch olur
+  config.deferred.forEach((key) => {
+    queryClient.invalidateQueries({
+      queryKey: [key],
+      refetchType: 'none',
     });
   });
 }

@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { useState, useCallback, useRef, useMemo, memo } from 'react';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput, ListRenderItemInfo } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
@@ -37,6 +37,264 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useSettings } from '@/hooks/useSettings';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { useTranslation } from 'react-i18next';
+
+// ============================================================================
+// MEMOIZED TRANSACTION ITEM COMPONENT
+// ============================================================================
+
+interface HesapTransactionItemProps {
+  islem: IslemWithRelations;
+  hesapId: string;
+  hesapCurrency: Currency;
+  isExpanded: boolean;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
+  onViewPhoto: (path: string, islemId: string) => void;
+  t: (key: string) => string;
+}
+
+// Helper fonksiyonlar - component dışında tanımlı (her render'da yeniden oluşturulmaz)
+function getHareketIcon(type: string, isIncoming: boolean) {
+  if (type === 'transfer') {
+    return isIncoming
+      ? <ArrowLeft size={20} color={colors.success} />
+      : <ArrowRight size={20} color={colors.error} />;
+  }
+  if (type === 'gelir' || type === 'cari_tahsilat') {
+    return <ArrowLeft size={20} color={colors.success} />;
+  }
+  return <ArrowRight size={20} color={colors.error} />;
+}
+
+function isIncomingTransaction(type: string, hedefHesapId: string | null, hesapId: string): boolean {
+  if (type === 'transfer') {
+    return hedefHesapId === hesapId;
+  }
+  return type === 'gelir' || type === 'cari_tahsilat';
+}
+
+function getAmountSign(type: string, hesapId: string, hedefHesapId: string | null): string {
+  if (type === 'transfer') {
+    return hedefHesapId === hesapId ? '+' : '-';
+  }
+  if (type === 'gelir' || type === 'cari_tahsilat') {
+    return '+';
+  }
+  return '-';
+}
+
+function getAmountColor(type: string, hesapId: string, hedefHesapId: string | null): 'success' | 'error' | 'primary' {
+  if (type === 'transfer') {
+    return hedefHesapId === hesapId ? 'success' : 'error';
+  }
+  if (type === 'gelir' || type === 'cari_tahsilat') {
+    return 'success';
+  }
+  return 'error';
+}
+
+function getTransactionTarget(islem: IslemWithRelations, hesapId: string): string | null {
+  switch (islem.type) {
+    case 'transfer':
+      if (islem.hedef_hesap_id === hesapId) {
+        return islem.hesap?.name || null;
+      }
+      return islem.hedef_hesap?.name || null;
+    case 'cari_odeme':
+    case 'cari_tahsilat':
+    case 'cari_alis':
+    case 'cari_satis':
+      return islem.cari?.name || null;
+    case 'personel_odeme':
+    case 'personel_gider':
+      if (islem.personel) {
+        return `${islem.personel.first_name ?? ''} ${islem.personel.last_name ?? ''}`.trim() || null;
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
+function calculateTargetAmountForDisplay(islem: IslemWithRelations): number {
+  const sourceAmount = Number(islem.amount);
+  if (!islem.source_currency || !islem.target_currency ||
+      islem.source_currency === islem.target_currency ||
+      !islem.exchange_rate || islem.exchange_rate <= 0) {
+    return sourceAmount;
+  }
+  if (islem.source_currency === 'TRY') {
+    return sourceAmount / islem.exchange_rate;
+  } else {
+    return sourceAmount * islem.exchange_rate;
+  }
+}
+
+function getDisplayAmount(islem: IslemWithRelations, hesapId: string): number {
+  const sourceAmount = Number(islem.amount);
+  if (!islem.source_currency || !islem.target_currency ||
+      islem.source_currency === islem.target_currency) {
+    return sourceAmount;
+  }
+  const isTargetAccount = islem.hedef_hesap_id === hesapId;
+  if (isTargetAccount) {
+    return calculateTargetAmountForDisplay(islem);
+  }
+  return sourceAmount;
+}
+
+function getCrossCurrencyInfo(islem: IslemWithRelations): string | null {
+  if (!islem.source_currency || !islem.target_currency || islem.source_currency === islem.target_currency) {
+    return null;
+  }
+  const sourceAmount = Number(islem.amount);
+  const targetAmount = calculateTargetAmountForDisplay(islem);
+  const formattedSource = formatCurrency(sourceAmount, islem.source_currency as Currency);
+  const formattedTarget = formatCurrency(targetAmount, islem.target_currency as Currency);
+  return `(${formattedSource} → ${formattedTarget})`;
+}
+
+function getHareketLabelKey(type: string): string {
+  switch (type) {
+    case 'gelir': return 'accounts:transactionLabels.gelir';
+    case 'gider': return 'accounts:transactionLabels.gider';
+    case 'transfer': return 'accounts:transactionLabels.transfer';
+    case 'cari_odeme': return 'accounts:transactionLabels.cariOdeme';
+    case 'cari_tahsilat': return 'accounts:transactionLabels.cariTahsilat';
+    case 'personel_odeme': return 'accounts:transactionLabels.personelOdeme';
+    case 'personel_gider': return 'accounts:transactionLabels.personelGider';
+    case 'nakit_avans_taksit': return 'accounts:transactionLabels.nakitAvansTaksit';
+    default: return '';
+  }
+}
+
+const HesapTransactionItem = memo(function HesapTransactionItem({
+  islem,
+  hesapId,
+  hesapCurrency,
+  isExpanded,
+  onToggle,
+  onDelete,
+  onEdit,
+  onViewPhoto,
+  t,
+}: HesapTransactionItemProps) {
+  const sign = getAmountSign(islem.type, hesapId, islem.hedef_hesap_id);
+  const colorType = getAmountColor(islem.type, hesapId, islem.hedef_hesap_id);
+  const isIncoming = isIncomingTransaction(islem.type, islem.hedef_hesap_id, hesapId);
+  const target = getTransactionTarget(islem, hesapId);
+  const showTimeInExpanded = !isSameYear(islem.date);
+  const crossCurrencyInfo = getCrossCurrencyInfo(islem);
+  const labelKey = getHareketLabelKey(islem.type);
+
+  return (
+    <ExpandableCard
+      expanded={isExpanded}
+      onToggle={() => onToggle(islem.id)}
+      disableAnimation
+      header={
+        <View style={styles.hareketHeader}>
+          <View style={[
+            styles.hareketIcon,
+            {
+              backgroundColor: colorType === 'success'
+                ? colors.successLight
+                : colorType === 'error'
+                  ? colors.errorLight
+                  : colors.infoLight
+            }
+          ]}>
+            {getHareketIcon(islem.type, isIncoming)}
+          </View>
+          <View style={styles.hareketInfo}>
+            <Text variant="body">{formatDateSmart(islem.date)}</Text>
+            <Text variant="caption" color="secondary">
+              {labelKey ? t(labelKey) : islem.type}
+            </Text>
+            {target && (
+              <Text variant="caption" color="secondary">
+                {target}
+              </Text>
+            )}
+            {crossCurrencyInfo && (
+              <Text variant="caption" style={styles.crossCurrencyText}>
+                {crossCurrencyInfo}
+              </Text>
+            )}
+            {islem.kategori?.name && (
+              <Text variant="caption" color="secondary">
+                {islem.kategori.name}
+              </Text>
+            )}
+            {islem.description && (
+              <Text variant="caption" color="secondary" numberOfLines={1}>
+                {islem.description}
+              </Text>
+            )}
+          </View>
+          <View style={styles.amountContainer}>
+            {islem.photo_path && (
+              <ImageIcon size={16} color={colors.primary} style={styles.photoIndicator} />
+            )}
+            <Text variant="h3" color={colorType}>
+              {sign}{formatCurrency(getDisplayAmount(islem, hesapId), hesapCurrency)}
+            </Text>
+          </View>
+        </View>
+      }
+    >
+      {showTimeInExpanded && (
+        <View style={styles.timeRow}>
+          <Clock size={14} color={colors.textMuted} />
+          <Text variant="caption" color="secondary">
+            {t('accounts:details.time')} {formatTime(islem.date)}
+          </Text>
+        </View>
+      )}
+      <View style={styles.hareketActions}>
+        {islem.photo_path && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<ImageIcon size={16} color={colors.primary} />}
+            onPress={() => onViewPhoto(islem.photo_path!, islem.id)}
+            style={styles.actionButton}
+          >
+            {t('common:photo.title')}
+          </Button>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Pencil size={16} color={colors.text} />}
+          onPress={() => onEdit(islem.id)}
+          style={styles.actionButton}
+        >
+          {t('common:buttons.edit')}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<Trash2 size={16} color={colors.error} />}
+          onPress={() => onDelete(islem.id)}
+          style={styles.actionButton}
+        >
+          {t('common:buttons.delete')}
+        </Button>
+      </View>
+    </ExpandableCard>
+  );
+}, (prev, next) => {
+  return prev.islem.id === next.islem.id
+    && prev.isExpanded === next.isExpanded
+    && prev.islem.updated_at === next.islem.updated_at
+    && prev.hesapCurrency === next.hesapCurrency;
+});
+
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
 
 export default function HesapHareketleriPage() {
   if (__DEV__) {
@@ -107,50 +365,34 @@ export default function HesapHareketleriPage() {
   }, []);
 
   // Cross-currency işlemler için hesabın para birimi cinsinden tutarı al
-  const getAmountInAccountCurrency = (islem: IslemWithRelations): number => {
+  const getAmountInAccountCurrency = useCallback((islem: IslemWithRelations): number => {
     const sourceAmount = Number(islem.amount);
-
-    // Cross-currency transfer değilse source amount kullan
     if (!islem.source_currency || !islem.target_currency ||
         islem.source_currency === islem.target_currency) {
       return sourceAmount;
     }
-
-    // Exchange rate kontrolü
     if (!islem.exchange_rate || islem.exchange_rate <= 0) {
-      if (__DEV__) {
-        console.warn(`[getAmountInAccountCurrency] Invalid exchange rate for transaction ${islem.id}: ${islem.exchange_rate}`);
-      }
       return sourceAmount;
     }
-
-    // Bu hesap hedef hesap mı?
     const isTargetAccount = islem.hedef_hesap_id === id;
-
     if (isTargetAccount) {
-      // Hedef hesaptayız, target amount hesapla
       if (islem.source_currency === 'TRY') {
         return sourceAmount / islem.exchange_rate;
       } else {
         return sourceAmount * islem.exchange_rate;
       }
     }
-
-    // Kaynak hesaptayız, source amount kullan
     return sourceAmount;
-  };
+  }, [id]);
 
-  // Başlangıç bakiyesini hesapla (mevcut bakiye - tüm işlemlerin etkisi)
-  const calculateInitialBalance = () => {
+  // Başlangıç bakiyesini hesapla - MEMOIZED
+  const calculatedInitialBalance = useMemo(() => {
     if (!hesap || !islemler) return 0;
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      // Cross-currency işlemler için doğru tutarı al
       const amount = getAmountInAccountCurrency(islem as IslemWithRelations);
-
       if (islem.type === 'transfer') {
-        // Transfer: hedef hesapsa +, kaynak hesapsa -
         if (islem.hedef_hesap_id === id) {
           totalEffect += amount;
         } else {
@@ -164,18 +406,17 @@ export default function HesapHareketleriPage() {
     });
 
     return Number(hesap.balance) - totalEffect;
-  };
+  }, [hesap, islemler, id, getAmountInAccountCurrency]);
 
-  // Veritabanında saklanan initial_balance varsa onu kullan, yoksa hesapla (fallback)
   const initialBalance = hesap?.initial_balance !== undefined && hesap?.initial_balance !== null
     ? Number(hesap.initial_balance)
-    : calculateInitialBalance();
+    : calculatedInitialBalance;
 
   // Bakiye düzenleme modal'ını aç
-  const handleOpenEditBalance = () => {
+  const handleOpenEditBalance = useCallback(() => {
     setNewBalanceInput(String(Number(hesap?.balance) || 0));
     setEditBalanceModalVisible(true);
-  };
+  }, [hesap?.balance]);
 
   // Bakiye kaydet
   const handleSaveBalance = async () => {
@@ -210,160 +451,12 @@ export default function HesapHareketleriPage() {
     );
   };
 
-  // Yön bazlı icon: gelen para ← , giden para →
-  const getHareketIcon = (type: string, isIncoming: boolean) => {
-    if (type === 'transfer') {
-      // Transfer için yöne göre ok
-      return isIncoming
-        ? <ArrowLeft size={20} color={colors.success} />
-        : <ArrowRight size={20} color={colors.error} />;
-    }
+  // === MEMOIZED HANDLERS for FlatList items ===
+  const handleToggleIslem = useCallback((islemId: string) => {
+    setExpandedIslemId(prev => prev === islemId ? null : islemId);
+  }, []);
 
-    // Gelen para (gelir, tahsilat)
-    if (type === 'gelir' || type === 'cari_tahsilat') {
-      return <ArrowLeft size={20} color={colors.success} />;
-    }
-
-    // Giden para (gider, ödeme)
-    return <ArrowRight size={20} color={colors.error} />;
-  };
-
-  // İşlemin hedef/kaynak bilgisini al
-  const getTransactionTarget = (islem: IslemWithRelations): string | null => {
-    switch (islem.type) {
-      case 'transfer':
-        // Transfer için hedef veya kaynak hesap
-        if (islem.hedef_hesap_id === id) {
-          return islem.hesap?.name || null; // Gelen transfer: kaynak hesap
-        }
-        return islem.hedef_hesap?.name || null; // Giden transfer: hedef hesap
-      case 'cari_odeme':
-      case 'cari_tahsilat':
-      case 'cari_alis':
-      case 'cari_satis':
-        return islem.cari?.name || null;
-      case 'personel_odeme':
-      case 'personel_gider':
-        if (islem.personel) {
-          return `${islem.personel.first_name ?? ''} ${islem.personel.last_name ?? ''}`.trim() || null;
-        }
-        return null;
-      default:
-        return null;
-    }
-  };
-
-  // İşlem gelen mi giden mi?
-  const isIncomingTransaction = (type: string, hedefHesapId: string | null): boolean => {
-    if (type === 'transfer') {
-      return hedefHesapId === id;
-    }
-    return type === 'gelir' || type === 'cari_tahsilat';
-  };
-
-  const getHareketLabel = (type: string) => {
-    switch (type) {
-      case 'gelir':
-        return t('accounts:transactionLabels.gelir');
-      case 'gider':
-        return t('accounts:transactionLabels.gider');
-      case 'transfer':
-        return t('accounts:transactionLabels.transfer');
-      case 'cari_odeme':
-        return t('accounts:transactionLabels.cariOdeme');
-      case 'cari_tahsilat':
-        return t('accounts:transactionLabels.cariTahsilat');
-      case 'personel_odeme':
-        return t('accounts:transactionLabels.personelOdeme');
-      case 'personel_gider':
-        return t('accounts:transactionLabels.personelGider');
-      case 'nakit_avans_taksit':
-        return t('accounts:transactionLabels.nakitAvansTaksit');
-      default:
-        return type;
-    }
-  };
-
-  const getAmountSign = (type: string, hesapId: string, islemHesapId: string | null, hedefHesapId: string | null) => {
-    // Transfer işlemlerinde kaynak hesaptan çıkış, hedef hesaba giriş
-    if (type === 'transfer') {
-      return hedefHesapId === hesapId ? '+' : '-';
-    }
-    // Gelir ve tahsilat işlemleri pozitif
-    if (type === 'gelir' || type === 'cari_tahsilat') {
-      return '+';
-    }
-    // Diğer tüm işlemler negatif
-    return '-';
-  };
-
-  const getAmountColor = (type: string, hesapId: string, hedefHesapId: string | null): 'success' | 'error' | 'primary' => {
-    if (type === 'transfer') {
-      return hedefHesapId === hesapId ? 'success' : 'error';
-    }
-    if (type === 'gelir' || type === 'cari_tahsilat') {
-      return 'success';
-    }
-    return 'error';
-  };
-
-  // Cross-currency işlemler için hedef tutarı hesapla
-  const calculateTargetAmount = (islem: IslemWithRelations): number => {
-    const sourceAmount = Number(islem.amount);
-
-    if (!islem.source_currency || !islem.target_currency ||
-        islem.source_currency === islem.target_currency ||
-        !islem.exchange_rate || islem.exchange_rate <= 0) {
-      return sourceAmount;
-    }
-
-    // Exchange rate "1 [foreign] = X TRY" formatında saklanır
-    if (islem.source_currency === 'TRY') {
-      return sourceAmount / islem.exchange_rate;
-    } else {
-      return sourceAmount * islem.exchange_rate;
-    }
-  };
-
-  // Bu hesap perspektifinden gösterilecek tutarı al
-  const getDisplayAmount = (islem: IslemWithRelations): number => {
-    const sourceAmount = Number(islem.amount);
-
-    // Cross-currency transfer değilse source amount kullan
-    if (!islem.source_currency || !islem.target_currency ||
-        islem.source_currency === islem.target_currency) {
-      return sourceAmount;
-    }
-
-    // Bu hesap hedef hesap mı? (gelen transfer)
-    const isTargetAccount = islem.hedef_hesap_id === id;
-
-    if (isTargetAccount) {
-      // Hedef hesaptayız, target currency cinsinden göster
-      return calculateTargetAmount(islem);
-    } else {
-      // Kaynak hesaptayız, source currency cinsinden göster
-      return sourceAmount;
-    }
-  };
-
-  // Cross-currency dönüşüm bilgisini formatla
-  const getCrossCurrencyInfo = (islem: IslemWithRelations): string | null => {
-    if (!islem.source_currency || !islem.target_currency || islem.source_currency === islem.target_currency) {
-      return null;
-    }
-
-    const sourceAmount = Number(islem.amount);
-    const targetAmount = calculateTargetAmount(islem);
-
-    // Format source and target amounts
-    const formattedSource = formatCurrency(sourceAmount, islem.source_currency as Currency);
-    const formattedTarget = formatCurrency(targetAmount, islem.target_currency as Currency);
-
-    return `(${formattedSource} → ${formattedTarget})`;
-  };
-
-  const handleDelete = (islemId: string) => {
+  const handleDeleteIslem = useCallback((islemId: string) => {
     Alert.alert(
       t('accounts:deleteConfirm.transactionTitle'),
       t('accounts:deleteConfirm.transactionMessage'),
@@ -382,7 +475,18 @@ export default function HesapHareketleriPage() {
         },
       ]
     );
-  };
+  }, [deleteIslem, t]);
+
+  const handleEditIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+    setExpandedIslemId(null);
+  }, []);
+
+  const handleViewPhoto = useCallback((path: string, islemId: string) => {
+    setViewPhotoPath(path);
+    setViewPhotoIslemId(islemId);
+  }, []);
 
   const handleDeleteHesap = () => {
     setShowMenu(false);
@@ -521,6 +625,181 @@ export default function HesapHareketleriPage() {
     </View>
   );
 
+  // === FlatList renderItem ===
+  const renderTransactionItem = useCallback(({ item: islem }: ListRenderItemInfo<IslemWithRelations>) => {
+    return (
+      <HesapTransactionItem
+        islem={islem}
+        hesapId={id!}
+        hesapCurrency={hesap?.currency as Currency}
+        isExpanded={expandedIslemId === islem.id}
+        onToggle={handleToggleIslem}
+        onDelete={handleDeleteIslem}
+        onEdit={handleEditIslem}
+        onViewPhoto={handleViewPhoto}
+        t={t}
+      />
+    );
+  }, [id, hesap?.currency, expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, handleViewPhoto, t]);
+
+  const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
+
+  // === FlatList ListHeaderComponent ===
+  const ListHeader = useMemo(() => {
+    if (!hesap) return null;
+    return (
+      <View>
+        {/* Arşiv Banner */}
+        {hesap.is_archived && (
+          <View style={styles.bannerContainer}>
+            <ArchivedBanner
+              onUnarchive={handleUnarchive}
+              loading={unarchiveHesap.isPending}
+            />
+          </View>
+        )}
+
+        {/* Hesap Özeti */}
+        <Card style={styles.summaryCard}>
+          <View style={styles.summaryRow}>
+            <View style={styles.summaryIcon}>
+              {getHesapIcon(hesap.type)}
+            </View>
+            <View style={styles.summaryInfo}>
+              <Text variant="caption" color="secondary">
+                {hesap.type === 'kredi_karti' ? t('accounts:creditCard.currentDebt') : t('accounts:balance.currentBalance')}
+              </Text>
+              <View style={styles.balanceRow}>
+                <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
+                  {formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}
+                </Text>
+                <TouchableOpacity
+                  onPress={handleOpenEditBalance}
+                  style={styles.editBalanceBtn}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Pencil size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              {/* Farklı para birimindeyse base currency karşılığını göster */}
+              {hesap.currency !== baseCurrency && exchangeRates && (
+                <Text variant="body" color="secondary">
+                  ~{formatCurrency(
+                    convertCurrency(Math.abs(Number(hesap.balance)), hesap.currency, baseCurrency, exchangeRates) ?? 0,
+                    baseCurrency
+                  )}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {/* Kredi Kartı Limit Bilgileri */}
+          {hesap.type === 'kredi_karti' && hesap.credit_limit && hesap.credit_limit > 0 && (
+            <View style={styles.creditLimitSection}>
+              <View style={styles.creditLimitRow}>
+                <View style={styles.creditLimitItem}>
+                  <Text variant="caption" color="secondary">{t('accounts:creditCard.creditLimit')}</Text>
+                  <Text variant="body" style={styles.creditLimitValue}>{formatCurrency(hesap.credit_limit, hesap.currency)}</Text>
+                </View>
+                <View style={styles.creditLimitItem}>
+                  <Text variant="caption" color="secondary">{t('accounts:creditCard.usedCredit')}</Text>
+                  <Text variant="body" style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}</Text>
+                </View>
+                <View style={styles.creditLimitItem}>
+                  <Text variant="caption" color="secondary">{t('accounts:creditCard.availableCredit')}</Text>
+                  <Text variant="body" style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(hesap.credit_limit - Math.abs(Number(hesap.balance)), hesap.currency)}</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </Card>
+
+        {/* Hızlı İşlem Butonları */}
+        <View style={styles.actionButtons}>
+          <Button
+            variant="primary"
+            size="md"
+            icon={hesap.type === 'kredi_karti' ? <CreditCard size={18} color={colors.surface} /> : <CircleDollarSign size={18} color={colors.surface} />}
+            onPress={() => openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir')}
+            style={styles.actionBtn}
+          >
+            {t('accounts:actions.addTransaction')}
+          </Button>
+          {/* Çek Kes - Sadece banka hesapları için */}
+          {hesap.type === 'banka' && (
+            <Button
+              variant="outline"
+              size="md"
+              icon={<FileCheck size={18} color={colors.info} />}
+              onPress={() => setShowCekKesSheet(true)}
+              style={[styles.actionBtn, { borderColor: colors.info }]}
+            >
+              {t('checks:create')}
+            </Button>
+          )}
+        </View>
+
+        {/* İleri Tarihli İşlemler */}
+        <View style={styles.section}>
+          <IleriTarihliIslemlerSection
+            ileriTarihliIslemler={ileriTarihliIslemler}
+            isLoading={ileriTarihliLoading}
+          />
+
+          {/* Bekleyen Çekler - Sadece banka hesapları için */}
+          {hesap?.type === 'banka' && (
+            <BekleyenCeklerSection
+              cekler={bekleyenCekler}
+              isLoading={ceklerLoading}
+              hesapId={id}
+            />
+          )}
+
+          {/* Hareketler */}
+          <Text variant="h3" style={styles.sectionTitle}>
+            {t('accounts:details.transactions')}
+          </Text>
+
+          {islemlerLoading && (
+            <Text color="secondary">{t('common:status.loading')}</Text>
+          )}
+        </View>
+      </View>
+    );
+  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleOpenEditBalance, openTransaction, handleUnarchive, unarchiveHesap.isPending]);
+
+  // === FlatList ListFooterComponent ===
+  const ListFooter = useMemo(() => {
+    if (!hesap || islemlerLoading) return null;
+    return (
+      <View style={styles.section}>
+        {/* Başlangıç Bakiyesi - düzenleme/silme yok */}
+        <Card style={styles.hareketCard}>
+          <View style={styles.hareketHeader}>
+            <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
+              <CircleDollarSign size={20} color={colors.primary} />
+            </View>
+            <View style={styles.hareketInfo}>
+              <Text variant="body">{t('accounts:details.initialBalance')}</Text>
+              <Text variant="caption" color="secondary">
+                {t('accounts:details.accountOpening')} • {formatDateShort(hesap?.created_at || '')}
+              </Text>
+            </View>
+            <Text variant="h3" color={initialBalance >= 0 ? 'primary' : 'error'}>
+              {formatCurrency(initialBalance, hesap.currency)}
+            </Text>
+          </View>
+        </Card>
+      </View>
+    );
+  }, [hesap, islemlerLoading, initialBalance, t]);
+
+  // === FlatList ListEmptyComponent ===
+  const ListEmpty = useMemo(() => {
+    if (islemlerLoading) return null;
+    return null; // Boş liste için özel bir şey göstermiyoruz, başlangıç bakiyesi footer'da
+  }, [islemlerLoading]);
+
   if (hesapLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -552,259 +831,21 @@ export default function HesapHareketleriPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Arşiv Banner */}
-          {hesap.is_archived && (
-            <View style={styles.bannerContainer}>
-              <ArchivedBanner
-                onUnarchive={handleUnarchive}
-                loading={unarchiveHesap.isPending}
-              />
-            </View>
-          )}
-
-          {/* Hesap Özeti */}
-          <Card style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryIcon}>
-                {getHesapIcon(hesap.type)}
-              </View>
-              <View style={styles.summaryInfo}>
-                <Text variant="caption" color="secondary">
-                  {hesap.type === 'kredi_karti' ? t('accounts:creditCard.currentDebt') : t('accounts:balance.currentBalance')}
-                </Text>
-                <View style={styles.balanceRow}>
-                  <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
-                    {formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={handleOpenEditBalance}
-                    style={styles.editBalanceBtn}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Pencil size={16} color={colors.textMuted} />
-                  </TouchableOpacity>
-                </View>
-                {/* Farklı para birimindeyse base currency karşılığını göster */}
-                {hesap.currency !== baseCurrency && exchangeRates && (
-                  <Text variant="body" color="secondary">
-                    ~{formatCurrency(
-                      convertCurrency(Math.abs(Number(hesap.balance)), hesap.currency, baseCurrency, exchangeRates) ?? 0,
-                      baseCurrency
-                    )}
-                  </Text>
-                )}
-              </View>
-            </View>
-
-            {/* Kredi Kartı Limit Bilgileri */}
-            {hesap.type === 'kredi_karti' && hesap.credit_limit && hesap.credit_limit > 0 && (
-              <View style={styles.creditLimitSection}>
-                <View style={styles.creditLimitRow}>
-                  <View style={styles.creditLimitItem}>
-                    <Text variant="caption" color="secondary">{t('accounts:creditCard.creditLimit')}</Text>
-                    <Text variant="body" style={styles.creditLimitValue}>{formatCurrency(hesap.credit_limit, hesap.currency)}</Text>
-                  </View>
-                  <View style={styles.creditLimitItem}>
-                    <Text variant="caption" color="secondary">{t('accounts:creditCard.usedCredit')}</Text>
-                    <Text variant="body" style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}</Text>
-                  </View>
-                  <View style={styles.creditLimitItem}>
-                    <Text variant="caption" color="secondary">{t('accounts:creditCard.availableCredit')}</Text>
-                    <Text variant="body" style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(hesap.credit_limit - Math.abs(Number(hesap.balance)), hesap.currency)}</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-          </Card>
-
-          {/* Hızlı İşlem Butonları */}
-          <View style={styles.actionButtons}>
-            <Button
-              variant="primary"
-              size="md"
-              icon={hesap.type === 'kredi_karti' ? <CreditCard size={18} color={colors.surface} /> : <CircleDollarSign size={18} color={colors.surface} />}
-              onPress={() => openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir')}
-              style={styles.actionBtn}
-            >
-              {t('accounts:actions.addTransaction')}
-            </Button>
-            {/* Çek Kes - Sadece banka hesapları için */}
-            {hesap.type === 'banka' && (
-              <Button
-                variant="outline"
-                size="md"
-                icon={<FileCheck size={18} color={colors.info} />}
-                onPress={() => setShowCekKesSheet(true)}
-                style={[styles.actionBtn, { borderColor: colors.info }]}
-              >
-                {t('checks:create')}
-              </Button>
-            )}
-          </View>
-
-          {/* İleri Tarihli İşlemler */}
-          <View style={styles.section}>
-            <IleriTarihliIslemlerSection
-              ileriTarihliIslemler={ileriTarihliIslemler}
-              isLoading={ileriTarihliLoading}
-            />
-
-            {/* Bekleyen Çekler - Sadece banka hesapları için */}
-            {hesap?.type === 'banka' && (
-              <BekleyenCeklerSection
-                cekler={bekleyenCekler}
-                isLoading={ceklerLoading}
-                hesapId={id}
-              />
-            )}
-
-            {/* Hareketler */}
-            <Text variant="h3" style={styles.sectionTitle}>
-              {t('accounts:details.transactions')}
-            </Text>
-
-            {islemlerLoading ? (
-              <Text color="secondary">{t('common:status.loading')}</Text>
-            ) : (
-              <>
-                {islemler && islemler.length > 0 && islemler.map((islem) => {
-                  const sign = getAmountSign(islem.type, id!, islem.hesap_id, islem.hedef_hesap_id);
-                  const colorType = getAmountColor(islem.type, id!, islem.hedef_hesap_id);
-                  const isIncoming = isIncomingTransaction(islem.type, islem.hedef_hesap_id);
-                  const target = getTransactionTarget(islem as IslemWithRelations);
-                  const showTimeInExpanded = !isSameYear(islem.date);
-                  const crossCurrencyInfo = getCrossCurrencyInfo(islem as IslemWithRelations);
-
-                  return (
-                    <ExpandableCard
-                      key={islem.id}
-                      expanded={expandedIslemId === islem.id}
-                      onToggle={() => setExpandedIslemId(expandedIslemId === islem.id ? null : islem.id)}
-                      header={
-                        <View style={styles.hareketHeader}>
-                          <View style={[
-                            styles.hareketIcon,
-                            {
-                              backgroundColor: colorType === 'success'
-                                ? colors.successLight
-                                : colorType === 'error'
-                                  ? colors.errorLight
-                                  : colors.infoLight
-                            }
-                          ]}>
-                            {getHareketIcon(islem.type, isIncoming)}
-                          </View>
-                          <View style={styles.hareketInfo}>
-                            <Text variant="body">{formatDateSmart(islem.date)}</Text>
-                            <Text variant="caption" color="secondary">
-                              {getHareketLabel(islem.type)}
-                            </Text>
-                            {target && (
-                              <Text variant="caption" color="secondary">
-                                {target}
-                              </Text>
-                            )}
-                            {crossCurrencyInfo && (
-                              <Text variant="caption" style={styles.crossCurrencyText}>
-                                {crossCurrencyInfo}
-                              </Text>
-                            )}
-                            {(islem as IslemWithRelations).kategori?.name && (
-                              <Text variant="caption" color="secondary">
-                                {(islem as IslemWithRelations).kategori?.name}
-                              </Text>
-                            )}
-                            {islem.description && (
-                              <Text variant="caption" color="secondary" numberOfLines={1}>
-                                {islem.description}
-                              </Text>
-                            )}
-                          </View>
-                          <View style={styles.amountContainer}>
-                            {islem.photo_path && (
-                              <ImageIcon size={16} color={colors.primary} style={styles.photoIndicator} />
-                            )}
-                            <Text variant="h3" color={colorType}>
-                              {sign}{formatCurrency(getDisplayAmount(islem as IslemWithRelations), hesap.currency)}
-                            </Text>
-                          </View>
-                        </View>
-                      }
-                    >
-                      {/* Farklı yıl işlemlerinde saat göster */}
-                      {showTimeInExpanded && (
-                        <View style={styles.timeRow}>
-                          <Clock size={14} color={colors.textMuted} />
-                          <Text variant="caption" color="secondary">
-                            {t('accounts:details.time')} {formatTime(islem.date)}
-                          </Text>
-                        </View>
-                      )}
-                      <View style={styles.hareketActions}>
-                        {/* Photo button - only show if photo exists */}
-                        {islem.photo_path && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={<ImageIcon size={16} color={colors.primary} />}
-                            onPress={() => {
-                              setViewPhotoPath(islem.photo_path);
-                              setViewPhotoIslemId(islem.id);
-                            }}
-                            style={styles.actionButton}
-                          >
-                            {t('common:photo.title')}
-                          </Button>
-                        )}
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<Pencil size={16} color={colors.text} />}
-                          onPress={() => {
-                            setEditTransactionId(islem.id);
-                            setShowEditBar(true);
-                            setExpandedIslemId(null);
-                          }}
-                          style={styles.actionButton}
-                        >
-                          {t('common:buttons.edit')}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={<Trash2 size={16} color={colors.error} />}
-                          onPress={() => handleDelete(islem.id)}
-                          style={styles.actionButton}
-                        >
-                          {t('common:buttons.delete')}
-                        </Button>
-                      </View>
-                    </ExpandableCard>
-                  );
-                })}
-
-                {/* Başlangıç Bakiyesi - düzenleme/silme yok */}
-                <Card style={styles.hareketCard}>
-                  <View style={styles.hareketHeader}>
-                    <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-                      <CircleDollarSign size={20} color={colors.primary} />
-                    </View>
-                    <View style={styles.hareketInfo}>
-                      <Text variant="body">{t('accounts:details.initialBalance')}</Text>
-                      <Text variant="caption" color="secondary">
-                        {t('accounts:details.accountOpening')} • {formatDateShort(hesap?.created_at || '')}
-                      </Text>
-                    </View>
-                    <Text variant="h3" color={initialBalance >= 0 ? 'primary' : 'error'}>
-                      {formatCurrency(initialBalance, hesap.currency)}
-                    </Text>
-                  </View>
-                </Card>
-              </>
-            )}
-          </View>
-        </ScrollView>
+        <FlatList
+          data={islemler ?? []}
+          keyExtractor={keyExtractor}
+          renderItem={renderTransactionItem}
+          ListHeaderComponent={ListHeader}
+          ListFooterComponent={ListFooter}
+          ListEmptyComponent={ListEmpty}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={true}
+          extraData={expandedIslemId}
+          contentContainerStyle={styles.flatListContent}
+        />
       </SafeAreaView>
 
       {/* 3 Nokta Menüsü */}
@@ -826,21 +867,6 @@ export default function HesapHareketleriPage() {
               <Pencil size={20} color={colors.text} />
               <Text variant="body">{t('common:buttons.edit')}</Text>
             </TouchableOpacity>
-
-            {/* Nakit Avanslar - şimdilik gizli
-            {hesap.type === 'kredi_karti' && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  router.push({ pathname: '/hesaplar/nakit-avanslar/[id]', params: { id: id } });
-                }}
-              >
-                <Banknote size={20} color={colors.warning} />
-                <Text variant="body">{t('accounts:nakitAvans.title')}</Text>
-              </TouchableOpacity>
-            )}
-            */}
 
             {/* Sil */}
             <TouchableOpacity
@@ -985,8 +1011,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  scrollView: {
-    flex: 1,
+  flatListContent: {
+    flexGrow: 1,
   },
   bannerContainer: {
     paddingHorizontal: spacing.lg,
@@ -1040,7 +1066,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing.sm,
   },
   sectionTitle: {
     marginBottom: spacing.lg,

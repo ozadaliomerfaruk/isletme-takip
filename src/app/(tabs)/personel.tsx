@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, TouchableWithoutFeedback, Animated, Alert } from 'react-native';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, TouchableWithoutFeedback, Animated, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -17,6 +17,9 @@ import {
   Edit3,
   MoreVertical,
   Trash2,
+  CheckCircle2,
+  Circle,
+  CheckSquare,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
@@ -43,6 +46,10 @@ export default function PersonelPage() {
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
+
+  // Multi-select state
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // FAB animation
   const fabRotation = useRef(new Animated.Value(0)).current;
@@ -154,7 +161,104 @@ export default function PersonelPage() {
     );
   };
 
+  // Multi-select handlers
+  const handleEnterSelectMode = () => {
+    if (actionSheetPersonel) {
+      setIsSelectMode(true);
+      setSelectedIds(new Set([actionSheetPersonel.id]));
+      setExpandedPersonelId(null);
+    }
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+    haptics.selection();
+  };
+
+  const handleSelectAll = () => {
+    if (filteredPersonel) {
+      setSelectedIds(new Set(filteredPersonel.map(p => p.id)));
+      haptics.selection();
+    }
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+    haptics.selection();
+  };
+
+  const handleCancelSelectMode = () => {
+    setIsSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    const count = selectedIds.size;
+    Alert.alert(
+      t('common:bulkSelect.confirmDeleteTitle'),
+      t('common:bulkSelect.confirmDeleteMessage', { count }),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const promises = Array.from(selectedIds).map(id => deletePersonel.mutateAsync(id));
+              await Promise.all(promises);
+              haptics.success();
+              showToast(t('common:bulkSelect.deleteSuccess', { count }), 'success');
+              handleCancelSelectMode();
+            } catch (error) {
+              haptics.error();
+              showToast(t('common:messages.operationFailed'), 'error');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleBulkArchive = () => {
+    const count = selectedIds.size;
+    Alert.alert(
+      t('common:bulkSelect.confirmArchiveTitle'),
+      t('common:bulkSelect.confirmArchiveMessage', { count }),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:archive.actions.archive'),
+          onPress: async () => {
+            try {
+              const promises = Array.from(selectedIds).map(id => archivePersonel.mutateAsync(id));
+              await Promise.all(promises);
+              haptics.success();
+              showToast(t('common:bulkSelect.archiveSuccess', { count }), 'success');
+              handleCancelSelectMode();
+            } catch (error) {
+              haptics.error();
+              showToast(t('common:messages.operationFailed'), 'error');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const actionSheetOptions: ActionSheetOption[] = [
+    {
+      label: t('common:bulkSelect.select'),
+      icon: <CheckSquare size={20} color={colors.info} />,
+      onPress: handleEnterSelectMode,
+    },
     {
       label: t('common:buttons.edit'),
       icon: <Edit3 size={20} color={colors.primary} />,
@@ -205,161 +309,230 @@ export default function PersonelPage() {
   }
 
 
+  // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
+  const renderPersonelItem = useCallback(({ item: personel }: { item: Personel }) => {
+    const isSelected = selectedIds.has(personel.id);
+    return (
+      <View style={[!personel.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
+        {isSelectMode ? (
+          <TouchableOpacity
+            style={styles.selectableCard}
+            onPress={() => toggleSelection(personel.id)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.personelHeader}>
+              {/* Selection checkbox */}
+              <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                {isSelected ? (
+                  <CheckCircle2 size={24} color={colors.primary} />
+                ) : (
+                  <Circle size={24} color={colors.border} />
+                )}
+              </View>
+              <View style={styles.avatar}>
+                <Text variant="body" bold style={{ color: colors.primary }}>
+                  {getInitials(`${personel.first_name} ${personel.last_name}`)}
+                </Text>
+              </View>
+              <View style={styles.personelInfo}>
+                <View style={styles.personelNameRow}>
+                  <Text variant="body">
+                    {personel.first_name} {personel.last_name}
+                  </Text>
+                  {!personel.is_active && (
+                    <EyeOff size={14} color={colors.textMuted} />
+                  )}
+                </View>
+              </View>
+              <View style={styles.personelBalance}>
+                <Text
+                  variant="body"
+                  color={getBalanceColor(toNumber(personel.balance))}
+                >
+                  {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ) : (
+          <ExpandableCard
+            expanded={expandedPersonelId === personel.id}
+            onToggle={() => {
+              haptics.selection();
+              setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id);
+            }}
+            header={
+              <View style={styles.personelHeader}>
+                <View style={styles.avatar}>
+                  <Text variant="body" bold style={{ color: colors.primary }}>
+                    {getInitials(`${personel.first_name} ${personel.last_name}`)}
+                  </Text>
+                </View>
+                <View style={styles.personelInfo}>
+                  <View style={styles.personelNameRow}>
+                    <Text variant="body">
+                      {personel.first_name} {personel.last_name}
+                    </Text>
+                    {!personel.is_active && (
+                      <EyeOff size={14} color={colors.textMuted} />
+                    )}
+                  </View>
+                  <View style={styles.personelMeta}>
+                    {personel.position && (
+                      <>
+                        <Briefcase size={12} color={colors.textMuted} />
+                        <Text variant="caption" color="secondary">
+                          {personel.position}
+                        </Text>
+                      </>
+                    )}
+                    {personel.phone && (
+                      <>
+                        <Phone size={12} color={colors.textMuted} style={{ marginLeft: spacing.sm }} />
+                        <Text variant="caption" color="secondary">
+                          {personel.phone}
+                        </Text>
+                      </>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.personelBalance}>
+                  <Text variant="caption" color="secondary">
+                    {getBalanceLabel(toNumber(personel.balance))}
+                  </Text>
+                  <Text
+                    variant="h3"
+                    color={getBalanceColor(toNumber(personel.balance))}
+                  >
+                    {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
+                  </Text>
+                  {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
+                    <Text variant="caption" color="secondary">
+                      ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  style={styles.moreButton}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    handleOpenActionSheet(personel);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <MoreVertical size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            }
+          >
+            <View style={styles.personelActions}>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Zap size={16} color={colors.surface} />}
+                onPress={() => {
+                  setSelectedPersonelId(personel.id);
+                  setQuickBarVisible(true);
+                }}
+                style={styles.actionButton}
+              >
+                {t('staff:details.newTransaction')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<History size={16} color={colors.text} />}
+                onPress={() => router.push(`/personel/${personel.id}`)}
+                style={styles.actionButton}
+              >
+                {t('staff:details.transactions')}
+              </Button>
+            </View>
+          </ExpandableCard>
+        )}
+      </View>
+    );
+  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor]);
+
+  // FlatList ListHeaderComponent - header, özet ve arama
+  const ListHeader = useMemo(() => (
+    <>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text variant="h2">{t('staff:titles.personnel')}</Text>
+        <Button
+          variant="primary"
+          size="sm"
+          icon={<Plus size={18} color={colors.white} />}
+          onPress={() => router.push('/personel/ekle')}
+        >
+          {t('common:buttons.add')}
+        </Button>
+      </View>
+
+      {/* Özet Kartları */}
+      <View style={styles.summaryContainer}>
+        <Card style={styles.summaryCard}>
+          <Text variant="caption" color="secondary">{t('staff:balance.weOwe')}</Text>
+          <Text variant="h3" color="error">{formatCurrency(payables.personel)}</Text>
+        </Card>
+        <Card style={styles.summaryCard}>
+          <Text variant="caption" color="secondary">{t('staff:balance.theyOwe')}</Text>
+          <Text variant="h3" color="success">{formatCurrency(receivables.personel)}</Text>
+        </Card>
+      </View>
+
+      {/* Arama */}
+      <View style={styles.searchContainer}>
+        <SearchInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('staff:search.searchPersonnel')}
+        />
+      </View>
+
+      {/* Loading state */}
+      {isLoading && <SkeletonAccountList count={5} />}
+    </>
+  ), [t, router, payables.personel, receivables.personel, searchQuery, isLoading]);
+
+  // FlatList ListEmptyComponent
+  const ListEmpty = useMemo(() => {
+    if (isLoading) return null;
+    return (
+      <EmptyState
+        icon={<UserCircle size={48} color={colors.textMuted} />}
+        title={searchQuery ? t('staff:search.noResults') : t('staff:messages.noPersonnel')}
+        description={
+          searchQuery
+            ? t('common:search.tryDifferent')
+            : t('staff:messages.addFirstPersonnel')
+        }
+        actionLabel={searchQuery ? undefined : t('staff:titles.addPersonnel')}
+        onAction={searchQuery ? undefined : () => router.push('/personel/ekle')}
+      />
+    );
+  }, [isLoading, searchQuery, t, router]);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text variant="h2">{t('staff:titles.personnel')}</Text>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={18} color={colors.white} />}
-            onPress={() => router.push('/personel/ekle')}
-          >
-            {t('common:buttons.add')}
-          </Button>
-        </View>
-
-        {/* Özet Kartları */}
-        <View style={styles.summaryContainer}>
-          <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">{t('staff:balance.weOwe')}</Text>
-            <Text variant="h3" color="error">{formatCurrency(payables.personel)}</Text>
-          </Card>
-          <Card style={styles.summaryCard}>
-            <Text variant="caption" color="secondary">{t('staff:balance.theyOwe')}</Text>
-            <Text variant="h3" color="success">{formatCurrency(receivables.personel)}</Text>
-          </Card>
-        </View>
-
-        {/* Arama */}
-        <View style={styles.searchContainer}>
-          <SearchInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t('staff:search.searchPersonnel')}
-          />
-        </View>
-
-        {/* Personel Listesi */}
-        <View style={styles.listContainer}>
-          {isLoading ? (
-            <SkeletonAccountList count={5} />
-          ) : !filteredPersonel || filteredPersonel.length === 0 ? (
-            <EmptyState
-              icon={<UserCircle size={48} color={colors.textMuted} />}
-              title={searchQuery ? t('staff:search.noResults') : t('staff:messages.noPersonnel')}
-              description={
-                searchQuery
-                  ? t('common:search.tryDifferent')
-                  : t('staff:messages.addFirstPersonnel')
-              }
-              actionLabel={searchQuery ? undefined : t('staff:titles.addPersonnel')}
-              onAction={searchQuery ? undefined : () => router.push('/personel/ekle')}
-            />
-          ) : (
-            filteredPersonel.map((personel) => (
-              <View key={personel.id} style={!personel.is_active && styles.passiveItem}>
-                <ExpandableCard
-                  expanded={expandedPersonelId === personel.id}
-                  onToggle={() => {
-                    haptics.selection();
-                    setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id);
-                  }}
-                  header={
-                    <View style={styles.personelHeader}>
-                      <View style={styles.avatar}>
-                        <Text variant="body" bold style={{ color: colors.primary }}>
-                          {getInitials(`${personel.first_name} ${personel.last_name}`)}
-                        </Text>
-                      </View>
-                      <View style={styles.personelInfo}>
-                        <View style={styles.personelNameRow}>
-                          <Text variant="body">
-                            {personel.first_name} {personel.last_name}
-                          </Text>
-                          {!personel.is_active && (
-                            <EyeOff size={14} color={colors.textMuted} />
-                          )}
-                        </View>
-                        <View style={styles.personelMeta}>
-                        {personel.position && (
-                          <>
-                            <Briefcase size={12} color={colors.textMuted} />
-                            <Text variant="caption" color="secondary">
-                              {personel.position}
-                            </Text>
-                          </>
-                        )}
-                        {personel.phone && (
-                          <>
-                            <Phone size={12} color={colors.textMuted} style={{ marginLeft: spacing.sm }} />
-                            <Text variant="caption" color="secondary">
-                              {personel.phone}
-                            </Text>
-                          </>
-                        )}
-                      </View>
-                    </View>
-                    <View style={styles.personelBalance}>
-                      <Text variant="caption" color="secondary">
-                        {getBalanceLabel(toNumber(personel.balance))}
-                      </Text>
-                      <Text
-                        variant="h3"
-                        color={getBalanceColor(toNumber(personel.balance))}
-                      >
-                        {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
-                      </Text>
-                      {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
-                        <Text variant="caption" color="secondary">
-                          ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                        </Text>
-                      )}
-                    </View>
-                    <TouchableOpacity
-                      style={styles.moreButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleOpenActionSheet(personel);
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                      <MoreVertical size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  </View>
-                }
-              >
-                <View style={styles.personelActions}>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<Zap size={16} color={colors.surface} />}
-                    onPress={() => {
-                      setSelectedPersonelId(personel.id);
-                      setQuickBarVisible(true);
-                    }}
-                    style={styles.actionButton}
-                  >
-                    {t('staff:details.newTransaction')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<History size={16} color={colors.text} />}
-                    onPress={() => router.push(`/personel/${personel.id}`)}
-                    style={styles.actionButton}
-                  >
-                    {t('staff:details.transactions')}
-                  </Button>
-                </View>
-                </ExpandableCard>
-              </View>
-            ))
-          )}
-        </View>
-      </ScrollView>
+      <FlatList
+        style={styles.scrollView}
+        data={isLoading ? [] : filteredPersonel}
+        keyExtractor={(item) => item.id}
+        renderItem={renderPersonelItem}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        showsVerticalScrollIndicator={false}
+        // Performans optimizasyonları
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+        // Extra data for re-renders when these change
+        extraData={{ selectedIds, expandedPersonelId, isSelectMode }}
+        contentContainerStyle={styles.listContainer}
+      />
 
       {/* FAB Backdrop */}
       {fabMenuVisible && (
@@ -465,6 +638,52 @@ export default function PersonelPage() {
         options={actionSheetOptions}
         cancelLabel={t('common:buttons.cancel')}
       />
+
+      {/* Bulk Action Bar */}
+      {isSelectMode && (
+        <View style={[styles.bulkActionBar, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <View style={styles.bulkActionHeader}>
+            <TouchableOpacity onPress={handleCancelSelectMode} style={styles.bulkActionCancel}>
+              <X size={20} color={colors.text} />
+            </TouchableOpacity>
+            <Text variant="body" bold>
+              {t('common:bulkSelect.selected', { count: selectedIds.size })}
+            </Text>
+            <TouchableOpacity
+              onPress={selectedIds.size === filteredPersonel?.length ? handleDeselectAll : handleSelectAll}
+              style={styles.bulkActionSelectAll}
+            >
+              <Text variant="body" style={{ color: colors.primary }}>
+                {selectedIds.size === filteredPersonel?.length
+                  ? t('common:bulkSelect.deselectAll')
+                  : t('common:bulkSelect.selectAll')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.bulkActionButtons}>
+            <TouchableOpacity
+              style={[styles.bulkActionButton, styles.bulkActionArchive]}
+              onPress={handleBulkArchive}
+              disabled={selectedIds.size === 0}
+            >
+              <Archive size={20} color={selectedIds.size === 0 ? colors.textMuted : colors.warning} />
+              <Text variant="caption" style={{ color: selectedIds.size === 0 ? colors.textMuted : colors.warning }}>
+                {t('common:archive.actions.archive')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bulkActionButton, styles.bulkActionDelete]}
+              onPress={handleBulkDelete}
+              disabled={selectedIds.size === 0}
+            >
+              <Trash2 size={20} color={selectedIds.size === 0 ? colors.textMuted : colors.error} />
+              <Text variant="caption" style={{ color: selectedIds.size === 0 ? colors.textMuted : colors.error }}>
+                {t('common:buttons.delete')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -595,5 +814,74 @@ const styles = StyleSheet.create({
   fabBackdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'transparent',
+  },
+  // Multi-select styles
+  selectedItem: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.xs,
+  },
+  selectableCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  checkbox: {
+    marginRight: spacing.sm,
+  },
+  checkboxSelected: {
+    // Additional styling for selected state if needed
+  },
+  // Bulk action bar styles
+  bulkActionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  bulkActionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  bulkActionCancel: {
+    padding: spacing.xs,
+  },
+  bulkActionSelectAll: {
+    padding: spacing.xs,
+  },
+  bulkActionButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  bulkActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  bulkActionArchive: {
+    borderColor: colors.warning,
+    backgroundColor: colors.warningLight,
+  },
+  bulkActionDelete: {
+    borderColor: colors.error,
+    backgroundColor: colors.errorLight,
   },
 });

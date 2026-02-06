@@ -202,6 +202,7 @@
       "dialogTitle": "Download Excel Template",
       "sheetName": "Transactions",
       "fileName": "import_template.xlsx",
+      "importWarning": "⚠️ IMPORTANT: If importing from another app, try with a small test file first. Especially check source/target account order for TRANSFER transactions. If you made a wrong import, you can undo the entire file with the \"Undo\" feature.",
       "headers": {
         "date": "DATE",
         "type": "TYPE",
@@ -254,7 +255,12 @@
         "sampleSupplier": "ABC Trading",
         "sampleCustomer": "XYZ Customer",
         "sampleStaff1": "John Smith",
-        "sampleStaff2": "Jane Doe"
+        "sampleStaff2": "Jane Doe",
+        "openingBalance": "OPENING BALANCE",
+        "accountOpeningBalance": "Bank account opening balance",
+        "supplierOpeningBalance": "Supplier opening balance",
+        "customerOpeningBalance": "Customer opening balance",
+        "staffOpeningBalance": "Staff advance balance"
       }
     },
     "modal": {
@@ -328,11 +334,23 @@
     "success": {
       "title": "Success",
       "complete": "Import Complete!",
-      "undoComplete": "Import fully undone:\n\n{{details}}"
+      "undoComplete": "Import fully undone:\n\n{{details}}",
+      "startingBalancesApplied": "{{count}} opening balances applied",
+      "totalRowsProcessed": "Total: {{count}} rows processed"
     },
     "skipped": {
       "count": "{{count}} Transactions Skipped",
       "exportDialogTitle": "Save Skipped Transactions"
+    },
+    "silentlySkipped": {
+      "title": "Rows with Missing Data",
+      "count": "{{count}} rows have missing data - please check",
+      "empty": "Empty row",
+      "noDateOrType": "Missing date or transaction type",
+      "noEntity": "No account, client or staff information",
+      "row": "Row {{row}}",
+      "showDetails": "Show Details",
+      "hideDetails": "Hide Details"
     },
     "undo": {
       "title": "Undo Last Import",
@@ -371,14 +389,18 @@
       "transfer": "TRANSFER — Transfers between accounts",
       "personelGider": "STAFF EXPENSE — Salary payments",
       "personelOdeme": "STAFF PAYMENT — Advance payments",
-      "personelTahsilat": "STAFF COLLECTION — Advance returns"
+      "personelTahsilat": "STAFF COLLECTION — Advance returns",
+      "baslangicBakiyesi": "OPENING BALANCE — Account/Client/Staff opening balance"
     },
     "results": {
       "category": "Category",
       "account": "Account",
       "client": "Client",
       "staff": "Staff",
-      "transaction": "Transaction"
+      "transaction": "Transaction",
+      "startingBalance": "Opening Balance",
+      "skipped": "Skipped",
+      "totalRows": "Total Rows"
     },
     "pendingForm": {
       "title": "Fix Transaction",
@@ -407,6 +429,42 @@
     },
     "errors": {
       "selectSupplierOrStaff": "Please select a supplier or staff member"
+    },
+    "validation": {
+      "title": "Data Quality",
+      "score": "Quality Score",
+      "validTransactions": "{{count}} valid transactions",
+      "warningTransactions": "{{count}} warnings",
+      "errorTransactions": "{{count}} errors",
+      "dateInvalid": "Date Errors",
+      "dateInvalidDesc": "{{count}} transactions have invalid date format",
+      "dateInvalidSuggestion": "Use DD/MM/YYYY or YYYY-MM-DD format",
+      "amountInvalid": "Amount Errors",
+      "amountInvalidDesc": "{{count}} transactions have invalid amount",
+      "amountInvalidSuggestion": "Amount must be 0.01 or higher",
+      "typeUnknown": "Unknown Transaction Type",
+      "typeUnknownDesc": "{{count}} transactions have unrecognized type",
+      "typeUnknownSuggestion": "Use standard types like INCOME, EXPENSE, TRANSFER",
+      "entityNotFound": "Missing Records",
+      "entityNotFoundDesc": "{{count}} transactions have missing account/client",
+      "entityNotFoundSuggestion": "Create the account/client first or fix the mapping",
+      "startingBalance": "Opening Balances",
+      "startingBalanceDesc": "{{count}} opening balance records",
+      "startingBalanceSuggestion": "These values will be applied to account/client balances",
+      "duplicate": "Duplicate Transactions",
+      "duplicateDesc": "{{count}} transactions may already exist",
+      "duplicateSuggestion": "You can skip duplicates or add them anyway"
+    },
+    "progressStats": {
+      "speed": "{{count}} tx/sec",
+      "remaining": "~{{seconds}}s remaining",
+      "percentage": "{{percent}}%"
+    },
+    "skippedRows": {
+      "title": "Skipped Rows",
+      "emptyRows": "{{count}} empty rows skipped",
+      "noDateOrType": "{{count}} rows missing date/type",
+      "noEntity": "{{count}} rows missing account/contact/staff"
     }
   },
   "account": {

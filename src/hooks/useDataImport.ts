@@ -7,7 +7,6 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import {
   ImportPreview,
   AccountMapping,
@@ -36,6 +35,16 @@ export interface ImportProgress {
   message: string;
   estimatedTimeRemaining?: number; // saniye
   startTime?: number;
+  // UX iyileştirmeleri
+  percentage: number;
+  itemsPerSecond: number;
+  phaseDetails: {
+    categories: number;
+    accounts: number;
+    clients: number;
+    personel: number;
+    transactions: number;
+  };
 }
 
 /**
@@ -64,6 +73,9 @@ export interface ImportResult {
   errors: string[];
   skipped: number;
   skippedTransactions: SkippedTransaction[]; // Atlanan işlemlerin detayları
+  // Başlangıç bakiyesi sayacı (toplam satır doğrulaması için)
+  startingBalancesApplied: number;
+  totalRowsProcessed: number; // İşlem + Başlangıç Bakiyesi + Atlanan = Toplam
 }
 
 interface EntityIdMap {
@@ -133,9 +145,11 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
 /**
  * Import edilen bir işlem için bakiye güncelleme
  * Normal işlem oluşturma ile aynı mantığı kullanır
+ * OPTIMIZED: Birden fazla bakiye güncellemesi gerektiren işlemlerde Promise.all kullanılır
  */
 async function updateBalanceForImportedTransaction(islem: IslemInsert): Promise<void> {
   const amount = islem.amount;
+  const promises: Promise<void>[] = [];
 
   switch (islem.type) {
     case 'gelir':
@@ -153,13 +167,14 @@ async function updateBalanceForImportedTransaction(islem: IslemInsert): Promise<
       break;
 
     case 'transfer':
-      // Transfer: Kaynak hesaptan düş, hedef hesaba ekle
+      // Transfer: Kaynak hesaptan düş, hedef hesaba ekle (PARALLEL)
       if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, -amount));
       }
       if (islem.hedef_hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, amount);
+        promises.push(safeIncrementBalance('hesaplar', islem.hedef_hesap_id, amount));
       }
+      if (promises.length > 0) await Promise.all(promises);
       break;
 
     case 'cari_alis':
@@ -177,25 +192,27 @@ async function updateBalanceForImportedTransaction(islem: IslemInsert): Promise<
       break;
 
     case 'cari_odeme':
-      // Cari ödeme: Cariye ödeme yaptık
+      // Cari ödeme: Cariye ödeme yaptık (PARALLEL)
       // Hesaptan para çıkıyor, cari bakiyesi artıyor (borcumuz azalıyor)
       if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
+        promises.push(safeIncrementBalance('cariler', islem.cari_id, amount));
       }
       if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, -amount));
       }
+      if (promises.length > 0) await Promise.all(promises);
       break;
 
     case 'cari_tahsilat':
-      // Cari tahsilat: Cariden tahsilat aldık
+      // Cari tahsilat: Cariden tahsilat aldık (PARALLEL)
       // Hesaba para giriyor, cari bakiyesi azalıyor (alacağımız azalıyor)
       if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
+        promises.push(safeIncrementBalance('cariler', islem.cari_id, -amount));
       }
       if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, amount));
       }
+      if (promises.length > 0) await Promise.all(promises);
       break;
 
     case 'personel_gider':
@@ -206,25 +223,27 @@ async function updateBalanceForImportedTransaction(islem: IslemInsert): Promise<
       break;
 
     case 'personel_odeme':
-      // Personel ödemesi: Personele ödeme yapıldı
+      // Personel ödemesi: Personele ödeme yapıldı (PARALLEL)
       // Hesaptan para çıkıyor, personel bakiyesi artıyor (borcumuz azalıyor)
       if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
+        promises.push(safeIncrementBalance('personel', islem.personel_id, amount));
       }
       if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, -amount));
       }
+      if (promises.length > 0) await Promise.all(promises);
       break;
 
     case 'personel_tahsilat':
-      // Personelden tahsilat: Personelden para aldık
+      // Personelden tahsilat: Personelden para aldık (PARALLEL)
       // Hesaba para giriyor, personel bakiyesi azalıyor
       if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
+        promises.push(safeIncrementBalance('personel', islem.personel_id, -amount));
       }
       if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, amount));
       }
+      if (promises.length > 0) await Promise.all(promises);
       break;
 
     // İade işlemleri ve diğer tipler - bakiye güncellemesi gerektirmeyenler
@@ -357,6 +376,9 @@ export function useDataImport() {
     current: 0,
     total: 0,
     message: '',
+    percentage: 0,
+    itemsPerSecond: 0,
+    phaseDetails: { categories: 0, accounts: 0, clients: 0, personel: 0, transactions: 0 },
   });
 
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -591,6 +613,7 @@ export function useDataImport() {
       ...p,
       phase: 'categories',
       message: translationsRef.current.categories,
+      phaseDetails: { ...p.phaseDetails, categories: newCategories.length },
     }));
 
     // Batch insert
@@ -632,12 +655,14 @@ export function useDataImport() {
 
   /**
    * Hesapları import et
-   * Başlangıç bakiyesi 0 olarak ayarlanır, kullanıcı manuel değiştirebilir
+   * Başlangıç bakiyesi varsa kullanılır, yoksa 0
+   * @param startingBalances - hesap adı (lowercase) -> bakiye map'i
    * @returns { map, createdIds } - map: tüm hesapların ID'leri, createdIds: yeni oluşturulanların ID'leri
    */
   const importAccounts = useCallback(async (
     accountMappings: Record<string, AccountMapping>,
-    existingMap: Map<string, string>
+    existingMap: Map<string, string>,
+    startingBalances: Map<string, number> = new Map()
   ): Promise<{ map: Map<string, string>; createdIds: string[] }> => {
     if (!isletme) return { map: existingMap, createdIds: [] };
 
@@ -646,12 +671,14 @@ export function useDataImport() {
 
     Object.values(accountMappings).forEach(mapping => {
       if (mapping.type === 'hesap' && !resultMap.has(mapping.name.toLowerCase())) {
+        const initialBalance = startingBalances.get(mapping.name.toLowerCase()) || 0;
         newAccounts.push({
           isletme_id: isletme.id,
           name: mapping.name,
           type: (mapping.hesapType || 'banka') as HesapType,
           currency: (mapping.currency || 'TRY') as 'TRY' | 'USD' | 'EUR' | 'GBP' | 'XAU' | 'XAG', // Import'tan tespit edilen para birimi
-          balance: 0, // Başlangıç bakiyesi 0, kullanıcı manuel değiştirebilir
+          balance: initialBalance, // Başlangıç bakiyesi (varsa) veya 0
+          initial_balance: initialBalance, // initial_balance alanını da ayarla
         });
       }
     });
@@ -662,6 +689,7 @@ export function useDataImport() {
       ...p,
       phase: 'accounts',
       message: translationsRef.current.accounts,
+      phaseDetails: { ...p.phaseDetails, accounts: newAccounts.length },
     }));
 
     const createdIds: string[] = [];
@@ -688,12 +716,14 @@ export function useDataImport() {
 
   /**
    * Carileri import et
-   * Başlangıç bakiyesi 0 olarak ayarlanır, kullanıcı manuel değiştirebilir
+   * Başlangıç bakiyesi varsa kullanılır, yoksa 0
+   * @param startingBalances - cari adı (lowercase) -> bakiye map'i
    * @returns { map, createdIds } - map: tüm carilerin ID'leri, createdIds: yeni oluşturulanların ID'leri
    */
   const importClients = useCallback(async (
     accountMappings: Record<string, AccountMapping>,
-    existingMap: Map<string, string>
+    existingMap: Map<string, string>,
+    startingBalances: Map<string, number> = new Map()
   ): Promise<{ map: Map<string, string>; createdIds: string[] }> => {
     if (!isletme) return { map: existingMap, createdIds: [] };
 
@@ -702,11 +732,12 @@ export function useDataImport() {
 
     Object.values(accountMappings).forEach(mapping => {
       if (mapping.type === 'cari' && !resultMap.has(mapping.name.toLowerCase())) {
+        const initialBalance = startingBalances.get(mapping.name.toLowerCase()) || 0;
         newClients.push({
           isletme_id: isletme.id,
           name: mapping.name,
           type: (mapping.cariType || 'tedarikci') as CariType,
-          balance: 0, // Başlangıç bakiyesi 0, kullanıcı manuel değiştirebilir
+          balance: initialBalance, // Başlangıç bakiyesi (varsa) veya 0
         });
       }
     });
@@ -717,6 +748,7 @@ export function useDataImport() {
       ...p,
       phase: 'clients',
       message: translationsRef.current.clients,
+      phaseDetails: { ...p.phaseDetails, clients: newClients.length },
     }));
 
     const createdIds: string[] = [];
@@ -743,12 +775,14 @@ export function useDataImport() {
 
   /**
    * Personelleri import et
-   * Başlangıç bakiyesi 0 olarak ayarlanır, kullanıcı manuel değiştirebilir
+   * Başlangıç bakiyesi varsa kullanılır, yoksa 0
+   * @param startingBalances - personel adı (lowercase) -> bakiye map'i
    * @returns { map, createdIds } - map: tüm personelin ID'leri, createdIds: yeni oluşturulanların ID'leri
    */
   const importPersonel = useCallback(async (
     accountMappings: Record<string, AccountMapping>,
-    existingMap: Map<string, string>
+    existingMap: Map<string, string>,
+    startingBalances: Map<string, number> = new Map()
   ): Promise<{ map: Map<string, string>; createdIds: string[] }> => {
     if (!isletme) return { map: existingMap, createdIds: [] };
 
@@ -762,15 +796,23 @@ export function useDataImport() {
         totalMappings: Object.keys(accountMappings).length,
         personelMappings: personelMappings.map(m => m.name),
         existingPersonel: [...existingMap.keys()],
+        startingBalances: [...startingBalances.entries()],
       });
     }
 
     Object.values(accountMappings).forEach(mapping => {
       if (mapping.type === 'personel' && !resultMap.has(mapping.name.toLowerCase())) {
         // İsmi first_name ve last_name olarak ayır
+        // Son kelime soyisim, geri kalan tümü isim
+        // "Ömer Faruk Özadalı" -> isim: "Ömer Faruk", soyisim: "Özadalı"
+        // "Yusuf" -> isim: "Yusuf", soyisim: ""
         const nameParts = mapping.name.trim().split(/\s+/);
-        const firstName = nameParts[0] || mapping.name;
-        const lastName = nameParts.slice(1).join(' ') || null;
+        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+        const firstName = nameParts.length > 1
+          ? nameParts.slice(0, -1).join(' ')
+          : nameParts[0] || mapping.name;
+
+        const initialBalance = startingBalances.get(mapping.name.toLowerCase()) || 0;
 
         if (__DEV__) {
           console.log('Creating personel:', {
@@ -778,6 +820,7 @@ export function useDataImport() {
             firstName,
             lastName,
             mapKey: mapping.name.toLowerCase(),
+            initialBalance,
           });
         }
 
@@ -785,7 +828,7 @@ export function useDataImport() {
           isletme_id: isletme.id,
           first_name: firstName,
           last_name: lastName,
-          balance: 0, // Başlangıç bakiyesi 0, kullanıcı manuel değiştirebilir
+          balance: initialBalance, // Başlangıç bakiyesi (varsa) veya 0
         });
       }
     });
@@ -796,6 +839,7 @@ export function useDataImport() {
       ...p,
       phase: 'personel',
       message: translationsRef.current.personel,
+      phaseDetails: { ...p.phaseDetails, personel: newPersonel.length },
     }));
 
     const createdIds: string[] = [];
@@ -878,14 +922,25 @@ export function useDataImport() {
         ? ` (~${estimatedTimeRemaining}s ${translationsRef.current.etaRemaining || 'kaldı'})`
         : '';
 
-      setProgress({
+      // Hız ve yüzde hesapla
+      const percentage = transactions.length > 0 ? Math.round((currentProgress / transactions.length) * 100) : 0;
+      const itemsPerSecond = elapsed > 0 ? Math.round(currentProgress / (elapsed / 1000)) : 0;
+
+      setProgress(p => ({
+        ...p,
         phase: 'transactions',
         current: currentProgress,
         total: transactions.length,
         message: `${translationsRef.current.transactions} (${chunkIndex + 1}/${totalChunks})${etaText}`,
         estimatedTimeRemaining,
         startTime,
-      });
+        percentage,
+        itemsPerSecond,
+        phaseDetails: {
+          ...p.phaseDetails,
+          transactions: currentProgress,
+        },
+      }));
 
       for (const tx of chunk) {
         // Satır numarasını transaction'dan al (varsa) veya hesapla
@@ -893,12 +948,40 @@ export function useDataImport() {
         globalIndex++;
 
         try {
+          // Başlangıç bakiyesi işlemlerini sessizce atla (zaten entity'lere uygulandı)
+          // Atlanan listesine EKLEMİYORUZ çünkü başarıyla işlendi
+          if (tx.mappedType === 'baslangic_bakiyesi') {
+            continue;
+          }
+
           // Tarih geçerliliği kontrolü
           if (!tx.dateValid) {
             skipped++;
             skippedTransactions.push({
               transaction: tx,
               reason: tx.dateError || 'Geçersiz tarih',
+              rowNumber,
+            });
+            continue;
+          }
+
+          // Tutar geçerliliği kontrolü
+          if (!tx.amountValid) {
+            skipped++;
+            skippedTransactions.push({
+              transaction: tx,
+              reason: tx.amountError || 'Geçersiz tutar',
+              rowNumber,
+            });
+            continue;
+          }
+
+          // Entity geçerliliği kontrolü (hesap/cari/personel)
+          if (!tx.entityValid) {
+            skipped++;
+            skippedTransactions.push({
+              transaction: tx,
+              reason: tx.entityError || 'Hesap, cari veya personel bilgisi eksik',
               rowNumber,
             });
             continue;
@@ -922,9 +1005,12 @@ export function useDataImport() {
             ? idMaps.accounts.get(tx.account.toLowerCase()) || null
             : null;
 
-          // Hesap bulunamadıysa atla (cari_alis ve cari_satis HARİÇ)
-          const isCariAlisOrSatis = tx.mappedType === 'cari_alis' || tx.mappedType === 'cari_satis';
-          if (!hesapId && !isCariAlisOrSatis) {
+          // Hesap bulunamadıysa atla (istisna: cari işlemleri, iadeler ve personel_gider)
+          // personel_gider: Sadece personel bakiyesini etkiler, hesap gerekmez
+          // cari_alis/cari_satis/iadeler: Cari bakiyesini etkiler, hesap opsiyonel
+          const isCariIslemi = ['cari_alis', 'cari_satis', 'cari_alis_iade', 'cari_satis_iade'].includes(tx.mappedType);
+          const isPersonelGider = tx.mappedType === 'personel_gider';
+          if (!hesapId && !isCariIslemi && !isPersonelGider) {
             skipped++;
             skippedTransactions.push({
               transaction: tx,
@@ -933,10 +1019,10 @@ export function useDataImport() {
             });
             continue;
           }
-          // cari_alis/cari_satis için hesap belirtilmişse ama bulunamadıysa uyar (atlamadan devam et)
-          if (!hesapId && tx.account && isCariAlisOrSatis) {
+          // Hesap opsiyonel işlemler için hesap belirtilmişse ama bulunamadıysa uyar (atlamadan devam et)
+          if (!hesapId && tx.account && (isCariIslemi || isPersonelGider)) {
             if (__DEV__) {
-              console.log(`[UYARI] cari_alis/cari_satis için hesap bulunamadı: "${tx.account}", hesap_id null olarak devam ediliyor`);
+              console.log(`[UYARI] ${tx.mappedType} için hesap bulunamadı: "${tx.account}", hesap_id null olarak devam ediliyor`);
             }
           }
 
@@ -975,9 +1061,9 @@ export function useDataImport() {
             }
           }
 
-          // Cari işlemleri için cari kontrolü (tüm cari işlem tipleri için)
-          if (tx.mappedType === 'cari_odeme' || tx.mappedType === 'cari_tahsilat' ||
-              tx.mappedType === 'cari_alis' || tx.mappedType === 'cari_satis') {
+          // Cari işlemleri için cari kontrolü (tüm cari işlem tipleri ve iadeler için)
+          const cariIslemTipleri = ['cari_odeme', 'cari_tahsilat', 'cari_alis', 'cari_satis', 'cari_alis_iade', 'cari_satis_iade'];
+          if (cariIslemTipleri.includes(tx.mappedType)) {
             const hasCari = tx.tedarikci || tx.musteri;
             if (!hasCari) {
               skipped++;
@@ -1077,10 +1163,24 @@ export function useDataImport() {
           // İşlem tipi belirle
           const islemType: IslemType = tx.mappedType as IslemType;
 
+          // Tutarı 2 ondalık basamağa yuvarla (veritabanı DECIMAL(15,2))
+          const finalAmount = Math.round(tx.amount * 100) / 100;
+
+          // Son güvenlik kontrolü: tutar > 0 olmalı
+          if (finalAmount <= 0) {
+            skipped++;
+            skippedTransactions.push({
+              transaction: tx,
+              reason: `Tutar sıfır veya negatif: ${tx.amount}`,
+              rowNumber,
+            });
+            continue;
+          }
+
           const islem: IslemInsert = {
             isletme_id: isletme.id,
             type: islemType,
-            amount: tx.amount,
+            amount: finalAmount,
             date: tx.date,
             description: tx.description,
             hesap_id: hesapId,
@@ -1172,28 +1272,46 @@ export function useDataImport() {
             }));
 
             // Her başarılı işlem için bakiye güncelle, hataları takip et
+            // OPTIMIZED: Batch parallel processing (100'lük gruplar)
             let balanceUpdateSuccessCount = 0;
             let balanceUpdateFailCount = 0;
             const failedTransactionIds: string[] = [];
 
-            for (let i = 0; i < Math.min(actualCreated, islemler.length); i++) {
-              const islem = islemler[i];
-              const txId = insertedData?.[i]?.id;
-              try {
-                await updateBalanceForImportedTransaction(islem);
-                balanceUpdateSuccessCount++;
-              } catch (balanceErr) {
-                balanceUpdateFailCount++;
-                if (txId) failedTransactionIds.push(txId);
+            const BALANCE_UPDATE_BATCH_SIZE = 100; // Kontrollü parallelism
+            const balanceUpdateItems = islemler.slice(0, Math.min(actualCreated, islemler.length));
+            const balanceUpdateBatches = chunkArray(balanceUpdateItems, BALANCE_UPDATE_BATCH_SIZE);
 
-                if (__DEV__) {
-                  console.error('Bakiye güncelleme hatası:', {
-                    islem,
-                    txId,
-                    error: balanceErr,
+            for (const batch of balanceUpdateBatches) {
+              const batchPromises = batch.map((islem, batchIdx) => {
+                // Global index hesapla (batch içindeki pozisyon + önceki batch'lerin toplamı)
+                const globalIdx = balanceUpdateBatches.indexOf(batch) * BALANCE_UPDATE_BATCH_SIZE + batchIdx;
+                const txId = insertedData?.[globalIdx]?.id;
+
+                return updateBalanceForImportedTransaction(islem)
+                  .then(() => ({ success: true as const, txId }))
+                  .catch((balanceErr) => {
+                    if (__DEV__) {
+                      console.error('Bakiye güncelleme hatası:', {
+                        islem,
+                        txId,
+                        error: balanceErr,
+                      });
+                    }
+                    return { success: false as const, txId, error: balanceErr, islemType: islem.type };
                   });
+              });
+
+              const batchResults = await Promise.all(batchPromises);
+
+              // Batch sonuçlarını işle
+              for (const result of batchResults) {
+                if (result.success) {
+                  balanceUpdateSuccessCount++;
+                } else {
+                  balanceUpdateFailCount++;
+                  if (result.txId) failedTransactionIds.push(result.txId);
+                  errors.push(`Bakiye güncelleme hatası (işlem tipi: ${result.islemType}): ${result.error}`);
                 }
-                errors.push(`Bakiye güncelleme hatası (işlem tipi: ${islem.type}): ${balanceErr}`);
               }
             }
 
@@ -1275,10 +1393,20 @@ export function useDataImport() {
         errors: ['İşletme bulunamadı'],
         skipped: 0,
         skippedTransactions: [],
+        startingBalancesApplied: 0,
+        totalRowsProcessed: 0,
       };
     }
 
-    setProgress({ phase: 'categories', current: 0, total: 100, message: translationsRef.current.simulation });
+    setProgress({
+      phase: 'categories',
+      current: 0,
+      total: 100,
+      message: translationsRef.current.simulation,
+      percentage: 0,
+      itemsPerSecond: 0,
+      phaseDetails: { categories: 0, accounts: 0, clients: 0, personel: 0, transactions: 0 },
+    });
 
     // 1. Mevcut verileri al (sadece kontrol için)
     const [existingCategories, existingAccounts, existingClients, existingPersonel] = await Promise.all([
@@ -1315,13 +1443,58 @@ export function useDataImport() {
     });
 
     // 3. İşlem sayısını hesapla
-    const validTransactions = preview.transactions.filter(tx => tx.dateValid);
-    const invalidTransactions = preview.transactions.filter(tx => !tx.dateValid);
+    // Başlangıç bakiyesi işlemlerini normal işlemlerden ayır
+    const startingBalanceTransactions = preview.transactions.filter(tx => tx.mappedType === 'baslangic_bakiyesi');
+    // Geçerli işlemler: tarih VE tutar geçerli ve başlangıç bakiyesi değil
+    const validTransactions = preview.transactions.filter(tx =>
+      tx.dateValid && tx.amountValid && tx.mappedType !== 'baslangic_bakiyesi'
+    );
+    // Geçersiz tarihli işlemler
+    const invalidDateTransactions = preview.transactions.filter(tx =>
+      !tx.dateValid && tx.mappedType !== 'baslangic_bakiyesi'
+    );
+    // Geçersiz tutarlı işlemler (tarih geçerli ama tutar geçersiz)
+    const invalidAmountTransactions = preview.transactions.filter(tx =>
+      tx.dateValid && !tx.amountValid && tx.mappedType !== 'baslangic_bakiyesi'
+    );
 
     // 4. Duplicate kontrolü
     const duplicateMap = await runDuplicateCheck(preview.transactions);
 
-    setProgress({ phase: 'done', current: 100, total: 100, message: translationsRef.current.done });
+    setProgress({
+      phase: 'done',
+      current: 100,
+      total: 100,
+      message: translationsRef.current.done,
+      percentage: 100,
+      itemsPerSecond: 0,
+      phaseDetails: {
+        categories: categoriesWouldCreate,
+        accounts: accountsWouldCreate,
+        clients: clientsWouldCreate,
+        personel: personelWouldCreate,
+        transactions: validTransactions.length - duplicateMap.size,
+      },
+    });
+
+    // Skipped transactions listesini oluştur
+    const skippedList: SkippedTransaction[] = [
+      ...invalidDateTransactions.map(tx => ({
+        transaction: tx,
+        reason: tx.dateError || 'Geçersiz tarih',
+        rowNumber: tx.rowNumber || 0,
+      })),
+      ...invalidAmountTransactions.map(tx => ({
+        transaction: tx,
+        reason: tx.amountError || 'Geçersiz tutar',
+        rowNumber: tx.rowNumber || 0,
+      })),
+      // Başlangıç bakiyesi işlemlerini atlanan listesine EKLEMİYORUZ
+      // çünkü bunlar entity'lere otomatik olarak uygulanacak
+    ];
+
+    const totalSkipped = invalidDateTransactions.length + invalidAmountTransactions.length +
+                         duplicateMap.size; // startingBalanceTransactions dahil değil
 
     const simulationResult: ImportResult = {
       success: true,
@@ -1337,12 +1510,11 @@ export function useDataImport() {
       createdClientIds: [],
       createdPersonelIds: [],
       errors: [],
-      skipped: invalidTransactions.length + duplicateMap.size,
-      skippedTransactions: invalidTransactions.map(tx => ({
-        transaction: tx,
-        reason: tx.dateError || 'Geçersiz tarih',
-        rowNumber: tx.rowNumber,
-      })),
+      skipped: totalSkipped,
+      skippedTransactions: skippedList,
+      // Başlangıç bakiyesi ve toplam satır sayısı
+      startingBalancesApplied: startingBalanceTransactions.length,
+      totalRowsProcessed: validTransactions.length + startingBalanceTransactions.length + totalSkipped,
     };
 
     setResult(simulationResult);
@@ -1386,13 +1558,66 @@ export function useDataImport() {
         errors: ['İşletme bulunamadı'],
         skipped: 0,
         skippedTransactions: [],
+        startingBalancesApplied: 0,
+        totalRowsProcessed: 0,
       };
       setResult(errorResult);
       return errorResult;
     }
 
     try {
-      setProgress({ phase: 'categories', current: 0, total: 100, message: translationsRef.current.starting || translationsRef.current.categories });
+      setProgress({
+        phase: 'categories',
+        current: 0,
+        total: 100,
+        message: translationsRef.current.starting || translationsRef.current.categories,
+        percentage: 0,
+        itemsPerSecond: 0,
+        phaseDetails: { categories: 0, accounts: 0, clients: 0, personel: 0, transactions: 0 },
+      });
+
+      // 0. Başlangıç bakiyelerini topla (baslangic_bakiyesi işlemlerinden)
+      // Bu bakiyeler entity oluşturulurken kullanılacak
+      const startingBalances = {
+        hesaplar: new Map<string, number>(), // hesap adı (lowercase) -> bakiye
+        cariler: new Map<string, number>(),  // cari adı (lowercase) -> bakiye
+        personel: new Map<string, number>(), // personel adı (lowercase) -> bakiye
+      };
+
+      preview.transactions.forEach(tx => {
+        if (tx.mappedType === 'baslangic_bakiyesi') {
+          // signedAmount kullan: Excel'deki orijinal işaretli değer
+          // Pozitif = bize borçlu, Negatif = biz borçluyuz
+          const balanceValue = tx.signedAmount;
+
+          // Hesap başlangıç bakiyesi
+          if (tx.account) {
+            startingBalances.hesaplar.set(tx.account.toLowerCase(), balanceValue);
+          }
+          // Cari başlangıç bakiyesi (tedarikçi veya müşteri)
+          if (tx.tedarikci) {
+            // Tedarikçi: Pozitif = tedarikçi bize borçlu, Negatif = biz tedarikçiye borçluyuz
+            startingBalances.cariler.set(tx.tedarikci.toLowerCase(), balanceValue);
+          }
+          if (tx.musteri) {
+            // Müşteri: Pozitif = müşteri bize borçlu, Negatif = biz müşteriye borçluyuz
+            startingBalances.cariler.set(tx.musteri.toLowerCase(), balanceValue);
+          }
+          // Personel başlangıç bakiyesi
+          if (tx.personel) {
+            // Personel: Pozitif = biz personele borçluyuz, Negatif = personel bize borçlu
+            startingBalances.personel.set(tx.personel.toLowerCase(), balanceValue);
+          }
+        }
+      });
+
+      if (__DEV__) {
+        console.log('Starting balances extracted:', {
+          hesaplar: [...startingBalances.hesaplar.entries()],
+          cariler: [...startingBalances.cariler.entries()],
+          personel: [...startingBalances.personel.entries()],
+        });
+      }
 
       // 1. Mevcut verileri al
       const [existingCategories, existingAccounts, existingClients, existingPersonel] = await Promise.all([
@@ -1406,16 +1631,16 @@ export function useDataImport() {
       const categoryResult = await importCategories(preview.uniqueCategories, existingCategories, preview.transactions, options.categoryMappings);
       const categoriesCreated = categoryResult.createdIds.length;
 
-      // 3. Hesapları import et (bakiye 0, kullanıcı manuel değiştirebilir)
-      const accountResult = await importAccounts(accountMappings, existingAccounts);
+      // 3. Hesapları import et (başlangıç bakiyesi varsa kullan, yoksa 0)
+      const accountResult = await importAccounts(accountMappings, existingAccounts, startingBalances.hesaplar);
       const accountsCreated = accountResult.createdIds.length;
 
-      // 4. Carileri import et (bakiye 0, kullanıcı manuel değiştirebilir)
-      const clientResult = await importClients(accountMappings, existingClients);
+      // 4. Carileri import et (başlangıç bakiyesi varsa kullan, yoksa 0)
+      const clientResult = await importClients(accountMappings, existingClients, startingBalances.cariler);
       const clientsCreated = clientResult.createdIds.length;
 
-      // 5. Personelleri import et (bakiye 0, kullanıcı manuel değiştirebilir)
-      const personelResult = await importPersonel(accountMappings, existingPersonel);
+      // 5. Personelleri import et (başlangıç bakiyesi varsa kullan, yoksa 0)
+      const personelResult = await importPersonel(accountMappings, existingPersonel, startingBalances.personel);
       const personelCreated = personelResult.createdIds.length;
 
       // 6. İşlemleri import et
@@ -1435,29 +1660,53 @@ export function useDataImport() {
       );
 
       // 7. Cache'i invalidate et ve refetch yap
-      setProgress({ phase: 'done', current: 100, total: 100, message: translationsRef.current.done });
+      setProgress(p => ({
+        ...p,
+        phase: 'done',
+        current: 100,
+        total: 100,
+        message: translationsRef.current.done,
+        percentage: 100,
+        phaseDetails: {
+          categories: categoriesCreated,
+          accounts: accountsCreated,
+          clients: clientsCreated,
+          personel: personelCreated,
+          transactions: txResult.created,
+        },
+      }));
 
-      invalidateRelatedQueries(queryClient, 'islem');
-      invalidateRelatedQueries(queryClient, 'hesap');
-      invalidateRelatedQueries(queryClient, 'cari');
-      invalidateRelatedQueries(queryClient, 'kategori');
-      invalidateRelatedQueries(queryClient, 'personel');
+      // OPTIMIZED: Sadece kritik query'leri invalidate et (cascade invalidation KALDIRILDI)
+      // Eski kod 50+ query invalidate ediyordu, şimdi sadece 5 query
+      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+      queryClient.invalidateQueries({ queryKey: ['cariler'] });
+      queryClient.invalidateQueries({ queryKey: ['personel'] });
+      queryClient.invalidateQueries({ queryKey: ['kategoriler'] });
+      queryClient.invalidateQueries({ queryKey: ['islemler'] });
 
-      // Refetch kritik query'leri
+      // OPTIMIZED: Kademeli refetch - önce entity'ler (hızlı), sonra işlemler (arka planda)
       try {
+        // Önce kritik entity'leri refetch et (küçük veri, hızlı)
         await Promise.all([
-          queryClient.refetchQueries({ queryKey: ['islemler'] }),
-          queryClient.refetchQueries({ queryKey: ['month-summary'] }),
           queryClient.refetchQueries({ queryKey: ['hesaplar'] }),
           queryClient.refetchQueries({ queryKey: ['cariler'] }),
           queryClient.refetchQueries({ queryKey: ['personel'] }),
-          queryClient.refetchQueries({ queryKey: ['dashboard'] }),
         ]);
+
+        // İşlemler ve dashboard arka planda (büyük veri, kullanıcıyı bekletme)
+        // await YOK - kullanıcı UI'da devam edebilir
+        queryClient.refetchQueries({ queryKey: ['islemler'] });
+        queryClient.refetchQueries({ queryKey: ['month-summary'] });
+        queryClient.refetchQueries({ queryKey: ['dashboard'] });
       } catch (refetchErr) {
         if (__DEV__) {
           console.error('Refetch hatası:', refetchErr);
         }
       }
+
+      // Başlangıç bakiyesi işlemlerini say
+      const startingBalanceCount = preview.transactions.filter(tx => tx.mappedType === 'baslangic_bakiyesi').length;
+      const totalRowsProcessed = txResult.created + startingBalanceCount + txResult.skipped;
 
       const finalResult: ImportResult = {
         success: true,
@@ -1475,6 +1724,8 @@ export function useDataImport() {
         errors: txResult.errors,
         skipped: txResult.skipped,
         skippedTransactions: txResult.skippedTransactions,
+        startingBalancesApplied: startingBalanceCount,
+        totalRowsProcessed,
       };
 
       if (__DEV__) {
@@ -1491,7 +1742,15 @@ export function useDataImport() {
       return finalResult;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Bilinmeyen hata';
-      setProgress({ phase: 'error', current: 0, total: 0, message: errorMessage });
+      setProgress(p => ({
+        ...p,
+        phase: 'error',
+        current: 0,
+        total: 0,
+        message: errorMessage,
+        percentage: 0,
+        itemsPerSecond: 0,
+      }));
 
       const errorResult: ImportResult = {
         success: false,
@@ -1509,6 +1768,8 @@ export function useDataImport() {
         errors: [errorMessage],
         skipped: 0,
         skippedTransactions: [],
+        startingBalancesApplied: 0,
+        totalRowsProcessed: 0,
       };
 
       setResult(errorResult);
@@ -1531,7 +1792,15 @@ export function useDataImport() {
   ]);
 
   const reset = useCallback(() => {
-    setProgress({ phase: 'idle', current: 0, total: 0, message: '' });
+    setProgress({
+      phase: 'idle',
+      current: 0,
+      total: 0,
+      message: '',
+      percentage: 0,
+      itemsPerSecond: 0,
+      phaseDetails: { categories: 0, accounts: 0, clients: 0, personel: 0, transactions: 0 },
+    });
     setResult(null);
     setDuplicates(new Map());
   }, []);

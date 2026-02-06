@@ -53,6 +53,8 @@ import {
   exportSkippedTransactionsToExcel,
   groupSkippedByReason,
   calculateFileHash,
+  validateImportData,
+  ValidationResult,
 } from '@/lib/excelImport';
 import { useDataImport, SkippedTransaction, DuplicateInfo, ProgressTranslations } from '@/hooks/useDataImport';
 import { useImportHistory } from '@/hooks/useImportHistory';
@@ -114,6 +116,8 @@ export default function VeriIceAktarPage() {
   const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [isDryRun, setIsDryRun] = useState(false);
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
+  const [showSilentlySkipped, setShowSilentlySkipped] = useState(false);
 
   // Modal state
   const [activeModal, setActiveModal] = useState<ModalType>(null);
@@ -145,6 +149,7 @@ export default function VeriIceAktarPage() {
       // Şablon verisi - Lokalize edilmiş
       const h = t('dataImport.template.headers', { returnObjects: true }) as Record<string, string>;
       const s = t('dataImport.template.sampleData', { returnObjects: true }) as Record<string, string>;
+      const importWarning = t('dataImport.template.importWarning');
 
       // Dile göre varsayılan para birimi
       const isEnglish = i18n.language.startsWith('en');
@@ -153,7 +158,9 @@ export default function VeriIceAktarPage() {
       const secondaryAccount = isEnglish ? (s.eurAccount || 'EUR Account') : s.usdAccount;
 
       const templateData = [
-        // Header row
+        // Uyarı satırı (1. satır) - merge edilecek
+        [importWarning, '', '', '', '', '', '', '', '', '', ''],
+        // Header row (2. satır)
         [h.date, h.type, h.description, h.category, h.account, h.staff, h.supplier, h.customer, h.targetAccount, h.amount, h.currency],
         // 1. GELİR - Genel gelir (cari bağımsız)
         ['2024-01-15 10:30', s.income, s.cashSale, s.sales, s.cash, '', '', '', '', '1500', defaultCurrency],
@@ -183,6 +190,14 @@ export default function VeriIceAktarPage() {
         ['2024-01-21 10:00', s.staffPayment, s.advancePayment, '', s.cash, s.sampleStaff2, '', '', '', '500', defaultCurrency],
         // 14. PERSONEL TAHSİLATI - Avans iadesi
         ['2024-01-21 14:00', s.staffCollection, s.advanceReturn, '', s.cash, s.sampleStaff2, '', '', '', '300', defaultCurrency],
+        // 15. BAŞLANGIÇ BAKİYESİ - Hesap açılış bakiyesi
+        ['2024-01-01 00:00', s.openingBalance, s.accountOpeningBalance, '', s.bankAccount, '', '', '', '', '50000', defaultCurrency],
+        // 16. BAŞLANGIÇ BAKİYESİ - Tedarikçi açılış bakiyesi (borcumuz)
+        ['2024-01-01 00:00', s.openingBalance, s.supplierOpeningBalance, '', '', '', s.sampleSupplier, '', '', '12000', defaultCurrency],
+        // 17. BAŞLANGIÇ BAKİYESİ - Müşteri açılış bakiyesi (alacağımız)
+        ['2024-01-01 00:00', s.openingBalance, s.customerOpeningBalance, '', '', '', '', s.sampleCustomer, '', '8000', defaultCurrency],
+        // 18. BAŞLANGIÇ BAKİYESİ - Personel açılış bakiyesi (avans borcu)
+        ['2024-01-01 00:00', s.openingBalance, s.staffOpeningBalance, '', '', s.sampleStaff1, '', '', '', '1500', defaultCurrency],
       ];
 
       // Excel dosyası oluştur
@@ -202,6 +217,12 @@ export default function VeriIceAktarPage() {
         { wch: 12 }, // MİKTAR
         { wch: 8 },  // BİRİM
       ];
+
+      // 1. satır: Uyarı metni - tüm sütunları merge et
+      ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }]; // A1:K1
+
+      // Satır yükseklikleri (1. satır daha yüksek - uyarı için)
+      ws['!rows'] = [{ hpt: 45 }]; // 1. satır yüksekliği
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, t('dataImport.template.sheetName'));
@@ -300,6 +321,10 @@ export default function VeriIceAktarPage() {
       // Parse et
       const parsed = parseExcelFile(buffer);
       setPreview(parsed);
+
+      // Veri kalitesi validasyonu
+      const validationResult = validateImportData(parsed);
+      setValidation(validationResult);
 
       // Otomatik hesap/cari/personel sınıflandırması (dile göre varsayılan currency)
       const mappings = autoClassifyAccounts(parsed, i18n.language);
@@ -678,6 +703,7 @@ export default function VeriIceAktarPage() {
     reset();
     setStep('select');
     setPreview(null);
+    setValidation(null);
     setAccountMappings({});
     setFileName('');
     setFileHash('');
@@ -697,7 +723,17 @@ export default function VeriIceAktarPage() {
 
     try {
       const buffer = exportSkippedTransactionsToExcel(result.skippedTransactions);
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+
+      // Büyük buffer'ları base64'e çevirmek için chunk-based yaklaşım
+      // (spread operator stack overflow'a neden olur)
+      const uint8Array = new Uint8Array(buffer);
+      let binary = '';
+      const chunkSize = 8192; // 8KB chunks
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      const base64 = btoa(binary);
 
       const filePath = `${FileSystem.cacheDirectory}atlanan_islemler.xlsx`;
       await FileSystem.writeAsStringAsync(filePath, base64, {
@@ -765,8 +801,8 @@ export default function VeriIceAktarPage() {
     if (!searchQuery) return txs;
     return txs.filter(t =>
       t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.account.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.type.toLowerCase().includes(searchQuery.toLowerCase())
+      t.account?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.type?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [preview, searchQuery]);
 
@@ -947,8 +983,8 @@ export default function VeriIceAktarPage() {
                       {result.skippedTransactions
                         .filter(item =>
                           !searchQuery ||
-                          item.reason.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          item.transaction.account.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          item.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          item.transaction.account?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           item.transaction.description?.toLowerCase().includes(searchQuery.toLowerCase())
                         )
                         .map((item, index) => (
@@ -959,8 +995,8 @@ export default function VeriIceAktarPage() {
                         ))}
                       {result.skippedTransactions.filter(item =>
                         !searchQuery ||
-                        item.reason.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        item.transaction.account.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        item.reason?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        item.transaction.account?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         item.transaction.description?.toLowerCase().includes(searchQuery.toLowerCase())
                       ).length === 0 && (
                         <View style={styles.emptyState}>
@@ -1162,6 +1198,7 @@ export default function VeriIceAktarPage() {
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelGider')}</Text>
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelOdeme')}</Text>
                 <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelTahsilat')}</Text>
+                <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.baslangicBakiyesi')}</Text>
               </View>
             </Card>
 
@@ -1293,6 +1330,31 @@ export default function VeriIceAktarPage() {
               </Text>
             </Card>
 
+            {/* Atlanan Satır Bilgisi (varsa) */}
+            {(preview.skippedEmptyRows > 0 || preview.skippedNoDateOrType > 0 || preview.skippedNoEntity > 0) && (
+              <Card style={[styles.dateRangeCard, { backgroundColor: colors.warningLight }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                  <Info size={16} color={colors.warning} style={{ marginRight: 6 }} />
+                  <Text variant="label" color="warning">{t('dataImport.skippedRows.title')}</Text>
+                </View>
+                {preview.skippedEmptyRows > 0 && (
+                  <Text variant="caption" color="secondary">
+                    • {t('dataImport.skippedRows.emptyRows', { count: preview.skippedEmptyRows })}
+                  </Text>
+                )}
+                {preview.skippedNoDateOrType > 0 && (
+                  <Text variant="caption" color="secondary">
+                    • {t('dataImport.skippedRows.noDateOrType', { count: preview.skippedNoDateOrType })}
+                  </Text>
+                )}
+                {preview.skippedNoEntity > 0 && (
+                  <Text variant="caption" color="secondary">
+                    • {t('dataImport.skippedRows.noEntity', { count: preview.skippedNoEntity })}
+                  </Text>
+                )}
+              </Card>
+            )}
+
             {/* İşlem Tipleri */}
             <Card style={styles.typesCard}>
               <Text variant="label" style={styles.typesTitle}>{t('dataImport.labels.transactionTypes')}</Text>
@@ -1304,7 +1366,96 @@ export default function VeriIceAktarPage() {
               ))}
             </Card>
 
-            {/* Hatalar */}
+            {/* Veri Kalitesi Özeti */}
+            {validation && (
+              <Card style={styles.validationCard}>
+                <View style={styles.validationHeader}>
+                  <Text variant="label">{t('dataImport.validation.title')}</Text>
+                  <View style={[
+                    styles.scoreBadge,
+                    {
+                      backgroundColor: validation.score >= 90 ? colors.success :
+                        validation.score >= 70 ? colors.warning :
+                        colors.error,
+                    },
+                  ]}>
+                    <Text style={styles.scoreBadgeText}>{validation.score}%</Text>
+                  </View>
+                </View>
+
+                {/* Progress bar showing quality */}
+                <View style={styles.qualityBar}>
+                  <View
+                    style={[
+                      styles.qualityBarFill,
+                      {
+                        width: `${validation.score}%`,
+                        backgroundColor: validation.score >= 90 ? colors.success :
+                          validation.score >= 70 ? colors.warning :
+                          colors.error,
+                      },
+                    ]}
+                  />
+                </View>
+
+                {/* Summary counts */}
+                <View style={styles.validationSummary}>
+                  <View style={styles.validationItem}>
+                    <CheckCircle2 size={16} color={colors.success} />
+                    <Text variant="caption" color="secondary">
+                      {t('dataImport.validation.validTransactions', { count: validation.validCount })}
+                    </Text>
+                  </View>
+                  {validation.warningCount > 0 && (
+                    <View style={styles.validationItem}>
+                      <Info size={16} color={colors.warning} />
+                      <Text variant="caption" color="secondary">
+                        {t('dataImport.validation.warningTransactions', { count: validation.warningCount })}
+                      </Text>
+                    </View>
+                  )}
+                  {validation.errorCount > 0 && (
+                    <View style={styles.validationItem}>
+                      <XCircle size={16} color={colors.error} />
+                      <Text variant="caption" color="secondary">
+                        {t('dataImport.validation.errorTransactions', { count: validation.errorCount })}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Categorized issues */}
+                {validation.issues.length > 0 && (
+                  <View style={styles.validationIssues}>
+                    {validation.issues.slice(0, 3).map((issue, i) => (
+                      <View key={i} style={styles.issueRow}>
+                        <View style={styles.issueIcon}>
+                          {issue.type === 'error' ? (
+                            <XCircle size={14} color={colors.error} />
+                          ) : issue.type === 'warning' ? (
+                            <AlertTriangle size={14} color={colors.warning} />
+                          ) : (
+                            <Info size={14} color={colors.info} />
+                          )}
+                        </View>
+                        <View style={styles.issueContent}>
+                          <Text variant="caption" color={issue.type === 'error' ? 'error' : 'secondary'}>
+                            {issue.message}
+                          </Text>
+                          {issue.suggestion && (
+                            <Text variant="caption" color="muted" style={styles.issueSuggestion}>
+                              {issue.suggestion}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </Card>
+            )}
+
+            {/* Hatalar (eski stil - parse hataları) */}
             {preview.errors.length > 0 && (
               <Card style={styles.errorCard}>
                 <View style={styles.errorHeader}>
@@ -1360,29 +1511,76 @@ export default function VeriIceAktarPage() {
               {progress.message}
             </Text>
 
-            {/* Progress Bar */}
+            {/* Enhanced Progress Bar with Percentage */}
             <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    {
-                      width: `${progress.total > 0 ? (progress.current / progress.total) * 100 : 0}%`,
-                    },
-                  ]}
-                />
+              <View style={styles.progressBarRow}>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      {
+                        width: `${progress.percentage || (progress.total > 0 ? (progress.current / progress.total) * 100 : 0)}%`,
+                      },
+                    ]}
+                  />
+                </View>
+                <Text variant="label" style={styles.progressPercentage}>
+                  {progress.percentage || Math.round(progress.total > 0 ? (progress.current / progress.total) * 100 : 0)}%
+                </Text>
               </View>
               <Text variant="caption" color="secondary" style={styles.progressText}>
                 {progress.current.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')} / {progress.total.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
               </Text>
+
+              {/* Speed and ETA */}
+              {progress.phase === 'transactions' && progress.itemsPerSecond > 0 && (
+                <View style={styles.progressStats}>
+                  <Text variant="caption" color="muted">
+                    {t('dataImport.progressStats.speed', { count: progress.itemsPerSecond })}
+                  </Text>
+                  {progress.estimatedTimeRemaining !== undefined && progress.estimatedTimeRemaining > 0 && (
+                    <Text variant="caption" color="muted">
+                      {t('dataImport.progressStats.remaining', { seconds: progress.estimatedTimeRemaining })}
+                    </Text>
+                  )}
+                </View>
+              )}
             </View>
 
             <Card style={styles.phaseCard}>
-              <PhaseItem label={t('dataImport.phases.categories')} active={progress.phase === 'categories'} done={['accounts', 'clients', 'personel', 'transactions', 'done'].includes(progress.phase)} />
-              <PhaseItem label={t('dataImport.phases.accounts')} active={progress.phase === 'accounts'} done={['clients', 'personel', 'transactions', 'done'].includes(progress.phase)} />
-              <PhaseItem label={t('dataImport.phases.clients')} active={progress.phase === 'clients'} done={['personel', 'transactions', 'done'].includes(progress.phase)} />
-              <PhaseItem label={t('dataImport.phases.personel')} active={progress.phase === 'personel'} done={['transactions', 'done'].includes(progress.phase)} />
-              <PhaseItem label={t('dataImport.phases.transactions')} active={progress.phase === 'transactions'} done={progress.phase === 'done'} />
+              <PhaseItemEnhanced
+                label={t('dataImport.phases.categories')}
+                active={progress.phase === 'categories'}
+                done={['accounts', 'clients', 'personel', 'transactions', 'done'].includes(progress.phase)}
+                count={progress.phaseDetails?.categories}
+              />
+              <PhaseItemEnhanced
+                label={t('dataImport.phases.accounts')}
+                active={progress.phase === 'accounts'}
+                done={['clients', 'personel', 'transactions', 'done'].includes(progress.phase)}
+                count={progress.phaseDetails?.accounts}
+              />
+              <PhaseItemEnhanced
+                label={t('dataImport.phases.clients')}
+                active={progress.phase === 'clients'}
+                done={['personel', 'transactions', 'done'].includes(progress.phase)}
+                count={progress.phaseDetails?.clients}
+              />
+              <PhaseItemEnhanced
+                label={t('dataImport.phases.personel')}
+                active={progress.phase === 'personel'}
+                done={['transactions', 'done'].includes(progress.phase)}
+                count={progress.phaseDetails?.personel}
+              />
+              <PhaseItemEnhanced
+                label={t('dataImport.phases.transactions')}
+                active={progress.phase === 'transactions'}
+                done={progress.phase === 'done'}
+                count={progress.phaseDetails?.transactions}
+                showProgress={progress.phase === 'transactions'}
+                current={progress.current}
+                total={progress.total}
+              />
             </Card>
           </View>
         )}
@@ -1420,6 +1618,79 @@ export default function VeriIceAktarPage() {
                 <ResultItem label={t('dataImport.results.staff')} value={result.personelCreated} isDryRun={isDryRun} />
                 <ResultItem label={t('dataImport.results.transaction')} value={result.transactionsCreated} isDryRun={isDryRun} />
               </View>
+            )}
+
+            {/* Row Summary - shows İşlem + Başlangıç Bakiyesi + Atlanan = Toplam */}
+            {result.success && (result.startingBalancesApplied > 0 || result.totalRowsProcessed > 0) && (
+              <Card style={styles.rowSummaryCard}>
+                <View style={styles.rowSummaryRow}>
+                  <Text variant="body" color="secondary">{t('dataImport.results.transaction')}</Text>
+                  <Text variant="body" style={{ fontWeight: '600' }}>{result.transactionsCreated.toLocaleString()}</Text>
+                </View>
+                {result.startingBalancesApplied > 0 && (
+                  <View style={styles.rowSummaryRow}>
+                    <Text variant="body" color="secondary">{t('dataImport.results.startingBalance')}</Text>
+                    <Text variant="body" style={{ fontWeight: '600', color: colors.info }}>{result.startingBalancesApplied.toLocaleString()}</Text>
+                  </View>
+                )}
+                {result.skipped > 0 && (
+                  <View style={styles.rowSummaryRow}>
+                    <Text variant="body" color="secondary">{t('dataImport.results.skipped')}</Text>
+                    <Text variant="body" style={{ fontWeight: '600', color: colors.warning }}>{result.skipped.toLocaleString()}</Text>
+                  </View>
+                )}
+                {preview?.silentlySkipped && preview.silentlySkipped.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.rowSummaryRow}
+                    onPress={() => setShowSilentlySkipped(!showSilentlySkipped)}
+                  >
+                    <Text variant="body" color="secondary">
+                      {t('dataImport.silentlySkipped.title')} {showSilentlySkipped ? '▲' : '▼'}
+                    </Text>
+                    <Text variant="body" style={{ fontWeight: '600', color: colors.textMuted }}>
+                      {preview.silentlySkipped.length.toLocaleString()}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                <View style={styles.rowSummaryDivider} />
+                <View style={styles.rowSummaryRow}>
+                  <Text variant="label">{t('dataImport.results.totalRows')}</Text>
+                  <Text variant="label" style={{ fontWeight: '700' }}>{result.totalRowsProcessed.toLocaleString()}</Text>
+                </View>
+              </Card>
+            )}
+
+            {/* Silently Skipped Rows Details */}
+            {preview?.silentlySkipped && preview.silentlySkipped.length > 0 && showSilentlySkipped && (
+              <Card style={styles.silentlySkippedCard}>
+                <View style={styles.silentlySkippedHeader}>
+                  <AlertTriangle size={18} color={colors.textMuted} />
+                  <Text variant="label" style={{ marginLeft: spacing.sm, color: colors.textMuted }}>
+                    {t('dataImport.silentlySkipped.count', { count: preview.silentlySkipped.length })}
+                  </Text>
+                </View>
+                <View style={styles.silentlySkippedList}>
+                  {preview.silentlySkipped.slice(0, 20).map((item, idx) => (
+                    <View key={idx} style={styles.silentlySkippedItem}>
+                      <Text variant="caption" style={{ color: colors.textMuted, width: 70 }}>
+                        {t('dataImport.silentlySkipped.row', { row: item.rowNumber })}
+                      </Text>
+                      <Text variant="caption" color="secondary" style={{ flex: 1 }}>
+                        {item.reason === 'empty'
+                          ? t('dataImport.silentlySkipped.empty')
+                          : item.reason === 'no_date_or_type'
+                            ? t('dataImport.silentlySkipped.noDateOrType')
+                            : t('dataImport.silentlySkipped.noEntity')}
+                      </Text>
+                    </View>
+                  ))}
+                  {preview.silentlySkipped.length > 20 && (
+                    <Text variant="caption" color="muted" style={{ textAlign: 'center', marginTop: spacing.sm }}>
+                      +{preview.silentlySkipped.length - 20} more...
+                    </Text>
+                  )}
+                </View>
+              </Card>
             )}
 
             {/* Skipped Transactions Info Banner - No Fix/Skip buttons */}
@@ -1574,6 +1845,52 @@ function PhaseItem({ label, active, done }: { label: string; active: boolean; do
   );
 }
 
+// Enhanced phase item with count and progress
+function PhaseItemEnhanced({
+  label,
+  active,
+  done,
+  count,
+  showProgress = false,
+  current,
+  total,
+}: {
+  label: string;
+  active: boolean;
+  done: boolean;
+  count?: number;
+  showProgress?: boolean;
+  current?: number;
+  total?: number;
+}) {
+  return (
+    <View style={styles.phaseItem}>
+      {done ? (
+        <CheckCircle2 size={20} color={colors.success} />
+      ) : active ? (
+        <ActivityIndicator size="small" color={colors.primary} />
+      ) : (
+        <View style={styles.phaseCircle} />
+      )}
+      <View style={styles.phaseItemContent}>
+        <Text
+          variant="body"
+          style={{ color: done ? colors.success : active ? colors.primary : colors.textMuted }}
+        >
+          {label}
+        </Text>
+        {(done || active) && count !== undefined && count > 0 && (
+          <Text variant="caption" color="muted" style={styles.phaseCount}>
+            {showProgress && current !== undefined && total !== undefined
+              ? `(${current.toLocaleString()} / ${total.toLocaleString()})`
+              : `(${count.toLocaleString()})`}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
 function ResultItem({ label, value, isDryRun = false }: { label: string; value: number; isDryRun?: boolean }) {
   return (
     <Card style={styles.resultCard}>
@@ -1587,7 +1904,7 @@ function ResultItem({ label, value, isDryRun = false }: { label: string; value: 
 
 // İşlem satırı
 function TransactionItem({ transaction }: { transaction: ParsedTransaction }) {
-  // ISO formatından tarih ve saati al: "2024-01-15T10:30:00" -> "2024-01-15 10:30"
+  // Tarih formatından tarih ve saati al: "2024-01-15" veya "2024-01-15T10:30:00"
   const [datePart, timePart] = transaction.date.split('T');
   const time = timePart ? timePart.slice(0, 5) : ''; // HH:mm
   const formattedDateTime = time ? `${datePart} ${time}` : datePart;
@@ -1635,7 +1952,7 @@ function SkippedTransactionItemSimple({ item }: { item: SkippedTransaction }) {
   const { t } = useTranslation('settings');
   const { transaction, reason, rowNumber } = item;
 
-  // ISO formatından tarih ve saati al
+  // Tarih formatından tarih ve saati al
   const [datePart, timePart] = transaction.date.split('T');
   const time = timePart ? timePart.slice(0, 5) : '';
   const formattedDateTime = time ? `${datePart} ${time}` : datePart;
@@ -2071,6 +2388,71 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: spacing.xs,
   },
+  validationCard: {
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  validationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  scoreBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  scoreBadgeText: {
+    color: colors.surface,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  qualityBar: {
+    height: 6,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: 3,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
+  qualityBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  validationSummary: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  validationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  validationIssues: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  issueRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  issueIcon: {
+    marginTop: 2,
+  },
+  issueContent: {
+    flex: 1,
+  },
+  issueSuggestion: {
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
   errorCard: {
     backgroundColor: colors.errorLight,
     marginBottom: spacing.md,
@@ -2095,11 +2477,23 @@ const styles = StyleSheet.create({
   progressContainer: {
     marginBottom: spacing.xl,
   },
+  progressBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   progressBar: {
+    flex: 1,
     height: 8,
     backgroundColor: colors.surfaceLight,
     borderRadius: 4,
     overflow: 'hidden',
+  },
+  progressPercentage: {
+    minWidth: 45,
+    textAlign: 'right',
+    color: colors.primary,
+    fontWeight: '600',
   },
   progressFill: {
     height: '100%',
@@ -2110,6 +2504,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
   },
+  progressStats: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    marginTop: spacing.xs,
+  },
   phaseCard: {
     gap: spacing.md,
   },
@@ -2117,6 +2517,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  phaseItemContent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  phaseCount: {
+    marginLeft: spacing.sm,
   },
   phaseCircle: {
     width: 20,
@@ -2146,6 +2555,41 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.warningLight,
     marginBottom: spacing.md,
+  },
+  // Row summary card styles (İşlem + Başlangıç Bakiyesi + Atlanan = Toplam)
+  rowSummaryCard: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  rowSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  rowSummaryDivider: {
+    height: 1,
+    backgroundColor: colors.border,
+    marginVertical: spacing.sm,
+  },
+  // Silently skipped rows card styles
+  silentlySkippedCard: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surfaceLight,
+  },
+  silentlySkippedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  silentlySkippedList: {
+    gap: spacing.xs,
+  },
+  silentlySkippedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
   },
   // Skipped transactions card styles
   skippedCard: {

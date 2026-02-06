@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import { View, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -27,6 +27,156 @@ import { useIslemler, useDeleteIslem, useUpdateIslem } from '@/hooks/useIslemler
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { IslemType, IslemWithRelations } from '@/types/database';
+
+// ============================================================================
+// PURE HELPER FUNCTIONS (module-level, no re-creation per render)
+// ============================================================================
+
+function getIslemSecondLineParts(islem: IslemWithRelations, typeLabel: string): string {
+  const parts = [typeLabel];
+
+  if (islem.type === 'transfer') {
+    if (islem.hesap?.name && islem.hedef_hesap?.name) {
+      parts.push(`${islem.hesap.name} → ${islem.hedef_hesap.name}`);
+    }
+  } else if (islem.cari?.name) {
+    parts.push(islem.cari.name);
+  } else if (islem.personel) {
+    parts.push(`${islem.personel.first_name} ${islem.personel.last_name}`);
+  } else if (islem.hesap?.name) {
+    parts.push(islem.hesap.name);
+  }
+
+  return parts.join(' • ');
+}
+
+// ============================================================================
+// MEMOIZED TRANSACTION ITEM
+// ============================================================================
+
+interface IslemlerTransactionItemProps {
+  islem: IslemWithRelations;
+  isExpanded: boolean;
+  onToggle: (id: string) => void;
+  onEdit: (id: string) => void;
+  onDelete: (id: string, description: string) => void;
+  onViewPhoto: (photoPath: string, islemId: string) => void;
+  formatDateMedium: (date: string) => string;
+  t: (key: string) => string;
+}
+
+const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
+  islem,
+  isExpanded,
+  onToggle,
+  onEdit,
+  onDelete,
+  onViewPhoto,
+  formatDateMedium,
+  t,
+}: IslemlerTransactionItemProps) {
+  const handleToggle = useCallback(() => onToggle(islem.id), [onToggle, islem.id]);
+  const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
+  const handleDelete = useCallback(
+    () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
+    [onDelete, islem.id, islem.description, islem.type, t]
+  );
+  const handleViewPhoto = useCallback(() => {
+    if (islem.photo_path) {
+      onViewPhoto(islem.photo_path, islem.id);
+    }
+  }, [onViewPhoto, islem.photo_path, islem.id]);
+
+  const typeLabel = t(`transactions:types.${islem.type}`);
+  const secondLine = getIslemSecondLineParts(islem, typeLabel);
+
+  return (
+    <ExpandableCard
+      expanded={isExpanded}
+      onToggle={handleToggle}
+      disableAnimation
+      header={
+        <View style={styles.islemHeader}>
+          <View style={[
+            styles.islemIconContainer,
+            { backgroundColor: getIslemIconBg(islem.type) }
+          ]}>
+            {getIslemIcon(islem.type, 24)}
+          </View>
+          <View style={styles.islemInfo}>
+            <Text variant="body">{formatDateMedium(islem.date)}</Text>
+            <Text variant="caption" color="secondary">
+              {secondLine}
+            </Text>
+            {islem.kategori?.name && (
+              <Text variant="caption" color="secondary">
+                {islem.kategori.name}
+              </Text>
+            )}
+            {islem.description && (
+              <Text variant="caption" color="secondary" numberOfLines={1}>
+                {islem.description}
+              </Text>
+            )}
+          </View>
+          <View style={styles.amountContainer}>
+            {islem.photo_path && (
+              <ImageIcon size={16} color={colors.primary} style={styles.photoIndicator} />
+            )}
+            <Text
+              variant="h3"
+              color={getIslemAmountColor(islem.type)}
+            >
+              {getIslemAmountPrefix(islem.type)}
+              {formatCurrency(toNumber(islem.amount))}
+            </Text>
+          </View>
+        </View>
+      }
+    >
+      <View style={styles.islemActions}>
+        {islem.photo_path && (
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<ImageIcon size={16} color={colors.primary} />}
+            onPress={handleViewPhoto}
+            style={styles.actionButton}
+          >
+            {t('common:photo.title')}
+          </Button>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<Pencil size={16} color={colors.text} />}
+          onPress={handleEdit}
+          style={styles.actionButton}
+        >
+          {t('common:buttons.edit')}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          icon={<Trash2 size={16} color={colors.error} />}
+          onPress={handleDelete}
+          style={styles.actionButton}
+        >
+          {t('common:buttons.delete')}
+        </Button>
+      </View>
+    </ExpandableCard>
+  );
+}, (prev, next) => {
+  return prev.islem.id === next.islem.id
+    && prev.isExpanded === next.isExpanded
+    && prev.islem.updated_at === next.islem.updated_at
+    && prev.islem.photo_path === next.islem.photo_path;
+});
+
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
 
 export default function IslemlerPage() {
   const router = useRouter();
@@ -68,51 +218,62 @@ export default function IslemlerPage() {
     if (isLoading || isFetching) {
       timer = setTimeout(() => {
         setShowLongLoadingMessage(true);
-      }, 3000); // 3 saniye sonra mesaj göster
+      }, 3000);
     } else {
       setShowLongLoadingMessage(false);
     }
     return () => clearTimeout(timer);
   }, [isLoading, isFetching]);
 
-  const filterOptions = [
+  const filterOptions = useMemo(() => [
     { label: t('transactions:filters.all'), value: 'all' },
     { label: t('transactions:filters.income'), value: 'gelir' },
     { label: t('transactions:filters.expense'), value: 'gider' },
     { label: t('transactions:filters.transfer'), value: 'transfer' },
     { label: t('transactions:filters.client'), value: 'cari' },
     { label: t('transactions:filters.personnel'), value: 'personel' },
-  ];
+  ], [t]);
 
-  const filteredIslemler = (islemler || []).filter((islem) => {
-    let matchesFilter = filter === 'all';
-    // Gelir sekmesi: gelirimizi artıran işlemler (tahsilat hariç - o nakit akışı)
-    if (filter === 'gelir') {
-      matchesFilter = ['gelir', 'cari_satis'].includes(islem.type);
-    }
-    // Gider sekmesi: giderimizi artıran işlemler (ödeme hariç - o nakit akışı)
-    if (filter === 'gider') {
-      matchesFilter = ['gider', 'cari_alis', 'personel_gider'].includes(islem.type);
-    }
-    if (filter === 'transfer') matchesFilter = islem.type === 'transfer';
-    if (filter === 'cari') matchesFilter = islem.type.startsWith('cari_');
-    if (filter === 'personel') matchesFilter = islem.type.startsWith('personel_');
+  // Memoized filtreleme - sadece islemler, filter veya searchQuery değiştiğinde çalışır
+  const filteredIslemler = useMemo(() => {
+    return (islemler || []).filter((islem) => {
+      let matchesFilter = filter === 'all';
+      if (filter === 'gelir') {
+        matchesFilter = ['gelir', 'cari_satis'].includes(islem.type);
+      }
+      if (filter === 'gider') {
+        matchesFilter = ['gider', 'cari_alis', 'personel_gider'].includes(islem.type);
+      }
+      if (filter === 'transfer') matchesFilter = islem.type === 'transfer';
+      if (filter === 'cari') matchesFilter = islem.type.startsWith('cari_');
+      if (filter === 'personel') matchesFilter = islem.type.startsWith('personel_');
 
-    const searchLower = searchQuery.toLowerCase();
-    const personelName = islem.personel
-      ? `${islem.personel.first_name || ''} ${islem.personel.last_name || ''}`.trim().toLowerCase()
-      : '';
-    const matchesSearch =
-      (islem.description?.toLowerCase().includes(searchLower) || false) ||
-      (islem.hesap?.name?.toLowerCase().includes(searchLower) || false) ||
-      (islem.cari?.name?.toLowerCase().includes(searchLower) || false) ||
-      (islem.kategori?.name?.toLowerCase().includes(searchLower) || false) ||
-      (personelName.includes(searchLower));
+      if (!searchQuery) return matchesFilter;
 
-    return matchesFilter && matchesSearch;
-  });
+      const searchLower = searchQuery.toLowerCase();
+      const personelName = islem.personel
+        ? `${islem.personel.first_name || ''} ${islem.personel.last_name || ''}`.trim().toLowerCase()
+        : '';
+      const matchesSearch =
+        (islem.description?.toLowerCase().includes(searchLower) || false) ||
+        (islem.hesap?.name?.toLowerCase().includes(searchLower) || false) ||
+        (islem.cari?.name?.toLowerCase().includes(searchLower) || false) ||
+        (islem.kategori?.name?.toLowerCase().includes(searchLower) || false) ||
+        (personelName.includes(searchLower));
 
-  const handleDelete = (id: string, description: string) => {
+      return matchesFilter && matchesSearch;
+    });
+  }, [islemler, filter, searchQuery]);
+
+  // ============================================================================
+  // STABLE CALLBACK HANDLERS
+  // ============================================================================
+
+  const handleToggle = useCallback((islemId: string) => {
+    setExpandedIslemId(prev => prev === islemId ? null : islemId);
+  }, []);
+
+  const handleDeleteIslem = useCallback((id: string, description: string) => {
     Alert.alert(
       t('common:confirm.deleteTitle'),
       t('common:confirm.deleteMessage', { item: description }),
@@ -132,17 +293,26 @@ export default function IslemlerPage() {
         },
       ]
     );
-  };
+  }, [deleteIslem, t]);
+
+  const handleEditIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+    setExpandedIslemId(null);
+  }, []);
+
+  const handleViewPhoto = useCallback((photoPath: string, islemId: string) => {
+    setViewPhotoPath(photoPath);
+    setViewPhotoIslemId(islemId);
+  }, []);
 
   // Photo delete handler
-  const handleDeletePhoto = async () => {
+  const handleDeletePhoto = useCallback(async () => {
     if (!viewPhotoPath || !viewPhotoIslemId) return;
 
     setIsPhotoActionLoading(true);
     try {
-      // Delete from storage
       await deletePhoto.mutateAsync(viewPhotoPath);
-      // Update transaction to remove photo_path
       await updateIslem.mutateAsync({
         id: viewPhotoIslemId,
         updates: { photo_path: null },
@@ -155,10 +325,10 @@ export default function IslemlerPage() {
     } finally {
       setIsPhotoActionLoading(false);
     }
-  };
+  }, [viewPhotoPath, viewPhotoIslemId, deletePhoto, updateIslem, t]);
 
   // Photo change handler
-  const handleChangePhoto = () => {
+  const handleChangePhoto = useCallback(() => {
     Alert.alert(
       t('common:photo.change'),
       t('common:photo.selectSource'),
@@ -188,25 +358,22 @@ export default function IslemlerPage() {
         { text: t('common:buttons.cancel'), style: 'cancel' },
       ]
     );
-  };
+  }, [takePhoto, pickImage, t]);
 
   // Upload new photo (for change)
-  const uploadNewPhoto = async (uri: string) => {
+  const uploadNewPhoto = useCallback(async (uri: string) => {
     if (!viewPhotoIslemId || !isletme?.id) return;
 
     setIsPhotoActionLoading(true);
     try {
-      // Delete old photo if exists
       if (viewPhotoPath) {
         await deletePhoto.mutateAsync(viewPhotoPath);
       }
-      // Upload new photo
       const newPath = await uploadPhoto.mutateAsync({
         uri,
         isletmeId: isletme.id,
         islemId: viewPhotoIslemId,
       });
-      // Update transaction
       await updateIslem.mutateAsync({
         id: viewPhotoIslemId,
         updates: { photo_path: newPath },
@@ -218,158 +385,99 @@ export default function IslemlerPage() {
     } finally {
       setIsPhotoActionLoading(false);
     }
-  };
+  }, [viewPhotoIslemId, viewPhotoPath, isletme?.id, deletePhoto, uploadPhoto, updateIslem, t]);
 
-  // İşlem tipi + ilgili kişi/hesap bilgisi
-  const getIslemSecondLine = (islem: IslemWithRelations) => {
-    const parts = [t(`transactions:types.${islem.type}`)];
+  // ============================================================================
+  // FlatList renderItem + key extractor
+  // ============================================================================
 
-    // Transfer için hesaplar
-    if (islem.type === 'transfer') {
-      if (islem.hesap?.name && islem.hedef_hesap?.name) {
-        parts.push(`${islem.hesap.name} → ${islem.hedef_hesap.name}`);
-      }
-    } else if (islem.cari?.name) {
-      parts.push(islem.cari.name);
-    } else if (islem.personel) {
-      parts.push(`${islem.personel.first_name} ${islem.personel.last_name}`);
-    } else if (islem.hesap?.name) {
-      parts.push(islem.hesap.name);
+  const renderTransactionItem = useCallback(({ item }: { item: IslemWithRelations }) => (
+    <IslemlerTransactionItem
+      islem={item}
+      isExpanded={expandedIslemId === item.id}
+      onToggle={handleToggle}
+      onEdit={handleEditIslem}
+      onDelete={handleDeleteIslem}
+      onViewPhoto={handleViewPhoto}
+      formatDateMedium={formatDateMedium}
+      t={t}
+    />
+  ), [expandedIslemId, handleToggle, handleEditIslem, handleDeleteIslem, handleViewPhoto, formatDateMedium, t]);
+
+  const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
+
+  // ============================================================================
+  // FlatList Header (search + filter)
+  // ============================================================================
+
+  const ListHeader = useMemo(() => (
+    <View>
+      {/* Arama */}
+      <View style={styles.searchContainer}>
+        <SearchInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
+      {/* Filtre */}
+      <View style={styles.filterContainer}>
+        <TabFilter options={filterOptions} value={filter} onChange={setFilter} />
+      </View>
+    </View>
+  ), [searchQuery, filterOptions, filter]);
+
+  // ============================================================================
+  // FlatList Empty component (loading or empty state)
+  // ============================================================================
+
+  const ListEmpty = useMemo(() => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text variant="body" color="secondary" style={styles.loadingText}>
+            {t('transactions:messages.loading')}
+          </Text>
+          {showLongLoadingMessage && (
+            <View style={styles.longLoadingMessage}>
+              <Clock size={20} color={colors.warning} />
+              <Text variant="caption" color="secondary" style={styles.longLoadingText}>
+                {t('transactions:messages.longLoading')}
+              </Text>
+            </View>
+          )}
+        </View>
+      );
     }
 
-    return parts.join(' • ');
-  };
+    return (
+      <EmptyState
+        icon={<Receipt size={48} color={colors.textMuted} />}
+        title={t('common:search.noResults')}
+        description={searchQuery || filter !== 'all'
+          ? t('transactions:messages.noTransactionsInPeriod')
+          : t('transactions:messages.noTransactions')}
+      />
+    );
+  }, [isLoading, showLongLoadingMessage, searchQuery, filter, t]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Arama */}
-          <View style={styles.searchContainer}>
-            <SearchInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-
-          {/* Filtre */}
-          <View style={styles.filterContainer}>
-            <TabFilter options={filterOptions} value={filter} onChange={setFilter} />
-          </View>
-
-          {/* İşlem Listesi */}
-          <View style={styles.listContainer}>
-            {isLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={colors.primary} />
-                <Text variant="body" color="secondary" style={styles.loadingText}>
-                  {t('transactions:messages.loading')}
-                </Text>
-                {showLongLoadingMessage && (
-                  <View style={styles.longLoadingMessage}>
-                    <Clock size={20} color={colors.warning} />
-                    <Text variant="caption" color="secondary" style={styles.longLoadingText}>
-                      {t('transactions:messages.longLoading')}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ) : filteredIslemler.length === 0 ? (
-              <EmptyState
-                icon={<Receipt size={48} color={colors.textMuted} />}
-                title={t('common:search.noResults')}
-                description={searchQuery || filter !== 'all'
-                  ? t('transactions:messages.noTransactionsInPeriod')
-                  : t('transactions:messages.noTransactions')}
-              />
-            ) : (
-              filteredIslemler.map((islem) => (
-                <ExpandableCard
-                  key={islem.id}
-                  expanded={expandedIslemId === islem.id}
-                  onToggle={() => setExpandedIslemId(expandedIslemId === islem.id ? null : islem.id)}
-                  header={
-                    <View style={styles.islemHeader}>
-                      <View style={[
-                        styles.islemIconContainer,
-                        { backgroundColor: getIslemIconBg(islem.type) }
-                      ]}>
-                        {getIslemIcon(islem.type, 24)}
-                      </View>
-                      <View style={styles.islemInfo}>
-                        <Text variant="body">{formatDateMedium(islem.date)}</Text>
-                        <Text variant="caption" color="secondary">
-                          {getIslemSecondLine(islem)}
-                        </Text>
-                        {islem.kategori?.name && (
-                          <Text variant="caption" color="secondary">
-                            {islem.kategori.name}
-                          </Text>
-                        )}
-                        {islem.description && (
-                          <Text variant="caption" color="secondary" numberOfLines={1}>
-                            {islem.description}
-                          </Text>
-                        )}
-                      </View>
-                      <View style={styles.amountContainer}>
-                        {islem.photo_path && (
-                          <ImageIcon size={16} color={colors.primary} style={styles.photoIndicator} />
-                        )}
-                        <Text
-                          variant="h3"
-                          color={getIslemAmountColor(islem.type)}
-                        >
-                          {getIslemAmountPrefix(islem.type)}
-                          {formatCurrency(toNumber(islem.amount))}
-                        </Text>
-                      </View>
-                    </View>
-                  }
-                >
-                  <View style={styles.islemActions}>
-                    {/* Photo button - only show if photo exists */}
-                    {islem.photo_path && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        icon={<ImageIcon size={16} color={colors.primary} />}
-                        onPress={() => {
-                          setViewPhotoPath(islem.photo_path);
-                          setViewPhotoIslemId(islem.id);
-                        }}
-                        style={styles.actionButton}
-                      >
-                        {t('common:photo.title')}
-                      </Button>
-                    )}
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={<Pencil size={16} color={colors.text} />}
-                      onPress={() => {
-                        setEditTransactionId(islem.id);
-                        setShowEditBar(true);
-                        setExpandedIslemId(null);
-                      }}
-                      style={styles.actionButton}
-                    >
-                      {t('common:buttons.edit')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<Trash2 size={16} color={colors.error} />}
-                      onPress={() => handleDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`))}
-                      style={styles.actionButton}
-                    >
-                      {t('common:buttons.delete')}
-                    </Button>
-                  </View>
-                </ExpandableCard>
-              ))
-            )}
-          </View>
-        </ScrollView>
+      <FlatList
+        data={filteredIslemler}
+        keyExtractor={keyExtractor}
+        renderItem={renderTransactionItem}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews={true}
+        extraData={expandedIslemId}
+        contentContainerStyle={styles.flatListContent}
+      />
 
       {/* Edit Transaction Bar */}
       <QuickTransactionBar
@@ -408,21 +516,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
-    flex: 1,
+  flatListContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing['3xl'],
   },
   searchContainer: {
-    paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     marginBottom: spacing.md,
   },
   filterContainer: {
-    paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
-  },
-  listContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'],
   },
   loadingContainer: {
     alignItems: 'center',

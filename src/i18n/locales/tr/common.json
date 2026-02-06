@@ -80,6 +80,22 @@
     "noneSelected": "Seçilmedi",
     "selectLabel": "{{label}} Seç"
   },
+  "bulkSelect": {
+    "select": "Seç",
+    "selectMode": "Seçim Modu",
+    "selected": "{{count}} seçildi",
+    "selectAll": "Tümünü Seç",
+    "deselectAll": "Seçimi Kaldır",
+    "cancel": "İptal",
+    "deleteSelected": "Seçilenleri Sil",
+    "archiveSelected": "Seçilenleri Arşivle",
+    "confirmDeleteTitle": "Toplu Silme",
+    "confirmDeleteMessage": "{{count}} öğe silinecek. Bu işlem geri alınamaz.",
+    "confirmArchiveTitle": "Toplu Arşivleme",
+    "confirmArchiveMessage": "{{count}} öğe arşive taşınacak.",
+    "deleteSuccess": "{{count}} öğe silindi",
+    "archiveSuccess": "{{count}} öğe arşivlendi"
+  },
   "confirm": {
     "deleteTitle": "Silme Onayı",
     "deleteMessage": "\"{{item}}\" silinecek. Bu işlem geri alınamaz.",

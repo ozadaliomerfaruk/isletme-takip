@@ -202,6 +202,7 @@
       "dialogTitle": "Excel Şablonunu İndir",
       "sheetName": "İşlemler",
       "fileName": "import_sablonu.xlsx",
+      "importWarning": "⚠️ ÖNEMLİ: Başka uygulamadan veri aktarıyorsanız önce küçük bir test dosyası ile deneyin. Özellikle TRANSFER işlemlerinde kaynak/hedef hesap sırasını kontrol edin. Hatalı import yaptıysanız \"Geri Al\" özelliği ile tüm dosyayı geri alabilirsiniz.",
       "headers": {
         "date": "TARİH",
         "type": "İŞLEM TİPİ",
@@ -253,7 +254,12 @@
         "sampleSupplier": "ABC Tedarik",
         "sampleCustomer": "XYZ Müşteri",
         "sampleStaff1": "Ahmet Yılmaz",
-        "sampleStaff2": "Mehmet Demir"
+        "sampleStaff2": "Mehmet Demir",
+        "openingBalance": "BAŞLANGIÇ BAKİYESİ",
+        "accountOpeningBalance": "Banka hesabı açılış bakiyesi",
+        "supplierOpeningBalance": "Tedarikçi açılış bakiyesi",
+        "customerOpeningBalance": "Müşteri açılış bakiyesi",
+        "staffOpeningBalance": "Personel avans bakiyesi"
       }
     },
     "modal": {
@@ -327,11 +333,23 @@
     "success": {
       "title": "Başarılı",
       "complete": "Import Tamamlandı!",
-      "undoComplete": "Import tamamen geri alındı:\n\n{{details}}"
+      "undoComplete": "Import tamamen geri alındı:\n\n{{details}}",
+      "startingBalancesApplied": "{{count}} başlangıç bakiyesi uygulandı",
+      "totalRowsProcessed": "Toplam: {{count}} satır işlendi"
     },
     "skipped": {
       "count": "{{count}} İşlem Atlandı",
       "exportDialogTitle": "Atlanan İşlemleri Kaydet"
+    },
+    "silentlySkipped": {
+      "title": "Eksik Bilgili Satırlar",
+      "count": "{{count}} satırda eksik bilgi var - kontrol edin",
+      "empty": "Boş satır",
+      "noDateOrType": "Tarih veya işlem tipi eksik",
+      "noEntity": "Hesap, cari veya personel bilgisi yok",
+      "row": "Satır {{row}}",
+      "showDetails": "Detayları Göster",
+      "hideDetails": "Detayları Gizle"
     },
     "undo": {
       "title": "Son İmportu Geri Al",
@@ -370,14 +388,18 @@
       "transfer": "TRANSFER — Hesaplar arası transfer",
       "personelGider": "PERSONEL GİDERİ — Maaş ödemeleri",
       "personelOdeme": "PERSONEL ÖDEMESİ — Avans ödemesi",
-      "personelTahsilat": "PERSONEL TAHSİLATI — Avans iadesi"
+      "personelTahsilat": "PERSONEL TAHSİLATI — Avans iadesi",
+      "baslangicBakiyesi": "BAŞLANGIÇ BAKİYESİ — Hesap/Cari/Personel açılış bakiyesi"
     },
     "results": {
       "category": "Kategori",
       "account": "Hesap",
       "client": "Cari",
       "staff": "Personel",
-      "transaction": "İşlem"
+      "transaction": "İşlem",
+      "startingBalance": "Başlangıç Bakiyesi",
+      "skipped": "Atlanan",
+      "totalRows": "Toplam Satır"
     },
     "pendingForm": {
       "title": "İşlemi Düzelt",
@@ -406,6 +428,42 @@
     },
     "errors": {
       "selectSupplierOrStaff": "Lütfen bir tedarikçi veya personel seçin"
+    },
+    "validation": {
+      "title": "Veri Kalitesi",
+      "score": "Kalite Skoru",
+      "validTransactions": "{{count}} geçerli işlem",
+      "warningTransactions": "{{count}} uyarı",
+      "errorTransactions": "{{count}} hatalı",
+      "dateInvalid": "Tarih Hataları",
+      "dateInvalidDesc": "{{count}} işlemde geçersiz tarih formatı",
+      "dateInvalidSuggestion": "GG/AA/YYYY veya YYYY-MM-DD formatı kullanın",
+      "amountInvalid": "Tutar Hataları",
+      "amountInvalidDesc": "{{count}} işlemde geçersiz tutar",
+      "amountInvalidSuggestion": "Tutar 0.01 ve üzeri olmalı",
+      "typeUnknown": "Bilinmeyen İşlem Tipi",
+      "typeUnknownDesc": "{{count}} işlemde tanınmayan tip",
+      "typeUnknownSuggestion": "GELİR, GİDER, TRANSFER vb. standart tipler kullanın",
+      "entityNotFound": "Bulunamayan Kayıtlar",
+      "entityNotFoundDesc": "{{count}} işlemde hesap/cari bulunamadı",
+      "entityNotFoundSuggestion": "Önce hesabı/cariyi oluşturun veya mapping'den düzeltin",
+      "startingBalance": "Başlangıç Bakiyeleri",
+      "startingBalanceDesc": "{{count}} başlangıç bakiyesi kaydı",
+      "startingBalanceSuggestion": "Bu değerler ilgili hesap/cari bakiyelerine uygulanacak",
+      "duplicate": "Tekrarlayan İşlemler",
+      "duplicateDesc": "{{count}} işlem zaten mevcut olabilir",
+      "duplicateSuggestion": "Duplicate'ları atlayabilir veya yine de ekleyebilirsiniz"
+    },
+    "progressStats": {
+      "speed": "{{count}} işlem/sn",
+      "remaining": "~{{seconds}} sn kaldı",
+      "percentage": "%{{percent}}"
+    },
+    "skippedRows": {
+      "title": "Atlanan Satırlar",
+      "emptyRows": "{{count}} boş satır atlandı",
+      "noDateOrType": "{{count}} satır tarih/tip eksik",
+      "noEntity": "{{count}} satır hesap/cari/personel eksik"
     }
   },
   "account": {

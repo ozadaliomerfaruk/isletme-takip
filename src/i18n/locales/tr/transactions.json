@@ -15,7 +15,8 @@
     "personel_tahsilat": "Personelden Tahsilat",
     "personel_satis": "Personele Satış",
     "kredi_karti_harcama": "Kredi Kartı Harcaması",
-    "nakit_avans_taksit": "Nakit Avans Taksit"
+    "nakit_avans_taksit": "Nakit Avans Taksit",
+    "baslangic_bakiyesi": "Başlangıç Bakiyesi"
   },
   "groups": {
     "basic": "Temel İşlemler",
