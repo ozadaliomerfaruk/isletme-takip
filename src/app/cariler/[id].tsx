@@ -21,7 +21,7 @@ import {
   Share2,
   Package,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ExportSheet } from '@/components/export';
@@ -231,6 +231,7 @@ export default function CariHareketleriPage() {
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
+  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
@@ -262,12 +263,16 @@ export default function CariHareketleriPage() {
 
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
-    setNewInitialBalance(initialBalance.toString());
+    // Mevcut yönü belirle: pozitif = debt (bize borçlu), negatif = credit (biz borçluyuz)
+    setBalanceDirection(initialBalance >= 0 ? 'debt' : 'credit');
+    setNewInitialBalance(Math.abs(initialBalance).toString());
     setEditBalanceModalVisible(true);
   }, [initialBalance]);
 
   const handleSaveInitialBalance = () => {
-    const newInitial = parseFloat(newInitialBalance) || 0;
+    const absoluteAmount = parseFloat(newInitialBalance) || 0;
+    // Yöne göre işareti uygula: debt = pozitif, credit = negatif
+    const newInitial = balanceDirection === 'debt' ? absoluteAmount : -absoluteAmount;
 
     Alert.alert(
       t('clients:balance.confirmTitle'),
@@ -684,6 +689,14 @@ export default function CariHareketleriPage() {
               <Text variant="caption" color="secondary" style={styles.balanceWarning}>
                 {t('clients:balance.editWarning')}
               </Text>
+              <View style={styles.balanceInputContainer}>
+                <Text variant="label" style={{ marginBottom: spacing.xs }}>{t('clients:balanceDirection.label')}</Text>
+                <BalanceDirectionSelector
+                  value={balanceDirection}
+                  onChange={setBalanceDirection}
+                  variant={cari?.type === 'tedarikci' ? 'supplier' : 'customer'}
+                />
+              </View>
               <View style={styles.balanceInputContainer}>
                 <Text variant="label">{t('clients:balance.newInitialBalance')}</Text>
                 <TextInput

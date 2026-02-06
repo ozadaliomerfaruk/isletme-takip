@@ -18,7 +18,7 @@ import {
   Share2,
   Image as ImageIcon,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal } from '@/components/transaction';
 import { ExportSheet } from '@/components/export';
@@ -341,6 +341,7 @@ export default function HesapHareketleriPage() {
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newBalanceInput, setNewBalanceInput] = useState('');
+  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
@@ -414,17 +415,22 @@ export default function HesapHareketleriPage() {
 
   // Bakiye düzenleme modal'ını aç
   const handleOpenEditBalance = useCallback(() => {
-    setNewBalanceInput(String(Number(hesap?.balance) || 0));
+    const currentBalance = Number(hesap?.balance) || 0;
+    // Mevcut yönü belirle: pozitif = debt (varlık), negatif = credit (borç)
+    setBalanceDirection(currentBalance >= 0 ? 'debt' : 'credit');
+    setNewBalanceInput(String(Math.abs(currentBalance)));
     setEditBalanceModalVisible(true);
   }, [hesap?.balance]);
 
   // Bakiye kaydet
   const handleSaveBalance = async () => {
-    const newBalance = parseFloat(newBalanceInput.replace(',', '.'));
-    if (isNaN(newBalance)) {
+    const absoluteBalance = parseFloat(newBalanceInput.replace(',', '.'));
+    if (isNaN(absoluteBalance)) {
       Alert.alert(t('common:status.error'), t('accounts:messages.invalidBalance'));
       return;
     }
+    // Yöne göre işareti uygula: debt = pozitif (varlık), credit = negatif (borç)
+    const newBalance = balanceDirection === 'debt' ? absoluteBalance : -absoluteBalance;
 
     Alert.alert(
       t('accounts:balance.editBalance'),
@@ -953,6 +959,15 @@ export default function HesapHareketleriPage() {
             <Text variant="caption" color="secondary" style={{ marginBottom: spacing.sm }}>
               {t('accounts:balance.currentBalance')}: {formatCurrency(Number(hesap?.balance) || 0, hesap?.currency)}
             </Text>
+
+            <View style={{ marginBottom: spacing.md }}>
+              <Text variant="label" style={{ marginBottom: spacing.xs }}>{t('accounts:balanceDirection.label')}</Text>
+              <BalanceDirectionSelector
+                value={balanceDirection}
+                onChange={setBalanceDirection}
+                variant="account"
+              />
+            </View>
 
             <TextInput
               style={styles.balanceInput}

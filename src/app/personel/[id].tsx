@@ -18,7 +18,7 @@ import {
   X,
   Share2,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner } from '@/components/ui';
+import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
@@ -215,6 +215,7 @@ export default function PersonelHareketleriPage() {
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
+  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
@@ -242,12 +243,16 @@ export default function PersonelHareketleriPage() {
 
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
-    setNewInitialBalance(initialBalance.toString());
+    // Personelde: pozitif = credit (biz borçluyuz), negatif = debt (personel bize borçlu)
+    setBalanceDirection(initialBalance >= 0 ? 'credit' : 'debt');
+    setNewInitialBalance(Math.abs(initialBalance).toString());
     setEditBalanceModalVisible(true);
   }, [initialBalance]);
 
   const handleSaveInitialBalance = useCallback(() => {
-    const newInitial = parseFloat(newInitialBalance) || 0;
+    const absoluteAmount = parseFloat(newInitialBalance) || 0;
+    // Personelde: credit = pozitif (biz borçluyuz), debt = negatif (personel bize borçlu)
+    const newInitial = balanceDirection === 'credit' ? absoluteAmount : -absoluteAmount;
 
     Alert.alert(
       t('staff:balance.confirmTitle'),
@@ -275,7 +280,7 @@ export default function PersonelHareketleriPage() {
         },
       ]
     );
-  }, [newInitialBalance, personel, initialBalance, updatePersonel, refetchPersonel, t]);
+  }, [newInitialBalance, balanceDirection, personel, initialBalance, updatePersonel, refetchPersonel, t]);
 
   // Stable callback handlers for memoized item
   const handleToggle = useCallback((islemId: string) => {
@@ -689,6 +694,14 @@ export default function PersonelHareketleriPage() {
               <Text variant="caption" color="secondary" style={styles.balanceWarning}>
                 {t('staff:balance.editWarning')}
               </Text>
+              <View style={styles.balanceInputContainer}>
+                <Text variant="label" style={{ marginBottom: spacing.xs }}>{t('staff:form.balanceDirection.label')}</Text>
+                <BalanceDirectionSelector
+                  value={balanceDirection}
+                  onChange={setBalanceDirection}
+                  variant="staff"
+                />
+              </View>
               <View style={styles.balanceInputContainer}>
                 <Text variant="label">{t('staff:balance.newInitialBalance')}</Text>
                 <TextInput
