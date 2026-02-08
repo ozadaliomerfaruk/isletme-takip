@@ -530,7 +530,12 @@ export function isDateInRange(
 export function addMonths(date: Date | string, months: number): Date {
   const d = typeof date === 'string' ? parseDateFromDB(date) : new Date(date);
   const result = new Date(d);
+  const originalDay = result.getDate();
   result.setMonth(result.getMonth() + months);
+  // Clamp day to last day of target month (e.g. Jan 31 + 1mo → Feb 28, not Mar 3)
+  if (result.getDate() !== originalDay) {
+    result.setDate(0); // Go to last day of previous month
+  }
   return result;
 }
 

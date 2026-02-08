@@ -367,7 +367,13 @@ export function useCompleteIleriTarihliIslem() {
       if (insertError) throw insertError;
 
       // 3. Bakiyeleri güncelle
-      await updateBalancesForIslem(islemData);
+      try {
+        await updateBalancesForIslem(islemData);
+      } catch (balanceError) {
+        // Rollback: oluşturulan işlemi sil
+        await supabase.from('islemler').delete().eq('id', newIslem.id);
+        throw balanceError;
+      }
 
       // 4. İleri tarihli işlemi completed olarak işaretle
       const { error: updateError } = await supabase
@@ -481,6 +487,39 @@ async function updateBalancesForIslem(islem: IslemInsert) {
         await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       break;
+
+    case 'cari_alis_iade':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
+      }
+      break;
+
+    case 'cari_satis_iade':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
+      }
+      break;
+
+    case 'personel_tahsilat':
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, -amount);
+      }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      }
+      break;
+
+    case 'personel_satis':
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, amount);
+      }
+      break;
+
+    case 'nakit_avans_taksit':
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      }
+      break;
   }
 }
 
@@ -549,6 +588,39 @@ async function reverseBalancesForIslem(islem: IslemInsert) {
       if (islem.personel_id) {
         await safeIncrementBalance('personel', islem.personel_id, -amount);
       }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      }
+      break;
+
+    case 'cari_alis_iade':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, -amount);
+      }
+      break;
+
+    case 'cari_satis_iade':
+      if (islem.cari_id) {
+        await safeIncrementBalance('cariler', islem.cari_id, amount);
+      }
+      break;
+
+    case 'personel_tahsilat':
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, amount);
+      }
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      }
+      break;
+
+    case 'personel_satis':
+      if (islem.personel_id) {
+        await safeIncrementBalance('personel', islem.personel_id, -amount);
+      }
+      break;
+
+    case 'nakit_avans_taksit':
       if (islem.hesap_id) {
         await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }

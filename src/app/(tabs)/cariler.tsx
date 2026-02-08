@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -73,11 +73,18 @@ export default function CarilerPage() {
   const exchangeRates = exchangeRatesData?.rates;
 
   // Gerçek veriler - pasif carileri de dahil et
-  const { data: cariler, isLoading } = useCariler(
+  const { data: cariler, isLoading, refetch } = useCariler(
     filter === 'all' ? undefined : (filter as CariType),
     true // includePassive
   );
   const { payables, receivables } = useFinancialSummary();
+
+  // Pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try { await refetch(); } finally { setIsRefreshing(false); }
+  }, [refetch]);
 
   // Action sheet handlers
   const handleOpenActionSheet = (cari: Cari) => {
@@ -469,6 +476,9 @@ export default function CarilerPage() {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
         // Performans optimizasyonları
         initialNumToRender={10}
         maxToRenderPerBatch={10}

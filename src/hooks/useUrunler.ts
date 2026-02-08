@@ -207,7 +207,8 @@ export function usePermanentDeleteUrun() {
       const { error: hareketError } = await supabase
         .from('stok_hareketler')
         .delete()
-        .eq('urun_id', id);
+        .eq('urun_id', id)
+        .eq('isletme_id', isletme.id);
 
       if (hareketError) throw hareketError;
 

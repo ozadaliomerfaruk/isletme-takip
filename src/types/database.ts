@@ -3,7 +3,7 @@
 // 'diger' eski değer, 'birikim' yeni değer - backward compatibility için ikisi de destekleniyor
 export type HesapType = 'nakit' | 'banka' | 'kredi_karti' | 'birikim' | 'diger';
 export type CariType = 'musteri' | 'tedarikci';
-export type KategoriType = 'gelir' | 'gider';
+export type KategoriType = 'gelir' | 'gider' | 'stok';
 export type Currency = 'TRY' | 'USD' | 'EUR' | 'GBP' | 'XAU' | 'XAG';
 export type IslemType =
   | 'gelir'

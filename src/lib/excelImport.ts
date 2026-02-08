@@ -4,14 +4,16 @@
  */
 
 import * as XLSX from 'xlsx';
-import { formatDateForDB } from './date';
+import * as Crypto from 'expo-crypto';
+import { encode as base64Encode } from 'base64-arraybuffer';
+import { formatDateForDB, formatDateTimeForDB } from './date';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
 export interface ParsedTransaction {
-  date: string; // YYYY-MM-DD format (DATE column compatible)
+  date: string; // YYYY-MM-DDTHH:MM:SS format (timestamp column compatible)
   type: string; // DefterApp type (GELİR, GİDER, etc.)
   mappedType: string; // Our app type (gelir, gider, etc.)
   description: string | null;
@@ -805,35 +807,47 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       }
 
       // Context-aware type correction:
-      // 1. KARŞI HESAP doluysa → transfer (hesaplar arası)
-      if (karsiHesap) {
+      // Öncelik: TRANSFER kontrolü > Entity kolonları (TEDARİKÇİ/MÜŞTERİ/PERSONEL) > Varsayılan
+      // NOT: KARŞI HESAP dolu olması artık otomatik transfer YAPMAZ.
+      //       Sadece orijinal tip TRANSFER ise transfer olur.
+      //       Diğer tiplerde KARŞI HESAP = paranın gittiği/geldiği hesap (hesap_id olarak kullanılır).
+
+      // 1. TRANSFER: Sadece orijinal tip TRANSFER ve KARŞI HESAP doluysa
+      if (normalizedType === 'TRANSFER' && karsiHesap) {
         mappedType = 'transfer';
       }
-      // 2. PERSONEL kolonu doluysa → personel işlemi
-      else if (personel && !tedarikci && !musteri) {
-        if (mappedType === 'gider') {
-          mappedType = 'personel_gider';
-        } else if (mappedType === 'cari_odeme') {
-          mappedType = 'personel_odeme';
-        } else if (mappedType === 'cari_tahsilat') {
-          mappedType = 'personel_tahsilat';
-        }
-      }
-      // 3. TEDARİKÇİ kolonu doluysa → cari işlemi
+      // 2. TEDARİKÇİ kolonu doluysa → cari işlemi
       else if (tedarikci && !musteri) {
-        if (mappedType === 'gider') {
-          mappedType = 'cari_alis';
+        if (mappedType === 'gider' || mappedType === 'cari_alis') {
+          mappedType = 'cari_alis'; // GIDER+TEDARIKCI = tedarikçiden alış (gider)
         }
-        // cari_odeme zaten TRANSACTION_TYPE_MAP'ten geliyor
+        // cari_odeme zaten TRANSACTION_TYPE_MAP'ten geliyor (ÖDEME→cari_odeme)
       }
-      // 4. MÜŞTERİ kolonu doluysa → cari işlemi
+      // 3. MÜŞTERİ kolonu doluysa → cari işlemi
       else if (musteri && !tedarikci) {
         if (mappedType === 'gelir') {
-          mappedType = 'cari_satis';
+          mappedType = 'cari_satis'; // GELIR+MUSTERI = müşteriye satış (gelir)
         }
-        // cari_tahsilat zaten TRANSACTION_TYPE_MAP'ten geliyor
+        // cari_tahsilat zaten TRANSACTION_TYPE_MAP'ten geliyor (TAHSİLAT→cari_tahsilat)
       }
-      // 5. Hiçbir entity kolonu dolmamışsa → salt gelir/gider (hesap işlemi)
+      // 4. PERSONEL kolonu doluysa → personel işlemi
+      else if (personel && !tedarikci && !musteri) {
+        if (mappedType === 'gider') {
+          mappedType = 'personel_gider'; // GIDER+PERSONEL = personel gideri (gider)
+        } else if (mappedType === 'cari_odeme') {
+          mappedType = 'personel_odeme'; // ÖDEME+PERSONEL = personele ödeme (nakit akışı)
+        } else if (mappedType === 'cari_tahsilat') {
+          mappedType = 'personel_tahsilat'; // TAHSİLAT+PERSONEL = personelden tahsilat (nakit akışı)
+        }
+      }
+      // 5. ÖDEME + HESAP + KARŞI HESAP (entity yok) → kredi kartı ödemesi = transfer
+      //    Örnek: ÖDEME, Garanti Bankası → Garanti Kredi Kartı
+      else if (normalizedType === 'ODEME' && account && karsiHesap && !tedarikci && !musteri && !personel) {
+        mappedType = 'transfer';
+      }
+      // 6. Hiçbir entity yok ama KARŞI HESAP var → tip olduğu gibi kalır
+      //    KARŞI HESAP bilgisi import sırasında hesap_id olarak kullanılacak
+      // 7. Hiçbir entity yok, KARŞI HESAP yok → salt gelir/gider (hesap işlemi)
       // mappedType olduğu gibi kalır (gelir veya gider)
 
       // Debug: Context-aware mapping'i logla (sadece değişenler için)
@@ -869,8 +883,8 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       transactionTypes[type] = (transactionTypes[type] || 0) + 1;
 
       // Tarih geçersizse de işlemi ekle (önizlemede gösterilecek, import'ta atlanacak)
-      // DATE kolonu için sadece YYYY-MM-DD formatı kullan (timezone kayması önlenir)
-      const isoDate = jsDate ? formatDateForDB(jsDate) : '';
+      // timestamp kolonu için YYYY-MM-DDTHH:MM:SS formatı kullan (saat bilgisi korunur)
+      const isoDate = jsDate ? formatDateTimeForDB(jsDate) : '';
 
       // İşlem tipine göre tutarın yönünü belirle (negatif/pozitif yazmaya gerek yok)
       const isExpense = getIsExpenseByType(mappedType);
@@ -1542,37 +1556,32 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
  */
 export async function calculateFileHash(fileContent: ArrayBuffer): Promise<string> {
   try {
-    // Web Crypto API kullan (expo-crypto yerine daha evrensel)
-    // React Native'de crypto.subtle yoksa basit hash kullan
-    if (typeof crypto !== 'undefined' && crypto.subtle) {
-      const hashBuffer = await crypto.subtle.digest('SHA-256', fileContent);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    // Fallback: Basit hash (expo-crypto kullanılamıyorsa)
-    // Dosya boyutu + ilk ve son 1000 byte'ın toplamı
-    const bytes = new Uint8Array(fileContent);
-    let hash = bytes.length;
-
-    // İlk 1000 byte
-    const firstChunk = Math.min(1000, bytes.length);
-    for (let i = 0; i < firstChunk; i++) {
-      hash = ((hash << 5) - hash + bytes[i]) | 0;
-    }
-
-    // Son 1000 byte
-    const lastStart = Math.max(0, bytes.length - 1000);
-    for (let i = lastStart; i < bytes.length; i++) {
-      hash = ((hash << 5) - hash + bytes[i]) | 0;
-    }
-
-    return Math.abs(hash).toString(16).padStart(16, '0');
+    // expo-crypto ile SHA-256 hash hesapla (React Native uyumlu)
+    const base64Content = base64Encode(fileContent);
+    const hash = await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      base64Content
+    );
+    return hash;
   } catch (err) {
     if (__DEV__) {
       console.error('File hash calculation error:', err);
     }
-    // Hata durumunda timestamp-based benzersiz ID döndür
-    return `fallback-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    // Fallback: DJB2a hash (collision riski düşük, 32-bit yerine çift accumulator)
+    try {
+      const bytes = new Uint8Array(fileContent);
+      let h1 = 5381;
+      let h2 = 52711;
+      for (let i = 0; i < bytes.length; i++) {
+        h1 = ((h1 << 5) + h1 + bytes[i]) | 0;
+        h2 = ((h2 << 5) + h2 + bytes[i]) | 0;
+      }
+      const hex1 = (h1 >>> 0).toString(16).padStart(8, '0');
+      const hex2 = (h2 >>> 0).toString(16).padStart(8, '0');
+      return `${hex1}${hex2}-${bytes.length.toString(16)}`;
+    } catch {
+      // Son çare: unique ID
+      return `fallback-${Date.now()}-${Math.random().toString(36).substring(2, 10)}`;
+    }
   }
 }

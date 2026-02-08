@@ -973,7 +973,7 @@ export default function HesapHareketleriPage() {
               style={styles.balanceInput}
               value={newBalanceInput}
               onChangeText={setNewBalanceInput}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               placeholder={t('accounts:balance.newBalance')}
               placeholderTextColor={colors.textMuted}
               autoFocus

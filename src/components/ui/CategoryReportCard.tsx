@@ -119,6 +119,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { CategoryReportItem, HierarchicalCategoryReportItem } from '@/hooks/useCategoryReport';
+import { useTranslation } from 'react-i18next';
 
 // Android için LayoutAnimation'ı aktifleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -335,6 +336,8 @@ interface CategoryReportCardProps {
 }
 
 export function CategoryReportCard({ item, index, onPress, type }: CategoryReportCardProps) {
+  const { t } = useTranslation(['reports']);
+
   // Kategori rengi veya varsayılan renk
   const categoryColor = item.kategori?.color || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
 
@@ -358,7 +361,7 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
               {categoryName}
             </Text>
             <Text variant="caption" color="secondary">
-              {item.count} işlem
+              {t('reports:counts.transaction', { count: item.count })}
             </Text>
           </View>
         </View>
@@ -410,6 +413,7 @@ export function HierarchicalCategoryReportCard({
   onPress,
   type
 }: HierarchicalCategoryReportCardProps) {
+  const { t } = useTranslation(['reports']);
   const [expanded, setExpanded] = useState(false);
 
   const hasChildren = item.children && item.children.length > 0;
@@ -468,8 +472,8 @@ export function HierarchicalCategoryReportCard({
               </Text>
               <Text variant="caption" color="secondary">
                 {hasChildren
-                  ? `${item.countWithChildren} işlem (${item.children.length} alt kategori)`
-                  : `${item.count} işlem`
+                  ? t('reports:categoryDetail.transactionWithSubcategories', { count: item.countWithChildren, subcategories: item.children.length })
+                  : t('reports:counts.transaction', { count: item.count })
                 }
               </Text>
             </View>
@@ -522,10 +526,10 @@ export function HierarchicalCategoryReportCard({
                   {getIconComponent(item, categoryColor, type, true)}
                   <View style={styles.textContainer}>
                     <Text variant="caption" numberOfLines={1} style={styles.childCategoryName}>
-                      {categoryName} (doğrudan)
+                      {categoryName} {t('reports:categoryDetail.direct')}
                     </Text>
                     <Text variant="caption" color="secondary">
-                      {item.count} işlem
+                      {t('reports:counts.transaction', { count: item.count })}
                     </Text>
                   </View>
                 </View>

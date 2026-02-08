@@ -53,6 +53,7 @@ interface CariTransactionItemProps {
   hasStokFn: (id: string) => boolean;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
+  currency?: string;
 }
 
 function getCariHareketIcon(type: string) {
@@ -114,6 +115,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   hasStokFn,
   formatDateSmart,
   t,
+  currency,
 }: CariTransactionItemProps) {
   const labelKey = getCariHareketLabelKey(islem.type);
 
@@ -158,7 +160,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
             color={getCariAmountColor(islem.type)}
           >
             {getCariAmountPrefix(islem.type)}
-            {formatCurrency(Number(islem.amount))}
+            {formatCurrency(Number(islem.amount), currency)}
           </Text>
         </View>
       }
@@ -270,7 +272,7 @@ export default function CariHareketleriPage() {
   }, [initialBalance]);
 
   const handleSaveInitialBalance = () => {
-    const absoluteAmount = parseFloat(newInitialBalance) || 0;
+    const absoluteAmount = parseFloat(newInitialBalance.replace(',', '.')) || 0;
     // Yöne göre işareti uygula: debt = pozitif, credit = negatif
     const newInitial = balanceDirection === 'debt' ? absoluteAmount : -absoluteAmount;
 
@@ -398,6 +400,7 @@ export default function CariHareketleriPage() {
         hasStokFn={hasStok}
         formatDateSmart={formatDateSmart}
         t={t}
+        currency={cari?.currency}
       />
     );
   }, [expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, hasStok, formatDateSmart, t]);
@@ -530,7 +533,7 @@ export default function CariHareketleriPage() {
             </View>
             <View style={styles.initialBalanceRow}>
               <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                {formatCurrency(initialBalance)}
+                {formatCurrency(initialBalance, cari.currency)}
               </Text>
               <TouchableOpacity
                 onPress={handleOpenEditBalance}
@@ -703,7 +706,7 @@ export default function CariHareketleriPage() {
                   style={styles.balanceInput}
                   value={newInitialBalance}
                   onChangeText={setNewInitialBalance}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   placeholder="0"
                   placeholderTextColor={colors.textMuted}
                 />

@@ -436,23 +436,27 @@ export function useCompleteCek() {
         await safeIncrementBalance('cariler', cek.cari_id, Number(cek.tutar));
         cariBalanceUpdated = true;
       } catch (balanceError) {
+        // Cari bakiyesi güncellendiyse geri al
+        if (cariBalanceUpdated) {
+          try {
+            await safeIncrementBalance('cariler', cek.cari_id, -Number(cek.tutar));
+          } catch (rollbackError) {
+            console.error('CRITICAL: Cari bakiye rollback başarısız:', rollbackError);
+          }
+        }
         // Hesap bakiyesi güncellendiyse geri al
         if (hesapBalanceUpdated) {
           try {
             await safeIncrementBalance('hesaplar', cek.hesap_id, Number(cek.tutar));
           } catch (rollbackError) {
-            if (__DEV__) {
-              console.error('CRITICAL: Hesap bakiye rollback başarısız:', rollbackError);
-            }
+            console.error('CRITICAL: Hesap bakiye rollback başarısız:', rollbackError);
           }
         }
         // İşlemi sil
         try {
           await supabase.from('islemler').delete().eq('id', newIslem.id);
         } catch (deleteError) {
-          if (__DEV__) {
-            console.error('CRITICAL: İşlem silme başarısız:', deleteError);
-          }
+          console.error('CRITICAL: İşlem silme başarısız:', deleteError);
         }
         throw balanceError;
       }

@@ -291,7 +291,14 @@ export function useCreateStokHareket() {
         .select()
         .single();
 
-      if (hareketError) throw hareketError;
+      if (hareketError) {
+        // Rollback: stok miktarını geri al
+        await supabase.rpc('update_stok_miktar', {
+          p_urun_id: input.urun_id,
+          p_miktar_degisim: -miktarDegisim,
+        });
+        throw hareketError;
+      }
 
       return hareket as StokHareket;
     },
@@ -450,7 +457,14 @@ export function useUpdateStokHareket() {
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        // Rollback: stok miktarını geri al
+        await supabase.rpc('update_stok_miktar', {
+          p_urun_id: eskiHareket.urun_id,
+          p_miktar_degisim: -netDegisim,
+        });
+        throw updateError;
+      }
 
       return guncellenmisHareket as StokHareket;
     },
@@ -515,7 +529,14 @@ export function useDeleteStokHareket() {
         .eq('id', hareketId)
         .eq('isletme_id', isletme.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        // Rollback: stok miktarını geri al
+        await supabase.rpc('update_stok_miktar', {
+          p_urun_id: hareket.urun_id,
+          p_miktar_degisim: -miktarDegisim,
+        });
+        throw deleteError;
+      }
 
       return { success: true };
     },

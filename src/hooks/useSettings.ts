@@ -144,7 +144,9 @@ async function initializeSettings() {
 }
 
 function notifyListeners() {
-  listeners.forEach((listener) => listener());
+  // Snapshot to avoid issues with concurrent add/delete during iteration
+  const snapshot = Array.from(listeners);
+  snapshot.forEach((listener) => listener());
 }
 
 /**
@@ -157,25 +159,32 @@ export function useSettings() {
 
   // Initialize settings on first mount
   useEffect(() => {
+    let isMounted = true;
+
     const loadSettings = async () => {
       if (!isInitialized) {
         await initializeSettings();
       }
-      setCurrencyState(globalCurrency);
-      setDateFormatState(globalDateFormat);
-      setIsLoading(false);
+      if (isMounted) {
+        setCurrencyState(globalCurrency);
+        setDateFormatState(globalDateFormat);
+        setIsLoading(false);
+      }
     };
 
     loadSettings();
 
     // Subscribe to changes from other hook instances
     const listener = () => {
-      setCurrencyState(globalCurrency);
-      setDateFormatState(globalDateFormat);
+      if (isMounted) {
+        setCurrencyState(globalCurrency);
+        setDateFormatState(globalDateFormat);
+      }
     };
     listeners.add(listener);
 
     return () => {
+      isMounted = false;
       listeners.delete(listener);
     };
   }, []);

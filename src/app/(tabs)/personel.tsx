@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, TouchableWithoutFeedback, Animated, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, TouchableWithoutFeedback, Animated, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -97,8 +97,15 @@ export default function PersonelPage() {
   }, [fabMenuVisible]);
 
   // Gerçek veriler - pasif personeli de dahil et
-  const { data: personelList, isLoading } = usePersonelList(true);
+  const { data: personelList, isLoading, refetch } = usePersonelList(true);
   const { payables, receivables } = useFinancialSummary();
+
+  // Pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try { await refetch(); } finally { setIsRefreshing(false); }
+  }, [refetch]);
 
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -524,6 +531,9 @@ export default function PersonelPage() {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
         // Performans optimizasyonları
         initialNumToRender={10}
         maxToRenderPerBatch={10}

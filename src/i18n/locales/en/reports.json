@@ -79,6 +79,7 @@
   "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
   "categoryDetail": {
     "direct": "(direct)",
+    "transactionWithSubcategories": "{{count}} transactions ({{subcategories}} subcategories)",
     "selectAll": "Select All",
     "selectNone": "Select None"
   },

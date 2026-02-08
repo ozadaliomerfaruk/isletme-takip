@@ -79,6 +79,7 @@
   "months": ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
   "categoryDetail": {
     "direct": "(doğrudan)",
+    "transactionWithSubcategories": "{{count}} işlem ({{subcategories}} alt kategori)",
     "selectAll": "Tümünü Seç",
     "selectNone": "Hiçbirini Seçme"
   },

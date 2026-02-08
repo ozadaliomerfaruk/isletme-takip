@@ -197,7 +197,10 @@ export function useAuth() {
       }
     };
 
-    const requestPromise = executeRequest();
+    const requestPromise = executeRequest().catch((err) => {
+      pendingRequests.current.delete(userId);
+      throw err;
+    });
     pendingRequests.current.set(userId, requestPromise);
     return requestPromise;
   }, []);

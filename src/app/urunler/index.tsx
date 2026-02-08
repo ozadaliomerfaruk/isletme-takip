@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, TouchableWithoutFeedback, Animated, Modal, Pressable, Platform } from 'react-native';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, TouchableWithoutFeedback, Animated, Modal, Pressable, Platform, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -108,7 +108,14 @@ export default function UrunlerPage() {
     }
   }, [fabMenuVisible]);
 
-  const { data: urunler, isLoading } = useUrunler();
+  const { data: urunler, isLoading, refetch } = useUrunler();
+
+  // Pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try { await refetch(); } finally { setIsRefreshing(false); }
+  }, [refetch]);
   const deleteUrun = useDeleteUrun();
   const archiveUrun = useArchiveUrun();
   const { data: kategoriler } = useKategoriler();
@@ -226,7 +233,13 @@ export default function UrunlerPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text variant="h2">{t('products:title')}</Text>

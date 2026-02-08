@@ -140,6 +140,7 @@ export function useArchiveHesap() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
 }
@@ -165,6 +166,7 @@ export function useUnarchiveHesap() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
 }
@@ -190,6 +192,7 @@ export function useArchiveCari() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cariler'] });
+      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
 }
@@ -215,6 +218,7 @@ export function useUnarchiveCari() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cariler'] });
+      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
 }
@@ -240,6 +244,7 @@ export function useArchivePersonel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['personel'] });
+      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
 }
@@ -265,6 +270,7 @@ export function useUnarchivePersonel() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['personel'] });
+      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
 }

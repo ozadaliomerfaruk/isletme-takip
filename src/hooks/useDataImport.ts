@@ -75,6 +75,7 @@ export interface ImportResult {
   skippedTransactions: SkippedTransaction[]; // Atlanan işlemlerin detayları
   // Başlangıç bakiyesi sayacı (toplam satır doğrulaması için)
   startingBalancesApplied: number;
+  startingBalancesUpdated: number; // Mevcut entity'lere sonradan uygulanan başlangıç bakiyeleri
   totalRowsProcessed: number; // İşlem + Başlangıç Bakiyesi + Atlanan = Toplam
 }
 
@@ -126,19 +127,36 @@ export interface ImportOptions {
 // ============================================================================
 
 /**
- * Atomik bakiye güncelleme RPC çağrısı
+ * Atomik bakiye güncelleme RPC çağrısı (network hatalarında retry destekli)
  */
-async function safeIncrementBalance(tableName: string, rowId: string, amount: number) {
-  const { error } = await supabase.rpc('increment_balance', {
-    table_name: tableName,
-    row_id: rowId,
-    amount: amount,
-  });
-  if (error) {
-    if (__DEV__) {
-      console.error('safeIncrementBalance hatası:', { tableName, rowId, amount, error });
+async function safeIncrementBalance(tableName: string, rowId: string, amount: number, retries = 3) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const { error } = await supabase.rpc('increment_balance', {
+        table_name: tableName,
+        row_id: rowId,
+        amount: amount,
+      });
+      if (error) {
+        throw new Error(`${error.message || error.code || JSON.stringify(error)}`);
+      }
+      return; // Başarılı
+    } catch (err) {
+      const isNetworkError = err instanceof TypeError && err.message === 'Network request failed';
+      const isRetryable = isNetworkError || (err instanceof Error && err.message.includes('Network'));
+
+      if (isRetryable && attempt < retries) {
+        // Exponential backoff: 500ms, 1000ms, 2000ms...
+        const delay = 500 * Math.pow(2, attempt - 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        continue;
+      }
+
+      if (__DEV__) {
+        console.error(`safeIncrementBalance hatası (attempt ${attempt}/${retries}): ${tableName}/${rowId} amount=${amount} → ${err instanceof Error ? err.message : String(err)}`);
+      }
+      throw new Error(`increment_balance(${tableName}, ${rowId}, ${amount}): ${err instanceof Error ? err.message : 'unknown error'}`);
     }
-    throw error;
   }
 }
 
@@ -263,6 +281,67 @@ async function updateBalanceForImportedTransaction(islem: IslemInsert): Promise<
       }
       break;
   }
+}
+
+/**
+ * Bir işlemin bakiye değişikliklerini hesapla (RPC çağrısı yapmadan)
+ * updateBalanceForImportedTransaction ile aynı mantık, ama Map döndürür
+ * Import sırasında aggregate bakiye güncellemesi için kullanılır
+ */
+function calculateBalanceChanges(islem: IslemInsert): Map<string, number> {
+  const changes = new Map<string, number>();
+  const amount = islem.amount;
+
+  const addChange = (tableName: string, rowId: string, delta: number) => {
+    const key = `${tableName}/${rowId}`;
+    changes.set(key, (changes.get(key) || 0) + delta);
+  };
+
+  switch (islem.type) {
+    case 'gelir':
+      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, amount);
+      break;
+    case 'gider':
+      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
+      break;
+    case 'transfer':
+      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
+      if (islem.hedef_hesap_id) addChange('hesaplar', islem.hedef_hesap_id, amount);
+      break;
+    case 'cari_alis':
+      if (islem.cari_id) addChange('cariler', islem.cari_id, -amount);
+      break;
+    case 'cari_satis':
+      if (islem.cari_id) addChange('cariler', islem.cari_id, amount);
+      break;
+    case 'cari_odeme':
+      if (islem.cari_id) addChange('cariler', islem.cari_id, amount);
+      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
+      break;
+    case 'cari_tahsilat':
+      if (islem.cari_id) addChange('cariler', islem.cari_id, -amount);
+      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, amount);
+      break;
+    case 'personel_gider':
+      if (islem.personel_id) addChange('personel', islem.personel_id, -amount);
+      break;
+    case 'personel_odeme':
+      if (islem.personel_id) addChange('personel', islem.personel_id, amount);
+      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
+      break;
+    case 'personel_tahsilat':
+      if (islem.personel_id) addChange('personel', islem.personel_id, -amount);
+      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, amount);
+      break;
+    // İade ve diğer tipler: bakiye güncellemesi yok
+    case 'cari_alis_iade':
+    case 'cari_satis_iade':
+    case 'nakit_avans_taksit':
+    default:
+      break;
+  }
+
+  return changes;
 }
 
 // ============================================================================
@@ -1001,9 +1080,18 @@ export function useDataImport() {
 
           // Ana hesap ID'sini bul (HESAP kolonu)
           // NOT: cari_alis ve cari_satis işlemleri için HESAP zorunlu değil
-          const hesapId = tx.account
+          let hesapId = tx.account
             ? idMaps.accounts.get(tx.account.toLowerCase()) || null
             : null;
+
+          // HESAP yoksa ve KARŞI HESAP varsa (transfer HARİÇ), hesap_id olarak kullan
+          // Defter'de GIDER/GELIR/ÖDEME işlemlerinde KARŞI HESAP = paranın gittiği/geldiği hesap
+          if (!hesapId && tx.karsiHesap && tx.mappedType !== 'transfer') {
+            hesapId = idMaps.accounts.get(tx.karsiHesap.toLowerCase()) || null;
+            if (__DEV__ && hesapId) {
+              console.log(`[KARŞI HESAP FALLBACK] ${tx.mappedType}: HESAP="${tx.account}" → KARŞI HESAP="${tx.karsiHesap}" kullanıldı`);
+            }
+          }
 
           // Hesap bulunamadıysa atla (istisna: cari işlemleri, iadeler ve personel_gider)
           // personel_gider: Sadece personel bakiyesini etkiler, hesap gerekmez
@@ -1261,8 +1349,9 @@ export function useDataImport() {
           }
 
           // =====================================================
-          // KRİTİK: Bakiye güncellemesi (rollback destekli)
+          // KRİTİK: Bakiye güncellemesi (aggregate yaklaşım)
           // İşlemler eklendi, şimdi bakiyeleri güncelle
+          // Entity başına net bakiye değişimi hesaplanır, sonra tek RPC
           // =====================================================
           if (actualCreated > 0) {
             setProgress(p => ({
@@ -1271,88 +1360,100 @@ export function useDataImport() {
               message: `${translationsRef.current.balances} (${chunkIndex + 1}/${totalChunks})`,
             }));
 
-            // Her başarılı işlem için bakiye güncelle, hataları takip et
-            // OPTIMIZED: Batch parallel processing (100'lük gruplar)
+            // 1. Tüm işlemlerin bakiye değişikliklerini aggregate et
+            const aggregatedChanges = new Map<string, number>();
+            const balanceUpdateItems = islemler.slice(0, Math.min(actualCreated, islemler.length));
+
+            for (const islem of balanceUpdateItems) {
+              const changes = calculateBalanceChanges(islem);
+              for (const [key, delta] of changes) {
+                aggregatedChanges.set(key, (aggregatedChanges.get(key) || 0) + delta);
+              }
+            }
+
+            // 2. Aggregate sonuçlarını batch halinde gönder (entity başına 1 RPC)
+            const entries = Array.from(aggregatedChanges.entries());
             let balanceUpdateSuccessCount = 0;
             let balanceUpdateFailCount = 0;
-            const failedTransactionIds: string[] = [];
+            const balanceErrors: string[] = [];
+            const successfulUpdates: Array<{ key: string; amount: number }> = [];
 
-            const BALANCE_UPDATE_BATCH_SIZE = 100; // Kontrollü parallelism
-            const balanceUpdateItems = islemler.slice(0, Math.min(actualCreated, islemler.length));
-            const balanceUpdateBatches = chunkArray(balanceUpdateItems, BALANCE_UPDATE_BATCH_SIZE);
+            const AGGREGATE_BATCH_SIZE = 20;
+            for (let i = 0; i < entries.length; i += AGGREGATE_BATCH_SIZE) {
+              const batch = entries.slice(i, i + AGGREGATE_BATCH_SIZE);
+              const results = await Promise.all(
+                batch.map(([key, amount]) => {
+                  const roundedAmount = Math.round(amount * 100) / 100;
+                  const [tableName, rowId] = key.split('/');
+                  return safeIncrementBalance(tableName, rowId, roundedAmount)
+                    .then(() => ({ success: true as const, key, amount: roundedAmount }))
+                    .catch((err) => {
+                      const errMsg = err instanceof Error ? err.message : String(err);
+                      return { success: false as const, key, amount: roundedAmount, error: errMsg };
+                    });
+                })
+              );
 
-            for (const batch of balanceUpdateBatches) {
-              const batchPromises = batch.map((islem, batchIdx) => {
-                // Global index hesapla (batch içindeki pozisyon + önceki batch'lerin toplamı)
-                const globalIdx = balanceUpdateBatches.indexOf(batch) * BALANCE_UPDATE_BATCH_SIZE + batchIdx;
-                const txId = insertedData?.[globalIdx]?.id;
-
-                return updateBalanceForImportedTransaction(islem)
-                  .then(() => ({ success: true as const, txId }))
-                  .catch((balanceErr) => {
-                    if (__DEV__) {
-                      console.error('Bakiye güncelleme hatası:', {
-                        islem,
-                        txId,
-                        error: balanceErr,
-                      });
-                    }
-                    return { success: false as const, txId, error: balanceErr, islemType: islem.type };
-                  });
-              });
-
-              const batchResults = await Promise.all(batchPromises);
-
-              // Batch sonuçlarını işle
-              for (const result of batchResults) {
+              for (const result of results) {
                 if (result.success) {
                   balanceUpdateSuccessCount++;
+                  successfulUpdates.push({ key: result.key, amount: result.amount });
                 } else {
                   balanceUpdateFailCount++;
-                  if (result.txId) failedTransactionIds.push(result.txId);
-                  errors.push(`Bakiye güncelleme hatası (işlem tipi: ${result.islemType}): ${result.error}`);
+                  balanceErrors.push(`${result.key}: ${result.error}`);
                 }
               }
             }
 
-            // Bakiye güncelleme başarısız olan işlemleri geri al (rollback)
-            if (failedTransactionIds.length > 0) {
+            // Bakiye güncelleme hatası varsa rollback: başarılı bakiyeleri geri al + işlemleri sil
+            if (balanceUpdateFailCount > 0) {
               if (__DEV__) {
-                console.warn('Import: Bakiye güncelleme hataları nedeniyle rollback yapılıyor', {
-                  failedCount: failedTransactionIds.length,
-                  failedIds: failedTransactionIds,
+                console.warn('Import: Bakiye güncelleme hataları nedeniyle chunk rollback yapılıyor', {
+                  failedEntities: balanceUpdateFailCount,
+                  errors: balanceErrors,
                 });
               }
 
-              // Başarısız olan işlemleri sil
-              const { error: deleteError } = await supabase
-                .from('islemler')
-                .delete()
-                .in('id', failedTransactionIds);
-
-              if (deleteError) {
-                errors.push(`Rollback hatası - işlemler silinemedi: ${deleteError.message}`);
-                // Kritik: İşlemler silinmedi, bakiyeler yanlış olabilir!
-                errors.push('UYARI: Veritabanı tutarsız durumda olabilir. Manuel kontrol gerekli.');
-              } else {
-                // Başarıyla silinen işlemleri created sayısından düş
-                created -= failedTransactionIds.length;
-                skipped += failedTransactionIds.length;
-                // transactionIds listesinden sil
-                failedTransactionIds.forEach(fId => {
-                  const idx = transactionIds.indexOf(fId);
-                  if (idx !== -1) transactionIds.splice(idx, 1);
-                });
-
-                errors.push(`${failedTransactionIds.length} işlem bakiye hatası nedeniyle geri alındı`);
+              // Başarılı bakiye güncellemelerini geri al
+              for (const { key, amount } of successfulUpdates) {
+                try {
+                  const [tableName, rowId] = key.split('/');
+                  await safeIncrementBalance(tableName, rowId, -amount);
+                } catch (reverseErr) {
+                  console.error(`CRITICAL: Bakiye rollback başarısız (${key}):`, reverseErr);
+                  errors.push(`Bakiye rollback başarısız (${key}): ${reverseErr instanceof Error ? reverseErr.message : String(reverseErr)}`);
+                }
               }
+
+              const chunkTxIds = insertedData?.map(row => row.id).filter(Boolean) || [];
+              if (chunkTxIds.length > 0) {
+                const { error: deleteError } = await supabase
+                  .from('islemler')
+                  .delete()
+                  .in('id', chunkTxIds);
+
+                if (deleteError) {
+                  errors.push(`Rollback hatası - işlemler silinemedi: ${deleteError.message}`);
+                  errors.push('UYARI: Veritabanı tutarsız durumda olabilir. Manuel kontrol gerekli.');
+                } else {
+                  created -= chunkTxIds.length;
+                  skipped += chunkTxIds.length;
+                  chunkTxIds.forEach(fId => {
+                    const idx = transactionIds.indexOf(fId);
+                    if (idx !== -1) transactionIds.splice(idx, 1);
+                  });
+                  errors.push(`${chunkTxIds.length} işlem bakiye hatası nedeniyle geri alındı`);
+                }
+              }
+
+              balanceErrors.forEach(e => errors.push(`Bakiye hatası: ${e}`));
             }
 
             if (__DEV__) {
-              console.log('Import: Bakiyeler güncellendi', {
+              console.log('Import: Bakiyeler güncellendi (aggregate)', {
+                uniqueEntities: entries.length,
                 success: balanceUpdateSuccessCount,
                 failed: balanceUpdateFailCount,
-                rolledBack: failedTransactionIds.length,
               });
             }
           }
@@ -1394,6 +1495,7 @@ export function useDataImport() {
         skipped: 0,
         skippedTransactions: [],
         startingBalancesApplied: 0,
+        startingBalancesUpdated: 0,
         totalRowsProcessed: 0,
       };
     }
@@ -1514,6 +1616,7 @@ export function useDataImport() {
       skippedTransactions: skippedList,
       // Başlangıç bakiyesi ve toplam satır sayısı
       startingBalancesApplied: startingBalanceTransactions.length,
+      startingBalancesUpdated: 0,
       totalRowsProcessed: validTransactions.length + startingBalanceTransactions.length + totalSkipped,
     };
 
@@ -1559,6 +1662,7 @@ export function useDataImport() {
         skipped: 0,
         skippedTransactions: [],
         startingBalancesApplied: 0,
+        startingBalancesUpdated: 0,
         totalRowsProcessed: 0,
       };
       setResult(errorResult);
@@ -1643,6 +1747,152 @@ export function useDataImport() {
       const personelResult = await importPersonel(accountMappings, existingPersonel, startingBalances.personel);
       const personelCreated = personelResult.createdIds.length;
 
+      // 5.5. Mevcut entity'lere başlangıç bakiyesi uygula
+      // Yeni oluşturulan entity'ler zaten importAccounts/Clients/Personel'da halledildi
+      // Burada sadece MEVCUT entity'ler için başlangıç bakiyesi uygulanır
+      const balanceSkippedTransactions: SkippedTransaction[] = [];
+      let startingBalancesUpdatedCount = 0;
+
+      for (const tx of preview.transactions) {
+        if (tx.mappedType !== 'baslangic_bakiyesi') continue;
+        const rowNumber = tx.rowNumber || 0;
+        const balanceValue = tx.signedAmount;
+
+        // Hesaplar için başlangıç bakiyesi kontrolü
+        if (tx.account) {
+          const key = tx.account.toLowerCase();
+          const existingId = existingAccounts.get(key);
+          const isNewlyCreated = existingId ? accountResult.createdIds.includes(existingId) : false;
+
+          if (existingId && !isNewlyCreated) {
+            // Mevcut hesabın balance ve initial_balance bilgisini çek
+            const { data: hesapData } = await supabase
+              .from('hesaplar')
+              .select('id, balance, initial_balance')
+              .eq('id', existingId)
+              .single();
+
+            if (hesapData) {
+              if (hesapData.initial_balance && hesapData.initial_balance !== 0) {
+                // Zaten başlangıç bakiyesi var → atlanan listesine ekle
+                balanceSkippedTransactions.push({
+                  transaction: tx,
+                  reason: `Bu hesap için daha önce başlangıç bakiyesi işlenmiş (mevcut: ${hesapData.initial_balance})`,
+                  rowNumber,
+                });
+              } else {
+                // Başlangıç bakiyesi yok → uygula
+                await supabase
+                  .from('hesaplar')
+                  .update({
+                    balance: (hesapData.balance || 0) + balanceValue,
+                    initial_balance: balanceValue,
+                  })
+                  .eq('id', existingId);
+                startingBalancesUpdatedCount++;
+              }
+            }
+          }
+        }
+
+        // Cariler için başlangıç bakiyesi kontrolü (tedarikçi veya müşteri)
+        const cariName = tx.tedarikci || tx.musteri;
+        if (cariName) {
+          const key = cariName.toLowerCase();
+          const existingId = existingClients.get(key);
+          const isNewlyCreated = existingId ? clientResult.createdIds.includes(existingId) : false;
+
+          if (existingId && !isNewlyCreated) {
+            // Mevcut carinin balance bilgisini ve işlem etkilerini çek
+            const [{ data: cariData }, { data: cariTransactions }] = await Promise.all([
+              supabase.from('cariler').select('id, balance').eq('id', existingId).single(),
+              supabase.from('islemler').select('type, amount').eq('cari_id', existingId),
+            ]);
+
+            if (cariData) {
+              // Gerçek başlangıç bakiyesini hesapla: currentBalance - transactionEffects
+              let cariTxEffect = 0;
+              cariTransactions?.forEach(t => {
+                const amt = Number(t.amount) || 0;
+                if (t.type === 'cari_alis') cariTxEffect -= amt;
+                else if (t.type === 'cari_odeme') cariTxEffect += amt;
+                else if (t.type === 'cari_satis') cariTxEffect += amt;
+                else if (t.type === 'cari_tahsilat') cariTxEffect -= amt;
+                else if (t.type === 'cari_alis_iade') cariTxEffect += amt;
+                else if (t.type === 'cari_satis_iade') cariTxEffect -= amt;
+              });
+              const cariInitialBalance = (cariData.balance || 0) - cariTxEffect;
+
+              if (cariInitialBalance !== 0) {
+                // Zaten başlangıç bakiyesi var
+                balanceSkippedTransactions.push({
+                  transaction: tx,
+                  reason: `Bu cari için daha önce başlangıç bakiyesi işlenmiş (mevcut başlangıç bakiyesi: ${cariInitialBalance})`,
+                  rowNumber,
+                });
+              } else {
+                // Başlangıç bakiyesi yok → uygula (mevcut işlem etkilerini koru)
+                await supabase
+                  .from('cariler')
+                  .update({ balance: balanceValue + cariTxEffect })
+                  .eq('id', existingId);
+                startingBalancesUpdatedCount++;
+              }
+            }
+          }
+        }
+
+        // Personel için başlangıç bakiyesi kontrolü
+        if (tx.personel) {
+          const key = tx.personel.toLowerCase();
+          const existingId = existingPersonel.get(key);
+          const isNewlyCreated = existingId ? personelResult.createdIds.includes(existingId) : false;
+
+          if (existingId && !isNewlyCreated) {
+            // Mevcut personelin balance bilgisini ve işlem etkilerini çek
+            const [{ data: personelData }, { data: personelTransactions }] = await Promise.all([
+              supabase.from('personel').select('id, balance').eq('id', existingId).single(),
+              supabase.from('islemler').select('type, amount').eq('personel_id', existingId),
+            ]);
+
+            if (personelData) {
+              // Gerçek başlangıç bakiyesini hesapla
+              let personelTxEffect = 0;
+              personelTransactions?.forEach(t => {
+                const amt = Number(t.amount) || 0;
+                if (t.type === 'personel_gider') personelTxEffect -= amt;
+                else if (t.type === 'personel_odeme') personelTxEffect += amt;
+                else if (t.type === 'personel_tahsilat') personelTxEffect -= amt;
+              });
+              const personelInitialBalance = (personelData.balance || 0) - personelTxEffect;
+
+              if (personelInitialBalance !== 0) {
+                // Zaten başlangıç bakiyesi var
+                balanceSkippedTransactions.push({
+                  transaction: tx,
+                  reason: `Bu personel için daha önce başlangıç bakiyesi işlenmiş (mevcut başlangıç bakiyesi: ${personelInitialBalance})`,
+                  rowNumber,
+                });
+              } else {
+                // Başlangıç bakiyesi yok → uygula (mevcut işlem etkilerini koru)
+                await supabase
+                  .from('personel')
+                  .update({ balance: balanceValue + personelTxEffect })
+                  .eq('id', existingId);
+                startingBalancesUpdatedCount++;
+              }
+            }
+          }
+        }
+      }
+
+      if (__DEV__) {
+        console.log('Starting balances for existing entities:', {
+          updated: startingBalancesUpdatedCount,
+          skipped: balanceSkippedTransactions.length,
+        });
+      }
+
       // 6. İşlemleri import et
       const idMaps: EntityIdMap = {
         categories: categoryResult.map,
@@ -1706,7 +1956,9 @@ export function useDataImport() {
 
       // Başlangıç bakiyesi işlemlerini say
       const startingBalanceCount = preview.transactions.filter(tx => tx.mappedType === 'baslangic_bakiyesi').length;
-      const totalRowsProcessed = txResult.created + startingBalanceCount + txResult.skipped;
+      const totalSkippedWithBalances = txResult.skipped + balanceSkippedTransactions.length;
+      const allSkippedTransactions = [...txResult.skippedTransactions, ...balanceSkippedTransactions];
+      const totalRowsProcessed = txResult.created + startingBalanceCount + totalSkippedWithBalances;
 
       const finalResult: ImportResult = {
         success: true,
@@ -1722,9 +1974,10 @@ export function useDataImport() {
         createdClientIds: clientResult.createdIds,
         createdPersonelIds: personelResult.createdIds,
         errors: txResult.errors,
-        skipped: txResult.skipped,
-        skippedTransactions: txResult.skippedTransactions,
+        skipped: totalSkippedWithBalances,
+        skippedTransactions: allSkippedTransactions,
         startingBalancesApplied: startingBalanceCount,
+        startingBalancesUpdated: startingBalancesUpdatedCount,
         totalRowsProcessed,
       };
 
@@ -1769,6 +2022,7 @@ export function useDataImport() {
         skipped: 0,
         skippedTransactions: [],
         startingBalancesApplied: 0,
+        startingBalancesUpdated: 0,
         totalRowsProcessed: 0,
       };
 

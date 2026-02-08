@@ -6,6 +6,7 @@
  */
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   View,
   StyleSheet,
@@ -44,7 +45,7 @@ import { Text, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, formatCurrency } from '@/lib/currency';
-import { formatDateForDB, ensureValidDate } from '@/lib/date';
+import { formatDateTimeForDB, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -113,6 +114,7 @@ export function PendingTransactionForm({
   const { t } = useTranslation(['transactions', 'common', 'settings', 'accounts', 'clients', 'staff']);
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const windowHeight = Dimensions.get('window').height;
 
   // Data hooks
@@ -480,33 +482,76 @@ export function PendingTransactionForm({
       }
 
       try {
-        // Seçilen entity'nin bakiyesini güncelle
+        // İşaretli tutarı belirle: isExpense ise negatif, değilse pozitif
+        const signedBalance = pendingIslem.raw_data.isExpense ? -parsedAmount : parsedAmount;
+
+        // Seçilen entity'nin bakiyesini güncelle (mevcut işlem etkilerini koruyarak)
         if (hesapId) {
+          // Hesap: initial_balance alanı var, mevcut bakiye ve işlem etkisini hesapla
+          const { data: hesapData } = await supabase
+            .from('hesaplar')
+            .select('balance, initial_balance')
+            .eq('id', hesapId)
+            .single();
+          const currentInitial = hesapData?.initial_balance ?? 0;
+          const txEffect = (hesapData?.balance ?? 0) - currentInitial;
+          const newBalance = signedBalance + txEffect;
           const { error } = await supabase
             .from('hesaplar')
-            .update({ balance: parsedAmount, initial_balance: parsedAmount })
+            .update({ balance: newBalance, initial_balance: signedBalance })
             .eq('id', hesapId);
           if (error) throw error;
         }
 
         if (cariId) {
+          // Cari: işlem etkilerini hesaplayarak gerçek başlangıç bakiyesini ayarla
+          const { data: cariTxs } = await supabase
+            .from('islemler').select('type, amount').eq('cari_id', cariId);
+          let cariTxEffect = 0;
+          cariTxs?.forEach(tx => {
+            const amt = Number(tx.amount) || 0;
+            if (tx.type === 'cari_alis') cariTxEffect -= amt;
+            else if (tx.type === 'cari_odeme') cariTxEffect += amt;
+            else if (tx.type === 'cari_satis') cariTxEffect += amt;
+            else if (tx.type === 'cari_tahsilat') cariTxEffect -= amt;
+            else if (tx.type === 'cari_alis_iade') cariTxEffect += amt;
+            else if (tx.type === 'cari_satis_iade') cariTxEffect -= amt;
+          });
+          const newBalance = signedBalance + cariTxEffect;
           const { error } = await supabase
             .from('cariler')
-            .update({ balance: parsedAmount })
+            .update({ balance: newBalance })
             .eq('id', cariId);
           if (error) throw error;
         }
 
         if (personelId) {
+          // Personel: işlem etkilerini hesaplayarak gerçek başlangıç bakiyesini ayarla
+          const { data: personelTxs } = await supabase
+            .from('islemler').select('type, amount').eq('personel_id', personelId);
+          let personelTxEffect = 0;
+          personelTxs?.forEach(tx => {
+            const amt = Number(tx.amount) || 0;
+            if (tx.type === 'personel_gider') personelTxEffect -= amt;
+            else if (tx.type === 'personel_odeme') personelTxEffect += amt;
+            else if (tx.type === 'personel_tahsilat') personelTxEffect -= amt;
+            else if (tx.type === 'personel_satis') personelTxEffect += amt;
+          });
+          const newBalance = signedBalance + personelTxEffect;
           const { error } = await supabase
             .from('personel')
-            .update({ balance: parsedAmount })
+            .update({ balance: newBalance })
             .eq('id', personelId);
           if (error) throw error;
         }
 
         // Pending işlemi sil (dismiss)
         await dismissPending.mutateAsync(pendingIslem.id);
+
+        // Invalidate caches for entities whose balances were directly updated
+        if (hesapId) queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+        if (cariId) queryClient.invalidateQueries({ queryKey: ['cariler'] });
+        if (personelId) queryClient.invalidateQueries({ queryKey: ['personel'] });
 
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -583,7 +628,7 @@ export function PendingTransactionForm({
         type: type as IslemType, // baslangic_bakiyesi zaten yukarıda işlendi
         amount: parsedAmount,
         description: description || null,
-        date: formatDateForDB(safeDate),
+        date: formatDateTimeForDB(safeDate),
         hesap_id: hesapId,
         hedef_hesap_id: hedefHesapId,
         kategori_id: kategoriId,
@@ -767,8 +812,8 @@ export function PendingTransactionForm({
           </TouchableOpacity>
         )}
 
-        {/* Cari Picker - for cari transactions */}
-        {['cari_odeme', 'cari_tahsilat', 'cari_alis', 'cari_satis', 'cari_alis_iade', 'cari_satis_iade'].includes(type) && (
+        {/* Cari Picker - for cari transactions and başlangıç bakiyesi */}
+        {['cari_odeme', 'cari_tahsilat', 'cari_alis', 'cari_satis', 'cari_alis_iade', 'cari_satis_iade', 'baslangic_bakiyesi'].includes(type) && (
           <TouchableOpacity
             style={[
               styles.pickerButton,
@@ -793,8 +838,8 @@ export function PendingTransactionForm({
           </TouchableOpacity>
         )}
 
-        {/* Personel Picker */}
-        {['personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(type) && (
+        {/* Personel Picker - for personel transactions and başlangıç bakiyesi */}
+        {['personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis', 'baslangic_bakiyesi'].includes(type) && (
           <TouchableOpacity
             style={[
               styles.pickerButton,

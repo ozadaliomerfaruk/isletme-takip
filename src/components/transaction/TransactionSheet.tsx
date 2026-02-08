@@ -32,7 +32,7 @@ import { DateTimePicker } from '@/components/ui/DateTimePicker';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
-import { formatDateForDB, isToday } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
@@ -239,7 +239,7 @@ export function TransactionSheet({
           description: description.trim() || null,
           hesap_id: selectedHesapId,
           kategori_id: selectedKategoriId,
-          date: formatDateForDB(selectedDate),
+          date: formatDateTimeForDB(selectedDate),
         });
       }
 

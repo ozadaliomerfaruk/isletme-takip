@@ -15,6 +15,20 @@ import { Currency } from '@/types/database';
 import { getCurrencySymbol, isPreciousMetal } from '@/constants/currencies';
 
 // ============================================================================
+// YUVARLAMA (IEEE 754 safe)
+// ============================================================================
+
+/**
+ * Para tutarını 2 ondalık basamağa yuvarla (IEEE 754 floating point safe)
+ * Math.round(1.005 * 100) / 100 = 1.00 (YANLIŞ) → bu fonksiyon 1.01 döner
+ */
+export function roundCurrency(value: number): number {
+  if (isNaN(value) || !isFinite(value)) return 0;
+  const sign = value < 0 ? -1 : 1;
+  return sign * Number(Math.round(parseFloat(Math.abs(value) + 'e2')) + 'e-2');
+}
+
+// ============================================================================
 // PARSE FONKSİYONLARI (String → Number)
 // ============================================================================
 
@@ -242,7 +256,9 @@ export function formatNumber(amount: number): string {
  * formatPercentage(45.5) // "45,5%"
  */
 export function formatPercentage(value: number, decimals: number = 1): string {
-  return `${value.toFixed(decimals).replace('.', ',')}%`;
+  const currencyConfig = getCurrentCurrency();
+  const decimalSeparator = currencyConfig.locale.startsWith('tr') ? ',' : '.';
+  return `${value.toFixed(decimals).replace('.', decimalSeparator)}%`;
 }
 
 /**
@@ -485,17 +501,11 @@ export function calculateTargetAmount(
     return amount;
   }
 
-  // Exchange rate yoksa veya geçersizse - HATA: farklı para birimleri için kur gerekli
+  // Exchange rate yoksa veya geçersizse - farklı para birimleri için kur zorunlu
   if (!exchangeRate || exchangeRate <= 0) {
-    if (__DEV__) {
-      console.warn(
-        `[Currency] Cross-currency conversion attempted without valid exchange rate: ` +
-        `${sourceCurrency} → ${targetCurrency}, rate: ${exchangeRate}. ` +
-        `Returning original amount (${amount}) which may be incorrect!`
-      );
-    }
-    // Hata durumunda orijinal tutarı döndür ama log ile uyar
-    return amount;
+    throw new Error(
+      `Geçersiz döviz kuru: ${sourceCurrency} → ${targetCurrency} dönüşümü için geçerli bir kur gerekli (kur: ${exchangeRate})`
+    );
   }
 
   // TRY referans alınarak kur hesaplanır
@@ -514,6 +524,6 @@ export function calculateTargetAmount(
     result = amount * exchangeRate;
   }
 
-  // Floating point precision fix: 2 ondalık basamağa yuvarla
-  return Math.round(result * 100) / 100;
+  // Floating point precision fix: 2 ondalık basamağa yuvarla (IEEE 754 safe)
+  return roundCurrency(result);
 }

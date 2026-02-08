@@ -368,7 +368,8 @@
       "fileCreationFailed": "Dosya oluşturulurken bir hata oluştu.",
       "undoFailed": "Geri alma başarısız",
       "moreErrors": "... ve {{count}} hata daha",
-      "headerNotFound": "Excel dosyasında başlık satırı bulunamadı (TARİH, İŞLEM TİPİ, HESAP, MİKTAR zorunlu)"
+      "headerNotFound": "Excel dosyasında başlık satırı bulunamadı (TARİH, İŞLEM TİPİ, HESAP, MİKTAR zorunlu)",
+      "selectSupplierOrStaff": "Lütfen bir tedarikçi veya personel seçin"
     },
     "warnings": {
       "title": "Uyarı",
@@ -398,6 +399,7 @@
       "staff": "Personel",
       "transaction": "İşlem",
       "startingBalance": "Başlangıç Bakiyesi",
+      "startingBalancesUpdated": "Mevcut Hesaplara Uygulanan",
       "skipped": "Atlanan",
       "totalRows": "Toplam Satır"
     },
@@ -425,9 +427,6 @@
       "infoTitle": "Atlanan İşlemler Hakkında",
       "infoMessage": "Import sırasında atlanan işlemleri \"Atlanan\" sekmesinden düzeltebilirsiniz.",
       "goToSkipped": "Atlanan İşlemlere Git"
-    },
-    "errors": {
-      "selectSupplierOrStaff": "Lütfen bir tedarikçi veya personel seçin"
     },
     "validation": {
       "title": "Veri Kalitesi",

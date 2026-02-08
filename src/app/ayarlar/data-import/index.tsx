@@ -1633,6 +1633,12 @@ export default function VeriIceAktarPage() {
                     <Text variant="body" style={{ fontWeight: '600', color: colors.info }}>{result.startingBalancesApplied.toLocaleString()}</Text>
                   </View>
                 )}
+                {result.startingBalancesUpdated > 0 && (
+                  <View style={styles.rowSummaryRow}>
+                    <Text variant="body" color="secondary">{t('dataImport.results.startingBalancesUpdated')}</Text>
+                    <Text variant="body" style={{ fontWeight: '600', color: colors.success }}>{result.startingBalancesUpdated.toLocaleString()}</Text>
+                  </View>
+                )}
                 {result.skipped > 0 && (
                   <View style={styles.rowSummaryRow}>
                     <Text variant="body" color="secondary">{t('dataImport.results.skipped')}</Text>

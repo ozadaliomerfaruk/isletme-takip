@@ -37,6 +37,8 @@ export interface CategoryReportResult {
   uncategorizedAmount: number;
   uncategorizedCount: number;
   isLoading: boolean;
+  isFetching: boolean;
+  refetch: () => Promise<unknown>;
   error: Error | null;
 }
 
@@ -103,52 +105,47 @@ export function useCategoryReport(
     enabled: !!isletme,
   });
 
-  // İşlemleri çek (kategori ve hesap bilgisi ile birlikte)
-  // Pasif hesaplardaki işlemler hariç tutulur
+  // Server-side aggregation: Supabase max_rows sınırından etkilenmez
+  // Kategori başına 1 satır döner (binlerce satır yerine ~50 satır)
   const {
     data: islemler,
     isLoading: islemlerLoading,
+    isFetching: islemlerFetching,
     error: islemlerError,
+    refetch: refetchIslemler,
   } = useQuery({
     queryKey: ['category-report', isletme?.id, type, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme) return [];
 
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          id,
-          type,
-          amount,
-          kategori_id,
-          kategori:kategoriler(*),
-          hesap:hesaplar!hesap_id(is_active),
-          hedef_hesap:hesaplar!hedef_hesap_id(is_active)
-        `)
-        .eq('isletme_id', isletme.id)
-        .in('type', islemTypes)
-        .gte('date', startDateTime)
-        .lte('date', endDateTime);
+      const { data, error } = await supabase.rpc('get_category_report', {
+        p_isletme_id: isletme.id,
+        p_types: islemTypes as string[],
+        p_start_date: startDateTime,
+        p_end_date: endDateTime,
+      });
 
-      if (error) throw error;
+      if (error) {
+        if (__DEV__) console.error('[useCategoryReport] RPC error:', error.message, (error as any).code);
+        throw error;
+      }
+      if (__DEV__) console.log('[useCategoryReport]', type, 'RPC result:', data?.length, 'rows');
 
-      // Supabase join sonucunu düzelt ve pasif hesapları filtrele
-      return data
-        .map((item: any) => ({
-          ...item,
-          kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
-        }))
-        .filter((item: any) => {
-          // Pasif hesaplardaki işlemleri hariç tut
-          const hesapActive = item.hesap ? (Array.isArray(item.hesap) ? item.hesap[0]?.is_active : item.hesap.is_active) : true;
-          const hedefHesapActive = item.hedef_hesap ? (Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0]?.is_active : item.hedef_hesap.is_active) : true;
-          return hesapActive !== false && hedefHesapActive !== false;
-        });
+      return (data || []) as Array<{
+        kategori_id: string | null;
+        kategori_adi: string | null;
+        kategori_renk: string | null;
+        kategori_icon: string | null;
+        parent_id: string | null;
+        islem_count: number;
+        total_amount: number;
+      }>;
     },
     enabled: !!isletme && !!startDate && !!endDate,
   });
 
   // Kategori bazlı gruplama ve hesaplama (alt kategoriler ana kategoriye dahil)
+  // RPC zaten kategori bazlı aggregate döndürüyor, burada sadece parent gruplama yapıyoruz
   const result = useMemo(() => {
     if (!islemler || islemler.length === 0) {
       return {
@@ -176,38 +173,57 @@ export function useCategoryReport(
     let uncategorizedAmount = 0;
     let uncategorizedCount = 0;
 
-    islemler.forEach((islem) => {
-      const amount = Number(islem.amount);
+    islemler.forEach((row) => {
+      const amount = Number(row.total_amount) || 0;
+      const count = Number(row.islem_count) || 0;
       totalAmount += amount;
 
-      const kategori = islem.kategori as Kategori | null;
-
       // Kategorisiz işlem
-      if (!kategori) {
+      if (!row.kategori_id) {
         uncategorizedAmount += amount;
-        uncategorizedCount += 1;
+        uncategorizedCount += count;
+        return;
+      }
+
+      // Kategoriyi bul (RPC'den gelen veya allKategoriler'den)
+      const kategori = kategoriMap.get(row.kategori_id);
+      if (!kategori) {
+        // Kategori bulunamadı (silinmiş veya pasif olabilir) - RPC verisiyle oluştur
+        const fallbackKategori = {
+          id: row.kategori_id,
+          name: row.kategori_adi || 'Bilinmeyen',
+          color: row.kategori_renk,
+          icon: row.kategori_icon,
+          parent_id: row.parent_id,
+        } as Kategori;
+
+        const parentId = row.parent_id;
+        const targetId = parentId || row.kategori_id;
+        const parentKat = parentId ? kategoriMap.get(parentId) : fallbackKategori;
+        const targetKat = parentKat || fallbackKategori;
+
+        const existing = parentCategoryMap.get(targetId);
+        if (existing) {
+          existing.total += amount;
+          existing.count += count;
+        } else {
+          parentCategoryMap.set(targetId, { kategori: targetKat, total: amount, count });
+        }
         return;
       }
 
       // Alt kategori ise parent'a ekle, değilse kendi ID'sine ekle
       const parentId = kategori.parent_id;
       const targetId = parentId || kategori.id;
-
-      // Parent kategorisini bul
       const parentKategori = parentId ? kategoriMap.get(parentId) : kategori;
 
       if (!parentKategori) {
-        // Parent bulunamadı, bu kategoriyi ana kategori olarak kullan
         const existing = parentCategoryMap.get(kategori.id);
         if (existing) {
           existing.total += amount;
-          existing.count += 1;
+          existing.count += count;
         } else {
-          parentCategoryMap.set(kategori.id, {
-            kategori: kategori,
-            total: amount,
-            count: 1,
-          });
+          parentCategoryMap.set(kategori.id, { kategori, total: amount, count });
         }
         return;
       }
@@ -215,13 +231,9 @@ export function useCategoryReport(
       const existing = parentCategoryMap.get(targetId);
       if (existing) {
         existing.total += amount;
-        existing.count += 1;
+        existing.count += count;
       } else {
-        parentCategoryMap.set(targetId, {
-          kategori: parentKategori,
-          total: amount,
-          count: 1,
-        });
+        parentCategoryMap.set(targetId, { kategori: parentKategori, total: amount, count });
       }
     });
 
@@ -259,6 +271,8 @@ export function useCategoryReport(
   return {
     ...result,
     isLoading: islemlerLoading || kategorilerLoading,
+    isFetching: islemlerFetching,
+    refetch: refetchIslemler,
     error: combinedError as Error | null,
   };
 }
@@ -275,7 +289,7 @@ export function useHierarchicalCategoryReport(
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
 
-  // İşlemleri ve kategorileri çek
+  // Server-side aggregation: Supabase max_rows sınırından etkilenmez
   const {
     data: islemler,
     isLoading: islemlerLoading,
@@ -285,32 +299,33 @@ export function useHierarchicalCategoryReport(
     queryFn: async () => {
       if (!isletme) return [];
 
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          id,
-          type,
-          amount,
-          kategori_id,
-          kategori:kategoriler(*)
-        `)
-        .eq('isletme_id', isletme.id)
-        .in('type', islemTypes)
-        .gte('date', startDateTime)
-        .lte('date', endDateTime);
+      const { data, error } = await supabase.rpc('get_category_report', {
+        p_isletme_id: isletme.id,
+        p_types: islemTypes as string[],
+        p_start_date: startDateTime,
+        p_end_date: endDateTime,
+      });
 
-      if (error) throw error;
+      if (error) {
+        if (__DEV__) console.error('[useHierarchicalCategoryReport] RPC error:', error.message, (error as any).code);
+        throw error;
+      }
+      if (__DEV__) console.log('[useHierarchicalCategoryReport]', type, 'RPC result:', data?.length, 'rows');
 
-      // Supabase join sonucunu düzelt
-      return data.map((item) => ({
-        ...item,
-        kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
-      }));
+      return (data || []) as Array<{
+        kategori_id: string | null;
+        kategori_adi: string | null;
+        kategori_renk: string | null;
+        kategori_icon: string | null;
+        parent_id: string | null;
+        islem_count: number;
+        total_amount: number;
+      }>;
     },
     enabled: !!isletme && !!startDate && !!endDate,
   });
 
-  // Hiyerarşik gruplama
+  // Hiyerarşik gruplama (RPC aggregate verisi üzerinden)
   const result = useMemo(() => {
     if (!islemler || islemler.length === 0) {
       return {
@@ -321,7 +336,7 @@ export function useHierarchicalCategoryReport(
       };
     }
 
-    // Kategori bazlı gruplama
+    // RPC'den gelen aggregate verisini categoryMap'e dönüştür
     const categoryMap = new Map<string | null, {
       kategori: Kategori | null;
       total: number;
@@ -330,22 +345,28 @@ export function useHierarchicalCategoryReport(
 
     let totalAmount = 0;
 
-    islemler.forEach((islem) => {
-      const amount = Number(islem.amount);
+    islemler.forEach((row) => {
+      const amount = Number(row.total_amount) || 0;
+      const count = Number(row.islem_count) || 0;
       totalAmount += amount;
 
-      const kategoriId = islem.kategori_id;
-      const existing = categoryMap.get(kategoriId);
+      const kategoriId = row.kategori_id;
 
+      // Kategori bilgisini RPC verisinden oluştur
+      const kategori = kategoriId ? {
+        id: kategoriId,
+        name: row.kategori_adi || 'Bilinmeyen',
+        color: row.kategori_renk,
+        icon: row.kategori_icon,
+        parent_id: row.parent_id,
+      } as Kategori : null;
+
+      const existing = categoryMap.get(kategoriId);
       if (existing) {
         existing.total += amount;
-        existing.count += 1;
+        existing.count += count;
       } else {
-        categoryMap.set(kategoriId, {
-          kategori: islem.kategori as Kategori | null,
-          total: amount,
-          count: 1,
-        });
+        categoryMap.set(kategoriId, { kategori, total: amount, count });
       }
     });
 

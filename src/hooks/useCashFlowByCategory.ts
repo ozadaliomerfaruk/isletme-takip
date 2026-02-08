@@ -77,6 +77,8 @@ export interface CashFlowByCategoryResult {
   allCreditCardSpendingItems: CashFlowItem[]; // Tüm kredi kartı harcama kategorileri
   totalCreditCardSpending: number;            // Toplam kredi kartı harcaması
   isLoading: boolean;
+  isFetching: boolean;
+  refetch: () => Promise<unknown>;
   error: Error | null;
 }
 
@@ -123,7 +125,9 @@ export function useCashFlowByCategory(
   const {
     data: islemler,
     isLoading,
+    isFetching,
     error,
+    refetch,
   } = useQuery({
     queryKey: queryKeys.reports.cashFlowByCategory(isletme?.id || '', startDate, endDate),
     queryFn: async () => {
@@ -196,14 +200,13 @@ export function useCashFlowByCategory(
     const creditCardSpendingByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
 
     islemler.forEach((islem: NormalizedCashFlowItem) => {
-      // NaN-safe number parsing - geçersiz değerler için 0 kullan
+      // NaN-safe number parsing - geçersiz değerler atlanır
       const rawAmount = Number(islem.amount);
-      const amount = isNaN(rawAmount) ? 0 : rawAmount;
-
-      // Geçersiz tutar varsa atla (opsiyonel: geliştirme modunda uyarı ver)
-      if (isNaN(rawAmount) && __DEV__) {
-        console.warn(`[CashFlow] Invalid amount for transaction ${islem.id}: ${islem.amount}`);
+      if (isNaN(rawAmount) || rawAmount === 0) {
+        console.warn(`[CashFlow] Skipping transaction ${islem.id}: invalid amount "${islem.amount}"`);
+        return;
       }
+      const amount = rawAmount;
 
       const hesapType = islem.hesap?.type as HesapType | undefined;
       const hedefHesapType = islem.hedef_hesap?.type as HesapType | undefined;
@@ -407,6 +410,8 @@ export function useCashFlowByCategory(
   return {
     ...result,
     isLoading,
+    isFetching,
+    refetch,
     error: error as Error | null,
   };
 }

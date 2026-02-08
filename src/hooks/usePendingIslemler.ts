@@ -170,6 +170,19 @@ async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isl
   }
 }
 
+/**
+ * Bakiye güncellemelerini geri al (rollback)
+ * updateBalancesForPendingTransaction'ın tersi
+ */
+async function reverseBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isletme_id'>): Promise<void> {
+  const amount = toNumber(islem.amount);
+  if (amount === 0) return;
+
+  // Reverse by negating: call update with negated amounts
+  const negatedIslem = { ...islem, amount: -amount };
+  await updateBalancesForPendingTransaction(negatedIslem);
+}
+
 // Query key factory
 const pendingIslemlerKeys = {
   all: ['pending-islemler'] as const,
@@ -426,7 +439,12 @@ export function useSavePendingAsIslem() {
         .eq('id', pendingId);
 
       if (deleteError) {
-        // If delete fails, try to rollback the islem
+        // If delete fails, rollback both balance changes and the islem record
+        try {
+          await reverseBalancesForPendingTransaction(islemData);
+        } catch (reverseError) {
+          console.error('CRITICAL: Bakiye rollback başarısız:', reverseError);
+        }
         await supabase.from('islemler').delete().eq('id', islem.id);
         throw deleteError;
       }

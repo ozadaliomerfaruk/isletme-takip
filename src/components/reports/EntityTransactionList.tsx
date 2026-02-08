@@ -25,29 +25,24 @@ interface EntityTransactionListProps {
 }
 
 // İşlem tipine göre ikon ve renk
-const getTransactionStyle = (type: string) => {
-  switch (type) {
-    case 'cari_alis':
-      return { Icon: ShoppingCart, color: colors.error, label: 'Alış' };
-    case 'cari_satis':
-      return { Icon: TrendingUp, color: colors.success, label: 'Satış' };
-    case 'cari_odeme':
-      return { Icon: ArrowUpRight, color: colors.info, label: 'Ödeme' };
-    case 'cari_tahsilat':
-      return { Icon: ArrowDownLeft, color: colors.warning, label: 'Tahsilat' };
-    case 'cari_alis_iade':
-      return { Icon: RotateCcw, color: colors.success, label: 'Alış İade' };
-    case 'cari_satis_iade':
-      return { Icon: RotateCcw, color: colors.error, label: 'Satış İade' };
-    case 'personel_gider':
-      return { Icon: TrendingDown, color: colors.error, label: 'Gider' };
-    case 'personel_odeme':
-      return { Icon: CreditCard, color: colors.info, label: 'Ödeme' };
-    case 'personel_tahsilat':
-      return { Icon: ArrowDownLeft, color: colors.warning, label: 'Tahsilat' };
-    default:
-      return { Icon: CreditCard, color: colors.textMuted, label: type };
+const getTransactionStyle = (type: string, t: (key: string) => string) => {
+  const iconMap: Record<string, { Icon: typeof CreditCard; color: string }> = {
+    cari_alis: { Icon: ShoppingCart, color: colors.error },
+    cari_satis: { Icon: TrendingUp, color: colors.success },
+    cari_odeme: { Icon: ArrowUpRight, color: colors.info },
+    cari_tahsilat: { Icon: ArrowDownLeft, color: colors.warning },
+    cari_alis_iade: { Icon: RotateCcw, color: colors.success },
+    cari_satis_iade: { Icon: RotateCcw, color: colors.error },
+    personel_gider: { Icon: TrendingDown, color: colors.error },
+    personel_odeme: { Icon: CreditCard, color: colors.info },
+    personel_tahsilat: { Icon: ArrowDownLeft, color: colors.warning },
+  };
+  const match = iconMap[type];
+  const label = t(`transactions:types.${type}`);
+  if (match) {
+    return { ...match, label };
   }
+  return { Icon: CreditCard, color: colors.textMuted, label: label || type };
 };
 
 export function EntityTransactionList({
@@ -83,7 +78,7 @@ export function EntityTransactionList({
     <View>
       <Card style={styles.card}>
         {displayTransactions.map((transaction, index) => {
-          const { Icon, color, label } = getTransactionStyle(transaction.type);
+          const { Icon, color, label } = getTransactionStyle(transaction.type, t);
           const isLast = index === displayTransactions.length - 1;
           const dateObj = new Date(transaction.date);
 

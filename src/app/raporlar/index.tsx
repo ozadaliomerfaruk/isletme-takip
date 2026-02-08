@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,6 +8,7 @@ import {
   Modal,
   Pressable,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -138,6 +139,17 @@ export default function RaporlarPage() {
     startDate,
     endDate,
   });
+
+  // Pull-to-refresh (manuel state — arka plan refetch'te spinner gösterme)
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([giderRaporu.refetch(), gelirRaporu.refetch()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [giderRaporu.refetch, gelirRaporu.refetch]);
 
   // Cari ve Personel işlemleri
   const { data: cariIslemler = [], isLoading: cariIslemlerLoading } = useIslemlerByCari(selectedCariId || '');
@@ -868,7 +880,13 @@ export default function RaporlarPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
+      >
         {/* Tab Filter */}
         <View style={styles.tabContainer}>
           <TabFilter

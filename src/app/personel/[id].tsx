@@ -110,6 +110,7 @@ interface PersonelTransactionItemProps {
   onDelete: (id: string) => void;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
+  currency?: string;
 }
 
 const PersonelTransactionItem = memo(function PersonelTransactionItem({
@@ -120,6 +121,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   onDelete,
   formatDateSmart,
   t,
+  currency,
 }: PersonelTransactionItemProps) {
   const handleToggle = useCallback(() => onToggle(islem.id), [onToggle, islem.id]);
   const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
@@ -155,7 +157,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
           </View>
           <Text variant="h3" color={getAmountColor(islem.type)}>
             {getAmountPrefix(islem.type)}
-            {formatCurrency(Number(islem.amount))}
+            {formatCurrency(Number(islem.amount), currency)}
           </Text>
         </View>
       }
@@ -250,7 +252,7 @@ export default function PersonelHareketleriPage() {
   }, [initialBalance]);
 
   const handleSaveInitialBalance = useCallback(() => {
-    const absoluteAmount = parseFloat(newInitialBalance) || 0;
+    const absoluteAmount = parseFloat(newInitialBalance.replace(',', '.')) || 0;
     // Personelde: credit = pozitif (biz borçluyuz), debt = negatif (personel bize borçlu)
     const newInitial = balanceDirection === 'credit' ? absoluteAmount : -absoluteAmount;
 
@@ -379,6 +381,7 @@ export default function PersonelHareketleriPage() {
       onDelete={handleDeleteIslem}
       formatDateSmart={formatDateSmart}
       t={t}
+      currency={personel?.currency}
     />
   ), [expandedIslemId, handleToggle, handleEditIslem, handleDeleteIslem, formatDateSmart, t]);
 
@@ -499,7 +502,7 @@ export default function PersonelHareketleriPage() {
             </View>
             <View style={styles.initialBalanceRow}>
               <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                {formatCurrency(initialBalance)}
+                {formatCurrency(initialBalance, personel?.currency)}
               </Text>
               <TouchableOpacity
                 onPress={handleOpenEditBalance}
@@ -538,7 +541,7 @@ export default function PersonelHareketleriPage() {
             </View>
             <View style={styles.initialBalanceRow}>
               <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                {formatCurrency(initialBalance)}
+                {formatCurrency(initialBalance, personel?.currency)}
               </Text>
               <TouchableOpacity
                 onPress={handleOpenEditBalance}
@@ -708,7 +711,7 @@ export default function PersonelHareketleriPage() {
                   style={styles.balanceInput}
                   value={newInitialBalance}
                   onChangeText={setNewInitialBalance}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   placeholder="0"
                   placeholderTextColor={colors.textMuted}
                 />

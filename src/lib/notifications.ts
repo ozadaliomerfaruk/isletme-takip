@@ -188,7 +188,7 @@ export async function scheduleTransactionReminder(
 ): Promise<string | null> {
   try {
     // Geçmiş tarih kontrolü
-    if (triggerDate <= new Date()) {
+    if (triggerDate < new Date()) {
       if (__DEV__) {
         console.log('Hatırlatma tarihi geçmiş, bildirim planlanmadı');
       }

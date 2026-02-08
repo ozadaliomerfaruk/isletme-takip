@@ -316,7 +316,7 @@ export function useImportHistory() {
         row_id: rowId,
         amount: amt,
       });
-      if (error) throw error;
+      if (error) throw new Error(`increment_balance(${tableName}, ${rowId}): ${error.message || error.code || JSON.stringify(error)}`);
     };
 
     // Hesap bakiyesini geri al
@@ -332,14 +332,21 @@ export function useImportHistory() {
     }
 
     // Cari bakiyesini geri al
+    // Forward: cari_alis=-amount, cari_satis=+amount, cari_odeme=+amount, cari_tahsilat=-amount,
+    //          cari_alis_iade=+amount, cari_satis_iade=-amount
+    // Reverse: negate the forward amount
     if (tx.cari_id) {
-      const reverseAmount = ['cari_tahsilat', 'cari_alis'].includes(tx.type) ? amount : -amount;
+      const forwardPositive = ['cari_satis', 'cari_odeme', 'cari_alis_iade'].includes(tx.type);
+      const reverseAmount = forwardPositive ? -amount : amount;
       promises.push(incrementBalance('cariler', tx.cari_id, reverseAmount));
     }
 
     // Personel bakiyesini geri al
+    // Forward: personel_gider=-amount, personel_odeme=+amount, personel_tahsilat=-amount, personel_satis=+amount
+    // Reverse: negate the forward amount
     if (tx.personel_id) {
-      const reverseAmount = tx.type === 'personel_odeme' ? amount : -amount;
+      const forwardPositive = ['personel_odeme', 'personel_satis'].includes(tx.type);
+      const reverseAmount = forwardPositive ? -amount : amount;
       promises.push(incrementBalance('personel', tx.personel_id, reverseAmount));
     }
 
@@ -406,60 +413,13 @@ export function useImportHistory() {
       }
 
       // ========================================================================
-      // 1. İMPORT EDİLEN ENTITY'LERLE İLİŞKİLİ TÜM İŞLEMLERİ BUL VE SİL
-      // (Import sonrası girilenler dahil)
+      // 1. SADECE İMPORT EDİLEN İŞLEMLERİ SİL
+      // (Import sonrası kullanıcının eklediği işlemler korunur)
       // ========================================================================
 
       let totalDeletedTransactions = 0;
+      // Sadece import sırasında oluşturulan işlemleri kullan (FK-based query yerine)
       const allRelatedTransactionIds = new Set<string>(transactionIds);
-
-      // 1a. Import edilen HESAPLARLA ilişkili işlemleri bul
-      if (createdAccountIds.length > 0) {
-        const { data: accountTx, error: accTxError } = await supabase
-          .from('islemler')
-          .select('id, type, amount, hesap_id, hedef_hesap_id, cari_id, personel_id')
-          .eq('isletme_id', isletme.id)
-          .or(`hesap_id.in.(${createdAccountIds.join(',')}),hedef_hesap_id.in.(${createdAccountIds.join(',')})`);
-
-        if (!accTxError && accountTx) {
-          accountTx.forEach(tx => allRelatedTransactionIds.add(tx.id));
-          if (__DEV__) {
-            console.log('Found transactions related to imported accounts:', accountTx.length);
-          }
-        }
-      }
-
-      // 1b. Import edilen CARİLERLE ilişkili işlemleri bul
-      if (createdClientIds.length > 0) {
-        const { data: cariTx, error: cariTxError } = await supabase
-          .from('islemler')
-          .select('id, type, amount, hesap_id, hedef_hesap_id, cari_id, personel_id')
-          .eq('isletme_id', isletme.id)
-          .in('cari_id', createdClientIds);
-
-        if (!cariTxError && cariTx) {
-          cariTx.forEach(tx => allRelatedTransactionIds.add(tx.id));
-          if (__DEV__) {
-            console.log('Found transactions related to imported clients:', cariTx.length);
-          }
-        }
-      }
-
-      // 1c. Import edilen PERSONELLE ilişkili işlemleri bul
-      if (createdPersonelIds.length > 0) {
-        const { data: personelTx, error: personelTxError } = await supabase
-          .from('islemler')
-          .select('id, type, amount, hesap_id, hedef_hesap_id, cari_id, personel_id')
-          .eq('isletme_id', isletme.id)
-          .in('personel_id', createdPersonelIds);
-
-        if (!personelTxError && personelTx) {
-          personelTx.forEach(tx => allRelatedTransactionIds.add(tx.id));
-          if (__DEV__) {
-            console.log('Found transactions related to imported personel:', personelTx.length);
-          }
-        }
-      }
 
       // 1d. Tüm ilişkili işlemleri getir ve bakiyelerini geri al
       const allTxIds = Array.from(allRelatedTransactionIds);
@@ -493,7 +453,7 @@ export function useImportHistory() {
               const revertPromises = revertBatch.map(tx =>
                 revertTransactionBalance(tx).catch(err => {
                   if (__DEV__) {
-                    console.error('Balance revert error:', err);
+                    console.error('Balance revert error for tx', tx.id, ':', err instanceof Error ? err.message : JSON.stringify(err));
                   }
                 })
               );

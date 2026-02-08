@@ -10,11 +10,11 @@ export const queryClient = new QueryClient({
       refetchOnReconnect: true, // İnternet geldiğinde yenile
       retry: 1, // Mobilde 1 retry yeterli, hızlı hata göster
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff, max 10sn
-      networkMode: 'offlineFirst', // Önce cache'ten göster, sonra fetch et
+      networkMode: 'online', // React Native'de offlineFirst güvenilir değil (netinfo olmadan)
     },
     mutations: {
       retry: 1,
-      networkMode: 'offlineFirst',
+      networkMode: 'online',
     },
   },
 });

@@ -3,7 +3,7 @@ import i18n from 'i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
-import { calculateIncomeSummary } from '@/constants/islemTypes';
+import { calculateIncomeSummary, isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } from '@/constants/islemTypes';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber, safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import {
@@ -77,11 +77,13 @@ export function useIslemler(filters?: IslemFilters) {
       }
 
       if (filters?.startDate) {
-        query = query.gte('date', filters.startDate);
+        const startNorm = filters.startDate.includes('T') ? filters.startDate : `${filters.startDate}T00:00:00`;
+        query = query.gte('date', startNorm);
       }
 
       if (filters?.endDate) {
-        query = query.lte('date', filters.endDate);
+        const endNorm = filters.endDate.includes('T') ? filters.endDate : `${filters.endDate}T23:59:59`;
+        query = query.lte('date', endNorm);
       }
 
       if (filters?.limit) {
@@ -147,9 +149,7 @@ export function useCreateIslem() {
         await updateBalances(input);
       } catch (balanceError) {
         // Bakiye güncellemesi başarısız oldu, işlemi sil
-        if (__DEV__) {
-          console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
-        }
+        console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
 
         try {
           await supabase
@@ -158,11 +158,12 @@ export function useCreateIslem() {
             .eq('id', data.id)
             .eq('isletme_id', isletme.id);
         } catch (rollbackError) {
-          if (__DEV__) {
-            console.error('İşlem geri alma hatası:', rollbackError);
-          }
+          console.error('CRITICAL: İşlem geri alma hatası:', rollbackError);
           // Kritik hata: işlem oluşturuldu ama bakiye güncellenemedi ve geri alınamadı
-          throw new Error('Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi. Lütfen destek ile iletişime geçin.');
+          throw new Error(
+            'Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. ' +
+            `Lütfen destek ile iletişime geçin. Detay: ${(rollbackError as Error).message}`
+          );
         }
 
         // Bakiye hatası ile devam et
@@ -832,31 +833,40 @@ export function useMonthSummary(
     queryFn: async () => {
       if (!isletme) return { income: 0, expense: 0 };
 
-      // Hesap bilgisi ile birlikte çek (pasif filtresi için)
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          type, 
-          amount,
-          hesap:hesaplar!hesap_id(is_active),
-          hedef_hesap:hesaplar!hedef_hesap_id(is_active)
-        `)
-        .eq('isletme_id', isletme.id)
-        .gte('date', startDateTime)
-        .lte('date', endDateTime);
-
-      if (error) throw error;
-
-      // Pasif hesaplardaki işlemleri filtrele
-      const activeTransactions = (data || []).filter((item: any) => {
-        const hesapActive = item.hesap ? (Array.isArray(item.hesap) ? item.hesap[0]?.is_active : item.hesap.is_active) : true;
-        const hedefHesapActive = item.hedef_hesap ? (Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0]?.is_active : item.hedef_hesap.is_active) : true;
-        // Hesap yoksa (null) aktif kabul et, varsa is_active kontrol et
-        return hesapActive !== false && hedefHesapActive !== false;
+      // Server-side aggregation: Supabase max_rows sınırından etkilenmez
+      // Binlerce satır yerine sadece tip başına 1 satır döner
+      const { data, error } = await supabase.rpc('get_income_expense_summary', {
+        p_isletme_id: isletme.id,
+        p_start_date: startDateTime,
+        p_end_date: endDateTime,
       });
 
-      // Merkezi hesaplama fonksiyonunu kullan
-      return calculateIncomeSummary(activeTransactions as { type: IslemType; amount: number }[]);
+      if (error) {
+        if (__DEV__) console.error('[useMonthSummary] RPC error:', error.message, (error as any).code);
+        throw error;
+      }
+      if (__DEV__) console.log('[useMonthSummary] RPC result:', data?.length, 'rows');
+
+      // RPC sonuçlarını gelir/gider olarak hesapla
+      const result = { income: 0, expense: 0 };
+      for (const row of (data || [])) {
+        const amount = Number(row.total) || 0;
+        if (isIncomeType(row.type as IslemType)) {
+          result.income += amount;
+        } else if (isIncomeReturnType(row.type as IslemType)) {
+          result.income -= amount;
+        }
+        if (isExpenseType(row.type as IslemType)) {
+          result.expense += amount;
+        } else if (isExpenseReturnType(row.type as IslemType)) {
+          result.expense -= amount;
+        }
+      }
+
+      return {
+        income: Math.round(result.income * 100) / 100,
+        expense: Math.round(result.expense * 100) / 100,
+      };
     },
     enabled: !!isletme,
   });

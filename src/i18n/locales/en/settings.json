@@ -369,7 +369,8 @@
       "fileCreationFailed": "Something went wrong creating the file.",
       "undoFailed": "Undo failed",
       "moreErrors": "... and {{count}} more errors",
-      "headerNotFound": "Header row not found in Excel file (DATE, TYPE, ACCOUNT, AMOUNT required)"
+      "headerNotFound": "Header row not found in Excel file (DATE, TYPE, ACCOUNT, AMOUNT required)",
+      "selectSupplierOrStaff": "Please select a supplier or staff member"
     },
     "warnings": {
       "title": "Warning",
@@ -399,6 +400,7 @@
       "staff": "Staff",
       "transaction": "Transaction",
       "startingBalance": "Opening Balance",
+      "startingBalancesUpdated": "Applied to Existing",
       "skipped": "Skipped",
       "totalRows": "Total Rows"
     },
@@ -426,9 +428,6 @@
       "infoTitle": "About Skipped Transactions",
       "infoMessage": "You can fix skipped transactions from the \"Skipped\" tab.",
       "goToSkipped": "Go to Skipped Transactions"
-    },
-    "errors": {
-      "selectSupplierOrStaff": "Please select a supplier or staff member"
     },
     "validation": {
       "title": "Data Quality",
