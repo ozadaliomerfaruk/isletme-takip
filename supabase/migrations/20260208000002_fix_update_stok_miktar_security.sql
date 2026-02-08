@@ -8,6 +8,9 @@
 -- FIX: Add p_isletme_id parameter and ownership check.
 -- =============================================================================
 
+-- Drop the old 2-param overload first to avoid ambiguity
+DROP FUNCTION IF EXISTS update_stok_miktar(UUID, NUMERIC);
+
 CREATE OR REPLACE FUNCTION update_stok_miktar(
   p_urun_id UUID,
   p_miktar_degisim NUMERIC,
@@ -45,4 +48,4 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION update_stok_miktar IS 'Atomically update product stock quantity with optional ownership check. Returns new quantity.';
+COMMENT ON FUNCTION update_stok_miktar(UUID, NUMERIC, UUID) IS 'Atomically update product stock quantity with optional ownership check. Returns new quantity.';
