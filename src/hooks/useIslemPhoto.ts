@@ -74,6 +74,34 @@ export function useTakePhoto() {
 }
 
 /**
+ * Hook for picking multiple images from the gallery (for batch OCR import)
+ */
+export function usePickMultipleImages() {
+  return useMutation({
+    mutationFn: async (): Promise<string[]> => {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        throw new Error('PERMISSION_DENIED');
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 1,
+        allowsEditing: false,
+        allowsMultipleSelection: true,
+        selectionLimit: 20,
+      });
+
+      if (result.canceled || !result.assets?.length) {
+        return [];
+      }
+
+      return result.assets.map(a => a.uri);
+    },
+  });
+}
+
+/**
  * Hook for uploading a photo to Supabase Storage
  */
 export function useUploadIslemPhoto() {

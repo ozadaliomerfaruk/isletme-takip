@@ -486,7 +486,7 @@ Mocks are fine for unit tests, but for a money app, a small layer of tests must 
 | `perform_taksit_odeme()` | Double payment prevented (FOR UPDATE lock), status transition `pending -> paid`, final taksit auto-completes avans |
 | `delete_nakit_avans_with_reversal()` | All paid installments reversed, islemler deletion scoped correctly (not deleting unrelated same-day transactions), orphaned records check |
 | `increment_balance()` | **Security:** table name injection blocked, non-existent table/ID handling, negative amounts allowed (intentional) |
-| `update_stok_miktar()` | Stock going negative allowed/blocked (clarify policy), decimal precision with NUMERIC(15,3), non-existent product ID |
+| `update_urun_miktar()` | Stock going negative allowed/blocked (clarify policy), decimal precision with NUMERIC(15,3), non-existent product ID |
 | `get_income_expense_summary()` | Inactive account exclusion, NULL hesap_id handling, date boundary precision (DATE vs TIMESTAMPTZ), empty result returns NULL not 0 |
 | `get_category_report()` | Empty types array, NULL kategori_id grouping, COUNT/SUM on NULL amounts |
 
@@ -510,7 +510,7 @@ Mocks are fine for unit tests, but for a money app, a small layer of tests must 
 - `islemler.amount > 0` -- zero and negative rejected
 - `hesaplar.type` -- all 5 values accepted (nakit, banka, kredi_karti, birikim, diger)
 - `kategoriler.type` -- gelir and gider accepted, other values rejected
-- `stok_hareketler.hareket_tipi` -- giris, cikis, duzeltme accepted
+- `urun_hareketler.hareket_tipi` -- giris, cikis, duzeltme accepted
 - `nakit_avanslar.status` -- active, completed, cancelled accepted
 - `nakit_avans_taksitler.status` -- pending, paid, overdue accepted
 

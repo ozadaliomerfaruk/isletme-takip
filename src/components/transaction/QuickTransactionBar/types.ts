@@ -4,8 +4,8 @@ import { TransactionType, TransactionTabMode } from '../TransactionTypeTabs';
 // Re-export for convenience
 export type { TransactionType, TransactionTabMode };
 
-// Stok item (işlem ile birlikte kaydedilecek stok hareketleri)
-export interface StokItem {
+// Urun item (işlem ile birlikte kaydedilecek urun hareketleri)
+export interface UrunItem {
   urunId: string;
   urunAd: string;
   miktar: number;
@@ -18,8 +18,8 @@ export interface StokItem {
 export const KDV_ORANLARI = [0, 1, 10, 20] as const;
 export type KdvOrani = typeof KDV_ORANLARI[number];
 
-// Stok hesaplama yardımcıları
-export function calculateStokLineTotal(item: StokItem): {
+// Urun hesaplama yardımcıları
+export function calculateUrunLineTotal(item: UrunItem): {
   subtotal: number;
   kdvAmount: number;
   total: number;
@@ -30,14 +30,14 @@ export function calculateStokLineTotal(item: StokItem): {
   return { subtotal, kdvAmount, total };
 }
 
-export function calculateStokGrandTotal(items: StokItem[]): {
+export function calculateUrunGrandTotal(items: UrunItem[]): {
   subtotal: number;
   kdvTotal: number;
   grandTotal: number;
 } {
   return items.reduce(
     (acc, item) => {
-      const { subtotal, kdvAmount, total } = calculateStokLineTotal(item);
+      const { subtotal, kdvAmount, total } = calculateUrunLineTotal(item);
       return {
         subtotal: acc.subtotal + subtotal,
         kdvTotal: acc.kdvTotal + kdvAmount,

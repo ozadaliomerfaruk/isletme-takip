@@ -1,8 +1,8 @@
 {
-  "title": "Stok",
-  "addProduct": "Stok Ekle",
-  "editProduct": "Stok Düzenle",
-  "productDetails": "Stok Detayı",
+  "title": "Ürünler",
+  "addProduct": "Ürün Ekle",
+  "editProduct": "Ürün Düzenle",
+  "productDetails": "Ürün Detayı",
   "form": {
     "name": "Ürün Adı",
     "code": "Ürün Kodu",
@@ -10,7 +10,7 @@
     "vatRate": "KDV Oranı",
     "purchasePrice": "Alış Fiyatı",
     "salePrice": "Satış Fiyatı",
-    "initialStock": "Başlangıç Stoku",
+    "initialStock": "Başlangıç Miktarı",
     "description": "Açıklama",
     "currency": "Para Birimi"
   },
@@ -46,19 +46,19 @@
     "search": "Birim ara..."
   },
   "stock": {
-    "currentStock": "Mevcut Stok",
-    "stockIn": "Stok Girişi",
-    "stockOut": "Stok Çıkışı",
+    "currentStock": "Mevcut Miktar",
+    "stockIn": "Ürün Alımı",
+    "stockOut": "Ürün Satışı",
     "adjustment": "Düzeltme",
     "quantity": "Miktar",
     "unitPrice": "Birim Fiyat",
     "monthlyReport": "Aylık Özet",
-    "movements": "Stok Hareketleri",
+    "movements": "Ürün Hareketleri",
     "totalIn": "Toplam Giriş",
     "totalOut": "Toplam Çıkış",
-    "noMovements": "Henüz stok hareketi yok",
+    "noMovements": "Henüz ürün hareketi yok",
     "noPeriodMovements": "Bu dönemde hareket yok",
-    "deleteMovementConfirm": "Bu stok hareketini silmek istediğinizden emin misiniz? Stok miktarı da güncellenecek."
+    "deleteMovementConfirm": "Bu ürün hareketini silmek istediğinizden emin misiniz? Ürün miktarı da güncellenecek."
   },
   "period": {
     "yearly": "Yıllık",
@@ -75,9 +75,9 @@
     "deleteSuccess": "Ürün silindi",
     "archiveSuccess": "Ürün arşivlendi",
     "unarchiveSuccess": "Ürün arşivden çıkarıldı",
-    "stockUpdated": "Stok güncellendi",
-    "stockInSuccess": "Stok girişi yapıldı",
-    "stockOutSuccess": "Stok çıkışı yapıldı"
+    "stockUpdated": "Miktar güncellendi",
+    "stockInSuccess": "Ürün alımı yapıldı",
+    "stockOutSuccess": "Ürün satışı yapıldı"
   },
   "validation": {
     "nameRequired": "Ürün adı zorunludur",
@@ -89,7 +89,7 @@
   },
   "empty": {
     "title": "Henüz ürün yok",
-    "description": "Ürün ekleyerek stok takibine başlayın",
+    "description": "Ürün ekleyerek ürün takibine başlayın",
     "archivedTitle": "Arşivde ürün yok",
     "archivedDescription": "Arşivlenen ürünler burada görünecek"
   },
@@ -122,12 +122,12 @@
     "unarchive": "Arşivden Çıkar"
   },
   "bulk": {
-    "stockIn": "Toplu Stok Girişi",
-    "stockOut": "Toplu Stok Çıkışı",
+    "stockIn": "Toplu Ürün Alımı",
+    "stockOut": "Toplu Ürün Satışı",
     "addRow": "Satır Ekle",
     "selectProduct": "Ürün Seç",
     "noProducts": "Henüz ürün eklenmedi",
-    "success": "{{count}} adet stok hareketi kaydedildi",
+    "success": "{{count}} adet ürün hareketi kaydedildi",
     "selectAll": "Tümünü Seç",
     "selectNone": "Hiçbirini Seçme"
   }

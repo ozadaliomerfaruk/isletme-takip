@@ -472,7 +472,7 @@ export function buildIslemFromPending(
   pending: PendingIslem,
   corrections: PendingIslemCorrections
 ): Omit<IslemInsert, 'isletme_id'> {
-  const raw = pending.raw_data;
+  const raw = pending.raw_data ?? {} as Record<string, any>;
   const merged = { ...corrections };
 
   // raw.mappedType'ı güvenli şekilde IslemType'a çevir

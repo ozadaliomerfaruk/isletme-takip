@@ -286,13 +286,13 @@ Raporlar:
 
 **Amaç:** Tedarikçilerden alınan hammaddelerin geçmişini tutmak
 
-**⚠️ ÖNEMLİ: Bu bir STOK TAKİP SİSTEMİ DEĞİLDİR!**
+**⚠️ ÖNEMLİ: Bu bir ÜRÜN TAKİP SİSTEMİ DEĞİLDİR!**
 
 ```
-❌ Stok miktarı TUTULMAZ
-❌ Minimum stok uyarısı YOK
-❌ Stok sayımı YOK
-❌ Otomatik stok düşme YOK
+❌ Ürün miktarı TUTULMAZ
+❌ Minimum ürün uyarısı YOK
+❌ Ürün sayımı YOK
+❌ Otomatik ürün düşme YOK
 
 ✅ Sadece "Ne zaman, hangi üründen, ne kadar aldım?" kaydı
 ✅ Tedarikçi bazlı alım geçmişi

@@ -85,7 +85,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="stok"
+        name="urunler"
         options={{
           title: t('tabs.stock'),
           tabBarIcon: ({ color }) => <Package size={28} color={color} />,

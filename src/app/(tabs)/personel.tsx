@@ -289,8 +289,8 @@ export default function PersonelPage() {
   ];
 
   // Arama ve sıralama (aktif önce)
-  const filteredPersonel = personelList
-    ?.filter((p) =>
+  const filteredPersonel = (personelList ?? [])
+    .filter((p) =>
       `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
     )
     .sort((a, b) => {

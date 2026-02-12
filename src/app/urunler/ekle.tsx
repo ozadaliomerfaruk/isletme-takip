@@ -18,7 +18,7 @@ import { Text, Input, Button, Card, CategoryPicker, UnitPicker } from '@/compone
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCreateUrun } from '@/hooks/useUrunler';
-import { useCreateStokHareket } from '@/hooks/useStokHareketler';
+import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { BirimType, Currency, KdvOrani } from '@/types/database';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
@@ -27,7 +27,7 @@ export default function UrunEklePage() {
   const router = useRouter();
   const { t } = useTranslation(['products', 'common', 'errors', 'transactions']);
   const createUrun = useCreateUrun();
-  const createStokHareket = useCreateStokHareket();
+  const createUrunHareket = useCreateUrunHareket();
 
   const [ad, setAd] = useState('');
   const [kod, setKod] = useState('');
@@ -35,7 +35,7 @@ export default function UrunEklePage() {
   const [kdvOrani, setKdvOrani] = useState<KdvOrani>(0);
   const [alisFiyati, setAlisFiyati] = useState('');
   const [satisFiyati, setSatisFiyati] = useState('');
-  const [baslangicStok, setBaslangicStok] = useState('');
+  const [baslangicMiktar, setBaslangicMiktar] = useState('');
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [aciklama, setAciklama] = useState('');
   const [errors, setErrors] = useState<{ ad?: string }>({});
@@ -54,7 +54,7 @@ export default function UrunEklePage() {
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    const initialStockNum = baslangicStok ? parseFloat(baslangicStok.replace(',', '.')) : 0;
+    const initialStockNum = baslangicMiktar ? parseFloat(baslangicMiktar.replace(',', '.')) : 0;
     const purchasePrice = alisFiyati ? parseFloat(alisFiyati.replace(',', '.')) : 0;
 
     try {
@@ -71,9 +71,9 @@ export default function UrunEklePage() {
         currency: 'TRY' as Currency,
       });
 
-      // Create initial stock movement if initial stock > 0
+      // Create initial urun movement if initial stock > 0
       if (initialStockNum > 0) {
-        await createStokHareket.mutateAsync({
+        await createUrunHareket.mutateAsync({
           urun_id: urun.id,
           hareket_tipi: 'giris',
           miktar: initialStockNum,
@@ -203,13 +203,13 @@ export default function UrunEklePage() {
               </View>
             </View>
 
-            {/* Baslangic Stoku */}
+            {/* Başlangıç Miktarı */}
             <View style={styles.section}>
               <Input
                 label={t('products:form.initialStock')}
                 placeholder="0"
-                value={baslangicStok}
-                onChangeText={setBaslangicStok}
+                value={baslangicMiktar}
+                onChangeText={setBaslangicMiktar}
                 keyboardType="decimal-pad"
               />
             </View>
@@ -239,7 +239,7 @@ export default function UrunEklePage() {
               <Button
                 variant="primary"
                 size="lg"
-                loading={createUrun.isPending || createStokHareket.isPending}
+                loading={createUrun.isPending || createUrunHareket.isPending}
                 onPress={handleSubmit}
                 style={styles.button}
               >

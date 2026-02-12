@@ -637,7 +637,7 @@ export default function HesapHareketleriPage() {
       <HesapTransactionItem
         islem={islem}
         hesapId={id!}
-        hesapCurrency={hesap?.currency as Currency}
+        hesapCurrency={(hesap?.currency ?? 'TRY') as Currency}
         isExpanded={expandedIslemId === islem.id}
         onToggle={handleToggleIslem}
         onDelete={handleDeleteIslem}

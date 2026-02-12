@@ -25,13 +25,13 @@ import {
   User,
 } from 'lucide-react-native';
 import { Text, Card, Button, ExpandableCard } from '@/components/ui';
-import { QuickStockBar } from '@/components/stock/QuickStockBar';
+import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, useDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
-import { useStokHareketler, useAylikStokOzet, useDeleteStokHareket, StokHareketWithCari } from '@/hooks/useStokHareketler';
+import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 
@@ -41,18 +41,18 @@ export default function UrunDetayPage() {
   const { t } = useTranslation(['products', 'common', 'errors', 'navigation']);
 
   const { data: urun, isLoading: urunLoading } = useUrun(id);
-  const { data: hareketler, isLoading: hareketlerLoading } = useStokHareketler(id);
-  const { data: aylikOzet } = useAylikStokOzet(id);
+  const { data: hareketler, isLoading: hareketlerLoading } = useUrunHareketler(id);
+  const { data: aylikOzet } = useAylikUrunOzet(id);
   const deleteUrun = useDeleteUrun();
   const archiveUrun = useArchiveUrun();
   const unarchiveUrun = useUnarchiveUrun();
-  const deleteStokHareket = useDeleteStokHareket();
+  const deleteUrunHareket = useDeleteUrunHareket();
   const { showToast } = useToast();
   const haptics = useHaptics();
 
   const [menuVisible, setMenuVisible] = useState(false);
-  const [quickStockVisible, setQuickStockVisible] = useState(false);
-  const [quickStockType, setQuickStockType] = useState<'giris' | 'cikis'>('giris');
+  const [quickUrunVisible, setQuickUrunVisible] = useState(false);
+  const [quickUrunType, setQuickUrunType] = useState<'giris' | 'cikis'>('giris');
 
   // Expanded hareket state
   const [expandedHareketId, setExpandedHareketId] = useState<string | null>(null);
@@ -63,7 +63,7 @@ export default function UrunDetayPage() {
   const [editInitialValues, setEditInitialValues] = useState<{
     miktar: number;
     birimFiyat: number | null;
-    stokType: 'giris' | 'cikis';
+    urunType: 'giris' | 'cikis';
   } | undefined>(undefined);
 
   const getBirimLabel = (birim: BirimType) => {
@@ -75,25 +75,25 @@ export default function UrunDetayPage() {
     return `${t(`products:months.${month}`)} ${year}`;
   };
 
-  const openQuickStock = (type: 'giris' | 'cikis') => {
+  const openQuickUrun = (type: 'giris' | 'cikis') => {
     setEditMode(false);
     setEditHareketId(undefined);
     setEditInitialValues(undefined);
-    setQuickStockType(type);
-    setQuickStockVisible(true);
+    setQuickUrunType(type);
+    setQuickUrunVisible(true);
   };
 
-  // Doğrudan stok hareketi düzenleme
-  const handleEditDirectHareket = (hareket: StokHareketWithCari) => {
+  // Doğrudan urun hareketi düzenleme
+  const handleEditDirectHareket = (hareket: UrunHareketWithCari) => {
     setEditMode(true);
     setEditHareketId(hareket.id);
     setEditInitialValues({
       miktar: hareket.miktar,
       birimFiyat: hareket.birim_fiyat,
-      stokType: hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis',
+      urunType: hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis',
     });
-    setQuickStockType(hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis');
-    setQuickStockVisible(true);
+    setQuickUrunType(hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis');
+    setQuickUrunVisible(true);
     setExpandedHareketId(null);
   };
 
@@ -141,8 +141,8 @@ export default function UrunDetayPage() {
     }
   };
 
-  // Stok hareketi düzenleme (cari işlem üzerinden)
-  const handleEditHareket = (hareket: StokHareketWithCari) => {
+  // Urun hareketi düzenleme (cari işlem üzerinden)
+  const handleEditHareket = (hareket: UrunHareketWithCari) => {
     if (hareket.islem_id && hareket.cari) {
       // Cari hareketler sayfasına git, ilgili işlem açık olsun
       router.push({
@@ -153,8 +153,8 @@ export default function UrunDetayPage() {
     setExpandedHareketId(null);
   };
 
-  // Stok hareketi silme (doğrudan girişler için)
-  const handleDeleteHareket = (hareket: StokHareketWithCari) => {
+  // Urun hareketi silme (doğrudan girişler için)
+  const handleDeleteHareket = (hareket: UrunHareketWithCari) => {
     Alert.alert(
       t('common:confirm.deleteTitle'),
       t('products:stock.deleteMovementConfirm'),
@@ -165,7 +165,7 @@ export default function UrunDetayPage() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteStokHareket.mutateAsync(hareket.id);
+              await deleteUrunHareket.mutateAsync(hareket.id);
               haptics.success();
               showToast(t('common:messages.deletedSuccessfully'), 'success');
               setExpandedHareketId(null);
@@ -204,16 +204,16 @@ export default function UrunDetayPage() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Stok Karti */}
+          {/* Urun Karti */}
           <View style={styles.section}>
             <Card>
-              <View style={styles.stokCard}>
-                <View style={styles.stokLeft}>
-                  <View style={styles.stokIcon}>
+              <View style={styles.urunCard}>
+                <View style={styles.urunLeft}>
+                  <View style={styles.urunIcon}>
                     <Package size={24} color={colors.primary} />
                   </View>
-                  <View style={styles.stokInfo}>
-                    <Text variant="body" style={styles.stokName} numberOfLines={1}>
+                  <View style={styles.urunInfo}>
+                    <Text variant="body" style={styles.urunName} numberOfLines={1}>
                       {urun.ad}
                     </Text>
                     {urun.satis_fiyati > 0 && (
@@ -223,7 +223,7 @@ export default function UrunDetayPage() {
                     )}
                   </View>
                 </View>
-                <View style={styles.stokRight}>
+                <View style={styles.urunRight}>
                   <Text variant="caption" color="secondary">
                     {t('products:stock.currentStock')}
                   </Text>
@@ -243,7 +243,7 @@ export default function UrunDetayPage() {
                 size="lg"
                 icon={<Plus size={20} color={colors.white} />}
                 iconPosition="left"
-                onPress={() => openQuickStock('giris')}
+                onPress={() => openQuickUrun('giris')}
                 style={styles.actionButton}
               >
                 {t('products:stock.stockIn')}
@@ -253,7 +253,7 @@ export default function UrunDetayPage() {
                 size="lg"
                 icon={<Minus size={20} color={colors.primary} />}
                 iconPosition="left"
-                onPress={() => openQuickStock('cikis')}
+                onPress={() => openQuickUrun('cikis')}
                 style={styles.actionButton}
               >
                 {t('products:stock.stockOut')}
@@ -395,7 +395,7 @@ export default function UrunDetayPage() {
                           {t('common:buttons.edit')}
                         </Button>
                       ) : (
-                        // Doğrudan stok girişi - düzenle ve sil
+                        // Doğrudan ürün girişi - düzenle ve sil
                         <>
                           <Button
                             variant="secondary"
@@ -481,17 +481,17 @@ export default function UrunDetayPage() {
           </TouchableOpacity>
         </Modal>
 
-        {/* QuickStockBar */}
-        <QuickStockBar
-          visible={quickStockVisible}
+        {/* QuickUrunBar */}
+        <QuickUrunBar
+          visible={quickUrunVisible}
           onDismiss={() => {
-            setQuickStockVisible(false);
+            setQuickUrunVisible(false);
             setEditMode(false);
             setEditHareketId(undefined);
             setEditInitialValues(undefined);
           }}
           urun={urun}
-          defaultType={quickStockType}
+          defaultType={quickUrunType}
           mode={editMode ? 'edit' : 'create'}
           editHareketId={editHareketId}
           editInitialValues={editInitialValues}
@@ -521,18 +521,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: spacing.md,
   },
-  stokCard: {
+  urunCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  stokLeft: {
+  urunLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
     flex: 1,
   },
-  stokIcon: {
+  urunIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -540,14 +540,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stokInfo: {
+  urunInfo: {
     flex: 1,
     gap: 2,
   },
-  stokName: {
+  urunName: {
     fontWeight: '600',
   },
-  stokRight: {
+  urunRight: {
     alignItems: 'flex-end',
   },
   actionButtons: {

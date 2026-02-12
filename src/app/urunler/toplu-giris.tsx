@@ -20,7 +20,7 @@ import { Text, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
-import { useCreateStokHareket } from '@/hooks/useStokHareketler';
+import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { isToday } from '@/lib/date';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
@@ -36,7 +36,7 @@ interface StockRow {
 export default function TopluGirisPage() {
   const router = useRouter();
   const { t } = useTranslation(['products', 'common', 'transactions']);
-  const createStokHareket = useCreateStokHareket();
+  const createUrunHareket = useCreateUrunHareket();
   const { locale, formatDateMedium } = useDateFormat();
 
   const [date, setDate] = useState(new Date());
@@ -126,7 +126,7 @@ export default function TopluGirisPage() {
 
     try {
       const promises = validRows.map(row =>
-        createStokHareket.mutateAsync({
+        createUrunHareket.mutateAsync({
           urun_id: row.urunId!,
           hareket_tipi: 'giris',
           miktar: parseCurrency(row.miktar),

@@ -726,6 +726,7 @@ export function useSubCategoryReport(
     // İşlemleri grupla
     islemler.forEach((islem) => {
       const amount = Number(islem.amount);
+      if (isNaN(amount)) return;
       totalAmount += amount;
       totalCount += 1;
 

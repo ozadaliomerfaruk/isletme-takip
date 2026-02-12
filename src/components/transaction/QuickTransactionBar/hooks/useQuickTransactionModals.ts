@@ -19,8 +19,8 @@ interface UseQuickTransactionModalsReturn {
   setShowKrediKartiPicker: (show: boolean) => void;
   showExchangeRateBar: boolean;
   setShowExchangeRateBar: (show: boolean) => void;
-  showStokPicker: boolean;
-  setShowStokPicker: (show: boolean) => void;
+  showUrunPicker: boolean;
+  setShowUrunPicker: (show: boolean) => void;
 
   // Search queries
   hesapSearchQuery: string;
@@ -68,7 +68,7 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
   const [showTahsilatHedefTypePicker, setShowTahsilatHedefTypePicker] = useState(false);
   const [showKrediKartiPicker, setShowKrediKartiPicker] = useState(false);
   const [showExchangeRateBar, setShowExchangeRateBar] = useState(false);
-  const [showStokPicker, setShowStokPicker] = useState(false);
+  const [showUrunPicker, setShowUrunPicker] = useState(false);
 
   // Search queries
   const [hesapSearchQuery, setHesapSearchQuery] = useState('');
@@ -97,7 +97,7 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
     setShowTahsilatHedefTypePicker(false);
     setShowKrediKartiPicker(false);
     setShowExchangeRateBar(false);
-    setShowStokPicker(false);
+    setShowUrunPicker(false);
     setHesapSearchQuery('');
     setCariSearchQuery('');
     setPersonelSearchQuery('');
@@ -161,8 +161,8 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
     setShowKrediKartiPicker,
     showExchangeRateBar,
     setShowExchangeRateBar,
-    showStokPicker,
-    setShowStokPicker,
+    showUrunPicker,
+    setShowUrunPicker,
 
     // Search queries
     hesapSearchQuery,

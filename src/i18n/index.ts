@@ -28,6 +28,7 @@ import trLegal from './locales/tr/legal.json';
 import trChecks from './locales/tr/checks.json';
 import trAnalytics from './locales/tr/analytics.json';
 import trProducts from './locales/tr/products.json';
+import trOcrImport from './locales/tr/ocrImport.json';
 
 // Import English locales
 import enCommon from './locales/en/common.json';
@@ -45,6 +46,7 @@ import enLegal from './locales/en/legal.json';
 import enChecks from './locales/en/checks.json';
 import enAnalytics from './locales/en/analytics.json';
 import enProducts from './locales/en/products.json';
+import enOcrImport from './locales/en/ocrImport.json';
 
 // Resource bundle
 export const resources = {
@@ -64,6 +66,7 @@ export const resources = {
     checks: trChecks,
     analytics: trAnalytics,
     products: trProducts,
+    ocrImport: trOcrImport,
   },
   en: {
     common: enCommon,
@@ -81,6 +84,7 @@ export const resources = {
     checks: enChecks,
     analytics: enAnalytics,
     products: enProducts,
+    ocrImport: enOcrImport,
   },
 } as const;
 
@@ -109,6 +113,7 @@ export const namespaces = [
   'checks',
   'analytics',
   'products',
+  'ocrImport',
 ] as const;
 
 export type Namespace = (typeof namespaces)[number];

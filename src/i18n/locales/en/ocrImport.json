@@ -1,0 +1,96 @@
+{
+  "title": "Photo Buy/Sell",
+  "steps": {
+    "capture": "Photo",
+    "processing": "Processing",
+    "review": "Review",
+    "saving": "Saving"
+  },
+  "capture": {
+    "title": "Invoice Photo",
+    "takePhoto": "Take Photo",
+    "pickImage": "Pick from Gallery",
+    "pickImages": "Pick from Gallery (Multi)",
+    "tips": "Tips",
+    "tip1": "Place the invoice on a flat surface",
+    "tip2": "Frame all text within the photo",
+    "tip3": "Ensure good lighting",
+    "tip4": "You can use flash"
+  },
+  "processing": {
+    "title": "Reading Invoice...",
+    "analyzing": "Analyzing text",
+    "matching": "Matching products"
+  },
+  "review": {
+    "title": "Review Results",
+    "cari": "Account",
+    "noCari": "No account found",
+    "selectCari": "Select Account",
+    "matchedCari": "Matched Account",
+    "changeCari": "Change",
+    "items": "Products",
+    "noItems": "No product lines found",
+    "addItem": "Add Row",
+    "removeItem": "Remove Row",
+    "totalCheck": "Total Check",
+    "ocrTotal": "Invoice Total",
+    "lineTotal": "Line Total",
+    "enteredTotal": "Entered Total",
+    "totalMismatch": "Total mismatch! Please check.",
+    "totalMatch": "Totals match",
+    "matchBadge": {
+      "exact": "Matched",
+      "suggestion": "Suggestion",
+      "new": "New Product"
+    },
+    "changeProduct": "Change Product",
+    "listButton": "List",
+    "invoiceDate": "Invoice Date",
+    "category": "Category",
+    "noCategory": "No category",
+    "saveMode": "Save Mode",
+    "onlyProducts": "Create Products Only",
+    "productsAndMovements": "Products + Stock Entry",
+    "newProductWarning": "{{count}} new product(s) will be created",
+    "confirmNewProducts": "Confirm New Products",
+    "buyButton": "BUY",
+    "sellButton": "SELL"
+  },
+  "newProductModal": {
+    "title": "New Product Confirmation",
+    "message": "These products were not found in your records. Create them as new products?",
+    "confirmAll": "Confirm All",
+    "skipAll": "Skip All"
+  },
+  "saving": {
+    "creatingProducts": "Creating products...",
+    "creatingMovements": "Creating stock entries...",
+    "progress": "{{current}}/{{total}}"
+  },
+  "messages": {
+    "success": "{{productCount}} products, {{movementCount}} entries saved",
+    "successOnlyProducts": "{{count}} products saved",
+    "ocrFailed": "Could not read text. Please try again or enter manually.",
+    "noProductLines": "No product lines found. Check the photo.",
+    "alreadySaved": "This session has already been saved.",
+    "manualFallback": "Switch to manual entry"
+  },
+  "batch": {
+    "processingPhoto": "Processing invoice {{current}}/{{total}}...",
+    "invoiceCount": "{{count}} invoices",
+    "saveAllBuy": "BUY All",
+    "saveAllSell": "SELL All",
+    "addMore": "Add Photos",
+    "allSaved": "All invoices saved",
+    "savedBadge": "Saved",
+    "unsavedCount": "{{count}} unsaved",
+    "itemCount": "{{count}} items",
+    "totalMismatchShort": "Total mismatch",
+    "cameraModeDone": "Done",
+    "photosAdded": "{{count}} photos added"
+  },
+  "fab": {
+    "photoImport": "Photo Buy/Sell"
+  }
+}

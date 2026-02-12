@@ -55,7 +55,19 @@
       "Bash(npx supabase storage:*)",
       "Bash(npx expo export:*)",
       "Bash(where:*)",
-      "Bash(powershell -Command \"Get-NetFirewallRule | Where-Object { $_.DisplayName -like ''*node*'' -or $_.DisplayName -like ''*Node*'' } | Select-Object DisplayName, Enabled, Action, Direction\")"
+      "Bash(powershell -Command \"Get-NetFirewallRule | Where-Object { $_.DisplayName -like ''*node*'' -or $_.DisplayName -like ''*Node*'' } | Select-Object DisplayName, Enabled, Action, Direction\")",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "WebFetch(domain:supabase.com)",
+      "WebFetch(domain:docs.postgrest.org)",
+      "Bash(python3:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python3:*)",
+      "Bash(npx jest:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(npx tsx:*)",
+      "Bash(echo:*)",
+      "Bash(git log:*)",
+      "Bash(npx expo:*)"
     ]
   }
 }

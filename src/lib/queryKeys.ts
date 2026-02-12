@@ -129,24 +129,24 @@ export const queryKeys = {
     detail: (id: string) => ['nakit-avans', id] as const,
   },
 
-  // Ürünler (Stok Yönetimi)
+  // Ürünler (Ürün Yönetimi)
   urunler: {
     all: () => ['urunler'] as const,
     list: (isletmeId: string) => ['urunler', isletmeId] as const,
     detail: (id: string) => ['urun', id] as const,
   },
 
-  // Stok Hareketler
-  stokHareketler: {
-    all: () => ['stok-hareketler'] as const,
+  // Urun Hareketler
+  urunHareketler: {
+    all: () => ['urun-hareketler'] as const,
     byUrun: (urunId: string, isletmeId: string) =>
-      ['stok-hareketler', 'urun', urunId, isletmeId] as const,
+      ['urun-hareketler', 'urun', urunId, isletmeId] as const,
     byIslem: (islemId: string, isletmeId: string) =>
-      ['stok-hareketler', 'islem', islemId, isletmeId] as const,
+      ['urun-hareketler', 'islem', islemId, isletmeId] as const,
     aylikOzet: (urunId: string, isletmeId: string) =>
-      ['stok-hareketler', 'aylik-ozet', urunId, isletmeId] as const,
+      ['urun-hareketler', 'aylik-ozet', urunId, isletmeId] as const,
     donemOzet: (isletmeId: string, startDate: string, endDate: string) =>
-      ['stok-hareketler', 'donem-ozet', isletmeId, startDate, endDate] as const,
+      ['urun-hareketler', 'donem-ozet', isletmeId, startDate, endDate] as const,
   },
 } as const;
 
@@ -305,7 +305,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'personel',
       'kategoriler',
       'urunler',
-      'stok-hareketler',
+      'urun-hareketler',
     ],
     deferred: [
       'dashboard',
@@ -323,15 +323,15 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     immediate: [
       'urunler',
       'urun',
-      'stok-hareketler',
+      'urun-hareketler',
     ],
     deferred: [],
   },
 
-  // Stok hareket değişikliği
-  stokHareket: {
+  // Urun hareket değişikliği
+  urunHareket: {
     immediate: [
-      'stok-hareketler',
+      'urun-hareketler',
       'urunler',
       'urun',
     ],
@@ -453,7 +453,7 @@ export const createInvalidators = (queryClient: QueryClient) => ({
   onUrunMutation: () => invalidateRelatedQueries(queryClient, 'urun'),
 
   /**
-   * Stok hareket mutation'ları için
+   * Urun hareket mutation'ları için
    */
-  onStokHareketMutation: () => invalidateRelatedQueries(queryClient, 'stokHareket'),
+  onUrunHareketMutation: () => invalidateRelatedQueries(queryClient, 'urunHareket'),
 });

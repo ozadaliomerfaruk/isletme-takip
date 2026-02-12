@@ -30,7 +30,7 @@ import {
   OdemeHedefTypePicker,
   TahsilatHedefTypePicker,
   KrediKartiPickerSheet,
-  StokPickerModal,
+  UrunPickerModal,
 } from './components';
 import {
   HeaderSection,
@@ -211,7 +211,7 @@ export function QuickTransactionBar({
     hesaplar: entities.hesaplar,
     cariler: entities.carilerForType,
     personelList: entities.personelList,
-    stokItems: form.stokItems,
+    urunItems: form.urunItems,
     setIsSaving: form.setIsSaving,
     setHesapPickerTarget: modals.setHesapPickerTarget,
     setShowHesapPicker: modals.setShowHesapPicker,
@@ -375,9 +375,9 @@ export function QuickTransactionBar({
   };
   const categoryType = modals.selectedCategoryType || getCategoryType();
 
-  // Stok button visibility - only show for alis/satis/iade types AND if user has products
-  const stokTransactionTypes: TransactionType[] = ['alis', 'satis', 'alis_iade', 'satis_iade'];
-  const showStokButton = entities.hasUrunler && stokTransactionTypes.includes(form.type);
+  // Urun button visibility - only show for alis/satis/iade types AND if user has products
+  const urunTransactionTypes: TransactionType[] = ['alis', 'satis', 'alis_iade', 'satis_iade'];
+  const showUrunButton = entities.hasUrunler && urunTransactionTypes.includes(form.type);
 
   // Position card above keyboard and tab bar
   const cardBottom = animation.keyboardHeight > 0
@@ -516,9 +516,9 @@ export function QuickTransactionBar({
           type={form.type}
           onTypeChange={form.setType}
           tabMode={tabMode}
-          showStokButton={showStokButton}
-          stokItemCount={form.stokItems.length}
-          onStokButtonPress={() => modals.setShowStokPicker(true)}
+          showUrunButton={showUrunButton}
+          urunItemCount={form.urunItems.length}
+          onUrunButtonPress={() => modals.setShowUrunPicker(true)}
         />
       </Animated.View>
 
@@ -607,20 +607,20 @@ export function QuickTransactionBar({
         />
       )}
 
-      {/* Stok Picker Modal */}
-      <StokPickerModal
-        visible={modals.showStokPicker}
+      {/* Urun Picker Modal */}
+      <UrunPickerModal
+        visible={modals.showUrunPicker}
         onDismiss={() => {
-          modals.setShowStokPicker(false);
+          modals.setShowUrunPicker(false);
           modals.setUrunSearchQuery('');
         }}
         urunler={entities.urunler || []}
-        stokItems={form.stokItems}
-        onStokItemsChange={form.setStokItems}
+        urunItems={form.urunItems}
+        onUrunItemsChange={form.setUrunItems}
         searchQuery={modals.urunSearchQuery}
         onSearchQueryChange={modals.setUrunSearchQuery}
         onTotalChange={(total) => {
-          // Stok toplamını işlem tutarına yaz
+          // Urun toplamını işlem tutarına yaz
           if (total > 0) {
             form.setAmount(total.toString());
           }

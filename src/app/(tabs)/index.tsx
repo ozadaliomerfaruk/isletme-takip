@@ -836,7 +836,7 @@ export default function HomePage() {
 
             {/* Ay grid */}
             <View style={styles.monthGrid}>
-              {(t('reports:months', { returnObjects: true }) as string[]).map((monthName, index) => (
+              {((() => { const m = t('reports:months', { returnObjects: true }); return Array.isArray(m) ? m : ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara']; })() as string[]).map((monthName, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.monthCell}

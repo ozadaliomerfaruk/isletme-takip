@@ -20,5 +20,5 @@ export type { TahsilatHedefTypePickerProps } from './TahsilatHedefTypePicker';
 export { KrediKartiPickerSheet } from './KrediKartiPickerSheet';
 export type { KrediKartiPickerSheetProps } from './KrediKartiPickerSheet';
 
-export { StokPickerModal } from './StokPickerModal';
-export type { StokPickerModalProps } from './StokPickerModal';
+export { UrunPickerModal } from './UrunPickerModal';
+export type { UrunPickerModalProps } from './UrunPickerModal';

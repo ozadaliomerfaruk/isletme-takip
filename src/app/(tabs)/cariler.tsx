@@ -250,8 +250,8 @@ export default function CarilerPage() {
   ];
 
   // Arama filtresi ve sıralama (aktif önce)
-  const filteredCariler = cariler
-    ?.filter((cari) => cari.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredCariler = (cariler ?? [])
+    .filter((cari) => cari.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
       // Aktif olanlar önce
       if (a.is_active !== b.is_active) {

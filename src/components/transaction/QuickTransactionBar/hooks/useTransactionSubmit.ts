@@ -5,12 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { useCreateIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
-import { useCreateStokHareket } from '@/hooks/useStokHareketler';
+import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
-import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode, StokItem } from '../types';
-import type { Currency, StokHareketTipi } from '@/types/database';
+import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode, UrunItem } from '../types';
+import type { Currency, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
 
@@ -76,8 +76,8 @@ interface UseTransactionSubmitOptions {
   cariler: Cari[] | undefined;
   personelList: Personel[] | undefined;
 
-  // Stok items for alis/satis/iade transactions
-  stokItems?: StokItem[];
+  // Urun items for alis/satis/iade transactions
+  urunItems?: UrunItem[];
 
   // State setters
   setIsSaving: (saving: boolean) => void;
@@ -174,7 +174,7 @@ export function useTransactionSubmit({
   hesaplar,
   cariler,
   personelList,
-  stokItems = [],
+  urunItems = [],
   setIsSaving,
   setHesapPickerTarget,
   setShowHesapPicker,
@@ -199,31 +199,31 @@ export function useTransactionSubmit({
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
   const updateIleriTarihliIslem = useUpdateIleriTarihliIslem();
   const uploadPhoto = useUploadIslemPhoto();
-  const createStokHareket = useCreateStokHareket();
+  const createUrunHareket = useCreateUrunHareket();
 
-  // Helper: Get stock movement type based on transaction type
-  const getStokHareketTipi = useCallback((txnType: TransactionType): StokHareketTipi | null => {
-    // alis: Tedarikçiden mal alındı → Stok Girişi
+  // Helper: Get urun movement type based on transaction type
+  const getUrunHareketTipi = useCallback((txnType: TransactionType): UrunHareketTipi | null => {
+    // alis: Tedarikçiden mal alındı → Ürün Girişi
     if (txnType === 'alis') return 'giris';
-    // satis: Müşteriye mal satıldı → Stok Çıkışı
+    // satis: Müşteriye mal satıldı → Ürün Çıkışı
     if (txnType === 'satis') return 'cikis';
-    // alis_iade: Tedarikçiye mal iade edildi → Stok Çıkışı
+    // alis_iade: Tedarikçiye mal iade edildi → Ürün Çıkışı
     if (txnType === 'alis_iade') return 'cikis';
-    // satis_iade: Müşteriden mal iade alındı → Stok Girişi
+    // satis_iade: Müşteriden mal iade alındı → Ürün Girişi
     if (txnType === 'satis_iade') return 'giris';
     return null;
   }, []);
 
-  // Helper: Create stock movements for transaction
-  const createStokHareketler = useCallback(async (txnType: TransactionType, desc: string, islemId: string) => {
-    if (stokItems.length === 0) return;
+  // Helper: Create urun movements for transaction
+  const createUrunHareketler = useCallback(async (txnType: TransactionType, desc: string, islemId: string) => {
+    if (urunItems.length === 0) return;
 
-    const hareketTipi = getStokHareketTipi(txnType);
+    const hareketTipi = getUrunHareketTipi(txnType);
     if (!hareketTipi) return;
 
-    // Create stock movement for each item
-    const promises = stokItems.map(item =>
-      createStokHareket.mutateAsync({
+    // Create urun movement for each item
+    const promises = urunItems.map(item =>
+      createUrunHareket.mutateAsync({
         urun_id: item.urunId,
         islem_id: islemId,
         hareket_tipi: hareketTipi,
@@ -235,7 +235,7 @@ export function useTransactionSubmit({
     );
 
     await Promise.all(promises);
-  }, [stokItems, getStokHareketTipi, createStokHareket]);
+  }, [urunItems, getUrunHareketTipi, createUrunHareket]);
 
   // Build transaction data
   const buildTransactionData = useCallback(
@@ -613,15 +613,15 @@ export function useTransactionSubmit({
             }
           }
 
-          // Create stock movements if stokItems present (for alis/satis/iade)
-          if (stokItems.length > 0 && newIslem?.id) {
+          // Create urun movements if urunItems present (for alis/satis/iade)
+          if (urunItems.length > 0 && newIslem?.id) {
             try {
-              await createStokHareketler(type, description.trim(), newIslem.id);
-              console.log('[StokHareket] Stock movements created successfully');
-            } catch (stokError) {
-              // Log stock movement error but don't fail the transaction
-              console.error('[StokHareket] Error creating stock movements:', stokError);
-              // Transaction was created successfully, stock movement creation failed
+              await createUrunHareketler(type, description.trim(), newIslem.id);
+              console.log('[UrunHareket] Urun movements created successfully');
+            } catch (urunError) {
+              // Log urun movement error but don't fail the transaction
+              console.error('[UrunHareket] Error creating urun movements:', urunError);
+              // Transaction was created successfully, urun movement creation failed
             }
           }
         }
@@ -691,8 +691,8 @@ export function useTransactionSubmit({
     triggerReviewIfEligible,
     onSuccess,
     handleDismiss,
-    stokItems,
-    createStokHareketler,
+    urunItems,
+    createUrunHareketler,
     description,
   ]);
 

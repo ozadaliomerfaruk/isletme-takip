@@ -193,7 +193,7 @@ export function useDeleteUrun() {
 
 /**
  * Ürünü kalıcı olarak sil (hard delete)
- * Önce ilişkili stok hareketlerini siler, sonra ürünü siler
+ * Önce ilişkili ürün hareketlerini siler, sonra ürünü siler
  */
 export function usePermanentDeleteUrun() {
   const queryClient = useQueryClient();
@@ -203,9 +203,9 @@ export function usePermanentDeleteUrun() {
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error('İşletme bulunamadı');
 
-      // Önce ilişkili stok hareketlerini sil
+      // Önce ilişkili urun hareketlerini sil
       const { error: hareketError } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .delete()
         .eq('urun_id', id)
         .eq('isletme_id', isletme.id);
@@ -224,7 +224,7 @@ export function usePermanentDeleteUrun() {
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'urun');
       queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
-      queryClient.invalidateQueries({ queryKey: ['stok_hareketleri'] });
+      queryClient.invalidateQueries({ queryKey: ['urun_hareketleri'] });
     },
   });
 }

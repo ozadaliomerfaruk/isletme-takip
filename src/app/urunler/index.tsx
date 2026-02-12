@@ -4,16 +4,16 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, Trash2 } from 'lucide-react-native';
+import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, Trash2, Camera } from 'lucide-react-native';
 import { Text, Button, Input, EmptyState, ExpandableCard, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
-import { QuickStockBar } from '@/components/stock/QuickStockBar';
+import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrunler, useDeleteUrun, useArchiveUrun } from '@/hooks/useUrunler';
 import { useToast } from '@/contexts/ToastContext';
-import { useDonemStokOzet } from '@/hooks/useStokHareketler';
+import { useDonemUrunOzet } from '@/hooks/useUrunHareketler';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
@@ -25,11 +25,11 @@ export default function UrunlerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
-  const { t } = useTranslation(['products', 'common', 'errors']);
+  const { t } = useTranslation(['products', 'common', 'errors', 'ocrImport']);
   const { getDateRangeLabel, locale } = useDateFormat();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [quickStockVisible, setQuickStockVisible] = useState(false);
+  const [quickUrunVisible, setQuickUrunVisible] = useState(false);
   const [selectedUrun, setSelectedUrun] = useState<Urun | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
 
@@ -121,8 +121,8 @@ export default function UrunlerPage() {
   const { data: kategoriler } = useKategoriler();
   const { showToast } = useToast();
 
-  // Dönem bazlı stok hareketleri özeti
-  const { data: donemStokOzet } = useDonemStokOzet({ startDate, endDate });
+  // Dönem bazlı urun hareketleri özeti
+  const { data: donemUrunOzet } = useDonemUrunOzet({ startDate, endDate });
 
   // Kategori id -> ad map'i
   const kategoriMap = new Map(kategoriler?.map(k => [k.id, k.name]) || []);
@@ -214,7 +214,7 @@ export default function UrunlerPage() {
 
   const handleNewTransaction = (urun: Urun) => {
     setSelectedUrun(urun);
-    setQuickStockVisible(true);
+    setQuickUrunVisible(true);
   };
 
   const handleViewMovements = (urunId: string) => {
@@ -333,7 +333,7 @@ export default function UrunlerPage() {
             />
           ) : (
             filteredUrunler.map((urun) => {
-              const urunOzet = donemStokOzet?.[urun.id];
+              const urunOzet = donemUrunOzet?.[urun.id];
               const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
 
               return (
@@ -417,11 +417,11 @@ export default function UrunlerPage() {
         </View>
       </ScrollView>
 
-      {/* QuickStockBar */}
-      <QuickStockBar
-        visible={quickStockVisible}
+      {/* QuickUrunBar */}
+      <QuickUrunBar
+        visible={quickUrunVisible}
         onDismiss={() => {
-          setQuickStockVisible(false);
+          setQuickUrunVisible(false);
           setSelectedUrun(null);
         }}
         urun={selectedUrun}
@@ -565,6 +565,19 @@ export default function UrunlerPage() {
                 <TrendingUp size={20} color={colors.success} />
               </View>
               <Text variant="body">{t('products:bulk.stockIn')}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.fabMenuItem}
+              onPress={() => {
+                haptics.light();
+                setFabMenuVisible(false);
+                router.push('/urunler/foto-import' as any);
+              }}
+            >
+              <View style={[styles.fabMenuIcon, { backgroundColor: colors.infoLight }]}>
+                <Camera size={20} color={colors.info} />
+              </View>
+              <Text variant="body">{t('ocrImport:fab.photoImport')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.fabMenuItem}

@@ -30,7 +30,7 @@ function RootLayoutNav() {
   const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
-  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products']);
+  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);
@@ -579,7 +579,7 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
-        {/* Stok/Ürünler */}
+        {/* Ürünler */}
         <Stack.Screen
           name="urunler/index"
           options={{
@@ -640,6 +640,12 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('products:bulk.stockOut'),
             headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="urunler/foto-import"
+          options={{
+            headerShown: false,
           }}
         />
       </Stack>

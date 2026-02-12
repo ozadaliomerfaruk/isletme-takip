@@ -10,7 +10,7 @@
     "vatRate": "VAT Rate",
     "purchasePrice": "Purchase Price",
     "salePrice": "Sale Price",
-    "initialStock": "Initial Stock",
+    "initialStock": "Initial Quantity",
     "description": "Description",
     "currency": "Currency"
   },
@@ -46,19 +46,19 @@
     "search": "Search units..."
   },
   "stock": {
-    "currentStock": "Current Stock",
-    "stockIn": "Stock In",
-    "stockOut": "Stock Out",
+    "currentStock": "Current Quantity",
+    "stockIn": "Product Purchase",
+    "stockOut": "Product Sale",
     "adjustment": "Adjustment",
     "quantity": "Quantity",
     "unitPrice": "Unit Price",
     "monthlyReport": "Monthly Summary",
-    "movements": "Stock Movements",
+    "movements": "Product Movements",
     "totalIn": "Total In",
     "totalOut": "Total Out",
-    "noMovements": "No stock movements yet",
+    "noMovements": "No product movements yet",
     "noPeriodMovements": "No movements in this period",
-    "deleteMovementConfirm": "Are you sure you want to delete this stock movement? The stock quantity will also be updated."
+    "deleteMovementConfirm": "Are you sure you want to delete this product movement? The quantity will also be updated."
   },
   "period": {
     "yearly": "Yearly",
@@ -75,9 +75,9 @@
     "deleteSuccess": "Product deleted",
     "archiveSuccess": "Product archived",
     "unarchiveSuccess": "Product unarchived",
-    "stockUpdated": "Stock updated",
-    "stockInSuccess": "Stock entry completed",
-    "stockOutSuccess": "Stock exit completed"
+    "stockUpdated": "Quantity updated",
+    "stockInSuccess": "Product purchase completed",
+    "stockOutSuccess": "Product sale completed"
   },
   "validation": {
     "nameRequired": "Product name is required",
@@ -122,12 +122,12 @@
     "unarchive": "Unarchive"
   },
   "bulk": {
-    "stockIn": "Bulk Stock In",
-    "stockOut": "Bulk Stock Out",
+    "stockIn": "Bulk Product Purchase",
+    "stockOut": "Bulk Product Sale",
     "addRow": "Add Row",
     "selectProduct": "Select Product",
     "noProducts": "No products added yet",
-    "success": "{{count}} stock movements saved",
+    "success": "{{count}} product movements saved",
     "selectAll": "Select All",
     "selectNone": "Select None"
   }

@@ -18,16 +18,16 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { styles as sharedStyles } from '../styles';
-import type { StokItem } from '../types';
-import { KDV_ORANLARI, calculateStokLineTotal, calculateStokGrandTotal } from '../types';
+import type { UrunItem } from '../types';
+import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
 import type { Urun, BirimType } from '@/types/database';
 
-export interface StokPickerModalProps {
+export interface UrunPickerModalProps {
   visible: boolean;
   onDismiss: () => void;
   urunler: Urun[];
-  stokItems: StokItem[];
-  onStokItemsChange: (items: StokItem[]) => void;
+  urunItems: UrunItem[];
+  onUrunItemsChange: (items: UrunItem[]) => void;
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
   onTotalChange?: (total: number) => void;
@@ -42,17 +42,17 @@ interface AddingProduct {
   kdvOrani: number;
 }
 
-export function StokPickerModal({
+export function UrunPickerModal({
   visible,
   onDismiss,
   urunler,
-  stokItems,
-  onStokItemsChange,
+  urunItems,
+  onUrunItemsChange,
   searchQuery,
   onSearchQueryChange,
   onTotalChange,
   currency = 'TRY',
-}: StokPickerModalProps) {
+}: UrunPickerModalProps) {
   const { t } = useTranslation(['transactions', 'products', 'common']);
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
@@ -74,14 +74,14 @@ export function StokPickerModal({
   }, [urunler, searchQuery]);
 
   // Calculate totals and notify parent
-  const totals = useMemo(() => calculateStokGrandTotal(stokItems), [stokItems]);
+  const totals = useMemo(() => calculateUrunGrandTotal(urunItems), [urunItems]);
 
   // Notify parent when total changes
   useEffect(() => {
-    if (onTotalChange && stokItems.length > 0) {
+    if (onTotalChange && urunItems.length > 0) {
       onTotalChange(totals.grandTotal);
     }
-  }, [totals.grandTotal, onTotalChange, stokItems.length]);
+  }, [totals.grandTotal, onTotalChange, urunItems.length]);
 
   const handleClose = useCallback(() => {
     onSearchQueryChange('');
@@ -93,7 +93,7 @@ export function StokPickerModal({
   // Ürün seçildiğinde ekleme moduna geç
   const handleSelectUrun = useCallback((urun: Urun) => {
     // Zaten eklenmişse seçme
-    if (stokItems.some((item) => item.urunId === urun.id)) return;
+    if (urunItems.some((item) => item.urunId === urun.id)) return;
 
     setEditingUrunId(null); // Yeni ekleme
     setAddingProduct({
@@ -102,10 +102,10 @@ export function StokPickerModal({
       birimFiyat: (urun.alis_fiyati || urun.satis_fiyati || 0).toString(),
       kdvOrani: urun.kdv_orani || 0,
     });
-  }, [stokItems]);
+  }, [urunItems]);
 
   // Mevcut ürünü düzenleme moduna al
-  const handleEditItem = useCallback((item: StokItem) => {
+  const handleEditItem = useCallback((item: UrunItem) => {
     const urun = urunler.find(u => u.id === item.urunId);
     if (!urun) return;
 
@@ -129,7 +129,7 @@ export function StokPickerModal({
 
     if (miktar <= 0) return;
 
-    const newItem: StokItem = {
+    const newItem: UrunItem = {
       urunId: addingProduct.urun.id,
       urunAd: addingProduct.urun.ad,
       miktar,
@@ -140,18 +140,18 @@ export function StokPickerModal({
 
     if (editingUrunId) {
       // Düzenleme modu - mevcut ürünü güncelle
-      const updatedItems = stokItems.map(item =>
+      const updatedItems = urunItems.map(item =>
         item.urunId === editingUrunId ? newItem : item
       );
-      onStokItemsChange(updatedItems);
+      onUrunItemsChange(updatedItems);
     } else {
       // Ekleme modu - yeni ürün ekle
-      onStokItemsChange([...stokItems, newItem]);
+      onUrunItemsChange([...urunItems, newItem]);
     }
 
     setAddingProduct(null);
     setEditingUrunId(null);
-  }, [addingProduct, stokItems, onStokItemsChange, editingUrunId]);
+  }, [addingProduct, urunItems, onUrunItemsChange, editingUrunId]);
 
   // Ekleme/düzenleme modunu iptal et
   const handleCancelAdd = useCallback(() => {
@@ -161,14 +161,14 @@ export function StokPickerModal({
 
   const handleRemoveItem = useCallback(
     (urunId: string) => {
-      const newItems = stokItems.filter((item) => item.urunId !== urunId);
-      onStokItemsChange(newItems);
+      const newItems = urunItems.filter((item) => item.urunId !== urunId);
+      onUrunItemsChange(newItems);
       // Eğer tüm ürünler silindiyse parent'a 0 gönder
       if (newItems.length === 0 && onTotalChange) {
         onTotalChange(0);
       }
     },
-    [stokItems, onStokItemsChange, onTotalChange]
+    [urunItems, onUrunItemsChange, onTotalChange]
   );
 
   const getBirimLabel = (birim: BirimType) => {
@@ -177,8 +177,8 @@ export function StokPickerModal({
 
   // Check if urun is already added
   const isUrunAdded = useCallback(
-    (urunId: string) => stokItems.some((item) => item.urunId === urunId),
-    [stokItems]
+    (urunId: string) => urunItems.some((item) => item.urunId === urunId),
+    [urunItems]
   );
 
   // Ekleme modundaki ürünün satır toplamı
@@ -366,13 +366,13 @@ export function StokPickerModal({
                 )}
 
                 {/* Eklenen Ürünler */}
-                {stokItems.length > 0 && (
+                {urunItems.length > 0 && (
                   <View style={styles.section}>
                     <Text style={styles.sectionTitle}>
-                      {t('transactions:stock.addedProducts')} ({stokItems.length})
+                      {t('transactions:stock.addedProducts')} ({urunItems.length})
                     </Text>
-                    {stokItems.map((item) => {
-                      const lineTotal = calculateStokLineTotal(item);
+                    {urunItems.map((item) => {
+                      const lineTotal = calculateUrunLineTotal(item);
                       const isBeingEdited = editingUrunId === item.urunId;
                       return (
                         <View key={item.urunId} style={[styles.addedItem, isBeingEdited && styles.addedItemEditing]}>
@@ -456,7 +456,7 @@ export function StokPickerModal({
               </ScrollView>
 
               {/* Footer with Totals */}
-              {stokItems.length > 0 && (
+              {urunItems.length > 0 && (
                 <View style={styles.footer}>
                   <View style={styles.totalsSection}>
                     <View style={styles.totalRow}>
@@ -493,7 +493,7 @@ export function StokPickerModal({
               )}
 
               {/* Simple close button when no items */}
-              {stokItems.length === 0 && !addingProduct && (
+              {urunItems.length === 0 && !addingProduct && (
                 <View style={styles.footerSimple}>
                   <Button variant="outline" onPress={handleClose}>
                     {t('common:buttons.close')}

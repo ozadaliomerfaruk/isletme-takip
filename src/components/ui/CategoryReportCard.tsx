@@ -376,7 +376,7 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
               {formatCurrency(item.total)}
             </Text>
             <Text variant="caption" color="secondary">
-              %{item.percentage.toFixed(1)}
+              %{(item.percentage ?? 0).toFixed(1)}
             </Text>
           </View>
           <ChevronRight size={20} color={colors.textMuted} />
@@ -389,7 +389,7 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
           style={[
             styles.progressBar,
             {
-              width: `${Math.min(item.percentage, 100)}%`,
+              width: `${Math.min(item.percentage ?? 0, 100)}%`,
               backgroundColor: barColor,
             }
           ]}
@@ -489,7 +489,7 @@ export function HierarchicalCategoryReportCard({
                 {formatCurrency(hasChildren ? item.totalWithChildren : item.total)}
               </Text>
               <Text variant="caption" color="secondary">
-                %{(hasChildren ? item.percentageWithChildren : item.percentage).toFixed(1)}
+                %{((hasChildren ? item.percentageWithChildren : item.percentage) ?? 0).toFixed(1)}
               </Text>
             </View>
             {!hasChildren && <ChevronRight size={20} color={colors.textMuted} />}
@@ -502,7 +502,7 @@ export function HierarchicalCategoryReportCard({
             style={[
               styles.progressBar,
               {
-                width: `${Math.min(hasChildren ? item.percentageWithChildren : item.percentage, 100)}%`,
+                width: `${Math.min((hasChildren ? item.percentageWithChildren : item.percentage) ?? 0, 100)}%`,
                 backgroundColor: barColor,
               }
             ]}
@@ -586,7 +586,7 @@ export function HierarchicalCategoryReportCard({
                         {formatCurrency(child.total)}
                       </Text>
                       <Text variant="caption" color="secondary" style={styles.childPercentage}>
-                        %{child.percentage.toFixed(1)}
+                        %{(child.percentage ?? 0).toFixed(1)}
                       </Text>
                     </View>
                     <ChevronRight size={16} color={colors.textMuted} />

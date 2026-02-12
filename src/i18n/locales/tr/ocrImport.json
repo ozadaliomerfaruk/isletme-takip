@@ -1,0 +1,96 @@
+{
+  "title": "Fotoğrafla Alış/Satış",
+  "steps": {
+    "capture": "Fotoğraf",
+    "processing": "İşleniyor",
+    "review": "Kontrol",
+    "saving": "Kaydediliyor"
+  },
+  "capture": {
+    "title": "Fatura Fotoğrafı",
+    "takePhoto": "Fotoğraf Çek",
+    "pickImage": "Galeriden Seç",
+    "pickImages": "Galeriden Seç (Çoklu)",
+    "tips": "İpuçları",
+    "tip1": "Faturayı düz bir yüzeye koyun",
+    "tip2": "Tüm metni çerçeveye alın",
+    "tip3": "İyi aydınlatma sağlayın",
+    "tip4": "Flash kullanabilirsiniz"
+  },
+  "processing": {
+    "title": "Fatura Okunuyor...",
+    "analyzing": "Metin analiz ediliyor",
+    "matching": "Ürünler eşleştiriliyor"
+  },
+  "review": {
+    "title": "Sonuçları Kontrol Edin",
+    "cari": "Cari",
+    "noCari": "Cari bulunamadı",
+    "selectCari": "Cari Seç",
+    "matchedCari": "Eşleşen Cari",
+    "changeCari": "Değiştir",
+    "items": "Ürünler",
+    "noItems": "Ürün satırı bulunamadı",
+    "addItem": "Satır Ekle",
+    "removeItem": "Satır Sil",
+    "totalCheck": "Toplam Kontrolü",
+    "ocrTotal": "Fatura Toplamı",
+    "lineTotal": "Satır Toplamı",
+    "enteredTotal": "Girilen Toplam",
+    "totalMismatch": "Toplam tutarsızlığı! Lütfen kontrol edin.",
+    "totalMatch": "Toplamlar tutarlı",
+    "matchBadge": {
+      "exact": "Eşleşti",
+      "suggestion": "Öneri",
+      "new": "Yeni Ürün"
+    },
+    "changeProduct": "Ürün Değiştir",
+    "listButton": "Liste",
+    "invoiceDate": "Fatura Tarihi",
+    "category": "Kategori",
+    "noCategory": "Kategori yok",
+    "saveMode": "Kaydetme Şekli",
+    "onlyProducts": "Sadece Ürün Oluştur",
+    "productsAndMovements": "Ürün + Hareket",
+    "newProductWarning": "{{count}} adet yeni ürün oluşturulacak",
+    "confirmNewProducts": "Yeni Ürünleri Onayla",
+    "buyButton": "AL",
+    "sellButton": "SAT"
+  },
+  "newProductModal": {
+    "title": "Yeni Ürün Onayı",
+    "message": "Bu ürünler mevcut kayıtlarınızda bulunamadı. Yeni ürün olarak oluşturulsun mu?",
+    "confirmAll": "Tümünü Onayla",
+    "skipAll": "Hiçbirini Oluşturma"
+  },
+  "saving": {
+    "creatingProducts": "Ürünler oluşturuluyor...",
+    "creatingMovements": "Hareketler kaydediliyor...",
+    "progress": "{{current}}/{{total}}"
+  },
+  "messages": {
+    "success": "{{productCount}} ürün, {{movementCount}} hareket kaydedildi",
+    "successOnlyProducts": "{{count}} ürün kaydedildi",
+    "ocrFailed": "Metin okunamadı. Lütfen tekrar deneyin veya manuel giriş yapın.",
+    "noProductLines": "Ürün satırı bulunamadı. Fotoğrafı kontrol edin.",
+    "alreadySaved": "Bu oturum zaten kaydedildi.",
+    "manualFallback": "Manuel girişe geç"
+  },
+  "batch": {
+    "processingPhoto": "Fatura {{current}}/{{total}} işleniyor...",
+    "invoiceCount": "{{count}} fatura",
+    "saveAllBuy": "Tümünü AL",
+    "saveAllSell": "Tümünü SAT",
+    "addMore": "Fotoğraf Ekle",
+    "allSaved": "Tüm faturalar kaydedildi",
+    "savedBadge": "Kaydedildi",
+    "unsavedCount": "{{count}} kaydedilmemiş",
+    "itemCount": "{{count}} ürün",
+    "totalMismatchShort": "Toplam uyuşmuyor",
+    "cameraModeDone": "Bitti",
+    "photosAdded": "{{count}} fotoğraf eklendi"
+  },
+  "fab": {
+    "photoImport": "Fotoğrafla Alış/Satış"
+  }
+}

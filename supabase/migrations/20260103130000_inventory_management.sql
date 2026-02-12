@@ -1,5 +1,5 @@
  -- =============================================
-  -- STOK YÖNETİMİ TABLOLARI
+  -- ÜRÜN YÖNETİMİ TABLOLARI
   -- =============================================
 
   -- 1. URUNLER (Products) TABLE
@@ -31,8 +31,8 @@
       isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
     );
 
-  -- 2. STOK_HAREKETLER (Stock Movements) TABLE
-  CREATE TABLE IF NOT EXISTS stok_hareketler (
+  -- 2. URUN_HAREKETLER (Stock Movements) TABLE
+  CREATE TABLE IF NOT EXISTS urun_hareketler (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     isletme_id UUID NOT NULL REFERENCES isletmeler(id) ON DELETE CASCADE,
     urun_id UUID NOT NULL REFERENCES urunler(id) ON DELETE CASCADE,
@@ -45,19 +45,19 @@
     created_at TIMESTAMPTZ DEFAULT NOW()
   );
 
-  CREATE INDEX IF NOT EXISTS idx_stok_hareketler_isletme ON stok_hareketler(isletme_id);
-  CREATE INDEX IF NOT EXISTS idx_stok_hareketler_urun ON stok_hareketler(urun_id);
-  CREATE INDEX IF NOT EXISTS idx_stok_hareketler_tarih ON stok_hareketler(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_urun_hareketler_isletme ON urun_hareketler(isletme_id);
+  CREATE INDEX IF NOT EXISTS idx_urun_hareketler_urun ON urun_hareketler(urun_id);
+  CREATE INDEX IF NOT EXISTS idx_urun_hareketler_tarih ON urun_hareketler(created_at DESC);
 
-  ALTER TABLE stok_hareketler ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE urun_hareketler ENABLE ROW LEVEL SECURITY;
 
-  CREATE POLICY "Users can manage own stok_hareketler"
-    ON stok_hareketler FOR ALL USING (
+  CREATE POLICY "Users can manage own urun_hareketler"
+    ON urun_hareketler FOR ALL USING (
       isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
     );
 
-  -- 3. RPC: Atomik Stok Güncelleme
-  CREATE OR REPLACE FUNCTION update_stok_miktar(
+  -- 3. RPC: Atomik Ürün Güncelleme
+  CREATE OR REPLACE FUNCTION update_urun_miktar(
     p_urun_id UUID,
     p_miktar_degisim NUMERIC
   ) RETURNS NUMERIC

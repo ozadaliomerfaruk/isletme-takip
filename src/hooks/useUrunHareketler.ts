@@ -1,13 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { StokHareket, StokHareketInsert, StokHareketTipi } from '@/types/database';
+import { UrunHareket, UrunHareketInsert, UrunHareketTipi } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 
 /**
- * Stok hareketi ile birlikte cari bilgisi
+ * Urun hareketi ile birlikte cari bilgisi
  */
-export interface StokHareketWithCari extends StokHareket {
+export interface UrunHareketWithCari extends UrunHareket {
   cari?: {
     id: string;
     name: string;
@@ -16,19 +16,19 @@ export interface StokHareketWithCari extends StokHareket {
 }
 
 /**
- * Bir ürüne ait stok hareketlerini getir (cari bilgisi dahil)
+ * Bir ürüne ait urun hareketlerini getir (cari bilgisi dahil)
  */
-export function useStokHareketler(urunId: string | undefined) {
+export function useUrunHareketler(urunId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: queryKeys.stokHareketler.byUrun(urunId || '', isletme?.id || ''),
+    queryKey: queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''),
     queryFn: async () => {
       if (!isletme || !urunId) return [];
 
-      // İlk olarak stok hareketlerini al
+      // İlk olarak urun hareketlerini al
       const { data: hareketler, error } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .select('*')
         .eq('isletme_id', isletme.id)
         .eq('urun_id', urunId)
@@ -44,7 +44,7 @@ export function useStokHareketler(urunId: string | undefined) {
 
       // Eğer hiç islem_id yoksa direkt döndür
       if (islemIds.length === 0) {
-        return hareketler.map(h => ({ ...h, cari: null })) as StokHareketWithCari[];
+        return hareketler.map(h => ({ ...h, cari: null })) as UrunHareketWithCari[];
       }
 
       // İşlemleri ve carilerini al
@@ -55,7 +55,7 @@ export function useStokHareketler(urunId: string | undefined) {
 
       if (islemError) {
         console.error('Error fetching islemler for cari info:', islemError);
-        return hareketler.map(h => ({ ...h, cari: null })) as StokHareketWithCari[];
+        return hareketler.map(h => ({ ...h, cari: null })) as UrunHareketWithCari[];
       }
 
       // islem_id -> cari mapping oluştur
@@ -76,11 +76,11 @@ export function useStokHareketler(urunId: string | undefined) {
         }
       });
 
-      // Stok hareketlerine cari bilgisi ekle
+      // Urun hareketlerine cari bilgisi ekle
       return hareketler.map(h => ({
         ...h,
         cari: h.islem_id ? islemCariMap.get(h.islem_id) || null : null,
-      })) as StokHareketWithCari[];
+      })) as UrunHareketWithCari[];
     },
     enabled: !!isletme && !!urunId,
   });
@@ -92,25 +92,25 @@ export function useStokHareketler(urunId: string | undefined) {
 }
 
 /**
- * Aylık stok özeti (giriş/çıkış toplamları)
+ * Aylık urun özeti (giriş/çıkış toplamları)
  */
-export interface AylikStokOzet {
+export interface AylikUrunOzet {
   ay: string; // YYYY-MM formatında
   giris: number;
   cikis: number;
 }
 
-export function useAylikStokOzet(urunId: string | undefined) {
+export function useAylikUrunOzet(urunId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: queryKeys.stokHareketler.aylikOzet(urunId || '', isletme?.id || ''),
+    queryKey: queryKeys.urunHareketler.aylikOzet(urunId || '', isletme?.id || ''),
     queryFn: async () => {
       if (!isletme || !urunId) return [];
 
       // Son 12 ayın verilerini al
       const { data, error } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .select('hareket_tipi, miktar, created_at')
         .eq('isletme_id', isletme.id)
         .eq('urun_id', urunId)
@@ -122,7 +122,8 @@ export function useAylikStokOzet(urunId: string | undefined) {
       // Aylara göre grupla
       const aylikMap = new Map<string, { giris: number; cikis: number }>();
 
-      (data as StokHareket[]).forEach((hareket) => {
+      (data as UrunHareket[]).forEach((hareket) => {
+        if (!hareket.created_at) return;
         const ay = hareket.created_at.substring(0, 7); // YYYY-MM
         const mevcut = aylikMap.get(ay) || { giris: 0, cikis: 0 };
 
@@ -144,7 +145,7 @@ export function useAylikStokOzet(urunId: string | undefined) {
       });
 
       // Map'i array'e çevir ve sırala (en yeni ay en üstte)
-      const sonuc: AylikStokOzet[] = Array.from(aylikMap.entries())
+      const sonuc: AylikUrunOzet[] = Array.from(aylikMap.entries())
         .map(([ay, degerler]) => ({
           ay,
           giris: degerler.giris,
@@ -164,17 +165,17 @@ export function useAylikStokOzet(urunId: string | undefined) {
 }
 
 /**
- * Dönem bazlı tüm ürünlerin stok hareketlerini getir
+ * Dönem bazlı tüm ürünlerin urun hareketlerini getir
  * Her ürün için giriş/çıkış toplamlarını döndürür
  */
-export interface DonemStokOzet {
+export interface DonemUrunOzet {
   [urunId: string]: {
     giris: number;
     cikis: number;
   };
 }
 
-export function useDonemStokOzet(options: {
+export function useDonemUrunOzet(options: {
   startDate: string;
   endDate: string;
 }) {
@@ -182,12 +183,12 @@ export function useDonemStokOzet(options: {
   const { startDate, endDate } = options;
 
   const result = useQuery({
-    queryKey: queryKeys.stokHareketler.donemOzet(isletme?.id || '', startDate, endDate),
+    queryKey: queryKeys.urunHareketler.donemOzet(isletme?.id || '', startDate, endDate),
     queryFn: async () => {
-      if (!isletme) return {} as DonemStokOzet;
+      if (!isletme) return {} as DonemUrunOzet;
 
       const { data, error } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .select('urun_id, hareket_tipi, miktar')
         .eq('isletme_id', isletme.id)
         .gte('created_at', `${startDate}T00:00:00`)
@@ -196,9 +197,9 @@ export function useDonemStokOzet(options: {
       if (error) throw error;
 
       // Ürün bazlı giriş/çıkış toplamları
-      const ozet: DonemStokOzet = {};
+      const ozet: DonemUrunOzet = {};
 
-      (data as StokHareket[]).forEach((hareket) => {
+      (data as UrunHareket[]).forEach((hareket) => {
         if (!ozet[hareket.urun_id]) {
           ozet[hareket.urun_id] = { giris: 0, cikis: 0 };
         }
@@ -229,18 +230,18 @@ export function useDonemStokOzet(options: {
 }
 
 /**
- * Stok hareketi oluştur (giriş/çıkış/düzeltme)
- * Atomik olarak hem hareket kaydı oluşturur hem de ürün stok miktarını günceller
+ * Urun hareketi oluştur (giriş/çıkış/düzeltme)
+ * Atomik olarak hem hareket kaydı oluşturur hem de ürün miktarını günceller
  */
-export function useCreateStokHareket() {
+export function useCreateUrunHareket() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
 
   return useMutation({
-    mutationFn: async (input: StokHareketInsert) => {
+    mutationFn: async (input: UrunHareketInsert) => {
       if (!isletme) throw new Error('İşletme bulunamadı');
 
-      // 1. Önce mevcut stok miktarını al
+      // 1. Önce mevcut ürün miktarını al
       const { data: urun, error: urunError } = await supabase
         .from('urunler')
         .select('miktar')
@@ -264,18 +265,18 @@ export function useCreateStokHareket() {
         miktarDegisim = input.miktar;
       }
 
-      // 3. Stok miktarını atomik olarak güncelle
+      // 3. Urun miktarını atomik olarak güncelle
       const { data: yeniMiktar, error: rpcError } = await supabase
-        .rpc('update_stok_miktar', {
+        .rpc('update_urun_miktar', {
           p_urun_id: input.urun_id,
           p_miktar_degisim: miktarDegisim,
         });
 
       if (rpcError) throw rpcError;
 
-      // 4. Stok hareketi kaydı oluştur
+      // 4. Urun hareketi kaydı oluştur
       const { data: hareket, error: hareketError } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .insert({
           isletme_id: isletme.id,
           urun_id: input.urun_id,
@@ -292,36 +293,36 @@ export function useCreateStokHareket() {
         .single();
 
       if (hareketError) {
-        // Rollback: stok miktarını geri al
-        await supabase.rpc('update_stok_miktar', {
+        // Rollback: urun miktarını geri al
+        await supabase.rpc('update_urun_miktar', {
           p_urun_id: input.urun_id,
           p_miktar_degisim: -miktarDegisim,
         });
         throw hareketError;
       }
 
-      return hareket as StokHareket;
+      return hareket as UrunHareket;
     },
     onSuccess: () => {
-      invalidateRelatedQueries(queryClient, 'stokHareket');
+      invalidateRelatedQueries(queryClient, 'urunHareket');
     },
   });
 }
 
 /**
- * Birden fazla işlem için stoklu olup olmadığını kontrol et
- * Returns: Set of islem_ids that have stock movements
+ * Birden fazla işlem için ürünlü olup olmadığını kontrol et
+ * Returns: Set of islem_ids that have urun movements
  */
-export function useIslemlerWithStok(islemIds: string[]) {
+export function useIslemlerWithUrun(islemIds: string[]) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: ['stok-hareketler', 'islemler-with-stok', islemIds.join(','), isletme?.id || ''],
+    queryKey: ['urun-hareketler', 'islemler-with-urun', islemIds.join(','), isletme?.id || ''],
     queryFn: async () => {
       if (!isletme || islemIds.length === 0) return new Set<string>();
 
       const { data, error } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .select('islem_id')
         .eq('isletme_id', isletme.id)
         .in('islem_id', islemIds)
@@ -330,14 +331,14 @@ export function useIslemlerWithStok(islemIds: string[]) {
       if (error) throw error;
 
       // Unique islem_id'leri Set olarak döndür
-      const islemIdsWithStok = new Set<string>();
+      const islemIdsWithUrun = new Set<string>();
       data?.forEach(row => {
         if (row.islem_id) {
-          islemIdsWithStok.add(row.islem_id);
+          islemIdsWithUrun.add(row.islem_id);
         }
       });
 
-      return islemIdsWithStok;
+      return islemIdsWithUrun;
     },
     enabled: !!isletme && islemIds.length > 0,
   });
@@ -345,30 +346,30 @@ export function useIslemlerWithStok(islemIds: string[]) {
   return {
     ...result,
     isLoading: result.isLoading || isletmeLoading,
-    hasStok: (islemId: string) => result.data?.has(islemId) ?? false,
+    hasUrun: (islemId: string) => result.data?.has(islemId) ?? false,
   };
 }
 
 /**
- * Bir işleme ait stok hareketlerini getir (edit mode için)
+ * Bir işleme ait urun hareketlerini getir (edit mode için)
  */
-export function useStokHareketlerByIslemId(islemId: string | undefined) {
+export function useUrunHareketlerByIslemId(islemId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: queryKeys.stokHareketler.byIslem(islemId || '', isletme?.id || ''),
+    queryKey: queryKeys.urunHareketler.byIslem(islemId || '', isletme?.id || ''),
     queryFn: async () => {
       if (!isletme || !islemId) return [];
 
       const { data, error } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .select('*, urunler(*)')
         .eq('isletme_id', isletme.id)
         .eq('islem_id', islemId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as (StokHareket & { urunler: { ad: string; birim: string } })[];
+      return data as (UrunHareket & { urunler: { ad: string; birim: string } })[];
     },
     enabled: !!isletme && !!islemId,
   });
@@ -380,10 +381,10 @@ export function useStokHareketlerByIslemId(islemId: string | undefined) {
 }
 
 /**
- * Stok hareketi güncelle (sadece islem_id olmayan doğrudan girişler güncellenebilir)
- * Stok miktarını da günceller
+ * Urun hareketi güncelle (sadece islem_id olmayan doğrudan girişler güncellenebilir)
+ * Urun miktarını da günceller
  */
-export function useUpdateStokHareket() {
+export function useUpdateUrunHareket() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
 
@@ -392,24 +393,24 @@ export function useUpdateStokHareket() {
       id: string;
       miktar: number;
       birim_fiyat: number | null;
-      hareket_tipi: StokHareketTipi;
+      hareket_tipi: UrunHareketTipi;
     }) => {
       if (!isletme) throw new Error('İşletme bulunamadı');
 
       // 1. Önce mevcut hareketi al
       const { data: eskiHareket, error: eskiError } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .select('*')
         .eq('id', input.id)
         .eq('isletme_id', isletme.id)
         .single();
 
       if (eskiError) throw eskiError;
-      if (!eskiHareket) throw new Error('Stok hareketi bulunamadı');
+      if (!eskiHareket) throw new Error('Urun hareketi bulunamadı');
 
       // 2. İşlem bağlantılı hareketler güncellenemez
       if (eskiHareket.islem_id) {
-        throw new Error('Bu stok hareketi bir işleme bağlı olduğu için güncellenemez');
+        throw new Error('Bu ürün hareketi bir işleme bağlı olduğu için güncellenemez');
       }
 
       // 3. Eski miktar etkisini geri al
@@ -435,8 +436,8 @@ export function useUpdateStokHareket() {
       // 5. Net değişimi uygula
       const netDegisim = eskiMiktarDegisim + yeniMiktarDegisim;
 
-      const { data: yeniStokMiktar, error: rpcError } = await supabase
-        .rpc('update_stok_miktar', {
+      const { data: yeniUrunMiktar, error: rpcError } = await supabase
+        .rpc('update_urun_miktar', {
           p_urun_id: eskiHareket.urun_id,
           p_miktar_degisim: netDegisim,
         });
@@ -445,12 +446,12 @@ export function useUpdateStokHareket() {
 
       // 6. Hareketi güncelle
       const { data: guncellenmisHareket, error: updateError } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .update({
           hareket_tipi: input.hareket_tipi,
           miktar: input.miktar,
           birim_fiyat: input.birim_fiyat,
-          yeni_miktar: yeniStokMiktar,
+          yeni_miktar: yeniUrunMiktar,
         })
         .eq('id', input.id)
         .eq('isletme_id', isletme.id)
@@ -458,27 +459,27 @@ export function useUpdateStokHareket() {
         .single();
 
       if (updateError) {
-        // Rollback: stok miktarını geri al
-        await supabase.rpc('update_stok_miktar', {
+        // Rollback: urun miktarını geri al
+        await supabase.rpc('update_urun_miktar', {
           p_urun_id: eskiHareket.urun_id,
           p_miktar_degisim: -netDegisim,
         });
         throw updateError;
       }
 
-      return guncellenmisHareket as StokHareket;
+      return guncellenmisHareket as UrunHareket;
     },
     onSuccess: () => {
-      invalidateRelatedQueries(queryClient, 'stokHareket');
+      invalidateRelatedQueries(queryClient, 'urunHareket');
     },
   });
 }
 
 /**
- * Stok hareketi sil (sadece islem_id olmayan doğrudan girişler silinebilir)
- * Stok miktarını da geri alır
+ * Urun hareketi sil (sadece islem_id olmayan doğrudan girişler silinebilir)
+ * Urun miktarını da geri alır
  */
-export function useDeleteStokHareket() {
+export function useDeleteUrunHareket() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
 
@@ -488,18 +489,18 @@ export function useDeleteStokHareket() {
 
       // 1. Önce hareketi al
       const { data: hareket, error: hareketError } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .select('*')
         .eq('id', hareketId)
         .eq('isletme_id', isletme.id)
         .single();
 
       if (hareketError) throw hareketError;
-      if (!hareket) throw new Error('Stok hareketi bulunamadı');
+      if (!hareket) throw new Error('Urun hareketi bulunamadı');
 
       // 2. İşlem bağlantılı hareketler silinemez
       if (hareket.islem_id) {
-        throw new Error('Bu stok hareketi bir işleme bağlı olduğu için silinemez');
+        throw new Error('Bu ürün hareketi bir işleme bağlı olduğu için silinemez');
       }
 
       // 3. Miktar değişimini tersine çevir
@@ -513,9 +514,9 @@ export function useDeleteStokHareket() {
         miktarDegisim = -hareket.miktar;
       }
 
-      // 4. Stok miktarını güncelle
+      // 4. Urun miktarını güncelle
       const { error: rpcError } = await supabase
-        .rpc('update_stok_miktar', {
+        .rpc('update_urun_miktar', {
           p_urun_id: hareket.urun_id,
           p_miktar_degisim: miktarDegisim,
         });
@@ -524,14 +525,14 @@ export function useDeleteStokHareket() {
 
       // 5. Hareketi sil
       const { error: deleteError } = await supabase
-        .from('stok_hareketler')
+        .from('urun_hareketler')
         .delete()
         .eq('id', hareketId)
         .eq('isletme_id', isletme.id);
 
       if (deleteError) {
-        // Rollback: stok miktarını geri al
-        await supabase.rpc('update_stok_miktar', {
+        // Rollback: urun miktarını geri al
+        await supabase.rpc('update_urun_miktar', {
           p_urun_id: hareket.urun_id,
           p_miktar_degisim: -miktarDegisim,
         });
@@ -541,7 +542,7 @@ export function useDeleteStokHareket() {
       return { success: true };
     },
     onSuccess: () => {
-      invalidateRelatedQueries(queryClient, 'stokHareket');
+      invalidateRelatedQueries(queryClient, 'urunHareket');
     },
   });
 }

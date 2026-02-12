@@ -4,7 +4,7 @@
     "analytics": "Analitik",
     "clients": "Cariler",
     "personnel": "Personel",
-    "stock": "Stok",
+    "stock": "Ürünler",
     "more": "Daha"
   },
   "screens": {
@@ -60,17 +60,17 @@
     "forgotPassword": "Şifremi Unuttum",
     "resetPassword": "Şifre Sıfırla",
     "onboarding": "Hoş Geldiniz",
-    "products": "Stok",
-    "addProduct": "Stok Ekle",
-    "editProduct": "Stok Düzenle",
-    "productDetails": "Stok Detayı"
+    "products": "Ürünler",
+    "addProduct": "Ürün Ekle",
+    "editProduct": "Ürün Düzenle",
+    "productDetails": "Ürün Detayı"
   },
   "menu": {
     "allTransactions": "Tüm İşlemler",
     "reports": "Raporlar",
     "businessInfo": "İşletme Bilgileri",
     "categories": "Kategoriler",
-    "products": "Stok",
+    "products": "Ürünler",
     "accounts": "Varlıklar",
     "reminders": "Hatırlatıcılar",
     "privacyPolicy": "Gizlilik Politikası",

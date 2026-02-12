@@ -365,6 +365,7 @@ export function useCompleteIleriTarihliIslem() {
         .single();
 
       if (insertError) throw insertError;
+      if (!newIslem) throw new Error('İşlem oluşturulamadı');
 
       // 3. Bakiyeleri güncelle
       try {

@@ -1,7 +1,7 @@
 -- =============================================================================
--- FIX: update_stok_miktar - Missing isletme_id check + search_path
+-- FIX: update_urun_miktar - Missing isletme_id check + search_path
 -- =============================================================================
--- BUG H8: update_stok_miktar doesn't verify ownership (isletme_id).
+-- BUG H8: update_urun_miktar doesn't verify ownership (isletme_id).
 -- Any authenticated user could update stock for any product.
 -- Also missing SET search_path for SECURITY DEFINER safety.
 --
@@ -9,9 +9,9 @@
 -- =============================================================================
 
 -- Drop the old 2-param overload first to avoid ambiguity
-DROP FUNCTION IF EXISTS update_stok_miktar(UUID, NUMERIC);
+DROP FUNCTION IF EXISTS update_urun_miktar(UUID, NUMERIC);
 
-CREATE OR REPLACE FUNCTION update_stok_miktar(
+CREATE OR REPLACE FUNCTION update_urun_miktar(
   p_urun_id UUID,
   p_miktar_degisim NUMERIC,
   p_isletme_id UUID DEFAULT NULL
@@ -41,11 +41,11 @@ BEGIN
   END IF;
 
   IF v_yeni_miktar IS NULL THEN
-    RAISE EXCEPTION 'update_stok_miktar: urun bulunamadi veya bu isletmeye ait degil (urun_id: %, isletme_id: %)', p_urun_id, p_isletme_id;
+    RAISE EXCEPTION 'update_urun_miktar: urun bulunamadi veya bu isletmeye ait degil (urun_id: %, isletme_id: %)', p_urun_id, p_isletme_id;
   END IF;
 
   RETURN v_yeni_miktar;
 END;
 $$;
 
-COMMENT ON FUNCTION update_stok_miktar(UUID, NUMERIC, UUID) IS 'Atomically update product stock quantity with optional ownership check. Returns new quantity.';
+COMMENT ON FUNCTION update_urun_miktar(UUID, NUMERIC, UUID) IS 'Atomically update product stock quantity with optional ownership check. Returns new quantity.';

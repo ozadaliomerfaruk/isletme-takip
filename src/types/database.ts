@@ -3,7 +3,7 @@
 // 'diger' eski değer, 'birikim' yeni değer - backward compatibility için ikisi de destekleniyor
 export type HesapType = 'nakit' | 'banka' | 'kredi_karti' | 'birikim' | 'diger';
 export type CariType = 'musteri' | 'tedarikci';
-export type KategoriType = 'gelir' | 'gider' | 'stok';
+export type KategoriType = 'gelir' | 'gider' | 'urun';
 export type Currency = 'TRY' | 'USD' | 'EUR' | 'GBP' | 'XAU' | 'XAG';
 export type IslemType =
   | 'gelir'
@@ -645,7 +645,7 @@ export type BirimType =
   | 'paket' | 'kutu' | 'koli'
   // Tüketim
   | 'porsiyon';
-export type StokHareketTipi = 'giris' | 'cikis' | 'duzeltme';
+export type UrunHareketTipi = 'giris' | 'cikis' | 'duzeltme';
 export type KdvOrani = 0 | 1 | 10 | 20;
 
 // Ürün
@@ -695,13 +695,13 @@ export interface UrunUpdate {
   is_archived?: boolean;
 }
 
-// Stok Hareket
-export interface StokHareket {
+// Urun Hareket
+export interface UrunHareket {
   id: string;
   isletme_id: string;
   urun_id: string;
   islem_id: string | null;
-  hareket_tipi: StokHareketTipi;
+  hareket_tipi: UrunHareketTipi;
   miktar: number;
   birim_fiyat: number | null;
   kdv_orani: number | null;
@@ -711,16 +711,16 @@ export interface StokHareket {
   created_at: string;
 }
 
-export interface StokHareketInsert {
+export interface UrunHareketInsert {
   urun_id: string;
   islem_id?: string | null;
-  hareket_tipi: StokHareketTipi;
+  hareket_tipi: UrunHareketTipi;
   miktar: number;
   birim_fiyat?: number | null;
   kdv_orani?: number | null;
   aciklama?: string | null;
 }
 
-export interface StokHareketWithUrun extends StokHareket {
+export interface UrunHareketWithUrun extends UrunHareket {
   urun?: Urun;
 }

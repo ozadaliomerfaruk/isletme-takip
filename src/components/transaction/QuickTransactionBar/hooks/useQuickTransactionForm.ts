@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ensureValidDate } from '@/lib/date';
-import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, StokItem } from '../types';
+import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, UrunItem } from '../types';
 import type { CariType, Currency, BirimType } from '@/types/database';
 import { useIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { useStokHareketlerByIslemId } from '@/hooks/useStokHareketler';
+import { useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
 import { mapApiTypeToFormState } from '../utils/reverseTypeMapper';
 
 interface Hesap {
@@ -84,13 +84,13 @@ interface UseQuickTransactionFormReturn {
   pendingExchangeData: PendingExchangeData | null;
   setPendingExchangeData: (data: PendingExchangeData | null) => void;
 
-  // Stok items (alış/satış/iade işlemlerinde stok hareketi)
-  stokItems: StokItem[];
-  setStokItems: React.Dispatch<React.SetStateAction<StokItem[]>>;
-  addStokItem: (item: StokItem) => void;
-  removeStokItem: (urunId: string) => void;
-  updateStokItem: (urunId: string, updates: Partial<StokItem>) => void;
-  clearStokItems: () => void;
+  // Urun items (alış/satış/iade işlemlerinde urun hareketi)
+  urunItems: UrunItem[];
+  setUrunItems: React.Dispatch<React.SetStateAction<UrunItem[]>>;
+  addUrunItem: (item: UrunItem) => void;
+  removeUrunItem: (urunId: string) => void;
+  updateUrunItem: (urunId: string, updates: Partial<UrunItem>) => void;
+  clearUrunItems: () => void;
 
   // Computed hesapId
   hesapId: string | undefined;
@@ -141,13 +141,13 @@ export function useQuickTransactionForm({
     isEditMode && isScheduledTransaction ? transactionId : undefined
   );
 
-  // Fetch stok hareketler for edit mode (only for normal transactions)
-  const { data: stokHareketler, isLoading: isLoadingStokHareketler } = useStokHareketlerByIslemId(
+  // Fetch urun hareketler for edit mode (only for normal transactions)
+  const { data: urunHareketler, isLoading: isLoadingUrunHareketler } = useUrunHareketlerByIslemId(
     isEditMode && !isScheduledTransaction ? transactionId : undefined
   );
 
   // Combined loading state
-  const isLoadingTransaction = isEditMode && (isLoadingNormal || isLoadingScheduled || isLoadingStokHareketler);
+  const isLoadingTransaction = isEditMode && (isLoadingNormal || isLoadingScheduled || isLoadingUrunHareketler);
 
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType);
@@ -175,12 +175,12 @@ export function useQuickTransactionForm({
   // Exchange rate state
   const [pendingExchangeData, setPendingExchangeData] = useState<PendingExchangeData | null>(null);
 
-  // Stok items state (alış/satış/iade işlemlerinde stok hareketi)
-  const [stokItems, setStokItems] = useState<StokItem[]>([]);
+  // Urun items state (alış/satış/iade işlemlerinde urun hareketi)
+  const [urunItems, setUrunItems] = useState<UrunItem[]>([]);
 
-  // Stok items helper functions
-  const addStokItem = useCallback((item: StokItem) => {
-    setStokItems(prev => {
+  // Urun items helper functions
+  const addUrunItem = useCallback((item: UrunItem) => {
+    setUrunItems(prev => {
       // Aynı ürün zaten eklenmişse güncelle
       const existingIndex = prev.findIndex(i => i.urunId === item.urunId);
       if (existingIndex !== -1) {
@@ -192,18 +192,18 @@ export function useQuickTransactionForm({
     });
   }, []);
 
-  const removeStokItem = useCallback((urunId: string) => {
-    setStokItems(prev => prev.filter(item => item.urunId !== urunId));
+  const removeUrunItem = useCallback((urunId: string) => {
+    setUrunItems(prev => prev.filter(item => item.urunId !== urunId));
   }, []);
 
-  const updateStokItem = useCallback((urunId: string, updates: Partial<StokItem>) => {
-    setStokItems(prev => prev.map(item =>
+  const updateUrunItem = useCallback((urunId: string, updates: Partial<UrunItem>) => {
+    setUrunItems(prev => prev.map(item =>
       item.urunId === urunId ? { ...item, ...updates } : item
     ));
   }, []);
 
-  const clearStokItems = useCallback(() => {
-    setStokItems([]);
+  const clearUrunItems = useCallback(() => {
+    setUrunItems([]);
   }, []);
 
   // Computed hesapId (fallback)
@@ -232,7 +232,7 @@ export function useQuickTransactionForm({
     setOdemeHedefType(null);
     setTahsilatHedefType(null);
     setPendingExchangeData(null);
-    setStokItems([]); // Stok items'ı temizle
+    setUrunItems([]); // Urun items'ı temizle
     setEditDataLoaded(false);
     setIsCariMode(!!defaultCariId);
     setIsPersonelMode(!!defaultPersonelId);
@@ -294,9 +294,9 @@ export function useQuickTransactionForm({
       setIsScheduled(true);
     }
 
-    // Load stok items from stok hareketler (if available)
-    if (stokHareketler && stokHareketler.length > 0) {
-      const loadedStokItems: StokItem[] = stokHareketler.map(hareket => ({
+    // Load urun items from urun hareketler (if available)
+    if (urunHareketler && urunHareketler.length > 0) {
+      const loadedUrunItems: UrunItem[] = urunHareketler.map(hareket => ({
         urunId: hareket.urun_id,
         urunAd: hareket.urunler?.ad || '',
         miktar: Math.abs(hareket.miktar),
@@ -304,7 +304,7 @@ export function useQuickTransactionForm({
         kdvOrani: hareket.kdv_orani || 0,
         birim: (hareket.urunler?.birim || 'adet') as BirimType,
       }));
-      setStokItems(loadedStokItems);
+      setUrunItems(loadedUrunItems);
     }
 
     setEditDataLoaded(true);
@@ -315,7 +315,7 @@ export function useQuickTransactionForm({
     isScheduledTransaction,
     normalTransaction,
     scheduledTransaction,
-    stokHareketler,
+    urunHareketler,
   ]);
 
   // Update type and cari/personel when modal opens (only in create mode)
@@ -420,13 +420,13 @@ export function useQuickTransactionForm({
     pendingExchangeData,
     setPendingExchangeData,
 
-    // Stok items
-    stokItems,
-    setStokItems,
-    addStokItem,
-    removeStokItem,
-    updateStokItem,
-    clearStokItems,
+    // Urun items
+    urunItems,
+    setUrunItems,
+    addUrunItem,
+    removeUrunItem,
+    updateUrunItem,
+    clearUrunItems,
 
     // Computed
     hesapId,

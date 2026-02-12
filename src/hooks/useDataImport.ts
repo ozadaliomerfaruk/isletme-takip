@@ -364,7 +364,7 @@ async function checkForDuplicates(
   if (validTransactions.length === 0) return duplicates;
 
   // Unique tarihleri topla ve sırala (performans için tek sorguda)
-  const uniqueDates = [...new Set(validTransactions.map(tx => tx.date.split('T')[0]))].sort();
+  const uniqueDates = [...new Set(validTransactions.filter(tx => tx.date).map(tx => tx.date!.split('T')[0]))].sort();
 
   try {
     // Tek sorguda tüm potansiyel duplicate'ları al

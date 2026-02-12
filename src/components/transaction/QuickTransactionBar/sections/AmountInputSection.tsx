@@ -43,10 +43,10 @@ export interface AmountInputSectionProps {
   type: TransactionType;
   onTypeChange: (type: TransactionType) => void;
   tabMode: TransactionTabMode;
-  // Stock
-  showStokButton?: boolean;
-  stokItemCount?: number;
-  onStokButtonPress?: () => void;
+  // Urun
+  showUrunButton?: boolean;
+  urunItemCount?: number;
+  onUrunButtonPress?: () => void;
 }
 
 export function AmountInputSection({
@@ -74,9 +74,9 @@ export function AmountInputSection({
   type,
   onTypeChange,
   tabMode,
-  showStokButton,
-  stokItemCount = 0,
-  onStokButtonPress,
+  showUrunButton,
+  urunItemCount = 0,
+  onUrunButtonPress,
 }: AmountInputSectionProps) {
   const { t } = useTranslation(['common', 'transactions']);
   const localAmountRef = useRef<TextInput>(null);
@@ -140,20 +140,20 @@ export function AmountInputSection({
           size="small"
         /> */}
 
-        {/* Stock Button - only show when hasUrunler and type is alis/satis/alis_iade/satis_iade */}
-        {showStokButton && onStokButtonPress && (
+        {/* Urun Button - only show when hasUrunler and type is alis/satis/alis_iade/satis_iade */}
+        {showUrunButton && onUrunButtonPress && (
           <TouchableOpacity
-            style={localStyles.stokButton}
-            onPress={onStokButtonPress}
+            style={localStyles.urunButton}
+            onPress={onUrunButtonPress}
             disabled={isSaving}
           >
             <Package size={18} color={colors.primary} />
-            <Text style={localStyles.stokButtonText}>
+            <Text style={localStyles.urunButtonText}>
               {t('transactions:stock.stockButton')}
             </Text>
-            {stokItemCount > 0 && (
-              <View style={localStyles.stokBadge}>
-                <Text style={localStyles.stokBadgeText}>{stokItemCount}</Text>
+            {urunItemCount > 0 && (
+              <View style={localStyles.urunBadge}>
+                <Text style={localStyles.urunBadgeText}>{urunItemCount}</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -179,7 +179,7 @@ export function AmountInputSection({
 }
 
 const localStyles = StyleSheet.create({
-  stokButton: {
+  urunButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -190,12 +190,12 @@ const localStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.primary,
   },
-  stokButtonText: {
+  urunButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
   },
-  stokBadge: {
+  urunBadge: {
     backgroundColor: colors.primary,
     borderRadius: 10,
     minWidth: 20,
@@ -205,7 +205,7 @@ const localStyles = StyleSheet.create({
     paddingHorizontal: 6,
     marginLeft: 2,
   },
-  stokBadgeText: {
+  urunBadgeText: {
     fontSize: 12,
     fontWeight: '700',
     color: '#FFFFFF',

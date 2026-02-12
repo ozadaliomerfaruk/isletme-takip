@@ -1,7 +1,7 @@
 -- =============================================
--- STOK YÖNETİMİ TABLOLARI
--- Migration: stok_yonetimi
--- Purpose: Add basic inventory/stock management capability
+-- ÜRÜN YÖNETİMİ TABLOLARI
+-- Migration: urun_yonetimi
+-- Purpose: Add basic inventory/product management capability
 -- =============================================
 
 -- =============================================
@@ -46,9 +46,9 @@ COMMENT ON COLUMN urunler.alis_fiyati IS 'Default purchase price';
 COMMENT ON COLUMN urunler.satis_fiyati IS 'Default sale price';
 
 -- =============================================
--- 2. STOK_HAREKETLER (Stock Movements) TABLE
+-- 2. URUN_HAREKETLER (Product Movements) TABLE
 -- =============================================
-CREATE TABLE IF NOT EXISTS stok_hareketler (
+CREATE TABLE IF NOT EXISTS urun_hareketler (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   isletme_id UUID NOT NULL REFERENCES isletmeler(id) ON DELETE CASCADE,
   urun_id UUID NOT NULL REFERENCES urunler(id) ON DELETE CASCADE,
@@ -62,29 +62,29 @@ CREATE TABLE IF NOT EXISTS stok_hareketler (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_stok_hareketler_isletme ON stok_hareketler(isletme_id);
-CREATE INDEX IF NOT EXISTS idx_stok_hareketler_urun ON stok_hareketler(urun_id);
-CREATE INDEX IF NOT EXISTS idx_stok_hareketler_tarih ON stok_hareketler(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_stok_hareketler_ay ON stok_hareketler(isletme_id, urun_id, date_trunc('month', created_at));
+CREATE INDEX IF NOT EXISTS idx_urun_hareketler_isletme ON urun_hareketler(isletme_id);
+CREATE INDEX IF NOT EXISTS idx_urun_hareketler_urun ON urun_hareketler(urun_id);
+CREATE INDEX IF NOT EXISTS idx_urun_hareketler_tarih ON urun_hareketler(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_urun_hareketler_ay ON urun_hareketler(isletme_id, urun_id, date_trunc('month', created_at));
 
 -- RLS
-ALTER TABLE stok_hareketler ENABLE ROW LEVEL SECURITY;
+ALTER TABLE urun_hareketler ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own stok_hareketler"
-  ON stok_hareketler FOR ALL USING (
+CREATE POLICY "Users can manage own urun_hareketler"
+  ON urun_hareketler FOR ALL USING (
     isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
   );
 
-COMMENT ON TABLE stok_hareketler IS 'Stock movement log (entries, exits, adjustments)';
-COMMENT ON COLUMN stok_hareketler.hareket_tipi IS 'Movement type: giris (entry), cikis (exit), duzeltme (adjustment)';
-COMMENT ON COLUMN stok_hareketler.miktar IS 'Movement quantity (positive for giris, negative for cikis)';
-COMMENT ON COLUMN stok_hareketler.onceki_miktar IS 'Stock quantity before movement';
-COMMENT ON COLUMN stok_hareketler.yeni_miktar IS 'Stock quantity after movement';
+COMMENT ON TABLE urun_hareketler IS 'Stock movement log (entries, exits, adjustments)';
+COMMENT ON COLUMN urun_hareketler.hareket_tipi IS 'Movement type: giris (entry), cikis (exit), duzeltme (adjustment)';
+COMMENT ON COLUMN urun_hareketler.miktar IS 'Movement quantity (positive for giris, negative for cikis)';
+COMMENT ON COLUMN urun_hareketler.onceki_miktar IS 'Stock quantity before movement';
+COMMENT ON COLUMN urun_hareketler.yeni_miktar IS 'Stock quantity after movement';
 
 -- =============================================
--- 3. RPC: Atomik Stok Güncelleme
+-- 3. RPC: Atomik Ürün Güncelleme
 -- =============================================
-CREATE OR REPLACE FUNCTION update_stok_miktar(
+CREATE OR REPLACE FUNCTION update_urun_miktar(
   p_urun_id UUID,
   p_miktar_degisim NUMERIC
 ) RETURNS NUMERIC
@@ -104,15 +104,15 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION update_stok_miktar IS 'Atomically update product stock quantity. Returns new quantity.';
+COMMENT ON FUNCTION update_urun_miktar IS 'Atomically update product stock quantity. Returns new quantity.';
 
 -- =============================================
 -- DOCUMENTATION
 -- =============================================
 -- Bu migration mevcut tablolara dokunmuyor.
 -- Sadece yeni tablolar ekliyor:
--- - urunler: Ürün tanımları ve stok miktarları
--- - stok_hareketler: Stok giriş/çıkış log'u
+-- - urunler: Ürün tanımları ve ürün miktarları
+-- - urun_hareketler: Ürün giriş/çıkış log'u
 --
--- Stok miktarı "stored balance" pattern ile urunler.miktar'da tutuluyor.
--- Her hareket stok_hareketler'e kaydediliyor ve urunler.miktar atomik olarak güncelleniyor.
+-- Ürün miktarı "stored balance" pattern ile urunler.miktar'da tutuluyor.
+-- Her hareket urun_hareketler'e kaydediliyor ve urunler.miktar atomik olarak güncelleniyor.

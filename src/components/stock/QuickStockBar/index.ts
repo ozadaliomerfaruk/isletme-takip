@@ -1,1 +1,0 @@
-export { QuickStockBar } from './QuickStockBar';

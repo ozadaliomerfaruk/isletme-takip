@@ -265,11 +265,12 @@ export default function PersonelHareketleriPage() {
           text: t('common:buttons.confirm'),
           onPress: async () => {
             try {
-              const transactionEffect = Number(personel!.balance) - initialBalance;
+              if (!personel) return;
+              const transactionEffect = Number(personel.balance) - initialBalance;
               const newPersonelBalance = newInitial + transactionEffect;
 
               await updatePersonel.mutateAsync({
-                id: personel!.id,
+                id: personel.id,
                 balance: newPersonelBalance,
               });
 

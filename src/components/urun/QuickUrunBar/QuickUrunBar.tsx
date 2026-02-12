@@ -20,29 +20,29 @@ import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { X, Package, Calendar } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
-import { useCreateStokHareket, useUpdateStokHareket } from '@/hooks/useStokHareketler';
+import { useCreateUrunHareket, useUpdateUrunHareket } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { Urun, BirimType, StokHareketTipi } from '@/types/database';
+import { Urun, BirimType, UrunHareketTipi } from '@/types/database';
 import { styles } from './styles';
 
-type StokType = 'giris' | 'cikis';
+type UrunType = 'giris' | 'cikis';
 
-interface QuickStockBarProps {
+interface QuickUrunBarProps {
   visible: boolean;
   onDismiss: () => void;
   urun: Urun | null;
-  defaultType?: StokType;
+  defaultType?: UrunType;
   // Edit mode props
   mode?: 'create' | 'edit';
   editHareketId?: string;
   editInitialValues?: {
     miktar: number;
     birimFiyat: number | null;
-    stokType: StokType;
+    urunType: UrunType;
   };
 }
 
-export function QuickStockBar({
+export function QuickUrunBar({
   visible,
   onDismiss,
   urun,
@@ -50,10 +50,10 @@ export function QuickStockBar({
   mode = 'create',
   editHareketId,
   editInitialValues,
-}: QuickStockBarProps) {
+}: QuickUrunBarProps) {
   const { t } = useTranslation(['products', 'common', 'errors']);
-  const createStokHareket = useCreateStokHareket();
-  const updateStokHareket = useUpdateStokHareket();
+  const createUrunHareket = useCreateUrunHareket();
+  const updateUrunHareket = useUpdateUrunHareket();
   const isEditMode = mode === 'edit' && editHareketId;
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
@@ -66,7 +66,7 @@ export function QuickStockBar({
   const translateY = useRef(new Animated.Value(100)).current;
 
   // Form state
-  const [stokType, setStokType] = useState<StokType>(defaultType);
+  const [urunType, setUrunType] = useState<UrunType>(defaultType);
   const [miktar, setMiktar] = useState('');
   const [birimFiyat, setBirimFiyat] = useState('');
   const [tarih, setTarih] = useState(new Date());
@@ -100,8 +100,8 @@ export function QuickStockBar({
     };
   }, []);
 
-  // Helper to get price based on stock type
-  const getPriceForType = useCallback((type: StokType) => {
+  // Helper to get price based on urun type
+  const getPriceForType = useCallback((type: UrunType) => {
     if (!urun) return '';
     const price = type === 'giris' ? urun.alis_fiyati : urun.satis_fiyati;
     return price > 0 ? price.toString() : '';
@@ -112,13 +112,13 @@ export function QuickStockBar({
     if (visible) {
       // Reset form - use edit values if in edit mode
       if (isEditMode && editInitialValues) {
-        setStokType(editInitialValues.stokType);
+        setUrunType(editInitialValues.urunType);
         setMiktar(editInitialValues.miktar.toString());
         setBirimFiyat(editInitialValues.birimFiyat?.toString() || '');
       } else {
-        setStokType(defaultType);
+        setUrunType(defaultType);
         setMiktar('');
-        // Auto-fill price based on stock type
+        // Auto-fill price based on urun type
         setBirimFiyat(getPriceForType(defaultType));
       }
       setTarih(new Date());
@@ -217,11 +217,11 @@ export function QuickStockBar({
     try {
       if (isEditMode && editHareketId) {
         // Update existing movement
-        await updateStokHareket.mutateAsync({
+        await updateUrunHareket.mutateAsync({
           id: editHareketId,
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
-          hareket_tipi: stokType,
+          hareket_tipi: urunType,
         });
 
         handleDismiss();
@@ -231,9 +231,9 @@ export function QuickStockBar({
         );
       } else {
         // Create new movement
-        await createStokHareket.mutateAsync({
+        await createUrunHareket.mutateAsync({
           urun_id: urun.id,
-          hareket_tipi: stokType,
+          hareket_tipi: urunType,
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
           aciklama: null,
@@ -242,7 +242,7 @@ export function QuickStockBar({
         handleDismiss();
         Alert.alert(
           t('common:status.success'),
-          stokType === 'giris'
+          urunType === 'giris'
             ? t('products:messages.stockInSuccess')
             : t('products:messages.stockOutSuccess')
         );
@@ -256,7 +256,7 @@ export function QuickStockBar({
 
   const miktarNum = parseFloat(miktar.replace(',', '.'));
   const isValidAmount = !isNaN(miktarNum) && miktarNum > 0;
-  const isPending = createStokHareket.isPending || updateStokHareket.isPending;
+  const isPending = createUrunHareket.isPending || updateUrunHareket.isPending;
 
   // Position card above keyboard (like QuickTransactionBar)
   const cardBottom = keyboardHeight > 0
@@ -351,7 +351,7 @@ export function QuickStockBar({
         <TouchableOpacity
           style={[
             styles.saveButton,
-            stokType === 'giris' ? styles.saveButtonGiris : styles.saveButtonCikis,
+            urunType === 'giris' ? styles.saveButtonGiris : styles.saveButtonCikis,
             (!isValidAmount || isPending) && styles.saveButtonDisabled,
           ]}
           onPress={handleSave}
@@ -366,15 +366,15 @@ export function QuickStockBar({
           )}
         </TouchableOpacity>
 
-        {/* Tabs: Stok Giriş / Stok Çıkış */}
+        {/* Tabs: Ürün Giriş / Ürün Çıkış */}
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[
               styles.tab,
-              stokType === 'giris' && styles.tabGiris,
+              urunType === 'giris' && styles.tabGiris,
             ]}
             onPress={() => {
-              setStokType('giris');
+              setUrunType('giris');
               if (!isEditMode) setBirimFiyat(getPriceForType('giris'));
             }}
             activeOpacity={0.7}
@@ -382,7 +382,7 @@ export function QuickStockBar({
             <RNText
               style={[
                 styles.tabText,
-                stokType === 'giris' && styles.tabTextGiris,
+                urunType === 'giris' && styles.tabTextGiris,
               ]}
             >
               {t('products:stock.stockIn')}
@@ -391,10 +391,10 @@ export function QuickStockBar({
           <TouchableOpacity
             style={[
               styles.tab,
-              stokType === 'cikis' && styles.tabCikis,
+              urunType === 'cikis' && styles.tabCikis,
             ]}
             onPress={() => {
-              setStokType('cikis');
+              setUrunType('cikis');
               if (!isEditMode) setBirimFiyat(getPriceForType('cikis'));
             }}
             activeOpacity={0.7}
@@ -402,7 +402,7 @@ export function QuickStockBar({
             <RNText
               style={[
                 styles.tabText,
-                stokType === 'cikis' && styles.tabTextCikis,
+                urunType === 'cikis' && styles.tabTextCikis,
               ]}
             >
               {t('products:stock.stockOut')}

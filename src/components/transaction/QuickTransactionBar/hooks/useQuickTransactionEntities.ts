@@ -75,7 +75,7 @@ interface UseQuickTransactionEntitiesReturn {
   filteredPersonel: Personel[];
   filteredUrunler: Urun[];
 
-  // Stok flags
+  // Ürün flags
   hasUrunler: boolean;
 }
 
@@ -223,7 +223,7 @@ export function useQuickTransactionEntities({
     filteredPersonel,
     filteredUrunler,
 
-    // Stok flags
+    // Ürün flags
     hasUrunler,
   };
 }

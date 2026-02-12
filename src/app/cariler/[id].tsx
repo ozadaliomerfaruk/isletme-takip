@@ -35,7 +35,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useIslemlerWithStok } from '@/hooks/useStokHareketler';
+import { useIslemlerWithUrun } from '@/hooks/useUrunHareketler';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
 import { IslemWithRelations } from '@/types/database';
@@ -50,7 +50,7 @@ interface CariTransactionItemProps {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
-  hasStokFn: (id: string) => boolean;
+  hasUrunFn: (id: string) => boolean;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
   currency?: string;
@@ -112,7 +112,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   onToggle,
   onDelete,
   onEdit,
-  hasStokFn,
+  hasUrunFn,
   formatDateSmart,
   t,
   currency,
@@ -135,8 +135,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
           <View style={styles.hareketInfo}>
             <View style={styles.hareketTitleRow}>
               <Text variant="body">{formatDateSmart(islem.date)}</Text>
-              {hasStokFn(islem.id) && (
-                <View style={styles.stokBadge}>
+              {hasUrunFn(islem.id) && (
+                <View style={styles.urunBadge}>
                   <Package size={12} color={colors.primary} />
                 </View>
               )}
@@ -211,9 +211,9 @@ export default function CariHareketleriPage() {
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
 
-  // İşlemlerin stoklu olup olmadığını kontrol et
+  // İşlemlerin ürünlü olup olmadığını kontrol et
   const islemIds = islemler?.map(i => i.id) || [];
-  const { hasStok } = useIslemlerWithStok(islemIds);
+  const { hasUrun } = useIslemlerWithUrun(islemIds);
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
   const updateCari = useUpdateCari();
@@ -285,11 +285,12 @@ export default function CariHareketleriPage() {
           text: t('common:buttons.confirm'),
           onPress: async () => {
             try {
-              const transactionEffect = Number(cari!.balance) - initialBalance;
+              if (!cari) return;
+              const transactionEffect = Number(cari.balance) - initialBalance;
               const newCariBalance = newInitial + transactionEffect;
 
               await updateCari.mutateAsync({
-                id: cari!.id,
+                id: cari.id,
                 balance: newCariBalance,
               });
 
@@ -397,13 +398,13 @@ export default function CariHareketleriPage() {
         onToggle={handleToggleIslem}
         onDelete={handleDeleteIslem}
         onEdit={handleEditIslem}
-        hasStokFn={hasStok}
+        hasUrunFn={hasUrun}
         formatDateSmart={formatDateSmart}
         t={t}
         currency={cari?.currency}
       />
     );
-  }, [expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, hasStok, formatDateSmart, t]);
+  }, [expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, hasUrun, formatDateSmart, t]);
 
   const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
 
@@ -816,7 +817,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  stokBadge: {
+  urunBadge: {
     width: 18,
     height: 18,
     borderRadius: 9,

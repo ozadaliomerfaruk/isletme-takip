@@ -76,6 +76,7 @@ export function useNakitAvans(id: string | undefined) {
         .single();
 
       if (error) throw error;
+      if (!data) throw new Error('Nakit avans bulunamadı');
 
       // Normalize data
       return {

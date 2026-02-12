@@ -161,10 +161,10 @@ Yasal: + GDPR uyumu
   - Alım geçmişi görüntüleme
   - Fiyat değişim takibi
   - Tedarikçi bazlı rapor
-  - ⚠️ **STOK TAKİBİ DEĞİL!**
-    - ❌ Stok miktarı tutulmaz
-    - ❌ Minimum stok uyarısı yok
-    - ❌ Otomatik stok düşme yok
+  - ⚠️ **ÜRÜN TAKİBİ DEĞİL!**
+    - ❌ Ürün miktarı tutulmaz
+    - ❌ Minimum ürün uyarısı yok
+    - ❌ Otomatik ürün düşme yok
 
 ---
 
