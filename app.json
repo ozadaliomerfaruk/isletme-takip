@@ -105,19 +105,10 @@
       ],
       "expo-localization",
       [
-        "rn-mlkit-ocr",
-        {
-          "ocrModels": [
-            "latin"
-          ],
-          "ocrUseBundled": true
-        }
-      ],
-      [
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.5"
+            "deploymentTarget": "15.1"
           }
         }
       ]

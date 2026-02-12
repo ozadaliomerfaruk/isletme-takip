@@ -78,7 +78,10 @@
     "ocrFailed": "Metin okunamadı. Lütfen tekrar deneyin veya manuel giriş yapın.",
     "noProductLines": "Ürün satırı bulunamadı. Fotoğrafı kontrol edin.",
     "alreadySaved": "Bu oturum zaten kaydedildi.",
-    "manualFallback": "Manuel girişe geç"
+    "manualFallback": "Manuel girişe geç",
+    "networkError": "İnternet bağlantısı bulunamadı. Fatura analizi için internet gereklidir.",
+    "analysisError": "Fatura analiz hatası: {{message}}",
+    "analysisFailed": "Fatura analizi başarısız oldu"
   },
   "batch": {
     "processingPhoto": "Fatura {{current}}/{{total}} işleniyor...",

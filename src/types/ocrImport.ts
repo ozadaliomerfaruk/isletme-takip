@@ -12,26 +12,6 @@ export type MatchTier = 'exact' | 'suggestion' | 'new';
 /** Save mode choice */
 export type OcrSaveMode = 'only_products' | 'products_and_movements' | 'only_cari_transaction';
 
-/** Raw OCR result from the engine (abstraction over rn-mlkit-ocr) */
-export interface OcrResult {
-  text: string;
-  blocks: OcrBlock[];
-}
-
-export interface OcrBlock {
-  text: string;
-  lines: OcrLine[];
-}
-
-export interface OcrLine {
-  text: string;
-  elements: OcrElement[];
-}
-
-export interface OcrElement {
-  text: string;
-}
-
 /** A single product line extracted by the parser */
 export interface OcrParsedItem {
   id: string;

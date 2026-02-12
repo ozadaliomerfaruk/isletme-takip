@@ -6,8 +6,7 @@ import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCariler } from '@/hooks/useCariler';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { recognizeText } from '@/lib/ocrEngine';
-import { parseInvoice } from '@/lib/invoiceParser';
+import { recognizeInvoice } from '@/lib/ocrEngine';
 import { matchItemsToProducts, matchSupplier } from '@/lib/fuzzyMatch';
 import { formatDateTimeForDB } from '@/lib/date';
 import {
@@ -39,10 +38,9 @@ export function useOcrImport(sessionId: string) {
     hareketIds: [],
   });
 
-  // Process a single image
+  // Process a single image via Gemini AI
   const processImage = useCallback(async (imageUri: string): Promise<OcrParsedInvoice> => {
-    const ocrResult = await recognizeText(imageUri);
-    const parsed = parseInvoice(ocrResult);
+    const parsed = await recognizeInvoice(imageUri);
 
     if (existingProducts && existingProducts.length > 0) {
       parsed.items = matchItemsToProducts(parsed.items, existingProducts);
