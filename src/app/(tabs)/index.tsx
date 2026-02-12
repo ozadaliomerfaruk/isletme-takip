@@ -774,20 +774,46 @@ export default function HomePage() {
         cancelLabel={t('common:buttons.cancel')}
       />
 
-      {/* Yıl Picker (ActionSheet) */}
-      <ActionSheet
+      {/* Yıl Picker Modal */}
+      <Modal
         visible={showYearPicker}
-        onClose={() => setShowYearPicker(false)}
-        title={t('reports:period.selectYear')}
-        options={Array.from({ length: 16 }, (_, i) => {
-          const year = 2015 + i;
-          return {
-            label: year.toString(),
-            onPress: () => goToYear(year),
-          };
-        })}
-        cancelLabel={t('common:buttons.cancel')}
-      />
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowYearPicker(false)}
+      >
+        <Pressable
+          style={styles.pickerModalOverlay}
+          onPress={() => setShowYearPicker(false)}
+        >
+          <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.pickerModalHeader}>
+              <Text variant="h3">{t('reports:period.selectYear')}</Text>
+              <TouchableOpacity onPress={() => setShowYearPicker(false)}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.yearGrid}>
+              {Array.from({ length: 12 }, (_, i) => 2020 + i).map((year) => {
+                const isSelected = year === new Date().getFullYear() + periodOffset;
+                return (
+                  <TouchableOpacity
+                    key={year}
+                    style={[styles.yearGridCell, isSelected && styles.yearGridCellActive]}
+                    onPress={() => goToYear(year)}
+                  >
+                    <Text
+                      variant="body"
+                      style={isSelected ? styles.yearGridTextActive : undefined}
+                    >
+                      {year}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Ay + Yıl Picker Modal */}
       <Modal
@@ -815,7 +841,7 @@ export default function HomePage() {
               style={styles.yearScrollView}
               contentContainerStyle={styles.yearScrollContent}
             >
-              {Array.from({ length: 16 }, (_, i) => 2015 + i).map((year) => (
+              {Array.from({ length: 12 }, (_, i) => 2020 + i).map((year) => (
                 <TouchableOpacity
                   key={year}
                   style={[
@@ -1115,6 +1141,28 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   yearChipTextActive: {
+    color: colors.surface,
+    fontWeight: '600',
+  },
+  yearGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  yearGridCell: {
+    width: '23%',
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  yearGridCellActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  yearGridTextActive: {
     color: colors.surface,
     fontWeight: '600',
   },

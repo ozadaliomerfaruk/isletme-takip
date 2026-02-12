@@ -43,6 +43,7 @@ interface FotoImportContextValue {
 
   // Invoice list actions
   handleSelectInvoice: (index: number) => void;
+  handleRemoveEntry: (index: number) => void;
   handleAddMore: () => void;
   handleSaveAllWithDirection: (hareketTipi: UrunHareketTipi) => void;
 
@@ -239,7 +240,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         setInvoiceDateFromEntry(newEntries[0]);
         setSaveMode(newEntries[0].saveMode);
         setStep('review');
-        router.push('/urunler/foto-import/review');
+        router.push('/foto-import/review');
       } else {
         setStep('invoice-list');
       }
@@ -304,8 +305,19 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     setInvoiceDateFromEntry(entries[index]);
     setSaveMode(entries[index].saveMode);
     setStep('review');
-    router.push('/urunler/foto-import/review');
+    router.push('/foto-import/review');
   }, [entries, setInvoiceDateFromEntry, router]);
+
+  // ====== INVOICE LIST: Remove entry ======
+  const handleRemoveEntry = useCallback((index: number) => {
+    setEntries(prev => {
+      const newEntries = prev.filter((_, i) => i !== index);
+      if (newEntries.length === 0) {
+        setStep('capture');
+      }
+      return newEntries;
+    });
+  }, []);
 
   // ====== REVIEW: Update item ======
   const handleItemUpdate = useCallback((itemIndex: number, updatedItem: OcrParsedItem) => {
@@ -569,6 +581,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     isProcessing,
     processingProgress,
     handleSelectInvoice,
+    handleRemoveEntry,
     handleAddMore,
     handleSaveAllWithDirection,
     handleItemUpdate,
@@ -609,7 +622,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     step, entries, selectedIndex, saveMode, invoiceDate, pendingUris,
     handleTakePhoto, handlePickImages, takePhoto.isPending, pickMultipleImages.isPending,
     isProcessing, processingProgress,
-    handleSelectInvoice, handleAddMore, handleSaveAllWithDirection,
+    handleSelectInvoice, handleRemoveEntry, handleAddMore, handleSaveAllWithDirection,
     handleItemUpdate, handleItemRemove, handleChangeProduct, handleSelectProduct,
     handleSelectCari, handleInvoiceDateChange, handleBuy, handleSell, handleSaveWithDirection,
     newProductModalVisible, handleConfirmNewProducts, handleSkipNewProducts,

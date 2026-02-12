@@ -72,6 +72,7 @@ export default function FotoImportIndexPage() {
         <OcrInvoiceList
           entries={ctx.entries}
           onSelectInvoice={ctx.handleSelectInvoice}
+          onRemoveEntry={ctx.handleRemoveEntry}
           onSaveAllBuy={() => ctx.handleSaveAllWithDirection('giris')}
           onSaveAllSell={() => ctx.handleSaveAllWithDirection('cikis')}
           onAddMore={ctx.handleAddMore}

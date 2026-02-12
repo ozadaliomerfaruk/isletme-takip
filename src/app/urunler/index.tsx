@@ -4,7 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, Trash2, Camera } from 'lucide-react-native';
+import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, Trash2 } from 'lucide-react-native';
 import { Text, Button, Input, EmptyState, ExpandableCard, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -25,7 +25,7 @@ export default function UrunlerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
-  const { t } = useTranslation(['products', 'common', 'errors', 'ocrImport']);
+  const { t } = useTranslation(['products', 'common', 'errors', 'reports']);
   const { getDateRangeLabel, locale } = useDateFormat();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -46,6 +46,12 @@ export default function UrunlerPage() {
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+
+  // Hızlı dönem seçimi için state'ler
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
+  const [showDayPicker, setShowDayPicker] = useState(false);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // Dönem seçici seçenekleri
   const PERIOD_OPTIONS = [
@@ -204,6 +210,60 @@ export default function UrunlerPage() {
     },
   ];
 
+  // Hızlı dönem seçimi fonksiyonları
+  const handlePeriodLabelPress = () => {
+    switch (period) {
+      case 'yearly':
+        setShowYearPicker(true);
+        break;
+      case 'monthly':
+      case 'weekly': {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        const targetDate = new Date(currentYear, currentMonth + periodOffset, 1);
+        setSelectedYear(targetDate.getFullYear());
+        setShowMonthYearPicker(true);
+        break;
+      }
+      case 'daily':
+        setShowDayPicker(true);
+        break;
+    }
+  };
+
+  const goToYear = (year: number) => {
+    const currentYear = new Date().getFullYear();
+    setPeriodOffset(year - currentYear);
+    setShowYearPicker(false);
+  };
+
+  const goToMonth = (year: number, month: number) => {
+    const now = new Date();
+    const monthsDiff = (year - now.getFullYear()) * 12 + (month - now.getMonth());
+    setPeriodOffset(monthsDiff);
+    setShowMonthYearPicker(false);
+  };
+
+  const goToDay = (date: Date) => {
+    const now = new Date();
+    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dateMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const daysDiff = Math.round((dateMidnight.getTime() - nowMidnight.getTime()) / (1000 * 60 * 60 * 24));
+    setPeriodOffset(daysDiff);
+    setShowDayPicker(false);
+  };
+
+  const goToWeekOfMonth = (year: number, month: number) => {
+    const now = new Date();
+    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const firstDayOfMonth = new Date(year, month, 1);
+    const daysDiff = Math.round((firstDayOfMonth.getTime() - nowMidnight.getTime()) / (1000 * 60 * 60 * 24));
+    const weeksDiff = Math.round(daysDiff / 7);
+    setPeriodOffset(weeksDiff);
+    setShowMonthYearPicker(false);
+  };
+
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
   };
@@ -305,7 +365,9 @@ export default function UrunlerPage() {
                 >
                   <ChevronLeft size={20} color={colors.primary} />
                 </TouchableOpacity>
-                <Text variant="body" style={styles.periodLabel}>{periodLabel}</Text>
+                <TouchableOpacity onPress={() => { haptics.light(); handlePeriodLabelPress(); }}>
+                  <Text variant="body" style={styles.periodLabel}>{periodLabel}</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {
                     haptics.light();
@@ -531,6 +593,171 @@ export default function UrunlerPage() {
         />
       )}
 
+      {/* Yıl Picker Modal */}
+      <Modal
+        visible={showYearPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowYearPicker(false)}
+      >
+        <Pressable
+          style={styles.pickerModalOverlay}
+          onPress={() => setShowYearPicker(false)}
+        >
+          <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.pickerModalHeader}>
+              <Text variant="h3">{t('reports:period.selectYear')}</Text>
+              <TouchableOpacity onPress={() => setShowYearPicker(false)}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.yearGrid}>
+              {Array.from({ length: 12 }, (_, i) => 2020 + i).map((year) => {
+                const isSelected = year === new Date().getFullYear() + periodOffset;
+                return (
+                  <TouchableOpacity
+                    key={year}
+                    style={[styles.yearGridCell, isSelected && styles.yearGridCellActive]}
+                    onPress={() => goToYear(year)}
+                  >
+                    <Text
+                      variant="body"
+                      style={isSelected ? styles.yearGridTextActive : undefined}
+                    >
+                      {year}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Ay + Yıl Picker Modal */}
+      <Modal
+        visible={showMonthYearPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowMonthYearPicker(false)}
+      >
+        <Pressable
+          style={styles.pickerModalOverlay}
+          onPress={() => setShowMonthYearPicker(false)}
+        >
+          <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.pickerModalHeader}>
+              <Text variant="h3">{t('reports:period.selectMonthYear')}</Text>
+              <TouchableOpacity onPress={() => setShowMonthYearPicker(false)}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Yıl seçici */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.yearScrollView}
+              contentContainerStyle={styles.yearScrollContent}
+            >
+              {Array.from({ length: 12 }, (_, i) => 2020 + i).map((year) => (
+                <TouchableOpacity
+                  key={year}
+                  style={[
+                    styles.yearChip,
+                    selectedYear === year && styles.yearChipActive,
+                  ]}
+                  onPress={() => setSelectedYear(year)}
+                >
+                  <Text
+                    variant="body"
+                    style={selectedYear === year ? styles.yearChipTextActive : styles.yearChipText}
+                  >
+                    {year}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Ay grid */}
+            <View style={styles.monthGrid}>
+              {((() => { const m = t('reports:months', { returnObjects: true }); return Array.isArray(m) ? m : ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara']; })() as string[]).map((monthName, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.monthCell}
+                  onPress={() => {
+                    if (period === 'weekly') {
+                      goToWeekOfMonth(selectedYear, index);
+                    } else {
+                      goToMonth(selectedYear, index);
+                    }
+                  }}
+                >
+                  <Text variant="body">{monthName}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Günlük DatePicker Modal (iOS) */}
+      {Platform.OS === 'ios' && showDayPicker && (
+        <Modal
+          visible={showDayPicker}
+          transparent
+          animationType="slide"
+        >
+          <Pressable
+            style={styles.pickerModalOverlay}
+            onPress={() => setShowDayPicker(false)}
+          >
+            <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.pickerModalHeader}>
+                <Text variant="h3">{t('products:period.daily')}</Text>
+                <TouchableOpacity onPress={() => setShowDayPicker(false)}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <DateTimePicker
+                  value={(() => {
+                    const now = new Date();
+                    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + periodOffset);
+                    return d;
+                  })()}
+                  mode="date"
+                  display="inline"
+                  themeVariant="light"
+                  accentColor={colors.primary}
+                  locale={locale}
+                  style={{ height: 350 }}
+                  onChange={(_, date) => { if (date) goToDay(date); }}
+                  maximumDate={new Date()}
+                />
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* Günlük DatePicker (Android) */}
+      {Platform.OS === 'android' && showDayPicker && (
+        <DateTimePicker
+          value={(() => {
+            const now = new Date();
+            return new Date(now.getFullYear(), now.getMonth(), now.getDate() + periodOffset);
+          })()}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowDayPicker(false);
+            if (event.type === 'set' && date) goToDay(date);
+          }}
+          maximumDate={new Date()}
+        />
+      )}
+
       {/* FAB Backdrop */}
       {fabMenuVisible && (
         <TouchableWithoutFeedback onPress={() => {
@@ -565,19 +792,6 @@ export default function UrunlerPage() {
                 <TrendingUp size={20} color={colors.success} />
               </View>
               <Text variant="body">{t('products:bulk.stockIn')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.fabMenuItem}
-              onPress={() => {
-                haptics.light();
-                setFabMenuVisible(false);
-                router.push('/urunler/foto-import' as any);
-              }}
-            >
-              <View style={[styles.fabMenuIcon, { backgroundColor: colors.infoLight }]}>
-                <Camera size={20} color={colors.info} />
-              </View>
-              <Text variant="body">{t('ocrImport:fab.photoImport')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.fabMenuItem}
@@ -737,6 +951,87 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  // Picker Modal Styles
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerModalContent: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+    padding: spacing.lg,
+    paddingBottom: spacing['2xl'],
+  },
+  pickerModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  yearGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  yearGridCell: {
+    width: '23%',
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  yearGridCellActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  yearGridTextActive: {
+    color: colors.surface,
+    fontWeight: '600',
+  },
+  yearScrollView: {
+    marginBottom: spacing.lg,
+  },
+  yearScrollContent: {
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  yearChip: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  yearChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  yearChipText: {
+    color: colors.text,
+  },
+  yearChipTextActive: {
+    color: colors.surface,
+    fontWeight: '600',
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  monthCell: {
+    width: '31%',
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   // FAB Styles
   fabContainer: {

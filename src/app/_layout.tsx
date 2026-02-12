@@ -643,7 +643,7 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
-          name="urunler/foto-import"
+          name="foto-import"
           options={{
             headerShown: false,
           }}

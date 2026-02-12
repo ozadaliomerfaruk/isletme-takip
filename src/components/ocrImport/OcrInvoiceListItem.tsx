@@ -1,6 +1,6 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, AlertTriangle, FileText } from 'lucide-react-native';
+import { CheckCircle, AlertTriangle, FileText, Trash2 } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -11,9 +11,10 @@ interface OcrInvoiceListItemProps {
   entry: MultiInvoiceEntry;
   index: number;
   onPress: (index: number) => void;
+  onRemove: (index: number) => void;
 }
 
-export function OcrInvoiceListItem({ entry, index, onPress }: OcrInvoiceListItemProps) {
+export function OcrInvoiceListItem({ entry, index, onPress, onRemove }: OcrInvoiceListItemProps) {
   const { t } = useTranslation('ocrImport');
   const { invoice } = entry;
 
@@ -57,6 +58,18 @@ export function OcrInvoiceListItem({ entry, index, onPress }: OcrInvoiceListItem
               )}
             </View>
           </View>
+          {!entry.isSaved && (
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                onRemove(index);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Trash2 size={18} color={colors.error} />
+            </TouchableOpacity>
+          )}
         </View>
       </Card>
     </TouchableOpacity>
@@ -119,5 +132,9 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: borderRadius.sm,
     backgroundColor: colors.successLight,
+  },
+  deleteButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.xs,
   },
 });

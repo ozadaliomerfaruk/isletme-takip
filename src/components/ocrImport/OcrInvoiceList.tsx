@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/currency';
 interface OcrInvoiceListProps {
   entries: MultiInvoiceEntry[];
   onSelectInvoice: (index: number) => void;
+  onRemoveEntry: (index: number) => void;
   onSaveAllBuy: () => void;
   onSaveAllSell: () => void;
   onAddMore: () => void;
@@ -20,6 +21,7 @@ interface OcrInvoiceListProps {
 export function OcrInvoiceList({
   entries,
   onSelectInvoice,
+  onRemoveEntry,
   onSaveAllBuy,
   onSaveAllSell,
   onAddMore,
@@ -63,6 +65,7 @@ export function OcrInvoiceList({
             entry={item}
             index={index}
             onPress={onSelectInvoice}
+            onRemove={onRemoveEntry}
           />
         )}
         contentContainerStyle={styles.listContent}
