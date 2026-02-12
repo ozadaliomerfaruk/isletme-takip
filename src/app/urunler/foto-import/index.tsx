@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -16,15 +16,26 @@ import { useFotoImportContext } from '@/contexts/FotoImportContext';
 export default function FotoImportIndexPage() {
   const { t } = useTranslation('ocrImport');
   const ctx = useFotoImportContext();
+  const wasUnfocused = useRef(false);
 
-  // When this page gains focus (e.g. swipe back from review), reset step to invoice-list if needed
+  // Only reset step when page truly regains focus after being in the background
+  // (e.g. native swipe-back from review). Do NOT reset on initial mount or
+  // when step changes while this page is still focused.
   useFocusEffect(
     useCallback(() => {
-      if ((ctx.step === 'review' || ctx.step === 'done') && ctx.entries.length > 0) {
-        ctx.setStep('invoice-list');
-        ctx.setSelectedIndex(null);
+      if (wasUnfocused.current) {
+        // Coming back from review → show invoice list
+        if (ctx.entries.length > 0) {
+          ctx.setStep('invoice-list');
+          ctx.setSelectedIndex(null);
+        }
+        wasUnfocused.current = false;
       }
-    }, [ctx.step, ctx.entries.length])
+
+      return () => {
+        wasUnfocused.current = true;
+      };
+    }, [ctx.entries.length])
   );
 
   // Determine what to show on index

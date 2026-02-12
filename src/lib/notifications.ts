@@ -97,6 +97,15 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 // Push token'ı veritabanına kaydet
 export async function savePushToken(userId: string, token: string): Promise<void> {
   try {
+    // Verify active session before attempting to save
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      if (__DEV__) {
+        console.log('Push token kaydedilmedi: aktif oturum yok');
+      }
+      return;
+    }
+
     const { error } = await supabase
       .from('push_tokens')
       .upsert(
@@ -113,16 +122,16 @@ export async function savePushToken(userId: string, token: string): Promise<void
 
     if (error) {
       if (__DEV__) {
-        console.error('Push token kaydetme hatası:', error);
+        console.warn('Push token kaydetme hatası:', error.message);
       }
     } else {
       if (__DEV__) {
         console.log('Push token kaydedildi');
       }
     }
-  } catch (error) {
+  } catch (error: any) {
     if (__DEV__) {
-      console.error('Push token kaydetme hatası:', error);
+      console.warn('Push token kaydetme hatası:', error?.message || error);
     }
   }
 }
