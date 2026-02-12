@@ -10,7 +10,7 @@ export type OcrDocumentType = 'fatura' | 'irsaliye' | 'fis' | 'unknown';
 export type MatchTier = 'exact' | 'suggestion' | 'new';
 
 /** Save mode choice */
-export type OcrSaveMode = 'only_products' | 'products_and_movements';
+export type OcrSaveMode = 'only_products' | 'products_and_movements' | 'only_cari_transaction';
 
 /** Raw OCR result from the engine (abstraction over rn-mlkit-ocr) */
 export interface OcrResult {

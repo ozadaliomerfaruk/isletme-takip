@@ -116,59 +116,88 @@ export default function FotoImportReviewPage() {
             </View>
           </Card>
 
-          {/* Items */}
-          <Text variant="label" color="secondary" style={styles.sectionLabel}>
-            {t('ocrImport:review.items')} ({selectedInvoice.items.length})
-          </Text>
-          <View style={styles.itemsList}>
-            {selectedInvoice.items.map((item, index) => (
-              <OcrReviewItem
-                key={item.id}
-                item={item}
-                index={index}
-                onUpdate={handleItemUpdate}
-                onRemove={handleItemRemove}
-                onChangeProduct={handleChangeProduct}
-                matchedProduct={getUrunById(item.matchedUrunId)}
-                matchedKategoriName={getMatchedKategoriName(item)}
-              />
-            ))}
-          </View>
+          {/* Cari required warning for only_cari_transaction mode */}
+          {saveMode === 'only_cari_transaction' && !selectedInvoice.supplierMatchCariId && (
+            <View style={styles.cariWarningBanner}>
+              <AlertTriangle size={16} color={colors.error} />
+              <Text variant="body" color="error" style={styles.cariWarningText}>
+                {t('ocrImport:review.cariRequired')}
+              </Text>
+            </View>
+          )}
+
+          {/* Items - hidden in only_cari_transaction mode */}
+          {saveMode !== 'only_cari_transaction' && (
+            <>
+              <Text variant="label" color="secondary" style={styles.sectionLabel}>
+                {t('ocrImport:review.items')} ({selectedInvoice.items.length})
+              </Text>
+              <View style={styles.itemsList}>
+                {selectedInvoice.items.map((item, index) => (
+                  <OcrReviewItem
+                    key={item.id}
+                    item={item}
+                    index={index}
+                    onUpdate={handleItemUpdate}
+                    onRemove={handleItemRemove}
+                    onChangeProduct={handleChangeProduct}
+                    matchedProduct={getUrunById(item.matchedUrunId)}
+                    matchedKategoriName={getMatchedKategoriName(item)}
+                  />
+                ))}
+              </View>
+            </>
+          )}
 
           {/* Total check */}
-          <Card style={[styles.totalCard, totalMismatch ? styles.totalCardWarning : styles.totalCardOk]}>
-            <Text variant="label" color="secondary">{t('ocrImport:review.totalCheck')}</Text>
-            <View style={styles.totalRow}>
-              <View>
-                <Text variant="caption" color="secondary">{t('ocrImport:review.ocrTotal')}</Text>
-                <Text variant="body" style={styles.totalAmount}>
-                  {selectedInvoice.grandTotal ? formatCurrency(selectedInvoice.grandTotal) : '\u2014'}
-                </Text>
+          <Card style={[styles.totalCard, saveMode === 'only_cari_transaction' ? styles.totalCardOk : (totalMismatch ? styles.totalCardWarning : styles.totalCardOk)]}>
+            <Text variant="label" color="secondary">
+              {saveMode === 'only_cari_transaction' ? t('ocrImport:review.cariTotal') : t('ocrImport:review.totalCheck')}
+            </Text>
+            {saveMode === 'only_cari_transaction' ? (
+              <View style={styles.totalRow}>
+                <View>
+                  <Text variant="caption" color="secondary">{t('ocrImport:review.ocrTotal')}</Text>
+                  <Text variant="h3" style={styles.totalAmount}>
+                    {formatCurrency(selectedInvoice.grandTotal || enteredTotal)}
+                  </Text>
+                </View>
               </View>
-              <View>
-                <Text variant="caption" color="secondary">{t('ocrImport:review.enteredTotal')}</Text>
-                <Text variant="body" style={styles.totalAmount}>
-                  {formatCurrency(enteredTotal)}
-                </Text>
-              </View>
-              {totalMismatch ? (
-                <AlertTriangle size={20} color={colors.warning} />
-              ) : (
-                <CheckCircle size={20} color={colors.success} />
-              )}
-            </View>
-            {totalMismatch && (
-              <Text variant="caption" color="warning">{t('ocrImport:review.totalMismatch')}</Text>
+            ) : (
+              <>
+                <View style={styles.totalRow}>
+                  <View>
+                    <Text variant="caption" color="secondary">{t('ocrImport:review.ocrTotal')}</Text>
+                    <Text variant="body" style={styles.totalAmount}>
+                      {selectedInvoice.grandTotal ? formatCurrency(selectedInvoice.grandTotal) : '\u2014'}
+                    </Text>
+                  </View>
+                  <View>
+                    <Text variant="caption" color="secondary">{t('ocrImport:review.enteredTotal')}</Text>
+                    <Text variant="body" style={styles.totalAmount}>
+                      {formatCurrency(enteredTotal)}
+                    </Text>
+                  </View>
+                  {totalMismatch ? (
+                    <AlertTriangle size={20} color={colors.warning} />
+                  ) : (
+                    <CheckCircle size={20} color={colors.success} />
+                  )}
+                </View>
+                {totalMismatch && (
+                  <Text variant="caption" color="warning">{t('ocrImport:review.totalMismatch')}</Text>
+                )}
+              </>
             )}
           </Card>
 
           {/* Save mode */}
           <Card style={styles.saveModeCard}>
             <Text variant="label" color="secondary">{t('ocrImport:review.saveMode')}</Text>
-            <View style={styles.saveModeOptions}>
+            <View style={styles.saveModeOptionsVertical}>
               <TouchableOpacity
                 style={[
-                  styles.saveModeOption,
+                  styles.saveModeOptionV,
                   saveMode === 'products_and_movements' && styles.saveModeOptionActive,
                 ]}
                 onPress={() => {
@@ -191,7 +220,7 @@ export default function FotoImportReviewPage() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
-                  styles.saveModeOption,
+                  styles.saveModeOptionV,
                   saveMode === 'only_products' && styles.saveModeOptionActive,
                 ]}
                 onPress={() => {
@@ -212,6 +241,29 @@ export default function FotoImportReviewPage() {
                   {t('ocrImport:review.onlyProducts')}
                 </Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.saveModeOptionV,
+                  saveMode === 'only_cari_transaction' && styles.saveModeOptionActive,
+                ]}
+                onPress={() => {
+                  setSaveMode('only_cari_transaction');
+                  if (selectedIndex !== null) {
+                    setEntries(prev => {
+                      const ne = [...prev];
+                      ne[selectedIndex] = { ...ne[selectedIndex], saveMode: 'only_cari_transaction' };
+                      return ne;
+                    });
+                  }
+                }}
+              >
+                <Text
+                  variant="body"
+                  color={saveMode === 'only_cari_transaction' ? 'primary' : 'secondary'}
+                >
+                  {t('ocrImport:review.onlyCariTransaction')}
+                </Text>
+              </TouchableOpacity>
             </View>
           </Card>
         </ScrollView>
@@ -219,11 +271,17 @@ export default function FotoImportReviewPage() {
         {/* Footer with AL / SAT buttons */}
         <View style={styles.footer}>
           <View style={styles.footerInfo}>
-            <Text variant="caption" color="secondary">
-              {selectedInvoice.items.length} {t('ocrImport:review.items').toLowerCase()}
-            </Text>
+            {saveMode === 'only_cari_transaction' ? (
+              <Text variant="caption" color="secondary">
+                {t('ocrImport:review.onlyCariTransaction')}
+              </Text>
+            ) : (
+              <Text variant="caption" color="secondary">
+                {selectedInvoice.items.length} {t('ocrImport:review.items').toLowerCase()}
+              </Text>
+            )}
             <Text variant="h3" color="success">
-              {formatCurrency(enteredTotal)}
+              {formatCurrency(saveMode === 'only_cari_transaction' ? (selectedInvoice.grandTotal || enteredTotal) : enteredTotal)}
             </Text>
           </View>
           <View style={styles.footerButtons}>
@@ -232,7 +290,12 @@ export default function FotoImportReviewPage() {
               size="lg"
               loading={isSaving}
               onPress={handleBuy}
-              disabled={selectedInvoice.items.length === 0 || (currentEntry?.isSaved ?? false)}
+              disabled={
+                (saveMode === 'only_cari_transaction'
+                  ? !selectedInvoice.supplierMatchCariId
+                  : selectedInvoice.items.length === 0)
+                || (currentEntry?.isSaved ?? false)
+              }
               style={styles.buyButton}
             >
               {t('ocrImport:review.buyButton')}
@@ -242,7 +305,12 @@ export default function FotoImportReviewPage() {
               size="lg"
               loading={isSaving}
               onPress={handleSell}
-              disabled={selectedInvoice.items.length === 0 || (currentEntry?.isSaved ?? false)}
+              disabled={
+                (saveMode === 'only_cari_transaction'
+                  ? !selectedInvoice.supplierMatchCariId
+                  : selectedInvoice.items.length === 0)
+                || (currentEntry?.isSaved ?? false)
+              }
               style={styles.sellButton}
             >
               {t('ocrImport:review.sellButton')}
@@ -444,21 +512,32 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
   },
-  saveModeOptions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  saveModeOptionsVertical: {
+    gap: spacing.xs,
   },
-  saveModeOption: {
-    flex: 1,
-    paddingVertical: spacing.md,
+  saveModeOptionV: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.border,
-    alignItems: 'center',
   },
   saveModeOptionActive: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
+  },
+  cariWarningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: colors.errorLight,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  cariWarningText: {
+    flex: 1,
   },
   footer: {
     flexDirection: 'row',

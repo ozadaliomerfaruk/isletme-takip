@@ -81,6 +81,40 @@ export function useOcrImport(sessionId: string) {
     }
   }, [processImage]);
 
+  // Helper: build cari transaction from invoice
+  const createCariTransaction = useCallback(async (
+    invoice: OcrParsedInvoice,
+    hareketTipi: UrunHareketTipi,
+    totalAmount: number,
+    invoiceRef: string,
+    dateInfo: string,
+  ) => {
+    const islemType: IslemType = hareketTipi === 'giris' ? 'cari_alis' : 'cari_satis';
+    const aciklama = dateInfo
+      ? `OCR import - ${invoiceRef} - Tarih: ${dateInfo}`
+      : `OCR import - ${invoiceRef}`;
+
+    let islemDate: string | undefined;
+    if (dateInfo) {
+      const parts = dateInfo.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (parts) {
+        const d = new Date(parseInt(parts[1]), parseInt(parts[2]) - 1, parseInt(parts[3]), 12, 0, 0);
+        islemDate = formatDateTimeForDB(d);
+      }
+    }
+
+    await createIslem.mutateAsync({
+      type: islemType,
+      amount: totalAmount,
+      cari_id: invoice.supplierMatchCariId!,
+      description: aciklama,
+      ...(islemDate ? { date: islemDate } : {}),
+    });
+
+    invalidateRelatedQueries(queryClient, 'islem');
+    invalidateRelatedQueries(queryClient, 'cari');
+  }, [createIslem, queryClient]);
+
   // Save a single invoice
   const saveImport = useCallback(async (
     invoice: OcrParsedInvoice,
@@ -92,6 +126,26 @@ export function useOcrImport(sessionId: string) {
     setIsSaving(true);
 
     try {
+      const invoiceRef = invoice.invoiceNumber || sessionId;
+      const dateInfo = invoice.invoiceDate || '';
+
+      // Only cari transaction mode: skip products/movements entirely
+      if (saveMode === 'only_cari_transaction') {
+        if (!invoice.supplierMatchCariId) {
+          throw new Error('Cari seçimi zorunludur');
+        }
+
+        setSaveProgress({ total: 1, current: 0, currentItemName: '', phase: 'creating_movements' });
+
+        const totalAmount = invoice.grandTotal
+          || invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
+
+        await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo);
+
+        setSaveProgress({ total: 1, current: 1, currentItemName: '', phase: 'done' });
+        return { productCount: 0, movementCount: 0 };
+      }
+
       const itemsToSave = invoice.items.filter(item =>
         item.matchedUrunId || item.isNewConfirmed,
       );
@@ -100,9 +154,6 @@ export function useOcrImport(sessionId: string) {
       let current = 0;
       let productCount = 0;
       let movementCount = 0;
-
-      const invoiceRef = invoice.invoiceNumber || sessionId;
-      const dateInfo = invoice.invoiceDate || '';
 
       // Phase 1: Create new products
       setSaveProgress({ total, current, currentItemName: '', phase: 'creating_products' });
@@ -158,30 +209,7 @@ export function useOcrImport(sessionId: string) {
         // Phase 3: Create cari transaction
         if (invoice.supplierMatchCariId && movementCount > 0) {
           const totalAmount = itemsToSave.reduce((sum, item) => sum + item.totalPrice, 0);
-          const islemType: IslemType = hareketTipi === 'giris' ? 'cari_alis' : 'cari_satis';
-          const aciklama = dateInfo
-            ? `OCR import - ${invoiceRef} - Tarih: ${dateInfo}`
-            : `OCR import - ${invoiceRef}`;
-
-          let islemDate: string | undefined;
-          if (dateInfo) {
-            const parts = dateInfo.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            if (parts) {
-              const d = new Date(parseInt(parts[1]), parseInt(parts[2]) - 1, parseInt(parts[3]), 12, 0, 0);
-              islemDate = formatDateTimeForDB(d);
-            }
-          }
-
-          await createIslem.mutateAsync({
-            type: islemType,
-            amount: totalAmount,
-            cari_id: invoice.supplierMatchCariId,
-            description: aciklama,
-            ...(islemDate ? { date: islemDate } : {}),
-          });
-
-          invalidateRelatedQueries(queryClient, 'islem');
-          invalidateRelatedQueries(queryClient, 'cari');
+          await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo);
         }
       }
 
@@ -192,7 +220,7 @@ export function useOcrImport(sessionId: string) {
     } finally {
       setIsSaving(false);
     }
-  }, [isletme, createUrun, createUrunHareket, createIslem, queryClient, sessionId]);
+  }, [isletme, createUrun, createUrunHareket, createCariTransaction, queryClient, sessionId]);
 
   // Save all unsaved invoices in batch
   const saveAll = useCallback(async (

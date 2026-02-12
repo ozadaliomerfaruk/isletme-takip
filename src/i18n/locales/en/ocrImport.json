@@ -52,6 +52,9 @@
     "saveMode": "Save Mode",
     "onlyProducts": "Create Products Only",
     "productsAndMovements": "Products + Stock Entry",
+    "onlyCariTransaction": "Only Account Transaction",
+    "cariRequired": "Account selection is required for this mode",
+    "cariTotal": "Transaction Amount",
     "newProductWarning": "{{count}} new product(s) will be created",
     "confirmNewProducts": "Confirm New Products",
     "buyButton": "BUY",
@@ -71,6 +74,7 @@
   "messages": {
     "success": "{{productCount}} products, {{movementCount}} entries saved",
     "successOnlyProducts": "{{count}} products saved",
+    "successOnlyCari": "Account transaction of {{amount}} saved",
     "ocrFailed": "Could not read text. Please try again or enter manually.",
     "noProductLines": "No product lines found. Check the photo.",
     "alreadySaved": "This session has already been saved.",

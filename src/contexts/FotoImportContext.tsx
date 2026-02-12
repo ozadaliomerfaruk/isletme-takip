@@ -7,6 +7,7 @@ import { useOcrImport } from '@/hooks/useOcrImport';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useCariler } from '@/hooks/useCariler';
 import { useKategoriler } from '@/hooks/useKategoriler';
+import { formatCurrency } from '@/lib/currency';
 import {
   OcrImportStep,
   OcrParsedItem,
@@ -401,14 +402,17 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     const entry = entries[selectedIndex];
     if (!entry || entry.isSaved) return;
 
-    const newUnconfirmed = entry.invoice.items.filter(
-      item => item.matchTier === 'new' && !item.isNewConfirmed
-    );
+    // Skip new product confirmation for only_cari_transaction mode
+    if (entry.saveMode !== 'only_cari_transaction') {
+      const newUnconfirmed = entry.invoice.items.filter(
+        item => item.matchTier === 'new' && !item.isNewConfirmed
+      );
 
-    if (newUnconfirmed.length > 0) {
-      pendingDirection.current = hareketTipi;
-      setNewProductModalVisible(true);
-      return;
+      if (newUnconfirmed.length > 0) {
+        pendingDirection.current = hareketTipi;
+        setNewProductModalVisible(true);
+        return;
+      }
     }
 
     setStep('saving');
@@ -421,9 +425,16 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         return newEntries;
       });
 
-      const message = entry.saveMode === 'only_products'
-        ? t('ocrImport:messages.successOnlyProducts', { count: result.productCount })
-        : t('ocrImport:messages.success', { productCount: result.productCount, movementCount: result.movementCount });
+      let message: string;
+      if (entry.saveMode === 'only_cari_transaction') {
+        const totalAmount = entry.invoice.grandTotal
+          || entry.invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
+        message = t('ocrImport:messages.successOnlyCari', { amount: formatCurrency(totalAmount) });
+      } else if (entry.saveMode === 'only_products') {
+        message = t('ocrImport:messages.successOnlyProducts', { count: result.productCount });
+      } else {
+        message = t('ocrImport:messages.success', { productCount: result.productCount, movementCount: result.movementCount });
+      }
 
       if (entries.length > 1) {
         Alert.alert(t('common:status.success'), message);

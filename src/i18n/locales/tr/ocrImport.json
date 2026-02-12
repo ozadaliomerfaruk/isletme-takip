@@ -52,6 +52,9 @@
     "saveMode": "Kaydetme Şekli",
     "onlyProducts": "Sadece Ürün Oluştur",
     "productsAndMovements": "Ürün + Hareket",
+    "onlyCariTransaction": "Sadece Cari İşlem",
+    "cariRequired": "Bu mod için cari seçimi zorunludur",
+    "cariTotal": "İşlem Tutarı",
     "newProductWarning": "{{count}} adet yeni ürün oluşturulacak",
     "confirmNewProducts": "Yeni Ürünleri Onayla",
     "buyButton": "AL",
@@ -71,6 +74,7 @@
   "messages": {
     "success": "{{productCount}} ürün, {{movementCount}} hareket kaydedildi",
     "successOnlyProducts": "{{count}} ürün kaydedildi",
+    "successOnlyCari": "{{amount}} tutarında cari işlem kaydedildi",
     "ocrFailed": "Metin okunamadı. Lütfen tekrar deneyin veya manuel giriş yapın.",
     "noProductLines": "Ürün satırı bulunamadı. Fotoğrafı kontrol edin.",
     "alreadySaved": "Bu oturum zaten kaydedildi.",
