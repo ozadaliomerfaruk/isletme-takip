@@ -19,8 +19,13 @@ export function OcrInvoiceListItem({ entry, index, onPress, onRemove }: OcrInvoi
   const { invoice } = entry;
 
   const lineSum = invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
-  const hasMismatch = invoice.grandTotal
-    ? Math.abs(invoice.grandTotal - lineSum) / Math.max(invoice.grandTotal, 1) > 0.01
+  // Item totalPrice'lar KDV haric — subtotal (KDV haric) ile karsilastir
+  const compareTotal = invoice.subtotal
+    ?? (invoice.grandTotal && invoice.vatTotal
+      ? invoice.grandTotal - invoice.vatTotal
+      : invoice.grandTotal);
+  const hasMismatch = compareTotal
+    ? Math.abs(compareTotal - lineSum) / Math.max(compareTotal, 1) > 0.01
     : false;
 
   return (

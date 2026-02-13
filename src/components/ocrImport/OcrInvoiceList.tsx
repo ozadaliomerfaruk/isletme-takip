@@ -95,26 +95,31 @@ export function OcrInvoiceList({
         </View>
 
         {!allSaved && (
-          <View style={styles.footerButtons}>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={isSaving}
-              onPress={onSaveAllBuy}
-              style={styles.actionButton}
-            >
-              {t('batch.saveAllBuy')}
-            </Button>
-            <Button
-              variant="danger"
-              size="lg"
-              loading={isSaving}
-              onPress={onSaveAllSell}
-              style={styles.actionButton}
-            >
-              {t('batch.saveAllSell')}
-            </Button>
-          </View>
+          <>
+            <Text variant="caption" color="muted" style={styles.saveAllDesc}>
+              {t('batch.saveAllDesc')}
+            </Text>
+            <View style={styles.footerButtons}>
+              <Button
+                variant="primary"
+                size="lg"
+                loading={isSaving}
+                onPress={onSaveAllBuy}
+                style={styles.actionButton}
+              >
+                {t('batch.saveAllBuy')}
+              </Button>
+              <Button
+                variant="danger"
+                size="lg"
+                loading={isSaving}
+                onPress={onSaveAllSell}
+                style={styles.actionButton}
+              >
+                {t('batch.saveAllSell')}
+              </Button>
+            </View>
+          </>
         )}
       </View>
     </View>
@@ -164,5 +169,8 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  saveAllDesc: {
+    textAlign: 'center',
   },
 });

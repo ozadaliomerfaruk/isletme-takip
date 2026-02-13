@@ -7,8 +7,9 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, AlertTriangle, Search, Package, Building2, Truck, Users } from 'lucide-react-native';
+import { CheckCircle, AlertTriangle, Search, Package, Building2, Truck, Users, Plus } from 'lucide-react-native';
 import { Text, Button, Card, DateTimePicker } from '@/components/ui';
 import {
   OcrReviewItem,
@@ -21,7 +22,8 @@ import { Kategori } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 
 export default function FotoImportReviewPage() {
-  const { t } = useTranslation(['ocrImport', 'common', 'products']);
+  const { t } = useTranslation(['ocrImport', 'common', 'products', 'clients']);
+  const router = useRouter();
   const ctx = useFotoImportContext();
 
   const {
@@ -91,9 +93,17 @@ export default function FotoImportReviewPage() {
                 {selectedInvoice.supplierTaxNumber && (
                   <Text variant="caption" color="secondary">VKN: {selectedInvoice.supplierTaxNumber}</Text>
                 )}
-                {matchedCari && (
-                  <Text variant="caption" color="success">{t('ocrImport:review.matchedCari')}</Text>
-                )}
+                {matchedCari ? (
+                  <View style={styles.cariStatusBadge}>
+                    <CheckCircle size={12} color={colors.success} />
+                    <Text variant="caption" color="success">{t('ocrImport:review.cariMatched')}</Text>
+                  </View>
+                ) : selectedInvoice.supplierName ? (
+                  <View style={styles.cariStatusBadge}>
+                    <AlertTriangle size={12} color={colors.warning} />
+                    <Text variant="caption" color="warning">{t('ocrImport:review.cariNotMatched')}</Text>
+                  </View>
+                ) : null}
               </View>
               <TouchableOpacity
                 style={styles.selectCariButton}
@@ -169,8 +179,19 @@ export default function FotoImportReviewPage() {
                   <View>
                     <Text variant="caption" color="secondary">{t('ocrImport:review.ocrTotal')}</Text>
                     <Text variant="body" style={styles.totalAmount}>
-                      {selectedInvoice.grandTotal ? formatCurrency(selectedInvoice.grandTotal) : '\u2014'}
+                      {(() => {
+                        const sub = selectedInvoice.subtotal
+                          ?? (selectedInvoice.grandTotal && selectedInvoice.vatTotal
+                            ? selectedInvoice.grandTotal - selectedInvoice.vatTotal
+                            : selectedInvoice.grandTotal);
+                        return sub ? formatCurrency(sub) : '\u2014';
+                      })()}
                     </Text>
+                    {selectedInvoice.grandTotal && selectedInvoice.vatTotal ? (
+                      <Text variant="caption" color="secondary">
+                        KDV: {formatCurrency(selectedInvoice.vatTotal)}  |  Toplam: {formatCurrency(selectedInvoice.grandTotal)}
+                      </Text>
+                    ) : null}
                   </View>
                   <View>
                     <Text variant="caption" color="secondary">{t('ocrImport:review.enteredTotal')}</Text>
@@ -195,75 +216,40 @@ export default function FotoImportReviewPage() {
           <Card style={styles.saveModeCard}>
             <Text variant="label" color="secondary">{t('ocrImport:review.saveMode')}</Text>
             <View style={styles.saveModeOptionsVertical}>
-              <TouchableOpacity
-                style={[
-                  styles.saveModeOptionV,
-                  saveMode === 'products_and_movements' && styles.saveModeOptionActive,
-                ]}
-                onPress={() => {
-                  setSaveMode('products_and_movements');
-                  if (selectedIndex !== null) {
-                    setEntries(prev => {
-                      const ne = [...prev];
-                      ne[selectedIndex] = { ...ne[selectedIndex], saveMode: 'products_and_movements' };
-                      return ne;
-                    });
-                  }
-                }}
-              >
-                <Text
-                  variant="body"
-                  color={saveMode === 'products_and_movements' ? 'primary' : 'secondary'}
+              {([
+                { key: 'products_and_movements' as const, label: t('ocrImport:review.productsAndMovements'), desc: t('ocrImport:review.productsAndMovementsDesc') },
+                { key: 'only_products' as const, label: t('ocrImport:review.onlyProducts'), desc: t('ocrImport:review.onlyProductsDesc') },
+                { key: 'only_cari_transaction' as const, label: t('ocrImport:review.onlyCariTransaction'), desc: t('ocrImport:review.onlyCariTransactionDesc') },
+              ]).map(option => (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.saveModeOptionV,
+                    saveMode === option.key && styles.saveModeOptionActive,
+                  ]}
+                  onPress={() => {
+                    setSaveMode(option.key);
+                    if (selectedIndex !== null) {
+                      setEntries(prev => {
+                        const ne = [...prev];
+                        ne[selectedIndex] = { ...ne[selectedIndex], saveMode: option.key };
+                        return ne;
+                      });
+                    }
+                  }}
                 >
-                  {t('ocrImport:review.productsAndMovements')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.saveModeOptionV,
-                  saveMode === 'only_products' && styles.saveModeOptionActive,
-                ]}
-                onPress={() => {
-                  setSaveMode('only_products');
-                  if (selectedIndex !== null) {
-                    setEntries(prev => {
-                      const ne = [...prev];
-                      ne[selectedIndex] = { ...ne[selectedIndex], saveMode: 'only_products' };
-                      return ne;
-                    });
-                  }
-                }}
-              >
-                <Text
-                  variant="body"
-                  color={saveMode === 'only_products' ? 'primary' : 'secondary'}
-                >
-                  {t('ocrImport:review.onlyProducts')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.saveModeOptionV,
-                  saveMode === 'only_cari_transaction' && styles.saveModeOptionActive,
-                ]}
-                onPress={() => {
-                  setSaveMode('only_cari_transaction');
-                  if (selectedIndex !== null) {
-                    setEntries(prev => {
-                      const ne = [...prev];
-                      ne[selectedIndex] = { ...ne[selectedIndex], saveMode: 'only_cari_transaction' };
-                      return ne;
-                    });
-                  }
-                }}
-              >
-                <Text
-                  variant="body"
-                  color={saveMode === 'only_cari_transaction' ? 'primary' : 'secondary'}
-                >
-                  {t('ocrImport:review.onlyCariTransaction')}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    variant="body"
+                    color={saveMode === option.key ? 'primary' : 'secondary'}
+                    style={styles.saveModeLabel}
+                  >
+                    {option.label}
+                  </Text>
+                  <Text variant="caption" color="muted" style={styles.saveModeDesc}>
+                    {option.desc}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </Card>
         </ScrollView>
@@ -398,6 +384,21 @@ export default function FotoImportReviewPage() {
               />
             </View>
             <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
+              {/* Add new cari button */}
+              <TouchableOpacity
+                style={styles.addNewCariButton}
+                onPress={() => {
+                  setCariPickerVisible(false);
+                  router.push('/cariler/ekle');
+                }}
+              >
+                <View style={[styles.pickerIcon, { backgroundColor: colors.successLight }]}>
+                  <Plus size={20} color={colors.success} />
+                </View>
+                <Text variant="body" color="success" style={{ fontWeight: '600' }}>
+                  {t('ocrImport:review.addNewCari')}
+                </Text>
+              </TouchableOpacity>
               {filteredCariler?.map(cari => (
                 <TouchableOpacity
                   key={cari.id}
@@ -526,6 +527,13 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
   },
+  saveModeLabel: {
+    fontWeight: '500',
+  },
+  saveModeDesc: {
+    marginTop: 2,
+    lineHeight: 16,
+  },
   cariWarningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -617,5 +625,20 @@ const styles = StyleSheet.create({
   },
   pickerItemInfo: {
     flex: 1,
+  },
+  addNewCariButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.successLight + '30',
+  },
+  cariStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
   },
 });

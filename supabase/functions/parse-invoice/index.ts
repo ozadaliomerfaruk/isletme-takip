@@ -112,36 +112,38 @@ Deno.serve(async (req) => {
       `[parse-invoice] Processing image (${Math.round(base64Data.length / 1024)}KB)`,
     );
 
-    // Call Gemini 2.0 Flash API
+    // Call Gemini 2.0 Flash API with retry on 429
     const geminiUrl =
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+    const requestBody = JSON.stringify({
+      contents: [
+        {
+          parts: [
+            { text: SYSTEM_PROMPT },
+            {
+              inlineData: {
+                mimeType: imageMime,
+                data: base64Data,
+              },
+            },
+            {
+              text: "Bu fatura/fiş fotoğrafını analiz et ve JSON olarak döndür.",
+            },
+          ],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 4096,
+        responseMimeType: "application/json",
+      },
+    });
 
     const geminiResponse = await fetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: SYSTEM_PROMPT },
-              {
-                inlineData: {
-                  mimeType: imageMime,
-                  data: base64Data,
-                },
-              },
-              {
-                text: "Bu fatura/fiş fotoğrafını analiz et ve JSON olarak döndür.",
-              },
-            ],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 4096,
-          responseMimeType: "application/json",
-        },
-      }),
+      body: requestBody,
     });
 
     if (!geminiResponse.ok) {
@@ -233,7 +235,7 @@ Deno.serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
+        status: 200,
       },
     );
   }

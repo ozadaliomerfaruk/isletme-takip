@@ -58,9 +58,13 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
   // Call the Edge Function
   let data: EdgeFunctionResponse;
   try {
+    console.log(`[ocrEngine] Calling parse-invoice edge function (image size: ${Math.round(base64.length / 1024)}KB)`);
+
     const result = await supabase.functions.invoke('parse-invoice', {
       body: { image: base64, mimeType },
     });
+
+    console.log('[ocrEngine] Edge function response:', JSON.stringify(result.error || 'no error'), typeof result.data);
 
     if (result.error) {
       throw result.error;
@@ -69,6 +73,7 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
     data = result.data as EdgeFunctionResponse;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+    console.error('[ocrEngine] Edge function error:', message);
     // Network errors
     if (message.includes('fetch') || message.includes('network') || message.includes('Failed')) {
       throw new Error(i18n.t('ocrImport:messages.networkError'));
@@ -76,7 +81,10 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
     throw new Error(i18n.t('ocrImport:messages.analysisError', { message }));
   }
 
+  console.log('[ocrEngine] Parsed response:', data?.success, data?.data?.items?.length, 'items');
+
   if (!data.success || !data.data) {
+    console.error('[ocrEngine] Parse failed:', data.error);
     throw new Error(data.error || i18n.t('ocrImport:messages.analysisFailed'));
   }
 

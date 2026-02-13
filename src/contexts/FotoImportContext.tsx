@@ -234,18 +234,11 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       setEntries(prev => [...prev, ...newEntries]);
       setPendingUris([]);
 
-      // Single invoice → go directly to review
-      if (entries.length === 0 && newEntries.length === 1) {
-        setSelectedIndex(0);
-        setInvoiceDateFromEntry(newEntries[0]);
-        setSaveMode(newEntries[0].saveMode);
-        setStep('review');
-        router.push('/foto-import/review');
-      } else {
-        setStep('invoice-list');
-      }
-    } catch {
-      Alert.alert(t('common:status.error'), t('ocrImport:messages.ocrFailed'));
+      // Always go to invoice list first
+      setStep('invoice-list');
+    } catch (error: any) {
+      console.error('[FotoImport] Processing error:', error?.message || error);
+      Alert.alert(t('common:status.error'), error?.message || t('ocrImport:messages.ocrFailed'));
       setStep('capture');
     }
   }, [processImages, t, entries.length, router, setInvoiceDateFromEntry]);
@@ -555,9 +548,16 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
   }, [selectedInvoice]);
 
   const totalMismatch = useMemo(() => {
-    if (!selectedInvoice?.grandTotal) return false;
-    const diff = Math.abs(selectedInvoice.grandTotal - enteredTotal);
-    return diff / Math.max(selectedInvoice.grandTotal, 1) > 0.01;
+    if (!selectedInvoice) return false;
+    // Item totalPrice'lar KDV haric, subtotal da KDV haric — bunlari karsilastir
+    // Eger subtotal yoksa grandTotal'dan KDV'yi cikararak hesapla
+    const compareTotal = selectedInvoice.subtotal
+      ?? (selectedInvoice.grandTotal && selectedInvoice.vatTotal
+        ? selectedInvoice.grandTotal - selectedInvoice.vatTotal
+        : selectedInvoice.grandTotal);
+    if (!compareTotal) return false;
+    const diff = Math.abs(compareTotal - enteredTotal);
+    return diff / Math.max(compareTotal, 1) > 0.01;
   }, [selectedInvoice, enteredTotal]);
 
   const matchedCari = getCariById(selectedInvoice?.supplierMatchCariId || null);
