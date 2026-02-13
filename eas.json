@@ -22,7 +22,7 @@
         "resourceClass": "m-medium"
       },
       "android": {
-        "buildType": "apk"
+        "buildType": "aab"
       }
     }
   },
@@ -32,6 +32,10 @@
         "appleId": "ozadaliomerfaruk@gmail.com",
         "ascAppId": "6756860637",
         "appleTeamId": "43WRJ4G6TP"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
       }
     }
   }

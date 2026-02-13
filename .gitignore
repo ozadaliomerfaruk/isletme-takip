@@ -37,6 +37,9 @@ yarn-error.*
 # Apple secret generator (contains private key)
 generate-apple-secret.js
 
+# Google Play service account key (contains private key)
+google-service-account.json
+
 # IDE
 .idea/
 .vscode/

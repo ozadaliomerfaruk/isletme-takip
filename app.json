@@ -85,7 +85,14 @@
         "backgroundColor": "#0D5C4D"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.isletmetakip.app"
+      "package": "com.isletmetakip.app",
+      "versionCode": 1,
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "INTERNET",
+        "VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
@@ -109,6 +116,11 @@
         {
           "ios": {
             "deploymentTarget": "15.1"
+          },
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "minSdkVersion": 24
           }
         }
       ]
