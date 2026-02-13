@@ -20,6 +20,7 @@ import {
   X,
   Share2,
   Package,
+  Link,
 } from 'lucide-react-native';
 import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
@@ -39,6 +40,9 @@ import { useIslemlerWithUrun } from '@/hooks/useUrunHareketler';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
 import { IslemWithRelations } from '@/types/database';
+import { useCariLinkStatus } from '@/hooks/useCariSharing';
+import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
+import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM COMPONENT
@@ -54,6 +58,7 @@ interface CariTransactionItemProps {
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
   currency?: string;
+  canEdit?: boolean;
 }
 
 function getCariHareketIcon(type: string) {
@@ -116,6 +121,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   formatDateSmart,
   t,
   currency,
+  canEdit = true,
 }: CariTransactionItemProps) {
   const labelKey = getCariHareketLabelKey(islem.type);
 
@@ -165,32 +171,35 @@ const CariTransactionItem = memo(function CariTransactionItem({
         </View>
       }
     >
-      <View style={styles.hareketActions}>
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Pencil size={16} color={colors.text} />}
-          onPress={() => onEdit(islem.id)}
-          style={styles.actionButton}
-        >
-          {t('common:buttons.edit')}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<Trash2 size={16} color={colors.error} />}
-          onPress={() => onDelete(islem.id)}
-          style={styles.actionButton}
-        >
-          {t('common:buttons.delete')}
-        </Button>
-      </View>
+      {canEdit ? (
+        <View style={styles.hareketActions}>
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Pencil size={16} color={colors.text} />}
+            onPress={() => onEdit(islem.id)}
+            style={styles.actionButton}
+          >
+            {t('common:buttons.edit')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<Trash2 size={16} color={colors.error} />}
+            onPress={() => onDelete(islem.id)}
+            style={styles.actionButton}
+          >
+            {t('common:buttons.delete')}
+          </Button>
+        </View>
+      ) : null}
     </ExpandableCard>
   );
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
     && prev.isExpanded === next.isExpanded
-    && prev.islem.updated_at === next.islem.updated_at;
+    && prev.islem.updated_at === next.islem.updated_at
+    && prev.canEdit === next.canEdit;
 });
 
 // ============================================================================
@@ -210,6 +219,12 @@ export default function CariHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
+  const { data: linkStatus } = useCariLinkStatus(id);
+
+  // Viewer olarak baglantili mi ve izin seviyesi nedir
+  const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
+  const isViewerViewOnly = isViewer && linkStatus?.permission === 'view';
+  const canEditTransactions = !isViewer || linkStatus?.permission === 'full';
 
   // İşlemlerin ürünlü olup olmadığını kontrol et
   const islemIds = islemler?.map(i => i.id) || [];
@@ -231,6 +246,7 @@ export default function CariHareketleriPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
+  const [showShareCodeModal, setShowShareCodeModal] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
@@ -369,9 +385,18 @@ export default function CariHareketleriPage() {
     }
   };
 
-  // Header right buttons (share + menu)
+  // Header right buttons - viewer'lar icin share ve menu gizle
   const HeaderRightButtons = () => (
     <View style={styles.headerRightContainer}>
+      {!isViewer && (
+        <TouchableOpacity
+          onPress={() => setShowShareCodeModal(true)}
+          style={styles.headerBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Link size={22} color={linkStatus?.is_linked ? colors.primary : colors.text} />
+        </TouchableOpacity>
+      )}
       <TouchableOpacity
         onPress={() => setShowExportSheet(true)}
         style={styles.headerBtn}
@@ -379,13 +404,15 @@ export default function CariHareketleriPage() {
       >
         <Share2 size={22} color={colors.text} />
       </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => setShowMenu(true)}
-        style={styles.headerBtn}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <MoreVertical size={24} color={colors.text} />
-      </TouchableOpacity>
+      {!isViewer && (
+        <TouchableOpacity
+          onPress={() => setShowMenu(true)}
+          style={styles.headerBtn}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <MoreVertical size={24} color={colors.text} />
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -402,9 +429,10 @@ export default function CariHareketleriPage() {
         formatDateSmart={formatDateSmart}
         t={t}
         currency={cari?.currency}
+        canEdit={canEditTransactions}
       />
     );
-  }, [expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, hasUrun, formatDateSmart, t]);
+  }, [expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, hasUrun, formatDateSmart, t, canEditTransactions]);
 
   const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
 
@@ -454,6 +482,17 @@ export default function CariHareketleriPage() {
           </View>
         </Card>
 
+        {/* Bağlantı Durumu */}
+        {linkStatus?.is_linked && linkStatus.link?.owner_isletme?.name && (
+          <View style={styles.linkedBadgeContainer}>
+            <LinkedCariBadge
+              ownerIsletmeName={linkStatus.link.owner_isletme.name}
+              permission={linkStatus.permission ?? 'view'}
+              variant="card"
+            />
+          </View>
+        )}
+
         {/* Arşiv Banner */}
         {cari.is_archived && (
           <View style={styles.bannerContainer}>
@@ -464,8 +503,8 @@ export default function CariHareketleriPage() {
           </View>
         )}
 
-        {/* Aksiyon Butonlari */}
-        {!cari.is_archived && (
+        {/* Aksiyon Butonlari - gizle: arsivli veya view-only linked cari */}
+        {!cari.is_archived && !(isViewerViewOnly) && (
           <View style={styles.actionButtons}>
             <Button
               variant="primary"
@@ -514,7 +553,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending]);
+  }, [cari, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -536,19 +575,21 @@ export default function CariHareketleriPage() {
               <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
                 {formatCurrency(initialBalance, cari.currency)}
               </Text>
-              <TouchableOpacity
-                onPress={handleOpenEditBalance}
-                style={styles.editBalanceBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Pencil size={16} color={colors.primary} />
-              </TouchableOpacity>
+              {!isViewer && (
+                <TouchableOpacity
+                  onPress={handleOpenEditBalance}
+                  style={styles.editBalanceBtn}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Pencil size={16} color={colors.primary} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </Card>
       </View>
     );
-  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance]);
+  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isViewer]);
 
   if (cariLoading) {
     return (
@@ -671,6 +712,14 @@ export default function CariHareketleriPage() {
           cariType={cari.type as 'musteri' | 'tedarikci'}
         />
 
+        {/* Cari Paylaşım Kodu Modal */}
+        <ShareCodeModal
+          visible={showShareCodeModal}
+          onDismiss={() => setShowShareCodeModal(false)}
+          cariId={id!}
+          cariName={cari.name}
+        />
+
         {/* Başlangıç Bakiyesi Düzenleme Modal */}
         <Modal
           visible={editBalanceModalVisible}
@@ -752,6 +801,10 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     margin: spacing.lg,
+  },
+  linkedBadgeContainer: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
   },
   bannerContainer: {
     marginHorizontal: spacing.lg,

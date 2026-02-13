@@ -148,6 +148,16 @@ export const queryKeys = {
     donemOzet: (isletmeId: string, startDate: string, endDate: string) =>
       ['urun-hareketler', 'donem-ozet', isletmeId, startDate, endDate] as const,
   },
+
+  // Cari Sharing (Cari Paylasim)
+  cariSharing: {
+    all: () => ['cari-links'] as const,
+    list: (isletmeId: string) => ['cari-links', isletmeId] as const,
+    status: (isletmeId: string, cariId: string) =>
+      ['cari-link-status', isletmeId, cariId] as const,
+    linkedCariler: (isletmeId: string) =>
+      ['linked-cariler', isletmeId] as const,
+  },
 } as const;
 
 // ============================================================================
@@ -337,6 +347,18 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     ],
     deferred: [],
   },
+
+  // Cari sharing (paylasim) değişikliği
+  cariSharing: {
+    immediate: [
+      'cari-links',
+      'cari-link-status',
+      'linked-cariler',
+      'cariler',
+      'cari',
+    ],
+    deferred: [],
+  },
 } as const;
 
 export type EntityType = keyof typeof invalidationMap;
@@ -456,4 +478,9 @@ export const createInvalidators = (queryClient: QueryClient) => ({
    * Urun hareket mutation'ları için
    */
   onUrunHareketMutation: () => invalidateRelatedQueries(queryClient, 'urunHareket'),
+
+  /**
+   * Cari sharing mutation'ları için
+   */
+  onCariSharingMutation: () => invalidateRelatedQueries(queryClient, 'cariSharing'),
 });

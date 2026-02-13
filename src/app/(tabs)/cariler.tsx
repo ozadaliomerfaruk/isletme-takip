@@ -17,6 +17,7 @@ import {
   CheckSquare,
   X,
   Camera,
+  Link,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
@@ -33,6 +34,19 @@ import { useCariler, useDeleteCari } from '@/hooks/useCariler';
 import { useArchiveCari } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { Cari, CariType } from '@/types/database';
+import { AcceptCodeSheet } from '@/components/cariSharing/AcceptCodeSheet';
+import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
+import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
+import { useLinkedCariler, useRemoveCariLink } from '@/hooks/useCariSharing';
+import type { SharingPermission } from '@/types/cariSharing';
+
+// Merged cari type: own cari + optional link metadata
+type MergedCari = Cari & {
+  isLinked?: boolean;
+  linkOwnerName?: string;
+  linkPermission?: SharingPermission;
+  linkId?: string;
+};
 
 export default function CarilerPage() {
   const router = useRouter();
@@ -60,9 +74,18 @@ export default function CarilerPage() {
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [actionSheetCari, setActionSheetCari] = useState<Cari | null>(null);
 
+  // Cari paylaşım için state
+  const [acceptCodeVisible, setAcceptCodeVisible] = useState(false);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [shareModalCari, setShareModalCari] = useState<{ id: string; name: string } | null>(null);
+
   // Mutations
   const archiveCari = useArchiveCari();
   const deleteCari = useDeleteCari();
+  const removeCariLink = useRemoveCariLink();
+
+  // Linked cariler (viewer olarak baglantili carileri getir)
+  const { data: linkedCariler = [] } = useLinkedCariler();
 
   // Toast ve Haptics
   const { showToast } = useToast();
@@ -222,38 +245,161 @@ export default function CarilerPage() {
     );
   };
 
-  const actionSheetOptions: ActionSheetOption[] = [
-    {
-      label: t('common:bulkSelect.select'),
-      icon: <CheckSquare size={20} color={colors.info} />,
-      onPress: handleEnterSelectMode,
-    },
-    {
-      label: t('common:buttons.edit'),
-      icon: <Edit3 size={20} color={colors.primary} />,
-      onPress: () => {
-        if (actionSheetCari) {
-          router.push(`/cariler/duzenle/${actionSheetCari.id}`);
-        }
+  const handleRemoveLink = (linkId: string) => {
+    Alert.alert(
+      t('clients:sharing.removeLinkConfirmTitle'),
+      t('clients:sharing.removeLinkConfirmMessage'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('clients:sharing.removeLinkConfirmButton'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeCariLink.mutateAsync({ link_id: linkId });
+              haptics.success();
+              showToast(t('clients:sharing.linkRemoved'), 'success');
+            } catch {
+              haptics.error();
+              showToast(t('common:messages.operationFailed'), 'error');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Determine which action sheet options to show based on whether cari is linked
+  const getActionSheetOptions = useCallback((cari: MergedCari): ActionSheetOption[] => {
+    if (cari.isLinked) {
+      // Linked cari: limited options
+      const options: ActionSheetOption[] = [
+        {
+          label: t('clients:actions.viewTransactions'),
+          icon: <History size={20} color={colors.primary} />,
+          onPress: () => {
+            if (actionSheetCari) router.push(`/cariler/${actionSheetCari.id}`);
+          },
+        },
+      ];
+      if (cari.linkPermission === 'full') {
+        options.unshift({
+          label: t('clients:details.newTransaction'),
+          icon: <Zap size={20} color={colors.primary} />,
+          onPress: () => {
+            if (actionSheetCari) {
+              setSelectedCari(actionSheetCari);
+              setQuickBarVisible(true);
+            }
+          },
+        });
+      }
+      options.push({
+        label: t('clients:sharing.removeLink'),
+        icon: <Trash2 size={20} color={colors.error} />,
+        onPress: () => {
+          if (cari.linkId) handleRemoveLink(cari.linkId);
+        },
+        destructive: true,
+      });
+      return options;
+    }
+
+    // Own cari: full options + share
+    return [
+      {
+        label: t('common:bulkSelect.select'),
+        icon: <CheckSquare size={20} color={colors.info} />,
+        onPress: handleEnterSelectMode,
       },
-    },
-    {
-      label: t('common:archive.actions.archive'),
-      icon: <Archive size={20} color={colors.warning} />,
-      onPress: handleArchive,
-    },
-    {
-      label: t('common:buttons.delete'),
-      icon: <Trash2 size={20} color={colors.error} />,
-      onPress: handleDelete,
-      destructive: true,
-    },
-  ];
+      {
+        label: t('common:buttons.edit'),
+        icon: <Edit3 size={20} color={colors.primary} />,
+        onPress: () => {
+          if (actionSheetCari) {
+            router.push(`/cariler/duzenle/${actionSheetCari.id}`);
+          }
+        },
+      },
+      {
+        label: t('clients:sharing.shareTitle'),
+        icon: <Link size={20} color={colors.primary} />,
+        onPress: () => {
+          if (actionSheetCari) {
+            setShareModalCari({ id: actionSheetCari.id, name: actionSheetCari.name });
+            setShareModalVisible(true);
+          }
+        },
+      },
+      {
+        label: t('common:archive.actions.archive'),
+        icon: <Archive size={20} color={colors.warning} />,
+        onPress: handleArchive,
+      },
+      {
+        label: t('common:buttons.delete'),
+        icon: <Trash2 size={20} color={colors.error} />,
+        onPress: handleDelete,
+        destructive: true,
+      },
+    ];
+  }, [actionSheetCari, t, router, handleEnterSelectMode, handleArchive, handleDelete, haptics, showToast]);
+
+  const actionSheetOptions = useMemo(() => {
+    if (!actionSheetCari) return [];
+    // Check if actionSheetCari is a linked cari
+    const mergedItem = mergedCariler?.find(c => c.id === actionSheetCari.id);
+    return getActionSheetOptions(mergedItem ?? (actionSheetCari as MergedCari));
+  }, [actionSheetCari, getActionSheetOptions]);
+
+  // Merge own cariler + linked cariler
+  const mergedCariler = useMemo((): MergedCari[] => {
+    const ownItems: MergedCari[] = (cariler ?? []).map(c => ({ ...c }));
+
+    // Transform linked cariler into MergedCari items
+    const linkedItems: MergedCari[] = linkedCariler
+      .filter(link => link.cari) // guard
+      .map(link => ({
+        // Map linked cari data to Cari shape
+        id: link.cari!.id,
+        name: link.cari!.name,
+        balance: link.cari!.balance,
+        currency: link.cari!.currency,
+        type: link.viewer_type, // kabul edenin sectigi tip
+        isletme_id: link.owner_isletme_id,
+        phone: null,
+        email: null,
+        address: null,
+        tax_number: null,
+        notes: null,
+        is_active: true,
+        is_archived: false,
+        created_at: link.created_at,
+        updated_at: link.created_at,
+        // Link metadata
+        isLinked: true,
+        linkOwnerName: link.owner_isletme?.name ?? '-',
+        linkPermission: link.permission,
+        linkId: link.id,
+      } as MergedCari));
+
+    return [...ownItems, ...linkedItems];
+  }, [cariler, linkedCariler]);
 
   // Arama filtresi ve sıralama (aktif önce)
-  const filteredCariler = (cariler ?? [])
-    .filter((cari) => cari.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredCariler = mergedCariler
+    .filter((cari) => {
+      // Type filter
+      if (filter !== 'all' && cari.type !== filter) return false;
+      // Search filter
+      if (searchQuery && !cari.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      return true;
+    })
     .sort((a, b) => {
+      // Own cariler önce, linked sonra
+      if (a.isLinked !== b.isLinked) {
+        return a.isLinked ? 1 : -1;
+      }
       // Aktif olanlar önce
       if (a.is_active !== b.is_active) {
         return a.is_active ? -1 : 1;
@@ -264,11 +410,11 @@ export default function CarilerPage() {
 
 
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
-  const renderCariItem = useCallback(({ item: cari }: { item: NonNullable<typeof cariler>[number] }) => {
+  const renderCariItem = useCallback(({ item: cari }: { item: MergedCari }) => {
     const isSelected = selectedIds.has(cari.id);
     return (
       <View style={[!cari.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
-        {isSelectMode ? (
+        {isSelectMode && !cari.isLinked ? (
           <TouchableOpacity
             style={styles.selectableCard}
             onPress={() => toggleSelection(cari.id)}
@@ -325,10 +471,18 @@ export default function CarilerPage() {
                       <EyeOff size={14} color={colors.textMuted} />
                     )}
                   </View>
-                  <Text variant="caption" color="secondary">
-                    {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-                    {cari.phone ? ` • ${cari.phone}` : ''}
-                  </Text>
+                  {cari.isLinked ? (
+                    <LinkedCariBadge
+                      ownerIsletmeName={cari.linkOwnerName ?? ''}
+                      permission={cari.linkPermission ?? 'view'}
+                      variant="inline"
+                    />
+                  ) : (
+                    <Text variant="caption" color="secondary">
+                      {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
+                      {cari.phone ? ` • ${cari.phone}` : ''}
+                    </Text>
+                  )}
                 </View>
                 <View style={styles.cariBalance}>
                   <Text variant="caption" color="secondary">
@@ -374,18 +528,21 @@ export default function CarilerPage() {
             }
           >
             <View style={styles.cariActions}>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Zap size={16} color={colors.white} />}
-                onPress={() => {
-                  setSelectedCari(cari);
-                  setQuickBarVisible(true);
-                }}
-                style={styles.actionButton}
-              >
-                {t('clients:details.newTransaction')}
-              </Button>
+              {/* Linked view-only cari: no new transaction button */}
+              {!(cari.isLinked && cari.linkPermission === 'view') && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Zap size={16} color={colors.white} />}
+                  onPress={() => {
+                    setSelectedCari(cari);
+                    setQuickBarVisible(true);
+                  }}
+                  style={styles.actionButton}
+                >
+                  {t('clients:details.newTransaction')}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -408,14 +565,23 @@ export default function CarilerPage() {
       {/* Header */}
       <View style={styles.header}>
         <Text variant="h2">{t('clients:titles.clients')}</Text>
-        <Button
-          variant="primary"
-          size="sm"
-          icon={<Plus size={18} color={colors.white} />}
-          onPress={() => router.push('/cariler/ekle')}
-        >
-          {t('common:buttons.add')}
-        </Button>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.linkButton}
+            onPress={() => setAcceptCodeVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Link size={18} color={colors.primary} />
+          </TouchableOpacity>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={18} color={colors.white} />}
+            onPress={() => router.push('/cariler/ekle')}
+          >
+            {t('common:buttons.add')}
+          </Button>
+        </View>
       </View>
 
       {/* Özet Kartları */}
@@ -517,6 +683,25 @@ export default function CarilerPage() {
         cancelLabel={t('common:buttons.cancel')}
       />
 
+      {/* Accept Code Sheet */}
+      <AcceptCodeSheet
+        visible={acceptCodeVisible}
+        onDismiss={() => setAcceptCodeVisible(false)}
+      />
+
+      {/* Share Code Modal */}
+      {shareModalCari && (
+        <ShareCodeModal
+          visible={shareModalVisible}
+          onDismiss={() => {
+            setShareModalVisible(false);
+            setShareModalCari(null);
+          }}
+          cariId={shareModalCari.id}
+          cariName={shareModalCari.name}
+        />
+      )}
+
       {/* Camera FAB for photo import */}
       {!isSelectMode && (
         <TouchableOpacity
@@ -594,6 +779,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  linkButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   summaryContainer: {
     flexDirection: 'row',
