@@ -172,9 +172,21 @@ export function useCreateIslem() {
 
       return data as Islem;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       // Merkezi invalidation helper kullan
       invalidateRelatedQueries(queryClient, 'islem');
+
+      // Baglantili cari varsa karsi tarafa bildirim gonder (fire & forget)
+      if (variables.cari_id) {
+        supabase.functions
+          .invoke('notify-linked-users', {
+            body: {
+              record: { ..._data, isletme_id: isletme!.id },
+              type: 'INSERT',
+            },
+          })
+          .catch((err) => console.warn('[notify-linked-users] Bildirim gonderilemedi:', err));
+      }
     },
   });
 }

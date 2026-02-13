@@ -326,8 +326,10 @@ export default function CarilerPage() {
         icon: <Link size={20} color={colors.primary} />,
         onPress: () => {
           if (actionSheetCari) {
-            setShareModalCari({ id: actionSheetCari.id, name: actionSheetCari.name });
-            setShareModalVisible(true);
+            const cari = { id: actionSheetCari.id, name: actionSheetCari.name };
+            setShareModalCari(cari);
+            // ActionSheet kapanma animasyonu bitmesini bekle
+            setTimeout(() => setShareModalVisible(true), 250);
           }
         },
       },
