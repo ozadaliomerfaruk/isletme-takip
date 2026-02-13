@@ -1,4 +1,4 @@
-import { View, StyleSheet, TouchableOpacity, Modal, Animated, Pressable } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Modal, Animated, Pressable, Easing, Dimensions } from 'react-native';
 import { useRef, useEffect, useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -33,11 +33,12 @@ export function ActionSheet({
   const { t } = useTranslation('common');
   const insets = useSafeAreaInsets();
   const resolvedCancelLabel = cancelLabel ?? t('buttons.cancel');
-  const translateY = useRef(new Animated.Value(300)).current;
+  const dismissDistance = Dimensions.get('window').height * 0.6;
+  const translateY = useRef(new Animated.Value(dismissDistance)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
 
   const animateIn = useCallback(() => {
-    translateY.setValue(300);
+    translateY.setValue(dismissDistance);
     Animated.parallel([
       Animated.spring(translateY, {
         toValue: 0,
@@ -51,23 +52,23 @@ export function ActionSheet({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [translateY, backdropOpacity]);
+  }, [translateY, backdropOpacity, dismissDistance]);
 
   const animateOut = useCallback((callback?: () => void) => {
     Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: 300,
-        damping: 20,
-        stiffness: 300,
+      Animated.timing(translateY, {
+        toValue: dismissDistance,
+        duration: 180,
+        easing: Easing.in(Easing.cubic),
         useNativeDriver: true,
       }),
       Animated.timing(backdropOpacity, {
         toValue: 0,
-        duration: 150,
+        duration: 180,
         useNativeDriver: true,
       }),
     ]).start(callback);
-  }, [translateY, backdropOpacity]);
+  }, [translateY, backdropOpacity, dismissDistance]);
 
   useEffect(() => {
     if (visible) {
@@ -83,10 +84,10 @@ export function ActionSheet({
   const handleOptionPress = useCallback((option: ActionSheetOption) => {
     if (option.disabled) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    animateOut(() => {
-      onClose();
-      option.onPress();
-    });
+    // Animasyonu baslat, bitince modal'i kapat
+    animateOut(() => onClose());
+    // Aksiyonu animasyon bitmeden atesle - kullaniciya anlik his verir
+    setTimeout(() => option.onPress(), 150);
   }, [animateOut, onClose]);
 
   if (!visible) return null;
