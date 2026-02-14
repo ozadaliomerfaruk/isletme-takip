@@ -35,9 +35,10 @@ CREATE POLICY "..." ON table FOR ...
 ```
 
 **Neden güvenli:**
-- SQL `OR` operatörü sol taraf TRUE ise sağ tarafı değerlendirmez
+- PostgreSQL `OR` operatörü dalları herhangi bir sırada değerlendirebilir (short-circuit garantisi YOK), ancak bu güvenlik açığı oluşturmaz
 - Owner condition mevcut RLS pattern ile BİREBİR AYNI
-- `isletme_users` tablosu başlangıçta BOŞ → shared user condition FALSE döner
+- `isletme_users` tablosu başlangıçta BOŞ → shared user condition `EXISTS` her zaman FALSE döner
+- **Not:** OR dallarının değerlendirilme sırası bir performans meselesidir, güvenlik meselesi değil
 
 ### Migration Güvenlik Sırası
 
@@ -70,6 +71,8 @@ CREATE POLICY "..." ON table FOR ...
 | cekler | ✅ | ❌ | ❌ | ❌ | ✅ Ayrı |
 | nakit_avanslar | ✅ | ❌ | ❌ | ❌ | ✅ Ayrı |
 | ileri_tarihli_islemler | ✅ | ❌ | ❌ | ❌ | ✅ Ayrı |
+| urunler | ✅ | ❌ | ✅ | ❌ | ✅ FOR ALL |
+| urun_hareketler | ✅ | ❌ | ❌ | ❌ | ✅ FOR ALL |
 
 ### Mevcut RLS Pattern
 ```sql
@@ -96,7 +99,7 @@ isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
 | Pasif/arşiv kontrolü | **RLS'te de kontrol** (fonksiyon ile) |
 | created_by | **DB trigger ile otomatik** (SECURITY DEFINER) |
 | Yetkisiz sayfa | **Gizle** (gösterme, yönlendirme yok) |
-| Silinen işlemler | **Soft delete** (7 gün sonra kalıcı silme) |
+| Silinen işlemler | **Hard delete + audit log** (mevcut bakiye geri alma korunur, `islem_audit_log` tablosuna kayıt) |
 
 ---
 
@@ -114,32 +117,62 @@ isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
 
 ### Tab Bar Filtreleme Örneği
 
+> **ÖNEMLİ:** Expo Router file-based routing kullanır. `Tabs.Screen` deklarasyonları STATİK olmalıdır. Dinamik `filter().map()` ile render YAPILMAZ, uygulama bozulur. Yetkisiz tab'lar `href: null` ile gizlenir.
+
 ```typescript
 // src/app/(tabs)/_layout.tsx
 
 export default function TabLayout() {
   const { canAccessModule } = usePermissions();
 
-  // Yetkisiz tabları filtrele
-  const visibleTabs = useMemo(() => {
-    const tabs = [
-      { name: 'index', module: 'dashboard' },
-      { name: 'hesaplar', module: 'hesaplar' },
-      { name: 'cariler', module: 'cariler' },
-      { name: 'personel', module: 'personel' },
-      { name: 'daha', module: null }, // Herkes görebilir
-    ];
-
-    return tabs.filter(tab =>
-      tab.module === null || canAccessModule(tab.module)
-    );
-  }, [canAccessModule]);
-
   return (
-    <Tabs>
-      {visibleTabs.map(tab => (
-        <Tabs.Screen key={tab.name} name={tab.name} />
-      ))}
+    <Tabs screenOptions={{...}}>
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: t('tabs.home'),
+          tabBarIcon: ({ color }) => <Home size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="analitik"
+        options={{
+          href: null, // Analitik her zaman gizli (mevcut davranış)
+          title: t('tabs.analytics'),
+          tabBarIcon: ({ color }) => <BarChart3 size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="cariler"
+        options={{
+          href: canAccessModule('cariler') ? '/(tabs)/cariler' : null,
+          title: t('tabs.clients'),
+          tabBarIcon: ({ color }) => <Users size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="personel"
+        options={{
+          href: canAccessModule('personel') ? '/(tabs)/personel' : null,
+          title: t('tabs.personnel'),
+          tabBarIcon: ({ color }) => <UserCircle size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="urunler"
+        options={{
+          href: canAccessModule('urunler') ? '/(tabs)/urunler' : null,
+          title: t('tabs.stock'),
+          tabBarIcon: ({ color }) => <Package size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="daha"
+        options={{
+          title: t('tabs.more'),
+          tabBarIcon: ({ color }) => <MoreHorizontal size={28} color={color} />,
+        }}
+      />
     </Tabs>
   );
 }
@@ -285,182 +318,115 @@ interface PermissionEditorProps {
 | Özellik | Detay |
 |---------|-------|
 | Erişim | **Sadece owner** |
-| Silinenler | 7 gün boyunca görüntülenebilir, sonra kalıcı silinir |
+| Silinenler | Audit log'da kalıcı olarak kayıtlı (hard delete + log) |
 | Düzenlenenler | Tüm düzenleme geçmişi görüntülenebilir |
-| Kurtarma | Silinen işlemler kurtarılabilir |
+| Kurtarma | Log'daki `old_data` ile yeni işlem olarak yeniden oluşturulabilir |
 | Bilgi | Kim sildi/düzenledi, ne zaman |
 
 ### Veritabanı Değişiklikleri
 
+> **v6 DEĞİŞİKLİĞİ:** Soft delete yaklaşımı **KALDIRILDI**. Yerine `islem_audit_log` tablosu kullanılacak.
+>
+> **Neden:** Mevcut `useDeleteIslem` hook'u (`src/hooks/useIslemler.ts:527-573`) 13+ işlem tipi için `reverseBalances()` çağırarak bakiyeleri geri alır, sonra hard delete yapar. Soft delete'e geçmek, bu bakiye geri alma mantığının tamamını SQL'e taşımayı gerektirir - çok karmaşık ve hata riski yüksek. Ayrıca `restore_islem` fonksiyonu bakiyeleri tekrar uygulamadığı için veri tutarsızlığına yol açar.
+
 ```sql
 -- =============================================
--- SOFT DELETE ALANLARI (islemler tablosuna)
+-- İŞLEM AUDIT LOG TABLOSU (Soft delete YERİNE)
 -- =============================================
+-- Mevcut hard delete + bakiye reversal korunur
+-- Silme/düzenleme olayları bu tabloya kaydedilir
+-- Owner "İşlem Geçmişi" sayfasında bunları görebilir
 
-ALTER TABLE islemler ADD COLUMN deleted_at TIMESTAMPTZ DEFAULT NULL;
-ALTER TABLE islemler ADD COLUMN deleted_by UUID REFERENCES auth.users(id);
+CREATE TABLE islem_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  isletme_id UUID NOT NULL REFERENCES isletmeler(id) ON DELETE CASCADE,
+  islem_id UUID,  -- NULL olabilir (silinen işlemler için referans kaybolur)
+  action TEXT NOT NULL CHECK (action IN ('create', 'update', 'delete')),
+  performed_by UUID NOT NULL REFERENCES auth.users(id),
+  old_data JSONB,  -- önceki değer (update/delete için)
+  new_data JSONB,  -- yeni değer (create/update için)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
--- Silinen işlemler için index
-CREATE INDEX idx_islemler_deleted ON islemler(isletme_id, deleted_at)
-  WHERE deleted_at IS NOT NULL;
+CREATE INDEX idx_audit_log_isletme ON islem_audit_log(isletme_id, created_at DESC);
+CREATE INDEX idx_audit_log_action ON islem_audit_log(isletme_id, action) WHERE action = 'delete';
+
+ALTER TABLE islem_audit_log ENABLE ROW LEVEL SECURITY;
+
+-- Sadece owner görebilir
+CREATE POLICY "Owner can view audit log" ON islem_audit_log FOR SELECT
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+  );
+
+-- INSERT/UPDATE/DELETE policy yok → client doğrudan yazamaz
+-- Tüm log insert'leri DB trigger'ları ile yapılır (SECURITY DEFINER)
 
 -- Düzenlenen işlemler için index (updated_by farklı ise)
 CREATE INDEX idx_islemler_edited ON islemler(isletme_id, updated_at)
   WHERE updated_by IS NOT NULL AND updated_by != created_by;
 
 -- =============================================
--- RLS GÜNCELLEMESİ: Normal kullanıcılar silinenleri göremez
+-- AUDIT LOG TRİGGER'LARI (Client yerine DB seviyesinde)
 -- =============================================
+-- Neden trigger: Client crash/offline/race-condition durumunda
+-- log yazılmadan delete/update gerçekleşebilir.
+-- Trigger ile log HER ZAMAN atomik olarak tutulur.
 
--- Mevcut SELECT policy'yi güncelle
-DROP POLICY IF EXISTS "Select islemler" ON islemler;
-
-CREATE POLICY "Select islemler" ON islemler FOR SELECT
-  TO authenticated USING (
-    -- Silinmemiş işlemler için normal kontrol
-    (
-      deleted_at IS NULL
-      AND (
-        isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
-        OR EXISTS (
-          SELECT 1 FROM isletme_users iu
-          WHERE iu.isletme_id = islemler.isletme_id
-            AND iu.user_id = auth.uid()
-            AND iu.status = 'active'
-            AND COALESCE((iu.permissions->'modules'->>'islemler')::boolean, false) = true
-        )
-      )
-    )
-    OR
-    -- Silinen işlemler: SADECE owner görebilir
-    (
-      deleted_at IS NOT NULL
-      AND isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
-    )
+CREATE OR REPLACE FUNCTION log_islem_delete()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO islem_audit_log (isletme_id, islem_id, action, performed_by, old_data)
+  VALUES (
+    OLD.isletme_id,
+    OLD.id,
+    'delete',
+    auth.uid(),
+    to_jsonb(OLD)
   );
+  RETURN OLD;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION log_islem_update()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO islem_audit_log (isletme_id, islem_id, action, performed_by, old_data, new_data)
+  VALUES (
+    OLD.isletme_id,
+    OLD.id,
+    'update',
+    auth.uid(),
+    to_jsonb(OLD),
+    to_jsonb(NEW)
+  );
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_islem_audit_delete
+  BEFORE DELETE ON islemler
+  FOR EACH ROW EXECUTE FUNCTION log_islem_delete();
+
+CREATE TRIGGER trg_islem_audit_update
+  BEFORE UPDATE ON islemler
+  FOR EACH ROW EXECUTE FUNCTION log_islem_update();
 ```
 
-### RPC Fonksiyonları
-
-```sql
--- =============================================
--- SOFT DELETE (Hard delete yerine)
--- =============================================
-
-CREATE OR REPLACE FUNCTION soft_delete_islem(p_islem_id UUID)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_islem RECORD;
-BEGIN
-  -- İşlemi bul
-  SELECT * INTO v_islem FROM islemler WHERE id = p_islem_id;
-
-  IF v_islem IS NULL THEN
-    RAISE EXCEPTION 'İşlem bulunamadı';
-  END IF;
-
-  -- Yetki kontrolü (RLS'e ek olarak)
-  IF NOT (
-    -- Owner
-    EXISTS (SELECT 1 FROM isletmeler WHERE id = v_islem.isletme_id AND user_id = auth.uid())
-    OR
-    -- Silme yetkisi olan kullanıcı
-    EXISTS (
-      SELECT 1 FROM isletme_users iu
-      WHERE iu.isletme_id = v_islem.isletme_id
-        AND iu.user_id = auth.uid()
-        AND iu.status = 'active'
-        AND (
-          COALESCE((iu.permissions->'actions'->'islemler'->>'can_delete_all')::boolean, false) = true
-          OR (
-            COALESCE((iu.permissions->'actions'->'islemler'->>'can_delete_own')::boolean, false) = true
-            AND v_islem.created_by = auth.uid()
-          )
-        )
-    )
-  ) THEN
-    RAISE EXCEPTION 'Bu işlemi silme yetkiniz yok';
-  END IF;
-
-  -- Soft delete
-  UPDATE islemler
-  SET deleted_at = NOW(), deleted_by = auth.uid()
-  WHERE id = p_islem_id;
-
-  RETURN TRUE;
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION soft_delete_islem TO authenticated;
-
--- =============================================
--- RESTORE (Sadece owner)
--- =============================================
-
-CREATE OR REPLACE FUNCTION restore_islem(p_islem_id UUID)
-RETURNS BOOLEAN
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_islem RECORD;
-BEGIN
-  SELECT * INTO v_islem FROM islemler WHERE id = p_islem_id;
-
-  IF v_islem IS NULL THEN
-    RAISE EXCEPTION 'İşlem bulunamadı';
-  END IF;
-
-  IF v_islem.deleted_at IS NULL THEN
-    RAISE EXCEPTION 'Bu işlem zaten aktif';
-  END IF;
-
-  -- Sadece owner restore edebilir
-  IF NOT EXISTS (SELECT 1 FROM isletmeler WHERE id = v_islem.isletme_id AND user_id = auth.uid()) THEN
-    RAISE EXCEPTION 'Sadece işletme sahibi işlem kurtarabilir';
-  END IF;
-
-  -- Restore
-  UPDATE islemler
-  SET deleted_at = NULL, deleted_by = NULL
-  WHERE id = p_islem_id;
-
-  RETURN TRUE;
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION restore_islem TO authenticated;
-
--- =============================================
--- ESKİ SİLİNEN İŞLEMLERİ TEMİZLE (Cron job - günlük)
--- =============================================
-
-CREATE OR REPLACE FUNCTION cleanup_deleted_transactions()
-RETURNS INTEGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_count INTEGER;
-BEGIN
-  DELETE FROM islemler
-  WHERE deleted_at IS NOT NULL
-    AND deleted_at < NOW() - INTERVAL '7 days';
-
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  RETURN v_count;
-END;
-$$;
-
--- NOT: Bu fonksiyon Supabase pg_cron ile günlük çalıştırılmalı
--- SELECT cron.schedule('cleanup-deleted-transactions', '0 3 * * *', 'SELECT cleanup_deleted_transactions()');
-```
+**Nasıl çalışır:**
+- `useDeleteIslem`: Mevcut hard delete + `reverseBalances()` KORUNUR. Client'ta log yazmaya **gerek yok** - DB trigger (`trg_islem_audit_delete`) otomatik olarak `old_data` kaydeder.
+- `useUpdateIslem`: Client'ta log yazmaya **gerek yok** - DB trigger (`trg_islem_audit_update`) otomatik olarak `old_data` + `new_data` kaydeder.
+- **Kurtarma:** Owner "İşlem Geçmişi"nde silinen işlemi görüp "Yeniden Oluştur" derse, `old_data`'dan yeni işlem oluşturulur. Bakiyeler `useCreateIslem` tarafından doğru hesaplanır.
+- **Avantaj:** Mevcut bakiye mantığı hiç bozulmaz. Trigger atomik olduğu için log her zaman tutulur (client crash/offline bile olsa).
+- **90 gün sonra temizlik:** `pg_cron` ile eski loglar silinir.
 
 ### Yeni Sayfa: İşlem Geçmişi
 
@@ -709,10 +675,12 @@ const styles = StyleSheet.create({
 
 ### useAuditLog Hook
 
+> **v6 DEĞİŞİKLİĞİ:** Soft delete kaldırıldı, `islem_audit_log` tablosu kullanılıyor.
+
 ```typescript
 // src/hooks/useAuditLog.ts
 
-// Silinen işlemler (son 7 gün)
+// Silinen işlemler (audit log'dan)
 export function useDeletedIslemler() {
   const { isletme } = useAuthContext();
 
@@ -720,15 +688,15 @@ export function useDeletedIslemler() {
     queryKey: queryKeys.auditLog.deleted(isletme?.id ?? ''),
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('islemler')
+        .from('islem_audit_log')
         .select(`
           *,
-          deleter:profiles!deleted_by(*),
-          creator:profiles!created_by(*)
+          performer:profiles!performed_by(*)
         `)
         .eq('isletme_id', isletme!.id)
-        .not('deleted_at', 'is', null)
-        .order('deleted_at', { ascending: false });
+        .eq('action', 'delete')
+        .order('created_at', { ascending: false })
+        .limit(100);
 
       if (error) throw error;
       return data;
@@ -737,7 +705,7 @@ export function useDeletedIslemler() {
   });
 }
 
-// Düzenlenen işlemler (updated_by != created_by)
+// Düzenlenen işlemler (audit log'dan)
 export function useEditedIslemler() {
   const { isletme } = useAuthContext();
 
@@ -745,38 +713,50 @@ export function useEditedIslemler() {
     queryKey: queryKeys.auditLog.edited(isletme?.id ?? ''),
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('islemler')
+        .from('islem_audit_log')
         .select(`
           *,
-          editor:profiles!updated_by(*),
-          creator:profiles!created_by(*)
+          performer:profiles!performed_by(*)
         `)
         .eq('isletme_id', isletme!.id)
-        .is('deleted_at', null)
-        .not('updated_by', 'is', null)
-        .neq('updated_by', supabase.rpc('get_created_by_for_islem')) // Basitleştirilmiş
-        .order('updated_at', { ascending: false })
+        .eq('action', 'update')
+        .order('created_at', { ascending: false })
         .limit(100);
 
+      // NOT: Eski plandaki .neq('updated_by', supabase.rpc(...)) kaldırıldı
+      // Supabase JS client'ta .neq() parametresi olarak .rpc() kullanılamaz (Promise döner, crash eder)
+      // Artık islem_audit_log tablosu kullanıldığı için bu sorun ortadan kalktı
+
       if (error) throw error;
-      // Client-side filter: updated_by != created_by
-      return data.filter(i => i.updated_by !== i.created_by);
+      return data;
     },
     enabled: !!isletme,
   });
 }
 
-// İşlem kurtarma
-export function useRestoreIslem() {
+// İşlem yeniden oluşturma (eski restore yerine)
+// Silinen işlemi audit log'daki old_data'dan yeniden oluşturur
+export function useRecreateIslem() {
   const queryClient = useQueryClient();
+  const createIslem = useCreateIslem();
 
   return useMutation({
-    mutationFn: async (islemId: string) => {
-      const { error } = await supabase.rpc('restore_islem', { p_islem_id: islemId });
-      if (error) throw error;
+    mutationFn: async (auditLogId: string) => {
+      // Audit log kaydını al
+      const { data: logEntry, error: logError } = await supabase
+        .from('islem_audit_log')
+        .select('*')
+        .eq('id', auditLogId)
+        .single();
+
+      if (logError) throw logError;
+      if (!logEntry?.old_data) throw new Error('İşlem verisi bulunamadı');
+
+      // old_data'dan yeni işlem oluştur (id ve timestamps hariç)
+      const { id, created_at, updated_at, created_by, updated_by, ...islemData } = logEntry.old_data;
+      return createIslem.mutateAsync(islemData);
     },
     onSuccess: () => {
-      // Hem audit log hem de normal işlem listesini güncelle
       invalidateRelatedQueries(queryClient, 'islem');
       queryClient.invalidateQueries({ queryKey: ['audit-log'] });
     },
@@ -815,14 +795,13 @@ export const queryKeys = {
     "deletedBy": "Silen: {{name}}",
     "editedBy": "Düzenleyen: {{name}}",
     "createdBy": "Oluşturan: {{name}}",
-    "restore": "Kurtar",
-    "restoreConfirm": "Bu işlemi kurtarmak istediğinize emin misiniz?",
-    "restoreSuccess": "İşlem kurtarıldı",
+    "recreate": "Yeniden Oluştur",
+    "recreateConfirm": "Bu işlemi yeniden oluşturmak istediğinize emin misiniz?",
+    "recreateSuccess": "İşlem yeniden oluşturuldu",
     "empty": {
       "deleted": "Silinen işlem yok",
       "edited": "Düzenlenen işlem yok"
-    },
-    "autoDeleteWarning": "Silinen işlemler 7 gün sonra kalıcı olarak silinir"
+    }
   }
 }
 ```
@@ -840,14 +819,13 @@ export const queryKeys = {
     "deletedBy": "Deleted by: {{name}}",
     "editedBy": "Edited by: {{name}}",
     "createdBy": "Created by: {{name}}",
-    "restore": "Restore",
-    "restoreConfirm": "Are you sure you want to restore this transaction?",
-    "restoreSuccess": "Transaction restored",
+    "recreate": "Recreate",
+    "recreateConfirm": "Are you sure you want to recreate this transaction?",
+    "recreateSuccess": "Transaction recreated",
     "empty": {
       "deleted": "No deleted transactions",
       "edited": "No edited transactions"
-    },
-    "autoDeleteWarning": "Deleted transactions are permanently removed after 7 days"
+    }
   }
 }
 ```
@@ -1128,6 +1106,7 @@ INSERT INTO role_templates (name, label_tr, label_en, sort_order, default_permis
     "cekler": true,
     "nakit_avans": true,
     "ileri_tarihli": true,
+    "urunler": true,
     "arsiv": true,
     "ayarlar": false
   },
@@ -1139,7 +1118,8 @@ INSERT INTO role_templates (name, label_tr, label_en, sort_order, default_permis
     "kategoriler": {"can_create": true, "can_update_own": true, "can_update_all": true, "can_delete_own": true, "can_delete_all": false},
     "cekler": {"can_create": true, "can_update_own": true, "can_update_all": true, "can_delete_own": true, "can_delete_all": false},
     "nakit_avans": {"can_create": true, "can_update_own": true, "can_update_all": false, "can_delete_own": true, "can_delete_all": false},
-    "ileri_tarihli": {"can_create": true, "can_update_own": true, "can_update_all": true, "can_delete_own": true, "can_delete_all": false}
+    "ileri_tarihli": {"can_create": true, "can_update_own": true, "can_update_all": true, "can_delete_own": true, "can_delete_all": false},
+    "urunler": {"can_create": true, "can_update_own": true, "can_update_all": true, "can_delete_own": true, "can_delete_all": false}
   },
   "visibility": {
     "can_see_passive": true,
@@ -1161,6 +1141,7 @@ INSERT INTO role_templates (name, label_tr, label_en, sort_order, default_permis
     "cekler": false,
     "nakit_avans": false,
     "ileri_tarihli": false,
+    "urunler": false,
     "arsiv": false,
     "ayarlar": false
   },
@@ -1191,6 +1172,7 @@ INSERT INTO role_templates (name, label_tr, label_en, sort_order, default_permis
     "cekler": true,
     "nakit_avans": false,
     "ileri_tarihli": true,
+    "urunler": true,
     "arsiv": false,
     "ayarlar": false
   },
@@ -1199,7 +1181,8 @@ INSERT INTO role_templates (name, label_tr, label_en, sort_order, default_permis
     "cariler": {"can_create": true, "can_update_own": true, "can_update_all": false, "can_delete_own": false, "can_delete_all": false},
     "islemler": {"can_create": true, "can_update_own": true, "can_update_all": false, "can_delete_own": false, "can_delete_all": false},
     "cekler": {"can_create": true, "can_update_own": true, "can_update_all": false, "can_delete_own": false, "can_delete_all": false},
-    "ileri_tarihli": {"can_create": true, "can_update_own": true, "can_update_all": false, "can_delete_own": false, "can_delete_all": false}
+    "ileri_tarihli": {"can_create": true, "can_update_own": true, "can_update_all": false, "can_delete_own": false, "can_delete_all": false},
+    "urunler": {"can_create": true, "can_update_own": true, "can_update_all": false, "can_delete_own": false, "can_delete_all": false}
   },
   "visibility": {
     "can_see_passive": false,
@@ -1245,6 +1228,12 @@ ALTER TABLE ileri_tarihli_islemler ADD COLUMN updated_by UUID REFERENCES auth.us
 
 ALTER TABLE nakit_avanslar ADD COLUMN created_by UUID REFERENCES auth.users(id);
 ALTER TABLE nakit_avanslar ADD COLUMN updated_by UUID REFERENCES auth.users(id);
+
+ALTER TABLE urunler ADD COLUMN created_by UUID REFERENCES auth.users(id);
+ALTER TABLE urunler ADD COLUMN updated_by UUID REFERENCES auth.users(id);
+
+ALTER TABLE urun_hareketler ADD COLUMN created_by UUID REFERENCES auth.users(id);
+ALTER TABLE urun_hareketler ADD COLUMN updated_by UUID REFERENCES auth.users(id);
 
 -- Indexler (sık sorgulananlar için)
 CREATE INDEX idx_islemler_created_by ON islemler(created_by);
@@ -1309,6 +1298,14 @@ CREATE TRIGGER set_audit_ileri_tarihli
 CREATE TRIGGER set_audit_nakit_avanslar
   BEFORE INSERT OR UPDATE ON nakit_avanslar
   FOR EACH ROW EXECUTE FUNCTION set_audit_fields();
+
+CREATE TRIGGER set_audit_urunler
+  BEFORE INSERT OR UPDATE ON urunler
+  FOR EACH ROW EXECUTE FUNCTION set_audit_fields();
+
+CREATE TRIGGER set_audit_urun_hareketler
+  BEFORE INSERT OR UPDATE ON urun_hareketler
+  FOR EACH ROW EXECUTE FUNCTION set_audit_fields();
 ```
 
 ### 6. Geçmiş Kayıtları Sahibe Atama
@@ -1349,6 +1346,26 @@ UPDATE ileri_tarihli_islemler SET created_by = (
 UPDATE nakit_avanslar SET created_by = (
   SELECT user_id FROM isletmeler WHERE id = nakit_avanslar.isletme_id
 ) WHERE created_by IS NULL;
+
+UPDATE urunler SET created_by = (
+  SELECT user_id FROM isletmeler WHERE id = urunler.isletme_id
+) WHERE created_by IS NULL;
+
+UPDATE urun_hareketler SET created_by = (
+  SELECT user_id FROM isletmeler WHERE id = urun_hareketler.isletme_id
+) WHERE created_by IS NULL;
+
+-- v7: updated_by'yi de doldur (audit/rapor/UX tutarlılığı için)
+UPDATE islemler SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE hesaplar SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE cariler SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE personel SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE kategoriler SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE cekler SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE ileri_tarihli_islemler SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE nakit_avanslar SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE urunler SET updated_by = created_by WHERE updated_by IS NULL;
+UPDATE urun_hareketler SET updated_by = created_by WHERE updated_by IS NULL;
 
 -- =============================================
 -- MEVCUT KULLANICILAR İÇİN PROFILES OLUŞTUR
@@ -1851,6 +1868,206 @@ CREATE POLICY "Delete kategoriler" ON kategoriler FOR DELETE
         )
     )
   );
+
+-- =============================================
+-- İŞLETMELER RLS GÜNCELLEMESİ (v6: Shared user erişimi)
+-- =============================================
+-- KRITIK: Mevcut policy sadece owner'a SELECT izni veriyor.
+-- Shared user'lar isletme verisini yükleyemez -> uygulama çalışmaz.
+
+DROP POLICY IF EXISTS "Users can manage isletmeler" ON isletmeler;
+
+-- SELECT: Owner VEYA aktif shared user
+CREATE POLICY "Users can view isletmeler" ON isletmeler FOR SELECT
+  TO authenticated USING (
+    user_id = auth.uid()
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = isletmeler.id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+    )
+  );
+
+-- INSERT/UPDATE/DELETE: Sadece owner
+CREATE POLICY "Owner can manage isletmeler" ON isletmeler
+  FOR ALL TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+-- =============================================
+-- CEKLER RLS (v6: Eksik olan tablo)
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can manage cekler" ON cekler;
+
+CREATE POLICY "Select cekler" ON cekler FOR SELECT
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = cekler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND COALESCE((iu.permissions->'modules'->>'cekler')::boolean, false) = true
+    )
+  );
+
+CREATE POLICY "Insert cekler" ON cekler FOR INSERT
+  TO authenticated WITH CHECK (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = cekler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND COALESCE((iu.permissions->'actions'->'cekler'->>'can_create')::boolean, false) = true
+    )
+  );
+
+CREATE POLICY "Update cekler" ON cekler FOR UPDATE
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = cekler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND (
+          COALESCE((iu.permissions->'actions'->'cekler'->>'can_update_all')::boolean, false) = true
+          OR (COALESCE((iu.permissions->'actions'->'cekler'->>'can_update_own')::boolean, false) = true AND cekler.created_by = auth.uid())
+        )
+    )
+  );
+
+CREATE POLICY "Delete cekler" ON cekler FOR DELETE
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = cekler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND (
+          COALESCE((iu.permissions->'actions'->'cekler'->>'can_delete_all')::boolean, false) = true
+          OR (COALESCE((iu.permissions->'actions'->'cekler'->>'can_delete_own')::boolean, false) = true AND cekler.created_by = auth.uid())
+        )
+    )
+  );
+
+-- =============================================
+-- NAKİT_AVANSLAR RLS (v6: Eksik olan tablo)
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can manage nakit_avanslar" ON nakit_avanslar;
+
+CREATE POLICY "Manage nakit_avanslar" ON nakit_avanslar FOR ALL
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = nakit_avanslar.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND COALESCE((iu.permissions->'modules'->>'nakit_avans')::boolean, false) = true
+    )
+  );
+
+-- =============================================
+-- İLERİ_TARİHLİ_İŞLEMLER RLS (v6: Eksik olan tablo)
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can manage ileri_tarihli_islemler" ON ileri_tarihli_islemler;
+
+CREATE POLICY "Manage ileri_tarihli_islemler" ON ileri_tarihli_islemler FOR ALL
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = ileri_tarihli_islemler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND COALESCE((iu.permissions->'modules'->>'ileri_tarihli')::boolean, false) = true
+    )
+  );
+
+-- =============================================
+-- URUNLER RLS (v6: Tamamen yeni eklenen tablo)
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can manage urunler" ON urunler;
+
+CREATE POLICY "Select urunler" ON urunler FOR SELECT
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = urunler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND COALESCE((iu.permissions->'modules'->>'urunler')::boolean, false) = true
+    )
+  );
+
+CREATE POLICY "Insert urunler" ON urunler FOR INSERT
+  TO authenticated WITH CHECK (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = urunler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND COALESCE((iu.permissions->'actions'->'urunler'->>'can_create')::boolean, false) = true
+    )
+  );
+
+CREATE POLICY "Update urunler" ON urunler FOR UPDATE
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = urunler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND (
+          COALESCE((iu.permissions->'actions'->'urunler'->>'can_update_all')::boolean, false) = true
+          OR (COALESCE((iu.permissions->'actions'->'urunler'->>'can_update_own')::boolean, false) = true AND urunler.created_by = auth.uid())
+        )
+    )
+  );
+
+CREATE POLICY "Delete urunler" ON urunler FOR DELETE
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = urunler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND (
+          COALESCE((iu.permissions->'actions'->'urunler'->>'can_delete_all')::boolean, false) = true
+          OR (COALESCE((iu.permissions->'actions'->'urunler'->>'can_delete_own')::boolean, false) = true AND urunler.created_by = auth.uid())
+        )
+    )
+  );
+
+-- =============================================
+-- URUN_HAREKETLER RLS (v6: Tamamen yeni eklenen tablo)
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can manage urun_hareketler" ON urun_hareketler;
+
+CREATE POLICY "Manage urun_hareketler" ON urun_hareketler FOR ALL
+  TO authenticated USING (
+    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+    OR EXISTS (
+      SELECT 1 FROM isletme_users iu
+      WHERE iu.isletme_id = urun_hareketler.isletme_id
+        AND iu.user_id = auth.uid()
+        AND iu.status = 'active'
+        AND COALESCE((iu.permissions->'modules'->>'urunler')::boolean, false) = true
+    )
+  );
 ```
 
 ---
@@ -2104,6 +2321,40 @@ $$;
 GRANT EXECUTE ON FUNCTION remove_isletme_user TO authenticated;
 ```
 
+### 6. leave_isletme (v6 - YENİ)
+
+> **v6 EKLENTİSİ:** Shared user'ın kendi isteğiyle işletmeden ayrılması için RPC. Plan UI'da "İşletmeden Ayrıl" butonu gösteriyor ama bu işlem için RPC eksikti.
+
+```sql
+-- =============================================
+-- İŞLETMEDEN AYRILMA (Shared User)
+-- =============================================
+CREATE OR REPLACE FUNCTION leave_isletme(p_isletme_id UUID)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Owner ayrılamaz (owner isletmeler.user_id ile tanımlı, isletme_users'ta kaydı yok)
+  IF EXISTS (
+    SELECT 1 FROM isletmeler
+    WHERE id = p_isletme_id AND user_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'İşletme sahibi işletmeden ayrılamaz';
+  END IF;
+
+  -- Kullanıcının kaydını kaldır
+  DELETE FROM isletme_users
+  WHERE isletme_id = p_isletme_id AND user_id = auth.uid();
+
+  RETURN FOUND;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION leave_isletme TO authenticated;
+```
+
 ---
 
 ## TypeScript Tipleri
@@ -2171,6 +2422,7 @@ export interface Permissions {
     cekler: boolean;
     nakit_avans: boolean;
     ileri_tarihli: boolean;
+    urunler: boolean;  // v6: eklendi - urunler tab'ı aktif
     arsiv: boolean;
     ayarlar: boolean;
   };
@@ -2980,12 +3232,12 @@ function MyComponent() {
 |-------|------------|
 | `src/contexts/AuthContext.tsx` | Multi-user alanları ekleme (genişletme) |
 | `src/hooks/useAuth.ts` | Multi-user state yönetimi ekleme |
-| `src/hooks/useIslemler.ts` | soft_delete_islem RPC kullanımı **(v5)** |
+| `src/hooks/useIslemler.ts` | Değişiklik gerekmiyor - audit log DB trigger ile otomatik **(v7)** |
 | `src/lib/queryKeys.ts` | multiUser, profiles, auditLog keys + invalidationMap |
 | `src/i18n/index.ts` | multiUser import + namespace ekleme |
 | `src/app/(tabs)/daha.tsx` | Kullanıcı menü bölümü ekleme |
 | `src/app/(tabs)/_layout.tsx` | Tab bar filtreleme **(v5)** |
-| `src/types/database.ts` | created_by/updated_by/deleted_at/deleted_by alanları |
+| `src/types/database.ts` | created_by/updated_by alanları |
 | Tüm liste bileşenleri | UserAvatar gösterimi + PermissionGate sarma (opsiyonel)
 
 ---
@@ -3083,9 +3335,8 @@ export default function KullaniciYonetimiPage() {
   const { t } = useTranslation(['multiUser', 'common']);
   const { isletme, isOwner } = useAuthContext();
 
-  // Owner değilse yönlendir
+  // Owner değilse gösterme (yönlendirme YOK - "Gizle" stratejisi ile tutarlı)
   if (!isOwner) {
-    router.replace('/');
     return null;
   }
 
@@ -3207,12 +3458,11 @@ if (isLoading) {
 - [ ] Yetkisiz butonlar gizleniyor (PermissionGate)
 - [ ] Owner yetkileri sonradan düzenleyebiliyor
 
-### İşlem Geçmişi / Audit Log (v5)
-- [ ] Silinen işlemler 7 gün görüntülenebilir
-- [ ] Owner silinen işlemleri kurtarabilir
-- [ ] 7 gün sonra kalıcı silme (cron job)
-- [ ] Düzenlenen işlemler listesi (kim düzenledi)
-- [ ] Normal kullanıcılar silinen işlemleri göremez
+### İşlem Geçmişi / Audit Log (v6)
+- [ ] Silinen işlemler `islem_audit_log` tablosunda kalıcı olarak kayıtlı
+- [ ] Owner silinen işlemleri `old_data`'dan yeniden oluşturabilir (recreate)
+- [ ] Düzenlenen işlemler listesi (kim düzenledi, eski/yeni değerler)
+- [ ] Normal kullanıcılar audit log'u göremez (sadece owner)
 
 ---
 
@@ -3227,11 +3477,11 @@ if (isLoading) {
 | 3 | UserEditSheet bileşeni | Yetki düzenleme bottom sheet |
 | 4 | PermissionEditor bileşeni | Modül bazlı yetki checkbox'ları |
 | 5 | İşlem Geçmişi (Audit Log) | Silinen/düzenlenen işlemler sayfası |
-| 6 | Soft Delete | islemler tablosuna deleted_at/deleted_by eklendi |
-| 7 | Kurtarma özelliği | Owner silinen işlemleri geri alabilir |
-| 8 | Otomatik temizlik | 7 gün sonra kalıcı silme (cron job) |
-| 9 | Tab bar filtreleme | Yetkisiz modüller tab bar'da görünmez |
-| 10 | useAuditLog hook | Silinen/düzenlenen işlemler için React Query hooks |
+| 6 | `islem_audit_log` tablosu | Hard delete korundu + audit log ile kayıt (v6 düzeltmesi) |
+| 7 | Yeniden oluşturma | Owner silinen işlemleri log'dan yeniden oluşturabilir |
+| 8 | ~~Otomatik temizlik~~ | ~~7 gün sonra kalıcı silme~~ → v6'da kaldırıldı (hard delete + log) |
+| 9 | Tab bar filtreleme | Yetkisiz modüller tab bar'da görünmez (`href: null`) |
+| 10 | useAuditLog hook | `islem_audit_log` tablosundan React Query hooks |
 
 ### v4 Düzeltmeleri (korundu)
 
@@ -3258,8 +3508,8 @@ src/
 │   ├── useAuth.ts                ← GENİŞLETİLDİ
 │   ├── usePermissions.ts         ← YENİ
 │   ├── useMultiUser.ts           ← YENİ
-│   ├── useAuditLog.ts            ← YENİ (v5)
-│   └── useIslemler.ts            ← GÜNCELLENDİ (soft delete)
+│   ├── useAuditLog.ts            ← YENİ (islem_audit_log tablosundan okuma)
+│   └── useIslemler.ts            ← DEĞİŞİKLİK YOK (audit log DB trigger ile otomatik)
 ├── lib/
 │   └── queryKeys.ts              ← GÜNCELLENDİ (auditLog keys)
 ├── components/
@@ -3289,17 +3539,28 @@ src/
         └── islem-gecmisi.tsx     ← YENİ (v5)
 ```
 
-### Veritabanı Eklentileri (v5)
+### Veritabanı Eklentileri (v5 → v6 düzeltmesi)
 
 ```sql
--- islemler tablosuna eklenenler
-ALTER TABLE islemler ADD COLUMN deleted_at TIMESTAMPTZ;
-ALTER TABLE islemler ADD COLUMN deleted_by UUID;
+-- v6: islem_audit_log tablosu (soft delete YERİNE)
+CREATE TABLE islem_audit_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  isletme_id UUID NOT NULL REFERENCES isletmeler(id) ON DELETE CASCADE,
+  islem_id UUID,
+  action TEXT NOT NULL CHECK (action IN ('create', 'update', 'delete')),
+  performed_by UUID NOT NULL REFERENCES auth.users(id),
+  old_data JSONB,
+  new_data JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
--- Yeni fonksiyonlar
-CREATE FUNCTION soft_delete_islem(p_islem_id UUID);
-CREATE FUNCTION restore_islem(p_islem_id UUID);
-CREATE FUNCTION cleanup_deleted_transactions(); -- cron job
+-- v6: leave_isletme RPC (YENİ)
+CREATE FUNCTION leave_isletme(p_isletme_id UUID);
+
+-- v6: Ek RLS policy'leri
+-- cekler, nakit_avanslar, ileri_tarihli_islemler, urunler, urun_hareketler
+-- isletmeler SELECT (shared user erişimi)
+-- Storage bucket (shared user erişimi)
 ```
 
 ---
@@ -3349,8 +3610,8 @@ WITH CHECK (
       SELECT 1 FROM isletme_users iu
       WHERE iu.isletme_id::text = (storage.foldername(name))[1]
       AND iu.user_id = auth.uid()
-      AND iu.is_active = true
-      AND (iu.permissions->>'islem_create')::boolean = true
+      AND iu.status = 'active'
+      AND COALESCE((iu.permissions->'modules'->>'islemler')::boolean, false) = true
     )
   )
 );
@@ -3373,8 +3634,8 @@ USING (
       SELECT 1 FROM isletme_users iu
       WHERE iu.isletme_id::text = (storage.foldername(name))[1]
       AND iu.user_id = auth.uid()
-      AND iu.is_active = true
-      AND (iu.permissions->>'islem_read')::boolean = true
+      AND iu.status = 'active'
+      AND COALESCE((iu.permissions->'modules'->>'islemler')::boolean, false) = true
     )
   )
 );
@@ -3397,8 +3658,8 @@ USING (
       SELECT 1 FROM isletme_users iu
       WHERE iu.isletme_id::text = (storage.foldername(name))[1]
       AND iu.user_id = auth.uid()
-      AND iu.is_active = true
-      AND (iu.permissions->>'islem_delete')::boolean = true
+      AND iu.status = 'active'
+      AND COALESCE((iu.permissions->'modules'->>'islemler')::boolean, false) = true
     )
   )
 );
@@ -3410,3 +3671,5 @@ USING (
 - `isletme_users` tablosu oluşturulduktan SONRA çalıştırılmalıdır
 - Owner kontrolü HER ZAMAN İLK sırada kalmalıdır (SQL OR optimizasyonu)
 - Cari paylaşma özelliği fotoğrafları ETKİLEMEZ (fotoğraflar işleme bağlı, cariye değil)
+- **v6 DÜZELTMESİ:** `iu.is_active = true` → `iu.status = 'active'` olarak düzeltildi (`isletme_users` tablosunda `is_active` kolonu yok, `status TEXT` kullanılıyor)
+- **v6 DÜZELTMESİ:** `(iu.permissions->>'islem_create')` → `COALESCE((iu.permissions->'modules'->>'islemler')::boolean, false)` olarak düzeltildi (permissions yapısı JSONB nested, `modules` altında)
