@@ -102,6 +102,8 @@ export interface Hesap {
   credit_limit: number | null;
   is_active: boolean;
   is_archived: boolean;
+  card_last_four: string | null;
+  card_network: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -118,6 +120,8 @@ export interface HesapInsert {
   credit_limit?: number | null;
   is_active?: boolean;
   is_archived?: boolean;
+  card_last_four?: string | null;
+  card_network?: string | null;
 }
 
 export interface HesapUpdate {
@@ -129,6 +133,8 @@ export interface HesapUpdate {
   credit_limit?: number | null;
   is_active?: boolean;
   is_archived?: boolean;
+  card_last_four?: string | null;
+  card_network?: string | null;
 }
 
 // Kategori
@@ -723,4 +729,87 @@ export interface UrunHareketInsert {
 
 export interface UrunHareketWithUrun extends UrunHareket {
   urun?: Urun;
+}
+
+// ============ ALIAS SİSTEMİ ============
+
+export interface UrunAlias {
+  id: string;
+  isletme_id: string;
+  urun_id: string;
+  alias_name: string;
+  alias_normalized: string;
+  supplier_cari_id: string | null;
+  usage_count: number;
+  last_seen_at: string;
+  status: 'confirmed' | 'pending';
+  created_at: string;
+}
+
+export interface UrunAliasInsert {
+  urun_id: string;
+  alias_name: string;
+  alias_normalized: string;
+  supplier_cari_id?: string | null;
+  status?: 'confirmed' | 'pending';
+}
+
+export interface CariAlias {
+  id: string;
+  isletme_id: string;
+  cari_id: string;
+  alias_name: string;
+  alias_normalized: string;
+  usage_count: number;
+  last_seen_at: string;
+  status: 'confirmed' | 'pending';
+  created_at: string;
+}
+
+export interface CariAliasInsert {
+  cari_id: string;
+  alias_name: string;
+  alias_normalized: string;
+  status?: 'confirmed' | 'pending';
+}
+
+// ============ İRSALİYE BEKLEME SİSTEMİ ============
+
+export type IrsaliyeStatus = 'pending' | 'linked' | 'cancelled';
+
+export interface IrsaliyeRecord {
+  id: string;
+  isletme_id: string;
+  cari_id: string | null;
+  tarih: string;
+  toplam_tutar: number;
+  status: IrsaliyeStatus;
+  linked_islem_id: string | null;
+  belge_no: string | null;
+  items: unknown; // JSONB - saved item snapshots
+  photo_path: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface IrsaliyeRecordInsert {
+  cari_id?: string | null;
+  tarih?: string;
+  toplam_tutar?: number;
+  status?: IrsaliyeStatus;
+  belge_no?: string | null;
+  items?: unknown;
+  photo_path?: string | null;
+  notes?: string | null;
+}
+
+export interface IrsaliyeRecordUpdate {
+  cari_id?: string | null;
+  toplam_tutar?: number;
+  status?: IrsaliyeStatus;
+  linked_islem_id?: string | null;
+  belge_no?: string | null;
+  items?: unknown;
+  notes?: string | null;
 }

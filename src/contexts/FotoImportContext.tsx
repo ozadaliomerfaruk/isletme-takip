@@ -7,7 +7,11 @@ import { useOcrImport } from '@/hooks/useOcrImport';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useCariler } from '@/hooks/useCariler';
 import { useKategoriler } from '@/hooks/useKategoriler';
+import { useHesaplar } from '@/hooks/useHesaplar';
+import { useCreateUrunAlias } from '@/hooks/useUrunAliases';
+import { useCreateCariAlias } from '@/hooks/useCariAliases';
 import { formatCurrency } from '@/lib/currency';
+import { normalizeTurkish } from '@/lib/turkishTextUtils';
 import {
   OcrImportStep,
   OcrParsedItem,
@@ -15,8 +19,9 @@ import {
   MultiInvoiceEntry,
   OcrProcessingProgress,
   OcrSaveProgress,
+  DOCUMENT_TYPE_DEFAULTS,
 } from '@/types/ocrImport';
-import { Urun, Cari, Kategori, UrunHareketTipi } from '@/types/database';
+import { Urun, Cari, Kategori, Hesap, UrunHareketTipi } from '@/types/database';
 
 interface FotoImportContextValue {
   // State
@@ -58,6 +63,21 @@ interface FotoImportContextValue {
   handleSell: () => void;
   handleSaveWithDirection: (hareketTipi: UrunHareketTipi) => void;
 
+  // Hesap picker
+  handleSelectHesap: (hesapId: string) => void;
+  hesapPickerVisible: boolean;
+  setHesapPickerVisible: (v: boolean) => void;
+  hesapSearch: string;
+  setHesapSearch: (s: string) => void;
+  filteredHesaplar: Hesap[] | undefined;
+
+  // Gider kategori
+  giderKategoriler: Kategori[] | undefined;
+  handleSelectGiderKategori: (kategoriId: string | null) => void;
+
+  // Edited grand total (for direct_gider)
+  handleEditGrandTotal: (amount: number | null) => void;
+
   // New product modal
   newProductModalVisible: boolean;
   setNewProductModalVisible: (v: boolean) => void;
@@ -83,10 +103,15 @@ interface FotoImportContextValue {
   selectedInvoice: import('@/types/ocrImport').OcrParsedInvoice | null;
   currentEntry: MultiInvoiceEntry | null;
   matchedCari: Cari | undefined;
+  selectedHesap: Hesap | undefined;
   enteredTotal: number;
   totalMismatch: boolean;
   getUrunById: (id: string | null) => Urun | undefined;
   getMatchedKategoriName: (item: OcrParsedItem) => string | null;
+
+  // Alias learning
+  saveUrunAlias: (urunId: string, ocrName: string, supplierCariId?: string | null) => void;
+  saveCariAlias: (cariId: string, ocrName: string) => void;
 
   // Save state
   isSaving: boolean;
@@ -94,6 +119,7 @@ interface FotoImportContextValue {
 
   // Data
   kategoriler: Kategori[] | undefined;
+  cariler: Cari[] | undefined;
 }
 
 const FotoImportContext = createContext<FotoImportContextValue | null>(null);
@@ -111,7 +137,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
   const [step, setStep] = useState<OcrImportStep>('capture');
   const [entries, setEntries] = useState<MultiInvoiceEntry[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [saveMode, setSaveMode] = useState<OcrSaveMode>('products_and_movements');
+  const [saveMode, setSaveMode] = useState<OcrSaveMode>('stock_and_cari');
   const [newProductModalVisible, setNewProductModalVisible] = useState(false);
   const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
   const [pendingUris, setPendingUris] = useState<string[]>([]);
@@ -125,6 +151,10 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
   const [cariPickerVisible, setCariPickerVisible] = useState(false);
   const [cariSearch, setCariSearch] = useState('');
 
+  // Hesap picker
+  const [hesapPickerVisible, setHesapPickerVisible] = useState(false);
+  const [hesapSearch, setHesapSearch] = useState('');
+
   const sessionId = useRef(`ocr_${Date.now()}`).current;
 
   const takePhoto = useTakePhoto();
@@ -132,11 +162,17 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
   const { data: urunler } = useUrunler();
   const { data: cariler } = useCariler();
   const { data: kategoriler } = useKategoriler('urun');
+  const { data: giderKategoriler } = useKategoriler('gider');
+  const { data: hesaplar } = useHesaplar();
+
+  const createUrunAlias = useCreateUrunAlias();
+  const createCariAlias = useCreateCariAlias();
 
   const {
     processImages,
     saveImport,
     saveAll,
+    matchCardToHesap,
     isProcessing,
     processingProgress,
     isSaving,
@@ -145,6 +181,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
   // Current selected invoice for review
   const selectedInvoice = selectedIndex !== null ? entries[selectedIndex]?.invoice ?? null : null;
+  const currentEntry = selectedIndex !== null ? entries[selectedIndex] ?? null : null;
 
   // Filtered products for picker
   const filteredUrunler = useMemo(() => {
@@ -164,6 +201,14 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     );
   }, [cariler, cariSearch]);
 
+  // Filtered hesaplar for picker
+  const filteredHesaplar = useMemo(() => {
+    if (!hesapSearch.trim()) return hesaplar;
+    return hesaplar?.filter(h =>
+      h.name.toLowerCase().includes(hesapSearch.toLowerCase())
+    );
+  }, [hesaplar, hesapSearch]);
+
   // Get product by ID
   const getUrunById = useCallback((id: string | null): Urun | undefined => {
     return urunler?.find(u => u.id === id);
@@ -174,6 +219,12 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     if (!id) return undefined;
     return cariler?.find(c => c.id === id);
   }, [cariler]);
+
+  // Get hesap by ID
+  const getHesapById = useCallback((id: string | null): Hesap | undefined => {
+    if (!id) return undefined;
+    return hesaplar?.find(h => h.id === id);
+  }, [hesaplar]);
 
   // Get kategori name by ID
   const getKategoriName = useCallback((kategoriId: string | null): string | null => {
@@ -198,6 +249,28 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     setInvoiceDate(entry.invoiceDate);
   }, []);
 
+  // Alias save helpers
+  const saveUrunAlias = useCallback((urunId: string, ocrName: string, supplierCariId?: string | null) => {
+    const normalized = normalizeTurkish(ocrName);
+    if (!normalized) return;
+    createUrunAlias.mutate({
+      urun_id: urunId,
+      alias_name: ocrName,
+      alias_normalized: normalized,
+      supplier_cari_id: supplierCariId || null,
+    });
+  }, [createUrunAlias]);
+
+  const saveCariAlias = useCallback((cariId: string, ocrName: string) => {
+    const normalized = normalizeTurkish(ocrName);
+    if (!normalized) return;
+    createCariAlias.mutate({
+      cari_id: cariId,
+      alias_name: ocrName,
+      alias_normalized: normalized,
+    });
+  }, [createCariAlias]);
+
   // ====== CAPTURE: Process collected URIs ======
   const startProcessing = useCallback(async (uris: string[]) => {
     if (uris.length === 0) return;
@@ -206,21 +279,34 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
     try {
       const results = await processImages(uris);
-      const newEntries: MultiInvoiceEntry[] = results.map((invoice, i) => ({
-        id: `inv_${Date.now()}_${i}`,
-        imageUri: uris[i],
-        invoice,
-        invoiceDate: invoice.invoiceDate
-          ? (() => {
-              const parts = invoice.invoiceDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-              return parts
-                ? new Date(parseInt(parts[1]), parseInt(parts[2]) - 1, parseInt(parts[3]))
-                : new Date();
-            })()
-          : new Date(),
-        saveMode: 'products_and_movements',
-        isSaved: false,
-      }));
+      const newEntries: MultiInvoiceEntry[] = results.map((invoice, i) => {
+        const defaultMode = DOCUMENT_TYPE_DEFAULTS[invoice.documentType]?.saveMode || 'stock_and_cari';
+
+        // Auto-match card to hesap
+        let autoHesapId: string | null = null;
+        if (invoice.paymentInfo?.cardLastFour) {
+          autoHesapId = matchCardToHesap(invoice.paymentInfo.cardLastFour);
+        }
+
+        return {
+          id: `inv_${Date.now()}_${i}`,
+          imageUri: uris[i],
+          invoice,
+          invoiceDate: invoice.invoiceDate
+            ? (() => {
+                const parts = invoice.invoiceDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                return parts
+                  ? new Date(parseInt(parts[1]), parseInt(parts[2]) - 1, parseInt(parts[3]))
+                  : new Date();
+              })()
+            : new Date(),
+          saveMode: defaultMode,
+          isSaved: false,
+          selectedHesapId: autoHesapId,
+          selectedKategoriId: null,
+          editedGrandTotal: null,
+        };
+      });
 
       if (newEntries.length === 0) {
         Alert.alert(
@@ -241,7 +327,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       Alert.alert(t('common:status.error'), error?.message || t('ocrImport:messages.ocrFailed'));
       setStep('capture');
     }
-  }, [processImages, t, entries.length, router, setInvoiceDateFromEntry]);
+  }, [processImages, matchCardToHesap, t]);
 
   // ====== CAPTURE: Camera loop ======
   const handleTakePhoto = useCallback(async () => {
@@ -382,6 +468,37 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     setCariPickerVisible(false);
   }, [selectedIndex]);
 
+  // Hesap picker
+  const handleSelectHesap = useCallback((hesapId: string) => {
+    if (selectedIndex === null) return;
+    setEntries(prev => {
+      const newEntries = [...prev];
+      newEntries[selectedIndex] = { ...newEntries[selectedIndex], selectedHesapId: hesapId };
+      return newEntries;
+    });
+    setHesapPickerVisible(false);
+  }, [selectedIndex]);
+
+  // Gider kategori selection
+  const handleSelectGiderKategori = useCallback((kategoriId: string | null) => {
+    if (selectedIndex === null) return;
+    setEntries(prev => {
+      const newEntries = [...prev];
+      newEntries[selectedIndex] = { ...newEntries[selectedIndex], selectedKategoriId: kategoriId };
+      return newEntries;
+    });
+  }, [selectedIndex]);
+
+  // Edited grand total
+  const handleEditGrandTotal = useCallback((amount: number | null) => {
+    if (selectedIndex === null) return;
+    setEntries(prev => {
+      const newEntries = [...prev];
+      newEntries[selectedIndex] = { ...newEntries[selectedIndex], editedGrandTotal: amount };
+      return newEntries;
+    });
+  }, [selectedIndex]);
+
   // Invoice date change
   const handleInvoiceDateChange = useCallback((date: Date) => {
     setInvoiceDate(date);
@@ -407,8 +524,9 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     const entry = entries[selectedIndex];
     if (!entry || entry.isSaved) return;
 
-    // Skip new product confirmation for only_cari_transaction mode
-    if (entry.saveMode !== 'only_cari_transaction') {
+    // Skip new product confirmation for modes that don't create products
+    const needsProductConfirmation = entry.saveMode === 'stock_and_cari' || entry.saveMode === 'stock_only' || entry.saveMode === 'irsaliye_pending';
+    if (needsProductConfirmation) {
       const newUnconfirmed = entry.invoice.items.filter(
         item => item.matchTier === 'new' && !item.isNewConfirmed
       );
@@ -422,7 +540,11 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
     setStep('saving');
     try {
-      const result = await saveImport(entry.invoice, entry.saveMode, hareketTipi);
+      const result = await saveImport(entry.invoice, entry.saveMode, hareketTipi, {
+        hesapId: entry.selectedHesapId || undefined,
+        kategoriId: entry.selectedKategoriId || undefined,
+        editedGrandTotal: entry.editedGrandTotal,
+      });
 
       setEntries(prev => {
         const newEntries = [...prev];
@@ -431,11 +553,23 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       });
 
       let message: string;
-      if (entry.saveMode === 'only_cari_transaction') {
-        const totalAmount = entry.invoice.grandTotal
-          || entry.invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
+      if (entry.saveMode === 'cari_odeme_tahsilat') {
+        const totalAmount = entry.editedGrandTotal ?? entry.invoice.grandTotal
+          ?? entry.invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
+        message = hareketTipi === 'giris'
+          ? t('ocrImport:messages.successCariTahsilat', { amount: formatCurrency(totalAmount) })
+          : t('ocrImport:messages.successCariOdeme', { amount: formatCurrency(totalAmount) });
+      } else if (entry.saveMode === 'cari_borc_only') {
+        const totalAmount = entry.editedGrandTotal ?? entry.invoice.grandTotal
+          ?? entry.invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
         message = t('ocrImport:messages.successOnlyCari', { amount: formatCurrency(totalAmount) });
-      } else if (entry.saveMode === 'only_products') {
+      } else if (entry.saveMode === 'direct_gider') {
+        const totalAmount = entry.editedGrandTotal ?? entry.invoice.grandTotal
+          ?? entry.invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
+        message = t('ocrImport:messages.successDirectGider', { amount: formatCurrency(totalAmount) });
+      } else if (entry.saveMode === 'irsaliye_pending') {
+        message = t('ocrImport:messages.successIrsaliyePending', { productCount: result.productCount });
+      } else if (entry.saveMode === 'stock_only') {
         message = t('ocrImport:messages.successOnlyProducts', { count: result.productCount });
       } else {
         message = t('ocrImport:messages.success', { productCount: result.productCount, movementCount: result.movementCount });
@@ -549,8 +683,6 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
   const totalMismatch = useMemo(() => {
     if (!selectedInvoice) return false;
-    // Item totalPrice'lar KDV haric, subtotal da KDV haric — bunlari karsilastir
-    // Eger subtotal yoksa grandTotal'dan KDV'yi cikararak hesapla
     const compareTotal = selectedInvoice.subtotal
       ?? (selectedInvoice.grandTotal && selectedInvoice.vatTotal
         ? selectedInvoice.grandTotal - selectedInvoice.vatTotal
@@ -561,7 +693,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
   }, [selectedInvoice, enteredTotal]);
 
   const matchedCari = getCariById(selectedInvoice?.supplierMatchCariId || null);
-  const currentEntry = selectedIndex !== null ? entries[selectedIndex] : null;
+  const selectedHesap = getHesapById(currentEntry?.selectedHesapId || null);
 
   const value = useMemo<FotoImportContextValue>(() => ({
     step,
@@ -593,6 +725,17 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     handleBuy,
     handleSell,
     handleSaveWithDirection,
+    handleSelectHesap,
+    hesapPickerVisible,
+    setHesapPickerVisible,
+    hesapSearch,
+    setHesapSearch,
+    filteredHesaplar,
+    giderKategoriler,
+    handleSelectGiderKategori,
+    handleEditGrandTotal,
+    saveUrunAlias,
+    saveCariAlias,
     newProductModalVisible,
     setNewProductModalVisible,
     handleConfirmNewProducts,
@@ -611,6 +754,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     selectedInvoice,
     currentEntry,
     matchedCari,
+    selectedHesap,
     enteredTotal,
     totalMismatch,
     getUrunById,
@@ -618,6 +762,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     isSaving,
     saveProgress,
     kategoriler,
+    cariler,
   }), [
     step, entries, selectedIndex, saveMode, invoiceDate, pendingUris,
     handleTakePhoto, handlePickImages, takePhoto.isPending, pickMultipleImages.isPending,
@@ -625,12 +770,15 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     handleSelectInvoice, handleRemoveEntry, handleAddMore, handleSaveAllWithDirection,
     handleItemUpdate, handleItemRemove, handleChangeProduct, handleSelectProduct,
     handleSelectCari, handleInvoiceDateChange, handleBuy, handleSell, handleSaveWithDirection,
+    handleSelectHesap, hesapPickerVisible, hesapSearch, filteredHesaplar,
+    giderKategoriler, handleSelectGiderKategori, handleEditGrandTotal,
+    saveUrunAlias, saveCariAlias,
     newProductModalVisible, handleConfirmNewProducts, handleSkipNewProducts,
     productPickerVisible, productPickerIndex, productSearch, filteredUrunler,
     cariPickerVisible, cariSearch, filteredCariler,
-    selectedInvoice, currentEntry, matchedCari, enteredTotal, totalMismatch,
+    selectedInvoice, currentEntry, matchedCari, selectedHesap, enteredTotal, totalMismatch,
     getUrunById, getMatchedKategoriName,
-    isSaving, saveProgress, kategoriler,
+    isSaving, saveProgress, kategoriler, cariler,
   ]);
 
   return (

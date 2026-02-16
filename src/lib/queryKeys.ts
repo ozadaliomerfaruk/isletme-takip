@@ -149,6 +149,25 @@ export const queryKeys = {
       ['urun-hareketler', 'donem-ozet', isletmeId, startDate, endDate] as const,
   },
 
+  // Ürün Alias'ları
+  urunAliases: {
+    all: () => ['urun-aliases'] as const,
+    list: (isletmeId: string) => ['urun-aliases', isletmeId] as const,
+  },
+
+  // Cari Alias'ları
+  cariAliases: {
+    all: () => ['cari-aliases'] as const,
+    list: (isletmeId: string) => ['cari-aliases', isletmeId] as const,
+  },
+
+  // İrsaliye Kayıtları
+  irsaliyeRecords: {
+    all: () => ['irsaliye-records'] as const,
+    list: (isletmeId: string, status?: string) => ['irsaliye-records', isletmeId, status] as const,
+    byCari: (cariId: string, isletmeId: string) => ['irsaliye-records', 'cari', cariId, isletmeId] as const,
+  },
+
   // Cari Sharing (Cari Paylasim)
   cariSharing: {
     all: () => ['cari-links'] as const,
@@ -344,6 +363,30 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'urun-hareketler',
       'urunler',
       'urun',
+    ],
+    deferred: [],
+  },
+
+  // Ürün alias değişikliği
+  urunAlias: {
+    immediate: [
+      'urun-aliases',
+    ],
+    deferred: [],
+  },
+
+  // Cari alias değişikliği
+  cariAlias: {
+    immediate: [
+      'cari-aliases',
+    ],
+    deferred: [],
+  },
+
+  // İrsaliye kaydı değişikliği
+  irsaliyeRecord: {
+    immediate: [
+      'irsaliye-records',
     ],
     deferred: [],
   },

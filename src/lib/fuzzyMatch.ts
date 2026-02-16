@@ -1,4 +1,4 @@
-import { Urun, Cari } from '@/types/database';
+import { Urun, Cari, UrunAlias, CariAlias } from '@/types/database';
 import { OcrParsedItem, MatchTier } from '@/types/ocrImport';
 import { normalizeTurkish, UNIT_MAP } from './turkishTextUtils';
 
@@ -17,6 +17,38 @@ function stripUnitTokens(text: string): string {
       return true;
     })
     .join(' ');
+}
+
+/**
+ * Strip common Turkish business suffixes for better cari name matching.
+ * "SAVAS ET VE ET URUNLERI TIC. LTD. STI." -> "savas et"
+ */
+const BUSINESS_SUFFIXES = new Set([
+  'ltd', 'sti', 'a.s.', 'a.s', 'as', 'tic', 'san', 'org',
+  'ltd.sti', 'ltd.sti.', 've', 'urunleri', 'gida', 'sanayi',
+  'ticaret', 'turizm', 'insaat', 'nakliyat', 'pazarlama',
+  'dis', 'ic', 'tic.ltd.sti', 'san.tic.ltd.sti', 'san.tic',
+  'tic.ltd', 'limited', 'sirketi', 'sirket',
+]);
+
+export function stripBusinessSuffixes(name: string): string {
+  const normalized = normalizeTurkish(name);
+  const tokens = normalized.split(/\s+/).filter(Boolean);
+
+  // Only strip from end: keep removing while last token is a suffix
+  // Don't strip from middle - "ve" and other words in the middle are meaningful
+  // (e.g., "Savaş Et ve Et Ürünleri" -> "savas et ve et" not "savas et")
+  while (tokens.length > 1) {
+    const last = tokens[tokens.length - 1]
+      .replace(/[.,]+$/, ''); // strip trailing dots/commas
+    if (BUSINESS_SUFFIXES.has(last)) {
+      tokens.pop();
+    } else {
+      break;
+    }
+  }
+
+  return tokens.join(' ');
 }
 
 /**
@@ -97,22 +129,58 @@ export function getMatchTier(score: number): MatchTier {
 
 /**
  * Match parsed OCR items against existing products.
- * Returns a new array with matchedUrunId, matchScore, matchTier set.
+ * Uses alias-first matching for better accuracy.
+ *
+ * Matching order:
+ * 1. Supplier-specific alias exact match
+ * 2. Global alias exact match
+ * 3. Fuzzy matching (Jaccard + Levenshtein)
  */
 export function matchItemsToProducts(
   items: OcrParsedItem[],
   existingProducts: Urun[],
+  urunAliases?: UrunAlias[],
+  supplierCariId?: string | null,
 ): OcrParsedItem[] {
-  // Pre-compute normalized product names
-  const normalizedProducts = existingProducts.map(p => ({
-    id: p.id,
-    normalizedName: normalizeTurkish(p.ad),
-  }));
-
   return items.map(item => {
     // Don't re-match user-edited items that already have a match
     if (item.userEdited && item.matchedUrunId) return item;
 
+    const normalizedItemName = normalizeTurkish(item.name);
+
+    // Step 1: Supplier-specific alias exact match
+    if (urunAliases && supplierCariId) {
+      const supplierAlias = urunAliases.find(
+        a => a.alias_normalized === normalizedItemName && a.supplier_cari_id === supplierCariId
+      );
+      if (supplierAlias) {
+        return {
+          ...item,
+          matchedUrunId: supplierAlias.urun_id,
+          matchScore: 1.0,
+          matchTier: 'exact' as MatchTier,
+          matchedAliasId: supplierAlias.id,
+        };
+      }
+    }
+
+    // Step 2: Global alias exact match
+    if (urunAliases) {
+      const globalAlias = urunAliases.find(
+        a => a.alias_normalized === normalizedItemName && !a.supplier_cari_id
+      );
+      if (globalAlias) {
+        return {
+          ...item,
+          matchedUrunId: globalAlias.urun_id,
+          matchScore: 1.0,
+          matchTier: 'exact' as MatchTier,
+          matchedAliasId: globalAlias.id,
+        };
+      }
+    }
+
+    // Step 3: Fuzzy matching
     let bestScore = 0;
     let bestUrunId: string | null = null;
 
@@ -135,35 +203,59 @@ export function matchItemsToProducts(
 
 /**
  * Match a supplier name against existing cariler.
- * Returns the best matching cari ID or null.
+ * Uses alias-first matching with improved suffix stripping.
+ *
+ * Matching order:
+ * 1. VKN/TCKN exact match
+ * 2. Cari alias exact match
+ * 3. Fuzzy name matching with suffix stripping
  */
 export function matchSupplier(
   supplierName: string | null,
   supplierTaxNumber: string | null,
   cariler: Cari[],
+  cariAliases?: CariAlias[],
 ): string | null {
-  // First try exact tax number match
+  // Step 1: Exact tax number match
   if (supplierTaxNumber) {
     const taxMatch = cariler.find(c => c.tax_number === supplierTaxNumber);
     if (taxMatch) return taxMatch.id;
   }
 
-  // Then try fuzzy name match
-  if (supplierName) {
-    let bestScore = 0;
-    let bestId: string | null = null;
+  if (!supplierName) return null;
 
-    for (const cari of cariler) {
-      const score = combinedSimilarity(supplierName, cari.name);
-      if (score > bestScore) {
-        bestScore = score;
-        bestId = cari.id;
-      }
-    }
+  const normalizedSupplierName = normalizeTurkish(supplierName);
 
-    // Higher threshold for supplier match
-    if (bestScore >= 0.70) return bestId;
+  // Step 2: Cari alias exact match
+  if (cariAliases) {
+    const aliasMatch = cariAliases.find(
+      a => a.alias_normalized === normalizedSupplierName
+    );
+    if (aliasMatch) return aliasMatch.cari_id;
   }
+
+  // Step 3: Fuzzy name matching with suffix stripping
+  const strippedSupplier = stripBusinessSuffixes(supplierName);
+
+  let bestScore = 0;
+  let bestId: string | null = null;
+
+  for (const cari of cariler) {
+    // Try both full name and stripped name comparison
+    const fullScore = combinedSimilarity(supplierName, cari.name);
+    const strippedScore = combinedSimilarity(strippedSupplier, stripBusinessSuffixes(cari.name));
+
+    // Use the higher score
+    const score = Math.max(fullScore, strippedScore);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = cari.id;
+    }
+  }
+
+  // Higher threshold for supplier match
+  if (bestScore >= 0.70) return bestId;
 
   return null;
 }

@@ -6,6 +6,33 @@
     "review": "Review",
     "saving": "Saving"
   },
+  "docType": {
+    "fatura": "Invoice",
+    "irsaliye": "Waybill",
+    "fis": "Receipt",
+    "pos_fisi": "POS Receipt",
+    "siparis_fisi": "Order Slip",
+    "tahsilat_makbuzu": "Collection Receipt",
+    "odeme_dekontu": "Payment Voucher",
+    "not": "Note",
+    "unknown": "Unknown"
+  },
+  "saveMode": {
+    "stock_and_cari": "Products + Account Debt",
+    "stock_only": "Products/Stock Only",
+    "cari_borc_only": "Account Debt Only",
+    "direct_gider": "Direct Expense",
+    "cari_odeme_tahsilat": "Account Payment/Collection",
+    "irsaliye_pending": "Waybill (Pending)"
+  },
+  "saveModeDesc": {
+    "stock_and_cari": "Products are added and stock entries are created. If an account is selected, an account transaction is also recorded",
+    "stock_only": "Products are added to the system, no stock entries or account transactions are created",
+    "cari_borc_only": "No products or stock entries are created, only a buy/sell transaction is recorded to the account",
+    "direct_gider": "A direct expense record is created from the selected cash account, no products/stock",
+    "cari_odeme_tahsilat": "A payment to or collection from the account is recorded",
+    "irsaliye_pending": "Products are entered into stock, no account debt. Linked when invoice arrives"
+  },
   "capture": {
     "title": "Invoice Photo",
     "takePhoto": "Take Photo",
@@ -39,6 +66,7 @@
     "enteredTotal": "Entered Total",
     "totalMismatch": "Total mismatch! Please check.",
     "totalMatch": "Totals match",
+    "totalRequired": "Cannot save without entering an amount",
     "matchBadge": {
       "exact": "Matched",
       "suggestion": "Suggestion",
@@ -64,7 +92,32 @@
     "cariMatched": "Matched with existing account",
     "cariNotMatched": "No matching account found",
     "buyButton": "BUY",
-    "sellButton": "SELL"
+    "sellButton": "SELL",
+    "saveButton": "SAVE",
+    "tahsilatButton": "COLLECT",
+    "odemeButton": "PAY",
+    "hesap": "Cash Account",
+    "noHesap": "No account selected",
+    "selectHesap": "Select Account",
+    "hesapRequired": "Account selection is required for this mode",
+    "giderKategori": "Expense Category",
+    "suggestedCategory": "Suggested: {{category}}",
+    "paymentInfo": "Payment Info",
+    "paymentMethod": {
+      "nakit": "Cash",
+      "kredi_karti": "Credit Card",
+      "banka": "Bank Transfer"
+    },
+    "notTypeWarning": "This document was detected as a 'note'. Please check the save mode.",
+    "rememberAlias": "Remember this match",
+    "autoMatchedHesap": "Auto-matched from card info",
+    "irsaliyeStockButton": "STOCK IN",
+    "irsaliyePendingDesc": "Products will be entered into stock, account debt will be created later with the invoice.",
+    "pendingIrsaliyeBanner": "{{count}} pending waybill(s) from this supplier",
+    "pendingIrsaliyeLink": "Link Waybill",
+    "pendingIrsaliyeIgnore": "Enter Stock Anyway",
+    "pendingIrsaliyeDoubleWarning": "Stock will be entered twice, are you sure?",
+    "pendingIrsaliyeAutoMode": "Stock was already entered via waybill, only account debt will be created."
   },
   "newProductModal": {
     "title": "New Product Confirmation",
@@ -81,6 +134,10 @@
     "success": "{{productCount}} products, {{movementCount}} entries saved",
     "successOnlyProducts": "{{count}} products saved",
     "successOnlyCari": "Account transaction of {{amount}} saved",
+    "successDirectGider": "Expense of {{amount}} saved",
+    "successCariOdeme": "Account payment of {{amount}} saved",
+    "successCariTahsilat": "Account collection of {{amount}} saved",
+    "successIrsaliyePending": "{{productCount}} products entered into stock, waybill saved as pending",
     "ocrFailed": "Could not read text. Please try again or enter manually.",
     "noProductLines": "No product lines found. Check the photo.",
     "alreadySaved": "This session has already been saved.",

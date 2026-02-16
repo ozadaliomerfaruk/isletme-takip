@@ -6,6 +6,33 @@
     "review": "Kontrol",
     "saving": "Kaydediliyor"
   },
+  "docType": {
+    "fatura": "Fatura",
+    "irsaliye": "İrsaliye",
+    "fis": "Fiş",
+    "pos_fisi": "POS Fişi",
+    "siparis_fisi": "Sipariş Fişi",
+    "tahsilat_makbuzu": "Tahsilat Makbuzu",
+    "odeme_dekontu": "Ödeme Dekontu",
+    "not": "Not",
+    "unknown": "Bilinmeyen"
+  },
+  "saveMode": {
+    "stock_and_cari": "Ürün + Cari Borç",
+    "stock_only": "Sadece Ürün/Stok",
+    "cari_borc_only": "Sadece Cari Borç",
+    "direct_gider": "Direkt Gider",
+    "cari_odeme_tahsilat": "Cari Ödeme/Tahsilat",
+    "irsaliye_pending": "İrsaliye (Beklemede)"
+  },
+  "saveModeDesc": {
+    "stock_and_cari": "Ürünler eklenir, stok hareketi oluşturulur. Cari seçiliyse cari işlem de kaydedilir",
+    "stock_only": "Ürünler sisteme eklenir, stok hareketi veya cari işlem oluşturulmaz",
+    "cari_borc_only": "Ürün ve stok işlemi oluşturulmaz, sadece cari hesaba alış/satış işlemi kaydedilir",
+    "direct_gider": "Hesaptan direkt gider kaydı oluşturulur, ürün/stok işlemi yapılmaz",
+    "cari_odeme_tahsilat": "Cariye ödeme veya cariden tahsilat kaydı oluşturulur",
+    "irsaliye_pending": "Ürünler stoka girilir, cari borç oluşturulmaz. Fatura geldiğinde bağlanır"
+  },
   "capture": {
     "title": "Fatura Fotoğrafı",
     "takePhoto": "Fotoğraf Çek",
@@ -39,6 +66,7 @@
     "enteredTotal": "Girilen Toplam",
     "totalMismatch": "Toplam tutarsızlığı! Lütfen kontrol edin.",
     "totalMatch": "Toplamlar tutarlı",
+    "totalRequired": "Tutar girilmeden kaydedilemez",
     "matchBadge": {
       "exact": "Eşleşti",
       "suggestion": "Öneri",
@@ -64,7 +92,32 @@
     "cariMatched": "Sistemdeki cari ile eşleşti",
     "cariNotMatched": "Sistemde eşleşen cari bulunamadı",
     "buyButton": "AL",
-    "sellButton": "SAT"
+    "sellButton": "SAT",
+    "saveButton": "KAYDET",
+    "tahsilatButton": "TAHSİLAT",
+    "odemeButton": "ÖDEME",
+    "hesap": "Hesap",
+    "noHesap": "Hesap seçilmedi",
+    "selectHesap": "Hesap Seç",
+    "hesapRequired": "Bu mod için hesap seçimi zorunludur",
+    "giderKategori": "Gider Kategorisi",
+    "suggestedCategory": "Öneri: {{category}}",
+    "paymentInfo": "Ödeme Bilgisi",
+    "paymentMethod": {
+      "nakit": "Nakit",
+      "kredi_karti": "Kredi Kartı",
+      "banka": "Banka/Havale"
+    },
+    "notTypeWarning": "Bu belge 'not' olarak algılandı. Kayıt modunu kontrol edin.",
+    "rememberAlias": "Bu eşleşmeyi hatırla",
+    "autoMatchedHesap": "Kart bilgisinden otomatik seçildi",
+    "irsaliyeStockButton": "STOK GİRİŞ",
+    "irsaliyePendingDesc": "Ürünler stoka girilecek, cari borç sonra fatura ile oluşturulacak.",
+    "pendingIrsaliyeBanner": "Bu tedarikçiden {{count}} bekleyen irsaliye var",
+    "pendingIrsaliyeLink": "İrsaliyeyi Bağla",
+    "pendingIrsaliyeIgnore": "Yine de Stok Gir",
+    "pendingIrsaliyeDoubleWarning": "Stok çifte girilecek, emin misiniz?",
+    "pendingIrsaliyeAutoMode": "Stok zaten irsaliyede girildi, sadece cari borç oluşturulacak."
   },
   "newProductModal": {
     "title": "Yeni Ürün Onayı",
@@ -81,6 +134,10 @@
     "success": "{{productCount}} ürün, {{movementCount}} hareket kaydedildi",
     "successOnlyProducts": "{{count}} ürün kaydedildi",
     "successOnlyCari": "{{amount}} tutarında cari işlem kaydedildi",
+    "successDirectGider": "{{amount}} tutarında gider kaydedildi",
+    "successCariOdeme": "{{amount}} tutarında cari ödeme kaydedildi",
+    "successCariTahsilat": "{{amount}} tutarında cari tahsilat kaydedildi",
+    "successIrsaliyePending": "{{productCount}} ürün stoka girildi, irsaliye beklemede kaydedildi",
     "ocrFailed": "Metin okunamadı. Lütfen tekrar deneyin veya manuel giriş yapın.",
     "noProductLines": "Ürün satırı bulunamadı. Fotoğrafı kontrol edin.",
     "alreadySaved": "Bu oturum zaten kaydedildi.",

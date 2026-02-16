@@ -1,11 +1,23 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, AlertTriangle, FileText, Trash2 } from 'lucide-react-native';
+import { CheckCircle, AlertTriangle, FileText, Trash2, CreditCard, Receipt, Truck, ClipboardList, ArrowDownCircle, ArrowUpCircle, StickyNote, HelpCircle } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { MultiInvoiceEntry } from '@/types/ocrImport';
+import { MultiInvoiceEntry, DOCUMENT_TYPE_DEFAULTS, OcrDocumentType } from '@/types/ocrImport';
 import { formatCurrency } from '@/lib/currency';
+
+const DOC_TYPE_ICONS: Record<string, typeof FileText> = {
+  FileText,
+  CreditCard,
+  Receipt,
+  Truck,
+  ClipboardList,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  StickyNote,
+  HelpCircle,
+};
 
 interface OcrInvoiceListItemProps {
   entry: MultiInvoiceEntry;
@@ -28,19 +40,33 @@ export function OcrInvoiceListItem({ entry, index, onPress, onRemove }: OcrInvoi
     ? Math.abs(compareTotal - lineSum) / Math.max(compareTotal, 1) > 0.01
     : false;
 
+  // Document type badge
+  const docType = invoice.documentType as OcrDocumentType;
+  const docConfig = DOCUMENT_TYPE_DEFAULTS[docType] || DOCUMENT_TYPE_DEFAULTS.unknown;
+  const DocIcon = DOC_TYPE_ICONS[docConfig.icon] || FileText;
+
   return (
     <TouchableOpacity activeOpacity={0.7} onPress={() => onPress(index)}>
       <Card style={[styles.card, entry.isSaved && styles.cardSaved]}>
         <View style={styles.row}>
-          <View style={styles.iconContainer}>
-            <FileText size={22} color={entry.isSaved ? colors.success : colors.primary} />
+          <View style={[styles.iconContainer, { backgroundColor: docConfig.color + '18' }]}>
+            <DocIcon size={22} color={entry.isSaved ? colors.success : docConfig.color} />
           </View>
           <View style={styles.info}>
-            <Text variant="body" style={styles.supplierName} numberOfLines={1}>
-              {invoice.supplierName || t('review.noCari')}
-            </Text>
+            <View style={styles.nameRow}>
+              <Text variant="body" style={styles.supplierName} numberOfLines={1}>
+                {invoice.supplierName || t('review.noCari')}
+              </Text>
+              <View style={[styles.docTypeBadge, { backgroundColor: docConfig.color + '18' }]}>
+                <Text variant="caption" style={{ color: docConfig.color, fontSize: 10, fontWeight: '600' }}>
+                  {t(`docType.${docType}`)}
+                </Text>
+              </View>
+            </View>
             <Text variant="caption" color="secondary">
-              {t('batch.itemCount', { count: invoice.items.length })}
+              {invoice.items.length > 0
+                ? t('batch.itemCount', { count: invoice.items.length })
+                : t(`saveMode.${entry.saveMode}`)}
               {invoice.invoiceDate ? ` · ${invoice.invoiceDate}` : ''}
             </Text>
           </View>
@@ -106,8 +132,19 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   supplierName: {
     fontWeight: '500',
+    flexShrink: 1,
+  },
+  docTypeBadge: {
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
   },
   rightSection: {
     alignItems: 'flex-end',

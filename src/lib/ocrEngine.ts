@@ -1,14 +1,14 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import i18n from 'i18next';
 import { supabase } from './supabase';
-import { OcrParsedInvoice, OcrParsedItem } from '@/types/ocrImport';
+import { OcrParsedInvoice, OcrParsedItem, OcrDocumentType, VALID_DOCUMENT_TYPES, OcrPaymentInfo } from '@/types/ocrImport';
 import { BirimType, KdvOrani } from '@/types/database';
 
 /** Response shape from the parse-invoice Edge Function */
 interface EdgeFunctionResponse {
   success: boolean;
   data?: {
-    documentType: 'fatura' | 'irsaliye' | 'fis' | 'unknown';
+    documentType: string;
     supplierName: string | null;
     supplierTaxNumber: string | null;
     invoiceDate: string | null;
@@ -25,6 +25,13 @@ interface EdgeFunctionResponse {
     subtotal: number | null;
     vatTotal: number | null;
     grandTotal: number | null;
+    paymentInfo: {
+      paymentMethod: string | null;
+      cardLastFour: string | null;
+      bankName: string | null;
+    } | null;
+    paidStatus: 'paid' | 'veresiye' | null;
+    suggestedGiderCategory: string | null;
   };
   error?: string;
 }
@@ -43,7 +50,6 @@ function generateId(): string {
 
 /**
  * Recognize and parse an invoice image using Gemini Flash 2.0 via Supabase Edge Function.
- * Replaces the old ML Kit OCR + regex parser pipeline with a single AI call.
  */
 export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoice> {
   // Read image as base64
@@ -110,8 +116,31 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
     userEdited: false,
   }));
 
+  // Validate document type
+  const documentType: OcrDocumentType = VALID_DOCUMENT_TYPES.includes(parsed.documentType as OcrDocumentType)
+    ? parsed.documentType as OcrDocumentType
+    : 'unknown';
+
+  // Map payment info
+  const paymentInfo: OcrPaymentInfo | null = parsed.paymentInfo
+    ? {
+        paymentMethod: (['nakit', 'kredi_karti', 'banka'] as const).includes(
+          parsed.paymentInfo.paymentMethod as 'nakit' | 'kredi_karti' | 'banka'
+        )
+          ? parsed.paymentInfo.paymentMethod as OcrPaymentInfo['paymentMethod']
+          : null,
+        cardLastFour: parsed.paymentInfo.cardLastFour || null,
+        bankName: parsed.paymentInfo.bankName || null,
+      }
+    : null;
+
+  // Map paid status
+  const paidStatus = (['paid', 'veresiye'] as const).includes(parsed.paidStatus as 'paid' | 'veresiye')
+    ? parsed.paidStatus as 'paid' | 'veresiye'
+    : null;
+
   return {
-    documentType: parsed.documentType,
+    documentType,
     supplierName: parsed.supplierName,
     supplierTaxNumber: parsed.supplierTaxNumber,
     supplierMatchCariId: null,
@@ -123,5 +152,8 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
     vatTotal: parsed.vatTotal,
     grandTotal: parsed.grandTotal,
     rawText: `AI parsed: ${items.length} items`,
+    paymentInfo,
+    paidStatus,
+    suggestedGiderCategory: parsed.suggestedGiderCategory || null,
   };
 }

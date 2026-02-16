@@ -20,7 +20,7 @@ interface GeminiResponse {
 
 /** Structured response we expect from Gemini */
 interface ParsedInvoiceResponse {
-  documentType: "fatura" | "irsaliye" | "fis" | "unknown";
+  documentType: string;
   supplierName: string | null;
   supplierTaxNumber: string | null;
   invoiceDate: string | null;
@@ -37,9 +37,28 @@ interface ParsedInvoiceResponse {
   subtotal: number | null;
   vatTotal: number | null;
   grandTotal: number | null;
+  paymentInfo: {
+    paymentMethod: string | null;
+    cardLastFour: string | null;
+    bankName: string | null;
+  } | null;
+  paidStatus: "paid" | "veresiye" | null;
+  suggestedGiderCategory: string | null;
 }
 
-const SYSTEM_PROMPT = `Sen bir Türk fatura/fiş OCR asistanısın. Sana gönderilen fatura veya fiş fotoğrafını analiz edip yapılandırılmış JSON formatında döndüreceksin.
+const VALID_DOCUMENT_TYPES = [
+  "fatura",
+  "irsaliye",
+  "fis",
+  "pos_fisi",
+  "siparis_fisi",
+  "tahsilat_makbuzu",
+  "odeme_dekontu",
+  "not",
+  "unknown",
+];
+
+const SYSTEM_PROMPT = `Sen bir Türk fatura/fiş/belge OCR asistanısın. Sana gönderilen belge fotoğrafını analiz edip yapılandırılmış JSON formatında döndüreceksin.
 
 KURALLAR:
 1. Tüm sayıları Türk formatından (1.234,56) JavaScript number formatına (1234.56) çevir.
@@ -47,16 +66,48 @@ KURALLAR:
 3. Birim tespiti: KG, GR, LT, ML, AD, ADET, PAKET, PKT, KUTU, KOLI, M, M2, M3, CM, TON, ÇİFT, TAKIM, PORSIYON, PARÇA. Birim bulamazsan null döndür.
 4. KDV oranı sadece 0, 1, 10 veya 20 olabilir. Tespit edemezsen null döndür.
 5. Para birimi: TRY, USD, EUR, GBP. Belirtilmemişse null döndür (genelde TRY'dir).
-6. Ürün adlarını BÜYÜK HARF olarak, faturadaki gibi yaz.
-7. Eğer fotoğraf bir fatura/fiş değilse veya hiç ürün tespit edemezsen, boş items dizisi döndür.
-8. supplierName: Faturanın üst kısmındaki firma/işletme adı.
+6. Ürün adlarını BÜYÜK HARF olarak, belgede yazıldığı gibi yaz.
+7. Eğer fotoğraf hiç ürün içermiyorsa, boş items dizisi döndür.
+8. supplierName: Belgenin üst kısmındaki firma/işletme adı.
 9. supplierTaxNumber: VKN veya TCKN numarası (10-11 haneli).
 10. Birim fiyat ve toplam tutarın çarpımı tutarlı olmalı: quantity * unitPrice ≈ totalPrice.
 11. Eğer birim fiyat görünmüyorsa, totalPrice / quantity ile hesapla.
 
+BELGE TİP TESPİTİ:
+- "fatura": E-fatura, e-arşiv fatura, temel fatura. ETTN numarası, "fatura" kelimesi, ürün satırları var.
+- "irsaliye": E-irsaliye, sevk irsaliyesi. "İrsaliye" kelimesi, sevk tarihi var, genelde KDV yok.
+- "fis": Yazar kasa fişi, bilgi fişi. TOPLAM, TOPKDV gibi alanlar, Z/EKÜ numarası.
+- "pos_fisi": POS cihazı fişi. SATIŞ, ONAY KODU, kart bilgisi (****XXXX), banka adı.
+- "siparis_fisi": El yazısı veya matbaa sipariş fişi. "Sipariş Fişi" başlığı, müşteri adı, kalem listesi.
+- "tahsilat_makbuzu": Tahsilat/ödeme makbuzu. "TAHSİLAT" kelimesi, alındı belgesi.
+- "odeme_dekontu": Banka havale/EFT dekontu, ödeme belgesi.
+- "not": El yazısı not, kısa bilgi notu. Yapı bozuk, sadece metin var.
+- "unknown": Hiçbirine uymuyor.
+
+ÖDEME BİLGİSİ ÇIKARIMI:
+- POS/kart fişi ise: paymentMethod="kredi_karti", cardLastFour=son 4 hane (****XXXX'den), bankName=işyeri banka adı
+- "NAKİT" kelimesi varsa: paymentMethod="nakit"
+- Havale/EFT dekontu ise: paymentMethod="banka"
+- Tespit edemezsen: paymentInfo=null
+
+ÖDEME DURUMU:
+- "VERESİYE", "BORÇ", "VADELİ" ifadeleri varsa: paidStatus="veresiye"
+- POS fişi, nakit ödeme, "ÖDENDİ" ifadesi varsa: paidStatus="paid"
+- Belli değilse: paidStatus=null
+
+GİDER KATEGORİ ÖNERİSİ:
+Belge içeriğine göre bir gider kategorisi öner:
+- Temizlik malzemesi, deterjan -> "Temizlik"
+- Züccaciye, mutfak eşyası -> "Züccaciye"
+- Market, bakkal, gıda -> "Market/Gıda"
+- Kuru temizleme, çamaşır -> "Kuru Temizleme"
+- Kırtasiye, ofis malz. -> "Kırtasiye"
+- Tamir, bakım -> "Bakım-Onarım"
+- Tespit edemezsen: null
+
 SADECE aşağıdaki JSON yapısını döndür, başka hiçbir metin ekleme:
 {
-  "documentType": "fatura" | "irsaliye" | "fis" | "unknown",
+  "documentType": "fatura" | "irsaliye" | "fis" | "pos_fisi" | "siparis_fisi" | "tahsilat_makbuzu" | "odeme_dekontu" | "not" | "unknown",
   "supplierName": "string veya null",
   "supplierTaxNumber": "string veya null",
   "invoiceDate": "YYYY-MM-DD veya null",
@@ -74,7 +125,10 @@ SADECE aşağıdaki JSON yapısını döndür, başka hiçbir metin ekleme:
   ],
   "subtotal": null,
   "vatTotal": null,
-  "grandTotal": null
+  "grandTotal": null,
+  "paymentInfo": { "paymentMethod": "nakit" | "kredi_karti" | "banka" | null, "cardLastFour": "string veya null", "bankName": "string veya null" } | null,
+  "paidStatus": "paid" | "veresiye" | null,
+  "suggestedGiderCategory": "string veya null"
 }`;
 
 Deno.serve(async (req) => {
@@ -112,7 +166,7 @@ Deno.serve(async (req) => {
       `[parse-invoice] Processing image (${Math.round(base64Data.length / 1024)}KB)`,
     );
 
-    // Call Gemini 2.0 Flash API with retry on 429
+    // Call Gemini 2.0 Flash API
     const geminiUrl =
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
@@ -128,7 +182,7 @@ Deno.serve(async (req) => {
               },
             },
             {
-              text: "Bu fatura/fiş fotoğrafını analiz et ve JSON olarak döndür.",
+              text: "Bu belge fotoğrafını analiz et ve JSON olarak döndür.",
             },
           ],
         },
@@ -178,9 +232,7 @@ Deno.serve(async (req) => {
 
     // Validate and sanitize the response
     const sanitized: ParsedInvoiceResponse = {
-      documentType: ["fatura", "irsaliye", "fis", "unknown"].includes(
-          parsed.documentType,
-        )
+      documentType: VALID_DOCUMENT_TYPES.includes(parsed.documentType)
         ? parsed.documentType
         : "unknown",
       supplierName: parsed.supplierName || null,
@@ -207,6 +259,21 @@ Deno.serve(async (req) => {
       grandTotal: typeof parsed.grandTotal === "number"
         ? parsed.grandTotal
         : null,
+      paymentInfo: parsed.paymentInfo
+        ? {
+          paymentMethod: ["nakit", "kredi_karti", "banka"].includes(
+              parsed.paymentInfo.paymentMethod || "",
+            )
+            ? parsed.paymentInfo.paymentMethod
+            : null,
+          cardLastFour: parsed.paymentInfo.cardLastFour || null,
+          bankName: parsed.paymentInfo.bankName || null,
+        }
+        : null,
+      paidStatus: ["paid", "veresiye"].includes(parsed.paidStatus || "")
+        ? parsed.paidStatus
+        : null,
+      suggestedGiderCategory: parsed.suggestedGiderCategory || null,
     };
 
     // Filter out empty items
@@ -215,7 +282,7 @@ Deno.serve(async (req) => {
     );
 
     console.log(
-      `[parse-invoice] Parsed ${sanitized.items.length} items, supplier: ${sanitized.supplierName}`,
+      `[parse-invoice] Parsed ${sanitized.items.length} items, type: ${sanitized.documentType}, supplier: ${sanitized.supplierName}`,
     );
 
     return new Response(
