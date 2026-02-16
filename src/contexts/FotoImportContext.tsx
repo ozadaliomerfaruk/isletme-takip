@@ -288,6 +288,15 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
           autoHesapId = matchCardToHesap(invoice.paymentInfo.cardLastFour);
         }
 
+        // Auto-match suggested gider category
+        let autoKategoriId: string | null = null;
+        if (defaultMode === 'direct_gider' && invoice.suggestedGiderCategory && giderKategoriler?.length) {
+          const suggested = invoice.suggestedGiderCategory.toLowerCase();
+          const match = giderKategoriler.find(k => k.name.toLowerCase() === suggested)
+            || giderKategoriler.find(k => suggested.includes(k.name.toLowerCase()) || k.name.toLowerCase().includes(suggested));
+          if (match) autoKategoriId = match.id;
+        }
+
         return {
           id: `inv_${Date.now()}_${i}`,
           imageUri: uris[i],
@@ -303,7 +312,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
           saveMode: defaultMode,
           isSaved: false,
           selectedHesapId: autoHesapId,
-          selectedKategoriId: null,
+          selectedKategoriId: autoKategoriId,
           editedGrandTotal: null,
         };
       });
@@ -327,7 +336,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       Alert.alert(t('common:status.error'), error?.message || t('ocrImport:messages.ocrFailed'));
       setStep('capture');
     }
-  }, [processImages, matchCardToHesap, t]);
+  }, [processImages, matchCardToHesap, giderKategoriler, t]);
 
   // ====== CAPTURE: Camera loop ======
   const handleTakePhoto = useCallback(async () => {

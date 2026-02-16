@@ -109,17 +109,19 @@ export default function FotoImportReviewPage() {
   const [rememberProduct, setRememberProduct] = useState(true);
   const [rememberCari, setRememberCari] = useState(true);
 
-  // Track the last product picker selection for alias saving
-  const lastProductPickerOcrName = useRef<string>('');
-
   // Pending irsaliye query for double-stock protection
   const cariIdForIrsaliye = selectedInvoice?.supplierMatchCariId || null;
   const { data: pendingIrsaliyeler } = usePendingIrsaliyeByCari(cariIdForIrsaliye);
   const hasPendingIrsaliye = (pendingIrsaliyeler?.length ?? 0) > 0;
   const [irsaliyeBannerDismissed, setIrsaliyeBannerDismissed] = useState(false);
 
-  // Auto-switch to cari_borc_only when pending irsaliye detected for fatura
+  // Reset auto-switch flag when invoice changes
   const autoSwitchedRef = useRef(false);
+  useEffect(() => {
+    autoSwitchedRef.current = false;
+  }, [selectedIndex]);
+
+  // Auto-switch to cari_borc_only when pending irsaliye detected for fatura
   useEffect(() => {
     if (hasPendingIrsaliye && docType === 'fatura' && saveMode === 'stock_and_cari' && !autoSwitchedRef.current) {
       autoSwitchedRef.current = true;

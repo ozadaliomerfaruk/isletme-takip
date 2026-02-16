@@ -210,6 +210,10 @@ export function useOcrImport(sessionId: string) {
           ?? invoice.grandTotal
           ?? invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
 
+        if (totalAmount <= 0) {
+          throw new Error('Tutar girilmeden kaydedilemez');
+        }
+
         const islemType: IslemType = hareketTipi === 'giris' ? 'cari_tahsilat' : 'cari_odeme';
         const aciklama = dateInfo
           ? `OCR import - ${invoiceRef} - Tarih: ${dateInfo}`
@@ -243,6 +247,10 @@ export function useOcrImport(sessionId: string) {
         const totalAmount = options?.editedGrandTotal
           ?? invoice.grandTotal
           ?? invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
+
+        if (totalAmount <= 0) {
+          throw new Error('Tutar girilmeden kaydedilemez');
+        }
 
         await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId);
 
