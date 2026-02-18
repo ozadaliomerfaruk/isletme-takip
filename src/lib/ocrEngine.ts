@@ -13,6 +13,7 @@ interface EdgeFunctionResponse {
     supplierTaxNumber: string | null;
     invoiceDate: string | null;
     invoiceNumber: string | null;
+    ettn: string | null;
     currency: string | null;
     items: Array<{
       name: string;
@@ -25,6 +26,7 @@ interface EdgeFunctionResponse {
     subtotal: number | null;
     vatTotal: number | null;
     grandTotal: number | null;
+    supplierBalance: number | null;
     paymentInfo: {
       paymentMethod: string | null;
       cardLastFour: string | null;
@@ -146,11 +148,13 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
     supplierMatchCariId: null,
     invoiceDate: parsed.invoiceDate,
     invoiceNumber: parsed.invoiceNumber,
+    ettn: parsed.ettn || null,
     currency: (['TRY', 'USD', 'EUR', 'GBP'].includes(parsed.currency || '') ? parsed.currency : null) as OcrParsedInvoice['currency'],
     items,
     subtotal: parsed.subtotal,
     vatTotal: parsed.vatTotal,
     grandTotal: parsed.grandTotal,
+    supplierBalance: parsed.supplierBalance ?? null,
     rawText: `AI parsed: ${items.length} items`,
     paymentInfo,
     paidStatus,

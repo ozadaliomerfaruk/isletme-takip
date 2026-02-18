@@ -25,6 +25,7 @@ interface ParsedInvoiceResponse {
   supplierTaxNumber: string | null;
   invoiceDate: string | null;
   invoiceNumber: string | null;
+  ettn: string | null;
   currency: string | null;
   items: Array<{
     name: string;
@@ -37,6 +38,7 @@ interface ParsedInvoiceResponse {
   subtotal: number | null;
   vatTotal: number | null;
   grandTotal: number | null;
+  supplierBalance: number | null;
   paymentInfo: {
     paymentMethod: string | null;
     cardLastFour: string | null;
@@ -50,12 +52,22 @@ const VALID_DOCUMENT_TYPES = [
   "fatura",
   "irsaliye",
   "fis",
+  "kasa_fisi",
   "pos_fisi",
   "siparis_fisi",
   "tahsilat_makbuzu",
   "odeme_dekontu",
   "not",
   "unknown",
+];
+
+/** Words that indicate summary/balance lines, NOT product items */
+const BALANCE_KEYWORDS = [
+  "eski bakiye", "onceki bakiye", "eski borc", "eski borç",
+  "genel toplam", "g.toplam", "g. toplam", "son bakiye",
+  "bakiye", "toplam", "ara toplam", "toplami", "toplamı",
+  "yekun", "son yekun", "son yekün",
+  "fayita sozen", "fatura sözeri",
 ];
 
 const SYSTEM_PROMPT = `Sen bir Türk fatura/fiş/belge OCR asistanısın. Sana gönderilen belge fotoğrafını analiz edip yapılandırılmış JSON formatında döndüreceksin.
@@ -68,31 +80,57 @@ KURALLAR:
 5. Para birimi: TRY, USD, EUR, GBP. Belirtilmemişse null döndür (genelde TRY'dir).
 6. Ürün adlarını BÜYÜK HARF olarak, belgede yazıldığı gibi yaz.
 7. Eğer fotoğraf hiç ürün içermiyorsa, boş items dizisi döndür.
-8. supplierName: Belgenin üst kısmındaki firma/işletme adı.
-9. supplierTaxNumber: VKN veya TCKN numarası (10-11 haneli).
+8. supplierName: Belgenin üst kısmındaki firma/işletme adı. Tedarikçiyi (satıcıyı) bul, alıcıyı DEĞİL.
+9. supplierTaxNumber: Tedarikçinin VKN veya TCKN numarası (10-11 haneli). Alıcının VKN'sini YAZMA.
 10. Birim fiyat ve toplam tutarın çarpımı tutarlı olmalı: quantity * unitPrice ≈ totalPrice.
-11. Eğer birim fiyat görünmüyorsa, totalPrice / quantity ile hesapla.
+11. Eğer birim fiyat yazılmamışsa, totalPrice / quantity ile hesapla ve unitPrice'a yaz. Bu ZORUNLU.
+12. ETTN numarasını (varsa) ettn alanına yaz. Genelde "ETTN:" etiketiyle bulunur, UUID formatındadır.
 
-BELGE TİP TESPİTİ:
-- "fatura": E-fatura, e-arşiv fatura, temel fatura. ETTN numarası, "fatura" kelimesi, ürün satırları var.
-- "irsaliye": E-irsaliye, sevk irsaliyesi. "İrsaliye" kelimesi, sevk tarihi var, genelde KDV yok.
-- "fis": Yazar kasa fişi, bilgi fişi. TOPLAM, TOPKDV gibi alanlar, Z/EKÜ numarası.
-- "pos_fisi": POS cihazı fişi. SATIŞ, ONAY KODU, kart bilgisi (****XXXX), banka adı.
-- "siparis_fisi": El yazısı veya matbaa sipariş fişi. "Sipariş Fişi" başlığı, müşteri adı, kalem listesi.
-- "tahsilat_makbuzu": Tahsilat/ödeme makbuzu. "TAHSİLAT" kelimesi, alındı belgesi.
+ÖNEMLİ - ÜRÜN OLMAYAN SATIRLARI FİLTRELE:
+- "Eski bakiye", "Önceki bakiye", "Eski borç", "Genel Toplam", "G.Toplam", "Son bakiye", "Bakiye", "Toplam", "Ara toplam", "Yekün", "Son Yekün" gibi satırları items dizisine EKLEME. Bunlar muhasebe özet bilgileridir, ürün değildir.
+- Komisyoncu faturalarındaki RUSUM, NAKLİYE, NAKLİYE KDV gibi ek masraf satırlarını items dizisine EKLEME. Bu tutarları grandTotal hesabına dahil et.
+
+TEDARİKÇİ BAKİYE BİLGİSİ:
+- Belgede "Son Bakiye", "Cari Bakiye", "Güncel Bakiye", "Son Cari Bakiyeniz" gibi ifadeler varsa, bu tutarı supplierBalance alanına yaz.
+- Bakiye yoksa supplierBalance=null.
+
+BELGE TİP TESPİTİ (ÖNCELİK SIRASI):
+- "fatura": E-fatura, e-arşiv fatura, temel fatura. ETTN numarası veya "fatura" kelimesi ve ürün satırları var. ÖNEMLİ: "İrsaliye yerine geçer" ifadesi olan belgeler de FATURA'dır. İrsaliye tipinde olup birim fiyat + tutar + KDV bilgisi OLAN belgeler de fatura olarak sınıflandır (tam mali bilgi içeriyor).
+- "irsaliye": E-irsaliye, sevk irsaliyesi. "İrsaliye" kelimesi var, SADECE miktar bilgisi var, fiyat/KDV bilgisi YOK veya 0. Fiyatlı irsaliyeleri "fatura" olarak sınıflandır.
+- "kasa_fisi": Yazar kasa fişi, bilgi fişi. Belirli bir tedarikçi/firma adı var (üstte yazıyor) ve ürün satırları mevcut. TOPLAM, KDV, Z No, EKÜ No gibi alanlar. Perakende satış noktasından alınan fiş.
+- "fis": Genel fiş, tedarikçi bilgisi belirsiz veya kişisel harcama fişi. Market alışverişi gibi.
+- "pos_fisi": POS cihazı fişi. SATIŞ, EMV SATIŞ, ONAY KODU, kart bilgisi (****XXXX), banka adı. Ürün satırı YOKTUR, sadece tutar var.
+- "siparis_fisi": El yazısı veya matbaa sipariş fişi. "Sipariş Fişi" başlığı, müşteri adı, kalem listesi. Fiyat bilgisi olabilir veya olmayabilir. Sadece ürün adı + miktar + tarih olan el yazısı notlar da bu kategoriye girer.
+- "tahsilat_makbuzu": Tahsilat/ödeme makbuzu. "TAHSİLAT", "Tahsilat Makbuzu" kelimesi, alındı belgesi. Pos tahsilat, nakit tahsilat, çek tahsilat bilgileri.
 - "odeme_dekontu": Banka havale/EFT dekontu, ödeme belgesi.
-- "not": El yazısı not, kısa bilgi notu. Yapı bozuk, sadece metin var.
+- "not": Mali değeri olmayan belgeler. Geri dönüşüm alındı belgesi, atık toplama belgesi, el yazısı kısa not.
 - "unknown": Hiçbirine uymuyor.
+
+SİPARİŞ FİŞİ ÖZEL KURALLARI:
+- El yazısı sipariş fişlerinde birim fiyat sütunu boşsa ve sadece miktar + toplam tutar yazılmışsa, unitPrice = totalPrice / quantity ile MUTLAKA hesapla.
+- Sipariş fişlerinde KDV genelde belirtilmez. KDV bilgisi yoksa vatRate=0 olarak kaydet.
+- Fiyat bilgisi hiç yoksa (sadece ürün adı + miktar), unitPrice=0, totalPrice=0 kaydet ama quantity'yi mutlaka doldur.
+
+İRSALİYE ÖZEL KURALLARI:
+- İrsaliyelerde fiyat bilgisi yoksa unitPrice=0, totalPrice=0 olarak kaydet ama quantity'yi MUTLAKA doldur.
+- İrsaliyelerde birim genelde KG veya ADET'tir, "Koli" sayısı ayrıca belirtilmişse birimi KG olarak kullan.
+
+ÇOK SAYFALI BELGE TESPİTİ:
+- Bazı faturalar birden fazla sayfa olabilir. Her sayfada aynı ETTN, aynı belge numarası ve aynı tedarikçi bilgisi bulunur.
+- Son sayfada genelde YEKÜN, SON YEKÜN, GENEL TOPLAM gibi toplam bilgileri yer alır.
+- Her sayfayı ayrı analiz ederken, ETTN ve invoiceNumber'ı doğru parse et ki client tarafında birleştirilebilsin.
 
 ÖDEME BİLGİSİ ÇIKARIMI:
 - POS/kart fişi ise: paymentMethod="kredi_karti", cardLastFour=son 4 hane (****XXXX'den), bankName=işyeri banka adı
 - "NAKİT" kelimesi varsa: paymentMethod="nakit"
 - Havale/EFT dekontu ise: paymentMethod="banka"
+- Tahsilat makbuzunda ödeme detayı varsa (Kredi Kartı, Nakit, Çek sütunları) ilgili yöntemi seç
 - Tespit edemezsen: paymentInfo=null
 
 ÖDEME DURUMU:
-- "VERESİYE", "BORÇ", "VADELİ" ifadeleri varsa: paidStatus="veresiye"
+- "VERESİYE", "BORÇ", "VADELİ", "Açık Hesap" ifadeleri varsa: paidStatus="veresiye"
 - POS fişi, nakit ödeme, "ÖDENDİ" ifadesi varsa: paidStatus="paid"
+- Tahsilat makbuzu ise: paidStatus="paid"
 - Belli değilse: paidStatus=null
 
 GİDER KATEGORİ ÖNERİSİ:
@@ -103,15 +141,20 @@ Belge içeriğine göre bir gider kategorisi öner:
 - Kuru temizleme, çamaşır -> "Kuru Temizleme"
 - Kırtasiye, ofis malz. -> "Kırtasiye"
 - Tamir, bakım -> "Bakım-Onarım"
+- Et, tavuk, balık -> "Et/Tavuk"
+- Sebze, meyve -> "Sebze/Meyve"
+- Süt ürünleri, yoğurt, peynir -> "Süt Ürünleri"
+- Ekmek, unlu mamül, börek, yufka -> "Fırın"
 - Tespit edemezsen: null
 
 SADECE aşağıdaki JSON yapısını döndür, başka hiçbir metin ekleme:
 {
-  "documentType": "fatura" | "irsaliye" | "fis" | "pos_fisi" | "siparis_fisi" | "tahsilat_makbuzu" | "odeme_dekontu" | "not" | "unknown",
+  "documentType": "fatura" | "irsaliye" | "kasa_fisi" | "fis" | "pos_fisi" | "siparis_fisi" | "tahsilat_makbuzu" | "odeme_dekontu" | "not" | "unknown",
   "supplierName": "string veya null",
   "supplierTaxNumber": "string veya null",
   "invoiceDate": "YYYY-MM-DD veya null",
   "invoiceNumber": "string veya null",
+  "ettn": "string (UUID) veya null",
   "currency": "TRY" | "USD" | "EUR" | "GBP" | null,
   "items": [
     {
@@ -126,6 +169,7 @@ SADECE aşağıdaki JSON yapısını döndür, başka hiçbir metin ekleme:
   "subtotal": null,
   "vatTotal": null,
   "grandTotal": null,
+  "supplierBalance": null,
   "paymentInfo": { "paymentMethod": "nakit" | "kredi_karti" | "banka" | null, "cardLastFour": "string veya null", "bankName": "string veya null" } | null,
   "paidStatus": "paid" | "veresiye" | null,
   "suggestedGiderCategory": "string veya null"
@@ -239,6 +283,7 @@ Deno.serve(async (req) => {
       supplierTaxNumber: parsed.supplierTaxNumber || null,
       invoiceDate: parsed.invoiceDate || null,
       invoiceNumber: parsed.invoiceNumber || null,
+      ettn: parsed.ettn || null,
       currency: parsed.currency || null,
       items: Array.isArray(parsed.items)
         ? parsed.items.map((item) => ({
@@ -259,6 +304,9 @@ Deno.serve(async (req) => {
       grandTotal: typeof parsed.grandTotal === "number"
         ? parsed.grandTotal
         : null,
+      supplierBalance: typeof parsed.supplierBalance === "number"
+        ? parsed.supplierBalance
+        : null,
       paymentInfo: parsed.paymentInfo
         ? {
           paymentMethod: ["nakit", "kredi_karti", "banka"].includes(
@@ -276,10 +324,23 @@ Deno.serve(async (req) => {
       suggestedGiderCategory: parsed.suggestedGiderCategory || null,
     };
 
-    // Filter out empty items
-    sanitized.items = sanitized.items.filter(
-      (item) => item.name.length > 0 && item.totalPrice > 0,
-    );
+    // Filter out empty items AND balance/summary lines
+    sanitized.items = sanitized.items.filter((item) => {
+      // Must have a name
+      if (item.name.length === 0) return false;
+      // Must have either price or quantity (irsaliye items may have quantity but no price)
+      if (item.totalPrice <= 0 && item.quantity <= 0) return false;
+      // Filter out balance/summary lines that Gemini might have included
+      const nameLower = item.name.toLowerCase()
+        .replace(/ı/g, "i").replace(/ö/g, "o").replace(/ü/g, "u")
+        .replace(/ş/g, "s").replace(/ç/g, "c").replace(/ğ/g, "g");
+      for (const keyword of BALANCE_KEYWORDS) {
+        if (nameLower === keyword || nameLower.startsWith(keyword + " ")) {
+          return false;
+        }
+      }
+      return true;
+    });
 
     console.log(
       `[parse-invoice] Parsed ${sanitized.items.length} items, type: ${sanitized.documentType}, supplier: ${sanitized.supplierName}`,

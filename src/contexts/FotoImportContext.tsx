@@ -15,6 +15,7 @@ import { normalizeTurkish } from '@/lib/turkishTextUtils';
 import {
   OcrImportStep,
   OcrParsedItem,
+  OcrParsedInvoice,
   OcrSaveMode,
   MultiInvoiceEntry,
   OcrProcessingProgress,
@@ -271,6 +272,170 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     });
   }, [createCariAlias]);
 
+  // ====== MERGE HELPERS ======
+
+  /**
+   * Merge multi-page invoices: same supplier + same invoiceNumber/ettn + same date
+   * Combines items arrays, takes non-null totals from whichever page has them.
+   */
+  const mergeMultiPageInvoices = useCallback((invoices: OcrParsedInvoice[], uris: string[]): { invoices: OcrParsedInvoice[]; uris: string[] } => {
+    if (invoices.length <= 1) return { invoices, uris };
+
+    const merged: OcrParsedInvoice[] = [];
+    const mergedUris: string[] = [];
+    const consumed = new Set<number>();
+
+    for (let i = 0; i < invoices.length; i++) {
+      if (consumed.has(i)) continue;
+
+      const base = invoices[i];
+      // Only merge documents that have identifiable supplier info
+      const hasMergeKey = base.supplierTaxNumber || base.ettn || base.invoiceNumber;
+      if (!hasMergeKey) {
+        merged.push(base);
+        mergedUris.push(uris[i]);
+        continue;
+      }
+
+      // Find matching pages
+      const group: number[] = [i];
+      for (let j = i + 1; j < invoices.length; j++) {
+        if (consumed.has(j)) continue;
+        const candidate = invoices[j];
+
+        // Must share at least one identifier
+        const sameSupplier = base.supplierTaxNumber && candidate.supplierTaxNumber
+          && base.supplierTaxNumber === candidate.supplierTaxNumber;
+        const sameEttn = base.ettn && candidate.ettn && base.ettn === candidate.ettn;
+        const sameInvoiceNo = base.invoiceNumber && candidate.invoiceNumber
+          && base.invoiceNumber === candidate.invoiceNumber;
+        const sameDate = base.invoiceDate && candidate.invoiceDate
+          && base.invoiceDate === candidate.invoiceDate;
+
+        // Merge if: (same ETTN) OR (same supplier + same invoice no) OR (same supplier + same date + same invoice no)
+        if (sameEttn || (sameSupplier && sameInvoiceNo) || (sameSupplier && sameDate && sameInvoiceNo)) {
+          group.push(j);
+        }
+      }
+
+      if (group.length === 1) {
+        merged.push(base);
+        mergedUris.push(uris[i]);
+        continue;
+      }
+
+      // Merge all pages in group
+      console.log(`[FotoImport] Merging ${group.length} pages for invoice ${base.invoiceNumber || base.ettn}`);
+      let mergedInvoice: OcrParsedInvoice = { ...base, items: [...base.items] };
+      for (let k = 1; k < group.length; k++) {
+        const page = invoices[group[k]];
+        consumed.add(group[k]);
+        // Append items
+        mergedInvoice.items = [...mergedInvoice.items, ...page.items];
+        // Take non-null values for totals
+        mergedInvoice.grandTotal = mergedInvoice.grandTotal ?? page.grandTotal;
+        mergedInvoice.subtotal = mergedInvoice.subtotal ?? page.subtotal;
+        mergedInvoice.vatTotal = mergedInvoice.vatTotal ?? page.vatTotal;
+        mergedInvoice.supplierBalance = mergedInvoice.supplierBalance ?? page.supplierBalance;
+        // Take supplier info from whichever page has it
+        mergedInvoice.supplierName = mergedInvoice.supplierName ?? page.supplierName;
+        mergedInvoice.supplierTaxNumber = mergedInvoice.supplierTaxNumber ?? page.supplierTaxNumber;
+        mergedInvoice.ettn = mergedInvoice.ettn ?? page.ettn;
+        mergedInvoice.invoiceNumber = mergedInvoice.invoiceNumber ?? page.invoiceNumber;
+        mergedInvoice.invoiceDate = mergedInvoice.invoiceDate ?? page.invoiceDate;
+        mergedInvoice.paymentInfo = mergedInvoice.paymentInfo ?? page.paymentInfo;
+        mergedInvoice.paidStatus = mergedInvoice.paidStatus ?? page.paidStatus;
+      }
+      merged.push(mergedInvoice);
+      mergedUris.push(uris[i]); // Use the first page's image URI
+    }
+
+    return { invoices: merged, uris: mergedUris };
+  }, []);
+
+  /**
+   * Merge tahsilat/odeme + POS receipt pairs: same date + amount within 5%
+   * The POS receipt is absorbed into the tahsilat's paymentInfo.
+   */
+  const mergeTahsilatPosEntries = useCallback((invoices: OcrParsedInvoice[], uris: string[]): { invoices: OcrParsedInvoice[]; uris: string[] } => {
+    if (invoices.length <= 1) return { invoices, uris };
+
+    const merged: OcrParsedInvoice[] = [];
+    const mergedUris: string[] = [];
+    const consumed = new Set<number>();
+
+    for (let i = 0; i < invoices.length; i++) {
+      if (consumed.has(i)) continue;
+
+      const inv = invoices[i];
+      const isTahsilat = inv.documentType === 'tahsilat_makbuzu' || inv.documentType === 'odeme_dekontu';
+      const isPos = inv.documentType === 'pos_fisi';
+
+      if (!isTahsilat && !isPos) {
+        merged.push(inv);
+        mergedUris.push(uris[i]);
+        continue;
+      }
+
+      // Look for a matching counterpart
+      let matchIdx = -1;
+      const invTotal = inv.grandTotal ?? inv.items.reduce((s, it) => s + it.totalPrice, 0);
+
+      for (let j = i + 1; j < invoices.length; j++) {
+        if (consumed.has(j)) continue;
+        const other = invoices[j];
+
+        const otherIsTahsilat = other.documentType === 'tahsilat_makbuzu' || other.documentType === 'odeme_dekontu';
+        const otherIsPos = other.documentType === 'pos_fisi';
+
+        // Need one tahsilat + one POS
+        if (!((isTahsilat && otherIsPos) || (isPos && otherIsTahsilat))) continue;
+
+        // Same date check
+        if (inv.invoiceDate && other.invoiceDate && inv.invoiceDate !== other.invoiceDate) continue;
+
+        // Amount within 5%
+        const otherTotal = other.grandTotal ?? other.items.reduce((s, it) => s + it.totalPrice, 0);
+        if (invTotal > 0 && otherTotal > 0) {
+          const diff = Math.abs(invTotal - otherTotal);
+          const maxVal = Math.max(invTotal, otherTotal);
+          if (diff / maxVal > 0.05) continue;
+        }
+
+        // Optional: card last four match
+        matchIdx = j;
+        break;
+      }
+
+      if (matchIdx === -1) {
+        merged.push(inv);
+        mergedUris.push(uris[i]);
+        continue;
+      }
+
+      consumed.add(matchIdx);
+      const other = invoices[matchIdx];
+
+      // Keep tahsilat, absorb POS payment info
+      const tahsilat = isTahsilat ? inv : other;
+      const pos = isPos ? inv : other;
+      const tahsilatUri = isTahsilat ? uris[i] : uris[matchIdx];
+
+      console.log(`[FotoImport] Merging tahsilat + POS: ${tahsilat.grandTotal} / ${pos.grandTotal}`);
+
+      const mergedInvoice: OcrParsedInvoice = {
+        ...tahsilat,
+        paymentInfo: pos.paymentInfo ?? tahsilat.paymentInfo,
+        grandTotal: tahsilat.grandTotal ?? pos.grandTotal,
+      };
+
+      merged.push(mergedInvoice);
+      mergedUris.push(tahsilatUri);
+    }
+
+    return { invoices: merged, uris: mergedUris };
+  }, []);
+
   // ====== CAPTURE: Process collected URIs ======
   const startProcessing = useCallback(async (uris: string[]) => {
     if (uris.length === 0) return;
@@ -279,7 +444,16 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
     try {
       const results = await processImages(uris);
-      const newEntries: MultiInvoiceEntry[] = results.map((invoice, i) => {
+
+      // === Post-processing merges ===
+      // 1) Merge multi-page invoices (same ETTN / invoice number)
+      const afterPageMerge = mergeMultiPageInvoices(results, uris);
+      // 2) Merge tahsilat + POS receipt pairs
+      const afterPosMerge = mergeTahsilatPosEntries(afterPageMerge.invoices, afterPageMerge.uris);
+      const finalInvoices = afterPosMerge.invoices;
+      const finalUris = afterPosMerge.uris;
+
+      const newEntries: MultiInvoiceEntry[] = finalInvoices.map((invoice, i) => {
         const defaultMode = DOCUMENT_TYPE_DEFAULTS[invoice.documentType]?.saveMode || 'stock_and_cari';
 
         // Auto-match card to hesap
@@ -299,7 +473,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
         return {
           id: `inv_${Date.now()}_${i}`,
-          imageUri: uris[i],
+          imageUri: finalUris[i],
           invoice,
           invoiceDate: invoice.invoiceDate
             ? (() => {
@@ -336,7 +510,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       Alert.alert(t('common:status.error'), error?.message || t('ocrImport:messages.ocrFailed'));
       setStep('capture');
     }
-  }, [processImages, matchCardToHesap, giderKategoriler, t]);
+  }, [processImages, matchCardToHesap, giderKategoriler, mergeMultiPageInvoices, mergeTahsilatPosEntries, t]);
 
   // ====== CAPTURE: Camera loop ======
   const handleTakePhoto = useCallback(async () => {

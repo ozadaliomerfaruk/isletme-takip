@@ -10,6 +10,7 @@
     "fatura": "Invoice",
     "irsaliye": "Waybill",
     "fis": "Receipt",
+    "kasa_fisi": "Cash Register Receipt",
     "pos_fisi": "POS Receipt",
     "siparis_fisi": "Order Slip",
     "tahsilat_makbuzu": "Collection Receipt",
