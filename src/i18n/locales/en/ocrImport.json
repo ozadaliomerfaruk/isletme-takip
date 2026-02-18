@@ -150,8 +150,7 @@
   "batch": {
     "processingPhoto": "Processing invoice {{current}}/{{total}}...",
     "invoiceCount": "{{count}} invoices",
-    "saveAllBuy": "BUY All",
-    "saveAllSell": "SELL All",
+    "saveAll": "Save All",
     "saveAllDesc": "Each invoice is processed according to its own save mode. Tap an invoice to change it.",
     "addMore": "Add Photos",
     "allSaved": "All invoices saved",

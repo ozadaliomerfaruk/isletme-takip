@@ -12,8 +12,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, AlertTriangle, Search, Package, Building2, Truck, Users, Plus, Wallet, Tag, Edit3, Info } from 'lucide-react-native';
-import { Text, Button, Card, DateTimePicker } from '@/components/ui';
+import { CheckCircle, AlertTriangle, Search, Package, Building2, Truck, Users, Plus, Wallet, Edit3, Info } from 'lucide-react-native';
+import { Text, Button, Card, DateTimePicker, CategoryPicker } from '@/components/ui';
 import {
   OcrReviewItem,
   OcrNewProductModal,
@@ -361,54 +361,15 @@ export default function FotoImportReviewPage() {
           )}
 
           {/* Gider kategori picker */}
-          {showGiderKategori && giderKategoriler && giderKategoriler.length > 0 && (
+          {showGiderKategori && (
             <Card style={styles.hesapCard}>
-              <View style={styles.hesapRow}>
-                <Tag size={18} color={colors.textSecondary} />
-                <View style={styles.hesapInfo}>
-                  <Text variant="label" style={styles.cariLabel}>
-                    {t('ocrImport:review.giderKategori')}
-                  </Text>
-                  {currentEntry?.selectedKategoriId ? (
-                    <Text variant="body" style={styles.cariName}>
-                      {giderKategoriler.find(k => k.id === currentEntry.selectedKategoriId)?.name || '-'}
-                    </Text>
-                  ) : selectedInvoice.suggestedGiderCategory ? (
-                    <Text variant="body" color="muted">
-                      {t('ocrImport:review.suggestedCategory', { category: selectedInvoice.suggestedGiderCategory })}
-                    </Text>
-                  ) : (
-                    <Text variant="body" color="muted">{t('ocrImport:review.noCategory')}</Text>
-                  )}
-                </View>
-              </View>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.kategoriScroll}>
-                <TouchableOpacity
-                  style={[
-                    styles.kategoriChip,
-                    !currentEntry?.selectedKategoriId && styles.kategoriChipActive,
-                  ]}
-                  onPress={() => handleSelectGiderKategori(null)}
-                >
-                  <Text variant="caption" color={!currentEntry?.selectedKategoriId ? 'primary' : 'secondary'}>
-                    {t('ocrImport:review.noCategory')}
-                  </Text>
-                </TouchableOpacity>
-                {giderKategoriler.map(kat => (
-                  <TouchableOpacity
-                    key={kat.id}
-                    style={[
-                      styles.kategoriChip,
-                      currentEntry?.selectedKategoriId === kat.id && styles.kategoriChipActive,
-                    ]}
-                    onPress={() => handleSelectGiderKategori(kat.id)}
-                  >
-                    <Text variant="caption" color={currentEntry?.selectedKategoriId === kat.id ? 'primary' : 'secondary'}>
-                      {kat.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <CategoryPicker
+                value={currentEntry?.selectedKategoriId ?? null}
+                onChange={(kategoriId) => handleSelectGiderKategori(kategoriId)}
+                type="gider"
+                label={t('ocrImport:review.giderKategori')}
+                optional
+              />
             </Card>
           )}
 
@@ -1135,21 +1096,6 @@ const styles = StyleSheet.create({
   hesapInfo: {
     flex: 1,
     gap: 2,
-  },
-  kategoriScroll: {
-    marginTop: spacing.xs,
-  },
-  kategoriChip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: spacing.xs,
-  },
-  kategoriChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primaryLight,
   },
   editableTotalRow: {
     flexDirection: 'row',

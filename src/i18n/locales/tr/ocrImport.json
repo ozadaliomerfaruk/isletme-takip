@@ -150,8 +150,7 @@
   "batch": {
     "processingPhoto": "Fatura {{current}}/{{total}} işleniyor...",
     "invoiceCount": "{{count}} fatura",
-    "saveAllBuy": "Tümünü AL",
-    "saveAllSell": "Tümünü SAT",
+    "saveAll": "Hepsini Kaydet",
     "saveAllDesc": "Her fatura kendi kaydetme şekline göre işlenir. Değiştirmek için faturaya dokunun.",
     "addMore": "Fotoğraf Ekle",
     "allSaved": "Tüm faturalar kaydedildi",

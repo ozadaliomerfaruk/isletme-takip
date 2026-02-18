@@ -1,7 +1,7 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useNavigation } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import {
@@ -16,7 +16,21 @@ import { useFotoImportContext } from '@/contexts/FotoImportContext';
 export default function FotoImportIndexPage() {
   const { t } = useTranslation('ocrImport');
   const ctx = useFotoImportContext();
+  const navigation = useNavigation();
   const wasUnfocused = useRef(false);
+
+  // Intercept back gesture: if we have unsaved entries and we're in capture step
+  // (user clicked "Add More" then swiped back), go back to invoice-list instead
+  // of leaving the foto-import flow entirely.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (ctx.step === 'capture' && ctx.entries.length > 0) {
+        e.preventDefault();
+        ctx.setStep('invoice-list');
+      }
+    });
+    return unsubscribe;
+  }, [navigation, ctx.step, ctx.entries.length]);
 
   // Only reset step when page truly regains focus after being in the background
   // (e.g. native swipe-back from review). Do NOT reset on initial mount or
@@ -73,8 +87,7 @@ export default function FotoImportIndexPage() {
           entries={ctx.entries}
           onSelectInvoice={ctx.handleSelectInvoice}
           onRemoveEntry={ctx.handleRemoveEntry}
-          onSaveAllBuy={() => ctx.handleSaveAllWithDirection('giris')}
-          onSaveAllSell={() => ctx.handleSaveAllWithDirection('cikis')}
+          onSaveAll={() => ctx.handleSaveAllWithDirection('giris')}
           onAddMore={ctx.handleAddMore}
           isSaving={ctx.isSaving}
         />

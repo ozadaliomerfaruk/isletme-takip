@@ -12,8 +12,7 @@ interface OcrInvoiceListProps {
   entries: MultiInvoiceEntry[];
   onSelectInvoice: (index: number) => void;
   onRemoveEntry: (index: number) => void;
-  onSaveAllBuy: () => void;
-  onSaveAllSell: () => void;
+  onSaveAll: () => void;
   onAddMore: () => void;
   isSaving: boolean;
 }
@@ -22,8 +21,7 @@ export function OcrInvoiceList({
   entries,
   onSelectInvoice,
   onRemoveEntry,
-  onSaveAllBuy,
-  onSaveAllSell,
+  onSaveAll,
   onAddMore,
   isSaving,
 }: OcrInvoiceListProps) {
@@ -99,26 +97,14 @@ export function OcrInvoiceList({
             <Text variant="caption" color="muted" style={styles.saveAllDesc}>
               {t('batch.saveAllDesc')}
             </Text>
-            <View style={styles.footerButtons}>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={isSaving}
-                onPress={onSaveAllBuy}
-                style={styles.actionButton}
-              >
-                {t('batch.saveAllBuy')}
-              </Button>
-              <Button
-                variant="danger"
-                size="lg"
-                loading={isSaving}
-                onPress={onSaveAllSell}
-                style={styles.actionButton}
-              >
-                {t('batch.saveAllSell')}
-              </Button>
-            </View>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={isSaving}
+              onPress={onSaveAll}
+            >
+              {t('batch.saveAll')}
+            </Button>
           </>
         )}
       </View>
@@ -162,13 +148,6 @@ const styles = StyleSheet.create({
   },
   footerInfo: {
     gap: 2,
-  },
-  footerButtons: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
   },
   saveAllDesc: {
     textAlign: 'center',
