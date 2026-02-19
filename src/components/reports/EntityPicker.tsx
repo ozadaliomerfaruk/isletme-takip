@@ -77,7 +77,7 @@ export function EntityPicker({
             variant="caption"
             color={balance >= 0 ? 'success' : 'error'}
           >
-            {formatCurrency(balance)}
+            {formatCurrency(balance, item.currency)}
           </Text>
         </View>
         {isSelected && (

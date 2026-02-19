@@ -341,6 +341,23 @@ export function useTransactionSubmit({
         }
       }
 
+      // Normal mode personel payment cross-currency check - compare hesap currency with personel currency
+      if (!isPersonelMode && type === 'odeme' && odemeHedefType === 'staff' && hesapId && personelId) {
+        const sourceAcc = hesaplar?.find((h) => h.id === hesapId);
+        const targetPersonel = personelList?.find((p) => p.id === personelId);
+        const sourceCurr = sourceAcc?.currency || 'TRY';
+        const targetCurr = targetPersonel?.currency || 'TRY';
+        if (isCrossCurrency(sourceCurr, targetCurr)) {
+          setPendingExchangeData({
+            sourceCurrency: sourceCurr as Currency,
+            targetCurrency: targetCurr as Currency,
+            sourceAmount: parsedAmount,
+          });
+          setShowExchangeRateBar(true);
+          return true;
+        }
+      }
+
       // Personel mode cross-currency check - compare hesap currency with personel currency
       if (isPersonelMode && ['personel_odeme_tab', 'personel_tahsilat_tab'].includes(type) && sourceHesapId && personelId) {
         const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
@@ -360,7 +377,7 @@ export function useTransactionSubmit({
 
       return false;
     },
-    [type, hesapId, hedefHesapId, sourceHesapId, cariId, personelId, hesaplar, cariler, personelList, isCariMode, isPersonelMode, setPendingExchangeData, setShowExchangeRateBar]
+    [type, hesapId, hedefHesapId, sourceHesapId, cariId, personelId, odemeHedefType, hesaplar, cariler, personelList, isCariMode, isPersonelMode, setPendingExchangeData, setShowExchangeRateBar]
   );
 
   // Handle save

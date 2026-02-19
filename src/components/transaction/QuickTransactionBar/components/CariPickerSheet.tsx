@@ -22,6 +22,7 @@ interface Cari {
   id: string;
   name: string;
   balance: number;
+  currency: string;
 }
 
 export type CariPickerMode = 'customer' | 'supplier';
@@ -177,7 +178,7 @@ export function CariPickerSheet({
                           isSelected && { color: colors.primary },
                         ]}
                       >
-                        {formatCurrency(cari.balance)}
+                        {formatCurrency(cari.balance, cari.currency)}
                       </Text>
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: iconColor }]}>

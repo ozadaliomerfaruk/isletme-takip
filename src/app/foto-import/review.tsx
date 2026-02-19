@@ -830,7 +830,7 @@ export default function FotoImportReviewPage() {
                   <View style={styles.pickerItemInfo}>
                     <Text variant="body">{hesap.name}</Text>
                     <Text variant="caption" color="secondary">
-                      {formatCurrency(hesap.balance)}
+                      {formatCurrency(hesap.balance, hesap.currency)}
                     </Text>
                   </View>
                   {currentEntry?.selectedHesapId === hesap.id && (

@@ -293,75 +293,11 @@ export function useImportHistory() {
   }, [isletme]);
 
   /**
-   * Bir işlemin bakiyesini geri al
-   * Helper function for undoLastImport
-   * OPTIMIZED: Tüm RPC çağrıları paralel çalıştırılır
-   */
-  const revertTransactionBalance = async (tx: {
-    id: string;
-    type: string;
-    amount: number;
-    hesap_id: string | null;
-    hedef_hesap_id: string | null;
-    cari_id: string | null;
-    personel_id: string | null;
-  }) => {
-    const amount = Number(tx.amount) || 0;
-    const promises: Promise<void>[] = [];
-
-    // Helper: RPC çağrısını Promise'e çevir
-    const incrementBalance = async (tableName: string, rowId: string, amt: number): Promise<void> => {
-      const { error } = await supabase.rpc('increment_balance', {
-        table_name: tableName,
-        row_id: rowId,
-        amount: amt,
-      });
-      if (error) throw new Error(`increment_balance(${tableName}, ${rowId}): ${error.message || error.code || JSON.stringify(error)}`);
-    };
-
-    // Hesap bakiyesini geri al
-    if (tx.hesap_id) {
-      const isIncomeType = ['gelir', 'cari_tahsilat', 'personel_tahsilat'].includes(tx.type);
-      const reverseAmount = tx.type === 'transfer' ? amount : (isIncomeType ? -amount : amount);
-      promises.push(incrementBalance('hesaplar', tx.hesap_id, reverseAmount));
-    }
-
-    // Transfer hedef hesabını geri al
-    if (tx.type === 'transfer' && tx.hedef_hesap_id) {
-      promises.push(incrementBalance('hesaplar', tx.hedef_hesap_id, -amount));
-    }
-
-    // Cari bakiyesini geri al
-    // Forward: cari_alis=-amount, cari_satis=+amount, cari_odeme=+amount, cari_tahsilat=-amount,
-    //          cari_alis_iade=+amount, cari_satis_iade=-amount
-    // Reverse: negate the forward amount
-    if (tx.cari_id) {
-      const forwardPositive = ['cari_satis', 'cari_odeme', 'cari_alis_iade'].includes(tx.type);
-      const reverseAmount = forwardPositive ? -amount : amount;
-      promises.push(incrementBalance('cariler', tx.cari_id, reverseAmount));
-    }
-
-    // Personel bakiyesini geri al
-    // Forward: personel_gider=-amount, personel_odeme=+amount, personel_tahsilat=-amount, personel_satis=+amount
-    // Reverse: negate the forward amount
-    if (tx.personel_id) {
-      const forwardPositive = ['personel_odeme', 'personel_satis'].includes(tx.type);
-      const reverseAmount = forwardPositive ? -amount : amount;
-      promises.push(incrementBalance('personel', tx.personel_id, reverseAmount));
-    }
-
-    // Tüm RPC'leri paralel çalıştır
-    if (promises.length > 0) {
-      await Promise.all(promises);
-    }
-  };
-
-  /**
    * Son importu tamamen geri al
-   * Import edilen hesap/cari/personel ile ilişkili TÜM işlemleri siler (import sonrası girilenler dahil)
+   * Server-side RPC ile tüm bakiye geri alma + silme atomik olarak yapılır (tek istek)
    *
    * Sıralama:
-   * 1. Import edilen hesap/cari/personel ile ilişkili TÜM işlemleri bul ve sil
+   * 1. undo_import_batch RPC: bakiyeleri geri al + işlemleri sil (atomik)
    * 2. Import edilen kategorileri sil/deaktive et
    * 3. Import edilen hesapları sil
    * 4. Import edilen carileri sil
@@ -413,74 +349,26 @@ export function useImportHistory() {
       }
 
       // ========================================================================
-      // 1. SADECE İMPORT EDİLEN İŞLEMLERİ SİL
-      // (Import sonrası kullanıcının eklediği işlemler korunur)
+      // 1. BAKIYE GERİ ALMA + İŞLEM SİLME (tek server-side RPC, atomik)
       // ========================================================================
 
       let totalDeletedTransactions = 0;
-      // Sadece import sırasında oluşturulan işlemleri kullan (FK-based query yerine)
-      const allRelatedTransactionIds = new Set<string>(transactionIds);
-
-      // 1d. Tüm ilişkili işlemleri getir ve bakiyelerini geri al
-      const allTxIds = Array.from(allRelatedTransactionIds);
-      if (allTxIds.length > 0) {
+      if (transactionIds.length > 0) {
         if (__DEV__) {
-          console.log('Undo import: Reverting balances for', allTxIds.length, 'transactions');
+          console.log('Undo import: Calling undo_import_batch RPC for', transactionIds.length, 'transactions');
         }
 
-        // Batch halinde işle (Supabase'in IN limiti nedeniyle)
-        const BATCH_SIZE = 100;
-        for (let i = 0; i < allTxIds.length; i += BATCH_SIZE) {
-          const batch = allTxIds.slice(i, i + BATCH_SIZE);
+        const { data, error: rpcError } = await supabase.rpc('undo_import_batch', {
+          p_transaction_ids: transactionIds,
+        });
 
-          const { data: transactions, error: fetchError } = await supabase
-            .from('islemler')
-            .select('id, type, amount, hesap_id, hedef_hesap_id, cari_id, personel_id')
-            .in('id', batch);
-
-          if (fetchError) {
-            if (__DEV__) {
-              console.error('İşlem fetch hatası:', fetchError);
-            }
-            continue;
-          }
-
-          // OPTIMIZED: Batch parallel balance reversion (100'lük gruplar)
-          if (transactions && transactions.length > 0) {
-            const REVERT_BATCH_SIZE = 100;
-            for (let j = 0; j < transactions.length; j += REVERT_BATCH_SIZE) {
-              const revertBatch = transactions.slice(j, j + REVERT_BATCH_SIZE);
-              const revertPromises = revertBatch.map(tx =>
-                revertTransactionBalance(tx).catch(err => {
-                  if (__DEV__) {
-                    console.error('Balance revert error for tx', tx.id, ':', err instanceof Error ? err.message : JSON.stringify(err));
-                  }
-                })
-              );
-              await Promise.all(revertPromises);
-            }
-          }
+        if (rpcError) {
+          throw new Error(`undo_import_batch failed: ${rpcError.message || rpcError.code || JSON.stringify(rpcError)}`);
         }
 
-        // İşlemleri sil (batch halinde)
-        for (let i = 0; i < allTxIds.length; i += BATCH_SIZE) {
-          const batch = allTxIds.slice(i, i + BATCH_SIZE);
-
-          const { error: txDeleteError } = await supabase
-            .from('islemler')
-            .delete()
-            .in('id', batch);
-
-          if (txDeleteError) {
-            if (__DEV__) {
-              console.error('İşlem silme hatası:', txDeleteError);
-            }
-          }
-        }
-
-        totalDeletedTransactions = allTxIds.length;
+        totalDeletedTransactions = data?.deleted_transactions || transactionIds.length;
         if (__DEV__) {
-          console.log('Undo import: Deleted', totalDeletedTransactions, 'transactions (including post-import)');
+          console.log('Undo import: Deleted', totalDeletedTransactions, 'transactions via RPC');
         }
       }
 

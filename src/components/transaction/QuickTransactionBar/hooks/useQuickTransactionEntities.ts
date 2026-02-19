@@ -40,6 +40,7 @@ interface Cari {
   id: string;
   name: string;
   balance: number;
+  currency: string;
 }
 
 interface Personel {
@@ -47,6 +48,7 @@ interface Personel {
   first_name: string;
   last_name: string | null;
   balance: number;
+  currency: string;
 }
 
 interface UseQuickTransactionEntitiesReturn {

@@ -20,6 +20,7 @@ interface KrediKartiHesap {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 export interface KrediKartiPickerSheetProps {
@@ -113,7 +114,7 @@ export function KrediKartiPickerSheet({
                           isSelected && { color: colors.primary },
                         ]}
                       >
-                        {formatCurrency(hesap.balance)}
+                        {formatCurrency(hesap.balance, hesap.currency)}
                       </Text>
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>

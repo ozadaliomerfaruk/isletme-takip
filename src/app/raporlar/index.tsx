@@ -36,7 +36,7 @@ import {
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, parseDateFromDB } from '@/lib/date';
 import { toNumber } from '@/lib/currency';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
 import { useCariler, useCariSummary } from '@/hooks/useCariler';
@@ -51,7 +51,7 @@ type TabType = 'genel' | 'gider' | 'gelir' | 'cari' | 'personel' | 'karsilastirm
 
 export default function RaporlarPage() {
   const router = useRouter();
-  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const { tab, startDate: paramStartDate, endDate: paramEndDate } = useLocalSearchParams<{ tab?: string; startDate?: string; endDate?: string }>();
   const { t } = useTranslation(['reports', 'common', 'errors']);
   const { getDateRangeLabel, locale, formatDateNative } = useDateFormat();
 
@@ -83,14 +83,36 @@ export default function RaporlarPage() {
   // Karşılaştırma tab için metrik seçimi
   const [comparisonMetric, setComparisonMetric] = useState<'income' | 'expense' | 'net'>('income');
 
-  // URL parametresinden tab ayarla
+  // URL parametrelerini consume-once olarak uygula (dashboard'dan gelince)
+  // Uygulandıktan sonra params temizlenir, geri-ileri navigasyonda tekrar tetiklenmez
   useEffect(() => {
-    if (tab === 'gider') setActiveTab('gider');
-    else if (tab === 'gelir') setActiveTab('gelir');
-    else if (tab === 'cari') setActiveTab('cari');
-    else if (tab === 'personel') setActiveTab('personel');
-    else if (tab === 'karsilastirma') setActiveTab('karsilastirma');
-  }, [tab]);
+    let consumed = false;
+
+    if (tab) {
+      const validTabs = ['gider', 'gelir', 'cari', 'personel', 'karsilastirma'] as const;
+      if (validTabs.includes(tab as any)) {
+        setActiveTab(tab as typeof validTabs[number]);
+        consumed = true;
+      }
+    }
+
+    if (paramStartDate && paramEndDate) {
+      const start = parseDateFromDB(paramStartDate);
+      const end = parseDateFromDB(paramEndDate);
+      if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+        setPeriod('custom');
+        setPeriodOffset(0);
+        setCustomStartDate(start);
+        setCustomEndDate(end);
+        consumed = true;
+      }
+    }
+
+    // Parametreleri temizle - tekrar tetiklenmesin
+    if (consumed) {
+      router.setParams({ tab: undefined as any, startDate: undefined as any, endDate: undefined as any });
+    }
+  }, [tab, paramStartDate, paramEndDate]);
 
   // Özel tarih aralığı için state'ler
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date());

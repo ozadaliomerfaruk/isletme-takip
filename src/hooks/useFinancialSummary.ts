@@ -4,7 +4,7 @@ import { usePersonelList } from './usePersonel';
 import { useHesaplar } from './useHesaplar';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
-import { toNumber } from '@/lib/currency';
+import { toNumber, roundCurrency } from '@/lib/currency';
 
 export interface FinancialBreakdown {
   cari: number;
@@ -66,7 +66,7 @@ export function useFinancialSummary(): FinancialSummary {
   const { data: cariler, isLoading: carilerLoading } = useCariler(undefined, false, false);
   const { data: personelList, isLoading: personelLoading } = usePersonelList(false, false);
   const { currency: baseCurrency } = useSettings();
-  const { data: exchangeRatesData } = useExchangeRates();
+  const { data: exchangeRatesData, isLoading: exchangeRatesLoading } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
 
   const summary = useMemo(() => {
@@ -102,32 +102,52 @@ export function useFinancialSummary(): FinancialSummary {
       { accounts: 0, payables: 0 }
     );
 
-    // Cari hesaplaması
+    // Cari hesaplaması (döviz kurlarıyla ana para birimine çevir)
     const cariSummary = cariler?.reduce(
       (acc, cari) => {
-        const balance = Number(cari.balance);
-        if (balance > 0) {
+        const cariCurrency = cari.currency || baseCurrency;
+        const balance = toNumber(cari.balance);
+
+        let convertedBalance: number;
+        if (cariCurrency === baseCurrency) {
+          convertedBalance = balance;
+        } else {
+          const converted = convertCurrency(balance, cariCurrency, baseCurrency, exchangeRates);
+          convertedBalance = converted ?? balance;
+        }
+
+        if (convertedBalance > 0) {
           // Pozitif bakiye = müşteriden alacak
-          acc.receivables += balance;
-        } else if (balance < 0) {
+          acc.receivables += convertedBalance;
+        } else if (convertedBalance < 0) {
           // Negatif bakiye = tedarikçiye borç
-          acc.payables += Math.abs(balance);
+          acc.payables += Math.abs(convertedBalance);
         }
         return acc;
       },
       { receivables: 0, payables: 0 }
     ) ?? { receivables: 0, payables: 0 };
 
-    // Personel hesaplaması
+    // Personel hesaplaması (döviz kurlarıyla ana para birimine çevir)
     const personelSummary = personelList?.reduce(
       (acc, personel) => {
-        const balance = Number(personel.balance);
-        if (balance > 0) {
+        const personelCurrency = personel.currency || baseCurrency;
+        const balance = toNumber(personel.balance);
+
+        let convertedBalance: number;
+        if (personelCurrency === baseCurrency) {
+          convertedBalance = balance;
+        } else {
+          const converted = convertCurrency(balance, personelCurrency, baseCurrency, exchangeRates);
+          convertedBalance = converted ?? balance;
+        }
+
+        if (convertedBalance > 0) {
           // Pozitif bakiye = personelden alacak (avans vs.)
-          acc.receivables += balance;
-        } else if (balance < 0) {
+          acc.receivables += convertedBalance;
+        } else if (convertedBalance < 0) {
           // Negatif bakiye = personele borç
-          acc.payables += Math.abs(balance);
+          acc.payables += Math.abs(convertedBalance);
         }
         return acc;
       },
@@ -153,10 +173,10 @@ export function useFinancialSummary(): FinancialSummary {
     };
 
     // Net pozisyon (sadece alacak - borç)
-    const netPosition = Math.round((receivables.total - payables.total) * 100) / 100;
+    const netPosition = roundCurrency(receivables.total - payables.total);
 
     // Genel Durum = (Hesaplar + Alacaklar) - Borçlar
-    const generalStatus = Math.round(((accounts + receivables.total) - payables.total) * 100) / 100;
+    const generalStatus = roundCurrency((accounts + receivables.total) - payables.total);
 
     return {
       accounts,
@@ -169,6 +189,6 @@ export function useFinancialSummary(): FinancialSummary {
 
   return {
     ...summary,
-    isLoading: hesaplarLoading || carilerLoading || personelLoading,
+    isLoading: hesaplarLoading || carilerLoading || personelLoading || exchangeRatesLoading,
   };
 }

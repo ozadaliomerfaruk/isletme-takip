@@ -22,6 +22,7 @@ import { colors } from '@/constants/colors';
 import { Currency } from '@/types/database';
 import { getCurrencySymbol, getExchangeRateDisplay } from '@/constants/currencies';
 import { parseCurrency, formatCurrency } from '@/lib/currency';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 
 export interface ExchangeRateBarProps {
   visible: boolean;
@@ -42,6 +43,7 @@ export function ExchangeRateBar({
 }: ExchangeRateBarProps) {
   const { t } = useTranslation(['transactions', 'common']);
   const insets = useSafeAreaInsets();
+  const { data: exchangeRatesData } = useExchangeRates();
 
   // State - bidirectional inputs
   const [rateInput, setRateInput] = useState('');
@@ -71,7 +73,7 @@ export function ExchangeRateBar({
   // Get current valid values
   const currentRate = useMemo(() => {
     const rate = parseCurrency(rateInput);
-    return isNaN(rate) || rate <= 0 ? null : rate;
+    return isNaN(rate) || !isFinite(rate) || rate <= 0 ? null : rate;
   }, [rateInput]);
 
   const currentTargetAmount = useMemo(() => {
@@ -79,7 +81,7 @@ export function ExchangeRateBar({
     return isNaN(amount) || amount <= 0 ? null : amount;
   }, [targetAmountInput]);
 
-  // Reset state when modal closes
+  // Reset state when modal closes, pre-fill rate when modal opens
   useEffect(() => {
     if (!visible) {
       const timer = setTimeout(() => {
@@ -91,6 +93,53 @@ export function ExchangeRateBar({
       return () => clearTimeout(timer);
     }
   }, [visible]);
+
+  // Pre-fill exchange rate from API when modal opens
+  const prefillAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!visible) {
+      prefillAppliedRef.current = false;
+      return;
+    }
+    if (prefillAppliedRef.current) return;
+
+    const rates = exchangeRatesData?.rates;
+    if (!rates) return;
+
+    // Determine the display rate: "1 baseCurrency = ? quoteCurrency"
+    // API rates format: { "USD": 43.27 } meaning "1 USD = 43.27 TRY"
+    let displayRate: number | null = null;
+
+    if (quoteCurrency === 'TRY') {
+      // e.g., 1 USD = 43.27 TRY → directly from API
+      displayRate = rates[baseCurrency] ?? null;
+    } else if (baseCurrency === 'TRY') {
+      // e.g., 1 TRY = ? USD → invert
+      const quoteRate = rates[quoteCurrency];
+      displayRate = quoteRate && quoteRate > 0 ? 1 / quoteRate : null;
+    } else {
+      // Both foreign: e.g., 1 USD = ? EUR → cross rate
+      const baseRate = rates[baseCurrency]; // 1 USD = X TRY
+      const quoteRate = rates[quoteCurrency]; // 1 EUR = Y TRY
+      displayRate = baseRate && quoteRate && quoteRate > 0 ? baseRate / quoteRate : null;
+    }
+
+    if (!displayRate || displayRate <= 0) return;
+
+    prefillAppliedRef.current = true;
+    const formatted = displayRate.toFixed(displayRate < 1 ? 6 : 2).replace('.', ',');
+    setRateInput(formatted);
+
+    // Calculate target amount using the same logic as calculateTargetFromRate
+    let targetAmount: number;
+    if (sourceCurrency === baseCurrency) {
+      targetAmount = sourceAmount * displayRate;
+    } else {
+      targetAmount = sourceAmount / displayRate;
+    }
+    const targetFormatted = targetAmount.toFixed(targetAmount < 1 ? 4 : 2).replace('.', ',');
+    setTargetAmountInput(targetFormatted);
+  }, [visible, exchangeRatesData, baseCurrency, quoteCurrency, sourceCurrency, sourceAmount]);
 
   // Keyboard listeners
   useEffect(() => {

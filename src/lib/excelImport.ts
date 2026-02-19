@@ -26,6 +26,8 @@ export interface ParsedTransaction {
   karsiHesapRaw: string | null; // KARŞI HESAP orijinal değer (örn: "Nakit [-58750 TRY]")
   karsiHesapAmount: number | null; // KARŞI HESAP'taki tutar değeri (transfer için)
   karsiHesapCurrency: string | null; // KARŞI HESAP'taki para birimi
+  entityBracketAmount: number | null; // Entity (personel/tedarikci/musteri) bracket tutarı
+  entityBracketCurrency: string | null; // Entity bracket para birimi
   amount: number; // Mutlak değer (her zaman pozitif)
   signedAmount: number; // Orijinal işaretli değer (başlangıç bakiyesi için)
   currency: string | null; // BIRIM/CURRENCY kolonundan - ana hesabın para birimi
@@ -84,14 +86,56 @@ export interface AccountMapping {
 }
 
 /**
+ * Bracket içindeki birim/para birimi kısaltmasını standart Currency koduna çevirir.
+ * Belirsiz birimler (g, gr, gram) hesap adından altın/gümüş olarak çözümlenir.
+ */
+function resolveUnitAlias(unit: string, accountName: string): string {
+  const lower = unit.toLowerCase();
+
+  // Doğrudan para birimi kodları (case-insensitive)
+  const DIRECT: Record<string, string> = {
+    'try': 'TRY', 'tl': 'TRY',
+    'usd': 'USD',
+    'eur': 'EUR',
+    'gbp': 'GBP',
+    'xau': 'XAU',
+    'xag': 'XAG',
+  };
+  if (DIRECT[lower]) return DIRECT[lower];
+
+  // Gram birimleri — hesap adından altın/gümüş ayırt et
+  const GRAM_UNITS = ['g', 'gr', 'gram'];
+  if (GRAM_UNITS.includes(lower)) {
+    const nameLower = accountName.toLowerCase();
+    if (nameLower.includes('gümüş') || nameLower.includes('gumus') || nameLower.includes('silver')) {
+      return 'XAG';
+    }
+    return 'XAU'; // Varsayılan: altın
+  }
+
+  // Ons birimleri
+  if (lower === 'oz' || lower === 'ons') {
+    const nameLower = accountName.toLowerCase();
+    if (nameLower.includes('gümüş') || nameLower.includes('gumus') || nameLower.includes('silver')) {
+      return 'XAG';
+    }
+    return 'XAU';
+  }
+
+  // Bilinmeyen — büyük harfe çevirip döndür (belki geçerli bir koddur)
+  return unit.toUpperCase();
+}
+
+/**
  * KARŞI HESAP kolonundaki değeri parse et
  * Örnek: "Nakit (Kasa) [-58750 TRY]" → { name: "Nakit (Kasa)", amount: 58750, currency: "TRY" }
+ * Örnek: "Altın [10 g]" → { name: "Altın", amount: 10, currency: "XAU" }
  * Transfer işlemlerinde hedef hesap ve TRY değeri bu formatta gelir
  */
 export interface ParsedKarsiHesap {
   name: string;          // Hesap adı
   amount?: number;       // Tutar (parantez içindeki değer)
-  currency?: string;     // Para birimi (TRY, USD, EUR, vs.)
+  currency?: string;     // Para birimi (TRY, USD, EUR, XAU, XAG vs.)
 }
 
 export function parseKarsiHesap(value: string): ParsedKarsiHesap {
@@ -100,16 +144,27 @@ export function parseKarsiHesap(value: string): ParsedKarsiHesap {
   const trimmed = value.trim();
 
   // Köşeli parantez içinde değer var mı kontrol et
-  // Format: "Hesap Adı [-123,45 TRY]" veya "Hesap Adı [123.45]"
-  const bracketRegex = /^(.+?)\s*\[([+-]?\d+(?:[.,]\d+)?)\s*([A-Z]{3})?\]$/;
+  // Format: "Hesap Adı [-123,45 TRY]" veya "Hesap Adı [10 g]" veya "Hesap Adı [123.45]"
+  const bracketRegex = /^(.+?)\s*\[([+-]?\d+(?:[.,]\d+)?)\s*([A-Za-z]{1,5})?\]$/;
   const match = trimmed.match(bracketRegex);
 
   if (match) {
     const name = match[1].trim();
-    // Türkçe formatı destekle: 58.750,00 → 58750.00
-    const amountStr = match[2].replace(/\./g, '').replace(',', '.');
+    // Sayı formatı tespiti:
+    // - Virgül varsa Türkçe format: 58.750,00 → nokta binlik ayracı, virgül ondalık
+    // - Sadece nokta varsa İngilizce format: 1234.56 → nokta ondalık
+    const raw = match[2];
+    let amountStr: string;
+    if (raw.includes(',')) {
+      // Türkçe: noktaları sil (binlik ayracı), virgülü noktaya çevir
+      amountStr = raw.replace(/\./g, '').replace(',', '.');
+    } else {
+      // İngilizce veya tam sayı: nokta ondalık ayracı, olduğu gibi bırak
+      amountStr = raw;
+    }
     const amount = Math.abs(parseFloat(amountStr));
-    const currency = match[3] || 'TRY';
+    const rawUnit = match[3] || null;
+    const currency = rawUnit ? resolveUnitAlias(rawUnit, name) : 'TRY';
 
     return { name, amount, currency };
   }
@@ -670,14 +725,32 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       const description = cols.aciklama >= 0 ? row[cols.aciklama]?.toString().trim() || null : null;
       const category = cols.kategori >= 0 ? row[cols.kategori]?.toString().trim() || null : null;
       const account = row[cols.hesap]?.toString().trim();
-      const personel = cols.personel >= 0 ? row[cols.personel]?.toString().trim() || null : null;
+      // PERSONEL/TEDARİKÇİ/MÜŞTERİ kolonlarını bracket notation ile parse et
+      // Örn: "Said Özadalı [28350 TRY]" → name: "Said Özadalı", amount: 28350, currency: "TRY"
+      const personelRaw = cols.personel >= 0 ? row[cols.personel]?.toString().trim() || null : null;
+      const parsedPersonel = personelRaw ? parseKarsiHesap(personelRaw) : null;
+      const personel = parsedPersonel?.name || null;
 
       // Debug: İlk 5 satır için kategori değerini logla
       if (__DEV__ && i <= headerRowIndex + 5) {
         console.log(`Row ${rowNumber}: kategori column index=${cols.kategori}, raw value="${row[cols.kategori]}", extracted="${category}"`);
       }
-      const tedarikci = cols.tedarikci >= 0 ? row[cols.tedarikci]?.toString().trim() || null : null;
-      const musteri = cols.musteri >= 0 ? row[cols.musteri]?.toString().trim() || null : null;
+      const tedarikciRaw = cols.tedarikci >= 0 ? row[cols.tedarikci]?.toString().trim() || null : null;
+      const parsedTedarikci = tedarikciRaw ? parseKarsiHesap(tedarikciRaw) : null;
+      const tedarikci = parsedTedarikci?.name || null;
+
+      const musteriRaw = cols.musteri >= 0 ? row[cols.musteri]?.toString().trim() || null : null;
+      const parsedMusteri = musteriRaw ? parseKarsiHesap(musteriRaw) : null;
+      const musteri = parsedMusteri?.name || null;
+
+      // Aktif entity'nin cross-currency bracket bilgisi (satır başına en fazla 1 entity)
+      // Sadece bracket amount'u olan entity'yi seç (bracket'siz entity'yi atla)
+      const entityWithBracket =
+        (parsedPersonel?.amount ? parsedPersonel : null) ||
+        (parsedTedarikci?.amount ? parsedTedarikci : null) ||
+        (parsedMusteri?.amount ? parsedMusteri : null);
+      const entityBracketAmount = entityWithBracket?.amount ?? null;
+      const entityBracketCurrency = entityWithBracket?.currency ?? null;
 
       // DEBUG: GİDER işlemleri için TEDARİKÇİ kolonunu kontrol et
       const isGiderType = type === 'GİDER' || type === 'GIDER';
@@ -701,7 +774,9 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       const karsiHesapCurrency = parsedKarsiHesap?.currency ?? null;
 
       // BIRIM/CURRENCY kolonu - ana hesabın para birimi
-      const currency = cols.birim >= 0 ? row[cols.birim]?.toString().trim().toUpperCase() || null : null;
+      // resolveUnitAlias ile normalize et: "tl" → "TRY", "g" → "XAU", "gram" → "XAU" vb.
+      const rawBirim = cols.birim >= 0 ? row[cols.birim]?.toString().trim() || null : null;
+      const currency = rawBirim ? resolveUnitAlias(rawBirim, account || '') : null;
 
       // Tutar dönüşümü ve validasyonu
       // NOT: Veritabanı DECIMAL(15,2) kullanıyor, bu yüzden 2 ondalık basamağa yuvarlamalıyız
@@ -903,6 +978,8 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         karsiHesapRaw,
         karsiHesapAmount,
         karsiHesapCurrency,
+        entityBracketAmount,
+        entityBracketCurrency,
         amount: Math.abs(amount),
         signedAmount, // Orijinal işaretli değer (başlangıç bakiyesi için)
         currency,

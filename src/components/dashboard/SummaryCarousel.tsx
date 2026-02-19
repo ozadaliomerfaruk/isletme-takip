@@ -119,7 +119,10 @@ export function SummaryCarousel({
         <View style={[styles.page, { width: CARD_WIDTH }]}>
           <TouchableOpacity
             style={styles.card}
-            onPress={() => router.push('/raporlar')}
+            onPress={() => router.push({
+              pathname: '/raporlar',
+              params: startDate && endDate ? { startDate, endDate } : undefined,
+            })}
             activeOpacity={0.8}
           >
             {/* Header */}
@@ -190,7 +193,13 @@ export function SummaryCarousel({
         <View style={[styles.page, { width: CARD_WIDTH }]}>
           <TouchableOpacity
             style={styles.card}
-            onPress={() => router.push('/raporlar?tab=gider')}
+            onPress={() => router.push({
+              pathname: '/raporlar',
+              params: {
+                tab: 'gider',
+                ...(startDate && endDate ? { startDate, endDate } : {}),
+              },
+            })}
             activeOpacity={0.8}
           >
             {/* Header */}

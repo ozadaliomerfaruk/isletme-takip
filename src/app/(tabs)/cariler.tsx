@@ -18,6 +18,7 @@ import {
   X,
   Camera,
   Link,
+  ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
@@ -54,6 +55,7 @@ export default function CarilerPage() {
   const { t } = useTranslation(['clients', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('balanceHigh');
   const [expandedCariId, setExpandedCariId] = useState<string | null>(null);
 
   // Multi-select state
@@ -73,6 +75,14 @@ export default function CarilerPage() {
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [actionSheetCari, setActionSheetCari] = useState<Cari | null>(null);
+
+  // Sort ActionSheet
+  const [sortSheetVisible, setSortSheetVisible] = useState(false);
+  const sortSheetOptions: ActionSheetOption[] = [
+    { label: t('common:sort.balanceHighLow'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceHigh' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceHigh') },
+    { label: t('common:sort.balanceLowHigh'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceLow' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceLow') },
+    { label: t('common:sort.nameAZ'), icon: <ArrowUpDown size={20} color={sortBy === 'name' ? colors.primary : colors.text} />, onPress: () => setSortBy('name') },
+  ];
 
   // Cari paylaşım için state
   const [acceptCodeVisible, setAcceptCodeVisible] = useState(false);
@@ -177,7 +187,8 @@ export default function CarilerPage() {
 
   const handleSelectAll = () => {
     if (filteredCariler) {
-      setSelectedIds(new Set(filteredCariler.map(c => c.id)));
+      // Linked carileri hariç tut - sadece kendi carilerimiz seçilebilir
+      setSelectedIds(new Set(filteredCariler.filter(c => !c.isLinked).map(c => c.id)));
       haptics.selection();
     }
   };
@@ -406,7 +417,14 @@ export default function CarilerPage() {
       if (a.is_active !== b.is_active) {
         return a.is_active ? -1 : 1;
       }
-      // Aynı durumda olanları alfabetik sırala
+      // Kullanıcı sıralama tercihi
+      if (sortBy === 'balanceHigh') {
+        return Math.abs(toNumber(b.balance)) - Math.abs(toNumber(a.balance));
+      }
+      if (sortBy === 'balanceLow') {
+        return Math.abs(toNumber(a.balance)) - Math.abs(toNumber(b.balance));
+      }
+      // Default: alphabetical
       return a.name.localeCompare(b.name, 'tr');
     });
 
@@ -569,6 +587,13 @@ export default function CarilerPage() {
         <Text variant="h2">{t('clients:titles.clients')}</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
+            style={styles.sortButton}
+            onPress={() => setSortSheetVisible(true)}
+            activeOpacity={0.7}
+          >
+            <ArrowUpDown size={18} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
             style={styles.linkButton}
             onPress={() => setAcceptCodeVisible(true)}
             activeOpacity={0.7}
@@ -654,7 +679,7 @@ export default function CarilerPage() {
         windowSize={5}
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
-        extraData={{ selectedIds, expandedCariId, isSelectMode }}
+        extraData={{ selectedIds, expandedCariId, isSelectMode, sortBy }}
         contentContainerStyle={styles.listContainer}
       />
 
@@ -682,6 +707,15 @@ export default function CarilerPage() {
         }}
         title={actionSheetCari?.name}
         options={actionSheetOptions}
+        cancelLabel={t('common:buttons.cancel')}
+      />
+
+      {/* Sort ActionSheet */}
+      <ActionSheet
+        visible={sortSheetVisible}
+        onClose={() => setSortSheetVisible(false)}
+        title={t('common:sort.sortBy')}
+        options={sortSheetOptions}
         cancelLabel={t('common:buttons.cancel')}
       />
 
@@ -729,11 +763,11 @@ export default function CarilerPage() {
               {t('common:bulkSelect.selected', { count: selectedIds.size })}
             </Text>
             <TouchableOpacity
-              onPress={selectedIds.size === filteredCariler?.length ? handleDeselectAll : handleSelectAll}
+              onPress={selectedIds.size === filteredCariler?.filter(c => !c.isLinked).length ? handleDeselectAll : handleSelectAll}
               style={styles.bulkActionSelectAll}
             >
               <Text variant="body" style={{ color: colors.primary }}>
-                {selectedIds.size === filteredCariler?.length
+                {selectedIds.size === filteredCariler?.filter(c => !c.isLinked).length
                   ? t('common:bulkSelect.deselectAll')
                   : t('common:bulkSelect.selectAll')}
               </Text>
@@ -786,6 +820,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  sortButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   linkButton: {
     width: 36,

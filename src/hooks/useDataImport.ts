@@ -23,6 +23,7 @@ import {
   CariType,
   IslemType,
 } from '@/types/database';
+import { calculateTargetAmount, safeParseExchangeRate } from '@/lib/currency';
 
 // ============================================================================
 // TYPES
@@ -161,6 +162,20 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
 }
 
 /**
+ * Cross-currency işlemlerde entity (cari/personel/hedef hesap) tarafının tutarını hesapla.
+ * exchange_rate varsa dönüşüm uygular, yoksa orijinal amount döndürür.
+ */
+function getEntityAmount(islem: IslemInsert): number {
+  const rate = safeParseExchangeRate(islem.exchange_rate);
+  const src = islem.source_currency || 'TRY';
+  const tgt = islem.target_currency || 'TRY';
+  if (rate && src !== tgt) {
+    return calculateTargetAmount(islem.amount, rate, src, tgt);
+  }
+  return islem.amount;
+}
+
+/**
  * Import edilen bir işlem için bakiye güncelleme
  * Normal işlem oluşturma ile aynı mantığı kullanır
  * OPTIMIZED: Birden fazla bakiye güncellemesi gerektiren işlemlerde Promise.all kullanılır
@@ -184,16 +199,19 @@ async function updateBalanceForImportedTransaction(islem: IslemInsert): Promise<
       }
       break;
 
-    case 'transfer':
+    case 'transfer': {
       // Transfer: Kaynak hesaptan düş, hedef hesaba ekle (PARALLEL)
+      // Cross-currency: hedef hesaba dönüştürülmüş tutar eklenir
+      const transferTargetAmount = getEntityAmount(islem);
       if (islem.hesap_id) {
         promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, -amount));
       }
       if (islem.hedef_hesap_id) {
-        promises.push(safeIncrementBalance('hesaplar', islem.hedef_hesap_id, amount));
+        promises.push(safeIncrementBalance('hesaplar', islem.hedef_hesap_id, transferTargetAmount));
       }
       if (promises.length > 0) await Promise.all(promises);
       break;
+    }
 
     case 'cari_alis':
       // Cari alış: Cariden aldık, cari bakiyesi azalır (borçlanıyoruz)
@@ -209,29 +227,35 @@ async function updateBalanceForImportedTransaction(islem: IslemInsert): Promise<
       }
       break;
 
-    case 'cari_odeme':
+    case 'cari_odeme': {
       // Cari ödeme: Cariye ödeme yaptık (PARALLEL)
       // Hesaptan para çıkıyor, cari bakiyesi artıyor (borcumuz azalıyor)
+      // Cross-currency: cari bakiyesine dönüştürülmüş tutar eklenir
+      const cariOdemeAmount = getEntityAmount(islem);
       if (islem.cari_id) {
-        promises.push(safeIncrementBalance('cariler', islem.cari_id, amount));
+        promises.push(safeIncrementBalance('cariler', islem.cari_id, cariOdemeAmount));
       }
       if (islem.hesap_id) {
         promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, -amount));
       }
       if (promises.length > 0) await Promise.all(promises);
       break;
+    }
 
-    case 'cari_tahsilat':
+    case 'cari_tahsilat': {
       // Cari tahsilat: Cariden tahsilat aldık (PARALLEL)
       // Hesaba para giriyor, cari bakiyesi azalıyor (alacağımız azalıyor)
+      // Cross-currency: cari bakiyesinden dönüştürülmüş tutar düşülür
+      const cariTahsilatAmount = getEntityAmount(islem);
       if (islem.cari_id) {
-        promises.push(safeIncrementBalance('cariler', islem.cari_id, -amount));
+        promises.push(safeIncrementBalance('cariler', islem.cari_id, -cariTahsilatAmount));
       }
       if (islem.hesap_id) {
         promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, amount));
       }
       if (promises.length > 0) await Promise.all(promises);
       break;
+    }
 
     case 'personel_gider':
       // Personel gideri: Personele borç yazıldı (maaş, avans vb.)
@@ -240,29 +264,35 @@ async function updateBalanceForImportedTransaction(islem: IslemInsert): Promise<
       }
       break;
 
-    case 'personel_odeme':
+    case 'personel_odeme': {
       // Personel ödemesi: Personele ödeme yapıldı (PARALLEL)
       // Hesaptan para çıkıyor, personel bakiyesi artıyor (borcumuz azalıyor)
+      // Cross-currency: personel bakiyesine dönüştürülmüş tutar eklenir
+      const personelOdemeAmount = getEntityAmount(islem);
       if (islem.personel_id) {
-        promises.push(safeIncrementBalance('personel', islem.personel_id, amount));
+        promises.push(safeIncrementBalance('personel', islem.personel_id, personelOdemeAmount));
       }
       if (islem.hesap_id) {
         promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, -amount));
       }
       if (promises.length > 0) await Promise.all(promises);
       break;
+    }
 
-    case 'personel_tahsilat':
+    case 'personel_tahsilat': {
       // Personelden tahsilat: Personelden para aldık (PARALLEL)
       // Hesaba para giriyor, personel bakiyesi azalıyor
+      // Cross-currency: personel bakiyesinden dönüştürülmüş tutar düşülür
+      const personelTahsilatAmount = getEntityAmount(islem);
       if (islem.personel_id) {
-        promises.push(safeIncrementBalance('personel', islem.personel_id, -amount));
+        promises.push(safeIncrementBalance('personel', islem.personel_id, -personelTahsilatAmount));
       }
       if (islem.hesap_id) {
         promises.push(safeIncrementBalance('hesaplar', islem.hesap_id, amount));
       }
       if (promises.length > 0) await Promise.all(promises);
       break;
+    }
 
     // İade işlemleri ve diğer tipler - bakiye güncellemesi gerektirmeyenler
     case 'cari_alis_iade':
@@ -304,35 +334,45 @@ function calculateBalanceChanges(islem: IslemInsert): Map<string, number> {
     case 'gider':
       if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
       break;
-    case 'transfer':
+    case 'transfer': {
+      const tgtAmt = getEntityAmount(islem);
       if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
-      if (islem.hedef_hesap_id) addChange('hesaplar', islem.hedef_hesap_id, amount);
+      if (islem.hedef_hesap_id) addChange('hesaplar', islem.hedef_hesap_id, tgtAmt);
       break;
+    }
     case 'cari_alis':
       if (islem.cari_id) addChange('cariler', islem.cari_id, -amount);
       break;
     case 'cari_satis':
       if (islem.cari_id) addChange('cariler', islem.cari_id, amount);
       break;
-    case 'cari_odeme':
-      if (islem.cari_id) addChange('cariler', islem.cari_id, amount);
+    case 'cari_odeme': {
+      const eAmt = getEntityAmount(islem);
+      if (islem.cari_id) addChange('cariler', islem.cari_id, eAmt);
       if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
       break;
-    case 'cari_tahsilat':
-      if (islem.cari_id) addChange('cariler', islem.cari_id, -amount);
+    }
+    case 'cari_tahsilat': {
+      const eAmt = getEntityAmount(islem);
+      if (islem.cari_id) addChange('cariler', islem.cari_id, -eAmt);
       if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, amount);
       break;
+    }
     case 'personel_gider':
       if (islem.personel_id) addChange('personel', islem.personel_id, -amount);
       break;
-    case 'personel_odeme':
-      if (islem.personel_id) addChange('personel', islem.personel_id, amount);
+    case 'personel_odeme': {
+      const eAmt = getEntityAmount(islem);
+      if (islem.personel_id) addChange('personel', islem.personel_id, eAmt);
       if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
       break;
-    case 'personel_tahsilat':
-      if (islem.personel_id) addChange('personel', islem.personel_id, -amount);
+    }
+    case 'personel_tahsilat': {
+      const eAmt = getEntityAmount(islem);
+      if (islem.personel_id) addChange('personel', islem.personel_id, -eAmt);
       if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, amount);
       break;
+    }
     // İade ve diğer tipler: bakiye güncellemesi yok
     case 'cari_alis_iade':
     case 'cari_satis_iade':
@@ -1265,6 +1305,40 @@ export function useDataImport() {
             continue;
           }
 
+          // Cross-currency tespiti: bracket notation'dan kur hesapla
+          // Kur formatı: "1 yabancı para = X TRY"
+          // - Yabancı → TRY: kur = bracketAmount / amount (örn: 28350 TRY / 700 USD = 40.5)
+          // - TRY → Yabancı: kur = amount / bracketAmount (örn: 99.91 TRY / 2.74 EUR = 36.46)
+          // - Yabancı → Yabancı: kur = bracketAmount / amount (direkt çarpım)
+          let sourceCurrency: string | null = null;
+          let targetCurrency: string | null = null;
+          let exchangeRate: number | null = null;
+
+          // Bracket tutarı ve para birimi belirle (transfer vs entity)
+          let bracketAmount: number | null = null;
+          let bracketCurrency: string | null = null;
+          if (islemType === 'transfer' && tx.karsiHesapAmount && tx.karsiHesapCurrency && tx.currency) {
+            bracketAmount = tx.karsiHesapAmount;
+            bracketCurrency = tx.karsiHesapCurrency;
+          } else if (tx.entityBracketAmount && tx.entityBracketCurrency && tx.currency) {
+            bracketAmount = tx.entityBracketAmount;
+            bracketCurrency = tx.entityBracketCurrency;
+          }
+
+          if (bracketAmount && bracketCurrency && tx.currency && tx.currency !== bracketCurrency) {
+            sourceCurrency = tx.currency;
+            targetCurrency = bracketCurrency;
+            if (finalAmount > 0 && bracketAmount > 0) {
+              if (sourceCurrency === 'TRY') {
+                // TRY → Yabancı: kur = kaynak TRY / hedef yabancı = "1 yabancı = X TRY"
+                exchangeRate = Math.round((finalAmount / bracketAmount) * 10000) / 10000;
+              } else {
+                // Yabancı → TRY veya Yabancı → Yabancı: kur = hedef / kaynak
+                exchangeRate = Math.round((bracketAmount / finalAmount) * 10000) / 10000;
+              }
+            }
+          }
+
           const islem: IslemInsert = {
             isletme_id: isletme.id,
             type: islemType,
@@ -1276,6 +1350,9 @@ export function useDataImport() {
             cari_id: cariId,
             personel_id: personelId,
             kategori_id: kategoriId,
+            source_currency: sourceCurrency,
+            target_currency: targetCurrency,
+            exchange_rate: exchangeRate,
           };
 
           islemler.push(islem);

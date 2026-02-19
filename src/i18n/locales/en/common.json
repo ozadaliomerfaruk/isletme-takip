@@ -196,7 +196,9 @@
     "nameAZ": "Name (A-Z)",
     "nameZA": "Name (Z-A)",
     "amountHighLow": "Amount (High-Low)",
-    "amountLowHigh": "Amount (Low-High)"
+    "amountLowHigh": "Amount (Low-High)",
+    "balanceHighLow": "Balance (High-Low)",
+    "balanceLowHigh": "Balance (Low-High)"
   },
   "filter": {
     "filter": "Filter",

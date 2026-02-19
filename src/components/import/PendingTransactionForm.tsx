@@ -1158,7 +1158,7 @@ export function PendingTransactionForm({
                             <Wallet size={20} color={colors.info} />
                           </View>
                           <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{hesap.name}</Text>
-                          <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(hesap.balance)}</Text>
+                          <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(hesap.balance, hesap.currency)}</Text>
                           {isSelected && (
                             <View style={[styles.checkIcon, { backgroundColor: colors.info }]}>
                               <Check size={14} color="#FFFFFF" />
@@ -1221,7 +1221,7 @@ export function PendingTransactionForm({
                             <ArrowRight size={20} color={colors.info} />
                           </View>
                           <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{hesap.name}</Text>
-                          <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(hesap.balance)}</Text>
+                          <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(hesap.balance, hesap.currency)}</Text>
                           {isSelected && (
                             <View style={[styles.checkIcon, { backgroundColor: colors.info }]}>
                               <Check size={14} color="#FFFFFF" />
@@ -1295,7 +1295,7 @@ export function PendingTransactionForm({
                             )}
                           </View>
                           <Text style={[styles.bottomSheetItemText, isSelected && { color: colors.primary }]}>{cari.name}</Text>
-                          <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(cari.balance)}</Text>
+                          <Text style={[styles.bottomSheetItemBalance, isSelected && { color: colors.primary }]}>{formatCurrency(cari.balance, cari.currency)}</Text>
                           {isSelected && (
                             <View style={[styles.checkIcon, { backgroundColor: iconColor }]}>
                               <Check size={14} color="#FFFFFF" />

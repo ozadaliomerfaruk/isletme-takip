@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   Circle,
   CheckSquare,
+  ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
@@ -42,6 +43,7 @@ export default function PersonelPage() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('balanceHigh');
   const [expandedPersonelId, setExpandedPersonelId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
@@ -123,6 +125,14 @@ export default function PersonelPage() {
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
+
+  // Sort ActionSheet
+  const [sortSheetVisible, setSortSheetVisible] = useState(false);
+  const sortSheetOptions: ActionSheetOption[] = [
+    { label: t('common:sort.balanceHighLow'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceHigh' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceHigh') },
+    { label: t('common:sort.balanceLowHigh'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceLow' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceLow') },
+    { label: t('common:sort.nameAZ'), icon: <ArrowUpDown size={20} color={sortBy === 'name' ? colors.primary : colors.text} />, onPress: () => setSortBy('name') },
+  ];
 
   // Action sheet handlers
   const handleOpenActionSheet = (personel: Personel) => {
@@ -298,7 +308,14 @@ export default function PersonelPage() {
       if (a.is_active !== b.is_active) {
         return a.is_active ? -1 : 1;
       }
-      // Aynı durumda olanları alfabetik sırala
+      // Kullanıcı sıralama tercihi
+      if (sortBy === 'balanceHigh') {
+        return Math.abs(toNumber(b.balance)) - Math.abs(toNumber(a.balance));
+      }
+      if (sortBy === 'balanceLow') {
+        return Math.abs(toNumber(a.balance)) - Math.abs(toNumber(b.balance));
+      }
+      // Default: alphabetical
       return a.first_name.localeCompare(b.first_name, 'tr');
     });
 
@@ -467,14 +484,23 @@ export default function PersonelPage() {
       {/* Header */}
       <View style={styles.header}>
         <Text variant="h2">{t('staff:titles.personnel')}</Text>
-        <Button
-          variant="primary"
-          size="sm"
-          icon={<Plus size={18} color={colors.white} />}
-          onPress={() => router.push('/personel/ekle')}
-        >
-          {t('common:buttons.add')}
-        </Button>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.sortButton}
+            onPress={() => setSortSheetVisible(true)}
+            activeOpacity={0.7}
+          >
+            <ArrowUpDown size={18} color={colors.primary} />
+          </TouchableOpacity>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Plus size={18} color={colors.white} />}
+            onPress={() => router.push('/personel/ekle')}
+          >
+            {t('common:buttons.add')}
+          </Button>
+        </View>
       </View>
 
       {/* Özet Kartları */}
@@ -540,12 +566,12 @@ export default function PersonelPage() {
         windowSize={5}
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
-        extraData={{ selectedIds, expandedPersonelId, isSelectMode }}
+        extraData={{ selectedIds, expandedPersonelId, isSelectMode, sortBy }}
         contentContainerStyle={styles.listContainer}
       />
 
       {/* FAB Backdrop */}
-      {fabMenuVisible && (
+      {!isSelectMode && fabMenuVisible && (
         <TouchableWithoutFeedback onPress={() => {
           haptics.light();
           setFabMenuVisible(false);
@@ -555,7 +581,7 @@ export default function PersonelPage() {
       )}
 
       {/* FAB Menu */}
-      <View style={[styles.fabContainer, { bottom: spacing.lg + insets.bottom }]}>
+      {!isSelectMode && <View style={[styles.fabContainer, { bottom: spacing.lg + insets.bottom }]}>
         {fabMenuVisible && (
           <Animated.View
             style={[
@@ -621,7 +647,7 @@ export default function PersonelPage() {
             )}
           </Animated.View>
         </TouchableOpacity>
-      </View>
+      </View>}
 
       {/* Quick Transaction Bar */}
       <QuickTransactionBar
@@ -646,6 +672,15 @@ export default function PersonelPage() {
         }}
         title={actionSheetPersonel ? `${actionSheetPersonel.first_name} ${actionSheetPersonel.last_name}` : undefined}
         options={actionSheetOptions}
+        cancelLabel={t('common:buttons.cancel')}
+      />
+
+      {/* Sort ActionSheet */}
+      <ActionSheet
+        visible={sortSheetVisible}
+        onClose={() => setSortSheetVisible(false)}
+        title={t('common:sort.sortBy')}
+        options={sortSheetOptions}
         cancelLabel={t('common:buttons.cancel')}
       />
 
@@ -712,6 +747,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sortButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   summaryContainer: {
     flexDirection: 'row',

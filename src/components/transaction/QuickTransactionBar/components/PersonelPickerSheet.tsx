@@ -23,6 +23,7 @@ interface Personel {
   first_name: string;
   last_name: string | null;
   balance: number;
+  currency: string;
 }
 
 export interface PersonelPickerSheetProps {
@@ -163,7 +164,7 @@ export function PersonelPickerSheet({
                           isSelected && { color: colors.primary },
                         ]}
                       >
-                        {formatCurrency(personel.balance)}
+                        {formatCurrency(personel.balance, personel.currency)}
                       </Text>
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>

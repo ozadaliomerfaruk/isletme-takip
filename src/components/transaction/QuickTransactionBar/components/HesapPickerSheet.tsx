@@ -22,6 +22,7 @@ interface Hesap {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 export interface HesapPickerSheetProps {
@@ -168,7 +169,7 @@ export function HesapPickerSheet({
                           isSelected && { color: colors.primary },
                         ]}
                       >
-                        {formatCurrency(hesap.balance)}
+                        {formatCurrency(hesap.balance, hesap.currency)}
                       </Text>
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: colors.info }]}>
