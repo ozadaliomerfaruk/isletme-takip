@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import i18n from 'i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -38,13 +38,18 @@ interface IslemFilters {
   limit?: number;
 }
 
+const ISLEMLER_PAGE_SIZE = 50;
+
 export function useIslemler(filters?: IslemFilters) {
   const { isletme, isletmeLoading } = useAuthContext();
 
-  const result = useQuery({
+  const result = useInfiniteQuery({
     queryKey: ['islemler', isletme?.id, filters],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       if (!isletme) return [];
+
+      const from = pageParam * ISLEMLER_PAGE_SIZE;
+      const to = from + ISLEMLER_PAGE_SIZE - 1;
 
       let query = supabase
         .from('islemler')
@@ -88,6 +93,8 @@ export function useIslemler(filters?: IslemFilters) {
 
       if (filters?.limit) {
         query = query.limit(filters.limit);
+      } else {
+        query = query.range(from, to);
       }
 
       const { data, error } = await query;
@@ -95,12 +102,18 @@ export function useIslemler(filters?: IslemFilters) {
       if (error) throw error;
       return data as IslemWithRelations[];
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
+      return lastPageParam + 1;
+    },
     enabled: !!isletme,
   });
 
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...result,
+    data: result.data?.pages.flat() ?? [],
     isLoading: result.isLoading || isletmeLoading,
   };
 }
@@ -373,14 +386,17 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
   }
 }
 
-// Cari işlemleri (kategori bilgisi dahil)
+// Cari işlemleri (kategori bilgisi dahil) - infinite scroll
 export function useIslemlerByCari(cariId: string) {
   const { isletme } = useAuthContext();
 
-  return useQuery({
+  const result = useInfiniteQuery({
     queryKey: ['islemler', 'cari', cariId, isletme?.id],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       if (!isletme || !cariId) return [];
+
+      const from = pageParam * ISLEMLER_PAGE_SIZE;
+      const to = from + ISLEMLER_PAGE_SIZE - 1;
 
       const { data, error } = await supabase
         .from('islemler')
@@ -391,23 +407,37 @@ export function useIslemlerByCari(cariId: string) {
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       return data as IslemWithRelations[];
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
+      return lastPageParam + 1;
+    },
     enabled: !!isletme && !!cariId,
   });
+
+  return {
+    ...result,
+    data: result.data?.pages.flat() ?? [],
+  };
 }
 
-// Hesap işlemleri (kategori bilgisi dahil)
+// Hesap işlemleri (kategori bilgisi dahil) - infinite scroll
 export function useIslemlerByHesap(hesapId: string) {
   const { isletme } = useAuthContext();
 
-  return useQuery({
+  const result = useInfiniteQuery({
     queryKey: ['islemler', 'hesap', hesapId, isletme?.id],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       if (!isletme || !hesapId) return [];
+
+      const from = pageParam * ISLEMLER_PAGE_SIZE;
+      const to = from + ISLEMLER_PAGE_SIZE - 1;
 
       const { data, error } = await supabase
         .from('islemler')
@@ -422,23 +452,37 @@ export function useIslemlerByHesap(hesapId: string) {
         .eq('isletme_id', isletme.id)
         .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`)
         .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       return data as IslemWithRelations[];
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
+      return lastPageParam + 1;
+    },
     enabled: !!isletme && !!hesapId,
   });
+
+  return {
+    ...result,
+    data: result.data?.pages.flat() ?? [],
+  };
 }
 
-// Personel işlemleri (kategori bilgisi dahil)
+// Personel işlemleri (kategori bilgisi dahil) - infinite scroll
 export function useIslemlerByPersonel(personelId: string) {
   const { isletme } = useAuthContext();
 
-  return useQuery({
+  const result = useInfiniteQuery({
     queryKey: ['islemler', 'personel', personelId, isletme?.id],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = 0 }) => {
       if (!isletme || !personelId) return [];
+
+      const from = pageParam * ISLEMLER_PAGE_SIZE;
+      const to = from + ISLEMLER_PAGE_SIZE - 1;
 
       const { data, error } = await supabase
         .from('islemler')
@@ -449,13 +493,24 @@ export function useIslemlerByPersonel(personelId: string) {
         .eq('isletme_id', isletme.id)
         .eq('personel_id', personelId)
         .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       return data as IslemWithRelations[];
     },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
+      return lastPageParam + 1;
+    },
     enabled: !!isletme && !!personelId,
   });
+
+  return {
+    ...result,
+    data: result.data?.pages.flat() ?? [],
+  };
 }
 
 // İşlem güncelleme - transaction güvenliği ile

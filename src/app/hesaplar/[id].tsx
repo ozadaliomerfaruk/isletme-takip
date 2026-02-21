@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo, memo } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput, ListRenderItemInfo } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
   ArrowLeft,
@@ -11,21 +11,26 @@ import {
   CircleDollarSign,
   Pencil,
   Trash2,
-  Clock,
   MoreVertical,
   FileCheck,
   X,
   Share2,
   Image as ImageIcon,
+  Zap,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
+import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
+import { DateSectionHeader } from '@/components/ui/TransactionRow';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal } from '@/components/transaction';
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateShort, formatDateSmart, formatTime, isSameYear } from '@/lib/date';
+import { formatDateShort, formatDateSmart } from '@/lib/date';
+import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesap, useDeleteHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { useUnarchiveHesap } from '@/hooks/useArchive';
 import { useIslemlerByHesap, useDeleteIslem, useUpdateIslem } from '@/hooks/useIslemler';
@@ -35,6 +40,7 @@ import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler'
 import { useCeklerByHesap } from '@/hooks/useCekler';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useSettings } from '@/hooks/useSettings';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { useTranslation } from 'react-i18next';
 
@@ -46,25 +52,26 @@ interface HesapTransactionItemProps {
   islem: IslemWithRelations;
   hesapId: string;
   hesapCurrency: Currency;
-  isExpanded: boolean;
-  onToggle: (id: string) => void;
+  onPress: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onViewPhoto: (path: string, islemId: string) => void;
   t: (key: string) => string;
+  editLabel: string;
+  deleteLabel: string;
 }
 
 // Helper fonksiyonlar - component dışında tanımlı (her render'da yeniden oluşturulmaz)
 function getHareketIcon(type: string, isIncoming: boolean) {
   if (type === 'transfer') {
     return isIncoming
-      ? <ArrowLeft size={20} color={colors.success} />
-      : <ArrowRight size={20} color={colors.error} />;
+      ? <ArrowLeft size={22} color={colors.success} />
+      : <ArrowRight size={22} color={colors.error} />;
   }
   if (type === 'gelir' || type === 'cari_tahsilat') {
-    return <ArrowLeft size={20} color={colors.success} />;
+    return <ArrowLeft size={22} color={colors.success} />;
   }
-  return <ArrowRight size={20} color={colors.error} />;
+  return <ArrowRight size={22} color={colors.error} />;
 }
 
 function isIncomingTransaction(type: string, hedefHesapId: string | null, hesapId: string): boolean {
@@ -173,121 +180,79 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   islem,
   hesapId,
   hesapCurrency,
-  isExpanded,
-  onToggle,
+  onPress,
   onDelete,
   onEdit,
   onViewPhoto,
   t,
+  editLabel,
+  deleteLabel,
 }: HesapTransactionItemProps) {
+  const handlePress = useCallback(() => onPress(islem.id), [onPress, islem.id]);
+  const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
+  const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
+
   const sign = getAmountSign(islem.type, hesapId, islem.hedef_hesap_id);
   const colorType = getAmountColor(islem.type, hesapId, islem.hedef_hesap_id);
   const isIncoming = isIncomingTransaction(islem.type, islem.hedef_hesap_id, hesapId);
   const target = getTransactionTarget(islem, hesapId);
-  const showTimeInExpanded = !isSameYear(islem.date);
   const crossCurrencyInfo = getCrossCurrencyInfo(islem);
   const labelKey = getHareketLabelKey(islem.type);
+  const typeLabel = labelKey ? t(labelKey) : islem.type;
+  const secondaryText = islem.description || islem.kategori?.name || crossCurrencyInfo || null;
+  const amountColorValue = colorType === 'success' ? '#059669'
+    : colorType === 'error' ? '#DC2626'
+    : colors.info;
 
   return (
-    <ExpandableCard
-      expanded={isExpanded}
-      onToggle={() => onToggle(islem.id)}
-      disableAnimation
-      header={
-        <View style={styles.hareketHeader}>
-          <View style={[
-            styles.hareketIcon,
-            {
-              backgroundColor: colorType === 'success'
-                ? colors.successLight
-                : colorType === 'error'
-                  ? colors.errorLight
-                  : colors.infoLight
-            }
-          ]}>
-            {getHareketIcon(islem.type, isIncoming)}
-          </View>
-          <View style={styles.hareketInfo}>
-            <Text variant="body">{formatDateSmart(islem.date)}</Text>
-            <Text variant="caption" color="secondary">
-              {labelKey ? t(labelKey) : islem.type}
-            </Text>
-            {target && (
-              <Text variant="caption" color="secondary">
-                {target}
-              </Text>
-            )}
-            {crossCurrencyInfo && (
-              <Text variant="caption" style={styles.crossCurrencyText}>
-                {crossCurrencyInfo}
-              </Text>
-            )}
-            {islem.kategori?.name && (
-              <Text variant="caption" color="secondary">
-                {islem.kategori.name}
-              </Text>
-            )}
-            {islem.description && (
-              <Text variant="caption" color="secondary" numberOfLines={1}>
-                {islem.description}
-              </Text>
-            )}
-          </View>
-          <View style={styles.amountContainer}>
-            {islem.photo_path && (
-              <ImageIcon size={16} color={colors.primary} style={styles.photoIndicator} />
-            )}
-            <Text variant="h3" color={colorType}>
-              {sign}{formatCurrency(getDisplayAmount(islem, hesapId), hesapCurrency)}
-            </Text>
-          </View>
-        </View>
-      }
+    <SwipeableRow
+      onEdit={handleEdit}
+      onDelete={handleDelete}
+      editLabel={editLabel}
+      deleteLabel={deleteLabel}
     >
-      {showTimeInExpanded && (
-        <View style={styles.timeRow}>
-          <Clock size={14} color={colors.textMuted} />
-          <Text variant="caption" color="secondary">
-            {t('accounts:details.time')} {formatTime(islem.date)}
+      <TouchableOpacity style={styles.rowContainer} onPress={handlePress} activeOpacity={0.7}>
+        <View style={[
+          styles.hareketIcon,
+          {
+            backgroundColor: colorType === 'success'
+              ? colors.successLight
+              : colorType === 'error'
+                ? colors.errorLight
+                : colors.infoLight
+          }
+        ]}>
+          {getHareketIcon(islem.type, isIncoming)}
+        </View>
+        <View style={styles.hareketInfo}>
+          <View style={styles.line1}>
+            <Text style={styles.typeText} numberOfLines={1}>{typeLabel}</Text>
+            <Text style={styles.dateText}>{formatDateSmart(islem.date)}</Text>
+          </View>
+          {(secondaryText || target) && (
+            <View style={styles.line2}>
+              {secondaryText ? (
+                <Text style={styles.secondaryText} numberOfLines={1}>{secondaryText}</Text>
+              ) : <View style={{ flex: 1 }} />}
+              {target && (
+                <Text style={styles.entityText} numberOfLines={1}>{target}</Text>
+              )}
+            </View>
+          )}
+        </View>
+        <View style={styles.amountContainer}>
+          {islem.photo_path && (
+            <ImageIcon size={14} color={colors.primary} style={styles.photoIndicator} />
+          )}
+          <Text style={[styles.amountText, { color: amountColorValue }]}>
+            {sign}{formatCurrency(getDisplayAmount(islem, hesapId), hesapCurrency)}
           </Text>
         </View>
-      )}
-      <View style={styles.hareketActions}>
-        {islem.photo_path && (
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<ImageIcon size={16} color={colors.primary} />}
-            onPress={() => onViewPhoto(islem.photo_path!, islem.id)}
-            style={styles.actionButton}
-          >
-            {t('common:photo.title')}
-          </Button>
-        )}
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Pencil size={16} color={colors.text} />}
-          onPress={() => onEdit(islem.id)}
-          style={styles.actionButton}
-        >
-          {t('common:buttons.edit')}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<Trash2 size={16} color={colors.error} />}
-          onPress={() => onDelete(islem.id)}
-          style={styles.actionButton}
-        >
-          {t('common:buttons.delete')}
-        </Button>
-      </View>
-    </ExpandableCard>
+      </TouchableOpacity>
+    </SwipeableRow>
   );
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
-    && prev.isExpanded === next.isExpanded
     && prev.islem.updated_at === next.islem.updated_at
     && prev.hesapCurrency === next.hesapCurrency;
 });
@@ -302,7 +267,9 @@ export default function HesapHareketleriPage() {
   }
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation(['accounts', 'common', 'errors', 'checks']);
+  const { formatDateMedium } = useDateFormat();
 
   const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByHesap(id!);
@@ -333,7 +300,6 @@ export default function HesapHareketleriPage() {
     }
   };
 
-  const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [showTransactionBar, setShowTransactionBar] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
   const [showMenu, setShowMenu] = useState(false);
@@ -350,6 +316,22 @@ export default function HesapHareketleriPage() {
   const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
   const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
   const isOpeningRef = useRef(false);
+
+  const {
+    pendingDeleteIds,
+    requestDelete,
+    undoDelete,
+    dismissDelete,
+    snackbar: undoSnackbar,
+  } = useUndoDelete<IslemWithRelations>({
+    onCommitDelete: async (id: string) => {
+      await deleteIslem.mutateAsync(id);
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : t('errors:transaction.deleteFailed');
+      Alert.alert(t('common:status.error'), message);
+    },
+  });
 
   // Debounced transaction opener to prevent race conditions
   const openTransaction = useCallback((type: TransactionType) => {
@@ -458,35 +440,22 @@ export default function HesapHareketleriPage() {
   };
 
   // === MEMOIZED HANDLERS for FlatList items ===
-  const handleToggleIslem = useCallback((islemId: string) => {
-    setExpandedIslemId(prev => prev === islemId ? null : islemId);
+  const handlePressIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
   }, []);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
-    Alert.alert(
-      t('accounts:deleteConfirm.transactionTitle'),
-      t('accounts:deleteConfirm.transactionMessage'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteIslem.mutateAsync(islemId);
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:transaction.deleteFailed'));
-            }
-          },
-        },
-      ]
-    );
-  }, [deleteIslem, t]);
+    const islem = (islemler || []).find(i => i.id === islemId);
+    if (islem) {
+      const desc = islem.description || t(`accounts:transactionLabels.${islem.type}`) || islem.type;
+      requestDelete(islemId, islem, desc);
+    }
+  }, [islemler, requestDelete, t]);
 
   const handleEditIslem = useCallback((islemId: string) => {
     setEditTransactionId(islemId);
     setShowEditBar(true);
-    setExpandedIslemId(null);
   }, []);
 
   const handleViewPhoto = useCallback((path: string, islemId: string) => {
@@ -631,24 +600,45 @@ export default function HesapHareketleriPage() {
     </View>
   );
 
+  // === DATE GROUPING ===
+  const groupedData = useMemo(() => {
+    if (!islemler) return [];
+    const filtered = islemler.filter(i => !pendingDeleteIds.has(i.id));
+    return preprocessTransactionsByDate(
+      filtered,
+      t('common:dates.today', { defaultValue: 'Bugün' }),
+      t('common:dates.yesterday', { defaultValue: 'Dün' }),
+      formatDateMedium,
+    );
+  }, [islemler, pendingDeleteIds, t, formatDateMedium]);
+
+  // Localized labels for swipe actions (stable refs)
+  const editLabel = t('common:buttons.edit');
+  const deleteLabel = t('common:buttons.delete');
+
   // === FlatList renderItem ===
-  const renderTransactionItem = useCallback(({ item: islem }: ListRenderItemInfo<IslemWithRelations>) => {
+  const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
+    if (item.type === 'header') {
+      return <DateSectionHeader title={item.title} />;
+    }
+    const islem = item.data;
     return (
       <HesapTransactionItem
         islem={islem}
         hesapId={id!}
         hesapCurrency={(hesap?.currency ?? 'TRY') as Currency}
-        isExpanded={expandedIslemId === islem.id}
-        onToggle={handleToggleIslem}
+        onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
         onEdit={handleEditIslem}
         onViewPhoto={handleViewPhoto}
         t={t}
+        editLabel={editLabel}
+        deleteLabel={deleteLabel}
       />
     );
-  }, [id, hesap?.currency, expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, handleViewPhoto, t]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleEditIslem, handleViewPhoto, t, editLabel, deleteLabel]);
 
-  const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
+  const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
   // === FlatList ListHeaderComponent ===
   const ListHeader = useMemo(() => {
@@ -838,7 +828,7 @@ export default function HesapHareketleriPage() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <FlatList
-          data={islemler ?? []}
+          data={groupedData}
           keyExtractor={keyExtractor}
           renderItem={renderTransactionItem}
           ListHeaderComponent={ListHeader}
@@ -849,7 +839,6 @@ export default function HesapHareketleriPage() {
           maxToRenderPerBatch={10}
           windowSize={7}
           removeClippedSubviews={true}
-          extraData={expandedIslemId}
           contentContainerStyle={styles.flatListContent}
         />
       </SafeAreaView>
@@ -1012,6 +1001,26 @@ export default function HesapHareketleriPage() {
         onChange={handleChangePhoto}
         isLoading={isPhotoActionLoading}
       />
+
+      {/* Undo Delete Snackbar */}
+      <UndoSnackbar
+        visible={undoSnackbar.visible}
+        message={undoSnackbar.message}
+        onUndo={undoDelete}
+        onDismiss={dismissDelete}
+        undoLabel={t('common:buttons.undo', { defaultValue: 'Geri Al' })}
+      />
+
+      {/* Floating Yeni İşlem FAB */}
+      <TouchableOpacity
+        style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+        onPress={() => {
+          openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir');
+        }}
+        activeOpacity={0.8}
+      >
+        <Zap size={24} color={colors.surface} />
+      </TouchableOpacity>
     </>
   );
 }
@@ -1092,14 +1101,52 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   hareketIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   hareketInfo: {
     flex: 1,
+  },
+  line1: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  line2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  typeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
+  },
+  secondaryText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#4B5563',
+    flex: 1,
+  },
+  entityText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
+  },
+  amountText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   amountContainer: {
     flexDirection: 'row',
@@ -1112,21 +1159,14 @@ const styles = StyleSheet.create({
   hareketCard: {
     marginBottom: spacing.sm,
   },
-  hareketActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  timeRow: {
+  rowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    gap: spacing.md,
   },
   crossCurrencyText: {
     color: colors.info,
@@ -1216,5 +1256,20 @@ const styles = StyleSheet.create({
   balanceModalButtons: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

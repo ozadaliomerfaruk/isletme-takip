@@ -10,7 +10,6 @@ import {
   EyeOff,
   Archive,
   Edit3,
-  MoreVertical,
   Trash2,
   CheckCircle2,
   Circle,
@@ -21,7 +20,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
+import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -56,8 +55,6 @@ export default function CarilerPage() {
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('balanceHigh');
-  const [expandedCariId, setExpandedCariId] = useState<string | null>(null);
-
   // Multi-select state
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -168,7 +165,6 @@ export default function CarilerPage() {
     if (actionSheetCari) {
       setIsSelectMode(true);
       setSelectedIds(new Set([actionSheetCari.id]));
-      setExpandedCariId(null);
     }
   };
 
@@ -475,109 +471,73 @@ export default function CarilerPage() {
             </View>
           </TouchableOpacity>
         ) : (
-          <ExpandableCard
-            expanded={expandedCariId === cari.id}
-            onToggle={() => {
+          <TouchableOpacity
+            style={styles.entityCard}
+            onPress={() => router.push(`/cariler/${cari.id}`)}
+            onLongPress={() => {
               haptics.selection();
-              setExpandedCariId(expandedCariId === cari.id ? null : cari.id);
+              handleOpenActionSheet(cari);
             }}
-            header={
-              <View style={styles.cariHeader}>
-                {getCariIcon(cari.type, 24)}
-                <View style={styles.cariInfo}>
-                  <View style={styles.cariNameRow}>
-                    <Text variant="body">{cari.name}</Text>
-                    {!cari.is_active && (
-                      <EyeOff size={14} color={colors.textMuted} />
-                    )}
-                  </View>
-                  {cari.isLinked ? (
-                    <LinkedCariBadge
-                      ownerIsletmeName={cari.linkOwnerName ?? ''}
-                      permission={cari.linkPermission ?? 'view'}
-                      variant="inline"
-                    />
-                  ) : (
-                    <Text variant="caption" color="secondary">
-                      {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-                      {cari.phone ? ` • ${cari.phone}` : ''}
-                    </Text>
-                  )}
-                </View>
-                <View style={styles.cariBalance}>
-                  <Text variant="caption" color="secondary">
-                    {toNumber(cari.balance) === 0
-                      ? t('clients:balance.noBalance')
-                      : cari.type === 'tedarikci'
-                      ? toNumber(cari.balance) < 0
-                        ? t('clients:balance.weOwe')
-                        : t('clients:balance.theyOwe')
-                      : toNumber(cari.balance) > 0
-                      ? t('clients:balance.theyOwe')
-                      : t('clients:balance.weOwe')}
-                  </Text>
-                  <Text
-                    variant="h3"
-                    color={
-                      toNumber(cari.balance) === 0
-                        ? 'secondary'
-                        : toNumber(cari.balance) > 0
-                        ? 'success'
-                        : 'error'
-                    }
-                  >
-                    {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
-                  </Text>
-                  {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
-                    <Text variant="caption" color="secondary">
-                      ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                    </Text>
-                  )}
-                </View>
-                <TouchableOpacity
-                  style={styles.moreButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleOpenActionSheet(cari);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <MoreVertical size={20} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-            }
+            activeOpacity={0.7}
           >
-            <View style={styles.cariActions}>
-              {/* Linked view-only cari: no new transaction button */}
-              {!(cari.isLinked && cari.linkPermission === 'view') && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<Zap size={16} color={colors.white} />}
-                  onPress={() => {
-                    setSelectedCari(cari);
-                    setQuickBarVisible(true);
-                  }}
-                  style={styles.actionButton}
+            <View style={styles.cariHeader}>
+              {getCariIcon(cari.type, 24)}
+              <View style={styles.cariInfo}>
+                <View style={styles.cariNameRow}>
+                  <Text variant="body">{cari.name}</Text>
+                  {!cari.is_active && (
+                    <EyeOff size={14} color={colors.textMuted} />
+                  )}
+                </View>
+                {cari.isLinked ? (
+                  <LinkedCariBadge
+                    ownerIsletmeName={cari.linkOwnerName ?? ''}
+                    permission={cari.linkPermission ?? 'view'}
+                    variant="inline"
+                  />
+                ) : (
+                  <Text variant="caption" color="secondary">
+                    {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
+                    {cari.phone ? ` • ${cari.phone}` : ''}
+                  </Text>
+                )}
+              </View>
+              <View style={styles.cariBalance}>
+                <Text variant="caption" color="secondary">
+                  {toNumber(cari.balance) === 0
+                    ? t('clients:balance.noBalance')
+                    : cari.type === 'tedarikci'
+                    ? toNumber(cari.balance) < 0
+                      ? t('clients:balance.weOwe')
+                      : t('clients:balance.theyOwe')
+                    : toNumber(cari.balance) > 0
+                    ? t('clients:balance.theyOwe')
+                    : t('clients:balance.weOwe')}
+                </Text>
+                <Text
+                  variant="h3"
+                  color={
+                    toNumber(cari.balance) === 0
+                      ? 'secondary'
+                      : toNumber(cari.balance) > 0
+                      ? 'success'
+                      : 'error'
+                  }
                 >
-                  {t('clients:details.newTransaction')}
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<History size={16} color={colors.text} />}
-                onPress={() => router.push(`/cariler/${cari.id}`)}
-                style={styles.actionButton}
-              >
-                {t('clients:details.transactions')}
-              </Button>
+                  {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
+                </Text>
+                {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
+                  <Text variant="caption" color="secondary">
+                    ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                  </Text>
+                )}
+              </View>
             </View>
-          </ExpandableCard>
+          </TouchableOpacity>
         )}
       </View>
     );
-  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router]);
+  }, [selectedIds, isSelectMode, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router]);
 
   // FlatList ListHeaderComponent - header, özet, arama ve filtre
   const ListHeader = useMemo(() => (
@@ -679,7 +639,7 @@ export default function CarilerPage() {
         windowSize={5}
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
-        extraData={{ selectedIds, expandedCariId, isSelectMode, sortBy }}
+        extraData={{ selectedIds, isSelectMode, sortBy }}
         contentContainerStyle={styles.listContainer}
       />
 
@@ -881,16 +841,11 @@ const styles = StyleSheet.create({
   cariBalance: {
     alignItems: 'flex-end',
   },
-  cariActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  moreButton: {
-    padding: spacing.xs,
-    marginLeft: spacing.sm,
+  entityCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   // Multi-select styles
   selectedItem: {

@@ -7,7 +7,6 @@ import { useRouter } from 'expo-router';
 import {
   Wallet,
   Plus,
-  History,
   AlertTriangle,
   X,
   Banknote,
@@ -17,13 +16,16 @@ import {
   EyeOff,
   Archive,
   Edit3,
-  MoreVertical,
   Trash2,
   ChevronLeft,
   ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  ArrowLeftRight,
+  List,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card, ExpandableCard, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryCard, TabFilter } from '@/components/ui';
+import { Text, Card, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryCard, TabFilter } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -57,7 +59,6 @@ export default function HomePage() {
   const [periodOffset, setPeriodOffset] = useState(0);
   const [isCancelling, setIsCancelling] = useState(false);
   const [dailyCashModalVisible, setDailyCashModalVisible] = useState(false);
-  const [expandedHesapId, setExpandedHesapId] = useState<string | null>(null);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 
   // QuickTransactionBar state
@@ -602,6 +603,79 @@ export default function HomePage() {
           />
         )}
 
+        {/* Quick Actions Bar */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={() => {
+              haptics.light();
+              setQuickBarType('gelir');
+              setQuickBarHesapId(undefined);
+              setQuickBarVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.successLight }]}>
+              <TrendingUp size={20} color={colors.success} />
+            </View>
+            <Text style={styles.quickActionLabel} numberOfLines={1}>
+              {t('transactions:types.gelir')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={() => {
+              haptics.light();
+              setQuickBarType('gider');
+              setQuickBarHesapId(undefined);
+              setQuickBarVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.errorLight }]}>
+              <TrendingDown size={20} color={colors.error} />
+            </View>
+            <Text style={styles.quickActionLabel} numberOfLines={1}>
+              {t('transactions:types.gider')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={() => {
+              haptics.light();
+              setQuickBarType('transfer');
+              setQuickBarHesapId(undefined);
+              setQuickBarVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.infoLight }]}>
+              <ArrowLeftRight size={20} color={colors.info} />
+            </View>
+            <Text style={styles.quickActionLabel} numberOfLines={1}>
+              {t('transactions:types.transfer')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={() => {
+              haptics.light();
+              router.push('/islemler' as any);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryLight }]}>
+              <List size={20} color={colors.primary} />
+            </View>
+            <Text style={styles.quickActionLabel} numberOfLines={1}>
+              {t('navigation:tabs.transactions')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Hesaplar Bölümü */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -655,69 +729,39 @@ export default function HomePage() {
 
                   {/* Grup İçindeki Hesaplar */}
                   {groupHesaplar.map((hesap) => (
-                    <View key={hesap.id} style={!hesap.is_active && styles.passiveItem}>
-                      <ExpandableCard
-                        expanded={expandedHesapId === hesap.id}
-                        onToggle={() => {
+                    <View key={hesap.id} style={!hesap.is_active ? styles.passiveItem : undefined}>
+                      <TouchableOpacity
+                        style={styles.entityCard}
+                        onPress={() => router.push(`/hesaplar/${hesap.id}`)}
+                        onLongPress={() => {
                           haptics.selection();
-                          setExpandedHesapId(expandedHesapId === hesap.id ? null : hesap.id);
+                          handleOpenHesapActionSheet(hesap);
                         }}
-                        header={
-                          <View style={styles.hesapHeader}>
-                            {getHesapIcon(hesap.type, 24)}
-                            <View style={styles.hesapInfo}>
-                              <View style={styles.hesapNameRow}>
-                                <Text variant="body">{hesap.name}</Text>
-                                {!hesap.is_active && (
-                                  <EyeOff size={14} color={colors.textMuted} />
-                                )}
-                              </View>
-                              <Text
-                                variant="h3"
-                                color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}
-                              >
-                                {formatCurrency(toNumber(hesap.balance), hesap.currency)}
-                              </Text>
-                              {hesap.currency !== baseCurrency && exchangeRates && (
-                                <Text variant="caption" color="secondary">
-                                  ~{formatCurrency(convertCurrency(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                                </Text>
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.hesapHeader}>
+                          {getHesapIcon(hesap.type, 24)}
+                          <View style={styles.hesapInfo}>
+                            <View style={styles.hesapNameRow}>
+                              <Text variant="body">{hesap.name}</Text>
+                              {!hesap.is_active && (
+                                <EyeOff size={14} color={colors.textMuted} />
                               )}
                             </View>
-                            <TouchableOpacity
-                              style={styles.moreButton}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleOpenHesapActionSheet(hesap);
-                              }}
-                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                            <Text
+                              variant="h3"
+                              color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}
                             >
-                              <MoreVertical size={20} color={colors.textMuted} />
-                            </TouchableOpacity>
+                              {formatCurrency(toNumber(hesap.balance), hesap.currency)}
+                            </Text>
+                            {hesap.currency !== baseCurrency && exchangeRates && (
+                              <Text variant="caption" color="secondary">
+                                ~{formatCurrency(convertCurrency(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                              </Text>
+                            )}
                           </View>
-                        }
-                      >
-                      <View style={styles.hesapActions}>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          icon={<Plus size={16} color={colors.surface} />}
-                          onPress={() => openQuickBar('gelir', hesap)}
-                          style={styles.actionButton}
-                        >
-                          {t('clients:details.newTransaction')}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={<History size={16} color={colors.text} />}
-                          onPress={() => router.push(`/hesaplar/${hesap.id}`)}
-                          style={styles.actionButton}
-                        >
-                          {t('accounts:details.transactions')}
-                        </Button>
-                      </View>
-                      </ExpandableCard>
+                        </View>
+                      </TouchableOpacity>
                     </View>
                   ))}
                 </View>
@@ -1067,6 +1111,12 @@ const styles = StyleSheet.create({
   groupTotal: {
     fontWeight: '600',
   },
+  entityCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
   hesapHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1083,16 +1133,29 @@ const styles = StyleSheet.create({
   passiveItem: {
     opacity: 0.5,
   },
-  hesapActions: {
+  quickActions: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: spacing.md,
   },
-  actionButton: {
+  quickActionBtn: {
     flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  moreButton: {
-    padding: spacing.xs,
-    marginLeft: spacing.sm,
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: {
+    fontSize: 12,
+    fontWeight: '500' as const,
+    color: colors.text,
+    textAlign: 'center' as const,
   },
   periodLabelButton: {
     paddingVertical: spacing.xs,

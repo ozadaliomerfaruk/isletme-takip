@@ -1,31 +1,29 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  ArrowLeftRight,
   Receipt,
-  Pencil,
-  Trash2,
-  Users,
-  UserCheck,
   Clock,
   Image as ImageIcon,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, ExpandableCard, Button, EmptyState } from '@/components/ui';
+import { Text, TabFilter, SearchInput, EmptyState } from '@/components/ui';
+import { DateSectionHeader } from '@/components/ui/TransactionRow';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { getIslemIcon, getIslemIconBg, getIslemAmountColor, getIslemAmountPrefix } from '@/lib/icons';
+import { getIslemIconConfig, getIslemAmountColor, getIslemAmountPrefix } from '@/lib/icons';
 import { useIslemler, useDeleteIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
+import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
 import { IslemType, IslemWithRelations } from '@/types/database';
 
 // ============================================================================
@@ -51,125 +49,106 @@ function getIslemSecondLineParts(islem: IslemWithRelations, typeLabel: string): 
 }
 
 // ============================================================================
-// MEMOIZED TRANSACTION ITEM
+// MEMOIZED TRANSACTION ITEM (SwipeableRow + TouchableOpacity)
 // ============================================================================
 
 interface IslemlerTransactionItemProps {
   islem: IslemWithRelations;
-  isExpanded: boolean;
-  onToggle: (id: string) => void;
+  onPress: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string, description: string) => void;
-  onViewPhoto: (photoPath: string, islemId: string) => void;
   formatDateMedium: (date: string) => string;
   t: (key: string) => string;
+  editLabel: string;
+  deleteLabel: string;
 }
 
 const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   islem,
-  isExpanded,
-  onToggle,
+  onPress,
   onEdit,
   onDelete,
-  onViewPhoto,
   formatDateMedium,
   t,
+  editLabel,
+  deleteLabel,
 }: IslemlerTransactionItemProps) {
-  const handleToggle = useCallback(() => onToggle(islem.id), [onToggle, islem.id]);
+  const handlePress = useCallback(() => onPress(islem.id), [onPress, islem.id]);
   const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
   const handleDelete = useCallback(
     () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
     [onDelete, islem.id, islem.description, islem.type, t]
   );
-  const handleViewPhoto = useCallback(() => {
-    if (islem.photo_path) {
-      onViewPhoto(islem.photo_path, islem.id);
-    }
-  }, [onViewPhoto, islem.photo_path, islem.id]);
 
   const typeLabel = t(`transactions:types.${islem.type}`);
-  const secondLine = getIslemSecondLineParts(islem, typeLabel);
+  const iconConfig = getIslemIconConfig(islem.type, 22);
+  const secondaryText = islem.description || islem.kategori?.name || null;
+  let entityName: string | null = null;
+  if (islem.type === 'transfer') {
+    if (islem.hesap?.name && islem.hedef_hesap?.name) {
+      entityName = islem.hesap.name + ' → ' + islem.hedef_hesap.name;
+    }
+  } else if (islem.cari?.name) {
+    entityName = islem.cari.name;
+  } else if (islem.personel) {
+    entityName = (islem.personel.first_name + ' ' + islem.personel.last_name).trim();
+  } else if (islem.hesap?.name) {
+    entityName = islem.hesap.name;
+  }
+  const amountColor = getIslemAmountColor(islem.type);
+  const amountColorValue = amountColor === 'success' ? '#059669'
+    : amountColor === 'error' ? '#DC2626'
+    : amountColor === 'warning' ? colors.warning
+    : amountColor === 'info' ? colors.info
+    : colors.text;
 
   return (
-    <ExpandableCard
-      expanded={isExpanded}
-      onToggle={handleToggle}
-      disableAnimation
-      header={
-        <View style={styles.islemHeader}>
-          <View style={[
-            styles.islemIconContainer,
-            { backgroundColor: getIslemIconBg(islem.type) }
-          ]}>
-            {getIslemIcon(islem.type, 24)}
-          </View>
-          <View style={styles.islemInfo}>
-            <Text variant="body">{formatDateMedium(islem.date)}</Text>
-            <Text variant="caption" color="secondary">
-              {secondLine}
-            </Text>
-            {islem.kategori?.name && (
-              <Text variant="caption" color="secondary">
-                {islem.kategori.name}
-              </Text>
-            )}
-            {islem.description && (
-              <Text variant="caption" color="secondary" numberOfLines={1}>
-                {islem.description}
-              </Text>
-            )}
-          </View>
-          <View style={styles.amountContainer}>
-            {islem.photo_path && (
-              <ImageIcon size={16} color={colors.primary} style={styles.photoIndicator} />
-            )}
-            <Text
-              variant="h3"
-              color={getIslemAmountColor(islem.type)}
-            >
-              {getIslemAmountPrefix(islem.type)}
-              {formatCurrency(toNumber(islem.amount))}
-            </Text>
-          </View>
-        </View>
-      }
+    <SwipeableRow
+      onEdit={handleEdit}
+      onDelete={handleDelete}
+      editLabel={editLabel}
+      deleteLabel={deleteLabel}
     >
-      <View style={styles.islemActions}>
-        {islem.photo_path && (
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<ImageIcon size={16} color={colors.primary} />}
-            onPress={handleViewPhoto}
-            style={styles.actionButton}
-          >
-            {t('common:photo.title')}
-          </Button>
-        )}
-        <Button
-          variant="secondary"
-          size="sm"
-          icon={<Pencil size={16} color={colors.text} />}
-          onPress={handleEdit}
-          style={styles.actionButton}
-        >
-          {t('common:buttons.edit')}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          icon={<Trash2 size={16} color={colors.error} />}
-          onPress={handleDelete}
-          style={styles.actionButton}
-        >
-          {t('common:buttons.delete')}
-        </Button>
-      </View>
-    </ExpandableCard>
+      <TouchableOpacity
+        style={styles.rowContainer}
+        onPress={handlePress}
+        activeOpacity={0.7}
+      >
+        <View style={[
+          styles.islemIconContainer,
+          { backgroundColor: iconConfig.backgroundColor }
+        ]}>
+          {iconConfig.icon}
+        </View>
+        <View style={styles.islemInfo}>
+          <View style={styles.line1}>
+            <Text style={styles.typeText} numberOfLines={1}>{typeLabel}</Text>
+            <Text style={styles.dateText}>{formatDateMedium(islem.date)}</Text>
+          </View>
+          {(secondaryText || entityName) && (
+            <View style={styles.line2}>
+              {secondaryText ? (
+                <Text style={styles.secondaryText} numberOfLines={1}>{secondaryText}</Text>
+              ) : <View style={{ flex: 1 }} />}
+              {entityName && (
+                <Text style={styles.entityText} numberOfLines={1}>{entityName}</Text>
+              )}
+            </View>
+          )}
+        </View>
+        <View style={styles.amountContainer}>
+          {islem.photo_path && (
+            <ImageIcon size={14} color={colors.primary} style={styles.photoIndicator} />
+          )}
+          <Text style={[styles.amountText, { color: amountColorValue }]}>
+            {getIslemAmountPrefix(islem.type)}{formatCurrency(toNumber(islem.amount))}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    </SwipeableRow>
   );
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
-    && prev.isExpanded === next.isExpanded
     && prev.islem.updated_at === next.islem.updated_at
     && prev.islem.photo_path === next.islem.photo_path;
 });
@@ -184,7 +163,6 @@ export default function IslemlerPage() {
   const { formatDateMedium } = useDateFormat();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [showLongLoadingMessage, setShowLongLoadingMessage] = useState(false);
   // Edit mode state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
@@ -203,14 +181,22 @@ export default function IslemlerPage() {
   const takePhoto = useTakePhoto();
   const uploadPhoto = useUploadIslemPhoto();
 
-  // Debug: Log photo_path values
-  useEffect(() => {
-    if (islemler) {
-      const withPhotos = islemler.filter(i => i.photo_path);
-      console.log('[Islemler] Total:', islemler.length, 'With photos:', withPhotos.length);
-      withPhotos.forEach(i => console.log('[Islemler] Photo:', i.id, i.photo_path));
-    }
-  }, [islemler]);
+  // Undo delete hook
+  const {
+    pendingDeleteIds,
+    requestDelete,
+    undoDelete,
+    dismissDelete,
+    snackbar: undoSnackbar,
+  } = useUndoDelete<IslemWithRelations>({
+    onCommitDelete: async (id: string) => {
+      await deleteIslem.mutateAsync(id);
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : t('transactions:messages.deleteFailed');
+      Alert.alert(t('common:status.error'), message);
+    },
+  });
 
   // Uzun süren yükleme için mesaj göster
   useEffect(() => {
@@ -237,6 +223,9 @@ export default function IslemlerPage() {
   // Memoized filtreleme - sadece islemler, filter veya searchQuery değiştiğinde çalışır
   const filteredIslemler = useMemo(() => {
     return (islemler || []).filter((islem) => {
+      // Undo-pending silinen işlemleri gizle
+      if (pendingDeleteIds.has(islem.id)) return false;
+
       let matchesFilter = filter === 'all';
       if (filter === 'gelir') {
         matchesFilter = ['gelir', 'cari_satis'].includes(islem.type);
@@ -263,42 +252,42 @@ export default function IslemlerPage() {
 
       return matchesFilter && matchesSearch;
     });
-  }, [islemler, filter, searchQuery]);
+  }, [islemler, filter, searchQuery, pendingDeleteIds]);
+
+  // ============================================================================
+  // DATE GROUPING
+  // ============================================================================
+
+  const groupedData = useMemo(() => {
+    return preprocessTransactionsByDate(
+      filteredIslemler,
+      t('common:dates.today', { defaultValue: 'Bugün' }),
+      t('common:dates.yesterday', { defaultValue: 'Dün' }),
+      formatDateMedium,
+    );
+  }, [filteredIslemler, t, formatDateMedium]);
 
   // ============================================================================
   // STABLE CALLBACK HANDLERS
   // ============================================================================
 
-  const handleToggle = useCallback((islemId: string) => {
-    setExpandedIslemId(prev => prev === islemId ? null : islemId);
+  // Tap → edit bar (press on row opens edit)
+  const handlePressIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
   }, []);
 
+  // Swipe delete → undo snackbar (no Alert.alert)
   const handleDeleteIslem = useCallback((id: string, description: string) => {
-    Alert.alert(
-      t('common:confirm.deleteTitle'),
-      t('common:confirm.deleteMessage', { item: description }),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteIslem.mutateAsync(id);
-              Alert.alert(t('common:status.success'), t('transactions:messages.deleteSuccess'));
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('transactions:messages.deleteFailed'));
-            }
-          },
-        },
-      ]
-    );
-  }, [deleteIslem, t]);
+    const islem = (islemler || []).find(i => i.id === id);
+    if (islem) {
+      requestDelete(id, islem, description);
+    }
+  }, [islemler, requestDelete]);
 
   const handleEditIslem = useCallback((islemId: string) => {
     setEditTransactionId(islemId);
     setShowEditBar(true);
-    setExpandedIslemId(null);
   }, []);
 
   const handleViewPhoto = useCallback((photoPath: string, islemId: string) => {
@@ -391,20 +380,29 @@ export default function IslemlerPage() {
   // FlatList renderItem + key extractor
   // ============================================================================
 
-  const renderTransactionItem = useCallback(({ item }: { item: IslemWithRelations }) => (
-    <IslemlerTransactionItem
-      islem={item}
-      isExpanded={expandedIslemId === item.id}
-      onToggle={handleToggle}
-      onEdit={handleEditIslem}
-      onDelete={handleDeleteIslem}
-      onViewPhoto={handleViewPhoto}
-      formatDateMedium={formatDateMedium}
-      t={t}
-    />
-  ), [expandedIslemId, handleToggle, handleEditIslem, handleDeleteIslem, handleViewPhoto, formatDateMedium, t]);
+  // Localized labels for swipe actions (stable refs)
+  const editLabel = t('common:buttons.edit');
+  const deleteLabel = t('common:buttons.delete');
 
-  const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
+  const renderItem = useCallback(({ item }: { item: TransactionListItem }) => {
+    if (item.type === 'header') {
+      return <DateSectionHeader title={item.title} />;
+    }
+    return (
+      <IslemlerTransactionItem
+        islem={item.data}
+        onPress={handlePressIslem}
+        onEdit={handleEditIslem}
+        onDelete={handleDeleteIslem}
+        formatDateMedium={formatDateMedium}
+        t={t}
+        editLabel={editLabel}
+        deleteLabel={deleteLabel}
+      />
+    );
+  }, [handlePressIslem, handleEditIslem, handleDeleteIslem, formatDateMedium, t, editLabel, deleteLabel]);
+
+  const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
   // ============================================================================
   // FlatList Header (search + filter)
@@ -465,9 +463,9 @@ export default function IslemlerPage() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <FlatList
-        data={filteredIslemler}
+        data={groupedData}
         keyExtractor={keyExtractor}
-        renderItem={renderTransactionItem}
+        renderItem={renderItem}
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}
@@ -475,7 +473,6 @@ export default function IslemlerPage() {
         maxToRenderPerBatch={10}
         windowSize={7}
         removeClippedSubviews={true}
-        extraData={expandedIslemId}
         contentContainerStyle={styles.flatListContent}
       />
 
@@ -506,6 +503,15 @@ export default function IslemlerPage() {
         onDelete={handleDeletePhoto}
         onChange={handleChangePhoto}
         isLoading={isPhotoActionLoading}
+      />
+
+      {/* Undo Delete Snackbar */}
+      <UndoSnackbar
+        visible={undoSnackbar.visible}
+        message={undoSnackbar.message}
+        onUndo={undoDelete}
+        onDismiss={dismissDelete}
+        undoLabel={t('common:buttons.undo', { defaultValue: 'Geri Al' })}
       />
     </SafeAreaView>
   );
@@ -551,9 +557,14 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.warning,
   },
-  islemHeader: {
+  // SwipeableRow inner content
+  rowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
     gap: spacing.md,
   },
   islemIconContainer: {
@@ -565,6 +576,7 @@ const styles = StyleSheet.create({
   },
   islemInfo: {
     flex: 1,
+    gap: 2,
   },
   amountContainer: {
     flexDirection: 'row',
@@ -574,11 +586,42 @@ const styles = StyleSheet.create({
   photoIndicator: {
     marginRight: 2,
   },
-  islemActions: {
+  line1: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
-  actionButton: {
+  line2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  typeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
     flex: 1,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
+  },
+  secondaryText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#4B5563',
+    flex: 1,
+  },
+  entityText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
+  },
+  amountText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 });

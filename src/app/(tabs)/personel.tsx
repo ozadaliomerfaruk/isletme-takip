@@ -5,8 +5,6 @@ import { useRouter } from 'expo-router';
 import {
   UserCircle,
   Plus,
-  Zap,
-  History,
   Phone,
   Briefcase,
   EyeOff,
@@ -15,7 +13,6 @@ import {
   X,
   Archive,
   Edit3,
-  MoreVertical,
   Trash2,
   CheckCircle2,
   Circle,
@@ -23,7 +20,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, ExpandableCard, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
+import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -44,7 +41,6 @@ export default function PersonelPage() {
   const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('balanceHigh');
-  const [expandedPersonelId, setExpandedPersonelId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
@@ -183,7 +179,6 @@ export default function PersonelPage() {
     if (actionSheetPersonel) {
       setIsSelectMode(true);
       setSelectedIds(new Set([actionSheetPersonel.id]));
-      setExpandedPersonelId(null);
     }
   };
 
@@ -379,104 +374,71 @@ export default function PersonelPage() {
             </View>
           </TouchableOpacity>
         ) : (
-          <ExpandableCard
-            expanded={expandedPersonelId === personel.id}
-            onToggle={() => {
+          <TouchableOpacity
+            onPress={() => router.push(`/personel/${personel.id}`)}
+            onLongPress={() => {
               haptics.selection();
-              setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id);
+              handleOpenActionSheet(personel);
             }}
-            header={
-              <View style={styles.personelHeader}>
-                <View style={styles.avatar}>
-                  <Text variant="body" bold style={{ color: colors.primary }}>
-                    {getInitials(`${personel.first_name} ${personel.last_name}`)}
+            activeOpacity={0.7}
+            style={styles.entityCard}
+          >
+            <View style={styles.personelHeader}>
+              <View style={styles.avatar}>
+                <Text variant="body" bold style={{ color: colors.primary }}>
+                  {getInitials(`${personel.first_name} ${personel.last_name}`)}
+                </Text>
+              </View>
+              <View style={styles.personelInfo}>
+                <View style={styles.personelNameRow}>
+                  <Text variant="body">
+                    {personel.first_name} {personel.last_name}
                   </Text>
-                </View>
-                <View style={styles.personelInfo}>
-                  <View style={styles.personelNameRow}>
-                    <Text variant="body">
-                      {personel.first_name} {personel.last_name}
-                    </Text>
-                    {!personel.is_active && (
-                      <EyeOff size={14} color={colors.textMuted} />
-                    )}
-                  </View>
-                  <View style={styles.personelMeta}>
-                    {personel.position && (
-                      <>
-                        <Briefcase size={12} color={colors.textMuted} />
-                        <Text variant="caption" color="secondary">
-                          {personel.position}
-                        </Text>
-                      </>
-                    )}
-                    {personel.phone && (
-                      <>
-                        <Phone size={12} color={colors.textMuted} style={{ marginLeft: spacing.sm }} />
-                        <Text variant="caption" color="secondary">
-                          {personel.phone}
-                        </Text>
-                      </>
-                    )}
-                  </View>
-                </View>
-                <View style={styles.personelBalance}>
-                  <Text variant="caption" color="secondary">
-                    {getBalanceLabel(toNumber(personel.balance))}
-                  </Text>
-                  <Text
-                    variant="h3"
-                    color={getBalanceColor(toNumber(personel.balance))}
-                  >
-                    {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
-                  </Text>
-                  {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
-                    <Text variant="caption" color="secondary">
-                      ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                    </Text>
+                  {!personel.is_active && (
+                    <EyeOff size={14} color={colors.textMuted} />
                   )}
                 </View>
-                <TouchableOpacity
-                  style={styles.moreButton}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    handleOpenActionSheet(personel);
-                  }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <MoreVertical size={20} color={colors.textMuted} />
-                </TouchableOpacity>
+                <View style={styles.personelMeta}>
+                  {personel.position && (
+                    <>
+                      <Briefcase size={12} color={colors.textMuted} />
+                      <Text variant="caption" color="secondary">
+                        {personel.position}
+                      </Text>
+                    </>
+                  )}
+                  {personel.phone && (
+                    <>
+                      <Phone size={12} color={colors.textMuted} style={{ marginLeft: spacing.sm }} />
+                      <Text variant="caption" color="secondary">
+                        {personel.phone}
+                      </Text>
+                    </>
+                  )}
+                </View>
               </View>
-            }
-          >
-            <View style={styles.personelActions}>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Zap size={16} color={colors.surface} />}
-                onPress={() => {
-                  setSelectedPersonelId(personel.id);
-                  setQuickBarVisible(true);
-                }}
-                style={styles.actionButton}
-              >
-                {t('staff:details.newTransaction')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<History size={16} color={colors.text} />}
-                onPress={() => router.push(`/personel/${personel.id}`)}
-                style={styles.actionButton}
-              >
-                {t('staff:details.transactions')}
-              </Button>
+              <View style={styles.personelBalance}>
+                <Text variant="caption" color="secondary">
+                  {getBalanceLabel(toNumber(personel.balance))}
+                </Text>
+                <Text
+                  variant="h3"
+                  color={getBalanceColor(toNumber(personel.balance))}
+                >
+                  {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
+                </Text>
+                {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
+                  <Text variant="caption" color="secondary">
+                    ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                  </Text>
+                )}
+              </View>
             </View>
-          </ExpandableCard>
+          </TouchableOpacity>
         )}
       </View>
     );
-  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor]);
+  }, [selectedIds, isSelectMode, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor]);
 
   // FlatList ListHeaderComponent - header, özet ve arama
   const ListHeader = useMemo(() => (
@@ -566,7 +528,7 @@ export default function PersonelPage() {
         windowSize={5}
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
-        extraData={{ selectedIds, expandedPersonelId, isSelectMode, sortBy }}
+        extraData={{ selectedIds, isSelectMode, sortBy }}
         contentContainerStyle={styles.listContainer}
       />
 
@@ -814,16 +776,11 @@ const styles = StyleSheet.create({
   personelBalance: {
     alignItems: 'flex-end',
   },
-  personelActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
-  },
-  moreButton: {
-    padding: spacing.xs,
-    marginLeft: spacing.sm,
+  entityCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
   // FAB Styles
   fabContainer: {

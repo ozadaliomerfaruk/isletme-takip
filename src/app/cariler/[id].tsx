@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput, ListRenderItemInfo } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useCallback, useMemo, memo } from 'react';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -22,21 +22,26 @@ import {
   Package,
   Link,
 } from 'lucide-react-native';
-import { Text, Card, ExpandableCard, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
+import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
+import { DateSectionHeader } from '@/components/ui/TransactionRow';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIslemlerWithUrun } from '@/hooks/useUrunHareketler';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
 import { IslemWithRelations } from '@/types/database';
@@ -50,13 +55,14 @@ import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 
 interface CariTransactionItemProps {
   islem: IslemWithRelations;
-  isExpanded: boolean;
-  onToggle: (id: string) => void;
+  onPress: (id: string) => void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   hasUrunFn: (id: string) => boolean;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
+  editLabel: string;
+  deleteLabel: string;
   currency?: string;
   canEdit?: boolean;
 }
@@ -64,19 +70,19 @@ interface CariTransactionItemProps {
 function getCariHareketIcon(type: string) {
   switch (type) {
     case 'cari_alis':
-      return <ShoppingCart size={20} color={colors.error} />;
+      return <ShoppingCart size={22} color={colors.error} />;
     case 'cari_odeme':
-      return <Banknote size={20} color={colors.success} />;
+      return <Banknote size={22} color={colors.success} />;
     case 'cari_satis':
-      return <Receipt size={20} color={colors.success} />;
+      return <Receipt size={22} color={colors.success} />;
     case 'cari_tahsilat':
-      return <Banknote size={20} color={colors.info} />;
+      return <Banknote size={22} color={colors.info} />;
     case 'cari_alis_iade':
-      return <RotateCcw size={20} color={colors.warning} />;
+      return <RotateCcw size={22} color={colors.warning} />;
     case 'cari_satis_iade':
-      return <RotateCcw size={20} color={colors.warning} />;
+      return <RotateCcw size={22} color={colors.warning} />;
     default:
-      return <Receipt size={20} color={colors.textMuted} />;
+      return <Receipt size={22} color={colors.textMuted} />;
   }
 }
 
@@ -113,91 +119,71 @@ function getCariAmountPrefix(type: string): string {
 
 const CariTransactionItem = memo(function CariTransactionItem({
   islem,
-  isExpanded,
-  onToggle,
+  onPress,
   onDelete,
   onEdit,
   hasUrunFn,
   formatDateSmart,
   t,
+  editLabel,
+  deleteLabel,
   currency,
   canEdit = true,
 }: CariTransactionItemProps) {
+  const handlePress = useCallback(() => onPress(islem.id), [onPress, islem.id]);
+  const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
+  const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
+
   const labelKey = getCariHareketLabelKey(islem.type);
+  const typeLabel = labelKey ? t(labelKey) : islem.type;
+  const secondaryText = islem.description || islem.kategori?.name || null;
+  const amountColor = getCariAmountColor(islem.type);
+  const amountColorValue = amountColor === 'error' ? '#DC2626'
+    : amountColor === 'warning' ? colors.warning
+    : '#059669';
 
   return (
-    <ExpandableCard
-      expanded={isExpanded}
-      onToggle={() => onToggle(islem.id)}
-      disableAnimation
-      header={
-        <View style={styles.hareketHeader}>
-          <View style={[
-            styles.hareketIcon,
-            { backgroundColor: getCariIconBgColor(islem.type) }
-          ]}>
-            {getCariHareketIcon(islem.type)}
-          </View>
-          <View style={styles.hareketInfo}>
-            <View style={styles.hareketTitleRow}>
-              <Text variant="body">{formatDateSmart(islem.date)}</Text>
-              {hasUrunFn(islem.id) && (
-                <View style={styles.urunBadge}>
-                  <Package size={12} color={colors.primary} />
-                </View>
-              )}
-            </View>
-            <Text variant="caption" color="secondary">
-              {labelKey ? t(labelKey) : islem.type}
-            </Text>
-            {islem.kategori?.name && (
-              <Text variant="caption" color="secondary">
-                {islem.kategori.name}
-              </Text>
-            )}
-            {islem.description && (
-              <Text variant="caption" color="secondary" numberOfLines={1}>
-                {islem.description}
-              </Text>
-            )}
-          </View>
-          <Text
-            variant="h3"
-            color={getCariAmountColor(islem.type)}
-          >
-            {getCariAmountPrefix(islem.type)}
-            {formatCurrency(Number(islem.amount), currency)}
-          </Text>
-        </View>
-      }
+    <SwipeableRow
+      onEdit={canEdit ? handleEdit : undefined}
+      onDelete={canEdit ? handleDelete : undefined}
+      enabled={canEdit}
+      editLabel={editLabel}
+      deleteLabel={deleteLabel}
     >
-      {canEdit ? (
-        <View style={styles.hareketActions}>
-          <Button
-            variant="secondary"
-            size="sm"
-            icon={<Pencil size={16} color={colors.text} />}
-            onPress={() => onEdit(islem.id)}
-            style={styles.actionButton}
-          >
-            {t('common:buttons.edit')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<Trash2 size={16} color={colors.error} />}
-            onPress={() => onDelete(islem.id)}
-            style={styles.actionButton}
-          >
-            {t('common:buttons.delete')}
-          </Button>
+      <TouchableOpacity
+        style={styles.rowContainer}
+        onPress={handlePress}
+        activeOpacity={0.7}
+      >
+        <View style={[
+          styles.hareketIcon,
+          { backgroundColor: getCariIconBgColor(islem.type) }
+        ]}>
+          {getCariHareketIcon(islem.type)}
         </View>
-      ) : null}
-    </ExpandableCard>
+        <View style={styles.hareketInfo}>
+          <View style={styles.line1}>
+            <Text style={styles.typeText} numberOfLines={1}>{typeLabel}</Text>
+            {hasUrunFn(islem.id) && (
+              <Package size={12} color={colors.primary} />
+            )}
+            <Text style={styles.dateText}>{formatDateSmart(islem.date)}</Text>
+          </View>
+          {secondaryText && (
+            <View style={styles.line2}>
+              <Text style={styles.secondaryText} numberOfLines={1}>{secondaryText}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[styles.amountText, { color: amountColorValue }]}>
+          {getCariAmountPrefix(islem.type)}
+          {formatCurrency(Number(islem.amount), currency)}
+        </Text>
+      </TouchableOpacity>
+    </SwipeableRow>
   );
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
-    && prev.isExpanded === next.isExpanded
     && prev.islem.updated_at === next.islem.updated_at
     && prev.canEdit === next.canEdit;
 });
@@ -207,11 +193,12 @@ const CariTransactionItem = memo(function CariTransactionItem({
 // ============================================================================
 
 export default function CariHareketleriPage() {
-  const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
+  const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation(['clients', 'common', 'errors', 'checks']);
   const { formatDateSmart } = useDateFormat();
   const { currency: baseCurrency } = useSettings();
+  const insets = useSafeAreaInsets();
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
 
@@ -234,15 +221,7 @@ export default function CariHareketleriPage() {
   const updateCari = useUpdateCari();
   const unarchiveCari = useUnarchiveCari();
 
-  const [expandedIslemId, setExpandedIslemId] = useState<string | null>(null);
   const [quickBarVisible, setQuickBarVisible] = useState(false);
-
-  // URL'den gelen expandIslemId parametresini işle
-  useEffect(() => {
-    if (expandIslemId) {
-      setExpandedIslemId(expandIslemId);
-    }
-  }, [expandIslemId]);
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
@@ -253,6 +232,23 @@ export default function CariHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+
+  // Undo delete hook
+  const {
+    pendingDeleteIds,
+    requestDelete,
+    undoDelete,
+    dismissDelete,
+    snackbar: undoSnackbar,
+  } = useUndoDelete<IslemWithRelations>({
+    onCommitDelete: async (id: string) => {
+      await deleteIslem.mutateAsync(id);
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : t('errors:transaction.deleteFailed');
+      Alert.alert(t('common:status.error'), message);
+    },
+  });
 
   // Başlangıç bakiyesini hesapla - MEMOIZED
   const initialBalance = useMemo(() => {
@@ -322,35 +318,22 @@ export default function CariHareketleriPage() {
   };
 
   // === MEMOIZED HANDLERS for FlatList items ===
-  const handleToggleIslem = useCallback((islemId: string) => {
-    setExpandedIslemId(prev => prev === islemId ? null : islemId);
+  const handlePressIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
   }, []);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
-    Alert.alert(
-      t('clients:deleteConfirm.transactionTitle'),
-      t('clients:deleteConfirm.transactionMessage'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteIslem.mutateAsync(islemId);
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:transaction.deleteFailed'));
-            }
-          },
-        },
-      ]
-    );
-  }, [deleteIslem, t]);
+    const islem = (islemler || []).find(i => i.id === islemId);
+    if (islem) {
+      const desc = islem.description || t(`clients:transactionLabels.${islem.type.replace('cari_', '')}`) || islem.type;
+      requestDelete(islemId, islem, desc);
+    }
+  }, [islemler, requestDelete, t]);
 
   const handleEditIslem = useCallback((islemId: string) => {
     setEditTransactionId(islemId);
     setShowEditBar(true);
-    setExpandedIslemId(null);
   }, []);
 
   const handleDeleteCari = () => {
@@ -416,25 +399,45 @@ export default function CariHareketleriPage() {
     </View>
   );
 
+  // === DATE GROUPING ===
+  const groupedData = useMemo(() => {
+    if (!islemler) return [];
+    const filtered = islemler.filter(i => !pendingDeleteIds.has(i.id));
+    return preprocessTransactionsByDate(
+      filtered,
+      t('common:dates.today', { defaultValue: 'Bugün' }),
+      t('common:dates.yesterday', { defaultValue: 'Dün' }),
+      formatDateSmart,
+    );
+  }, [islemler, pendingDeleteIds, t, formatDateSmart]);
+
   // === FlatList renderItem ===
-  const renderTransactionItem = useCallback(({ item: islem }: ListRenderItemInfo<IslemWithRelations>) => {
+  const editLabel = t('common:buttons.edit');
+  const deleteLabel = t('common:buttons.delete');
+
+  const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
+    if (item.type === 'header') {
+      return <DateSectionHeader title={item.title} />;
+    }
+    const islem = item.data;
     return (
       <CariTransactionItem
         islem={islem}
-        isExpanded={expandedIslemId === islem.id}
-        onToggle={handleToggleIslem}
+        onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
         onEdit={handleEditIslem}
         hasUrunFn={hasUrun}
         formatDateSmart={formatDateSmart}
         t={t}
+        editLabel={editLabel}
+        deleteLabel={deleteLabel}
         currency={cari?.currency}
         canEdit={canEditTransactions}
       />
     );
-  }, [expandedIslemId, handleToggleIslem, handleDeleteIslem, handleEditIslem, hasUrun, formatDateSmart, t, canEditTransactions]);
+  }, [handlePressIslem, handleDeleteIslem, handleEditIslem, hasUrun, formatDateSmart, t, editLabel, deleteLabel, cari?.currency, canEditTransactions]);
 
-  const keyExtractor = useCallback((item: IslemWithRelations) => item.id, []);
+  const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
   // === FlatList ListHeaderComponent ===
   const ListHeader = useMemo(() => {
@@ -503,29 +506,18 @@ export default function CariHareketleriPage() {
           </View>
         )}
 
-        {/* Aksiyon Butonlari - gizle: arsivli veya view-only linked cari */}
-        {!cari.is_archived && !(isViewerViewOnly) && (
+        {/* Aksiyon Butonlari - Çek Kes only for tedarikci */}
+        {!cari.is_archived && !(isViewerViewOnly) && cari.type === 'tedarikci' && (
           <View style={styles.actionButtons}>
             <Button
-              variant="primary"
+              variant="outline"
               size="md"
-              icon={<Zap size={18} color={colors.surface} />}
-              onPress={() => setQuickBarVisible(true)}
-              style={styles.actionBtn}
+              icon={<FileCheck size={18} color={colors.info} />}
+              onPress={() => setShowCekKesSheet(true)}
+              style={[styles.actionBtn, { borderColor: colors.info }]}
             >
-              {t('clients:details.newTransaction')}
+              {t('checks:create')}
             </Button>
-            {cari.type === 'tedarikci' && (
-              <Button
-                variant="outline"
-                size="md"
-                icon={<FileCheck size={18} color={colors.info} />}
-                onPress={() => setShowCekKesSheet(true)}
-                style={[styles.actionBtn, { borderColor: colors.info }]}
-              >
-                {t('checks:create')}
-              </Button>
-            )}
           </View>
         )}
 
@@ -563,7 +555,7 @@ export default function CariHareketleriPage() {
         <Card style={styles.hareketCard}>
           <View style={styles.hareketHeader}>
             <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-              <CircleDollarSign size={20} color={colors.primary} />
+              <CircleDollarSign size={22} color={colors.primary} />
             </View>
             <View style={styles.hareketInfo}>
               <Text variant="body">{t('clients:details.initialBalance')}</Text>
@@ -623,7 +615,7 @@ export default function CariHareketleriPage() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <FlatList
-          data={islemler ?? []}
+          data={groupedData}
           keyExtractor={keyExtractor}
           renderItem={renderTransactionItem}
           ListHeaderComponent={ListHeader}
@@ -633,7 +625,6 @@ export default function CariHareketleriPage() {
           maxToRenderPerBatch={10}
           windowSize={7}
           removeClippedSubviews={true}
-          extraData={expandedIslemId}
           contentContainerStyle={styles.flatListContent}
         />
 
@@ -652,7 +643,7 @@ export default function CariHareketleriPage() {
                   router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } });
                 }}
               >
-                <Pencil size={20} color={colors.text} />
+                <Pencil size={22} color={colors.text} />
                 <Text variant="body">{t('common:buttons.edit')}</Text>
               </TouchableOpacity>
 
@@ -660,7 +651,7 @@ export default function CariHareketleriPage() {
                 style={[styles.menuItem, styles.menuItemDanger]}
                 onPress={handleDeleteCari}
               >
-                <Trash2 size={20} color={colors.error} />
+                <Trash2 size={22} color={colors.error} />
                 <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
               </TouchableOpacity>
             </View>
@@ -781,6 +772,26 @@ export default function CariHareketleriPage() {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        {/* Floating Yeni İşlem FAB */}
+        {!cari.is_archived && !(isViewerViewOnly) && (
+          <TouchableOpacity
+            style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+            onPress={() => setQuickBarVisible(true)}
+            activeOpacity={0.8}
+          >
+            <Zap size={24} color={colors.surface} />
+          </TouchableOpacity>
+        )}
+
+        {/* Undo Delete Snackbar */}
+        <UndoSnackbar
+          visible={undoSnackbar.visible}
+          message={undoSnackbar.message}
+          onUndo={undoDelete}
+          onDismiss={dismissDelete}
+          undoLabel={t('common:buttons.undo', { defaultValue: 'Geri Al' })}
+        />
       </SafeAreaView>
     </>
   );
@@ -850,43 +861,65 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: spacing.lg,
   },
+  rowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    gap: spacing.md,
+  },
   hareketHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
   },
   hareketIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   hareketInfo: {
     flex: 1,
   },
-  hareketTitleRow: {
+
+  line1: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    justifyContent: 'space-between',
+    gap: 8,
   },
-  urunBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.primaryLight,
+  line2: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 8,
+  },
+  typeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    flex: 1,
+  },
+  dateText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#6B7280',
+  },
+  secondaryText: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#4B5563',
+    flex: 1,
+  },
+  amountText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   hareketCard: {
     marginBottom: spacing.sm,
-  },
-  hareketActions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  actionButton: {
-    flex: 1,
   },
   // Header right buttons
   headerRightContainer: {
@@ -980,5 +1013,20 @@ const styles = StyleSheet.create({
   balanceModalButtons: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

@@ -11,6 +11,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
 
 // Büyük veri uyarısı için eşik değer
 const LARGE_DATA_THRESHOLD = 2000;
@@ -100,60 +101,61 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
           endDateTime.setDate(endDateTime.getDate() + 1);
           const endDateNextDay = formatDateForDB(endDateTime);
 
-          // Seçilen dönemdeki işlemleri getir
-          let query = supabase
-            .from('islemler')
-            .select(`
-              *,
-              hesap:hesaplar!islemler_hesap_id_fkey(*),
-              hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(*),
-              kategori:kategoriler(*),
-              cari:cariler(*),
-              personel:personel(*)
-            `)
-            .eq('isletme_id', isletme.id)
-            .gte('date', startDate)
-            .lt('date', endDateNextDay)
-            .order('date', { ascending: true });
+          // Seçilen dönemdeki işlemleri getir (paginated - 1000 satır limitini aşmak için)
+          const buildTransactionsQuery = () => {
+            let q = supabase
+              .from('islemler')
+              .select(`
+                *,
+                hesap:hesaplar!islemler_hesap_id_fkey(*),
+                hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(*),
+                kategori:kategoriler(*),
+                cari:cariler(*),
+                personel:personel(*)
+              `)
+              .eq('isletme_id', isletme.id)
+              .gte('date', startDate)
+              .lt('date', endDateNextDay)
+              .order('date', { ascending: true });
 
-          // Entity tipine göre filtrele
-          if (entityType === 'hesap') {
-            query = query.or(`hesap_id.eq.${entityId},hedef_hesap_id.eq.${entityId}`);
-          } else if (entityType === 'cari') {
-            query = query.eq('cari_id', entityId);
-          } else if (entityType === 'personel') {
-            query = query.eq('personel_id', entityId);
-          }
+            if (entityType === 'hesap') {
+              q = q.or(`hesap_id.eq.${entityId},hedef_hesap_id.eq.${entityId}`);
+            } else if (entityType === 'cari') {
+              q = q.eq('cari_id', entityId);
+            } else if (entityType === 'personel') {
+              q = q.eq('personel_id', entityId);
+            }
+            return q;
+          };
 
-          const { data: transactions, error: transactionsError } = await query;
+          const transactions = await fetchAllPages<IslemWithRelations>(buildTransactionsQuery);
 
-          if (transactionsError) throw transactionsError;
+          // Tüm işlemleri getir (başlangıç bakiyesi hesabı için) - paginated
+          const buildAllQuery = () => {
+            let q = supabase
+              .from('islemler')
+              .select(`
+                *,
+                hesap:hesaplar!islemler_hesap_id_fkey(*),
+                hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(*),
+                kategori:kategoriler(*),
+                cari:cariler(*),
+                personel:personel(*)
+              `)
+              .eq('isletme_id', isletme.id)
+              .order('date', { ascending: true });
 
-          // Tüm işlemleri getir (başlangıç bakiyesi hesabı için)
-          let allQuery = supabase
-            .from('islemler')
-            .select(`
-              *,
-              hesap:hesaplar!islemler_hesap_id_fkey(*),
-              hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(*),
-              kategori:kategoriler(*),
-              cari:cariler(*),
-              personel:personel(*)
-            `)
-            .eq('isletme_id', isletme.id)
-            .order('date', { ascending: true });
+            if (entityType === 'hesap') {
+              q = q.or(`hesap_id.eq.${entityId},hedef_hesap_id.eq.${entityId}`);
+            } else if (entityType === 'cari') {
+              q = q.eq('cari_id', entityId);
+            } else if (entityType === 'personel') {
+              q = q.eq('personel_id', entityId);
+            }
+            return q;
+          };
 
-          if (entityType === 'hesap') {
-            allQuery = allQuery.or(`hesap_id.eq.${entityId},hedef_hesap_id.eq.${entityId}`);
-          } else if (entityType === 'cari') {
-            allQuery = allQuery.eq('cari_id', entityId);
-          } else if (entityType === 'personel') {
-            allQuery = allQuery.eq('personel_id', entityId);
-          }
-
-          const { data: allTransactions, error: allError } = await allQuery;
-
-          if (allError) throw allError;
+          const allTransactions = await fetchAllPages<IslemWithRelations>(buildAllQuery);
 
           // Export et
           await exportToExcel({
@@ -164,8 +166,8 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
             isletmeName: isletme.name,
             startDate,
             endDate,
-            transactions: (transactions || []) as IslemWithRelations[],
-            allTransactions: (allTransactions || []) as IslemWithRelations[],
+            transactions,
+            allTransactions,
             currentBalance,
             cariType,
             translations,
