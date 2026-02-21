@@ -89,6 +89,7 @@ export function SwipeableRow({
       friction={2}
       rightThreshold={ACTION_WIDTH / 2}
       overshootRight={false}
+      dragOffsetFromLeftEdge={40}
       renderRightActions={renderRightActions}
       containerStyle={styles.swipeableContainer}
     >
