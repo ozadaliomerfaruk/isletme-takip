@@ -30,13 +30,19 @@ interface UseUndoDeleteResult<T> {
 }
 
 export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDeleteResult<T> {
-  const { onCommitDelete, onError } = options;
   const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
 
   const pendingRef = useRef<PendingDelete<T> | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Stable refs for callbacks — prevents infinite re-render loops
+  // when consumers pass inline functions
+  const onCommitDeleteRef = useRef(options.onCommitDelete);
+  const onErrorRef = useRef(options.onError);
+  onCommitDeleteRef.current = options.onCommitDelete;
+  onErrorRef.current = options.onError;
 
   // Commit the actual deletion
   const commitDelete = useCallback(async () => {
@@ -47,7 +53,7 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDelet
     setSnackbarVisible(false);
 
     try {
-      await onCommitDelete(pending.id);
+      await onCommitDeleteRef.current(pending.id);
     } catch (error) {
       // Delete failed - restore item to UI
       setPendingDeleteIds(prev => {
@@ -55,9 +61,9 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDelet
         next.delete(pending.id);
         return next;
       });
-      onError?.(error);
+      onErrorRef.current?.(error);
     }
-  }, [onCommitDelete, onError]);
+  }, []);
 
   // Start a soft-delete
   const requestDelete = useCallback((id: string, item: T, description: string) => {
@@ -69,13 +75,13 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDelet
       pendingRef.current = null;
 
       // Commit previous delete in background
-      onCommitDelete(prevPending.id).catch(error => {
+      onCommitDeleteRef.current(prevPending.id).catch(error => {
         setPendingDeleteIds(prev => {
           const next = new Set(prev);
           next.delete(prevPending.id);
           return next;
         });
-        onError?.(error);
+        onErrorRef.current?.(error);
       });
     }
 
@@ -94,7 +100,7 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDelet
       timerRef.current = null;
       commitDelete();
     }, UNDO_TIMEOUT_MS);
-  }, [commitDelete, onCommitDelete, onError]);
+  }, [commitDelete]);
 
   // Undo: cancel timer, restore item
   const undoDelete = useCallback(() => {
@@ -125,7 +131,7 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDelet
     commitDelete();
   }, [commitDelete]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount only (empty deps = runs once)
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -133,11 +139,11 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDelet
         // On unmount, commit pending delete
         const pending = pendingRef.current;
         if (pending) {
-          onCommitDelete(pending.id).catch(() => {});
+          onCommitDeleteRef.current(pending.id).catch(() => {});
         }
       }
     };
-  }, [onCommitDelete]);
+  }, []);
 
   return {
     pendingDeleteIds,
