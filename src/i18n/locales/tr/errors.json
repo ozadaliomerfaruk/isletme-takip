@@ -4,7 +4,10 @@
     "unknown": "Bilinmeyen bir hata oluştu",
     "tryAgain": "Lütfen tekrar deneyin",
     "somethingWentWrong": "Bir şeyler yanlış gitti",
-    "operationFailed": "İşlem başarısız oldu"
+    "operationFailed": "İşlem başarısız oldu",
+    "unexpected": "Beklenmeyen bir hata oluştu",
+    "somethingWrong": "Bir şeyler yanlış gitti",
+    "contactSupport": "Sorun devam ederse destek ile iletişime geçin"
   },
   "boundary": {
     "title": "Bir Hata Oluştu",
@@ -15,7 +18,10 @@
     "connectionError": "Bağlantı hatası",
     "timeout": "İşlem zaman aşımına uğradı",
     "serverError": "Sunucu hatası",
-    "serviceUnavailable": "Servis kullanılamıyor"
+    "serviceUnavailable": "Servis kullanılamıyor",
+    "connectionLost": "Bağlantı kesildi",
+    "serverUnavailable": "Sunucu kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
+    "requestFailed": "İstek başarısız oldu"
   },
   "auth": {
     "invalidEmail": "Geçerli bir e-posta adresi girin",
@@ -34,6 +40,7 @@
     "unauthorized": "Bu işlem için yetkiniz yok",
     "weakPassword": "Şifre çok zayıf",
     "tooManyRequests": "Çok fazla deneme yaptınız. Lütfen biraz bekleyin.",
+    "tooManyAttempts": "Çok fazla giriş denemesi. Lütfen daha sonra tekrar deneyin.",
     "linkExpired": "Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş. Lütfen tekrar deneyin.",
     "invalidOtp": "Geçersiz doğrulama kodu. Lütfen tekrar deneyin."
   },
@@ -46,6 +53,7 @@
     "maxValue": "En fazla {{max}} olabilir",
     "invalidFormat": "Geçersiz format",
     "invalidEmail": "Geçerli bir e-posta adresi girin",
+    "invalidEmailFormat": "Geçerli bir e-posta adresi girin",
     "invalidPhone": "Geçerli bir telefon numarası girin",
     "invalidNumber": "Geçerli bir sayı girin",
     "invalidDate": "Geçerli bir tarih girin",
@@ -64,7 +72,11 @@
     "invalidDate": "Geçersiz tarih",
     "futureDate": "İleri tarihli işlemler bu alandan eklenemez",
     "futureDateRequired": "İleri tarihli işlem için bugünden sonraki bir tarih seçin",
-    "addFailed": "İşlem eklenemedi"
+    "addFailed": "İşlem eklenemedi",
+    "saveFailed": "İşlem kaydedilemedi",
+    "accountRequired": "Hesap seçin",
+    "categoryRequired": "Kategori seçin",
+    "sameAccount": "Kaynak ve hedef hesap aynı olamaz"
   },
   "account": {
     "createFailed": "Hesap oluşturulamadı",
@@ -101,7 +113,8 @@
     "firstNameRequired": "Ad gerekli",
     "hasTransactions": "Bu personele ait işlemler var. Önce işlemleri silin.",
     "selectPersonel": "Personel seçin",
-    "selectPaymentAccount": "Ödeme yapılacak hesabı seçin"
+    "selectPaymentAccount": "Ödeme yapılacak hesabı seçin",
+    "nameRequired": "Ad gerekli"
   },
   "category": {
     "createFailed": "Kategori oluşturulamadı",
@@ -109,19 +122,29 @@
     "deleteFailed": "Kategori silinemedi",
     "notFound": "Kategori bulunamadı",
     "hasTransactions": "Bu kategoriye ait işlemler var.",
-    "duplicateName": "Bu isimde bir kategori zaten var"
+    "duplicateName": "Bu isimde bir kategori zaten var",
+    "hasChildren": "Bu kategorinin alt kategorileri var",
+    "nameRequired": "Kategori adı gerekli"
   },
   "file": {
     "uploadFailed": "Dosya yüklenemedi",
     "downloadFailed": "Dosya indirilemedi",
     "invalidFormat": "Geçersiz dosya formatı",
     "fileTooLarge": "Dosya çok büyük",
-    "noFile": "Dosya seçilmedi"
+    "noFile": "Dosya seçilmedi",
+    "invalidFileType": "Geçersiz dosya tipi",
+    "exportFailed": "Dışa aktarma başarısız",
+    "importFailed": "İçe aktarma başarısız"
   },
   "permission": {
     "denied": "İzin reddedildi",
     "cameraRequired": "Kamera izni gerekli",
     "storageRequired": "Depolama izni gerekli",
-    "notificationRequired": "Bildirim izni gerekli"
+    "notificationRequired": "Bildirim izni gerekli",
+    "camera": "Kamera izni gerekli",
+    "gallery": "Galeri izni gerekli",
+    "storage": "Depolama izni gerekli",
+    "notification": "Bildirim izni gerekli",
+    "location": "Konum izni gerekli"
   }
 }

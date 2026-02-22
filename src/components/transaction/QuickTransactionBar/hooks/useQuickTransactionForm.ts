@@ -53,6 +53,9 @@ interface UseQuickTransactionFormReturn {
   date: Date;
   setDate: (date: Date) => void;
   safeDate: Date;
+  dateEnd: Date | null;
+  setDateEnd: (date: Date | null) => void;
+  safeDateEnd: Date | null;
   kategoriId: string | null;
   setKategoriId: (id: string | null) => void;
   isScheduled: boolean;
@@ -159,8 +162,12 @@ export function useQuickTransactionForm({
   const [isSaving, setIsSaving] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
 
+  // Date end (for leave usage date range)
+  const [dateEnd, setDateEnd] = useState<Date | null>(null);
+
   // Safe date
   const safeDate = useMemo(() => ensureValidDate(date), [date]);
+  const safeDateEnd = useMemo(() => dateEnd ? ensureValidDate(dateEnd) : null, [dateEnd]);
 
   // Entity IDs
   const [hedefHesapId, setHedefHesapId] = useState<string | null>(null);
@@ -221,6 +228,7 @@ export function useQuickTransactionForm({
     setAmount('');
     setDescription('');
     setDate(new Date());
+    setDateEnd(null);
     setKategoriId(null);
     setIsScheduled(false);
     setIsSaving(false);
@@ -280,6 +288,10 @@ export function useQuickTransactionForm({
       setDate(new Date(transactionDate));
     }
     setKategoriId(transaction.kategori_id || null);
+    // Load date_end for leave usage date range
+    if ((transaction as { date_end?: string | null }).date_end) {
+      setDateEnd(new Date((transaction as { date_end?: string | null }).date_end!));
+    }
     setSourceHesapId(transaction.hesap_id || null);
     setHedefHesapId(transaction.hedef_hesap_id || null);
     setCariId(transaction.cari_id || null);
@@ -389,6 +401,9 @@ export function useQuickTransactionForm({
     date,
     setDate,
     safeDate,
+    dateEnd,
+    setDateEnd,
+    safeDateEnd,
     kategoriId,
     setKategoriId,
     isScheduled,

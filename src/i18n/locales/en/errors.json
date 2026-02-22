@@ -2,7 +2,10 @@
   "general": {
     "generic": "An error occurred",
     "unexpected": "An unexpected error occurred",
+    "unknown": "An unknown error occurred",
     "somethingWrong": "Something went wrong",
+    "somethingWentWrong": "Something went wrong",
+    "operationFailed": "Operation failed",
     "tryAgain": "Please try again",
     "contactSupport": "If the problem persists, contact support"
   },
@@ -16,6 +19,8 @@
     "timeout": "Request timed out",
     "serverError": "Server error",
     "serverUnavailable": "Server is unavailable. Please try again later.",
+    "serviceUnavailable": "Service is unavailable",
+    "connectionError": "Connection error",
     "requestFailed": "Request failed"
   },
   "auth": {
@@ -33,6 +38,8 @@
     "sessionExpired": "Your session has expired. Please log in again.",
     "unauthorized": "You are not authorized for this operation",
     "tooManyAttempts": "Too many login attempts. Please try again later.",
+    "tooManyRequests": "Too many attempts. Please wait a moment.",
+    "loginRequired": "Please log in",
     "weakPassword": "Please enter a stronger password",
     "linkExpired": "Password reset link is invalid or has expired. Please try again.",
     "invalidOtp": "Invalid verification code. Please try again."
@@ -48,7 +55,11 @@
     "minValue": "Must be at least {{min}}",
     "maxValue": "Must be at most {{max}}",
     "invalidPhone": "Please enter a valid phone number",
-    "invalidEmailFormat": "Please enter a valid email address"
+    "invalidEmailFormat": "Please enter a valid email address",
+    "requiredField": "{{field}} is required",
+    "invalidAmount": "Please enter a valid amount",
+    "mustBeGreaterThan": "Must be greater than {{value}}",
+    "mustBeLessThan": "Must be less than {{value}}"
   },
   "transaction": {
     "saveFailed": "Could not save transaction",
@@ -58,7 +69,13 @@
     "insufficientBalance": "Insufficient balance",
     "accountRequired": "Please select an account",
     "categoryRequired": "Please select a category",
-    "sameAccount": "Source and target accounts cannot be the same"
+    "sameAccount": "Source and target accounts cannot be the same",
+    "createFailed": "Could not create transaction",
+    "updateFailed": "Could not update transaction",
+    "invalidDate": "Invalid date",
+    "futureDate": "Future transactions cannot be added from this section",
+    "futureDateRequired": "Please select a date after today for scheduled transactions",
+    "addFailed": "Could not add transaction"
   },
   "account": {
     "createFailed": "Could not create account",
@@ -67,7 +84,12 @@
     "notFound": "Account not found",
     "hasTransactions": "This account has transactions. Delete them first.",
     "nameRequired": "Account name is required",
-    "duplicateName": "An account with this name already exists"
+    "duplicateName": "An account with this name already exists",
+    "selectAccount": "Please select an account",
+    "selectSourceAccount": "Please select a source account",
+    "selectTargetAccount": "Please select a target account",
+    "sameAccountError": "Source and target accounts cannot be the same",
+    "transferFailed": "Transfer failed"
   },
   "cari": {
     "createFailed": "Could not create client",
@@ -75,7 +97,12 @@
     "deleteFailed": "Could not delete client",
     "notFound": "Client not found",
     "hasTransactions": "This client has transactions. Delete them first.",
-    "nameRequired": "Client name is required"
+    "nameRequired": "Client name is required",
+    "duplicateName": "A client with this name already exists",
+    "selectSupplier": "Please select a supplier",
+    "selectCustomer": "Please select a customer",
+    "selectPaymentAccount": "Please select a payment account",
+    "selectCollectionAccount": "Please select a collection account"
   },
   "personel": {
     "createFailed": "Could not create staff member",
@@ -83,7 +110,10 @@
     "deleteFailed": "Could not delete staff member",
     "notFound": "Staff member not found",
     "hasTransactions": "This staff member has transactions. Delete them first.",
-    "nameRequired": "Name is required"
+    "nameRequired": "Name is required",
+    "firstNameRequired": "First name is required",
+    "selectPersonel": "Please select a staff member",
+    "selectPaymentAccount": "Please select a payment account"
   },
   "category": {
     "createFailed": "Could not create category",
@@ -91,7 +121,9 @@
     "deleteFailed": "Could not delete category",
     "notFound": "Category not found",
     "hasChildren": "This category has sub-categories",
-    "nameRequired": "Category name is required"
+    "hasTransactions": "This category has transactions.",
+    "nameRequired": "Category name is required",
+    "duplicateName": "A category with this name already exists"
   },
   "file": {
     "uploadFailed": "File upload failed",
@@ -99,7 +131,9 @@
     "fileTooLarge": "File is too large",
     "invalidFileType": "Invalid file type",
     "exportFailed": "Export failed",
-    "importFailed": "Import failed"
+    "importFailed": "Import failed",
+    "invalidFormat": "Invalid file format",
+    "noFile": "No file selected"
   },
   "permission": {
     "denied": "Permission denied",
@@ -107,6 +141,9 @@
     "gallery": "Gallery permission is required",
     "storage": "Storage permission is required",
     "notification": "Notification permission is required",
-    "location": "Location permission is required"
+    "location": "Location permission is required",
+    "cameraRequired": "Camera permission required",
+    "storageRequired": "Storage permission required",
+    "notificationRequired": "Notification permission required"
   }
 }

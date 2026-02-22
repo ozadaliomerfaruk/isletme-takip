@@ -31,7 +31,15 @@
     "viewAll": "Tümünü Gör",
     "seeMore": "Daha Fazla",
     "showMore": "Daha Fazla Göster",
-    "showLess": "Daha Az Göster"
+    "showLess": "Daha Az Göster",
+    "undo": "Geri Al",
+    "submit": "Gönder",
+    "remove": "Kaldır",
+    "more": "Daha",
+    "less": "Daha Az",
+    "seeAll": "Tümünü Gör",
+    "goBack": "Geri Dön",
+    "tryAgain": "Tekrar Dene"
   },
   "status": {
     "loading": "Yükleniyor...",
@@ -42,7 +50,14 @@
     "success": "Başarılı",
     "error": "Hata",
     "warning": "Uyarı",
-    "info": "Bilgi"
+    "info": "Bilgi",
+    "pending": "Beklemede",
+    "completed": "Tamamlandı",
+    "failed": "Başarısız",
+    "active": "Aktif",
+    "inactive": "Pasif",
+    "enabled": "Açık",
+    "disabled": "Kapalı"
   },
   "messages": {
     "savedSuccessfully": "Başarıyla kaydedildi",
@@ -57,7 +72,10 @@
     "noItems": "Henüz kayıt yok",
     "noTransactions": "Henüz işlem yok",
     "noCategory": "Kategori yok",
-    "noCategoriesYet": "Henüz kategori yok"
+    "noCategoriesYet": "Henüz kategori yok",
+    "emptyList": "Liste boş",
+    "nothingHere": "Henüz bir şey yok",
+    "startAdding": "Ekleyerek başlayın"
   },
   "search": {
     "search": "Ara",
@@ -65,6 +83,8 @@
     "noResults": "Sonuç bulunamadı",
     "noResultsFor": "\"{{query}}\" için sonuç bulunamadı",
     "clearSearch": "Aramayı Temizle",
+    "searching": "Aranıyor...",
+    "tryDifferent": "Farklı bir arama terimi deneyin",
     "searchIcons": "İkon ara...",
     "searchCategories": "Kategori ara..."
   },
@@ -78,7 +98,10 @@
     "selectColor": "Renk Seç",
     "selectAll": "Tümünü Seç",
     "noneSelected": "Seçilmedi",
-    "selectLabel": "{{label}} Seç"
+    "selectLabel": "{{label}} Seç",
+    "selectOption": "Bir seçenek seçin",
+    "selectTime": "Saat seç",
+    "itemsSelected": "{{count}} seçildi"
   },
   "bulkSelect": {
     "select": "Seç",
@@ -97,9 +120,14 @@
     "archiveSuccess": "{{count}} öğe arşivlendi"
   },
   "confirm": {
+    "areYouSure": "Emin misiniz?",
+    "confirmDelete": "Bunu silmek istiyor musunuz?",
+    "confirmCancel": "İptal etmek istiyor musunuz?",
     "deleteTitle": "Silme Onayı",
     "deleteMessage": "\"{{item}}\" silinecek. Bu işlem geri alınamaz.",
     "deleteGeneric": "Bu öğeyi silmek istediğinize emin misiniz?",
+    "deleteItem": "\"{{item}}\" silinsin mi?",
+    "irreversible": "Bu işlem geri alınamaz.",
     "unsavedChanges": "Kaydedilmemiş değişiklikler var. Çıkmak istediğinize emin misiniz?",
     "logout": "Çıkış yapmak istediğinize emin misiniz?"
   },
@@ -221,14 +249,20 @@
     "lowest": "En Düşük",
     "nameAZ": "A-Z",
     "nameZA": "Z-A",
+    "amountHighLow": "Tutar (Yüksek-Düşük)",
+    "amountLowHigh": "Tutar (Düşük-Yüksek)",
     "balanceHighLow": "Bakiye (Yüksek-Düşük)",
     "balanceLowHigh": "Bakiye (Düşük-Yüksek)"
   },
   "filter": {
     "filter": "Filtrele",
+    "filters": "Filtreler",
     "filterBy": "Filtrele",
     "clearFilters": "Filtreleri Temizle",
-    "noFilters": "Filtre yok"
+    "applyFilters": "Filtreleri Uygula",
+    "noFilter": "Filtre yok",
+    "noFilters": "Filtre yok",
+    "allItems": "Tüm öğeler"
   },
   "period": {
     "daily": "Günlük",

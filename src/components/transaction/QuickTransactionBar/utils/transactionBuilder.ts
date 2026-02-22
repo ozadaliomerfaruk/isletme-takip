@@ -26,6 +26,8 @@ export interface BuildTransactionParams {
     targetCurrency: Currency;
     exchangeRate: number;
   };
+  // Leave usage date end (optional)
+  dateEnd?: string | null;
 }
 
 /**
@@ -45,6 +47,8 @@ export interface TransactionData {
   source_currency?: Currency;
   target_currency?: Currency;
   exchange_rate?: number;
+  // Leave usage date end
+  date_end?: string | null;
 }
 
 /**
@@ -63,6 +67,7 @@ export function buildTransactionData(params: BuildTransactionParams): Transactio
     personelId,
     odemeHedefType,
     exchangeData,
+    dateEnd,
   } = params;
 
   // Map UI type to API type
@@ -124,6 +129,11 @@ export function buildTransactionData(params: BuildTransactionParams): Transactio
     data.source_currency = exchangeData.sourceCurrency;
     data.target_currency = exchangeData.targetCurrency;
     data.exchange_rate = exchangeData.exchangeRate;
+  }
+
+  // Add date_end for leave usage date range
+  if (type === 'personel_izin_kullanimi_tab' && dateEnd) {
+    data.date_end = dateEnd;
   }
 
   return data;

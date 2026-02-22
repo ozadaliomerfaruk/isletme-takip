@@ -563,7 +563,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('settings:dataImport.title', { defaultValue: 'Veri İçe Aktar' }),
+            headerTitle: t('settings:dataImport.title'),
             headerShadowVisible: false,
           }}
         />

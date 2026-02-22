@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Modal,
@@ -117,6 +117,28 @@ export function QuickTransactionBar({
         : 'musteri'
       : 'normal';
 
+  // Leave usage type flag
+  const isLeaveUsageType = form.type === 'personel_izin_kullanimi_tab';
+
+  // Auto-calculate day count from date range for leave usage
+  useEffect(() => {
+    if (isLeaveUsageType && form.dateEnd) {
+      const startMs = form.safeDate.getTime();
+      const endMs = form.dateEnd.getTime();
+      const diffDays = Math.max(1, Math.floor((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1);
+      form.setAmount(diffDays.toString());
+    }
+  }, [isLeaveUsageType, form.safeDate, form.dateEnd]);
+
+  // Initialize dateEnd to today when switching to leave usage type
+  useEffect(() => {
+    if (isLeaveUsageType && !form.dateEnd) {
+      form.setDateEnd(new Date());
+    } else if (!isLeaveUsageType && form.dateEnd) {
+      form.setDateEnd(null);
+    }
+  }, [isLeaveUsageType]);
+
   // Entities hook - with actual form values
   const entities = useQuickTransactionEntities({
     isCariMode: form.isCariMode,
@@ -198,6 +220,7 @@ export function QuickTransactionBar({
     amount: form.amount,
     description: form.description,
     safeDate: form.safeDate,
+    safeDateEnd: form.safeDateEnd,
     kategoriId: form.kategoriId,
     isScheduled: form.isScheduled,
     odemeHedefType: form.odemeHedefType,
@@ -412,6 +435,9 @@ export function QuickTransactionBar({
           onDatePress={() => modals.setShowDatePicker(true)}
           onScheduledToggle={() => form.setIsScheduled(!form.isScheduled)}
           onClose={handleDismiss}
+          isLeaveUsageType={isLeaveUsageType}
+          dateEnd={form.dateEnd}
+          onDateEndPress={() => modals.setShowDateEndPicker(true)}
         />
 
         {/* Entity Display: Hesap/Cari/Personel bilgisi */}
@@ -532,6 +558,24 @@ export function QuickTransactionBar({
         onChange={form.setDate}
         locale={locale}
       />
+
+      {/* DateTime End Picker Modal (for leave usage date range) */}
+      {isLeaveUsageType && (
+        <DateTimePickerModal
+          visible={modals.showDateEndPicker}
+          onDismiss={() => modals.setShowDateEndPicker(false)}
+          value={form.safeDateEnd || form.safeDate}
+          onChange={(newDate) => {
+            // Ensure end date is not before start date
+            if (newDate < form.safeDate) {
+              form.setDateEnd(form.safeDate);
+            } else {
+              form.setDateEnd(newDate);
+            }
+          }}
+          locale={locale}
+        />
+      )}
 
       {/* Hesap Picker Modal - Bottom Sheet */}
       <HesapPickerSheet

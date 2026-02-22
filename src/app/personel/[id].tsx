@@ -201,6 +201,10 @@ export default function PersonelHareketleriPage() {
     setQuickBarVisible(true);
   }, []);
 
+  const handleViewLeaveHistory = useCallback(() => {
+    router.push({ pathname: '/personel/izin-gecmisi/[id]', params: { id: id! } });
+  }, [id]);
+
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
     // Personelde: pozitif = credit (biz borçluyuz), negatif = debt (personel bize borçlu)
@@ -324,13 +328,13 @@ export default function PersonelHareketleriPage() {
     const filtered = islemler.filter(i => !pendingDeleteIds.has(i.id));
     return preprocessTransactionsByDate(
       filtered,
-      t('common:dates.today', { defaultValue: 'Bugün' }),
-      t('common:dates.yesterday', { defaultValue: 'Dün' }),
+      t('common:date.today'),
+      t('common:date.yesterday'),
       formatDateSmart,
     );
   }, [islemler, pendingDeleteIds, t, formatDateSmart]);
 
-  const deleteLabel = t('common:buttons.delete', { defaultValue: 'Sil' });
+  const deleteLabel = t('common:buttons.delete');
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
@@ -418,6 +422,7 @@ export default function PersonelHareketleriPage() {
             hakEdilenGun={leaveQuota.hakEdilen}
             kullanilanGun={leaveQuota.kullanilan}
             onAddLeave={handleAddLeave}
+            onCardPress={handleViewLeaveHistory}
           />
         )}
 
@@ -438,7 +443,7 @@ export default function PersonelHareketleriPage() {
         </View>
       </View>
     );
-  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, t]);
+  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, handleViewLeaveHistory, t]);
 
   // ============================================================================
   // FlatList Footer (başlangıç bakiyesi kartı)
@@ -714,7 +719,7 @@ export default function PersonelHareketleriPage() {
           message={undoSnackbar.message}
           onUndo={undoDelete}
           onDismiss={dismissDelete}
-          undoLabel={t('common:buttons.undo', { defaultValue: 'Geri Al' })}
+          undoLabel={t('common:buttons.undo')}
         />
       </SafeAreaView>
     </>

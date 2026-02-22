@@ -292,6 +292,8 @@ export interface Islem {
   exchange_rate: number | null;    // Dönüşüm kuru
   // Fotoğraf
   photo_path: string | null;       // Storage path for receipt/document photo
+  // İzin tarih aralığı
+  date_end: string | null;         // İzin kullanımında bitiş tarihi (YYYY-MM-DD)
   created_at: string;
   updated_at: string;
 }
@@ -314,6 +316,8 @@ export interface IslemInsert {
   exchange_rate?: number | null;
   // Fotoğraf
   photo_path?: string | null;
+  // İzin tarih aralığı
+  date_end?: string | null;
 }
 
 export interface IslemUpdate {
@@ -332,6 +336,8 @@ export interface IslemUpdate {
   exchange_rate?: number | null;
   // Fotoğraf
   photo_path?: string | null;
+  // İzin tarih aralığı
+  date_end?: string | null;
 }
 
 // İlişkili verilerle birlikte işlem

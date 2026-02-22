@@ -648,7 +648,7 @@ export default function UrunlerPage() {
 
             {/* Ay grid */}
             <View style={styles.monthGrid}>
-              {((() => { const m = t('reports:months', { returnObjects: true }); return Array.isArray(m) ? m : ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara']; })() as string[]).map((monthName, index) => (
+              {((() => { const m = t('common:date.monthsShort', { returnObjects: true }); return Array.isArray(m) ? m : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; })() as string[]).map((monthName, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.monthCell}

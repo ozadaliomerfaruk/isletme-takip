@@ -204,8 +204,8 @@ export default function IslemlerPage() {
   const groupedData = useMemo(() => {
     return preprocessTransactionsByDate(
       filteredIslemler,
-      t('common:dates.today', { defaultValue: 'Bugün' }),
-      t('common:dates.yesterday', { defaultValue: 'Dün' }),
+      t('common:date.today'),
+      t('common:date.yesterday'),
       formatDateMedium,
     );
   }, [filteredIslemler, t, formatDateMedium]);
@@ -453,7 +453,7 @@ export default function IslemlerPage() {
         message={undoSnackbar.message}
         onUndo={undoDelete}
         onDismiss={dismissDelete}
-        undoLabel={t('common:buttons.undo', { defaultValue: 'Geri Al' })}
+        undoLabel={t('common:buttons.undo')}
       />
     </SafeAreaView>
   );

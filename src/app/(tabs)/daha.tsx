@@ -175,7 +175,7 @@ export default function DahaPage() {
             <View style={styles.divider} />
             <MenuItem
               icon={<Upload size={22} color={colors.primary} />}
-              label={t('navigation:menu.importData', { defaultValue: 'Veri İçe Aktar' })}
+              label={t('navigation:menu.importData')}
               onPress={() => router.push('/ayarlar/data-import' as any)}
             />
             <View style={styles.divider} />

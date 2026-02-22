@@ -1,5 +1,5 @@
 import { View, TouchableOpacity } from 'react-native';
-import { Calendar, Bell, X } from 'lucide-react-native';
+import { Calendar, Bell, X, ArrowRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
@@ -14,6 +14,10 @@ export interface HeaderSectionProps {
   onDatePress: () => void;
   onScheduledToggle: () => void;
   onClose: () => void;
+  // Leave usage date range
+  isLeaveUsageType?: boolean;
+  dateEnd?: Date | null;
+  onDateEndPress?: () => void;
 }
 
 export function HeaderSection({
@@ -23,8 +27,11 @@ export function HeaderSection({
   onDatePress,
   onScheduledToggle,
   onClose,
+  isLeaveUsageType,
+  dateEnd,
+  onDateEndPress,
 }: HeaderSectionProps) {
-  const { t } = useTranslation(['transactions', 'common']);
+  const { t } = useTranslation(['transactions', 'common', 'staff']);
 
   return (
     <>
@@ -40,23 +47,49 @@ export function HeaderSection({
 
       {/* Row 1: Date + Bell + Close */}
       <View style={styles.headerRow}>
-        <TouchableOpacity
-          style={[styles.dateButton, isScheduled && styles.dateButtonScheduled]}
-          onPress={onDatePress}
-        >
-          <Calendar size={18} color={isScheduled ? colors.warning : colors.textMuted} />
-          <Text style={[styles.dateText, isScheduled && styles.dateTextScheduled]}>
-            {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
-          </Text>
-        </TouchableOpacity>
+        {isLeaveUsageType ? (
+          /* Leave usage: dual date display (start → end) */
+          <View style={styles.dateRangeRow}>
+            <TouchableOpacity style={[styles.dateButton, { marginRight: 0 }]} onPress={onDatePress}>
+              <Calendar size={16} color={colors.textMuted} />
+              <Text style={styles.dateText} numberOfLines={1}>
+                {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
+              </Text>
+            </TouchableOpacity>
+            <ArrowRight size={14} color={colors.textMuted} />
+            <TouchableOpacity style={[styles.dateButton, { marginRight: 0 }]} onPress={onDateEndPress}>
+              <Calendar size={16} color={colors.textMuted} />
+              <Text style={styles.dateText} numberOfLines={1}>
+                {dateEnd
+                  ? isToday(dateEnd)
+                    ? t('common:date.today')
+                    : formatDateMedium(dateEnd)
+                  : t('staff:leave.endDate')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          /* Normal: single date */
+          <TouchableOpacity
+            style={[styles.dateButton, isScheduled && styles.dateButtonScheduled]}
+            onPress={onDatePress}
+          >
+            <Calendar size={18} color={isScheduled ? colors.warning : colors.textMuted} />
+            <Text style={[styles.dateText, isScheduled && styles.dateTextScheduled]}>
+              {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.headerCenter}>
-          <TouchableOpacity
-            style={[styles.bellButton, isScheduled && styles.iconButtonActive]}
-            onPress={onScheduledToggle}
-          >
-            <Bell size={18} color={isScheduled ? colors.warning : colors.textMuted} />
-          </TouchableOpacity>
+          {!isLeaveUsageType && (
+            <TouchableOpacity
+              style={[styles.bellButton, isScheduled && styles.iconButtonActive]}
+              onPress={onScheduledToggle}
+            >
+              <Bell size={18} color={isScheduled ? colors.warning : colors.textMuted} />
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity

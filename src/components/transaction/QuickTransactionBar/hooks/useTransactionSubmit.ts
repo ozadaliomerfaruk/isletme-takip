@@ -56,6 +56,7 @@ interface UseTransactionSubmitOptions {
   amount: string;
   description: string;
   safeDate: Date;
+  safeDateEnd?: Date | null;
   kategoriId: string | null;
   isScheduled: boolean;
   odemeHedefType: OdemeHedefType;
@@ -167,6 +168,7 @@ export function useTransactionSubmit({
   amount,
   description,
   safeDate,
+  safeDateEnd,
   kategoriId,
   isScheduled,
   odemeHedefType,
@@ -288,9 +290,14 @@ export function useTransactionSubmit({
         data.personel_id = personelId;
       }
 
+      // Leave usage date range
+      if (type === 'personel_izin_kullanimi_tab' && safeDateEnd) {
+        data.date_end = formatDateForDB(safeDateEnd);
+      }
+
       return data;
     },
-    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId]
+    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd]
   );
 
   // Check cross-currency

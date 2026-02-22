@@ -362,8 +362,8 @@ export default function CariHareketleriPage() {
     const filtered = islemler.filter(i => !pendingDeleteIds.has(i.id));
     return preprocessTransactionsByDate(
       filtered,
-      t('common:dates.today', { defaultValue: 'Bugün' }),
-      t('common:dates.yesterday', { defaultValue: 'Dün' }),
+      t('common:date.today'),
+      t('common:date.yesterday'),
       formatDateSmart,
     );
   }, [islemler, pendingDeleteIds, t, formatDateSmart]);
@@ -746,7 +746,7 @@ export default function CariHareketleriPage() {
           message={undoSnackbar.message}
           onUndo={undoDelete}
           onDismiss={dismissDelete}
-          undoLabel={t('common:buttons.undo', { defaultValue: 'Geri Al' })}
+          undoLabel={t('common:buttons.undo')}
         />
       </SafeAreaView>
     </>

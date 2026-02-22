@@ -57,10 +57,10 @@ export function BekleyenCeklerSection({
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
     const day = date.getDate();
-    const monthsResult = t('common:date.months', { returnObjects: true });
+    const monthsResult = t('common:date.monthsShort', { returnObjects: true });
     const months = Array.isArray(monthsResult)
       ? monthsResult
-      : ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+      : ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return `${day} ${months[date.getMonth()]}`;
   };
 

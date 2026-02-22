@@ -1,6 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Animated, LayoutAnimation, Platform, UIManager } from 'react-native';
-import { CalendarDays, Plus } from 'lucide-react-native';
+import { CalendarDays, Plus, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
@@ -15,9 +15,10 @@ interface LeaveQuotaCardProps {
   hakEdilenGun: number;
   kullanilanGun: number;
   onAddLeave: () => void;
+  onCardPress?: () => void;
 }
 
-export function LeaveQuotaCard({ hakEdilenGun, kullanilanGun, onAddLeave }: LeaveQuotaCardProps) {
+export function LeaveQuotaCard({ hakEdilenGun, kullanilanGun, onAddLeave, onCardPress }: LeaveQuotaCardProps) {
   const { t } = useTranslation('staff');
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -57,12 +58,16 @@ export function LeaveQuotaCard({ hakEdilenGun, kullanilanGun, onAddLeave }: Leav
     );
   }
 
+  const CardWrapper = onCardPress ? TouchableOpacity : View;
+  const cardWrapperProps = onCardPress ? { onPress: onCardPress, activeOpacity: 0.7 } : {};
+
   return (
-    <View style={styles.card}>
+    <CardWrapper style={styles.card} {...cardWrapperProps}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <CalendarDays size={16} color={colors.primary} />
           <Text style={styles.title}>{t('leave.leaveStatus')}</Text>
+          {onCardPress && <ChevronRight size={14} color={colors.textMuted} />}
         </View>
         <TouchableOpacity style={styles.addButton} onPress={handleAddLeave} activeOpacity={0.7}>
           <Plus size={14} color={colors.primary} />
@@ -110,7 +115,7 @@ export function LeaveQuotaCard({ hakEdilenGun, kullanilanGun, onAddLeave }: Leav
           ]}
         />
       </View>
-    </View>
+    </CardWrapper>
   );
 }
 

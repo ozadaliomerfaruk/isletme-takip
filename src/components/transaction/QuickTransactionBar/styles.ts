@@ -47,6 +47,13 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  dateRangeRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginRight: 12,
+  },
   dateButton: {
     flex: 1,
     flexDirection: 'row',

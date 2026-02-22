@@ -156,7 +156,14 @@
     "remaining": "Remaining",
     "days": "days",
     "addLeave": "Add Leave",
-    "noLeaveData": "No leave records yet"
+    "noLeaveData": "No leave records yet",
+    "startDate": "Start",
+    "endDate": "End",
+    "leaveHistory": "Leave History",
+    "viewAll": "View All",
+    "dayCount": "{{count}} days",
+    "dateRange": "{{start}} - {{end}}",
+    "noLeaveHistory": "No leave records found"
   },
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",

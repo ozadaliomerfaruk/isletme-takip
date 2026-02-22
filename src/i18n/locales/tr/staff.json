@@ -156,7 +156,14 @@
     "remaining": "Kalan",
     "days": "gün",
     "addLeave": "İzin Ekle",
-    "noLeaveData": "Henüz izin kaydı yok"
+    "noLeaveData": "Henüz izin kaydı yok",
+    "startDate": "Başlangıç",
+    "endDate": "Bitiş",
+    "leaveHistory": "İzin Geçmişi",
+    "viewAll": "Tümünü Gör",
+    "dayCount": "{{count}} gün",
+    "dateRange": "{{start}} - {{end}}",
+    "noLeaveHistory": "Henüz izin kaydı bulunmuyor"
   },
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",
