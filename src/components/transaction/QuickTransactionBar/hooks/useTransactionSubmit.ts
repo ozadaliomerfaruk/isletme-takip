@@ -122,6 +122,8 @@ function mapTypeToApiType(type: TransactionType, odemeHedefType: OdemeHedefType)
   if (type === 'personel_gider_tab') return 'personel_gider';
   if (type === 'personel_tahsilat_tab') return 'personel_tahsilat';
   if (type === 'personel_satis_tab') return 'personel_satis';
+  if (type === 'personel_izin_hakki_tab') return 'personel_izin_hakki';
+  if (type === 'personel_izin_kullanimi_tab') return 'personel_izin_kullanimi';
   return type;
 }
 
@@ -134,6 +136,8 @@ function needsHesapForType(type: TransactionType): boolean {
     'satis_iade',
     'personel_gider_tab',
     'personel_satis_tab',
+    'personel_izin_hakki_tab',
+    'personel_izin_kullanimi_tab',
     'odeme',
   ].includes(type);
 }
@@ -147,6 +151,8 @@ function needsHesapInData(type: TransactionType): boolean {
     'satis_iade',
     'personel_gider_tab',
     'personel_satis_tab',
+    'personel_izin_hakki_tab',
+    'personel_izin_kullanimi_tab',
   ].includes(type);
 }
 
@@ -278,7 +284,7 @@ export function useTransactionSubmit({
       if (['alis', 'satis', 'alis_iade', 'satis_iade'].includes(type)) {
         data.cari_id = cariId;
       }
-      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab'].includes(type)) {
+      if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab', 'personel_izin_hakki_tab', 'personel_izin_kullanimi_tab'].includes(type)) {
         data.personel_id = personelId;
       }
 
@@ -542,7 +548,7 @@ export function useTransactionSubmit({
       return;
     }
 
-    if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab'].includes(type) && !personelId) {
+    if (['personel_odeme_tab', 'personel_gider_tab', 'personel_tahsilat_tab', 'personel_satis_tab', 'personel_izin_hakki_tab', 'personel_izin_kullanimi_tab'].includes(type) && !personelId) {
       Alert.alert(t('common:status.error'), t('staff:transactionForm.selectPersonel'));
       return;
     }
