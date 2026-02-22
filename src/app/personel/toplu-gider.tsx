@@ -150,7 +150,7 @@ export default function TopluGiderPage() {
               personel_id: personelId,
               kategori_id: kategoriId,
               date: formatDateTimeForDB(date),
-              description: description.trim() || t('staff:bulkSalary.description'),
+              description: description.trim() || (kategoriId ? null : t('staff:bulkSalary.description')),
             })
           );
         }

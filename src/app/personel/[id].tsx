@@ -4,25 +4,22 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
-  MinusCircle,
-  Banknote,
-  UserCircle,
   Phone,
   Briefcase,
   Zap,
   CircleDollarSign,
   Pencil,
   Trash2,
-  ArrowDownCircle,
+  UserCircle,
   MoreVertical,
   X,
   Share2,
 } from 'lucide-react-native';
 import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
-import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
-import { DateSectionHeader } from '@/components/ui/TransactionRow';
+import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
@@ -44,52 +41,6 @@ import { IslemWithRelations } from '@/types/database';
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
 // ============================================================================
 
-function getHareketIcon(type: string) {
-  switch (type) {
-    case 'personel_gider':
-      return <MinusCircle size={22} color={colors.error} />;
-    case 'personel_odeme':
-      return <Banknote size={22} color={colors.success} />;
-    case 'personel_tahsilat':
-      return <ArrowDownCircle size={22} color={colors.info} />;
-    default:
-      return <UserCircle size={22} color={colors.textMuted} />;
-  }
-}
-
-function getIconBgColor(type: string) {
-  switch (type) {
-    case 'personel_odeme':
-      return colors.successLight;
-    case 'personel_tahsilat':
-      return colors.infoLight;
-    default:
-      return colors.errorLight;
-  }
-}
-
-function getAmountColor(type: string): 'success' | 'info' | 'error' {
-  switch (type) {
-    case 'personel_odeme':
-      return 'success';
-    case 'personel_tahsilat':
-      return 'info';
-    default:
-      return 'error';
-  }
-}
-
-function getAmountPrefix(type: string): string {
-  switch (type) {
-    case 'personel_odeme':
-      return '+';
-    case 'personel_tahsilat':
-      return '↓ ';
-    default:
-      return '-';
-  }
-}
-
 function getHareketLabelKey(type: string): string {
   switch (type) {
     case 'personel_gider':
@@ -110,60 +61,39 @@ function getHareketLabelKey(type: string): string {
 interface PersonelTransactionItemProps {
   islem: IslemWithRelations;
   onPress: (id: string) => void;
-  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
   currency?: string;
-  editLabel: string;
   deleteLabel: string;
 }
 
 const PersonelTransactionItem = memo(function PersonelTransactionItem({
   islem,
   onPress,
-  onEdit,
   onDelete,
   formatDateSmart,
   t,
   currency,
-  editLabel,
   deleteLabel,
 }: PersonelTransactionItemProps) {
-  const handlePress = useCallback(() => onPress(islem.id), [onPress, islem.id]);
-  const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
 
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = t(labelKey);
-  const secondaryText = islem.description || islem.kategori?.name || null;
-  const amountColor = getAmountColor(islem.type);
-  const amountColorValue = amountColor === 'error' ? '#DC2626'
-    : amountColor === 'info' ? colors.info
-    : '#059669';
 
   return (
-    <SwipeableRow onEdit={handleEdit} onDelete={handleDelete} editLabel={editLabel} deleteLabel={deleteLabel}>
-      <TouchableOpacity style={styles.rowContainer} onPress={handlePress} activeOpacity={0.7}>
-        <View style={[styles.hareketIcon, { backgroundColor: getIconBgColor(islem.type) }]}>
-          {getHareketIcon(islem.type)}
-        </View>
-        <View style={styles.hareketInfo}>
-          <View style={styles.line1}>
-            <Text style={styles.typeText} numberOfLines={1}>{typeLabel}</Text>
-            <Text style={styles.dateText}>{formatDateSmart(islem.date)}</Text>
-          </View>
-          {secondaryText && (
-            <View style={styles.line2}>
-              <Text style={styles.secondaryText} numberOfLines={1}>{secondaryText}</Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.amountText, { color: amountColorValue }]}>
-          {getAmountPrefix(islem.type)}
-          {formatCurrency(Number(islem.amount), currency)}
-        </Text>
-      </TouchableOpacity>
+    <SwipeableRow onDelete={handleDelete} deleteLabel={deleteLabel}>
+      <TransactionRow
+        id={islem.id}
+        type={islem.type}
+        amount={Number(islem.amount)}
+        date={formatDateSmart(islem.date)}
+        typeLabel={typeLabel}
+        secondaryText={islem.kategori?.name || islem.description || null}
+        currency={currency}
+        onPress={onPress}
+      />
     </SwipeableRow>
   );
 }, (prev, next) => {
@@ -369,7 +299,6 @@ export default function PersonelHareketleriPage() {
     );
   }, [islemler, pendingDeleteIds, t, formatDateSmart]);
 
-  const editLabel = t('common:buttons.edit', { defaultValue: 'Düzenle' });
   const deleteLabel = t('common:buttons.delete', { defaultValue: 'Sil' });
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
@@ -381,16 +310,14 @@ export default function PersonelHareketleriPage() {
       <PersonelTransactionItem
         islem={islem}
         onPress={handlePressIslem}
-        onEdit={handleEditIslem}
         onDelete={handleDeleteIslem}
         formatDateSmart={formatDateSmart}
         t={t}
         currency={personel?.currency}
-        editLabel={editLabel}
         deleteLabel={deleteLabel}
       />
     );
-  }, [handlePressIslem, handleEditIslem, handleDeleteIslem, formatDateSmart, t, personel?.currency, editLabel, deleteLabel]);
+  }, [handlePressIslem, handleDeleteIslem, formatDateSmart, t, personel?.currency, deleteLabel]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -584,20 +511,22 @@ export default function PersonelHareketleriPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <FlatList
-          data={groupedData}
-          keyExtractor={keyExtractor}
-          renderItem={renderTransactionItem}
-          ListHeaderComponent={ListHeader}
-          ListFooterComponent={(islemler && islemler.length > 0) ? ListFooter : undefined}
-          ListEmptyComponent={ListEmpty}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          removeClippedSubviews={true}
-          contentContainerStyle={styles.flatListContent}
-        />
+        <SwipeableProvider>
+          <FlatList
+            data={groupedData}
+            keyExtractor={keyExtractor}
+            renderItem={renderTransactionItem}
+            ListHeaderComponent={ListHeader}
+            ListFooterComponent={(islemler && islemler.length > 0) ? ListFooter : undefined}
+            ListEmptyComponent={ListEmpty}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews={true}
+            contentContainerStyle={styles.flatListContent}
+          />
+        </SwipeableProvider>
 
         {/* 3 Nokta Menüsü */}
         <Modal visible={showMenu} transparent animationType="fade">
@@ -833,49 +762,8 @@ const styles = StyleSheet.create({
   hareketInfo: {
     flex: 1,
   },
-  line1: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  line2: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    flex: 1,
-  },
-  dateText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#6B7280',
-  },
-  secondaryText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#4B5563',
-    flex: 1,
-  },
-  amountText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
   hareketCard: {
     marginBottom: spacing.sm,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    gap: spacing.md,
   },
   // Header right buttons
   headerRightContainer: {

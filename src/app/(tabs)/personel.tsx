@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, TouchableWithoutFeedback, Animated, Alert, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Animated, Alert, RefreshControl, Pressable } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -50,49 +50,16 @@ export default function PersonelPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // FAB animation
-  const fabRotation = useRef(new Animated.Value(0)).current;
-  const menuOpacity = useRef(new Animated.Value(0)).current;
-  const menuTranslateY = useRef(new Animated.Value(20)).current;
+  const fabAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (fabMenuVisible) {
-      Animated.parallel([
-        Animated.timing(fabRotation, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(menuOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(menuTranslateY, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    } else {
-      Animated.parallel([
-        Animated.timing(fabRotation, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(menuOpacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(menuTranslateY, {
-          toValue: 20,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [fabMenuVisible]);
+    Animated.spring(fabAnim, {
+      toValue: fabMenuVisible ? 1 : 0,
+      damping: 15,
+      stiffness: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [fabMenuVisible, fabAnim]);
 
   // Gerçek veriler - pasif personeli de dahil et
   const { data: personelList, isLoading, refetch } = usePersonelList(true);
@@ -533,83 +500,94 @@ export default function PersonelPage() {
       />
 
       {/* FAB Backdrop */}
-      {!isSelectMode && fabMenuVisible && (
-        <TouchableWithoutFeedback onPress={() => {
-          haptics.light();
-          setFabMenuVisible(false);
-        }}>
-          <View style={styles.fabBackdrop} />
-        </TouchableWithoutFeedback>
-      )}
-
-      {/* FAB Menu */}
-      {!isSelectMode && <View style={[styles.fabContainer, { bottom: spacing.lg + insets.bottom }]}>
-        {fabMenuVisible && (
+      {fabMenuVisible && (
+        <Pressable style={StyleSheet.absoluteFill} onPress={() => setFabMenuVisible(false)}>
           <Animated.View
             style={[
-              styles.fabMenu,
-              {
-                opacity: menuOpacity,
-                transform: [{ translateY: menuTranslateY }],
-              },
+              StyleSheet.absoluteFill,
+              { backgroundColor: 'rgba(0,0,0,0.3)', opacity: fabAnim },
             ]}
-          >
-            <TouchableOpacity
-              style={styles.fabMenuItem}
-              onPress={() => {
-                haptics.light();
-                setFabMenuVisible(false);
-                router.push('/personel/toplu-gider');
-              }}
-            >
-              <View style={[styles.fabMenuIcon, { backgroundColor: colors.errorLight }]}>
-                <MinusCircle size={20} color={colors.error} />
-              </View>
-              <Text variant="body">{t('staff:bulkActions.addExpense')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.fabMenuItem}
-              onPress={() => {
+          />
+        </Pressable>
+      )}
+
+      {/* FAB Menu Items */}
+      {!isSelectMode && fabMenuVisible && (
+        <View style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}>
+          {[
+            {
+              label: t('staff:bulkActions.addPayment'),
+              icon: <Banknote size={18} color={colors.success} />,
+              onPress: () => {
                 haptics.light();
                 setFabMenuVisible(false);
                 router.push('/personel/toplu-odeme');
+              },
+              index: 1,
+            },
+            {
+              label: t('staff:bulkActions.addExpense'),
+              icon: <MinusCircle size={18} color={colors.error} />,
+              onPress: () => {
+                haptics.light();
+                setFabMenuVisible(false);
+                router.push('/personel/toplu-gider');
+              },
+              index: 0,
+            },
+          ].map((item) => (
+            <Animated.View
+              key={item.label}
+              style={{
+                opacity: fabAnim,
+                transform: [{
+                  translateY: fabAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20 + item.index * 10, 0],
+                  }),
+                }, {
+                  scale: fabAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                }],
               }}
             >
-              <View style={[styles.fabMenuIcon, { backgroundColor: colors.successLight }]}>
-                <Banknote size={20} color={colors.success} />
-              </View>
-              <Text variant="body">{t('staff:bulkActions.addPayment')}</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        )}
+              <TouchableOpacity
+                style={styles.fabMenuItem}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={styles.fabMenuIcon}>{item.icon}</View>
+                <Text style={styles.fabMenuLabel}>{item.label}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+        </View>
+      )}
+
+      {/* FAB Button */}
+      {!isSelectMode && (
         <TouchableOpacity
-          style={styles.fab}
+          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
           onPress={() => {
             haptics.light();
             setFabMenuVisible(!fabMenuVisible);
           }}
           activeOpacity={0.8}
         >
-          <Animated.View
-            style={{
-              transform: [
-                {
-                  rotate: fabRotation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ['0deg', '45deg'],
-                  }),
-                },
-              ],
-            }}
-          >
-            {fabMenuVisible ? (
-              <X size={24} color={colors.surface} />
-            ) : (
-              <Plus size={24} color={colors.surface} />
-            )}
+          <Animated.View style={{
+            transform: [{
+              rotate: fabAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '45deg'],
+              }),
+            }],
+          }}>
+            <Plus size={24} color={colors.surface} />
           </Animated.View>
         </TouchableOpacity>
-      </View>}
+      )}
 
       {/* Quick Transaction Bar */}
       <QuickTransactionBar
@@ -783,12 +761,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   // FAB Styles
-  fabContainer: {
+  fab: {
     position: 'absolute',
     right: spacing.lg,
-    alignItems: 'flex-end',
-  },
-  fab: {
     width: 56,
     height: 56,
     borderRadius: 28,
@@ -800,36 +775,41 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 10,
   },
-  fabMenu: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.sm,
-    marginBottom: spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-    minWidth: 200,
+  fabMenuContainer: {
+    position: 'absolute',
+    right: spacing.lg,
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    zIndex: 9,
   },
   fabMenuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    gap: spacing.sm,
   },
   fabMenuIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fabBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
+  fabMenuLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
   // Multi-select styles
   selectedItem: {

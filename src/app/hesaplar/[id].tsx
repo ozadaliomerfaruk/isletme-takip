@@ -3,8 +3,6 @@ import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput, 
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
-  ArrowLeft,
-  ArrowRight,
   Wallet,
   CreditCard,
   Banknote,
@@ -15,12 +13,11 @@ import {
   FileCheck,
   X,
   Share2,
-  Image as ImageIcon,
   Zap,
 } from 'lucide-react-native';
 import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
-import { DateSectionHeader } from '@/components/ui/TransactionRow';
-import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
+import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal } from '@/components/transaction';
@@ -54,51 +51,34 @@ interface HesapTransactionItemProps {
   hesapCurrency: Currency;
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
-  onEdit: (id: string) => void;
   onViewPhoto: (path: string, islemId: string) => void;
   t: (key: string) => string;
-  editLabel: string;
   deleteLabel: string;
 }
 
 // Helper fonksiyonlar - component dışında tanımlı (her render'da yeniden oluşturulmaz)
-function getHareketIcon(type: string, isIncoming: boolean) {
+
+const COLOR_IN = '#059669';
+const COLOR_OUT = '#DC2626';
+
+function getHesapPerspectiveColor(type: string, hesapId: string, hedefHesapId: string | null): string {
   if (type === 'transfer') {
-    return isIncoming
-      ? <ArrowLeft size={22} color={colors.success} />
-      : <ArrowRight size={22} color={colors.error} />;
+    return hedefHesapId === hesapId ? COLOR_IN : COLOR_OUT;
   }
-  if (type === 'gelir' || type === 'cari_tahsilat') {
-    return <ArrowLeft size={22} color={colors.success} />;
+  if (type === 'gelir' || type === 'cari_tahsilat' || type === 'personel_tahsilat' || type === 'personel_satis') {
+    return COLOR_IN;
   }
-  return <ArrowRight size={22} color={colors.error} />;
+  return COLOR_OUT;
 }
 
-function isIncomingTransaction(type: string, hedefHesapId: string | null, hesapId: string): boolean {
-  if (type === 'transfer') {
-    return hedefHesapId === hesapId;
-  }
-  return type === 'gelir' || type === 'cari_tahsilat';
-}
-
-function getAmountSign(type: string, hesapId: string, hedefHesapId: string | null): string {
+function getHesapPerspectivePrefix(type: string, hesapId: string, hedefHesapId: string | null): string {
   if (type === 'transfer') {
     return hedefHesapId === hesapId ? '+' : '-';
   }
-  if (type === 'gelir' || type === 'cari_tahsilat') {
+  if (type === 'gelir' || type === 'cari_tahsilat' || type === 'personel_tahsilat' || type === 'personel_satis') {
     return '+';
   }
   return '-';
-}
-
-function getAmountColor(type: string, hesapId: string, hedefHesapId: string | null): 'success' | 'error' | 'primary' {
-  if (type === 'transfer') {
-    return hedefHesapId === hesapId ? 'success' : 'error';
-  }
-  if (type === 'gelir' || type === 'cari_tahsilat') {
-    return 'success';
-  }
-  return 'error';
 }
 
 function getTransactionTarget(islem: IslemWithRelations, hesapId: string): string | null {
@@ -151,15 +131,28 @@ function getDisplayAmount(islem: IslemWithRelations, hesapId: string): number {
   return sourceAmount;
 }
 
-function getCrossCurrencyInfo(islem: IslemWithRelations): string | null {
-  if (!islem.source_currency || !islem.target_currency || islem.source_currency === islem.target_currency) {
+/**
+ * Cross-currency işlemlerde hesap perspektifinden karşı taraftaki tutarı döner.
+ * Kaynak hesaptan bakıyorsan: hedef tutarı döner
+ * Hedef hesaptan bakıyorsan: kaynak tutarı döner
+ */
+function getCrossCurrencySubText(islem: IslemWithRelations, hesapId: string): string | null {
+  if (!islem.source_currency || !islem.target_currency ||
+      islem.source_currency === islem.target_currency ||
+      !islem.exchange_rate) {
     return null;
   }
   const sourceAmount = Number(islem.amount);
   const targetAmount = calculateTargetAmountForDisplay(islem);
-  const formattedSource = formatCurrency(sourceAmount, islem.source_currency as Currency);
-  const formattedTarget = formatCurrency(targetAmount, islem.target_currency as Currency);
-  return `(${formattedSource} → ${formattedTarget})`;
+  const isTargetAccount = islem.hedef_hesap_id === hesapId;
+
+  if (isTargetAccount) {
+    // Hedef hesaptayız, kaynak tutarı göster
+    return formatCurrency(sourceAmount, islem.source_currency as Currency);
+  } else {
+    // Kaynak hesaptayız, hedef tutarı göster
+    return formatCurrency(targetAmount, islem.target_currency as Currency);
+  }
 }
 
 function getHareketLabelKey(type: string): string {
@@ -182,73 +175,36 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   hesapCurrency,
   onPress,
   onDelete,
-  onEdit,
   onViewPhoto,
   t,
-  editLabel,
   deleteLabel,
 }: HesapTransactionItemProps) {
-  const handlePress = useCallback(() => onPress(islem.id), [onPress, islem.id]);
-  const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
 
-  const sign = getAmountSign(islem.type, hesapId, islem.hedef_hesap_id);
-  const colorType = getAmountColor(islem.type, hesapId, islem.hedef_hesap_id);
-  const isIncoming = isIncomingTransaction(islem.type, islem.hedef_hesap_id, hesapId);
   const target = getTransactionTarget(islem, hesapId);
-  const crossCurrencyInfo = getCrossCurrencyInfo(islem);
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = labelKey ? t(labelKey) : islem.type;
-  const secondaryText = islem.description || islem.kategori?.name || crossCurrencyInfo || null;
-  const amountColorValue = colorType === 'success' ? '#059669'
-    : colorType === 'error' ? '#DC2626'
-    : colors.info;
 
   return (
     <SwipeableRow
-      onEdit={handleEdit}
       onDelete={handleDelete}
-      editLabel={editLabel}
       deleteLabel={deleteLabel}
     >
-      <TouchableOpacity style={styles.rowContainer} onPress={handlePress} activeOpacity={0.7}>
-        <View style={[
-          styles.hareketIcon,
-          {
-            backgroundColor: colorType === 'success'
-              ? colors.successLight
-              : colorType === 'error'
-                ? colors.errorLight
-                : colors.infoLight
-          }
-        ]}>
-          {getHareketIcon(islem.type, isIncoming)}
-        </View>
-        <View style={styles.hareketInfo}>
-          <View style={styles.line1}>
-            <Text style={styles.typeText} numberOfLines={1}>{typeLabel}</Text>
-            <Text style={styles.dateText}>{formatDateSmart(islem.date)}</Text>
-          </View>
-          {(secondaryText || target) && (
-            <View style={styles.line2}>
-              {secondaryText ? (
-                <Text style={styles.secondaryText} numberOfLines={1}>{secondaryText}</Text>
-              ) : <View style={{ flex: 1 }} />}
-              {target && (
-                <Text style={styles.entityText} numberOfLines={1}>{target}</Text>
-              )}
-            </View>
-          )}
-        </View>
-        <View style={styles.amountContainer}>
-          {islem.photo_path && (
-            <ImageIcon size={14} color={colors.primary} style={styles.photoIndicator} />
-          )}
-          <Text style={[styles.amountText, { color: amountColorValue }]}>
-            {sign}{formatCurrency(getDisplayAmount(islem, hesapId), hesapCurrency)}
-          </Text>
-        </View>
-      </TouchableOpacity>
+      <TransactionRow
+        id={islem.id}
+        type={islem.type}
+        amount={getDisplayAmount(islem, hesapId)}
+        date={formatDateSmart(islem.date)}
+        typeLabel={typeLabel}
+        entityText={target ? `→ ${target}` : null}
+        secondaryText={islem.description || islem.kategori?.name || null}
+        hasPhoto={!!islem.photo_path}
+        currency={hesapCurrency}
+        subAmount={getCrossCurrencySubText(islem, hesapId)}
+        overrideColor={getHesapPerspectiveColor(islem.type, hesapId, islem.hedef_hesap_id)}
+        overridePrefix={getHesapPerspectivePrefix(islem.type, hesapId, islem.hedef_hesap_id)}
+        onPress={onPress}
+      />
     </SwipeableRow>
   );
 }, (prev, next) => {
@@ -613,7 +569,6 @@ export default function HesapHareketleriPage() {
   }, [islemler, pendingDeleteIds, t, formatDateMedium]);
 
   // Localized labels for swipe actions (stable refs)
-  const editLabel = t('common:buttons.edit');
   const deleteLabel = t('common:buttons.delete');
 
   // === FlatList renderItem ===
@@ -629,14 +584,12 @@ export default function HesapHareketleriPage() {
         hesapCurrency={(hesap?.currency ?? 'TRY') as Currency}
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
-        onEdit={handleEditIslem}
         onViewPhoto={handleViewPhoto}
         t={t}
-        editLabel={editLabel}
         deleteLabel={deleteLabel}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleEditIslem, handleViewPhoto, t, editLabel, deleteLabel]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleViewPhoto, t, deleteLabel]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -827,20 +780,22 @@ export default function HesapHareketleriPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <FlatList
-          data={groupedData}
-          keyExtractor={keyExtractor}
-          renderItem={renderTransactionItem}
-          ListHeaderComponent={ListHeader}
-          ListFooterComponent={ListFooter}
-          ListEmptyComponent={ListEmpty}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          removeClippedSubviews={true}
-          contentContainerStyle={styles.flatListContent}
-        />
+        <SwipeableProvider>
+          <FlatList
+            data={groupedData}
+            keyExtractor={keyExtractor}
+            renderItem={renderTransactionItem}
+            ListHeaderComponent={ListHeader}
+            ListFooterComponent={ListFooter}
+            ListEmptyComponent={ListEmpty}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews={true}
+            contentContainerStyle={styles.flatListContent}
+          />
+        </SwipeableProvider>
       </SafeAreaView>
 
       {/* 3 Nokta Menüsü */}
@@ -1110,67 +1065,8 @@ const styles = StyleSheet.create({
   hareketInfo: {
     flex: 1,
   },
-  line1: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  line2: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    flex: 1,
-  },
-  dateText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#6B7280',
-  },
-  secondaryText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#4B5563',
-    flex: 1,
-  },
-  entityText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#6B7280',
-  },
-  amountText: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  photoIndicator: {
-    marginRight: 2,
-  },
   hareketCard: {
     marginBottom: spacing.sm,
-  },
-  rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    gap: spacing.md,
-  },
-  crossCurrencyText: {
-    color: colors.info,
-    fontStyle: 'italic',
   },
   // Header right buttons
   headerRightContainer: {

@@ -1,0 +1,110 @@
+/**
+ * İşlem Renk ve Görünüm Yönetimi
+ *
+ * Tüm işlem tiplerine göre renk, prefix ve accent bar kararları burada.
+ * icons.tsx sadece ikon config'lerini tutar; renk/prefix mantığı burada.
+ *
+ * Kurallar:
+ * - Gelen para (yeşil): gelir, satış, tahsilat
+ * - Çıkan para (kırmızı): gider, alış, ödeme
+ * - Nötr (muted): transfer, iade
+ */
+
+import type { IslemType } from '@/types/database';
+
+// ============================================================================
+// RENK
+// ============================================================================
+
+const COLOR_IN = '#059669';    // Gelen para — yeşil
+const COLOR_OUT = '#DC2626';   // Çıkan para — kırmızı
+const COLOR_NEUTRAL = '#6B7280'; // Nötr — muted
+
+/**
+ * İşlem tipine göre birincil renk döndür.
+ * Label, tutar ve accent bar için aynı renk kullanılır.
+ */
+export function getTransactionColor(type: IslemType): string {
+  switch (type) {
+    // Gelen para
+    case 'gelir':
+    case 'cari_satis':
+    case 'cari_tahsilat':
+    case 'personel_satis':
+    case 'personel_tahsilat':
+      return COLOR_IN;
+
+    // Çıkan para
+    case 'gider':
+    case 'cari_alis':
+    case 'cari_odeme':
+    case 'personel_gider':
+    case 'personel_odeme':
+    case 'nakit_avans_taksit':
+      return COLOR_OUT;
+
+    // Nötr (transfer, iade)
+    case 'cari_alis_iade':
+    case 'cari_satis_iade':
+    case 'transfer':
+    default:
+      return COLOR_NEUTRAL;
+  }
+}
+
+// ============================================================================
+// PREFIX
+// ============================================================================
+
+/**
+ * İşlem tipine göre tutar öneki döndür.
+ * Amount her zaman Math.abs() ile formatlanır, işaret buradan gelir.
+ */
+export function getTransactionPrefix(type: IslemType): string {
+  switch (type) {
+    // Para girişi
+    case 'gelir':
+    case 'cari_satis':
+    case 'cari_tahsilat':
+    case 'personel_satis':
+    case 'personel_tahsilat':
+      return '+';
+
+    // Para çıkışı
+    case 'gider':
+    case 'cari_alis':
+    case 'cari_odeme':
+    case 'personel_gider':
+    case 'personel_odeme':
+    case 'nakit_avans_taksit':
+      return '-';
+
+    // İade
+    case 'cari_alis_iade':
+    case 'cari_satis_iade':
+      return '↩ ';
+
+    // Transfer ve diğer
+    default:
+      return '';
+  }
+}
+
+// ============================================================================
+// ACCENT BAR
+// ============================================================================
+
+/**
+ * Bu işlem tipi için sol accent bar gösterilmeli mi?
+ * Transfer ve iade tiplerinde bar gösterilmez.
+ */
+export function showAccentBar(type: IslemType): boolean {
+  switch (type) {
+    case 'transfer':
+    case 'cari_alis_iade':
+    case 'cari_satis_iade':
+      return false;
+    default:
+      return true;
+  }
+}

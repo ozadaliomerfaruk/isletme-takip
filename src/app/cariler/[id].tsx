@@ -4,9 +4,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
-  ShoppingCart,
-  Banknote,
-  Receipt,
   Building2,
   User,
   Phone,
@@ -14,24 +11,22 @@ import {
   Pencil,
   Trash2,
   Zap,
-  RotateCcw,
   MoreVertical,
   FileCheck,
   X,
   Share2,
-  Package,
   Link,
 } from 'lucide-react-native';
 import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
-import { DateSectionHeader } from '@/components/ui/TransactionRow';
-import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
+import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
-import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
@@ -57,33 +52,12 @@ interface CariTransactionItemProps {
   islem: IslemWithRelations;
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
-  onEdit: (id: string) => void;
   hasUrunFn: (id: string) => boolean;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
-  editLabel: string;
   deleteLabel: string;
   currency?: string;
   canEdit?: boolean;
-}
-
-function getCariHareketIcon(type: string) {
-  switch (type) {
-    case 'cari_alis':
-      return <ShoppingCart size={22} color={colors.error} />;
-    case 'cari_odeme':
-      return <Banknote size={22} color={colors.success} />;
-    case 'cari_satis':
-      return <Receipt size={22} color={colors.success} />;
-    case 'cari_tahsilat':
-      return <Banknote size={22} color={colors.info} />;
-    case 'cari_alis_iade':
-      return <RotateCcw size={22} color={colors.warning} />;
-    case 'cari_satis_iade':
-      return <RotateCcw size={22} color={colors.warning} />;
-    default:
-      return <Receipt size={22} color={colors.textMuted} />;
-  }
 }
 
 function getCariHareketLabelKey(type: string): string {
@@ -98,88 +72,70 @@ function getCariHareketLabelKey(type: string): string {
   }
 }
 
-function getCariIconBgColor(type: string): string {
-  if (type === 'cari_alis' || type === 'cari_satis') return colors.errorLight;
-  if (type === 'cari_alis_iade' || type === 'cari_satis_iade') return colors.warningLight;
-  return colors.successLight;
+/**
+ * Cross-currency işlemlerde cari tarafındaki tutarı hesaplar.
+ * Ödeme/tahsilat işlemlerinde exchange_rate varsa dönüştürülmüş tutarı döner.
+ * Alış/satış işlemlerinde (fatura) dönüşüm yapılmaz, amount direkt kullanılır.
+ */
+function getCariDisplayAmount(islem: IslemWithRelations): number {
+  const amount = toNumber(islem.amount);
+  const sourceCurrency = islem.source_currency;
+  const targetCurrency = islem.target_currency;
+  const exchangeRate = islem.exchange_rate;
+
+  // Cross-currency ödeme/tahsilat: kur ile dönüştür
+  if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency && exchangeRate) {
+    try {
+      return calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+    } catch {
+      return amount;
+    }
+  }
+
+  return amount;
 }
 
-function getCariAmountColor(type: string): 'error' | 'warning' | 'success' {
-  if (type === 'cari_alis' || type === 'cari_satis') return 'error';
-  if (type === 'cari_alis_iade' || type === 'cari_satis_iade') return 'warning';
-  return 'success';
-}
-
-function getCariAmountPrefix(type: string): string {
-  if (type === 'cari_alis' || type === 'cari_satis') return '-';
-  if (type === 'cari_alis_iade' || type === 'cari_satis_iade') return '↩ ';
-  if (type === 'cari_odeme' || type === 'cari_tahsilat') return '+';
-  return '';
+function getCariSubAmount(islem: IslemWithRelations): string | null {
+  if (islem.source_currency && islem.target_currency && islem.source_currency !== islem.target_currency && islem.exchange_rate) {
+    return formatCurrency(toNumber(islem.amount), islem.source_currency);
+  }
+  return null;
 }
 
 const CariTransactionItem = memo(function CariTransactionItem({
   islem,
   onPress,
   onDelete,
-  onEdit,
   hasUrunFn,
   formatDateSmart,
   t,
-  editLabel,
   deleteLabel,
   currency,
   canEdit = true,
 }: CariTransactionItemProps) {
-  const handlePress = useCallback(() => onPress(islem.id), [onPress, islem.id]);
-  const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
 
   const labelKey = getCariHareketLabelKey(islem.type);
   const typeLabel = labelKey ? t(labelKey) : islem.type;
-  const secondaryText = islem.description || islem.kategori?.name || null;
-  const amountColor = getCariAmountColor(islem.type);
-  const amountColorValue = amountColor === 'error' ? '#DC2626'
-    : amountColor === 'warning' ? colors.warning
-    : '#059669';
 
   return (
     <SwipeableRow
-      onEdit={canEdit ? handleEdit : undefined}
       onDelete={canEdit ? handleDelete : undefined}
       enabled={canEdit}
-      editLabel={editLabel}
       deleteLabel={deleteLabel}
     >
-      <TouchableOpacity
-        style={styles.rowContainer}
-        onPress={handlePress}
-        activeOpacity={0.7}
-      >
-        <View style={[
-          styles.hareketIcon,
-          { backgroundColor: getCariIconBgColor(islem.type) }
-        ]}>
-          {getCariHareketIcon(islem.type)}
-        </View>
-        <View style={styles.hareketInfo}>
-          <View style={styles.line1}>
-            <Text style={styles.typeText} numberOfLines={1}>{typeLabel}</Text>
-            {hasUrunFn(islem.id) && (
-              <Package size={12} color={colors.primary} />
-            )}
-            <Text style={styles.dateText}>{formatDateSmart(islem.date)}</Text>
-          </View>
-          {secondaryText && (
-            <View style={styles.line2}>
-              <Text style={styles.secondaryText} numberOfLines={1}>{secondaryText}</Text>
-            </View>
-          )}
-        </View>
-        <Text style={[styles.amountText, { color: amountColorValue }]}>
-          {getCariAmountPrefix(islem.type)}
-          {formatCurrency(Number(islem.amount), currency)}
-        </Text>
-      </TouchableOpacity>
+      <TransactionRow
+        id={islem.id}
+        type={islem.type}
+        amount={getCariDisplayAmount(islem)}
+        date={formatDateSmart(islem.date)}
+        typeLabel={typeLabel}
+        secondaryText={islem.description || islem.kategori?.name || null}
+        hasPhoto={hasUrunFn(islem.id)}
+        currency={currency}
+        subAmount={getCariSubAmount(islem)}
+        onPress={onPress}
+      />
     </SwipeableRow>
   );
 }, (prev, next) => {
@@ -251,12 +207,13 @@ export default function CariHareketleriPage() {
   });
 
   // Başlangıç bakiyesini hesapla - MEMOIZED
+  // Cross-currency işlemlerde cari tarafındaki dönüştürülmüş tutarı kullanır
   const initialBalance = useMemo(() => {
     if (!cari || !islemler) return 0;
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      const amount = toNumber(islem.amount);
+      const amount = getCariDisplayAmount(islem);
       if (islem.type === 'cari_alis') {
         totalEffect -= amount;
       } else if (islem.type === 'cari_odeme') {
@@ -412,7 +369,6 @@ export default function CariHareketleriPage() {
   }, [islemler, pendingDeleteIds, t, formatDateSmart]);
 
   // === FlatList renderItem ===
-  const editLabel = t('common:buttons.edit');
   const deleteLabel = t('common:buttons.delete');
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
@@ -425,17 +381,15 @@ export default function CariHareketleriPage() {
         islem={islem}
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
-        onEdit={handleEditIslem}
         hasUrunFn={hasUrun}
         formatDateSmart={formatDateSmart}
         t={t}
-        editLabel={editLabel}
         deleteLabel={deleteLabel}
         currency={cari?.currency}
         canEdit={canEditTransactions}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleEditIslem, hasUrun, formatDateSmart, t, editLabel, deleteLabel, cari?.currency, canEditTransactions]);
+  }, [handlePressIslem, handleDeleteIslem, hasUrun, formatDateSmart, t, deleteLabel, cari?.currency, canEditTransactions]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -614,19 +568,21 @@ export default function CariHareketleriPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <FlatList
-          data={groupedData}
-          keyExtractor={keyExtractor}
-          renderItem={renderTransactionItem}
-          ListHeaderComponent={ListHeader}
-          ListFooterComponent={ListFooter}
-          showsVerticalScrollIndicator={false}
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          removeClippedSubviews={true}
-          contentContainerStyle={styles.flatListContent}
-        />
+        <SwipeableProvider>
+          <FlatList
+            data={groupedData}
+            keyExtractor={keyExtractor}
+            renderItem={renderTransactionItem}
+            ListHeaderComponent={ListHeader}
+            ListFooterComponent={ListFooter}
+            showsVerticalScrollIndicator={false}
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews={true}
+            contentContainerStyle={styles.flatListContent}
+          />
+        </SwipeableProvider>
 
         {/* 3 Nokta Menüsü */}
         <Modal visible={showMenu} transparent animationType="fade">
@@ -861,15 +817,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: spacing.lg,
   },
-  rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    gap: spacing.md,
-  },
   hareketHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -884,39 +831,6 @@ const styles = StyleSheet.create({
   },
   hareketInfo: {
     flex: 1,
-  },
-
-  line1: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  line2: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    flex: 1,
-  },
-  dateText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#6B7280',
-  },
-  secondaryText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#4B5563',
-    flex: 1,
-  },
-  amountText: {
-    fontSize: 18,
-    fontWeight: '700',
   },
   hareketCard: {
     marginBottom: spacing.sm,

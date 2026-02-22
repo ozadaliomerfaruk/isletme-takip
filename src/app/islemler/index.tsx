@@ -1,150 +1,93 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Receipt,
   Clock,
-  Image as ImageIcon,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, EmptyState } from '@/components/ui';
-import { DateSectionHeader } from '@/components/ui/TransactionRow';
-import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
+import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { colors } from '@/constants/colors';
-import { spacing, fontSize, fontWeight } from '@/constants/spacing';
-import { formatCurrency, toNumber } from '@/lib/currency';
+import { spacing } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { getIslemIconConfig, getIslemAmountColor, getIslemAmountPrefix } from '@/lib/icons';
 import { useIslemler, useDeleteIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
-import { IslemType, IslemWithRelations } from '@/types/database';
+import { IslemWithRelations } from '@/types/database';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
 // ============================================================================
 
-function getIslemSecondLineParts(islem: IslemWithRelations, typeLabel: string): string {
-  const parts = [typeLabel];
-
+function getIslemEntity(islem: IslemWithRelations): string | null {
   if (islem.type === 'transfer') {
     if (islem.hesap?.name && islem.hedef_hesap?.name) {
-      parts.push(`${islem.hesap.name} → ${islem.hedef_hesap.name}`);
+      return `${islem.hesap.name} → ${islem.hedef_hesap.name}`;
     }
-  } else if (islem.cari?.name) {
-    parts.push(islem.cari.name);
-  } else if (islem.personel) {
-    parts.push(`${islem.personel.first_name} ${islem.personel.last_name}`);
-  } else if (islem.hesap?.name) {
-    parts.push(islem.hesap.name);
+    return null;
   }
-
-  return parts.join(' • ');
+  if (islem.cari?.name) return `→ ${islem.cari.name}`;
+  if (islem.personel) {
+    const name = `${islem.personel.first_name} ${islem.personel.last_name}`.trim();
+    return name ? `→ ${name}` : null;
+  }
+  if (islem.hesap?.name) return islem.hesap.name;
+  return null;
 }
 
 // ============================================================================
-// MEMOIZED TRANSACTION ITEM (SwipeableRow + TouchableOpacity)
+// MEMOIZED TRANSACTION ITEM (SwipeableRow wrapper + TransactionRow)
 // ============================================================================
 
 interface IslemlerTransactionItemProps {
   islem: IslemWithRelations;
   onPress: (id: string) => void;
-  onEdit: (id: string) => void;
   onDelete: (id: string, description: string) => void;
   formatDateMedium: (date: string) => string;
   t: (key: string) => string;
-  editLabel: string;
   deleteLabel: string;
 }
 
 const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   islem,
   onPress,
-  onEdit,
   onDelete,
   formatDateMedium,
   t,
-  editLabel,
   deleteLabel,
 }: IslemlerTransactionItemProps) {
-  const handlePress = useCallback(() => onPress(islem.id), [onPress, islem.id]);
-  const handleEdit = useCallback(() => onEdit(islem.id), [onEdit, islem.id]);
   const handleDelete = useCallback(
     () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
     [onDelete, islem.id, islem.description, islem.type, t]
   );
 
-  const typeLabel = t(`transactions:types.${islem.type}`);
-  const iconConfig = getIslemIconConfig(islem.type, 22);
-  const secondaryText = islem.description || islem.kategori?.name || null;
-  let entityName: string | null = null;
-  if (islem.type === 'transfer') {
-    if (islem.hesap?.name && islem.hedef_hesap?.name) {
-      entityName = islem.hesap.name + ' → ' + islem.hedef_hesap.name;
-    }
-  } else if (islem.cari?.name) {
-    entityName = islem.cari.name;
-  } else if (islem.personel) {
-    entityName = (islem.personel.first_name + ' ' + islem.personel.last_name).trim();
-  } else if (islem.hesap?.name) {
-    entityName = islem.hesap.name;
-  }
-  const amountColor = getIslemAmountColor(islem.type);
-  const amountColorValue = amountColor === 'success' ? '#059669'
-    : amountColor === 'error' ? '#DC2626'
-    : amountColor === 'warning' ? colors.warning
-    : amountColor === 'info' ? colors.info
-    : colors.text;
+  const entityName = getIslemEntity(islem);
+  const description = islem.description || islem.kategori?.name || null;
 
   return (
     <SwipeableRow
-      onEdit={handleEdit}
       onDelete={handleDelete}
-      editLabel={editLabel}
       deleteLabel={deleteLabel}
     >
-      <TouchableOpacity
-        style={styles.rowContainer}
-        onPress={handlePress}
-        activeOpacity={0.7}
-      >
-        <View style={[
-          styles.islemIconContainer,
-          { backgroundColor: iconConfig.backgroundColor }
-        ]}>
-          {iconConfig.icon}
-        </View>
-        <View style={styles.islemInfo}>
-          <View style={styles.line1}>
-            <Text style={styles.typeText} numberOfLines={1}>{typeLabel}</Text>
-            <Text style={styles.dateText}>{formatDateMedium(islem.date)}</Text>
-          </View>
-          {(secondaryText || entityName) && (
-            <View style={styles.line2}>
-              {secondaryText ? (
-                <Text style={styles.secondaryText} numberOfLines={1}>{secondaryText}</Text>
-              ) : <View style={{ flex: 1 }} />}
-              {entityName && (
-                <Text style={styles.entityText} numberOfLines={1}>{entityName}</Text>
-              )}
-            </View>
-          )}
-        </View>
-        <View style={styles.amountContainer}>
-          {islem.photo_path && (
-            <ImageIcon size={14} color={colors.primary} style={styles.photoIndicator} />
-          )}
-          <Text style={[styles.amountText, { color: amountColorValue }]}>
-            {getIslemAmountPrefix(islem.type)}{formatCurrency(toNumber(islem.amount))}
-          </Text>
-        </View>
-      </TouchableOpacity>
+      <TransactionRow
+        id={islem.id}
+        type={islem.type}
+        amount={islem.amount}
+        date={formatDateMedium(islem.date)}
+        typeLabel={t(`transactions:types.${islem.type}`)}
+        entityText={entityName}
+        secondaryText={description}
+        hasPhoto={!!islem.photo_path}
+        onPress={onPress}
+      />
     </SwipeableRow>
   );
 }, (prev, next) => {
@@ -381,7 +324,6 @@ export default function IslemlerPage() {
   // ============================================================================
 
   // Localized labels for swipe actions (stable refs)
-  const editLabel = t('common:buttons.edit');
   const deleteLabel = t('common:buttons.delete');
 
   const renderItem = useCallback(({ item }: { item: TransactionListItem }) => {
@@ -392,15 +334,13 @@ export default function IslemlerPage() {
       <IslemlerTransactionItem
         islem={item.data}
         onPress={handlePressIslem}
-        onEdit={handleEditIslem}
         onDelete={handleDeleteIslem}
         formatDateMedium={formatDateMedium}
         t={t}
-        editLabel={editLabel}
         deleteLabel={deleteLabel}
       />
     );
-  }, [handlePressIslem, handleEditIslem, handleDeleteIslem, formatDateMedium, t, editLabel, deleteLabel]);
+  }, [handlePressIslem, handleDeleteIslem, formatDateMedium, t, deleteLabel]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -462,19 +402,21 @@ export default function IslemlerPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <FlatList
-        data={groupedData}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={15}
-        maxToRenderPerBatch={10}
-        windowSize={7}
-        removeClippedSubviews={true}
-        contentContainerStyle={styles.flatListContent}
-      />
+      <SwipeableProvider>
+        <FlatList
+          data={groupedData}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          ListHeaderComponent={ListHeader}
+          ListEmptyComponent={ListEmpty}
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={15}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={true}
+          contentContainerStyle={styles.flatListContent}
+        />
+      </SwipeableProvider>
 
       {/* Edit Transaction Bar */}
       <QuickTransactionBar
@@ -556,72 +498,5 @@ const styles = StyleSheet.create({
   longLoadingText: {
     flex: 1,
     color: colors.warning,
-  },
-  // SwipeableRow inner content
-  rowContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    gap: spacing.md,
-  },
-  islemIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  islemInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  amountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  photoIndicator: {
-    marginRight: 2,
-  },
-  line1: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  line2: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  typeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    flex: 1,
-  },
-  dateText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#6B7280',
-  },
-  secondaryText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#4B5563',
-    flex: 1,
-  },
-  entityText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#6B7280',
-  },
-  amountText: {
-    fontSize: 18,
-    fontWeight: '700',
   },
 });

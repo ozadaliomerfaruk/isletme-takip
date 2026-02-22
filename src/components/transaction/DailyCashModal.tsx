@@ -17,7 +17,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, X, Wallet } from 'lucide-react-native';
+import { Calendar, X, Wallet, Eye, EyeOff, SlidersHorizontal } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +34,9 @@ import { useCreateIslem } from '@/hooks/useIslemler';
 import { getHesapIconConfig } from '@/lib/icons';
 import { Hesap } from '@/types/database';
 import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const HIDDEN_ACCOUNTS_KEY = '@defter_daily_cash_hidden_accounts';
 
 interface DailyCashEntry {
   hesapId: string;
@@ -68,6 +71,10 @@ export function DailyCashModal({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Account visibility settings
+  const [hiddenAccountIds, setHiddenAccountIds] = useState<Set<string>>(new Set());
+  const [showSettings, setShowSettings] = useState(false);
+
   // Entries state - initialized when hesaplar loads
   const [entries, setEntries] = useState<DailyCashEntry[]>([]);
 
@@ -90,11 +97,52 @@ export function DailyCashModal({
     return hesaplar.filter((h) => !['kredi_karti', 'birikim'].includes(h.type));
   }, [hesaplar]);
 
-  // Initialize entries when hesaplar changes
+  // Kullanıcının görmek istediği hesaplar (settings modunda hepsi gösterilir)
+  const visibleHesaplar = useMemo(() => {
+    if (showSettings) return filteredHesaplar;
+    return filteredHesaplar.filter((h) => !hiddenAccountIds.has(h.id));
+  }, [filteredHesaplar, hiddenAccountIds, showSettings]);
+
+  // Load hidden accounts from AsyncStorage
   useEffect(() => {
-    if (filteredHesaplar.length > 0) {
+    AsyncStorage.getItem(HIDDEN_ACCOUNTS_KEY).then((stored) => {
+      if (stored) {
+        try {
+          const ids: string[] = JSON.parse(stored);
+          setHiddenAccountIds(new Set(ids));
+        } catch { /* ignore parse errors */ }
+      }
+    });
+  }, []);
+
+  // Toggle account visibility
+  const toggleAccountVisibility = useCallback(async (hesapId: string) => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setHiddenAccountIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(hesapId)) {
+        next.delete(hesapId);
+      } else {
+        // En az 1 hesap görünür kalmalı
+        const visibleCount = filteredHesaplar.filter((h) => !next.has(h.id)).length;
+        if (visibleCount <= 1) {
+          Alert.alert(t('common:status.error'), t('transactions:dailyCash.minOneAccount'));
+          return prev;
+        }
+        next.add(hesapId);
+      }
+      AsyncStorage.setItem(HIDDEN_ACCOUNTS_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  }, [filteredHesaplar, t]);
+
+  // Initialize entries when visible hesaplar changes
+  useEffect(() => {
+    if (visibleHesaplar.length > 0 && !showSettings) {
       setEntries(
-        filteredHesaplar.map((h) => ({
+        visibleHesaplar.map((h) => ({
           hesapId: h.id,
           amount: '',
           kategoriId: null,
@@ -102,7 +150,7 @@ export function DailyCashModal({
         }))
       );
     }
-  }, [filteredHesaplar]);
+  }, [visibleHesaplar, showSettings]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -112,9 +160,10 @@ export function DailyCashModal({
         d.setHours(23, 59, 0, 0);
         setDate(d);
         setIsSaving(false);
-        if (filteredHesaplar.length > 0) {
+        setShowSettings(false);
+        if (visibleHesaplar.length > 0) {
           setEntries(
-            filteredHesaplar.map((h) => ({
+            visibleHesaplar.map((h) => ({
               hesapId: h.id,
               amount: '',
               kategoriId: null,
@@ -125,7 +174,7 @@ export function DailyCashModal({
       }, 300);
       return () => clearTimeout(timer);
     }
-  }, [visible, filteredHesaplar]);
+  }, [visible, visibleHesaplar]);
 
   // Keyboard listeners
   useEffect(() => {
@@ -338,6 +387,14 @@ export function DailyCashModal({
     return filteredHesaplar.find((h) => h.id === hesapId);
   }, [filteredHesaplar]);
 
+  // Toggle settings mode
+  const handleToggleSettings = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setShowSettings((prev) => !prev);
+  }, []);
+
   // Calculate total amount
   const totalAmount = useMemo(() => {
     return entries.reduce((sum, entry) => {
@@ -364,7 +421,7 @@ export function DailyCashModal({
             styles.card,
             {
               maxHeight: windowHeight * (isKeyboardVisible ? 0.5 : 0.7),
-              minHeight: filteredHesaplar.length === 0 && !hesaplarLoading ? 350 : undefined,
+              minHeight: visibleHesaplar.length === 0 && !hesaplarLoading ? 350 : undefined,
               paddingBottom: isKeyboardVisible ? spacing.md : insets.bottom + spacing.md,
               opacity,
               transform: [{ translateY }],
@@ -388,6 +445,13 @@ export function DailyCashModal({
                 <Text variant="caption" style={styles.dateText}>
                   {formatDateMedium(date)}
                 </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.settingsButton, showSettings && styles.settingsButtonActive]}
+                onPress={handleToggleSettings}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <SlidersHorizontal size={18} color={showSettings ? colors.surface : colors.textMuted} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.closeButton}
@@ -424,6 +488,41 @@ export function DailyCashModal({
                 {t('accounts:titles.addAccount')}
               </Button>
             </View>
+          ) : showSettings ? (
+            /* Settings Mode - Account visibility toggles */
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {filteredHesaplar.map((hesap) => {
+                const iconConfig = getHesapIconConfig(hesap.type, 18);
+                const isHidden = hiddenAccountIds.has(hesap.id);
+
+                return (
+                  <TouchableOpacity
+                    key={hesap.id}
+                    style={[styles.settingsRow, isHidden && styles.settingsRowHidden]}
+                    onPress={() => toggleAccountVisibility(hesap.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.hesapInfo}>
+                      <View style={[styles.hesapIcon, { backgroundColor: iconConfig.backgroundColor }]}>
+                        {iconConfig.icon}
+                      </View>
+                      <Text variant="body" numberOfLines={1} style={[styles.hesapName, isHidden && styles.hiddenText]}>
+                        {hesap.name}
+                      </Text>
+                    </View>
+                    {isHidden ? (
+                      <EyeOff size={20} color={colors.textMuted} />
+                    ) : (
+                      <Eye size={20} color={colors.success} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           ) : (
             <>
               {/* Accounts List */}
@@ -565,6 +664,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  settingsButton: {
+    padding: spacing.xs,
+    borderRadius: borderRadius.sm,
+  },
+  settingsButtonActive: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.sm,
+    padding: spacing.xs,
+  },
   closeButton: {
     padding: spacing.xs,
   },
@@ -641,6 +749,20 @@ const styles = StyleSheet.create({
   hesapName: {
     fontWeight: '500',
     flex: 1,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  settingsRowHidden: {
+    opacity: 0.4,
+  },
+  hiddenText: {
+    textDecorationLine: 'line-through',
   },
   amountInput: {
     backgroundColor: colors.surfaceLight,

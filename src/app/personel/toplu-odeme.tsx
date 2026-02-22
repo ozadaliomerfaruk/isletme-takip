@@ -194,7 +194,7 @@ export default function TopluOdemePage() {
               hesap_id: hesapId,
               kategori_id: kategoriId,
               date: formatDateTimeForDB(date),
-              description: description.trim() || t('staff:bulkPayment.description'),
+              description: description.trim() || (kategoriId ? null : t('staff:bulkPayment.description')),
             })
           );
         }

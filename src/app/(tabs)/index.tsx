@@ -1,5 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, Pressable, Platform, RefreshControl } from 'react-native';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, Pressable, Platform, RefreshControl, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,10 +19,8 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  TrendingUp,
-  TrendingDown,
-  ArrowLeftRight,
-  List,
+  UserCheck,
+  Truck,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryCard, TabFilter } from '@/components/ui';
@@ -31,8 +29,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { CreditCardTransactionBar } from '@/components/transaction/CreditCardTransactionBar';
 import { DailyCashModal } from '@/components/transaction/DailyCashModal';
-import type { Hesap } from '@/types/database';
-import { TransactionType } from '@/components/transaction/TransactionTypeTabs';
+import { CariPickerSheet } from '@/components/transaction/QuickTransactionBar/components';
+import type { Hesap, CariType } from '@/types/database';
 import { SummaryCarousel } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -40,6 +38,7 @@ import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { getHesapIcon } from '@/lib/icons';
 import { useHesaplar, useTotalBalance, useDeleteHesap } from '@/hooks/useHesaplar';
+import { useCariler } from '@/hooks/useCariler';
 import { useArchiveHesap } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useMonthSummary, PeriodType } from '@/hooks/useIslemler';
@@ -61,11 +60,6 @@ export default function HomePage() {
   const [dailyCashModalVisible, setDailyCashModalVisible] = useState(false);
   const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
 
-  // QuickTransactionBar state
-  const [quickBarVisible, setQuickBarVisible] = useState(false);
-  const [quickBarType, setQuickBarType] = useState<TransactionType>('gelir');
-  const [quickBarHesapId, setQuickBarHesapId] = useState<string | undefined>(undefined);
-
   // CreditCardTransactionBar state
   const [creditCardForTransaction, setCreditCardForTransaction] = useState<Hesap | null>(null);
 
@@ -85,6 +79,12 @@ export default function HomePage() {
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [actionSheetHesap, setActionSheetHesap] = useState<Hesap | null>(null);
 
+  // FAB menü + Cari İşlem state
+  const [showFabMenu, setShowFabMenu] = useState(false);
+  const [showCariPicker, setShowCariPicker] = useState(false);
+  const [cariPickerMode, setCariPickerMode] = useState<'customer' | 'supplier'>('customer');
+  const [selectedCariForQuickBar, setSelectedCariForQuickBar] = useState<{ id: string; type: CariType } | null>(null);
+
   // Mutations
   const archiveHesap = useArchiveHesap();
   const deleteHesap = useDeleteHesap();
@@ -96,6 +96,10 @@ export default function HomePage() {
 
   // Gerçek veriler - pasif hesapları da dahil et
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true);
+
+  // Cariler (FAB cari işlem için)
+  const { data: musteriCariler } = useCariler('musteri');
+  const { data: tedarikciCariler } = useCariler('tedarikci');
 
   // Döviz kurları (TRY karşılığı göstermek için)
   const { data: exchangeRatesData } = useExchangeRates();
@@ -164,16 +168,6 @@ export default function HomePage() {
     diger: { label: t('accounts:typeLabels.diger'), icon: <PiggyBank size={20} color={colors.warning} /> },
   };
 
-  const openQuickBar = (type: TransactionType, hesap: Hesap) => {
-    // Kredi kartı için CreditCardTransactionBar kullan
-    if (hesap.type === 'kredi_karti') {
-      setCreditCardForTransaction(hesap);
-    } else {
-      setQuickBarType(type);
-      setQuickBarHesapId(hesap.id);
-      setQuickBarVisible(true);
-    }
-  };
   const totalBalance = useTotalBalance();
   const { accounts, payables, receivables, generalStatus } = useFinancialSummary();
   const customRange = period === 'custom' ? {
@@ -369,6 +363,34 @@ export default function HomePage() {
       destructive: true,
     },
   ];
+
+  // FAB menü animasyonu
+  const fabAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(fabAnim, {
+      toValue: showFabMenu ? 1 : 0,
+      damping: 15,
+      stiffness: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [showFabMenu, fabAnim]);
+
+  const closeFabMenu = useCallback(() => setShowFabMenu(false), []);
+
+  const handleFabMenuOption = useCallback((action: () => void) => {
+    setShowFabMenu(false);
+    // Menü kapanma animasyonu bittikten sonra aksiyonu çalıştır
+    setTimeout(action, 250);
+  }, []);
+
+  const handleCariSelectForQuickBar = useCallback((cariId: string) => {
+    const cariType: CariType = cariPickerMode === 'customer' ? 'musteri' : 'tedarikci';
+    setShowCariPicker(false);
+    setTimeout(() => {
+      setSelectedCariForQuickBar({ id: cariId, type: cariType });
+    }, 300);
+  }, [cariPickerMode]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -603,79 +625,6 @@ export default function HomePage() {
           />
         )}
 
-        {/* Quick Actions Bar */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity
-            style={styles.quickActionBtn}
-            onPress={() => {
-              haptics.light();
-              setQuickBarType('gelir');
-              setQuickBarHesapId(undefined);
-              setQuickBarVisible(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.successLight }]}>
-              <TrendingUp size={20} color={colors.success} />
-            </View>
-            <Text style={styles.quickActionLabel} numberOfLines={1}>
-              {t('transactions:types.gelir')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionBtn}
-            onPress={() => {
-              haptics.light();
-              setQuickBarType('gider');
-              setQuickBarHesapId(undefined);
-              setQuickBarVisible(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.errorLight }]}>
-              <TrendingDown size={20} color={colors.error} />
-            </View>
-            <Text style={styles.quickActionLabel} numberOfLines={1}>
-              {t('transactions:types.gider')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionBtn}
-            onPress={() => {
-              haptics.light();
-              setQuickBarType('transfer');
-              setQuickBarHesapId(undefined);
-              setQuickBarVisible(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.infoLight }]}>
-              <ArrowLeftRight size={20} color={colors.info} />
-            </View>
-            <Text style={styles.quickActionLabel} numberOfLines={1}>
-              {t('transactions:types.transfer')}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.quickActionBtn}
-            onPress={() => {
-              haptics.light();
-              router.push('/islemler' as any);
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={[styles.quickActionIcon, { backgroundColor: colors.primaryLight }]}>
-              <List size={20} color={colors.primary} />
-            </View>
-            <Text style={styles.quickActionLabel} numberOfLines={1}>
-              {t('navigation:tabs.transactions')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Hesaplar Bölümü */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -771,30 +720,102 @@ export default function HomePage() {
         </View>
       </ScrollView>
 
-      {/* FAB - Günlük Ciro */}
+      {/* FAB Menü - Backdrop */}
+      {showFabMenu && (
+        <Pressable style={StyleSheet.absoluteFill} onPress={closeFabMenu}>
+          <Animated.View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: 'rgba(0,0,0,0.3)', opacity: fabAnim },
+            ]}
+          />
+        </Pressable>
+      )}
+
+      {/* FAB Menü - Seçenekler (yukarı doğru açılır) */}
+      {showFabMenu && (
+        <View style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}>
+          {[
+            {
+              label: t('clients:types.tedarikci', { defaultValue: 'Tedarikçi İşlemi' }),
+              icon: <Truck size={18} color={colors.warning} />,
+              onPress: () => handleFabMenuOption(() => {
+                setCariPickerMode('supplier');
+                setShowCariPicker(true);
+              }),
+              index: 2,
+            },
+            {
+              label: t('clients:types.musteri', { defaultValue: 'Müşteri İşlemi' }),
+              icon: <UserCheck size={18} color={colors.success} />,
+              onPress: () => handleFabMenuOption(() => {
+                setCariPickerMode('customer');
+                setShowCariPicker(true);
+              }),
+              index: 1,
+            },
+            {
+              label: t('transactions:dailyCash.enterButton'),
+              icon: <Banknote size={18} color={colors.primary} />,
+              onPress: () => handleFabMenuOption(() => setDailyCashModalVisible(true)),
+              index: 0,
+            },
+          ].map((item) => (
+            <Animated.View
+              key={item.label}
+              style={{
+                opacity: fabAnim,
+                transform: [{
+                  translateY: fabAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [20 + item.index * 10, 0],
+                  }),
+                }, {
+                  scale: fabAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1],
+                  }),
+                }],
+              }}
+            >
+              <TouchableOpacity
+                style={styles.fabMenuItem}
+                onPress={item.onPress}
+                activeOpacity={0.7}
+              >
+                <View style={styles.fabMenuIcon}>{item.icon}</View>
+                <Text style={styles.fabMenuLabel}>{item.label}</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          ))}
+        </View>
+      )}
+
+      {/* FAB Button */}
       <TouchableOpacity
         style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
         onPress={() => {
           haptics.light();
-          setDailyCashModalVisible(true);
+          setShowFabMenu((prev) => !prev);
         }}
         activeOpacity={0.8}
       >
-        <Banknote size={24} color={colors.surface} />
+        <Animated.View style={{
+          transform: [{
+            rotate: fabAnim.interpolate({
+              inputRange: [0, 1],
+              outputRange: ['0deg', '45deg'],
+            }),
+          }],
+        }}>
+          <Plus size={24} color={colors.surface} />
+        </Animated.View>
       </TouchableOpacity>
 
       {/* DailyCashModal */}
       <DailyCashModal
         visible={dailyCashModalVisible}
         onDismiss={() => setDailyCashModalVisible(false)}
-      />
-
-      {/* QuickTransactionBar */}
-      <QuickTransactionBar
-        visible={quickBarVisible}
-        onDismiss={() => setQuickBarVisible(false)}
-        defaultType={quickBarType}
-        defaultHesapId={quickBarHesapId}
       />
 
       {/* CreditCardTransactionBar */}
@@ -806,7 +827,7 @@ export default function HomePage() {
         />
       )}
 
-      {/* Action Sheet */}
+      {/* Hesap Action Sheet */}
       <ActionSheet
         visible={actionSheetVisible}
         onClose={() => {
@@ -816,6 +837,25 @@ export default function HomePage() {
         title={actionSheetHesap?.name}
         options={hesapActionSheetOptions}
         cancelLabel={t('common:buttons.cancel')}
+      />
+
+      {/* Cari Picker (FAB'dan açılır) */}
+      <CariPickerSheet
+        visible={showCariPicker}
+        onDismiss={() => setShowCariPicker(false)}
+        onSelect={handleCariSelectForQuickBar}
+        cariler={cariPickerMode === 'customer' ? (musteriCariler || []) : (tedarikciCariler || [])}
+        selectedId={null}
+        mode={cariPickerMode}
+      />
+
+      {/* Cari QuickTransactionBar (cari seçildikten sonra açılır) */}
+      <QuickTransactionBar
+        visible={!!selectedCariForQuickBar}
+        onDismiss={() => setSelectedCariForQuickBar(null)}
+        defaultCariId={selectedCariForQuickBar?.id}
+        defaultCariType={selectedCariForQuickBar?.type}
+        onSuccess={() => setSelectedCariForQuickBar(null)}
       />
 
       {/* Yıl Picker Modal */}
@@ -1133,30 +1173,6 @@ const styles = StyleSheet.create({
   passiveItem: {
     opacity: 0.5,
   },
-  quickActions: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: spacing.md,
-  },
-  quickActionBtn: {
-    flex: 1,
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  quickActionLabel: {
-    fontSize: 12,
-    fontWeight: '500' as const,
-    color: colors.text,
-    textAlign: 'center' as const,
-  },
   periodLabelButton: {
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
@@ -1257,5 +1273,40 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 10,
+  },
+  fabMenuContainer: {
+    position: 'absolute',
+    right: spacing.lg,
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    zIndex: 9,
+  },
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    gap: spacing.sm,
+  },
+  fabMenuIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabMenuLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
 });

@@ -1,100 +1,141 @@
-import React, { useRef, useCallback } from 'react';
-import { View, StyleSheet, Animated, TouchableOpacity, I18nManager } from 'react-native';
-import { Swipeable } from 'react-native-gesture-handler';
-import { Pencil, Trash2 } from 'lucide-react-native';
+import React, { useRef, useCallback, useContext, createContext, useState } from 'react';
+import { StyleSheet, TouchableOpacity } from 'react-native';
+import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
+import Reanimated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
+import { Trash2 } from 'lucide-react-native';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 
 const ACTION_WIDTH = 72;
 
+// ============================================================================
+// Context: sadece bir SwipeableRow aynı anda açık olabilir
+// ============================================================================
+
+type SwipeableContextType = {
+  registerOpen: (close: () => void) => void;
+};
+
+const SwipeableContext = createContext<SwipeableContextType>({
+  registerOpen: () => {},
+});
+
+/**
+ * Bu provider'ı FlatList veya ScrollView etrafında kullanarak
+ * sadece bir satırın aynı anda açık olmasını sağla.
+ */
+export function SwipeableProvider({ children }: { children: React.ReactNode }) {
+  const currentCloseRef = useRef<(() => void) | null>(null);
+
+  const registerOpen = useCallback((close: () => void) => {
+    if (currentCloseRef.current && currentCloseRef.current !== close) {
+      currentCloseRef.current();
+    }
+    currentCloseRef.current = close;
+  }, []);
+
+  return (
+    <SwipeableContext.Provider value={{ registerOpen }}>
+      {children}
+    </SwipeableContext.Provider>
+  );
+}
+
+// ============================================================================
+// SwipeableRow
+// ============================================================================
+
 export interface SwipeableRowProps {
   children: React.ReactNode;
-  onEdit?: () => void;
   onDelete?: () => void;
   enabled?: boolean;
-  editLabel?: string;
   deleteLabel?: string;
 }
 
 export function SwipeableRow({
   children,
-  onEdit,
   onDelete,
   enabled = true,
-  editLabel = 'Düzenle',
   deleteLabel = 'Sil',
 }: SwipeableRowProps) {
-  const swipeableRef = useRef<Swipeable>(null);
+  const swipeableRef = useRef<SwipeableMethods>(null);
+  const { registerOpen } = useContext(SwipeableContext);
 
   const close = useCallback(() => {
     swipeableRef.current?.close();
   }, []);
-
-  const handleEdit = useCallback(() => {
-    close();
-    onEdit?.();
-  }, [close, onEdit]);
 
   const handleDelete = useCallback(() => {
     close();
     onDelete?.();
   }, [close, onDelete]);
 
-  const renderRightActions = useCallback(
-    (progress: Animated.AnimatedInterpolation<number>) => {
-      const translateX = progress.interpolate({
-        inputRange: [0, 1],
-        outputRange: [ACTION_WIDTH * 2, 0],
-        extrapolate: 'clamp',
-      });
+  const handleSwipeOpen = useCallback(() => {
+    registerOpen(close);
+  }, [registerOpen, close]);
 
+  const renderRightActions = useCallback(
+    (_progress: SharedValue<number>, drag: SharedValue<number>) => {
       return (
-        <Animated.View style={[styles.actionsContainer, { transform: [{ translateX }] }]}>
-          {onEdit && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.editAction]}
-              onPress={handleEdit}
-              activeOpacity={0.7}
-            >
-              <Pencil size={20} color={colors.white} />
-              <Text style={styles.actionText}>{editLabel}</Text>
-            </TouchableOpacity>
-          )}
-          {onDelete && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteAction]}
-              onPress={handleDelete}
-              activeOpacity={0.7}
-            >
-              <Trash2 size={20} color={colors.white} />
-              <Text style={styles.actionText}>{deleteLabel}</Text>
-            </TouchableOpacity>
-          )}
-        </Animated.View>
+        <RightAction
+          drag={drag}
+          onDelete={handleDelete}
+          deleteLabel={deleteLabel}
+        />
       );
     },
-    [onEdit, onDelete, handleEdit, handleDelete, editLabel, deleteLabel],
+    [handleDelete, deleteLabel],
   );
 
-  if (!enabled || (!onEdit && !onDelete)) {
+  if (!enabled || !onDelete) {
     return <>{children}</>;
   }
 
-  const actionCount = (onEdit ? 1 : 0) + (onDelete ? 1 : 0);
-
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       ref={swipeableRef}
-      friction={2}
+      friction={1.5}
       rightThreshold={ACTION_WIDTH / 2}
       overshootRight={false}
+      overshootFriction={8}
       dragOffsetFromLeftEdge={40}
+      enableTrackpadTwoFingerGesture
       renderRightActions={renderRightActions}
+      onSwipeableWillOpen={handleSwipeOpen}
       containerStyle={styles.swipeableContainer}
     >
       {children}
-    </Swipeable>
+    </ReanimatedSwipeable>
+  );
+}
+
+// ============================================================================
+// Right action (Reanimated - UI thread)
+// ============================================================================
+
+interface RightActionProps {
+  drag: SharedValue<number>;
+  onDelete: () => void;
+  deleteLabel: string;
+}
+
+function RightAction({ drag, onDelete, deleteLabel }: RightActionProps) {
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: drag.value + ACTION_WIDTH }],
+  }));
+
+  return (
+    <Reanimated.View style={[styles.actionsContainer, animStyle]}>
+      <TouchableOpacity
+        style={[styles.actionButton, styles.deleteAction]}
+        onPress={onDelete}
+        activeOpacity={0.7}
+      >
+        <Trash2 size={20} color={colors.white} />
+        <Text style={styles.actionText}>{deleteLabel}</Text>
+      </TouchableOpacity>
+    </Reanimated.View>
   );
 }
 
@@ -110,11 +151,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: 4,
-  },
-  editAction: {
-    backgroundColor: colors.info,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
   },
   deleteAction: {
     backgroundColor: colors.error,

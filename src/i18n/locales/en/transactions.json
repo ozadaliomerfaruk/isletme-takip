@@ -199,7 +199,8 @@
     "save": "Save All",
     "success": "Daily revenue saved",
     "noEntries": "Enter amount for at least one account",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "minOneAccount": "At least one account must be visible"
   },
   "stock": {
     "addStock": "Add Product",

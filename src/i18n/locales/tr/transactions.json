@@ -199,7 +199,8 @@
     "save": "Tümünü Kaydet",
     "success": "Günlük ciro kaydedildi",
     "noEntries": "En az bir hesap için tutar girin",
-    "saving": "Kaydediliyor..."
+    "saving": "Kaydediliyor...",
+    "minOneAccount": "En az bir hesap görünür olmalıdır"
   },
   "stock": {
     "addStock": "Ürün Ekle",

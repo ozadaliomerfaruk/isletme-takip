@@ -31,7 +31,7 @@ export { TransactionRow, DateSectionHeader } from './TransactionRow';
 export type { TransactionRowProps, DateSectionHeaderProps } from './TransactionRow';
 export { TransactionRowSkeleton, TransactionRowSkeletonList } from './TransactionRowSkeleton';
 export { TransactionRowErrorBoundary } from './TransactionRowErrorBoundary';
-export { SwipeableRow } from './SwipeableRow';
+export { SwipeableRow, SwipeableProvider } from './SwipeableRow';
 export type { SwipeableRowProps } from './SwipeableRow';
 export { UndoSnackbar } from './UndoSnackbar';
 export type { UndoSnackbarProps } from './UndoSnackbar';
