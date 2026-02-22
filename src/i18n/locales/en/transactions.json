@@ -14,6 +14,8 @@
     "personel_odeme": "Staff Payment",
     "personel_tahsilat": "Staff Payment Received",
     "personel_satis": "Staff Sale",
+    "personel_izin_hakki": "Leave Entitlement",
+    "personel_izin_kullanimi": "Leave Used",
     "kredi_karti_harcama": "Credit Card Expense",
     "nakit_avans_taksit": "Cash Advance Installment",
     "baslangic_bakiyesi": "Opening Balance"
@@ -172,6 +174,8 @@
     "personel_gider": "Expense",
     "personel_tahsilat": "Payment Received",
     "personel_satis": "Sale",
+    "personel_izin_hakki": "Leave Ent.",
+    "personel_izin_kullanimi": "Leave Used",
     "kredi_karti_gider": "Spending",
     "kredi_karti_odeme": "Payment",
     "kredi_karti_ekstre": "Pay Statement"

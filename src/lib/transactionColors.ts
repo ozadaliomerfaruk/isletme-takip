@@ -26,12 +26,13 @@ const COLOR_NEUTRAL = '#6B7280'; // Nötr — muted
  */
 export function getTransactionColor(type: IslemType): string {
   switch (type) {
-    // Gelen para
+    // Gelen para / hak kazanma
     case 'gelir':
     case 'cari_satis':
     case 'cari_tahsilat':
     case 'personel_satis':
     case 'personel_tahsilat':
+    case 'personel_izin_hakki':
       return COLOR_IN;
 
     // Çıkan para
@@ -43,9 +44,10 @@ export function getTransactionColor(type: IslemType): string {
     case 'nakit_avans_taksit':
       return COLOR_OUT;
 
-    // Nötr (transfer, iade)
+    // Nötr (transfer, iade, izin kullanımı)
     case 'cari_alis_iade':
     case 'cari_satis_iade':
+    case 'personel_izin_kullanimi':
     case 'transfer':
     default:
       return COLOR_NEUTRAL;
@@ -62,21 +64,23 @@ export function getTransactionColor(type: IslemType): string {
  */
 export function getTransactionPrefix(type: IslemType): string {
   switch (type) {
-    // Para girişi
+    // Para girişi / hak kazanma
     case 'gelir':
     case 'cari_satis':
     case 'cari_tahsilat':
     case 'personel_satis':
     case 'personel_tahsilat':
+    case 'personel_izin_hakki':
       return '+';
 
-    // Para çıkışı
+    // Para çıkışı / izin kullanımı
     case 'gider':
     case 'cari_alis':
     case 'cari_odeme':
     case 'personel_gider':
     case 'personel_odeme':
     case 'nakit_avans_taksit':
+    case 'personel_izin_kullanimi':
       return '-';
 
     // İade
@@ -103,6 +107,7 @@ export function showAccentBar(type: IslemType): boolean {
     case 'transfer':
     case 'cari_alis_iade':
     case 'cari_satis_iade':
+    case 'personel_izin_kullanimi':
       return false;
     default:
       return true;

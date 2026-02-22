@@ -113,6 +113,8 @@ export function buildTransactionData(params: BuildTransactionParams): Transactio
     'personel_gider_tab',
     'personel_tahsilat_tab',
     'personel_satis_tab',
+    'personel_izin_hakki_tab',
+    'personel_izin_kullanimi_tab',
   ].includes(type)) {
     data.personel_id = personelId || null;
   }

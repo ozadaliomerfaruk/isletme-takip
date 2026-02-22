@@ -36,6 +36,8 @@ import { useUnarchivePersonel } from '@/hooks/useArchive';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations } from '@/types/database';
+import { LeaveQuotaCard } from '@/components/personel/LeaveQuotaCard';
+import { isLeaveType } from '@/constants/islemTypes';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -49,6 +51,12 @@ function getHareketLabelKey(type: string): string {
       return 'staff:transactionLabels.odeme';
     case 'personel_tahsilat':
       return 'staff:transactionLabels.tahsilat';
+    case 'personel_satis':
+      return 'staff:transactionLabels.satis';
+    case 'personel_izin_hakki':
+      return 'staff:transactionLabels.izinHakki';
+    case 'personel_izin_kullanimi':
+      return 'staff:transactionLabels.izinKullanimi';
     default:
       return type;
   }
@@ -124,6 +132,7 @@ export default function PersonelHareketleriPage() {
   const unarchivePersonel = useUnarchivePersonel();
 
   const [quickBarVisible, setQuickBarVisible] = useState(false);
+  const [quickBarDefaultType, setQuickBarDefaultType] = useState<string | undefined>(undefined);
   const [showMenu, setShowMenu] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
@@ -169,6 +178,28 @@ export default function PersonelHareketleriPage() {
 
     return toNumber(personel.balance) - totalEffect;
   }, [personel, islemler]);
+
+  // İzin kota hesaplaması
+  const leaveQuota = useMemo(() => {
+    if (!islemler) return { hakEdilen: 0, kullanilan: 0 };
+    return islemler.reduce(
+      (acc, islem) => {
+        const amount = toNumber(islem.amount);
+        if (islem.type === 'personel_izin_hakki') {
+          acc.hakEdilen += amount;
+        } else if (islem.type === 'personel_izin_kullanimi') {
+          acc.kullanilan += amount;
+        }
+        return acc;
+      },
+      { hakEdilen: 0, kullanilan: 0 }
+    );
+  }, [islemler]);
+
+  const handleAddLeave = useCallback(() => {
+    setQuickBarDefaultType('personel_izin_hakki_tab');
+    setQuickBarVisible(true);
+  }, []);
 
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
@@ -381,6 +412,15 @@ export default function PersonelHareketleriPage() {
           </View>
         )}
 
+        {/* İzin Kota Kartı */}
+        {!personel.is_archived && (
+          <LeaveQuotaCard
+            hakEdilenGun={leaveQuota.hakEdilen}
+            kullanilanGun={leaveQuota.kullanilan}
+            onAddLeave={handleAddLeave}
+          />
+        )}
+
         {/* İleri Tarihli İşlemler */}
         <View style={styles.section}>
           <IleriTarihliIslemlerSection
@@ -398,7 +438,7 @@ export default function PersonelHareketleriPage() {
         </View>
       </View>
     );
-  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, t]);
+  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, t]);
 
   // ============================================================================
   // FlatList Footer (başlangıç bakiyesi kartı)
@@ -563,9 +603,10 @@ export default function PersonelHareketleriPage() {
         {/* Quick Transaction Bar - Create Mode */}
         <QuickTransactionBar
           visible={quickBarVisible}
-          onDismiss={() => setQuickBarVisible(false)}
+          onDismiss={() => { setQuickBarVisible(false); setQuickBarDefaultType(undefined); }}
+          defaultType={quickBarDefaultType as any}
           defaultPersonelId={personel?.id}
-          onSuccess={() => setQuickBarVisible(false)}
+          onSuccess={() => { setQuickBarVisible(false); setQuickBarDefaultType(undefined); }}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}

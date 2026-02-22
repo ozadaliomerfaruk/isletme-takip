@@ -60,12 +60,16 @@ interface HesapTransactionItemProps {
 
 const COLOR_IN = '#059669';
 const COLOR_OUT = '#DC2626';
+const COLOR_NEUTRAL = '#6B7280';
 
 function getHesapPerspectiveColor(type: string, hesapId: string, hedefHesapId: string | null): string {
   if (type === 'transfer') {
     return hedefHesapId === hesapId ? COLOR_IN : COLOR_OUT;
   }
-  if (type === 'gelir' || type === 'cari_tahsilat' || type === 'personel_tahsilat' || type === 'personel_satis') {
+  if (type === 'cari_alis_iade' || type === 'cari_satis_iade') {
+    return COLOR_NEUTRAL;
+  }
+  if (type === 'gelir' || type === 'cari_tahsilat' || type === 'cari_satis' || type === 'personel_tahsilat' || type === 'personel_satis') {
     return COLOR_IN;
   }
   return COLOR_OUT;
@@ -75,30 +79,37 @@ function getHesapPerspectivePrefix(type: string, hesapId: string, hedefHesapId: 
   if (type === 'transfer') {
     return hedefHesapId === hesapId ? '+' : '-';
   }
-  if (type === 'gelir' || type === 'cari_tahsilat' || type === 'personel_tahsilat' || type === 'personel_satis') {
+  if (type === 'cari_alis_iade' || type === 'cari_satis_iade') {
+    return '↩ ';
+  }
+  if (type === 'gelir' || type === 'cari_tahsilat' || type === 'cari_satis' || type === 'personel_tahsilat' || type === 'personel_satis') {
     return '+';
   }
   return '-';
 }
 
-function getTransactionTarget(islem: IslemWithRelations, hesapId: string): string | null {
+function getTransactionTarget(islem: IslemWithRelations, hesapId: string): { name: string; incoming: boolean } | null {
   switch (islem.type) {
-    case 'transfer':
-      if (islem.hedef_hesap_id === hesapId) {
-        return islem.hesap?.name || null;
-      }
-      return islem.hedef_hesap?.name || null;
+    case 'transfer': {
+      const incoming = islem.hedef_hesap_id === hesapId;
+      const name = incoming
+        ? (islem.hesap?.name || null)
+        : (islem.hedef_hesap?.name || null);
+      return name ? { name, incoming } : null;
+    }
     case 'cari_odeme':
     case 'cari_tahsilat':
     case 'cari_alis':
     case 'cari_satis':
-      return islem.cari?.name || null;
+      return islem.cari?.name ? { name: islem.cari.name, incoming: false } : null;
     case 'personel_odeme':
-    case 'personel_gider':
+    case 'personel_gider': {
       if (islem.personel) {
-        return `${islem.personel.first_name ?? ''} ${islem.personel.last_name ?? ''}`.trim() || null;
+        const name = `${islem.personel.first_name ?? ''} ${islem.personel.last_name ?? ''}`.trim();
+        return name ? { name, incoming: false } : null;
       }
       return null;
+    }
     default:
       return null;
   }
@@ -160,11 +171,19 @@ function getHareketLabelKey(type: string): string {
     case 'gelir': return 'accounts:transactionLabels.gelir';
     case 'gider': return 'accounts:transactionLabels.gider';
     case 'transfer': return 'accounts:transactionLabels.transfer';
+    case 'cari_alis': return 'accounts:transactionLabels.cariAlis';
+    case 'cari_satis': return 'accounts:transactionLabels.cariSatis';
     case 'cari_odeme': return 'accounts:transactionLabels.cariOdeme';
     case 'cari_tahsilat': return 'accounts:transactionLabels.cariTahsilat';
+    case 'cari_alis_iade': return 'accounts:transactionLabels.cariAlisIade';
+    case 'cari_satis_iade': return 'accounts:transactionLabels.cariSatisIade';
     case 'personel_odeme': return 'accounts:transactionLabels.personelOdeme';
     case 'personel_gider': return 'accounts:transactionLabels.personelGider';
+    case 'personel_tahsilat': return 'accounts:transactionLabels.personelTahsilat';
+    case 'personel_satis': return 'accounts:transactionLabels.personelSatis';
     case 'nakit_avans_taksit': return 'accounts:transactionLabels.nakitAvansTaksit';
+    case 'personel_izin_hakki': return 'accounts:transactionLabels.izinHakki';
+    case 'personel_izin_kullanimi': return 'accounts:transactionLabels.izinKullanimi';
     default: return '';
   }
 }
@@ -184,6 +203,9 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   const target = getTransactionTarget(islem, hesapId);
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = labelKey ? t(labelKey) : islem.type;
+  const entityText = target
+    ? `${target.incoming ? '← ' : '→ '}${target.name}`
+    : null;
 
   return (
     <SwipeableRow
@@ -196,7 +218,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         amount={getDisplayAmount(islem, hesapId)}
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
-        entityText={target ? `→ ${target}` : null}
+        entityText={entityText}
         secondaryText={islem.description || islem.kategori?.name || null}
         hasPhoto={!!islem.photo_path}
         currency={hesapCurrency}

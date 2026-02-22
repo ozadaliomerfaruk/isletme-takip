@@ -55,7 +55,7 @@ export const TransactionRow = memo(function TransactionRow({
 
   const txColor = overrideColor ?? getTransactionColor(type);
   const prefix = overridePrefix ?? getTransactionPrefix(type);
-  const hasBar = overrideColor ? true : showAccentBar(type);
+  const hasBar = showAccentBar(type);
   const numAmount = typeof amount === 'string' ? toNumber(amount) : amount;
 
   return (

@@ -61,6 +61,20 @@ export const INCOME_RETURN_TYPES: IslemType[] = ['cari_satis_iade'];
 export const EXPENSE_RETURN_TYPES: IslemType[] = ['cari_alis_iade'];
 
 /**
+ * İzin işlemleri (gelir/gider DEĞİL - gün bazlı izin takibi)
+ * - personel_izin_hakki: İzin hak edişi (kota artışı)
+ * - personel_izin_kullanimi: İzin kullanımı
+ */
+export const LEAVE_TYPES: IslemType[] = ['personel_izin_hakki', 'personel_izin_kullanimi'];
+
+/**
+ * Verilen işlem tipinin izin mi olduğunu kontrol eder
+ */
+export function isLeaveType(type: IslemType): boolean {
+  return LEAVE_TYPES.includes(type);
+}
+
+/**
  * Verilen işlem tipinin gelir mi olduğunu kontrol eder
  */
 export function isIncomeType(type: IslemType): boolean {
@@ -159,6 +173,8 @@ export const ISLEM_TYPE_LABELS: Record<IslemType, string> = {
   personel_tahsilat: 'Personelden Tahsilat',
   personel_satis: 'Personele Satış',
   nakit_avans_taksit: 'Nakit Avans Taksit',
+  personel_izin_hakki: 'İzin Hak Edişi',
+  personel_izin_kullanimi: 'İzin Kullanımı',
 };
 
 /**

@@ -121,6 +121,14 @@ export function mapApiTypeToFormState(
       result.type = 'personel_satis_tab';
       break;
 
+    case 'personel_izin_hakki':
+      result.type = 'personel_izin_hakki_tab';
+      break;
+
+    case 'personel_izin_kullanimi':
+      result.type = 'personel_izin_kullanimi_tab';
+      break;
+
     default:
       // Unknown type - default to gelir
       console.warn(`Unknown API type: ${apiType}, defaulting to gelir`);

@@ -144,7 +144,19 @@
   "transactionLabels": {
     "gider": "Expense",
     "odeme": "Payment",
-    "tahsilat": "Payment Received"
+    "tahsilat": "Payment Received",
+    "satis": "Sale",
+    "izinHakki": "Leave Entitlement",
+    "izinKullanimi": "Leave Used"
+  },
+  "leave": {
+    "leaveStatus": "Leave Status",
+    "entitled": "Entitled",
+    "used": "Used",
+    "remaining": "Remaining",
+    "days": "days",
+    "addLeave": "Add Leave",
+    "noLeaveData": "No leave records yet"
   },
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",

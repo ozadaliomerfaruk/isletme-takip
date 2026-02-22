@@ -144,7 +144,19 @@
   "transactionLabels": {
     "gider": "Gider",
     "odeme": "Ödeme",
-    "tahsilat": "Tahsilat"
+    "tahsilat": "Tahsilat",
+    "satis": "Satış",
+    "izinHakki": "İzin Hak Edişi",
+    "izinKullanimi": "İzin Kullanımı"
+  },
+  "leave": {
+    "leaveStatus": "İzin Durumu",
+    "entitled": "Hak Edilen",
+    "used": "Kullanılan",
+    "remaining": "Kalan",
+    "days": "gün",
+    "addLeave": "İzin Ekle",
+    "noLeaveData": "Henüz izin kaydı yok"
   },
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",

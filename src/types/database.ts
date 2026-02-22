@@ -19,7 +19,9 @@ export type IslemType =
   | 'personel_odeme'
   | 'personel_tahsilat'
   | 'personel_satis'
-  | 'nakit_avans_taksit';
+  | 'nakit_avans_taksit'
+  | 'personel_izin_hakki'
+  | 'personel_izin_kullanimi';
 
 // Veritabanı tabloları
 export interface Database {

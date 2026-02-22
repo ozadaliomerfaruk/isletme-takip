@@ -30,6 +30,8 @@ export function mapTransactionTypeToApi(
     personel_gider_tab: 'personel_gider',
     personel_tahsilat_tab: 'personel_tahsilat',
     personel_satis_tab: 'personel_satis',
+    personel_izin_hakki_tab: 'personel_izin_hakki',
+    personel_izin_kullanimi_tab: 'personel_izin_kullanimi',
   };
 
   return TYPE_MAP[type] || type;
@@ -46,6 +48,8 @@ export const NO_HESAP_TYPES: TransactionType[] = [
   'satis_iade',
   'personel_gider_tab',
   'personel_satis_tab',
+  'personel_izin_hakki_tab',
+  'personel_izin_kullanimi_tab',
 ];
 
 /**

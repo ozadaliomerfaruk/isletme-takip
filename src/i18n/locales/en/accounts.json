@@ -109,11 +109,19 @@
     "gelir": "Income",
     "gider": "Expense",
     "transfer": "Transfer",
+    "cariAlis": "Supplier Purchase",
+    "cariSatis": "Customer Sale",
     "cariOdeme": "Client Payment",
     "cariTahsilat": "Payment Received",
+    "cariAlisIade": "Purchase Return",
+    "cariSatisIade": "Sale Return",
     "personelOdeme": "Staff Payment",
     "personelGider": "Staff Expense",
-    "nakitAvansTaksit": "Cash Advance Installment"
+    "personelTahsilat": "Staff Collection",
+    "personelSatis": "Staff Sale",
+    "nakitAvansTaksit": "Cash Advance Installment",
+    "izinHakki": "Leave Entitlement",
+    "izinKullanimi": "Leave Used"
   },
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",

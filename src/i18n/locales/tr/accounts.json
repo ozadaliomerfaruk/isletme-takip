@@ -109,11 +109,19 @@
     "gelir": "Gelir",
     "gider": "Gider",
     "transfer": "Transfer",
+    "cariAlis": "Cari Alış",
+    "cariSatis": "Cari Satış",
     "cariOdeme": "Cari Ödeme",
     "cariTahsilat": "Cari Tahsilat",
+    "cariAlisIade": "Alış İade",
+    "cariSatisIade": "Satış İade",
     "personelOdeme": "Personel Ödeme",
     "personelGider": "Personel Gider",
-    "nakitAvansTaksit": "Nakit Avans Taksit"
+    "personelTahsilat": "Personel Tahsilat",
+    "personelSatis": "Personel Satış",
+    "nakitAvansTaksit": "Nakit Avans Taksit",
+    "izinHakki": "İzin Hak Edişi",
+    "izinKullanimi": "İzin Kullanımı"
   },
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",

@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
+import { LEAVE_TYPES } from '@/constants/islemTypes';
 
 // Büyük veri uyarısı için eşik değer
 const LARGE_DATA_THRESHOLD = 2000;
@@ -128,7 +129,9 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
             return q;
           };
 
-          const transactions = await fetchAllPages<IslemWithRelations>(buildTransactionsQuery);
+          const rawTransactions = await fetchAllPages<IslemWithRelations>(buildTransactionsQuery);
+          // İzin işlemlerini export'tan hariç tut (para hareketi değil, gün bazlı)
+          const transactions = rawTransactions.filter(t => !LEAVE_TYPES.includes(t.type));
 
           // Tüm işlemleri getir (başlangıç bakiyesi hesabı için) - paginated
           const buildAllQuery = () => {
@@ -155,7 +158,9 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
             return q;
           };
 
-          const allTransactions = await fetchAllPages<IslemWithRelations>(buildAllQuery);
+          const rawAllTransactions = await fetchAllPages<IslemWithRelations>(buildAllQuery);
+          // İzin işlemlerini export'tan hariç tut
+          const allTransactions = rawAllTransactions.filter(t => !LEAVE_TYPES.includes(t.type));
 
           // Export et
           await exportToExcel({

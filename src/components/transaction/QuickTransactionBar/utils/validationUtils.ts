@@ -270,6 +270,8 @@ export function validateTransaction(params: ValidationParams): ValidationResult 
     'personel_gider_tab',
     'personel_tahsilat_tab',
     'personel_satis_tab',
+    'personel_izin_hakki_tab',
+    'personel_izin_kullanimi_tab',
   ].includes(type) && !personelId) {
     return {
       isValid: false,

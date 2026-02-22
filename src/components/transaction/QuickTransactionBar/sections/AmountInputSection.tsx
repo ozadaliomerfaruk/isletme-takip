@@ -5,8 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Text, CategoryPicker } from '@/components/ui';
 import { TransactionTypeTabs } from '../../TransactionTypeTabs';
-// PhotoButton temporarily disabled
-// import { PhotoButton } from '../../PhotoButton';
+import { PhotoButton } from '../../PhotoButton';
 import { colors } from '@/constants/colors';
 import { styles } from '../styles';
 import type { TransactionType, TransactionTabMode } from '../types';
@@ -129,8 +128,7 @@ export function AmountInputSection({
           </View>
         )}
 
-        {/* Photo Button - temporarily disabled */}
-        {/* <PhotoButton
+        <PhotoButton
           hasPhoto={hasPhoto}
           onPickImage={onPickImage}
           onTakePhoto={onTakePhoto}
@@ -138,7 +136,7 @@ export function AmountInputSection({
           loading={photoLoading}
           disabled={isSaving}
           size="small"
-        /> */}
+        />
 
         {/* Urun Button - only show when hasUrunler and type is alis/satis/alis_iade/satis_iade */}
         {showUrunButton && onUrunButtonPress && (

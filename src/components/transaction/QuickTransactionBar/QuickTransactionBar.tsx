@@ -353,6 +353,8 @@ export function QuickTransactionBar({
     personel_gider_tab: t('transactions:tabs.gider'),
     personel_tahsilat_tab: t('transactions:tabs.tahsilat'),
     personel_satis_tab: t('transactions:tabs.personel_satis'),
+    personel_izin_hakki_tab: t('transactions:tabs.personel_izin_hakki'),
+    personel_izin_kullanimi_tab: t('transactions:tabs.personel_izin_kullanimi'),
     kredi_karti_gider: t('transactions:tabs.kredi_karti_gider'),
     kredi_karti_odeme: t('transactions:tabs.kredi_karti_odeme'),
     kredi_karti_ekstre: t('transactions:tabs.kredi_karti_ekstre'),
