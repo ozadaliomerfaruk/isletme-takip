@@ -82,6 +82,7 @@
     "searchPlaceholder": "Ara...",
     "noResults": "Sonuç bulunamadı",
     "noResultsFor": "\"{{query}}\" için sonuç bulunamadı",
+    "globalSearch": "Hesap, cari, personel ara...",
     "clearSearch": "Aramayı Temizle",
     "searching": "Aranıyor...",
     "tryDifferent": "Farklı bir arama terimi deneyin",
@@ -369,7 +370,8 @@
     "actions": {
       "archive": "Arşive At",
       "unarchive": "Arşivden Çıkar",
-      "permanentDelete": "Kalıcı Sil"
+      "permanentDelete": "Kalıcı Sil",
+      "makeTransaction": "İşlem Yap"
     },
     "messages": {
       "archiveConfirm": "Bu öğeyi arşive atmak istediğinize emin misiniz?",

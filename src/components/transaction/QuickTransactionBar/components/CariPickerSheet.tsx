@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Modal,
@@ -54,6 +54,15 @@ export function CariPickerSheet({
   const windowHeight = Dimensions.get('window').height;
 
   const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef<TextInput>(null);
+
+  // Auto-focus search input when sheet opens
+  useEffect(() => {
+    if (visible) {
+      const timer = setTimeout(() => searchInputRef.current?.focus(), 400);
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
 
   const isCustomer = mode === 'customer';
   const iconColor = isCustomer ? colors.primary : colors.orange;
@@ -127,6 +136,7 @@ export function CariPickerSheet({
               <View style={styles.searchContainer}>
                 <Search size={20} color={colors.textMuted} />
                 <TextInput
+                  ref={searchInputRef}
                   style={styles.searchInput}
                   placeholder={searchPlaceholder}
                   placeholderTextColor={colors.textMuted}

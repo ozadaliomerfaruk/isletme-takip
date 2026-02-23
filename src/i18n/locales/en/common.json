@@ -76,6 +76,7 @@
     "searching": "Searching...",
     "noResults": "No results found",
     "noResultsFor": "No results found for \"{{query}}\"",
+    "globalSearch": "Search accounts, clients, staff...",
     "tryDifferent": "Try a different search term",
     "clearSearch": "Clear Search",
     "searchIcons": "Search icons...",
@@ -351,7 +352,8 @@
     "actions": {
       "archive": "Move to Archive",
       "unarchive": "Restore from Archive",
-      "permanentDelete": "Delete Permanently"
+      "permanentDelete": "Delete Permanently",
+      "makeTransaction": "Transact"
     },
     "messages": {
       "archiveConfirm": "Are you sure you want to archive this item?",

@@ -1,8 +1,8 @@
-import React, { useRef, useCallback, useContext, createContext, useState } from 'react';
+import React, { useRef, useCallback, useContext, createContext } from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Reanimated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
-import { Trash2 } from 'lucide-react-native';
+import { Trash2, Zap } from 'lucide-react-native';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -49,15 +49,21 @@ export function SwipeableProvider({ children }: { children: React.ReactNode }) {
 export interface SwipeableRowProps {
   children: React.ReactNode;
   onDelete?: () => void;
+  onLeftAction?: () => void;
   enabled?: boolean;
   deleteLabel?: string;
+  leftActionLabel?: string;
+  leftActionIcon?: React.ReactNode;
 }
 
 export function SwipeableRow({
   children,
   onDelete,
+  onLeftAction,
   enabled = true,
   deleteLabel = 'Sil',
+  leftActionLabel = 'İşlem Yap',
+  leftActionIcon,
 }: SwipeableRowProps) {
   const swipeableRef = useRef<SwipeableMethods>(null);
   const { registerOpen } = useContext(SwipeableContext);
@@ -70,6 +76,11 @@ export function SwipeableRow({
     close();
     onDelete?.();
   }, [close, onDelete]);
+
+  const handleLeftAction = useCallback(() => {
+    close();
+    onLeftAction?.();
+  }, [close, onLeftAction]);
 
   const handleSwipeOpen = useCallback(() => {
     registerOpen(close);
@@ -88,7 +99,21 @@ export function SwipeableRow({
     [handleDelete, deleteLabel],
   );
 
-  if (!enabled || !onDelete) {
+  const renderLeftActions = useCallback(
+    (_progress: SharedValue<number>, drag: SharedValue<number>) => {
+      return (
+        <LeftAction
+          drag={drag}
+          onAction={handleLeftAction}
+          label={leftActionLabel}
+          icon={leftActionIcon}
+        />
+      );
+    },
+    [handleLeftAction, leftActionLabel, leftActionIcon],
+  );
+
+  if (!enabled || (!onDelete && !onLeftAction)) {
     return <>{children}</>;
   }
 
@@ -97,11 +122,15 @@ export function SwipeableRow({
       ref={swipeableRef}
       friction={1.5}
       rightThreshold={ACTION_WIDTH / 2}
+      leftThreshold={ACTION_WIDTH / 2}
       overshootRight={false}
+      overshootLeft={false}
       overshootFriction={8}
       dragOffsetFromLeftEdge={40}
+      dragOffsetFromRightEdge={40}
       enableTrackpadTwoFingerGesture
-      renderRightActions={renderRightActions}
+      renderRightActions={onDelete ? renderRightActions : undefined}
+      renderLeftActions={onLeftAction ? renderLeftActions : undefined}
       onSwipeableWillOpen={handleSwipeOpen}
       containerStyle={styles.swipeableContainer}
     >
@@ -139,6 +168,36 @@ function RightAction({ drag, onDelete, deleteLabel }: RightActionProps) {
   );
 }
 
+// ============================================================================
+// Left action (Reanimated - UI thread)
+// ============================================================================
+
+interface LeftActionProps {
+  drag: SharedValue<number>;
+  onAction: () => void;
+  label: string;
+  icon?: React.ReactNode;
+}
+
+function LeftAction({ drag, onAction, label, icon }: LeftActionProps) {
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: drag.value - ACTION_WIDTH }],
+  }));
+
+  return (
+    <Reanimated.View style={[styles.actionsContainer, animStyle]}>
+      <TouchableOpacity
+        style={[styles.actionButton, styles.leftAction]}
+        onPress={onAction}
+        activeOpacity={0.7}
+      >
+        {icon || <Zap size={20} color={colors.white} />}
+        <Text style={styles.actionText}>{label}</Text>
+      </TouchableOpacity>
+    </Reanimated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   swipeableContainer: {
     marginBottom: spacing.sm,
@@ -156,6 +215,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error,
     borderTopRightRadius: borderRadius.lg,
     borderBottomRightRadius: borderRadius.lg,
+  },
+  leftAction: {
+    backgroundColor: colors.primary,
+    borderTopLeftRadius: borderRadius.lg,
+    borderBottomLeftRadius: borderRadius.lg,
   },
   actionText: {
     color: colors.white,

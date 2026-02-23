@@ -19,9 +19,10 @@ import {
   Trash2,
   UserCheck,
   Truck,
+  Search,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, SwipeableRow, SwipeableProvider } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -421,7 +422,12 @@ export default function HomePage() {
         {/* Collapsible Header */}
         <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]}>
           <Text variant="h2">{t('navigation:tabs.home')}</Text>
-          <NotificationBell />
+          <View style={styles.headerRight}>
+            <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn}>
+              <Search size={22} color={colors.text} />
+            </TouchableOpacity>
+            <NotificationBell />
+          </View>
         </Animated.View>
 
         {/* Hesap Silme Uyarısı */}
@@ -618,7 +624,8 @@ export default function HomePage() {
               onAction={() => router.push('/hesaplar/ekle')}
             />
           ) : (
-            ['nakit', 'banka', 'kredi_karti', 'birikim', 'diger'].map((groupKey) => {
+            <SwipeableProvider>
+            {['nakit', 'banka', 'kredi_karti', 'birikim', 'diger'].map((groupKey) => {
               const groupHesaplar = groupedHesaplar[groupKey] || [];
               if (groupHesaplar.length === 0) return null;
 
@@ -645,6 +652,10 @@ export default function HomePage() {
                   {/* Grup İçindeki Hesaplar */}
                   {groupHesaplar.map((hesap) => (
                     <View key={hesap.id} style={!hesap.is_active ? styles.passiveItem : undefined}>
+                      <SwipeableRow
+                        onLeftAction={() => router.push(`/hesaplar/${hesap.id}`)}
+                        leftActionLabel={t('common:archive.actions.makeTransaction')}
+                      >
                       <TouchableOpacity
                         style={styles.entityCard}
                         onPress={() => router.push(`/hesaplar/${hesap.id}`)}
@@ -663,6 +674,8 @@ export default function HomePage() {
                                 <EyeOff size={14} color={colors.textMuted} />
                               )}
                             </View>
+                          </View>
+                          <View style={styles.hesapBalance}>
                             <Text
                               variant="h3"
                               color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}
@@ -677,11 +690,13 @@ export default function HomePage() {
                           </View>
                         </View>
                       </TouchableOpacity>
+                      </SwipeableRow>
                     </View>
                   ))}
                 </View>
               );
-            })
+            })}
+            </SwipeableProvider>
           )}
         </View>
       </Animated.ScrollView>
@@ -1006,6 +1021,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     overflow: 'hidden',
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  headerIconBtn: {
+    padding: spacing.xs,
+  },
   deletionWarning: {
     backgroundColor: colors.error,
     marginHorizontal: spacing.lg,
@@ -1100,6 +1123,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  hesapBalance: {
+    alignItems: 'flex-end',
   },
   passiveItem: {
     opacity: 0.5,

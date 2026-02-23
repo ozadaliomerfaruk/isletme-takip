@@ -20,7 +20,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem } from '@/components/ui';
+import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem, SwipeableRow, SwipeableProvider } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -343,6 +343,13 @@ export default function PersonelPage() {
             </View>
           </TouchableOpacity>
         ) : (
+          <SwipeableRow
+            onLeftAction={() => {
+              setSelectedPersonelId(personel.id);
+              setQuickBarVisible(true);
+            }}
+            leftActionLabel={t('common:archive.actions.makeTransaction')}
+          >
           <TouchableOpacity
             onPress={() => router.push(`/personel/${personel.id}`)}
             onLongPress={() => {
@@ -400,6 +407,7 @@ export default function PersonelPage() {
               </View>
             </View>
           </TouchableOpacity>
+          </SwipeableRow>
         )}
       </View>
       </AnimatedListItem>
@@ -477,6 +485,7 @@ export default function PersonelPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <SwipeableProvider>
       <FlatList
         style={styles.scrollView}
         data={isLoading ? [] : filteredPersonel}
@@ -497,6 +506,7 @@ export default function PersonelPage() {
         extraData={{ selectedIds, isSelectMode, sortBy }}
         contentContainerStyle={styles.listContainer}
       />
+      </SwipeableProvider>
 
       {/* FAB Backdrop */}
       {fabMenuVisible && (

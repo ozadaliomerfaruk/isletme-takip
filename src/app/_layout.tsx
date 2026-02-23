@@ -159,6 +159,7 @@ function RootLayoutNav() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="arama" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="verify" options={{ headerShown: false, animation: 'fade' }} />

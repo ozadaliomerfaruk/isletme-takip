@@ -20,7 +20,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem } from '@/components/ui';
+import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem, SwipeableRow, SwipeableProvider } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -477,6 +477,13 @@ export default function CarilerPage() {
             </View>
           </TouchableOpacity>
         ) : (
+          <SwipeableRow
+            onLeftAction={() => {
+              setSelectedCari(cari);
+              setQuickBarVisible(true);
+            }}
+            leftActionLabel={t('common:archive.actions.makeTransaction')}
+          >
           <TouchableOpacity
             style={styles.entityCard}
             onPress={() => router.push(`/cariler/${cari.id}`)}
@@ -540,6 +547,7 @@ export default function CarilerPage() {
               </View>
             </View>
           </TouchableOpacity>
+          </SwipeableRow>
         )}
       </View>
       </AnimatedListItem>
@@ -629,6 +637,7 @@ export default function CarilerPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <SwipeableProvider>
       <FlatList
         style={styles.scrollView}
         data={isLoading ? [] : filteredCariler}
@@ -649,6 +658,7 @@ export default function CarilerPage() {
         extraData={{ selectedIds, isSelectMode, sortBy }}
         contentContainerStyle={styles.listContainer}
       />
+      </SwipeableProvider>
 
       {/* Quick Transaction Bar */}
       <QuickTransactionBar
