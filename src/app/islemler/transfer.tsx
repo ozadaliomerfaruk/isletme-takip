@@ -11,17 +11,28 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronDown, ArrowRight, Bell } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CurrencyInput, ReminderSettings, type ReminderConfig } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CurrencyInput, ReminderSettings } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { transferSchema, type TransferFormData } from '@/lib/schemas/paymentForm';
+
+const errorKeyMap: Record<string, string> = {
+  invalidAmount: 'errors:validation.invalidAmount',
+  selectSourceAccount: 'errors:account.selectSourceAccount',
+  selectTargetAccount: 'errors:account.selectTargetAccount',
+  sameAccountError: 'errors:account.sameAccountError',
+  futureDateRequired: 'errors:transaction.futureDateRequired',
+};
 
 export default function TransferPage() {
   const router = useRouter();
@@ -31,96 +42,71 @@ export default function TransferPage() {
 
   const { data: hesaplar } = useHesaplar();
 
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [kaynakHesapId, setKaynakHesapId] = useState<string | null>(null);
-  const [hedefHesapId, setHedefHesapId] = useState<string | null>(null);
   const [showKaynakPicker, setShowKaynakPicker] = useState(false);
   const [showHedefPicker, setShowHedefPicker] = useState(false);
-  const [isIleriTarihli, setIsIleriTarihli] = useState(false);
-  const [reminderConfig, setReminderConfig] = useState<ReminderConfig>({
-    enabled: false,
-    daysBefore: 0,
-    time: '09:00',
+
+  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<TransferFormData>({
+    resolver: zodResolver(transferSchema),
+    defaultValues: {
+      amount: '',
+      description: '',
+      selectedDate: new Date(),
+      kaynakHesapId: null,
+      hedefHesapId: null,
+      isIleriTarihli: false,
+      reminderConfig: { enabled: false, daysBefore: 0, time: '09:00' },
+    },
   });
-  const [errors, setErrors] = useState<{ amount?: string; kaynak?: string; hedef?: string; date?: string }>({});
+
+  const kaynakHesapId = watch('kaynakHesapId');
+  const hedefHesapId = watch('hedefHesapId');
+  const isIleriTarihli = watch('isIleriTarihli');
+
+  const getErrorMessage = (field: keyof TransferFormData) => {
+    const msg = errors[field]?.message;
+    if (!msg) return undefined;
+    return t(errorKeyMap[msg] || msg);
+  };
 
   useEffect(() => {
     if (hesaplar && hesaplar.length >= 2 && !kaynakHesapId && !hedefHesapId) {
-      setKaynakHesapId(hesaplar[0].id);
-      setHedefHesapId(hesaplar[1].id);
+      setValue('kaynakHesapId', hesaplar[0].id);
+      setValue('hedefHesapId', hesaplar[1].id);
     }
-  }, [hesaplar]);
+  }, [hesaplar, kaynakHesapId, hedefHesapId, setValue]);
 
   const kaynakHesap = hesaplar?.find((h) => h.id === kaynakHesapId);
   const hedefHesap = hesaplar?.find((h) => h.id === hedefHesapId);
 
-  const validate = () => {
-    const newErrors: { amount?: string; kaynak?: string; hedef?: string; date?: string } = {};
-
-    if (!isValidAmount(amount)) {
-      newErrors.amount = t('errors:validation.invalidAmount');
-    }
-
-    if (!kaynakHesapId) {
-      newErrors.kaynak = t('errors:account.selectSourceAccount');
-    }
-
-    if (!hedefHesapId) {
-      newErrors.hedef = t('errors:account.selectTargetAccount');
-    }
-
-    if (kaynakHesapId === hedefHesapId) {
-      newErrors.hedef = t('errors:account.sameAccountError');
-    }
-
-    if (isIleriTarihli) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const selected = new Date(selectedDate);
-      selected.setHours(0, 0, 0, 0);
-
-      if (selected <= today) {
-        newErrors.date = t('errors:transaction.futureDateRequired');
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!validate()) return;
-
+  const onSubmit = async (data: TransferFormData) => {
     try {
-      if (isIleriTarihli) {
-        const scheduledDate = formatDateForDB(selectedDate);
+      if (data.isIleriTarihli) {
+        const scheduledDate = formatDateForDB(data.selectedDate);
         const result = await createIleriTarihliIslem.mutateAsync({
           type: 'transfer',
-          amount: parseCurrency(amount),
-          description: description.trim() || null,
-          hesap_id: kaynakHesapId,
-          hedef_hesap_id: hedefHesapId,
+          amount: parseCurrency(data.amount),
+          description: data.description.trim() || null,
+          hesap_id: data.kaynakHesapId,
+          hedef_hesap_id: data.hedefHesapId,
           scheduled_date: scheduledDate,
         });
 
-        if (reminderConfig.enabled && result?.id) {
+        if (data.reminderConfig.enabled && result?.id) {
           const reminderDate = calculateReminderDate(
             scheduledDate,
-            reminderConfig.daysBefore,
-            reminderConfig.time
+            data.reminderConfig.daysBefore,
+            data.reminderConfig.time
           );
 
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${t('transactions:types.transfer')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.transfer')}: ${formatCurrency(parseCurrency(data.amount))}${data.description ? ` - ${data.description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
               transaction_id: result.id,
-              hesap_id: kaynakHesapId,
+              hesap_id: data.kaynakHesapId,
             }
           );
         }
@@ -131,11 +117,11 @@ export default function TransferPage() {
       } else {
         await createIslem.mutateAsync({
           type: 'transfer',
-          amount: parseCurrency(amount),
-          description: description.trim() || null,
-          hesap_id: kaynakHesapId,
-          hedef_hesap_id: hedefHesapId,
-          date: formatDateTimeForDB(selectedDate),
+          amount: parseCurrency(data.amount),
+          description: data.description.trim() || null,
+          hesap_id: data.kaynakHesapId,
+          hedef_hesap_id: data.hedefHesapId,
+          date: formatDateTimeForDB(data.selectedDate),
         });
 
         Alert.alert(t('common:status.success'), t('transactions:messages.transferCompleted'), [
@@ -170,11 +156,12 @@ export default function TransferPage() {
               <TouchableOpacity
                 style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
                 onPress={() => {
-                  setIsIleriTarihli(!isIleriTarihli);
-                  if (!isIleriTarihli) {
+                  const next = !isIleriTarihli;
+                  setValue('isIleriTarihli', next);
+                  if (next) {
                     const tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
-                    setSelectedDate(tomorrow);
+                    setValue('selectedDate', tomorrow);
                   }
                 }}
               >
@@ -191,11 +178,17 @@ export default function TransferPage() {
           </View>
 
           <View style={styles.section}>
-            <CurrencyInput
-              label={t('transactions:form.amount')}
-              value={amount}
-              onChangeText={setAmount}
-              error={errors.amount}
+            <Controller
+              control={control}
+              name="amount"
+              render={({ field: { value, onChange } }) => (
+                <CurrencyInput
+                  label={t('transactions:form.amount')}
+                  value={value}
+                  onChangeText={onChange}
+                  error={getErrorMessage('amount')}
+                />
+              )}
             />
 
             {/* Kaynak Hesap */}
@@ -204,7 +197,7 @@ export default function TransferPage() {
                 {t('transactions:form.sourceAccount')}
               </Text>
               <TouchableOpacity
-                style={[styles.picker, errors.kaynak && styles.pickerError]}
+                style={[styles.picker, errors.kaynakHesapId && styles.pickerError]}
                 onPress={() => {
                   closeAllPickers();
                   setShowKaynakPicker(!showKaynakPicker);
@@ -220,9 +213,9 @@ export default function TransferPage() {
                 </View>
                 <ChevronDown size={20} color={colors.textMuted} />
               </TouchableOpacity>
-              {errors.kaynak && (
+              {errors.kaynakHesapId && (
                 <Text variant="caption" color="error" style={styles.errorText}>
-                  {errors.kaynak}
+                  {getErrorMessage('kaynakHesapId')}
                 </Text>
               )}
               {showKaynakPicker && (
@@ -232,7 +225,7 @@ export default function TransferPage() {
                       key={hesap.id}
                       style={styles.pickerOption}
                       onPress={() => {
-                        setKaynakHesapId(hesap.id);
+                        setValue('kaynakHesapId', hesap.id, { shouldValidate: true });
                         setShowKaynakPicker(false);
                       }}
                     >
@@ -251,7 +244,7 @@ export default function TransferPage() {
               )}
             </View>
 
-            {/* Transfer Oku */}
+            {/* Transfer Arrow */}
             <View style={styles.arrowContainer}>
               <ArrowRight size={24} color={colors.primary} />
             </View>
@@ -262,7 +255,7 @@ export default function TransferPage() {
                 {t('transactions:form.targetAccount')}
               </Text>
               <TouchableOpacity
-                style={[styles.picker, errors.hedef && styles.pickerError]}
+                style={[styles.picker, errors.hedefHesapId && styles.pickerError]}
                 onPress={() => {
                   closeAllPickers();
                   setShowHedefPicker(!showHedefPicker);
@@ -278,9 +271,9 @@ export default function TransferPage() {
                 </View>
                 <ChevronDown size={20} color={colors.textMuted} />
               </TouchableOpacity>
-              {errors.hedef && (
+              {errors.hedefHesapId && (
                 <Text variant="caption" color="error" style={styles.errorText}>
-                  {errors.hedef}
+                  {getErrorMessage('hedefHesapId')}
                 </Text>
               )}
               {showHedefPicker && (
@@ -290,7 +283,7 @@ export default function TransferPage() {
                       key={hesap.id}
                       style={styles.pickerOption}
                       onPress={() => {
-                        setHedefHesapId(hesap.id);
+                        setValue('hedefHesapId', hesap.id, { shouldValidate: true });
                         setShowHedefPicker(false);
                       }}
                     >
@@ -309,28 +302,46 @@ export default function TransferPage() {
               )}
             </View>
 
-            <DateTimePicker
-              label={isIleriTarihli ? t('transactions:form.date') : t('common:labels.date')}
-              value={selectedDate}
-              onChange={setSelectedDate}
-              mode={isIleriTarihli ? "date" : "datetime"}
-              error={errors.date}
+            <Controller
+              control={control}
+              name="selectedDate"
+              render={({ field: { value, onChange } }) => (
+                <DateTimePicker
+                  label={isIleriTarihli ? t('transactions:form.date') : t('common:labels.date')}
+                  value={value}
+                  onChange={onChange}
+                  mode={isIleriTarihli ? "date" : "datetime"}
+                  error={getErrorMessage('selectedDate')}
+                />
+              )}
             />
 
             {isIleriTarihli && (
-              <ReminderSettings
-                value={reminderConfig}
-                onChange={setReminderConfig}
+              <Controller
+                control={control}
+                name="reminderConfig"
+                render={({ field: { value, onChange } }) => (
+                  <ReminderSettings
+                    value={value}
+                    onChange={onChange}
+                  />
+                )}
               />
             )}
 
-            <Input
-              label={t('transactions:form.description')}
-              placeholder={t('transactions:form.notePlaceholder')}
-              multiline
-              numberOfLines={2}
-              value={description}
-              onChangeText={setDescription}
+            <Controller
+              control={control}
+              name="description"
+              render={({ field: { value, onChange } }) => (
+                <Input
+                  label={t('transactions:form.description')}
+                  placeholder={t('transactions:form.notePlaceholder')}
+                  multiline
+                  numberOfLines={2}
+                  value={value}
+                  onChangeText={onChange}
+                />
+              )}
             />
           </View>
 
@@ -347,7 +358,7 @@ export default function TransferPage() {
               variant="primary"
               size="lg"
               loading={createIslem.isPending || createIleriTarihliIslem.isPending}
-              onPress={handleSubmit}
+              onPress={handleSubmit(onSubmit)}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
               {isIleriTarihli ? t('transactions:form.schedule') : t('transactions:titles.doTransfer')}

@@ -11,17 +11,26 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, Bell } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput, ReminderSettings, type ReminderConfig } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput, ReminderSettings } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { personelGiderSchema, type PersonelGiderFormData } from '@/lib/schemas/paymentForm';
+
+const errorKeyMap: Record<string, string> = {
+  invalidAmount: 'errors:validation.invalidAmount',
+  selectPersonel: 'errors:personel.selectPersonel',
+  futureDateRequired: 'errors:transaction.futureDateRequired',
+};
 
 export default function PersonelGiderPage() {
   const router = useRouter();
@@ -32,85 +41,67 @@ export default function PersonelGiderPage() {
 
   const { data: personelList } = usePersonelList();
 
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [personelId, setPersonelId] = useState<string | null>(params.personel_id || null);
-  const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
-  const [isIleriTarihli, setIsIleriTarihli] = useState(false);
-  const [reminderConfig, setReminderConfig] = useState<ReminderConfig>({
-    enabled: false,
-    daysBefore: 0,
-    time: '09:00',
+
+  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<PersonelGiderFormData>({
+    resolver: zodResolver(personelGiderSchema),
+    defaultValues: {
+      amount: '',
+      description: '',
+      selectedDate: new Date(),
+      personelId: params.personel_id || null,
+      kategoriId: null,
+      isIleriTarihli: false,
+      reminderConfig: { enabled: false, daysBefore: 0, time: '09:00' },
+    },
   });
-  const [errors, setErrors] = useState<{ amount?: string; personel?: string; date?: string }>({});
+
+  const personelId = watch('personelId');
+  const isIleriTarihli = watch('isIleriTarihli');
+
+  const getErrorMessage = (field: keyof PersonelGiderFormData) => {
+    const msg = errors[field]?.message;
+    if (!msg) return undefined;
+    return t(errorKeyMap[msg] || msg);
+  };
 
   useEffect(() => {
     if (!personelId && personelList && personelList.length > 0 && !params.personel_id) {
-      setPersonelId(personelList[0].id);
+      setValue('personelId', personelList[0].id);
     }
-  }, [personelList, personelId, params.personel_id]);
+  }, [personelList, personelId, params.personel_id, setValue]);
 
   const selectedPersonel = personelList?.find((p) => p.id === personelId);
 
-  const validate = () => {
-    const newErrors: { amount?: string; personel?: string; date?: string } = {};
-
-    if (!isValidAmount(amount)) {
-      newErrors.amount = t('errors:validation.invalidAmount');
-    }
-
-    if (!personelId) {
-      newErrors.personel = t('errors:personel.selectPersonel');
-    }
-
-    if (isIleriTarihli) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const selected = new Date(selectedDate);
-      selected.setHours(0, 0, 0, 0);
-
-      if (selected <= today) {
-        newErrors.date = t('errors:transaction.futureDateRequired');
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!validate()) return;
-
+  const onSubmit = async (data: PersonelGiderFormData) => {
     try {
-      if (isIleriTarihli) {
-        const scheduledDate = formatDateForDB(selectedDate);
+      if (data.isIleriTarihli) {
+        const scheduledDate = formatDateForDB(data.selectedDate);
         const result = await createIleriTarihliIslem.mutateAsync({
           type: 'personel_gider',
-          amount: parseCurrency(amount),
-          description: description.trim() || null,
-          personel_id: personelId,
-          kategori_id: kategoriId,
+          amount: parseCurrency(data.amount),
+          description: data.description.trim() || null,
+          personel_id: data.personelId,
+          kategori_id: data.kategoriId,
           scheduled_date: scheduledDate,
         });
 
-        if (reminderConfig.enabled && result?.id) {
+        if (data.reminderConfig.enabled && result?.id) {
           const reminderDate = calculateReminderDate(
             scheduledDate,
-            reminderConfig.daysBefore,
-            reminderConfig.time
+            data.reminderConfig.daysBefore,
+            data.reminderConfig.time
           );
 
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${t('transactions:types.personel_gider')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.personel_gider')}: ${formatCurrency(parseCurrency(data.amount))}${data.description ? ` - ${data.description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
               transaction_id: result.id,
-              personel_id: personelId,
+              personel_id: data.personelId,
             }
           );
         }
@@ -121,11 +112,11 @@ export default function PersonelGiderPage() {
       } else {
         await createIslem.mutateAsync({
           type: 'personel_gider',
-          amount: parseCurrency(amount),
-          description: description.trim() || null,
-          personel_id: personelId,
-          kategori_id: kategoriId,
-          date: formatDateTimeForDB(selectedDate),
+          amount: parseCurrency(data.amount),
+          description: data.description.trim() || null,
+          personel_id: data.personelId,
+          kategori_id: data.kategoriId,
+          date: formatDateTimeForDB(data.selectedDate),
         });
 
         Alert.alert(t('common:status.success'), t('staff:messages.expenseRecorded'), [
@@ -160,11 +151,12 @@ export default function PersonelGiderPage() {
               <TouchableOpacity
                 style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
                 onPress={() => {
-                  setIsIleriTarihli(!isIleriTarihli);
-                  if (!isIleriTarihli) {
+                  const next = !isIleriTarihli;
+                  setValue('isIleriTarihli', next);
+                  if (next) {
                     const tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
-                    setSelectedDate(tomorrow);
+                    setValue('selectedDate', tomorrow);
                   }
                 }}
               >
@@ -186,10 +178,8 @@ export default function PersonelGiderPage() {
                 {t('staff:transactionForm.personel')}
               </Text>
               <TouchableOpacity
-                style={[styles.picker, errors.personel && styles.pickerError]}
-                onPress={() => {
-                  setShowPersonelPicker(!showPersonelPicker);
-                }}
+                style={[styles.picker, errors.personelId && styles.pickerError]}
+                onPress={() => setShowPersonelPicker(!showPersonelPicker)}
               >
                 <View>
                   <Text variant="body">
@@ -205,9 +195,9 @@ export default function PersonelGiderPage() {
                 </View>
                 <ChevronDown size={20} color={colors.textMuted} />
               </TouchableOpacity>
-              {errors.personel && (
+              {errors.personelId && (
                 <Text variant="caption" color="error" style={styles.errorText}>
-                  {errors.personel}
+                  {getErrorMessage('personelId')}
                 </Text>
               )}
               {showPersonelPicker && (
@@ -217,7 +207,7 @@ export default function PersonelGiderPage() {
                       key={p.id}
                       style={styles.pickerOption}
                       onPress={() => {
-                        setPersonelId(p.id);
+                        setValue('personelId', p.id, { shouldValidate: true });
                         setShowPersonelPicker(false);
                       }}
                     >
@@ -230,42 +220,72 @@ export default function PersonelGiderPage() {
               )}
             </View>
 
-            <CategoryPicker
-              value={kategoriId}
-              onChange={setKategoriId}
-              type="gider"
-              label={t('transactions:form.category')}
+            <Controller
+              control={control}
+              name="kategoriId"
+              render={({ field: { value, onChange } }) => (
+                <CategoryPicker
+                  value={value}
+                  onChange={onChange}
+                  type="gider"
+                  label={t('transactions:form.category')}
+                />
+              )}
             />
 
-            <CurrencyInput
-              label={t('transactions:form.amount')}
-              value={amount}
-              onChangeText={setAmount}
-              error={errors.amount}
+            <Controller
+              control={control}
+              name="amount"
+              render={({ field: { value, onChange } }) => (
+                <CurrencyInput
+                  label={t('transactions:form.amount')}
+                  value={value}
+                  onChangeText={onChange}
+                  error={getErrorMessage('amount')}
+                />
+              )}
             />
 
-            <DateTimePicker
-              label={isIleriTarihli ? t('transactions:form.transactionDate') : t('transactions:form.dateTime')}
-              value={selectedDate}
-              onChange={setSelectedDate}
-              mode={isIleriTarihli ? "date" : "datetime"}
-              error={errors.date}
+            <Controller
+              control={control}
+              name="selectedDate"
+              render={({ field: { value, onChange } }) => (
+                <DateTimePicker
+                  label={isIleriTarihli ? t('transactions:form.transactionDate') : t('transactions:form.dateTime')}
+                  value={value}
+                  onChange={onChange}
+                  mode={isIleriTarihli ? "date" : "datetime"}
+                  error={getErrorMessage('selectedDate')}
+                />
+              )}
             />
 
             {isIleriTarihli && (
-              <ReminderSettings
-                value={reminderConfig}
-                onChange={setReminderConfig}
+              <Controller
+                control={control}
+                name="reminderConfig"
+                render={({ field: { value, onChange } }) => (
+                  <ReminderSettings
+                    value={value}
+                    onChange={onChange}
+                  />
+                )}
               />
             )}
 
-            <Input
-              label={t('staff:transactionForm.descriptionOptional')}
-              placeholder={t('staff:transactionForm.expenseNote')}
-              multiline
-              numberOfLines={3}
-              value={description}
-              onChangeText={setDescription}
+            <Controller
+              control={control}
+              name="description"
+              render={({ field: { value, onChange } }) => (
+                <Input
+                  label={t('staff:transactionForm.descriptionOptional')}
+                  placeholder={t('staff:transactionForm.expenseNote')}
+                  multiline
+                  numberOfLines={3}
+                  value={value}
+                  onChangeText={onChange}
+                />
+              )}
             />
           </View>
 
@@ -277,7 +297,7 @@ export default function PersonelGiderPage() {
               variant="primary"
               size="lg"
               loading={createIslem.isPending || createIleriTarihliIslem.isPending}
-              onPress={handleSubmit}
+              onPress={handleSubmit(onSubmit)}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
               {isIleriTarihli ? t('transactions:form.schedule') : t('common:buttons.save')}
