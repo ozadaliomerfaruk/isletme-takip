@@ -393,20 +393,38 @@ export default function HomePage() {
     }, 300);
   }, [cariPickerMode]);
 
+  // Collapsible header animation
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, 60],
+    outputRange: [52, 0],
+    extrapolate: 'clamp',
+  });
+  const headerOpacity = scrollY.interpolate({
+    inputRange: [0, 40],
+    outputRange: [1, 0],
+    extrapolate: 'clamp',
+  });
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
+      <Animated.ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false },
+        )}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Collapsible Header */}
+        <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]}>
           <Text variant="h2">{t('navigation:tabs.home')}</Text>
           <NotificationBell />
-        </View>
+        </Animated.View>
 
         {/* Hesap Silme Uyarısı */}
         {scheduledDeletion && daysRemaining > 0 && (
@@ -719,7 +737,7 @@ export default function HomePage() {
             })
           )}
         </View>
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* FAB Menü - Backdrop */}
       {showFabMenu && (
@@ -1074,7 +1092,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    overflow: 'hidden',
   },
   deletionWarning: {
     backgroundColor: colors.error,

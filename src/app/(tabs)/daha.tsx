@@ -22,9 +22,9 @@ import {
   Archive,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card } from '@/components/ui';
+import { Text, Card, Avatar } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { changeLanguage, getCurrentLanguage } from '@/i18n';
 import type { SupportedLanguage } from '@/i18n/types';
@@ -36,15 +36,21 @@ interface MenuItemProps {
   onPress: () => void;
   danger?: boolean;
   badge?: number;
+  subtitle?: string;
 }
 
-function MenuItem({ icon, label, onPress, danger, badge }: MenuItemProps) {
+function MenuItem({ icon, label, onPress, danger, badge, subtitle }: MenuItemProps) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
       <View style={[styles.menuIcon, danger && styles.menuIconDanger]}>{icon}</View>
-      <Text variant="body" style={[{ flex: 1 }, danger && { color: colors.error }]}>
-        {label}
-      </Text>
+      <View style={styles.menuContent}>
+        <Text variant="body" style={[danger && { color: colors.error }]}>
+          {label}
+        </Text>
+        {subtitle && (
+          <Text variant="caption" color="muted">{subtitle}</Text>
+        )}
+      </View>
       {badge !== undefined && badge > 0 && (
         <View style={styles.badge}>
           <Text variant="caption" style={styles.badgeText}>
@@ -64,7 +70,7 @@ const languageOptions: { code: SupportedLanguage; label: string }[] = [
 
 export default function DahaPage() {
   const router = useRouter();
-  const { signOut } = useAuthContext();
+  const { signOut, user, isletme } = useAuthContext();
   const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors']);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
@@ -74,7 +80,6 @@ export default function DahaPage() {
   const {
     currency,
     dateFormat,
-    currencyConfig,
     dateFormatConfig,
     setCurrency,
     setDateFormat,
@@ -127,12 +132,30 @@ export default function DahaPage() {
     );
   };
 
+  const businessName = isletme?.name || t('common:appName');
+  const userEmail = user?.email || '';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text variant="h2">{t('navigation:tabs.more')}</Text>
+        {/* Profile Card */}
+        <View style={styles.profileSection}>
+          <View style={styles.profileCard}>
+            <Avatar name={businessName} size={48} />
+            <View style={styles.profileInfo}>
+              <Text variant="h3" numberOfLines={1}>{businessName}</Text>
+              {userEmail ? (
+                <Text variant="caption" color="muted" numberOfLines={1}>{userEmail}</Text>
+              ) : null}
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/ayarlar/isletme')}
+              style={styles.profileEditButton}
+              activeOpacity={0.7}
+            >
+              <ChevronRight size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* İşlemler & Raporlar */}
@@ -184,57 +207,35 @@ export default function DahaPage() {
               label={t('common:archive.title')}
               onPress={() => router.push('/arsiv' as any)}
             />
-            <View style={styles.divider} />
-            <TouchableOpacity
-              style={styles.menuItem}
+          </Card>
+        </View>
+
+        {/* Tercihler */}
+        <View style={styles.section}>
+          <Text variant="label" color="secondary" style={styles.sectionTitle}>
+            {t('settings:sections.preferences')}
+          </Text>
+          <Card padding="none">
+            <MenuItem
+              icon={<Languages size={22} color={colors.info} />}
+              label={t('settings:language.title')}
+              subtitle={getCurrentLanguageLabel()}
               onPress={() => setLanguageModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuIcon}>
-                <Languages size={22} color={colors.info} />
-              </View>
-              <View style={styles.settingRow}>
-                <Text variant="body">{t('settings:language.title')}</Text>
-                <Text variant="caption" color="muted">
-                  {getCurrentLanguageLabel()}
-                </Text>
-              </View>
-              <ChevronRight size={20} color={colors.textMuted} />
-            </TouchableOpacity>
+            />
             <View style={styles.divider} />
-            <TouchableOpacity
-              style={styles.menuItem}
+            <MenuItem
+              icon={<Coins size={22} color={colors.success} />}
+              label={t('settings:currency.title')}
+              subtitle={t(`settings:currency.${currency}`)}
               onPress={() => setCurrencyModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuIcon}>
-                <Coins size={22} color={colors.success} />
-              </View>
-              <View style={styles.settingRow}>
-                <Text variant="body">{t('settings:currency.title')}</Text>
-                <Text variant="caption" color="muted">
-                  {t(`settings:currency.${currency}`)}
-                </Text>
-              </View>
-              <ChevronRight size={20} color={colors.textMuted} />
-            </TouchableOpacity>
+            />
             <View style={styles.divider} />
-            <TouchableOpacity
-              style={styles.menuItem}
+            <MenuItem
+              icon={<Calendar size={22} color={colors.warning} />}
+              label={t('settings:dateFormat.title')}
+              subtitle={dateFormatConfig.example}
               onPress={() => setDateFormatModalVisible(true)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.menuIcon}>
-                <Calendar size={22} color={colors.warning} />
-              </View>
-              <View style={styles.settingRow}>
-                <Text variant="body">{t('settings:dateFormat.title')}</Text>
-                <Text variant="caption" color="muted">
-                  {dateFormatConfig.example}
-                </Text>
-              </View>
-              <ChevronRight size={20} color={colors.textMuted} />
-            </TouchableOpacity>
+            />
           </Card>
         </View>
 
@@ -439,9 +440,26 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  header: {
+  profileSection: {
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    gap: spacing.md,
+    ...shadows.md,
+  },
+  profileInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  profileEditButton: {
+    padding: spacing.sm,
   },
   section: {
     paddingHorizontal: spacing.lg,
@@ -468,18 +486,18 @@ const styles = StyleSheet.create({
   menuIconDanger: {
     backgroundColor: colors.errorLight,
   },
+  menuContent: {
+    flex: 1,
+    gap: 2,
+  },
   divider: {
-    height: 1,
-    backgroundColor: colors.border,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.borderLight,
     marginLeft: spacing.lg + 36 + spacing.md,
   },
   versionContainer: {
     alignItems: 'center',
     paddingVertical: spacing['3xl'],
-  },
-  settingRow: {
-    flex: 1,
-    gap: 2,
   },
   modalOverlay: {
     flex: 1,
@@ -501,8 +519,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
     paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
   },
   optionItem: {
     flexDirection: 'row',

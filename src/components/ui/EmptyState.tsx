@@ -1,6 +1,7 @@
 import { View, StyleSheet } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { Text } from './Text';
 import { Button } from './Button';
 
@@ -21,20 +22,29 @@ export function EmptyState({
 }: EmptyStateProps) {
   return (
     <View style={styles.container}>
-      {icon && <View style={styles.icon}>{icon}</View>}
-      <Text variant="h3" center style={styles.title}>
-        {title}
-      </Text>
-      {description && (
-        <Text variant="bodySmall" color="secondary" center style={styles.description}>
-          {description}
+      <Animated.View
+        entering={FadeInDown.duration(400).springify().damping(18).stiffness(140)}
+        style={styles.content}
+      >
+        {icon && (
+          <View style={styles.iconContainer}>
+            {icon}
+          </View>
+        )}
+        <Text variant="h3" center style={styles.title}>
+          {title}
         </Text>
-      )}
-      {actionLabel && onAction && (
-        <Button variant="primary" onPress={onAction} style={styles.button}>
-          {actionLabel}
-        </Button>
-      )}
+        {description && (
+          <Text variant="bodySmall" color="secondary" center style={styles.description}>
+            {description}
+          </Text>
+        )}
+        {actionLabel && onAction && (
+          <Button variant="primary" onPress={onAction} style={styles.button}>
+            {actionLabel}
+          </Button>
+        )}
+      </Animated.View>
     </View>
   );
 }
@@ -46,14 +56,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: spacing['3xl'],
   },
-  icon: {
-    marginBottom: spacing.lg,
+  content: {
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius['2xl'],
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
   },
   title: {
     marginBottom: spacing.sm,
   },
   description: {
     marginBottom: spacing.xl,
+    lineHeight: 20,
   },
   button: {
     minWidth: 150,

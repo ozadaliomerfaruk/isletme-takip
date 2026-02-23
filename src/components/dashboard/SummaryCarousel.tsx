@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { Text, AnimatedNumber } from '@/components/ui';
 import { CashFlowCard } from './CashFlowCard';
@@ -127,7 +128,7 @@ export function SummaryCarousel({
         snapToInterval={CARD_WIDTH}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Page 1: Genel Durum */}
+        {/* Page 1: Genel Durum (gradient hero card) */}
         <View style={[styles.page, { width: CARD_WIDTH }]}>
           <TouchableOpacity
             style={styles.card}
@@ -137,6 +138,12 @@ export function SummaryCarousel({
             })}
             activeOpacity={0.8}
           >
+            <LinearGradient
+              colors={['#F0FDF9', '#FFFFFF']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.gradientOverlay}
+            />
             {/* Header */}
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>{t('common:dashboard.generalStatus')}</Text>
@@ -394,6 +401,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 3,
+    overflow: 'hidden',
+  },
+  gradientOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 20,
   },
   cardHeader: {
     flexDirection: 'row',
