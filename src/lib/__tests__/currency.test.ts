@@ -16,7 +16,20 @@ jest.mock('@/constants/currencies', () => ({
   isPreciousMetal: () => false,
 }));
 
-import { calculateTargetAmount } from '../currency';
+import {
+  calculateTargetAmount,
+  toNumber,
+  roundCurrency,
+  parseCurrency,
+  safeParseAmount,
+  safeParseExchangeRate,
+  formatCurrencyInput,
+  unformatCurrencyInput,
+  isValidAmount,
+  isValidBalance,
+  getBalanceInfo,
+  calculateBalanceSummary,
+} from '../currency';
 
 // ============================================================================
 // Bug #5: Exchange rate=0 sessiz hata
@@ -107,5 +120,374 @@ describe('Bug #7: calculateTargetAmount - conversion chain drift', () => {
     const result = calculateTargetAmount(1000000.99, 32.456, 'USD', 'TRY');
     // 1000000.99 * 32.456 = 32456032.13
     expect(result).toBeCloseTo(32456032.13, 1);
+  });
+});
+
+// ============================================================================
+// toNumber - database value to number conversion
+// ============================================================================
+describe('toNumber', () => {
+  it('should return 0 for null', () => {
+    expect(toNumber(null)).toBe(0);
+  });
+
+  it('should return 0 for undefined', () => {
+    expect(toNumber(undefined)).toBe(0);
+  });
+
+  it('should return number as-is', () => {
+    expect(toNumber(1234.56)).toBe(1234.56);
+  });
+
+  it('should return 0 for NaN number input', () => {
+    expect(toNumber(NaN)).toBe(0);
+  });
+
+  it('should parse string to number', () => {
+    expect(toNumber('1234.56')).toBe(1234.56);
+  });
+
+  it('should return 0 for non-numeric string', () => {
+    expect(toNumber('abc')).toBe(0);
+  });
+
+  it('should return 0 for empty string', () => {
+    expect(toNumber('')).toBe(0);
+  });
+
+  it('should handle negative number', () => {
+    expect(toNumber(-500)).toBe(-500);
+  });
+
+  it('should handle negative string', () => {
+    expect(toNumber('-500')).toBe(-500);
+  });
+});
+
+// ============================================================================
+// roundCurrency - IEEE 754 safe rounding
+// ============================================================================
+describe('roundCurrency', () => {
+  it('should round 1.005 to 1.01 (not 1.00)', () => {
+    expect(roundCurrency(1.005)).toBe(1.01);
+  });
+
+  it('should round -1.005 to -1.01', () => {
+    expect(roundCurrency(-1.005)).toBe(-1.01);
+  });
+
+  it('should return 0 for NaN', () => {
+    expect(roundCurrency(NaN)).toBe(0);
+  });
+
+  it('should return 0 for Infinity', () => {
+    expect(roundCurrency(Infinity)).toBe(0);
+  });
+
+  it('should keep exact values unchanged', () => {
+    expect(roundCurrency(1.23)).toBe(1.23);
+  });
+});
+
+// ============================================================================
+// parseCurrency - Turkish/English format parsing
+// ============================================================================
+describe('parseCurrency', () => {
+  it('should parse Turkish format "1.234,56"', () => {
+    expect(parseCurrency('1.234,56')).toBe(1234.56);
+  });
+
+  it('should parse comma decimal "1234,56"', () => {
+    expect(parseCurrency('1234,56')).toBe(1234.56);
+  });
+
+  it('should parse English format "1234.56"', () => {
+    expect(parseCurrency('1234.56')).toBe(1234.56);
+  });
+
+  it('should parse Turkish thousand separator "5.000"', () => {
+    expect(parseCurrency('5.000')).toBe(5000);
+  });
+
+  it('should return NaN for empty string', () => {
+    expect(parseCurrency('')).toBeNaN();
+  });
+
+  it('should parse plain integer', () => {
+    expect(parseCurrency('500')).toBe(500);
+  });
+});
+
+// ============================================================================
+// safeParseAmount - strict amount parsing
+// ============================================================================
+describe('safeParseAmount', () => {
+  it('should parse valid number string', () => {
+    expect(safeParseAmount('1234.56')).toBe(1234.56);
+  });
+
+  it('should pass through valid number', () => {
+    expect(safeParseAmount(1234.56)).toBe(1234.56);
+  });
+
+  it('should throw for null', () => {
+    expect(() => safeParseAmount(null)).toThrow('null or undefined');
+  });
+
+  it('should throw for undefined', () => {
+    expect(() => safeParseAmount(undefined)).toThrow('null or undefined');
+  });
+
+  it('should throw for non-numeric string', () => {
+    expect(() => safeParseAmount('abc')).toThrow('not a valid number');
+  });
+
+  it('should throw for Infinity', () => {
+    expect(() => safeParseAmount(Infinity)).toThrow('infinite');
+  });
+
+  it('should include custom field name in error message', () => {
+    expect(() => safeParseAmount(null, 'tutar')).toThrow('Invalid tutar');
+  });
+});
+
+// ============================================================================
+// safeParseExchangeRate - exchange rate validation
+// ============================================================================
+describe('safeParseExchangeRate', () => {
+  it('should return null for null input', () => {
+    expect(safeParseExchangeRate(null)).toBeNull();
+  });
+
+  it('should return null for undefined input', () => {
+    expect(safeParseExchangeRate(undefined)).toBeNull();
+  });
+
+  it('should return null for NaN string', () => {
+    expect(safeParseExchangeRate('abc')).toBeNull();
+  });
+
+  it('should parse valid number', () => {
+    expect(safeParseExchangeRate(32.5)).toBe(32.5);
+  });
+
+  it('should parse valid string', () => {
+    expect(safeParseExchangeRate('32.5')).toBe(32.5);
+  });
+
+  it('should throw for zero', () => {
+    expect(() => safeParseExchangeRate(0)).toThrow('must be greater than 0');
+  });
+
+  it('should throw for negative value', () => {
+    expect(() => safeParseExchangeRate(-1)).toThrow('must be greater than 0');
+  });
+
+  it('should throw for Infinity', () => {
+    expect(() => safeParseExchangeRate(Infinity)).toThrow('infinite');
+  });
+});
+
+// ============================================================================
+// isValidAmount - positive amount validation
+// ============================================================================
+describe('isValidAmount', () => {
+  it('should return true for valid Turkish format', () => {
+    expect(isValidAmount('1.234,56')).toBe(true);
+  });
+
+  it('should return true for plain number', () => {
+    expect(isValidAmount('500')).toBe(true);
+  });
+
+  it('should return false for "0"', () => {
+    expect(isValidAmount('0')).toBe(false);
+  });
+
+  it('should return false for empty string', () => {
+    expect(isValidAmount('')).toBe(false);
+  });
+
+  it('should return false for non-numeric string', () => {
+    expect(isValidAmount('abc')).toBe(false);
+  });
+
+  it('should return false for negative number', () => {
+    expect(isValidAmount('-100')).toBe(false);
+  });
+
+  it('should return true for small decimal "0,01"', () => {
+    expect(isValidAmount('0,01')).toBe(true);
+  });
+});
+
+// ============================================================================
+// isValidBalance - balance validation (allows zero and negatives)
+// ============================================================================
+describe('isValidBalance', () => {
+  it('should return true for positive amount', () => {
+    expect(isValidBalance('1.234,56')).toBe(true);
+  });
+
+  it('should return true for "0"', () => {
+    expect(isValidBalance('0')).toBe(true);
+  });
+
+  it('should return true for negative "-500"', () => {
+    expect(isValidBalance('-500')).toBe(true);
+  });
+
+  it('should return false for empty string', () => {
+    expect(isValidBalance('')).toBe(false);
+  });
+
+  it('should return false for non-numeric string', () => {
+    expect(isValidBalance('abc')).toBe(false);
+  });
+});
+
+// ============================================================================
+// getBalanceInfo - balance label/color mapping
+// ============================================================================
+describe('getBalanceInfo', () => {
+  it('should return "Dengede" for zero balance', () => {
+    const info = getBalanceInfo(0, 'musteri');
+    expect(info.label).toBe('Dengede');
+    expect(info.colorType).toBe('secondary');
+  });
+
+  it('should return "Alacak" for positive musteri balance', () => {
+    const info = getBalanceInfo(100, 'musteri');
+    expect(info.label).toBe('Alacak');
+    expect(info.isPositive).toBe(true);
+    expect(info.colorType).toBe('success');
+  });
+
+  it('should return "Borç" for negative musteri balance', () => {
+    const info = getBalanceInfo(-100, 'musteri');
+    expect(info.label).toBe('Borç');
+    expect(info.isPositive).toBe(false);
+    expect(info.colorType).toBe('error');
+  });
+
+  it('should return "Fazla Ödeme" for positive tedarikci balance', () => {
+    const info = getBalanceInfo(100, 'tedarikci');
+    expect(info.label).toBe('Fazla Ödeme');
+    expect(info.isPositive).toBe(true);
+  });
+
+  it('should return "Borç" for negative tedarikci balance', () => {
+    const info = getBalanceInfo(-100, 'tedarikci');
+    expect(info.label).toBe('Borç');
+    expect(info.isPositive).toBe(false);
+  });
+
+  it('should return "Avans" for positive personel balance', () => {
+    const info = getBalanceInfo(100, 'personel');
+    expect(info.label).toBe('Avans');
+    expect(info.isPositive).toBe(true);
+  });
+
+  it('should return "Borç" for negative personel balance', () => {
+    const info = getBalanceInfo(-100, 'personel');
+    expect(info.label).toBe('Borç');
+    expect(info.isPositive).toBe(false);
+  });
+});
+
+// ============================================================================
+// calculateBalanceSummary - aggregate balance calculation
+// ============================================================================
+describe('calculateBalanceSummary', () => {
+  it('should calculate receivables and payables correctly', () => {
+    const items = [{ balance: 100 }, { balance: -200 }, { balance: 300 }, { balance: -50 }];
+    const result = calculateBalanceSummary(items);
+    expect(result.receivables).toBe(400);
+    expect(result.payables).toBe(250);
+    expect(result.net).toBe(150);
+  });
+
+  it('should handle empty array', () => {
+    const result = calculateBalanceSummary([]);
+    expect(result.receivables).toBe(0);
+    expect(result.payables).toBe(0);
+    expect(result.net).toBe(0);
+  });
+
+  it('should handle string balances from database', () => {
+    const items = [{ balance: '500.50' }, { balance: '-200' }];
+    const result = calculateBalanceSummary(items);
+    expect(result.receivables).toBe(500.50);
+    expect(result.payables).toBe(200);
+    expect(result.net).toBeCloseTo(300.50);
+  });
+
+  it('should handle all-positive balances', () => {
+    const items = [{ balance: 100 }, { balance: 200 }];
+    const result = calculateBalanceSummary(items);
+    expect(result.receivables).toBe(300);
+    expect(result.payables).toBe(0);
+    expect(result.net).toBe(300);
+  });
+
+  it('should handle all-negative balances', () => {
+    const items = [{ balance: -100 }, { balance: -200 }];
+    const result = calculateBalanceSummary(items);
+    expect(result.receivables).toBe(0);
+    expect(result.payables).toBe(300);
+    expect(result.net).toBe(-300);
+  });
+
+  it('should skip zero balances', () => {
+    const items = [{ balance: 0 }, { balance: 100 }];
+    const result = calculateBalanceSummary(items);
+    expect(result.receivables).toBe(100);
+    expect(result.payables).toBe(0);
+  });
+});
+
+// ============================================================================
+// formatCurrencyInput - live input formatting
+// ============================================================================
+describe('formatCurrencyInput', () => {
+  it('should format "2000" with thousand separator', () => {
+    expect(formatCurrencyInput('2000')).toBe('2.000');
+  });
+
+  it('should format with decimal "2000,5"', () => {
+    expect(formatCurrencyInput('2000,5')).toBe('2.000,5');
+  });
+
+  it('should format with two decimals "2000,50"', () => {
+    expect(formatCurrencyInput('2000,50')).toBe('2.000,50');
+  });
+
+  it('should return empty string for empty input', () => {
+    expect(formatCurrencyInput('')).toBe('');
+  });
+
+  it('should limit decimal to 2 digits', () => {
+    expect(formatCurrencyInput('100,123')).toBe('100,12');
+  });
+
+  it('should strip non-numeric characters', () => {
+    expect(formatCurrencyInput('abc123')).toBe('123');
+  });
+});
+
+// ============================================================================
+// unformatCurrencyInput - strip thousand separators
+// ============================================================================
+describe('unformatCurrencyInput', () => {
+  it('should remove dots (thousand separators)', () => {
+    expect(unformatCurrencyInput('2.000,50')).toBe('2000,50');
+  });
+
+  it('should handle no dots', () => {
+    expect(unformatCurrencyInput('500')).toBe('500');
+  });
+
+  it('should handle empty string', () => {
+    expect(unformatCurrencyInput('')).toBe('');
   });
 });
