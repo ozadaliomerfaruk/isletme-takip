@@ -17,13 +17,11 @@ import {
   Archive,
   Edit3,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   UserCheck,
   Truck,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryCard, TabFilter } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -31,7 +29,7 @@ import { CreditCardTransactionBar } from '@/components/transaction/CreditCardTra
 import { DailyCashModal } from '@/components/transaction/DailyCashModal';
 import { CariPickerSheet } from '@/components/transaction/QuickTransactionBar/components';
 import type { Hesap, CariType } from '@/types/database';
-import { SummaryCarousel } from '@/components/dashboard';
+import { DashboardCarousel, InlinePeriodSelector } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
@@ -58,7 +56,7 @@ export default function HomePage() {
   const [periodOffset, setPeriodOffset] = useState(0);
   const [isCancelling, setIsCancelling] = useState(false);
   const [dailyCashModalVisible, setDailyCashModalVisible] = useState(false);
-  const [activeCarouselIndex, setActiveCarouselIndex] = useState(0);
+
 
   // CreditCardTransactionBar state
   const [creditCardForTransaction, setCreditCardForTransaction] = useState<Hesap | null>(null);
@@ -452,12 +450,13 @@ export default function HomePage() {
           </View>
         )}
 
-        {/* Özet Carousel */}
-        <SummaryCarousel
+        {/* Dashboard Carousel: Genel Durum → Gelir/Gider → Nakit Akışı */}
+        <DashboardCarousel
+          generalStatus={generalStatus}
           assets={accounts}
           receivables={receivables.total}
           payables={payables.total}
-          generalStatus={generalStatus}
+          onHeroPress={() => router.push('/raporlar')}
           income={totalIncome}
           expense={totalExpense}
           totalInflow={totalInflow}
@@ -465,78 +464,26 @@ export default function HomePage() {
           netCashFlow={netCashFlow}
           startDate={periodStartDate}
           endDate={periodEndDate}
-          onPageChange={setActiveCarouselIndex}
+          periodBadge={periodLabel}
         />
 
-        {/* Tarih Seçici - Sadece kart 2 (Gelir/Gider) veya kart 4 (Nakit Akışı) aktifken göster */}
-        {(activeCarouselIndex === 1 || activeCarouselIndex === 3) && (
-          <View style={styles.periodFilter}>
-            {/* Dönem Tipi Seçimi */}
-            <TabFilter
-              options={[
-                { label: t('reports:period.yearly'), value: 'yearly' },
-                { label: t('reports:period.monthly'), value: 'monthly' },
-                { label: t('reports:period.weekly'), value: 'weekly' },
-                { label: t('reports:period.daily'), value: 'daily' },
-                { label: t('reports:period.custom'), value: 'custom' },
-              ]}
-              value={period}
-              onChange={(v) => {
-                setPeriod(v as PeriodType);
-                setPeriodOffset(0);
-              }}
-            />
-
-            {/* Navigatör veya Özel Tarih */}
-            {period !== 'custom' ? (
-              <View style={styles.periodNavigator}>
-                <TouchableOpacity
-                  style={styles.periodNavButton}
-                  onPress={() => setPeriodOffset(periodOffset - 1)}
-                >
-                  <ChevronLeft size={20} color={colors.text} />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={handlePeriodLabelPress}
-                  style={styles.periodLabelButton}
-                  activeOpacity={0.7}
-                >
-                  <Text variant="body" style={styles.periodLabel}>
-                    {periodLabel}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.periodNavButton}
-                  onPress={() => setPeriodOffset(periodOffset + 1)}
-                >
-                  <ChevronRight size={20} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.customDateContainer}>
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowStartPicker(true)}
-                >
-                  <Text variant="caption" color="secondary">
-                    {t('reports:period.startDate')}
-                  </Text>
-                  <Text variant="body">{formatDateNative(customStartDate)}</Text>
-                </TouchableOpacity>
-                <Text variant="body" color="secondary">-</Text>
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowEndPicker(true)}
-                >
-                  <Text variant="caption" color="secondary">
-                    {t('reports:period.endDate')}
-                  </Text>
-                  <Text variant="body">{formatDateNative(customEndDate)}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
+        {/* Inline Period Selector */}
+        <InlinePeriodSelector
+          period={period}
+          periodLabel={periodLabel}
+          onPeriodChange={(p) => {
+            setPeriod(p);
+            setPeriodOffset(0);
+          }}
+          onPrevious={() => setPeriodOffset(periodOffset - 1)}
+          onNext={() => setPeriodOffset(periodOffset + 1)}
+          onLabelPress={handlePeriodLabelPress}
+          isCustom={period === 'custom'}
+          customStartLabel={formatDateNative(customStartDate)}
+          customEndLabel={formatDateNative(customEndDate)}
+          onStartDatePress={() => setShowStartPicker(true)}
+          onEndDatePress={() => setShowEndPicker(true)}
+        />
 
         {/* iOS için DateTimePicker Modal (Özel tarih seçimi için) */}
         {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (
@@ -1049,41 +996,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  periodFilter: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-  },
-  periodNavigator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  periodNavButton: {
-    padding: spacing.sm,
-  },
-  periodLabel: {
-    minWidth: 150,
-    textAlign: 'center',
-  },
-  customDateContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  datePickerButton: {
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
   scrollView: {
     flex: 1,
   },
@@ -1191,12 +1103,6 @@ const styles = StyleSheet.create({
   },
   passiveItem: {
     opacity: 0.5,
-  },
-  periodLabelButton: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primaryLight,
   },
   pickerModalOverlay: {
     flex: 1,

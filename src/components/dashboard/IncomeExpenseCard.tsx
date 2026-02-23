@@ -8,23 +8,21 @@ import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { getCurrentCurrency } from '@/hooks/useSettings';
 
-interface CashFlowCardProps {
-  totalInflow: number;
-  totalOutflow: number;
-  netCashFlow: number;
+interface IncomeExpenseCardProps {
+  income: number;
+  expense: number;
   startDate?: string;
   endDate?: string;
   periodBadge?: string;
 }
 
-export function CashFlowCard({
-  totalInflow,
-  totalOutflow,
-  netCashFlow,
+export function IncomeExpenseCard({
+  income,
+  expense,
   startDate,
   endDate,
   periodBadge,
-}: CashFlowCardProps) {
+}: IncomeExpenseCardProps) {
   const { t } = useTranslation(['common']);
   const router = useRouter();
 
@@ -38,21 +36,22 @@ export function CashFlowCard({
     };
   }, []);
 
-  const total = totalInflow + totalOutflow;
-  const inflowPercent = total > 0 ? (totalInflow / total) * 100 : 50;
+  const netProfit = income - expense;
+  const total = income + expense;
+  const incomePercent = total > 0 ? (income / total) * 100 : 50;
 
   return (
     <TouchableOpacity
       style={styles.card}
       activeOpacity={0.8}
       onPress={() => router.push({
-        pathname: '/nakit-akisi',
+        pathname: '/raporlar',
         params: startDate && endDate ? { startDate, endDate } : undefined,
       })}
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('common:dashboard.cashFlow')}</Text>
+        <Text style={styles.title}>{t('common:dashboard.incomeExpense')}</Text>
         {periodBadge ? (
           <Text style={styles.badge}>{periodBadge}</Text>
         ) : null}
@@ -61,24 +60,24 @@ export function CashFlowCard({
       {/* Hero Value */}
       <View style={styles.heroValue}>
         <AnimatedNumber
-          value={netCashFlow}
+          value={netProfit}
           showSign
           prefix={currencyConfig.prefix}
           decimalSeparator={currencyConfig.decimalSeparator}
           thousandsSeparator={currencyConfig.thousandsSeparator}
           style={[
             styles.bigNumber,
-            { color: netCashFlow >= 0 ? colors.success : colors.error },
+            { color: netProfit >= 0 ? colors.success : colors.error },
           ]}
         />
-        <Text style={styles.heroLabel}>{t('common:dashboard.netCashFlow')}</Text>
+        <Text style={styles.heroLabel}>{t('common:dashboard.netProfitLoss')}</Text>
       </View>
 
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, styles.progressGreen, { width: `${inflowPercent}%` }]} />
-          <View style={[styles.progressFill, styles.progressRed, { width: `${100 - inflowPercent}%` }]} />
+          <View style={[styles.progressFill, styles.progressGreen, { width: `${incomePercent}%` }]} />
+          <View style={[styles.progressFill, styles.progressRed, { width: `${100 - incomePercent}%` }]} />
         </View>
       </View>
 
@@ -87,10 +86,10 @@ export function CashFlowCard({
         <View style={styles.detailItem}>
           <View style={styles.detailHeader}>
             <View style={[styles.dot, { backgroundColor: colors.success }]} />
-            <Text style={styles.detailLabel}>{t('common:dashboard.inflow')}</Text>
+            <Text style={styles.detailLabel}>{t('common:dashboard.income')}</Text>
           </View>
           <Text style={[styles.detailValue, { color: colors.success }]} numberOfLines={1} adjustsFontSizeToFit>
-            {formatCurrency(totalInflow)}
+            {formatCurrency(income)}
           </Text>
         </View>
 
@@ -98,11 +97,11 @@ export function CashFlowCard({
 
         <View style={[styles.detailItem, styles.detailItemRight]}>
           <View style={styles.detailHeader}>
-            <Text style={styles.detailLabel}>{t('common:dashboard.outflow')}</Text>
+            <Text style={styles.detailLabel}>{t('common:dashboard.expense')}</Text>
             <View style={[styles.dot, { backgroundColor: colors.error }]} />
           </View>
           <Text style={[styles.detailValue, { color: colors.error }]} numberOfLines={1} adjustsFontSizeToFit>
-            {formatCurrency(totalOutflow)}
+            {formatCurrency(expense)}
           </Text>
         </View>
       </View>

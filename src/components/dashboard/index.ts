@@ -1,3 +1,6 @@
-export { SummaryCarousel } from './SummaryCarousel';
+export { HeroCard } from './HeroCard';
+export { IncomeExpenseCard } from './IncomeExpenseCard';
 export { CashFlowCard } from './CashFlowCard';
+export { DashboardCarousel } from './DashboardCarousel';
+export { InlinePeriodSelector } from './InlinePeriodSelector';
 export { HorizontalBarChart } from './HorizontalBarChart';

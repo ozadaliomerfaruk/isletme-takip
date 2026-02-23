@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text, AnimatedNumber } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -8,25 +7,22 @@ import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { getCurrentCurrency } from '@/hooks/useSettings';
 
-interface CashFlowCardProps {
-  totalInflow: number;
-  totalOutflow: number;
-  netCashFlow: number;
-  startDate?: string;
-  endDate?: string;
-  periodBadge?: string;
+interface HeroCardProps {
+  generalStatus: number;
+  assets: number;
+  receivables: number;
+  payables: number;
+  onPress?: () => void;
 }
 
-export function CashFlowCard({
-  totalInflow,
-  totalOutflow,
-  netCashFlow,
-  startDate,
-  endDate,
-  periodBadge,
-}: CashFlowCardProps) {
+export function HeroCard({
+  generalStatus,
+  assets,
+  receivables,
+  payables,
+  onPress,
+}: HeroCardProps) {
   const { t } = useTranslation(['common']);
-  const router = useRouter();
 
   const currencyConfig = useMemo(() => {
     const config = getCurrentCurrency();
@@ -38,47 +34,39 @@ export function CashFlowCard({
     };
   }, []);
 
-  const total = totalInflow + totalOutflow;
-  const inflowPercent = total > 0 ? (totalInflow / total) * 100 : 50;
+  const totalPositive = assets + receivables;
+  const totalAll = totalPositive + payables;
+  const positivePercent = totalAll > 0 ? (totalPositive / totalAll) * 100 : 50;
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      activeOpacity={0.8}
-      onPress={() => router.push({
-        pathname: '/nakit-akisi',
-        params: startDate && endDate ? { startDate, endDate } : undefined,
-      })}
-    >
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('common:dashboard.cashFlow')}</Text>
-        {periodBadge ? (
-          <Text style={styles.badge}>{periodBadge}</Text>
-        ) : null}
+        <Text style={styles.title}>{t('common:dashboard.generalStatus')}</Text>
+        <Text style={styles.badge}>{t('common:period.instant')}</Text>
       </View>
 
       {/* Hero Value */}
       <View style={styles.heroValue}>
         <AnimatedNumber
-          value={netCashFlow}
+          value={generalStatus}
           showSign
           prefix={currencyConfig.prefix}
           decimalSeparator={currencyConfig.decimalSeparator}
           thousandsSeparator={currencyConfig.thousandsSeparator}
           style={[
             styles.bigNumber,
-            { color: netCashFlow >= 0 ? colors.success : colors.error },
+            { color: generalStatus >= 0 ? colors.success : colors.error },
           ]}
         />
-        <Text style={styles.heroLabel}>{t('common:dashboard.netCashFlow')}</Text>
+        <Text style={styles.heroLabel}>{t('common:dashboard.netWorth')}</Text>
       </View>
 
       {/* Progress Bar */}
       <View style={styles.progressContainer}>
         <View style={styles.progressBar}>
-          <View style={[styles.progressFill, styles.progressGreen, { width: `${inflowPercent}%` }]} />
-          <View style={[styles.progressFill, styles.progressRed, { width: `${100 - inflowPercent}%` }]} />
+          <View style={[styles.progressFill, styles.progressGreen, { width: `${positivePercent}%` }]} />
+          <View style={[styles.progressFill, styles.progressRed, { width: `${100 - positivePercent}%` }]} />
         </View>
       </View>
 
@@ -87,10 +75,22 @@ export function CashFlowCard({
         <View style={styles.detailItem}>
           <View style={styles.detailHeader}>
             <View style={[styles.dot, { backgroundColor: colors.success }]} />
-            <Text style={styles.detailLabel}>{t('common:dashboard.inflow')}</Text>
+            <Text style={styles.detailLabel}>{t('common:dashboard.assets')}</Text>
           </View>
           <Text style={[styles.detailValue, { color: colors.success }]} numberOfLines={1} adjustsFontSizeToFit>
-            {formatCurrency(totalInflow)}
+            {formatCurrency(assets)}
+          </Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.detailItem}>
+          <View style={styles.detailHeader}>
+            <View style={[styles.dot, { backgroundColor: colors.info }]} />
+            <Text style={styles.detailLabel}>{t('common:dashboard.receivables')}</Text>
+          </View>
+          <Text style={[styles.detailValue, { color: colors.info }]} numberOfLines={1} adjustsFontSizeToFit>
+            {formatCurrency(receivables)}
           </Text>
         </View>
 
@@ -98,11 +98,11 @@ export function CashFlowCard({
 
         <View style={[styles.detailItem, styles.detailItemRight]}>
           <View style={styles.detailHeader}>
-            <Text style={styles.detailLabel}>{t('common:dashboard.outflow')}</Text>
+            <Text style={styles.detailLabel}>{t('common:dashboard.payables')}</Text>
             <View style={[styles.dot, { backgroundColor: colors.error }]} />
           </View>
           <Text style={[styles.detailValue, { color: colors.error }]} numberOfLines={1} adjustsFontSizeToFit>
-            {formatCurrency(totalOutflow)}
+            {formatCurrency(payables)}
           </Text>
         </View>
       </View>
