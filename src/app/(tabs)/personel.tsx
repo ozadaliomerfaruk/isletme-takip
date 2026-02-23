@@ -344,11 +344,11 @@ export default function PersonelPage() {
           </TouchableOpacity>
         ) : (
           <SwipeableRow
-            onLeftAction={() => {
+            onAction={() => {
               setSelectedPersonelId(personel.id);
               setQuickBarVisible(true);
             }}
-            leftActionLabel={t('common:archive.actions.makeTransaction')}
+            actionLabel={t('common:archive.actions.makeTransaction')}
           >
           <TouchableOpacity
             onPress={() => router.push(`/personel/${personel.id}`)}

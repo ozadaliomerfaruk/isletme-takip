@@ -653,8 +653,8 @@ export default function HomePage() {
                   {groupHesaplar.map((hesap) => (
                     <View key={hesap.id} style={!hesap.is_active ? styles.passiveItem : undefined}>
                       <SwipeableRow
-                        onLeftAction={() => router.push(`/hesaplar/${hesap.id}`)}
-                        leftActionLabel={t('common:archive.actions.makeTransaction')}
+                        onAction={() => router.push(`/hesaplar/${hesap.id}`)}
+                        actionLabel={t('common:archive.actions.makeTransaction')}
                       >
                       <TouchableOpacity
                         style={styles.entityCard}

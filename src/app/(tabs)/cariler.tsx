@@ -478,11 +478,11 @@ export default function CarilerPage() {
           </TouchableOpacity>
         ) : (
           <SwipeableRow
-            onLeftAction={() => {
+            onAction={() => {
               setSelectedCari(cari);
               setQuickBarVisible(true);
             }}
-            leftActionLabel={t('common:archive.actions.makeTransaction')}
+            actionLabel={t('common:archive.actions.makeTransaction')}
           >
           <TouchableOpacity
             style={styles.entityCard}

@@ -49,21 +49,21 @@ export function SwipeableProvider({ children }: { children: React.ReactNode }) {
 export interface SwipeableRowProps {
   children: React.ReactNode;
   onDelete?: () => void;
-  onLeftAction?: () => void;
+  onAction?: () => void;
   enabled?: boolean;
   deleteLabel?: string;
-  leftActionLabel?: string;
-  leftActionIcon?: React.ReactNode;
+  actionLabel?: string;
+  actionIcon?: React.ReactNode;
 }
 
 export function SwipeableRow({
   children,
   onDelete,
-  onLeftAction,
+  onAction,
   enabled = true,
   deleteLabel = 'Sil',
-  leftActionLabel = 'İşlem Yap',
-  leftActionIcon,
+  actionLabel = 'İşlem Yap',
+  actionIcon,
 }: SwipeableRowProps) {
   const swipeableRef = useRef<SwipeableMethods>(null);
   const { registerOpen } = useContext(SwipeableContext);
@@ -77,43 +77,37 @@ export function SwipeableRow({
     onDelete?.();
   }, [close, onDelete]);
 
-  const handleLeftAction = useCallback(() => {
+  const handleAction = useCallback(() => {
     close();
-    onLeftAction?.();
-  }, [close, onLeftAction]);
+    onAction?.();
+  }, [close, onAction]);
 
   const handleSwipeOpen = useCallback(() => {
     registerOpen(close);
   }, [registerOpen, close]);
 
+  // Sağ tarafta kaç buton var?
+  const rightButtonCount = (onAction ? 1 : 0) + (onDelete ? 1 : 0);
+  const totalRightWidth = rightButtonCount * ACTION_WIDTH;
+
   const renderRightActions = useCallback(
     (_progress: SharedValue<number>, drag: SharedValue<number>) => {
       return (
-        <RightAction
+        <RightActions
           drag={drag}
-          onDelete={handleDelete}
+          onAction={onAction ? handleAction : undefined}
+          onDelete={onDelete ? handleDelete : undefined}
+          actionLabel={actionLabel}
+          actionIcon={actionIcon}
           deleteLabel={deleteLabel}
+          totalWidth={totalRightWidth}
         />
       );
     },
-    [handleDelete, deleteLabel],
+    [handleAction, handleDelete, actionLabel, actionIcon, deleteLabel, onAction, onDelete, totalRightWidth],
   );
 
-  const renderLeftActions = useCallback(
-    (_progress: SharedValue<number>, drag: SharedValue<number>) => {
-      return (
-        <LeftAction
-          drag={drag}
-          onAction={handleLeftAction}
-          label={leftActionLabel}
-          icon={leftActionIcon}
-        />
-      );
-    },
-    [handleLeftAction, leftActionLabel, leftActionIcon],
-  );
-
-  if (!enabled || (!onDelete && !onLeftAction)) {
+  if (!enabled || (!onDelete && !onAction)) {
     return <>{children}</>;
   }
 
@@ -122,15 +116,11 @@ export function SwipeableRow({
       ref={swipeableRef}
       friction={1.5}
       rightThreshold={ACTION_WIDTH / 2}
-      leftThreshold={ACTION_WIDTH / 2}
       overshootRight={false}
-      overshootLeft={false}
       overshootFriction={8}
-      dragOffsetFromLeftEdge={40}
       dragOffsetFromRightEdge={40}
       enableTrackpadTwoFingerGesture
-      renderRightActions={onDelete ? renderRightActions : undefined}
-      renderLeftActions={onLeftAction ? renderLeftActions : undefined}
+      renderRightActions={renderRightActions}
       onSwipeableWillOpen={handleSwipeOpen}
       containerStyle={styles.swipeableContainer}
     >
@@ -140,60 +130,54 @@ export function SwipeableRow({
 }
 
 // ============================================================================
-// Right action (Reanimated - UI thread)
+// Right actions (Reanimated - UI thread)
 // ============================================================================
 
-interface RightActionProps {
+interface RightActionsProps {
   drag: SharedValue<number>;
-  onDelete: () => void;
+  onAction?: () => void;
+  onDelete?: () => void;
+  actionLabel: string;
+  actionIcon?: React.ReactNode;
   deleteLabel: string;
+  totalWidth: number;
 }
 
-function RightAction({ drag, onDelete, deleteLabel }: RightActionProps) {
+function RightActions({
+  drag,
+  onAction,
+  onDelete,
+  actionLabel,
+  actionIcon,
+  deleteLabel,
+  totalWidth,
+}: RightActionsProps) {
   const animStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: drag.value + ACTION_WIDTH }],
+    transform: [{ translateX: drag.value + totalWidth }],
   }));
 
   return (
     <Reanimated.View style={[styles.actionsContainer, animStyle]}>
-      <TouchableOpacity
-        style={[styles.actionButton, styles.deleteAction]}
-        onPress={onDelete}
-        activeOpacity={0.7}
-      >
-        <Trash2 size={20} color={colors.white} />
-        <Text style={styles.actionText}>{deleteLabel}</Text>
-      </TouchableOpacity>
-    </Reanimated.View>
-  );
-}
-
-// ============================================================================
-// Left action (Reanimated - UI thread)
-// ============================================================================
-
-interface LeftActionProps {
-  drag: SharedValue<number>;
-  onAction: () => void;
-  label: string;
-  icon?: React.ReactNode;
-}
-
-function LeftAction({ drag, onAction, label, icon }: LeftActionProps) {
-  const animStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: drag.value - ACTION_WIDTH }],
-  }));
-
-  return (
-    <Reanimated.View style={[styles.actionsContainer, animStyle]}>
-      <TouchableOpacity
-        style={[styles.actionButton, styles.leftAction]}
-        onPress={onAction}
-        activeOpacity={0.7}
-      >
-        {icon || <Zap size={20} color={colors.white} />}
-        <Text style={styles.actionText}>{label}</Text>
-      </TouchableOpacity>
+      {onAction && (
+        <TouchableOpacity
+          style={[styles.actionButton, styles.primaryAction, !onDelete && styles.actionRoundedRight]}
+          onPress={onAction}
+          activeOpacity={0.7}
+        >
+          {actionIcon || <Zap size={20} color={colors.white} />}
+          <Text style={styles.actionText}>{actionLabel}</Text>
+        </TouchableOpacity>
+      )}
+      {onDelete && (
+        <TouchableOpacity
+          style={[styles.actionButton, styles.deleteAction]}
+          onPress={onDelete}
+          activeOpacity={0.7}
+        >
+          <Trash2 size={20} color={colors.white} />
+          <Text style={styles.actionText}>{deleteLabel}</Text>
+        </TouchableOpacity>
+      )}
     </Reanimated.View>
   );
 }
@@ -211,15 +195,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  primaryAction: {
+    backgroundColor: colors.primary,
+  },
+  actionRoundedRight: {
+    borderTopRightRadius: borderRadius.lg,
+    borderBottomRightRadius: borderRadius.lg,
+  },
   deleteAction: {
     backgroundColor: colors.error,
     borderTopRightRadius: borderRadius.lg,
     borderBottomRightRadius: borderRadius.lg,
-  },
-  leftAction: {
-    backgroundColor: colors.primary,
-    borderTopLeftRadius: borderRadius.lg,
-    borderBottomLeftRadius: borderRadius.lg,
   },
   actionText: {
     color: colors.white,
