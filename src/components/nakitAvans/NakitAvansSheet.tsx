@@ -13,6 +13,7 @@ import {
   Alert,
   ScrollView,
   Dimensions,
+  type KeyboardEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -27,7 +28,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import DateTimePickerRN from '@react-native-community/datetimepicker';
+import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { Text, Button, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -188,7 +189,7 @@ export function NakitAvansSheet({
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
-    const handleShow = (e: any) => {
+    const handleShow = (e: KeyboardEvent) => {
       setIsKeyboardVisible(true);
       setKeyboardHeight(e.endCoordinates.height);
     };
@@ -285,7 +286,7 @@ export function NakitAvansSheet({
   }, [handleDismiss, isKeyboardVisible]);
 
   // Handle date change
-  const handleDateChange = useCallback((event: any, selectedDateValue?: Date) => {
+  const handleDateChange = useCallback((event: DateTimePickerEvent, selectedDateValue?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }

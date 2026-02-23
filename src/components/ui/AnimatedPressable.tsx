@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Pressable, PressableProps, StyleProp, ViewStyle, Platform } from 'react-native';
+import { Pressable, PressableProps, StyleProp, ViewStyle, Platform, type GestureResponderEvent } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -45,7 +45,7 @@ export function AnimatedPressable({
   }, [scale]);
 
   const handlePress = useCallback(
-    (e: any) => {
+    (e: GestureResponderEvent) => {
       if (enableHaptic && Platform.OS !== 'web') {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }

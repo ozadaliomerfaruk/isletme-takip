@@ -7,7 +7,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Modal, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import DateTimePickerRN from '@react-native-community/datetimepicker';
+import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Calendar, FileSpreadsheet, Check } from 'lucide-react-native';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Text } from '@/components/ui/Text';
@@ -125,7 +125,7 @@ export function ExportSheet({
     }
   }, [customStartDate]);
 
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+  const handleStartDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowStartPicker(false);
       if (event.type === 'set' && selectedDate) {
@@ -138,7 +138,7 @@ export function ExportSheet({
     }
   };
 
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+  const handleEndDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowEndPicker(false);
       if (event.type === 'set' && selectedDate) {

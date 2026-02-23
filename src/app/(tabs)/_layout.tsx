@@ -1,27 +1,33 @@
 import { Tabs } from 'expo-router';
 import { View, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, BarChart3, Users, UserCircle, Package, MoreHorizontal } from 'lucide-react-native';
+import { Home, BarChart3, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
+import { type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { colors } from '@/constants/colors';
 
-function HapticTabButton(props: any) {
+function HapticTabButton({ style, onPress, children, ...rest }: BottomTabBarButtonProps) {
   return (
     <TouchableOpacity
-      {...props}
+      style={style}
+      accessibilityRole={rest.accessibilityRole}
+      accessibilityState={rest.accessibilityState}
+      testID={rest.testID}
       activeOpacity={0.7}
       onPress={(e) => {
         if (Platform.OS !== 'web') {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         }
-        props.onPress?.(e);
+        onPress?.(e);
       }}
-    />
+    >
+      {typeof children === 'function' ? null : children}
+    </TouchableOpacity>
   );
 }
 
-function TabIcon({ Icon, color, focused }: { Icon: any; color: string; focused: boolean }) {
+function TabIcon({ Icon, color, focused }: { Icon: LucideIcon; color: string; focused: boolean }) {
   return (
     <View style={tabIconStyles.container}>
       <Icon size={26} color={color} />

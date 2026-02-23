@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   StyleProp,
   TextStyle,
+  type NativeSyntheticEvent,
+  type TargetedEvent,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -93,12 +95,12 @@ export function Input({
     return { borderColor };
   });
 
-  const handleFocus = (e: any) => {
+  const handleFocus = (e: NativeSyntheticEvent<TargetedEvent>) => {
     setIsFocused(true);
     onFocus?.(e);
   };
 
-  const handleBlur = (e: any) => {
+  const handleBlur = (e: NativeSyntheticEvent<TargetedEvent>) => {
     setIsFocused(false);
     onBlur?.(e);
   };

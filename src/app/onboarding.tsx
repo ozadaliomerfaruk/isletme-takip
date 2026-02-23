@@ -6,6 +6,7 @@ import {
   FlatList,
   Animated,
   TouchableOpacity,
+  type ViewToken,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -86,8 +87,8 @@ export default function OnboardingScreen() {
   const scrollX = useRef(new Animated.Value(0)).current;
   const slidesRef = useRef<FlatList>(null);
 
-  const viewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems[0]) {
+  const viewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems[0] && viewableItems[0].index != null) {
       setCurrentIndex(viewableItems[0].index);
     }
   }).current;

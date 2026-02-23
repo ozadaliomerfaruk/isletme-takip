@@ -9,7 +9,7 @@ import {
   Pressable,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Bell, ChevronDown, Clock, X } from 'lucide-react-native';
 import { Text } from './Text';
 import { Card } from './Card';
@@ -68,7 +68,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
     setShowDaysPicker(false);
   };
 
-  const handleTimeChange = (event: any, selectedDate?: Date) => {
+  const handleTimeChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowTimePicker(false);
       if (event.type === 'set' && selectedDate) {
