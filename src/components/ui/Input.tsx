@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -8,6 +8,13 @@ import {
   StyleProp,
   TextStyle,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  interpolate,
+  interpolateColor,
+} from 'react-native-reanimated';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
@@ -21,37 +28,136 @@ interface InputProps extends Omit<TextInputProps, 'style'> {
   style?: StyleProp<TextStyle>;
 }
 
+const LABEL_DURATION = 200;
+
 export function Input({
   label,
   error,
   leftIcon,
   rightIcon,
   secureTextEntry,
+  value,
+  placeholder,
+  multiline,
   style,
+  onFocus,
+  onBlur,
   ...props
 }: InputProps) {
   const [showPassword, setShowPassword] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const isPassword = secureTextEntry !== undefined;
+  const inputRef = useRef<TextInput>(null);
+
+  // Floating label animation: 0 = resting (inside), 1 = floating (above)
+  const labelProgress = useSharedValue(value ? 1 : 0);
+  const focusProgress = useSharedValue(0);
+
+  const hasValue = !!(value && value.length > 0);
+
+  useEffect(() => {
+    const shouldFloat = isFocused || hasValue;
+    labelProgress.value = withTiming(shouldFloat ? 1 : 0, { duration: LABEL_DURATION });
+  }, [isFocused, hasValue, labelProgress]);
+
+  useEffect(() => {
+    focusProgress.value = withTiming(isFocused ? 1 : 0, { duration: LABEL_DURATION });
+  }, [isFocused, focusProgress]);
+
+  const labelAnimStyle = useAnimatedStyle(() => {
+    const translateY = interpolate(labelProgress.value, [0, 1], [0, -24]);
+    const scale = interpolate(labelProgress.value, [0, 1], [1, 0.78]);
+
+    return {
+      transform: [{ translateY }, { scale }],
+    };
+  });
+
+  const labelColorStyle = useAnimatedStyle(() => {
+    const color = interpolateColor(
+      focusProgress.value,
+      [0, 1],
+      [colors.textMuted, colors.primary],
+    );
+    return { color };
+  });
+
+  const borderAnimStyle = useAnimatedStyle(() => {
+    const borderColor = error
+      ? colors.error
+      : interpolateColor(
+          focusProgress.value,
+          [0, 1],
+          [colors.border, colors.primary],
+        );
+    return { borderColor };
+  });
+
+  const handleFocus = (e: any) => {
+    setIsFocused(true);
+    onFocus?.(e);
+  };
+
+  const handleBlur = (e: any) => {
+    setIsFocused(false);
+    onBlur?.(e);
+  };
+
+  // Determine if we should show a floating label or static label
+  const useFloatingLabel = !!label && !multiline;
 
   const inputStyles: StyleProp<TextStyle> = [
     styles.input,
     leftIcon ? styles.inputWithLeftIcon : undefined,
+    useFloatingLabel ? styles.inputWithFloatingLabel : undefined,
+    multiline ? styles.inputMultiline : undefined,
     style,
   ];
 
   return (
     <View style={styles.container}>
-      {label && (
-        <Text variant="label" color="secondary" style={styles.label}>
+      {/* Static label for multiline (floating label doesn't work well with multiline) */}
+      {label && multiline && (
+        <Text variant="label" color="secondary" style={styles.staticLabel}>
           {label}
         </Text>
       )}
-      <View style={[styles.inputContainer, error && styles.inputError]}>
+
+      <Animated.View
+        style={[
+          styles.inputContainer,
+          error ? styles.inputError : undefined,
+          !error ? borderAnimStyle : undefined,
+        ]}
+      >
         {leftIcon && <View style={styles.leftIcon}>{leftIcon}</View>}
+
+        {/* Floating label */}
+        {useFloatingLabel && (
+          <Animated.Text
+            style={[
+              styles.floatingLabel,
+              leftIcon ? styles.floatingLabelWithIcon : undefined,
+              labelAnimStyle,
+              labelColorStyle,
+            ]}
+            onPress={() => inputRef.current?.focus()}
+            numberOfLines={1}
+          >
+            {label}
+          </Animated.Text>
+        )}
+
         <TextInput
+          ref={inputRef}
           style={inputStyles}
           placeholderTextColor={colors.textMuted}
           secureTextEntry={isPassword && !showPassword}
+          value={value}
+          placeholder={useFloatingLabel ? (isFocused ? placeholder : undefined) : placeholder}
+          multiline={multiline}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
           {...props}
         />
         {isPassword && (
@@ -67,7 +173,7 @@ export function Input({
           </TouchableOpacity>
         )}
         {rightIcon && !isPassword && <View style={styles.rightIcon}>{rightIcon}</View>}
-      </View>
+      </Animated.View>
       {error && (
         <Text variant="caption" color="error" style={styles.error}>
           {error}
@@ -81,7 +187,7 @@ const styles = StyleSheet.create({
   container: {
     marginBottom: spacing.lg,
   },
-  label: {
+  staticLabel: {
     marginBottom: spacing.sm,
   },
   inputContainer: {
@@ -104,6 +210,27 @@ const styles = StyleSheet.create({
   },
   inputWithLeftIcon: {
     paddingLeft: spacing.sm,
+  },
+  inputWithFloatingLabel: {
+    paddingTop: spacing.lg + 4,
+    paddingBottom: spacing.sm,
+  },
+  inputMultiline: {
+    textAlignVertical: 'top',
+  },
+  floatingLabel: {
+    position: 'absolute',
+    left: spacing.lg,
+    top: spacing.md + 2,
+    fontSize: fontSize.lg,
+    color: colors.textMuted,
+    backgroundColor: 'transparent',
+    zIndex: 1,
+    // transform origin top-left via anchor
+    transformOrigin: 'left top',
+  },
+  floatingLabelWithIcon: {
+    left: spacing.lg + 20 + spacing.sm, // leftIcon padding + icon size + gap
   },
   leftIcon: {
     paddingLeft: spacing.lg,
