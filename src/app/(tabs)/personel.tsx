@@ -20,7 +20,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
+import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -315,11 +315,7 @@ export default function PersonelPage() {
                   <Circle size={24} color={colors.border} />
                 )}
               </View>
-              <View style={styles.avatar}>
-                <Text variant="body" bold style={{ color: colors.primary }}>
-                  {getInitials(`${personel.first_name} ${personel.last_name}`)}
-                </Text>
-              </View>
+              <Avatar name={`${personel.first_name} ${personel.last_name}`} size={40} />
               <View style={styles.personelInfo}>
                 <View style={styles.personelNameRow}>
                   <Text variant="body">
@@ -351,11 +347,7 @@ export default function PersonelPage() {
             style={styles.entityCard}
           >
             <View style={styles.personelHeader}>
-              <View style={styles.avatar}>
-                <Text variant="body" bold style={{ color: colors.primary }}>
-                  {getInitials(`${personel.first_name} ${personel.last_name}`)}
-                </Text>
-              </View>
+              <Avatar name={`${personel.first_name} ${personel.last_name}`} size={40} />
               <View style={styles.personelInfo}>
                 <View style={styles.personelNameRow}>
                   <Text variant="body">

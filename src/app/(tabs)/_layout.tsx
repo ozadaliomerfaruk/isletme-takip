@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { TouchableOpacity, Platform } from 'react-native';
+import { View, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, BarChart3, Users, UserCircle, Package, MoreHorizontal } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +21,28 @@ function HapticTabButton(props: any) {
   );
 }
 
+function TabIcon({ Icon, color, focused }: { Icon: any; color: string; focused: boolean }) {
+  return (
+    <View style={tabIconStyles.container}>
+      <Icon size={26} color={color} />
+      {focused && <View style={tabIconStyles.dot} />}
+    </View>
+  );
+}
+
+const tabIconStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    gap: 3,
+  },
+  dot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+  },
+});
+
 export default function TabsLayout() {
   const { t } = useTranslation('navigation');
   const insets = useSafeAreaInsets();
@@ -36,8 +58,8 @@ export default function TabsLayout() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
+          borderTopColor: colors.borderLight,
+          borderTopWidth: StyleSheet.hairlineWidth,
           height: tabBarHeight,
           paddingBottom: tabBarPaddingBottom,
           paddingTop: 0,
@@ -58,7 +80,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: t('tabs.home'),
-          tabBarIcon: ({ color }) => <Home size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon Icon={Home} color={color} focused={focused} />,
         }}
       />
       {/* Analytics tab hidden from navbar but page still accessible via URL */}
@@ -67,35 +89,35 @@ export default function TabsLayout() {
         options={{
           href: null, // Hide from tab bar
           title: t('tabs.analytics'),
-          tabBarIcon: ({ color }) => <BarChart3 size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon Icon={BarChart3} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="cariler"
         options={{
           title: t('tabs.clients'),
-          tabBarIcon: ({ color }) => <Users size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon Icon={Users} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="personel"
         options={{
           title: t('tabs.personnel'),
-          tabBarIcon: ({ color }) => <UserCircle size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon Icon={UserCircle} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="urunler"
         options={{
           title: t('tabs.stock'),
-          tabBarIcon: ({ color }) => <Package size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon Icon={Package} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
         name="daha"
         options={{
           title: t('tabs.more'),
-          tabBarIcon: ({ color }) => <MoreHorizontal size={28} color={color} />,
+          tabBarIcon: ({ color, focused }) => <TabIcon Icon={MoreHorizontal} color={color} focused={focused} />,
         }}
       />
     </Tabs>

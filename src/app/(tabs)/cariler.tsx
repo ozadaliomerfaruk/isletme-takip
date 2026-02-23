@@ -20,7 +20,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair } from '@/components/ui';
+import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -445,7 +445,7 @@ export default function CarilerPage() {
                   <Circle size={24} color={colors.border} />
                 )}
               </View>
-              {getCariIcon(cari.type, 24)}
+              <Avatar name={cari.name} size={40} />
               <View style={styles.cariInfo}>
                 <View style={styles.cariNameRow}>
                   <Text variant="body">{cari.name}</Text>
@@ -481,7 +481,7 @@ export default function CarilerPage() {
             activeOpacity={0.7}
           >
             <View style={styles.cariHeader}>
-              {getCariIcon(cari.type, 24)}
+              <Avatar name={cari.name} size={40} />
               <View style={styles.cariInfo}>
                 <View style={styles.cariNameRow}>
                   <Text variant="body">{cari.name}</Text>
