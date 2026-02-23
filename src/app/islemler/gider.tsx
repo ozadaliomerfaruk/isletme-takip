@@ -66,10 +66,10 @@ export default function GiderEklePage() {
   };
 
   useEffect(() => {
-    if (!hesapId && hesaplar && hesaplar.length > 0) {
+    if (!hesapId && hesaplar && hesaplar.length > 0 && !params.hesap_id) {
       setValue('hesapId', hesaplar[0].id);
     }
-  }, [hesaplar, hesapId, setValue]);
+  }, [hesaplar, hesapId, params.hesap_id, setValue]);
 
   const selectedHesap = hesaplar?.find((h) => h.id === hesapId);
 

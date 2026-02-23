@@ -654,7 +654,7 @@ function RootLayoutNav() {
       {/* Şifre değiştirme modal'ı - şifremi unuttum akışı sonrası gösterilir */}
       {/* OTP doğrulandıktan sonra kullanıcı /(tabs)'a yönlendirilir ve modal burada gösterilir */}
       <ChangePasswordModal
-        visible={!!user && needsPasswordReset && segments[1] !== 'forgot-password'}
+        visible={!!user && needsPasswordReset && (segments as string[])[1] !== 'forgot-password'}
         onSuccess={clearPasswordReset}
       />
     </>

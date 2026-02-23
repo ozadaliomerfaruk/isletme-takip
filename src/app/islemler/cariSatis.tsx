@@ -173,7 +173,7 @@ export default function CariSatisPage() {
           </View>
 
           <View style={styles.section}>
-            <View style={styles.pickerContainer}>
+            <View style={[styles.pickerContainer, { zIndex: 20 }]}>
               <Text variant="label" color="secondary" style={styles.pickerLabel}>
                 {t('clients:transactionForm.customer')}
               </Text>
