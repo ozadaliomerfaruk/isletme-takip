@@ -18,6 +18,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { CekWithRelations } from '@/types/database';
 import { useCompleteCek, useCancelCek } from '@/hooks/useCekler';
+import { toErrorMessage } from '@/lib/errors';
 
 interface BekleyenCeklerSectionProps {
   cekler: CekWithRelations[] | undefined;
@@ -94,8 +95,8 @@ export function BekleyenCeklerSection({
             try {
               await completeCek.mutateAsync(cek.id);
               Alert.alert(t('common:status.success'), t('checks:messages.completeSuccess'));
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('checks:messages.completeFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('checks:messages.completeFailed'));
             }
           },
         },
@@ -116,8 +117,8 @@ export function BekleyenCeklerSection({
             try {
               await cancelCek.mutateAsync(cek.id);
               Alert.alert(t('common:status.success'), t('checks:messages.cancelSuccess'));
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('checks:messages.cancelFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('checks:messages.cancelFailed'));
             }
           },
         },

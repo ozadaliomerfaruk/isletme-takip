@@ -26,6 +26,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatDateTimeForDB, isToday } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function TopluGiderPage() {
   const router = useRouter();
@@ -163,11 +164,11 @@ export default function TopluGiderPage() {
         t('staff:bulkSalary.success', { count: selectedCount }),
         [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
       );
-    } catch (error: any) {
+    } catch (error) {
       if (__DEV__) {
         console.error('Toplu gider hatası:', error);
       }
-      Alert.alert(t('common:status.error'), error.message || t('transactions:messages.saveFailed'));
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
     } finally {
       setIsSaving(false);
     }

@@ -28,6 +28,7 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { parseDateFromDB, formatDateTimeForDB, formatDateForDB } from '@/lib/date';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
@@ -194,8 +195,8 @@ export default function IslemDuzenlePage() {
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:transaction.updateFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:transaction.updateFailed'));
     }
   };
 
@@ -214,8 +215,8 @@ export default function IslemDuzenlePage() {
               Alert.alert(t('common:status.success'), t('transactions:messages.deleteSuccess'), [
                 { text: t('common:buttons.ok'), onPress: () => router.back() },
               ]);
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('transactions:messages.deleteFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.deleteFailed'));
             }
           },
         },

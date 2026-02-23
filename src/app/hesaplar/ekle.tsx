@@ -17,6 +17,7 @@ import { useCreateHesap } from '@/hooks/useHesaplar';
 import { HesapType, Currency } from '@/types/database';
 import { DEFAULT_CURRENCY } from '@/constants/currencies';
 import { useTranslation } from 'react-i18next';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function HesapEklePage() {
   const router = useRouter();
@@ -78,8 +79,8 @@ export default function HesapEklePage() {
       Alert.alert(t('common:status.success'), t('accounts:messages.createSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:account.createFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.createFailed'));
     }
   };
 

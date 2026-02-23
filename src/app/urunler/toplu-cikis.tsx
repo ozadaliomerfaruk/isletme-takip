@@ -25,6 +25,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { isToday } from '@/lib/date';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { Urun, BirimType } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 interface StockRow {
   id: string;
@@ -142,8 +143,8 @@ export default function TopluCikisPage() {
         t('products:bulk.success', { count: validRows.length }),
         [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
       );
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('transactions:messages.saveFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
     } finally {
       setIsSaving(false);
     }

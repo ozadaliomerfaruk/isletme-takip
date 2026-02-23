@@ -40,6 +40,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { useCreateCek } from '@/hooks/useCekler';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
+import { toErrorMessage } from '@/lib/errors';
 
 export interface CekKesSheetProps {
   visible: boolean;
@@ -334,7 +335,7 @@ export function CekKesSheet({
       Alert.alert(t('common:status.success'), t('checks:messages.createSuccess'));
       onSuccess?.();
       handleDismiss();
-    } catch (error: any) {
+    } catch (error) {
       if (__DEV__) {
         console.error('Cek create error:', error);
       }
@@ -342,7 +343,7 @@ export function CekKesSheet({
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      Alert.alert(t('common:status.error'), error.message || t('checks:messages.createFailed'));
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('checks:messages.createFailed'));
     }
   }, [
     t,

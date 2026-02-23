@@ -6,6 +6,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
 import { Isletme } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 // Google auth session için gerekli
 WebBrowser.maybeCompleteAuthSession();
@@ -51,7 +52,7 @@ export function useAuth() {
           console.error('Session yenileme hatası:', error);
         }
         // Refresh token da geçersizse kullanıcıyı çıkış yaptır
-        if (error.message?.includes('refresh_token') || error.message?.includes('Invalid')) {
+        if (toErrorMessage(error)?.includes('refresh_token') || toErrorMessage(error)?.includes('Invalid')) {
           if (__DEV__) {
             console.log('Refresh token geçersiz, çıkış yapılıyor...');
           }
@@ -636,10 +637,10 @@ export function useAuth() {
       }
 
       return data;
-    } catch (error: any) {
+    } catch (error) {
       setState((prev) => ({ ...prev, loading: false }));
 
-      if (error.code === 'ERR_REQUEST_CANCELED') {
+      if (error instanceof Error && (error as Error & { code?: string }).code === 'ERR_REQUEST_CANCELED') {
         // Kullanıcı iptal etti
         return null;
       }

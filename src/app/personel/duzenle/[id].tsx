@@ -24,6 +24,7 @@ import { formatDateForDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function PersonelDuzenlePage() {
   const router = useRouter();
@@ -90,8 +91,8 @@ export default function PersonelDuzenlePage() {
       Alert.alert(t('common:status.success'), t('staff:messages.updateSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:personel.updateFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:personel.updateFailed'));
     }
   };
 

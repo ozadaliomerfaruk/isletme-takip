@@ -16,6 +16,7 @@ import { Text, Input, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
@@ -124,10 +125,10 @@ export default function ResetPasswordPage() {
       if (error) throw error;
 
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err) {
       Alert.alert(
         t('common:status.error'),
-        err.message || t('errors:general.generic')
+        toErrorMessage(err) || t('errors:general.generic')
       );
     } finally {
       setLoading(false);

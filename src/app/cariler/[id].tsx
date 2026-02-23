@@ -43,6 +43,7 @@ import { IslemWithRelations } from '@/types/database';
 import { useCariLinkStatus } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
+import { toErrorMessage } from '@/lib/errors';
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM COMPONENT
@@ -201,7 +202,7 @@ export default function CariHareketleriPage() {
       await deleteIslem.mutateAsync(id);
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : t('errors:transaction.deleteFailed');
+      const message = error instanceof Error ? toErrorMessage(error) : t('errors:transaction.deleteFailed');
       Alert.alert(t('common:status.error'), message);
     },
   });
@@ -265,8 +266,8 @@ export default function CariHareketleriPage() {
 
               setEditBalanceModalVisible(false);
               refetchCari();
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
             }
           },
         },
@@ -307,8 +308,8 @@ export default function CariHareketleriPage() {
             try {
               await deleteCari.mutateAsync(id!);
               router.replace('/(tabs)/cariler');
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:cari.deleteFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:cari.deleteFailed'));
             }
           },
         },

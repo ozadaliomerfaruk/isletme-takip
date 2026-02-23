@@ -34,6 +34,7 @@ import { useUrun, useDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hook
 import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function UrunDetayPage() {
   const router = useRouter();
@@ -111,8 +112,8 @@ export default function UrunDetayPage() {
             try {
               await deleteUrun.mutateAsync(id!);
               router.back();
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
             }
           },
         },
@@ -126,8 +127,8 @@ export default function UrunDetayPage() {
       await archiveUrun.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('products:messages.archiveSuccess'));
       router.back();
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
     }
   };
 
@@ -136,8 +137,8 @@ export default function UrunDetayPage() {
     try {
       await unarchiveUrun.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('products:messages.unarchiveSuccess'));
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
     }
   };
 
@@ -169,9 +170,9 @@ export default function UrunDetayPage() {
               haptics.success();
               showToast(t('common:messages.deletedSuccessfully'), 'success');
               setExpandedHareketId(null);
-            } catch (error: any) {
+            } catch (error) {
               haptics.error();
-              showToast(error.message || t('common:messages.operationFailed'), 'error');
+              showToast(toErrorMessage(error) || t('common:messages.operationFailed'), 'error');
             }
           },
         },

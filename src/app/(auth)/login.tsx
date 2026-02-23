@@ -19,6 +19,7 @@ import { Text, Input, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { toErrorMessage } from '@/lib/errors';
 
 // Google OAuth Client ID'leri - Supabase dashboard'dan alınacak
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
@@ -60,8 +61,8 @@ export default function LoginPage() {
         (async () => {
           try {
             await signInWithGoogle(id_token);
-          } catch (error: any) {
-            Alert.alert(t('common:status.error'), error.message || t('errors:auth.invalidCredentials'));
+          } catch (error) {
+            Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:auth.invalidCredentials'));
           } finally {
             setSocialLoading(null);
           }
@@ -77,8 +78,8 @@ export default function LoginPage() {
     try {
       setSocialLoading('apple');
       await signInWithApple();
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:auth.invalidCredentials'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:auth.invalidCredentials'));
     } finally {
       setSocialLoading(null);
     }
@@ -114,12 +115,12 @@ export default function LoginPage() {
     try {
       await signIn(email, password);
       // Auth context router'ı yönlendirecek
-    } catch (error: any) {
+    } catch (error) {
       Alert.alert(
         t('common:status.error'),
-        error.message === 'Invalid login credentials'
+        toErrorMessage(error) === 'Invalid login credentials'
           ? t('errors:auth.invalidCredentials')
-          : error.message || t('errors:general.generic')
+          : toErrorMessage(error) || t('errors:general.generic')
       );
     }
   };

@@ -18,6 +18,7 @@ import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
+import { toErrorMessage } from '@/lib/errors';
 
 type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 
@@ -144,7 +145,7 @@ export default function UrunlerPage() {
               await deleteUrun.mutateAsync(actionSheetUrun.id);
               haptics.success();
               showToast(t('common:messages.deletedSuccessfully'), 'success');
-            } catch (error: any) {
+            } catch (error) {
               haptics.error();
               showToast(t('common:messages.operationFailed'), 'error');
             }

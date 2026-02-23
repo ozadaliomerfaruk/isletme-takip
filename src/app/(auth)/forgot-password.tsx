@@ -16,6 +16,7 @@ import { Text, Input, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
+import { toErrorMessage } from '@/lib/errors';
 
 type Step = 'email' | 'otp';
 
@@ -71,8 +72,8 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
 
       setStep('otp');
-    } catch (err: any) {
-      Alert.alert(t('common:status.error'), err.message || t('errors:general.generic'));
+    } catch (err) {
+      Alert.alert(t('common:status.error'), toErrorMessage(err) || t('errors:general.generic'));
     } finally {
       setLoading(false);
     }
@@ -97,8 +98,8 @@ export default function ForgotPasswordPage() {
       // _layout.tsx ChangePasswordModal'ı gösterecek
       // Ana sayfaya yönlendir - modal orada açılacak
       router.replace('/(tabs)');
-    } catch (err: any) {
-      Alert.alert(t('common:status.error'), err.message || t('errors:auth.invalidOtp'));
+    } catch (err) {
+      Alert.alert(t('common:status.error'), toErrorMessage(err) || t('errors:auth.invalidOtp'));
     } finally {
       setLoading(false);
     }
@@ -113,8 +114,8 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
 
       Alert.alert(t('common:status.success'), t('auth:forgotPassword.otpResent'));
-    } catch (err: any) {
-      Alert.alert(t('common:status.error'), err.message || t('errors:general.generic'));
+    } catch (err) {
+      Alert.alert(t('common:status.error'), toErrorMessage(err) || t('errors:general.generic'));
     } finally {
       setLoading(false);
     }

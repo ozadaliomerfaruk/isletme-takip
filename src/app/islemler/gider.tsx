@@ -21,6 +21,7 @@ import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function GiderEklePage() {
   const router = useRouter();
@@ -131,8 +132,8 @@ export default function GiderEklePage() {
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:transaction.addFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:transaction.addFailed'));
     }
   };
 

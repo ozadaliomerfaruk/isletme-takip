@@ -17,6 +17,7 @@ import { spacing } from '@/constants/spacing';
 import { useCreateCari } from '@/hooks/useCariler';
 import { CariType, Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function CariEklePage() {
   const router = useRouter();
@@ -88,8 +89,8 @@ export default function CariEklePage() {
       Alert.alert(t('common:status.success'), t('clients:messages.createSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:cari.createFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:cari.createFailed'));
     }
   };
 

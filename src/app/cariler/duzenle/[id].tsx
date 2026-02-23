@@ -18,6 +18,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useCari, useUpdateCari } from '@/hooks/useCariler';
 import { CariType, Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function CariDuzenlePage() {
   const router = useRouter();
@@ -79,8 +80,8 @@ export default function CariDuzenlePage() {
       Alert.alert(t('common:status.success'), t('clients:messages.updateSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:cari.updateFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:cari.updateFailed'));
     }
   };
 

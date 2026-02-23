@@ -22,6 +22,7 @@ import {
   useCompleteIleriTarihliIslem,
   useDeleteIleriTarihliIslem,
 } from '@/hooks/useIleriTarihliIslemler';
+import { toErrorMessage } from '@/lib/errors';
 
 interface IleriTarihliIslemlerSectionProps {
   ileriTarihliIslemler: IleriTarihliIslemWithRelations[] | undefined;
@@ -82,8 +83,8 @@ export function IleriTarihliIslemlerSection({
             try {
               await completeIslem.mutateAsync(item.id);
               Alert.alert(t('common:status.success'), t('transactions:messages.saveSuccess'));
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('transactions:messages.saveFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
             }
           },
         },
@@ -104,8 +105,8 @@ export function IleriTarihliIslemlerSection({
             try {
               await deleteIslem.mutateAsync(item.id);
               Alert.alert(t('common:status.success'), t('transactions:messages.deleteSuccess'));
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('transactions:messages.deleteFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.deleteFailed'));
             }
           },
         },

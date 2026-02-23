@@ -4,6 +4,7 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
+import { toErrorMessage } from '@/lib/errors';
 
 // Reminder storage key prefix
 const REMINDER_STORAGE_KEY = 'reminder_';
@@ -122,16 +123,16 @@ export async function savePushToken(userId: string, token: string): Promise<void
 
     if (error) {
       if (__DEV__) {
-        console.warn('Push token kaydetme hatası:', error.message);
+        console.warn('Push token kaydetme hatası:', toErrorMessage(error));
       }
     } else {
       if (__DEV__) {
         console.log('Push token kaydedildi');
       }
     }
-  } catch (error: any) {
+  } catch (error) {
     if (__DEV__) {
-      console.warn('Push token kaydetme hatası:', error?.message || error);
+      console.warn('Push token kaydetme hatası:', toErrorMessage(error));
     }
   }
 }

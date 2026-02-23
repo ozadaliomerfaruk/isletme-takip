@@ -13,6 +13,7 @@ import { IslemWithRelations, Currency } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { LEAVE_TYPES } from '@/constants/islemTypes';
+import { toErrorMessage } from '@/lib/errors';
 
 // Büyük veri uyarısı için eşik değer
 const LARGE_DATA_THRESHOLD = 2000;
@@ -177,11 +178,11 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
             cariType,
             translations,
           });
-        } catch (error: any) {
+        } catch (error) {
           console.error('Excel export hatası:', error);
           Alert.alert(
             t('common:status.error'),
-            error.message || t('common:status.error')
+            toErrorMessage(error) || t('common:status.error')
           );
         } finally {
           setIsExporting(false);
@@ -235,7 +236,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
           // Eşik altındaysa direkt export et
           await performExport();
         }
-      } catch (error: any) {
+      } catch (error) {
         console.error('Satır sayısı kontrol hatası:', error);
         // Hata olursa yine de export'a izin ver
         await performExport();

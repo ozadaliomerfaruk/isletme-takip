@@ -21,6 +21,7 @@ import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { useTranslation } from 'react-i18next';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function TransferPage() {
   const router = useRouter();
@@ -141,8 +142,8 @@ export default function TransferPage() {
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:account.transferFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.transferFailed'));
     }
   };
 

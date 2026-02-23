@@ -40,6 +40,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { useTranslation } from 'react-i18next';
+import { toErrorMessage } from '@/lib/errors';
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM COMPONENT
@@ -306,7 +307,7 @@ export default function HesapHareketleriPage() {
       await deleteIslem.mutateAsync(id);
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : t('errors:transaction.deleteFailed');
+      const message = error instanceof Error ? toErrorMessage(error) : t('errors:transaction.deleteFailed');
       Alert.alert(t('common:status.error'), message);
     },
   });
@@ -408,7 +409,7 @@ export default function HesapHareketleriPage() {
               setEditBalanceModalVisible(false);
               Alert.alert(t('common:status.success'), t('accounts:messages.balanceUpdated'));
             } catch (error: unknown) {
-              const message = error instanceof Error ? error.message : t('common:messages.operationFailed');
+              const message = error instanceof Error ? toErrorMessage(error) : t('common:messages.operationFailed');
               Alert.alert(t('common:status.error'), message);
             }
           },
@@ -455,8 +456,8 @@ export default function HesapHareketleriPage() {
             try {
               await deleteHesap.mutateAsync(id!);
               router.replace('/(tabs)');
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:account.deleteFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.deleteFailed'));
             }
           },
         },

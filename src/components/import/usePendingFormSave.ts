@@ -21,6 +21,7 @@ import {
 import { supabase } from '@/lib/supabase';
 import type { PendingIslem, IslemType } from '@/types/database';
 import type { ExtendedIslemType } from './PendingTransactionForm.types';
+import { toErrorMessage } from '@/lib/errors';
 
 export interface PendingFormSaveParams {
   pendingIslem: PendingIslem | null;
@@ -151,9 +152,9 @@ export function usePendingFormSave() {
 
         handleDismiss();
         onSuccess?.();
-      } catch (error: any) {
+      } catch (error) {
         console.error('Error applying opening balance:', error);
-        Alert.alert(t('common:status.error'), error.message || t('common:status.error'));
+        Alert.alert(t('common:status.error'), toErrorMessage(error) || t('common:status.error'));
       } finally {
         setIsSaving(false);
       }
@@ -235,9 +236,9 @@ export function usePendingFormSave() {
 
       handleDismiss();
       onSuccess?.();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving pending transaction:', error);
-      Alert.alert(t('common:status.error'), error.message || t('common:status.error'));
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('common:status.error'));
     } finally {
       setIsSaving(false);
     }
@@ -266,9 +267,9 @@ export function usePendingFormSave() {
               }
               handleDismiss();
               onSuccess?.();
-            } catch (error: any) {
+            } catch (error) {
               console.error('Error dismissing pending transaction:', error);
-              Alert.alert(t('common:status.error'), error.message);
+              Alert.alert(t('common:status.error'), toErrorMessage(error));
             }
           },
         },

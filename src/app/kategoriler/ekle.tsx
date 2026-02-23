@@ -18,6 +18,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
 import { useCreateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function KategoriEklePage() {
   const router = useRouter();
@@ -65,8 +66,8 @@ export default function KategoriEklePage() {
       Alert.alert(t('common:status.success'), t('categories:messages.createSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:category.createFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:category.createFailed'));
     }
   };
 

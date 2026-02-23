@@ -40,6 +40,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateNakitAvans, useUpdateNakitAvans } from '@/hooks/useNakitAvans';
 import { getHesapIconConfig } from '@/lib/icons';
 import type { Hesap, NakitAvansWithRelations } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 export interface NakitAvansSheetProps {
   visible: boolean;
@@ -383,7 +384,7 @@ export function NakitAvansSheet({
 
       onSuccess?.();
       handleDismiss();
-    } catch (error: any) {
+    } catch (error) {
       if (__DEV__) {
         console.error('NakitAvans error:', error);
       }

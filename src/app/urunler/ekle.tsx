@@ -20,6 +20,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useCreateUrun } from '@/hooks/useUrunler';
 import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { BirimType, Currency, KdvOrani } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -85,8 +86,8 @@ export default function UrunEklePage() {
       Alert.alert(t('common:status.success'), t('products:messages.createSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
     }
   };
 

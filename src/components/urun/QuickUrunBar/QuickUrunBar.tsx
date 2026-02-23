@@ -24,6 +24,7 @@ import { useCreateUrunHareket, useUpdateUrunHareket } from '@/hooks/useUrunHarek
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { Urun, BirimType, UrunHareketTipi } from '@/types/database';
 import { styles } from './styles';
+import { toErrorMessage } from '@/lib/errors';
 
 type UrunType = 'giris' | 'cikis';
 
@@ -247,8 +248,8 @@ export function QuickUrunBar({
             : t('products:messages.stockOutSuccess')
         );
       }
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
     }
   };
 

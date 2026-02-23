@@ -17,6 +17,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { HesapType } from '@/types/database';
 import { useTranslation } from 'react-i18next';
+import { toErrorMessage } from '@/lib/errors';
 
 // Hesap tipi için ikon ve renk
 const getHesapTypeConfig = (type: HesapType) => {
@@ -86,8 +87,8 @@ export default function HesapDuzenlePage() {
       Alert.alert(t('common:status.success'), t('accounts:messages.updateSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:account.updateFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.updateFailed'));
     }
   };
 

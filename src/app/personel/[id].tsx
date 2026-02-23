@@ -38,6 +38,7 @@ import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIsleml
 import { IslemWithRelations } from '@/types/database';
 import { LeaveQuotaCard } from '@/components/personel/LeaveQuotaCard';
 import { isLeaveType } from '@/constants/islemTypes';
+import { toErrorMessage } from '@/lib/errors';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -153,7 +154,7 @@ export default function PersonelHareketleriPage() {
       await deleteIslem.mutateAsync(id);
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? error.message : t('errors:transaction.deleteFailed');
+      const message = error instanceof Error ? toErrorMessage(error) : t('errors:transaction.deleteFailed');
       Alert.alert(t('common:status.error'), message);
     },
   });
@@ -238,8 +239,8 @@ export default function PersonelHareketleriPage() {
 
               setEditBalanceModalVisible(false);
               refetchPersonel();
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
             }
           },
         },
@@ -280,8 +281,8 @@ export default function PersonelHareketleriPage() {
             try {
               await deletePersonel.mutateAsync(id!);
               router.replace('/(tabs)/personel');
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:personel.deleteFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:personel.deleteFailed'));
             }
           },
         },

@@ -18,6 +18,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
 import { useKategoriler, useUpdateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function KategoriDuzenlePage() {
   const router = useRouter();
@@ -72,8 +73,8 @@ export default function KategoriDuzenlePage() {
       Alert.alert(t('common:status.success'), t('categories:messages.updateSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:category.updateFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:category.updateFailed'));
     }
   };
 

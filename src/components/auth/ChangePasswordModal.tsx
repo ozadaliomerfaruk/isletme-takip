@@ -15,6 +15,7 @@ import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength }
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
+import { toErrorMessage } from '@/lib/errors';
 
 interface ChangePasswordModalProps {
   visible: boolean;
@@ -83,11 +84,11 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
           },
         ]
       );
-    } catch (err: any) {
-      let errorMessage = err.message || t('errors:general.generic');
+    } catch (err) {
+      let errorMessage = toErrorMessage(err) || t('errors:general.generic');
 
       // Translate Supabase error messages
-      if (err.message?.includes('weak and easy to guess') || err.message?.includes('leaked')) {
+      if (toErrorMessage(err)?.includes('weak and easy to guess') || toErrorMessage(err)?.includes('leaked')) {
         errorMessage = t('errors:auth.leakedPassword');
       }
 

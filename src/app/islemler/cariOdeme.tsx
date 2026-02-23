@@ -11,17 +11,29 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { ChevronDown, Bell } from 'lucide-react-native';
-import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput, ReminderSettings, type ReminderConfig } from '@/components/ui';
+import { Text, Input, Button, Card, DateTimePicker, CategoryPicker, CurrencyInput, ReminderSettings } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
+import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { useTranslation } from 'react-i18next';
+import { toErrorMessage } from '@/lib/errors';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { cariOdemeSchema, type CariOdemeFormData } from '@/lib/schemas/paymentForm';
+
+// Map zod error message keys to i18n paths
+const errorKeyMap: Record<string, string> = {
+  invalidAmount: 'errors:validation.invalidAmount',
+  selectSupplier: 'errors:cari.selectSupplier',
+  selectPaymentAccount: 'errors:cari.selectPaymentAccount',
+  futureDateRequired: 'errors:transaction.futureDateRequired',
+};
 
 export default function CariOdemePage() {
   const router = useRouter();
@@ -33,96 +45,75 @@ export default function CariOdemePage() {
   const { data: cariler } = useCariler('tedarikci');
   const { data: hesaplar } = useHesaplar();
 
-  const [amount, setAmount] = useState('');
-  const [description, setDescription] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [cariId, setCariId] = useState<string | null>(params.cari_id || null);
-  const [hesapId, setHesapId] = useState<string | null>(params.hesap_id || null);
-  const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [showCariPicker, setShowCariPicker] = useState(false);
   const [showHesapPicker, setShowHesapPicker] = useState(false);
-  const [isIleriTarihli, setIsIleriTarihli] = useState(false);
-  const [reminderConfig, setReminderConfig] = useState<ReminderConfig>({
-    enabled: false,
-    daysBefore: 0,
-    time: '09:00',
+
+  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<CariOdemeFormData>({
+    resolver: zodResolver(cariOdemeSchema),
+    defaultValues: {
+      amount: '',
+      description: '',
+      selectedDate: new Date(),
+      cariId: params.cari_id || null,
+      hesapId: params.hesap_id || null,
+      kategoriId: null,
+      isIleriTarihli: false,
+      reminderConfig: { enabled: false, daysBefore: 0, time: '09:00' },
+    },
   });
-  const [errors, setErrors] = useState<{ amount?: string; cari?: string; hesap?: string; date?: string }>({});
+
+  const cariId = watch('cariId');
+  const hesapId = watch('hesapId');
+  const isIleriTarihli = watch('isIleriTarihli');
+
+  const getErrorMessage = (field: keyof CariOdemeFormData) => {
+    const msg = errors[field]?.message;
+    if (!msg) return undefined;
+    return t(errorKeyMap[msg] || msg);
+  };
 
   useEffect(() => {
     if (!cariId && cariler && cariler.length > 0 && !params.cari_id) {
-      setCariId(cariler[0].id);
+      setValue('cariId', cariler[0].id);
     }
     if (!hesapId && hesaplar && hesaplar.length > 0 && !params.hesap_id) {
-      setHesapId(hesaplar[0].id);
+      setValue('hesapId', hesaplar[0].id);
     }
-  }, [cariler, hesaplar, cariId, hesapId, params.cari_id, params.hesap_id]);
+  }, [cariler, hesaplar, cariId, hesapId, params.cari_id, params.hesap_id, setValue]);
 
   const selectedCari = cariler?.find((c) => c.id === cariId);
   const selectedHesap = hesaplar?.find((h) => h.id === hesapId);
 
-  const validate = () => {
-    const newErrors: { amount?: string; cari?: string; hesap?: string; date?: string } = {};
-
-    if (!isValidAmount(amount)) {
-      newErrors.amount = t('errors:validation.invalidAmount');
-    }
-
-    if (!cariId) {
-      newErrors.cari = t('errors:cari.selectSupplier');
-    }
-
-    if (!hesapId) {
-      newErrors.hesap = t('errors:cari.selectPaymentAccount');
-    }
-
-    if (isIleriTarihli) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const selected = new Date(selectedDate);
-      selected.setHours(0, 0, 0, 0);
-
-      if (selected <= today) {
-        newErrors.date = t('errors:transaction.futureDateRequired');
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async () => {
-    if (!validate()) return;
-
+  const onSubmit = async (data: CariOdemeFormData) => {
     try {
-      if (isIleriTarihli) {
-        const scheduledDate = formatDateForDB(selectedDate);
+      if (data.isIleriTarihli) {
+        const scheduledDate = formatDateForDB(data.selectedDate);
         const result = await createIleriTarihliIslem.mutateAsync({
           type: 'cari_odeme',
-          amount: parseCurrency(amount),
-          description: description.trim() || null,
-          cari_id: cariId,
-          hesap_id: hesapId,
-          kategori_id: kategoriId,
+          amount: parseCurrency(data.amount),
+          description: data.description.trim() || null,
+          cari_id: data.cariId,
+          hesap_id: data.hesapId,
+          kategori_id: data.kategoriId,
           scheduled_date: scheduledDate,
         });
 
-        if (reminderConfig.enabled && result?.id) {
+        if (data.reminderConfig.enabled && result?.id) {
           const reminderDate = calculateReminderDate(
             scheduledDate,
-            reminderConfig.daysBefore,
-            reminderConfig.time
+            data.reminderConfig.daysBefore,
+            data.reminderConfig.time
           );
 
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${t('transactions:types.cari_odeme')}: ${formatCurrency(parseCurrency(amount))}${description ? ` - ${description}` : ''}`,
+            `${t('transactions:types.cari_odeme')}: ${formatCurrency(parseCurrency(data.amount))}${data.description ? ` - ${data.description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',
               transaction_id: result.id,
-              cari_id: cariId,
+              cari_id: data.cariId,
             }
           );
         }
@@ -133,20 +124,20 @@ export default function CariOdemePage() {
       } else {
         await createIslem.mutateAsync({
           type: 'cari_odeme',
-          amount: parseCurrency(amount),
-          description: description.trim() || null,
-          cari_id: cariId,
-          hesap_id: hesapId,
-          kategori_id: kategoriId,
-          date: formatDateTimeForDB(selectedDate),
+          amount: parseCurrency(data.amount),
+          description: data.description.trim() || null,
+          cari_id: data.cariId,
+          hesap_id: data.hesapId,
+          kategori_id: data.kategoriId,
+          date: formatDateTimeForDB(data.selectedDate),
         });
 
         Alert.alert(t('common:status.success'), t('clients:messages.paymentRecorded'), [
           { text: t('common:buttons.ok'), onPress: () => router.back() },
         ]);
       }
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:transaction.addFailed'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:transaction.addFailed'));
     }
   };
 
@@ -178,11 +169,12 @@ export default function CariOdemePage() {
               <TouchableOpacity
                 style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
                 onPress={() => {
-                  setIsIleriTarihli(!isIleriTarihli);
-                  if (!isIleriTarihli) {
+                  const next = !isIleriTarihli;
+                  setValue('isIleriTarihli', next);
+                  if (next) {
                     const tomorrow = new Date();
                     tomorrow.setDate(tomorrow.getDate() + 1);
-                    setSelectedDate(tomorrow);
+                    setValue('selectedDate', tomorrow);
                   }
                 }}
               >
@@ -204,7 +196,7 @@ export default function CariOdemePage() {
                 {t('clients:transactionForm.supplier')}
               </Text>
               <TouchableOpacity
-                style={[styles.picker, errors.cari && styles.pickerError]}
+                style={[styles.picker, errors.cariId && styles.pickerError]}
                 onPress={() => {
                   closeAllPickers();
                   setShowCariPicker(!showCariPicker);
@@ -220,9 +212,9 @@ export default function CariOdemePage() {
                 </View>
                 <ChevronDown size={20} color={colors.textMuted} />
               </TouchableOpacity>
-              {errors.cari && (
+              {errors.cariId && (
                 <Text variant="caption" color="error" style={styles.errorText}>
-                  {errors.cari}
+                  {getErrorMessage('cariId')}
                 </Text>
               )}
               {showCariPicker && (
@@ -232,7 +224,7 @@ export default function CariOdemePage() {
                       key={cari.id}
                       style={styles.pickerOption}
                       onPress={() => {
-                        setCariId(cari.id);
+                        setValue('cariId', cari.id, { shouldValidate: true });
                         setShowCariPicker(false);
                       }}
                     >
@@ -250,7 +242,7 @@ export default function CariOdemePage() {
                 {t('clients:transactionForm.paymentAccount')}
               </Text>
               <TouchableOpacity
-                style={[styles.picker, errors.hesap && styles.pickerError]}
+                style={[styles.picker, errors.hesapId && styles.pickerError]}
                 onPress={() => {
                   closeAllPickers();
                   setShowHesapPicker(!showHesapPicker);
@@ -266,9 +258,9 @@ export default function CariOdemePage() {
                 </View>
                 <ChevronDown size={20} color={colors.textMuted} />
               </TouchableOpacity>
-              {errors.hesap && (
+              {errors.hesapId && (
                 <Text variant="caption" color="error" style={styles.errorText}>
-                  {errors.hesap}
+                  {getErrorMessage('hesapId')}
                 </Text>
               )}
               {showHesapPicker && (
@@ -278,7 +270,7 @@ export default function CariOdemePage() {
                       key={hesap.id}
                       style={styles.pickerOption}
                       onPress={() => {
-                        setHesapId(hesap.id);
+                        setValue('hesapId', hesap.id, { shouldValidate: true });
                         setShowHesapPicker(false);
                       }}
                     >
@@ -291,42 +283,72 @@ export default function CariOdemePage() {
               )}
             </View>
 
-            <CategoryPicker
-              value={kategoriId}
-              onChange={setKategoriId}
-              type="gider"
-              label={t('transactions:form.category')}
+            <Controller
+              control={control}
+              name="kategoriId"
+              render={({ field: { value, onChange } }) => (
+                <CategoryPicker
+                  value={value}
+                  onChange={onChange}
+                  type="gider"
+                  label={t('transactions:form.category')}
+                />
+              )}
             />
 
-            <CurrencyInput
-              label={t('transactions:form.amount')}
-              value={amount}
-              onChangeText={setAmount}
-              error={errors.amount}
+            <Controller
+              control={control}
+              name="amount"
+              render={({ field: { value, onChange } }) => (
+                <CurrencyInput
+                  label={t('transactions:form.amount')}
+                  value={value}
+                  onChangeText={onChange}
+                  error={getErrorMessage('amount')}
+                />
+              )}
             />
 
-            <DateTimePicker
-              label={isIleriTarihli ? t('transactions:form.transactionDate') : t('transactions:form.dateTime')}
-              value={selectedDate}
-              onChange={setSelectedDate}
-              mode={isIleriTarihli ? "date" : "datetime"}
-              error={errors.date}
+            <Controller
+              control={control}
+              name="selectedDate"
+              render={({ field: { value, onChange } }) => (
+                <DateTimePicker
+                  label={isIleriTarihli ? t('transactions:form.transactionDate') : t('transactions:form.dateTime')}
+                  value={value}
+                  onChange={onChange}
+                  mode={isIleriTarihli ? "date" : "datetime"}
+                  error={getErrorMessage('selectedDate')}
+                />
+              )}
             />
 
             {isIleriTarihli && (
-              <ReminderSettings
-                value={reminderConfig}
-                onChange={setReminderConfig}
+              <Controller
+                control={control}
+                name="reminderConfig"
+                render={({ field: { value, onChange } }) => (
+                  <ReminderSettings
+                    value={value}
+                    onChange={onChange}
+                  />
+                )}
               />
             )}
 
-            <Input
-              label={t('clients:transactionForm.descriptionOptional')}
-              placeholder={t('clients:transactionForm.paymentNote')}
-              multiline
-              numberOfLines={3}
-              value={description}
-              onChangeText={setDescription}
+            <Controller
+              control={control}
+              name="description"
+              render={({ field: { value, onChange } }) => (
+                <Input
+                  label={t('clients:transactionForm.descriptionOptional')}
+                  placeholder={t('clients:transactionForm.paymentNote')}
+                  multiline
+                  numberOfLines={3}
+                  value={value}
+                  onChangeText={onChange}
+                />
+              )}
             />
           </View>
 
@@ -338,7 +360,7 @@ export default function CariOdemePage() {
               variant="primary"
               size="lg"
               loading={createIslem.isPending || createIleriTarihliIslem.isPending}
-              onPress={handleSubmit}
+              onPress={handleSubmit(onSubmit)}
               style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
             >
               {isIleriTarihli ? t('transactions:form.schedule') : t('clients:transactionButtons.makePayment')}

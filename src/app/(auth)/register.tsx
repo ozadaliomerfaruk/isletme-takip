@@ -16,6 +16,7 @@ import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength }
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
+import { toErrorMessage } from '@/lib/errors';
 
 type Step = 'register' | 'otp' | 'success';
 
@@ -110,13 +111,13 @@ export default function RegisterPage() {
         // Email confirmation disabled, directly logged in
         router.replace('/(tabs)');
       }
-    } catch (error: any) {
-      let errorMessage = error.message || t('errors:general.generic');
+    } catch (error) {
+      let errorMessage = toErrorMessage(error) || t('errors:general.generic');
 
       // Translate Supabase error messages
-      if (error.message?.includes('weak and easy to guess') || error.message?.includes('leaked')) {
+      if (toErrorMessage(error)?.includes('weak and easy to guess') || toErrorMessage(error)?.includes('leaked')) {
         errorMessage = t('errors:auth.leakedPassword');
-      } else if (error.message === 'User already registered') {
+      } else if (toErrorMessage(error) === 'User already registered') {
         errorMessage = t('errors:auth.emailInUse');
       }
 
@@ -143,8 +144,8 @@ export default function RegisterPage() {
       if (data.session) {
         setStep('success');
       }
-    } catch (err: any) {
-      Alert.alert(t('common:status.error'), err.message || t('errors:auth.invalidOtp'));
+    } catch (err) {
+      Alert.alert(t('common:status.error'), toErrorMessage(err) || t('errors:auth.invalidOtp'));
     } finally {
       setLoading(false);
     }
@@ -162,8 +163,8 @@ export default function RegisterPage() {
       if (error) throw error;
 
       Alert.alert(t('common:status.success'), t('auth:register.otpResent'));
-    } catch (err: any) {
-      Alert.alert(t('common:status.error'), err.message || t('errors:general.generic'));
+    } catch (err) {
+      Alert.alert(t('common:status.error'), toErrorMessage(err) || t('errors:general.generic'));
     } finally {
       setLoading(false);
     }

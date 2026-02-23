@@ -23,6 +23,7 @@ import {
   DOCUMENT_TYPE_DEFAULTS,
 } from '@/types/ocrImport';
 import { Urun, Cari, Kategori, Hesap, UrunHareketTipi } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 interface FotoImportContextValue {
   // State
@@ -505,9 +506,9 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
       // Always go to invoice list first
       setStep('invoice-list');
-    } catch (error: any) {
-      console.error('[FotoImport] Processing error:', error?.message || error);
-      Alert.alert(t('common:status.error'), error?.message || t('ocrImport:messages.ocrFailed'));
+    } catch (error) {
+      console.error('[FotoImport] Processing error:', toErrorMessage(error));
+      Alert.alert(t('common:status.error'), toErrorMessage(error, t('ocrImport:messages.ocrFailed')));
       setStep('capture');
     }
   }, [processImages, matchCardToHesap, giderKategoriler, mergeMultiPageInvoices, mergeTahsilatPosEntries, t]);
@@ -774,8 +775,8 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         );
         setStep('done');
       }
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message);
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error));
       setStep('review');
     }
   }, [selectedIndex, entries, saveImport, t, router]);
@@ -852,8 +853,8 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
       );
       setStep('done');
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message);
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error));
       setStep('invoice-list');
     }
   }, [entries, saveAll, t, router]);

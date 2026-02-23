@@ -7,6 +7,7 @@ import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function VerifyScreen() {
   const router = useRouter();
@@ -61,11 +62,11 @@ export default function VerifyScreen() {
       } else {
         throw new Error(t('errors:auth.linkExpired'));
       }
-    } catch (err: any) {
+    } catch (err) {
       if (__DEV__) {
         console.error('Verification error:', err);
       }
-      setError(err.message || t('errors:general.generic'));
+      setError(toErrorMessage(err) || t('errors:general.generic'));
       // 3 saniye sonra login'e yönlendir
       setTimeout(() => router.replace('/(auth)/login'), 3000);
     }

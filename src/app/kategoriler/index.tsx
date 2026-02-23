@@ -32,6 +32,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useKategorilerHierarchical, useDeleteKategori, FlattenedCategory } from '@/hooks/useKategoriler';
 import { KategoriType, Kategori } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -95,8 +96,8 @@ export default function KategorilerPage() {
           onPress: async () => {
             try {
               await deleteKategori.mutateAsync(id);
-            } catch (error: any) {
-              Alert.alert(t('common:status.error'), error.message || t('errors:category.deleteFailed'));
+            } catch (error) {
+              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:category.deleteFailed'));
             }
           },
         },

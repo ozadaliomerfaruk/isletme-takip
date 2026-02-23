@@ -20,6 +20,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, useUpdateUrun } from '@/hooks/useUrunler';
 import { BirimType, Currency, KdvOrani } from '@/types/database';
+import { toErrorMessage } from '@/lib/errors';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -84,8 +85,8 @@ export default function UrunDuzenlePage() {
       Alert.alert(t('common:status.success'), t('products:messages.updateSuccess'), [
         { text: t('common:buttons.ok'), onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error.message || t('errors:general.tryAgain'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
     }
   };
 
