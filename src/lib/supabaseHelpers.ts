@@ -27,7 +27,7 @@ export async function fetchAllPages<T>(
   let allData: T[] = [];
   let page = 0;
 
-  while (true) {
+  for (;;) {
     const from = page * FETCH_PAGE_SIZE;
     const to = from + FETCH_PAGE_SIZE - 1;
 

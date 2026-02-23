@@ -1474,7 +1474,7 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
   };
 
   let validCount = 0;
-  let warningCount = 0;
+  const warningCount = 0;
   let errorCount = 0;
 
   // Her işlemi kontrol et

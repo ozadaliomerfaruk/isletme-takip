@@ -327,7 +327,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
       // Merge all pages in group
       console.log(`[FotoImport] Merging ${group.length} pages for invoice ${base.invoiceNumber || base.ettn}`);
-      let mergedInvoice: OcrParsedInvoice = { ...base, items: [...base.items] };
+      const mergedInvoice: OcrParsedInvoice = { ...base, items: [...base.items] };
       for (let k = 1; k < group.length; k++) {
         const page = invoices[group[k]];
         consumed.add(group[k]);
