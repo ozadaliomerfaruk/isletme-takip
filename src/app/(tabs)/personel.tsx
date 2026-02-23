@@ -20,7 +20,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar } from '@/components/ui';
+import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -61,6 +61,10 @@ export default function PersonelPage() {
     }).start();
   }, [fabMenuVisible, fabAnim]);
 
+  // Toast ve Haptics
+  const { showToast } = useToast();
+  const haptics = useHaptics();
+
   // Gerçek veriler - pasif personeli de dahil et
   const { data: personelList, isLoading, refetch } = usePersonelList(true);
   const { payables, receivables } = useFinancialSummary();
@@ -69,8 +73,13 @@ export default function PersonelPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    try { await refetch(); } finally { setIsRefreshing(false); }
-  }, [refetch]);
+    try {
+      await refetch();
+      haptics.success();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch, haptics]);
 
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -79,10 +88,6 @@ export default function PersonelPage() {
   // Mutations
   const archivePersonel = useArchivePersonel();
   const deletePersonel = useDeletePersonel();
-
-  // Toast ve Haptics
-  const { showToast } = useToast();
-  const haptics = useHaptics();
 
   // Settings ve döviz kurları
   const { currency: baseCurrency } = useSettings();
@@ -296,9 +301,10 @@ export default function PersonelPage() {
 
 
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
-  const renderPersonelItem = useCallback(({ item: personel }: { item: Personel }) => {
+  const renderPersonelItem = useCallback(({ item: personel, index }: { item: Personel; index: number }) => {
     const isSelected = selectedIds.has(personel.id);
     return (
+      <AnimatedListItem index={index}>
       <View style={[!personel.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
         {isSelectMode ? (
           <TouchableOpacity
@@ -396,6 +402,7 @@ export default function PersonelPage() {
           </TouchableOpacity>
         )}
       </View>
+      </AnimatedListItem>
     );
   }, [selectedIds, isSelectMode, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor]);
 

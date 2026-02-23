@@ -196,10 +196,11 @@ export default function HomePage() {
     setIsRefreshing(true);
     try {
       await Promise.all([refetchSummary(), refetchCashFlow()]);
+      haptics.success();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetchSummary, refetchCashFlow]);
+  }, [refetchSummary, refetchCashFlow, haptics]);
 
   const totalIncome = monthSummary?.income ?? 0;
   const totalExpense = monthSummary?.expense ?? 0;

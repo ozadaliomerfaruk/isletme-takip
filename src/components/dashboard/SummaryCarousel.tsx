@@ -13,10 +13,11 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, AnimatedNumber } from '@/components/ui';
 import { CashFlowCard } from './CashFlowCard';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
+import { getCurrentCurrency } from '@/hooks/useSettings';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_PADDING = 16;
@@ -82,6 +83,17 @@ export function SummaryCarousel({
 
   const { netProfit, netBalance, positivePercent, incomePercent, receivablesPercent } = calculations;
 
+  // Currency config for AnimatedNumber
+  const currencyConfig = useMemo(() => {
+    const config = getCurrentCurrency();
+    const isEnglish = config.locale.startsWith('en') || config.locale.startsWith('de');
+    return {
+      prefix: config.symbol,
+      decimalSeparator: isEnglish ? '.' as const : ',' as const,
+      thousandsSeparator: isEnglish ? ',' as const : '.' as const,
+    };
+  }, []);
+
   const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x;
     const newIndex = Math.round(offsetX / CARD_WIDTH);
@@ -133,12 +145,17 @@ export function SummaryCarousel({
 
             {/* Main Value */}
             <View style={styles.mainValue}>
-              <Text style={[
-                styles.bigNumber,
-                { color: generalStatus >= 0 ? colors.success : colors.error }
-              ]}>
-                {generalStatus >= 0 ? '+' : ''}{formatCurrency(generalStatus)}
-              </Text>
+              <AnimatedNumber
+                value={generalStatus}
+                showSign
+                prefix={currencyConfig.prefix}
+                decimalSeparator={currencyConfig.decimalSeparator}
+                thousandsSeparator={currencyConfig.thousandsSeparator}
+                style={[
+                  styles.bigNumber,
+                  { color: generalStatus >= 0 ? colors.success : colors.error },
+                ]}
+              />
               <Text style={styles.mainLabel}>{t('common:dashboard.netWorth')}</Text>
             </View>
 
@@ -209,12 +226,17 @@ export function SummaryCarousel({
 
             {/* Main Value */}
             <View style={styles.mainValue}>
-              <Text style={[
-                styles.bigNumber,
-                { color: netProfit >= 0 ? colors.success : colors.error }
-              ]}>
-                {netProfit >= 0 ? '+' : ''}{formatCurrency(netProfit)}
-              </Text>
+              <AnimatedNumber
+                value={netProfit}
+                showSign
+                prefix={currencyConfig.prefix}
+                decimalSeparator={currencyConfig.decimalSeparator}
+                thousandsSeparator={currencyConfig.thousandsSeparator}
+                style={[
+                  styles.bigNumber,
+                  { color: netProfit >= 0 ? colors.success : colors.error },
+                ]}
+              />
               <Text style={styles.mainLabel}>{t('common:dashboard.netProfitLoss')}</Text>
             </View>
 
@@ -268,12 +290,17 @@ export function SummaryCarousel({
 
             {/* Main Value */}
             <View style={styles.mainValue}>
-              <Text style={[
-                styles.bigNumber,
-                { color: netBalance >= 0 ? colors.info : colors.warning }
-              ]}>
-                {netBalance >= 0 ? '+' : ''}{formatCurrency(netBalance)}
-              </Text>
+              <AnimatedNumber
+                value={netBalance}
+                showSign
+                prefix={currencyConfig.prefix}
+                decimalSeparator={currencyConfig.decimalSeparator}
+                thousandsSeparator={currencyConfig.thousandsSeparator}
+                style={[
+                  styles.bigNumber,
+                  { color: netBalance >= 0 ? colors.info : colors.warning },
+                ]}
+              />
               <Text style={styles.mainLabel}>{t('common:dashboard.netBalance')}</Text>
             </View>
 
@@ -399,6 +426,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -1,
     marginBottom: 4,
+    textAlign: 'center',
+    width: '100%',
   },
   mainLabel: {
     fontSize: 14,

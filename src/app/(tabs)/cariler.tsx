@@ -20,7 +20,7 @@ import {
   ArrowUpDown,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar } from '@/components/ui';
+import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -114,8 +114,13 @@ export default function CarilerPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    try { await refetch(); } finally { setIsRefreshing(false); }
-  }, [refetch]);
+    try {
+      await refetch();
+      haptics.success();
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetch, haptics]);
 
   // Action sheet handlers
   const handleOpenActionSheet = (cari: Cari) => {
@@ -426,9 +431,10 @@ export default function CarilerPage() {
 
 
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
-  const renderCariItem = useCallback(({ item: cari }: { item: MergedCari }) => {
+  const renderCariItem = useCallback(({ item: cari, index }: { item: MergedCari; index: number }) => {
     const isSelected = selectedIds.has(cari.id);
     return (
+      <AnimatedListItem index={index}>
       <View style={[!cari.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
         {isSelectMode && !cari.isLinked ? (
           <TouchableOpacity
@@ -536,6 +542,7 @@ export default function CarilerPage() {
           </TouchableOpacity>
         )}
       </View>
+      </AnimatedListItem>
     );
   }, [selectedIds, isSelectMode, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router]);
 

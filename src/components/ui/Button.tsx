@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   StyleSheet,
   ActivityIndicator,
@@ -6,6 +6,15 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withTiming,
+  withDelay,
+  Easing,
+} from 'react-native-reanimated';
+import { Check } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { Text } from './Text';
@@ -18,6 +27,8 @@ interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
+  /** Show success check icon briefly (controlled by parent) */
+  success?: boolean;
   icon?: React.ReactNode;
   iconPosition?: 'left' | 'right';
   fullWidth?: boolean;
@@ -80,10 +91,17 @@ const textColors = {
   danger: colors.white,
 };
 
+const checkSizes: Record<ButtonSize, number> = {
+  sm: 16,
+  md: 20,
+  lg: 24,
+};
+
 export function Button({
   variant = 'primary',
   size = 'md',
   loading,
+  success,
   icon,
   iconPosition = 'left',
   fullWidth,
@@ -95,6 +113,36 @@ export function Button({
   onPress,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+
+  // Success check animation
+  const checkOpacity = useSharedValue(0);
+  const checkScale = useSharedValue(0.5);
+  const contentOpacity = useSharedValue(1);
+
+  useEffect(() => {
+    if (success) {
+      // Fade out content, fade in check
+      contentOpacity.value = withTiming(0, { duration: 150 });
+      checkOpacity.value = withTiming(1, { duration: 200 });
+      checkScale.value = withSequence(
+        withTiming(1.2, { duration: 200, easing: Easing.out(Easing.back(2)) }),
+        withTiming(1, { duration: 150 }),
+      );
+      // Auto-revert after 1.2s
+      contentOpacity.value = withDelay(1200, withTiming(1, { duration: 200 }));
+      checkOpacity.value = withDelay(1200, withTiming(0, { duration: 200 }));
+      checkScale.value = withDelay(1200, withTiming(0.5, { duration: 200 }));
+    }
+  }, [success, checkOpacity, checkScale, contentOpacity]);
+
+  const checkAnimStyle = useAnimatedStyle(() => ({
+    opacity: checkOpacity.value,
+    transform: [{ scale: checkScale.value }],
+  }));
+
+  const contentAnimStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+  }));
 
   // Derive accessibility label from children if not provided
   const derivedLabel = accessibilityLabel ||
@@ -129,16 +177,21 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={textColors[variant]} size="small" />
       ) : (
-        <View style={styles.content}>
-          {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
-          <Text
-            variant="label"
-            style={{ color: textColors[variant] }}
-          >
-            {children}
-          </Text>
-          {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
-        </View>
+        <>
+          <Animated.View style={[styles.content, contentAnimStyle]}>
+            {icon && iconPosition === 'left' && <View style={styles.iconLeft}>{icon}</View>}
+            <Text
+              variant="label"
+              style={{ color: textColors[variant] }}
+            >
+              {children}
+            </Text>
+            {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
+          </Animated.View>
+          <Animated.View style={[styles.checkOverlay, checkAnimStyle]}>
+            <Check size={checkSizes[size]} color={textColors[variant]} strokeWidth={3} />
+          </Animated.View>
+        </>
       )}
     </AnimatedPressable>
   );
@@ -167,5 +220,10 @@ const styles = StyleSheet.create({
   },
   iconRight: {
     marginLeft: spacing.sm,
+  },
+  checkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

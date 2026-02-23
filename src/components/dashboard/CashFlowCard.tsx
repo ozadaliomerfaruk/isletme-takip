@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/ui';
+import { Text, AnimatedNumber } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
+import { getCurrentCurrency } from '@/hooks/useSettings';
 
 interface CashFlowCardProps {
   totalInflow: number;
@@ -23,6 +24,17 @@ export function CashFlowCard({
   const total = totalInflow + totalOutflow;
   const inflowPercent = total > 0 ? (totalInflow / total) * 100 : 50;
 
+  // Currency config for AnimatedNumber
+  const currencyConfig = useMemo(() => {
+    const config = getCurrentCurrency();
+    const isEnglish = config.locale.startsWith('en') || config.locale.startsWith('de');
+    return {
+      prefix: config.symbol,
+      decimalSeparator: isEnglish ? '.' as const : ',' as const,
+      thousandsSeparator: isEnglish ? ',' as const : '.' as const,
+    };
+  }, []);
+
   const Wrapper = onPress ? TouchableOpacity : View;
   const wrapperProps = onPress ? { style: styles.card, onPress, activeOpacity: 0.8 } : { style: styles.card };
 
@@ -35,12 +47,17 @@ export function CashFlowCard({
 
       {/* Main Value */}
       <View style={styles.mainValue}>
-        <Text style={[
-          styles.bigNumber,
-          { color: netCashFlow >= 0 ? colors.success : colors.error }
-        ]}>
-          {netCashFlow >= 0 ? '+' : ''}{formatCurrency(netCashFlow)}
-        </Text>
+        <AnimatedNumber
+          value={netCashFlow}
+          showSign
+          prefix={currencyConfig.prefix}
+          decimalSeparator={currencyConfig.decimalSeparator}
+          thousandsSeparator={currencyConfig.thousandsSeparator}
+          style={[
+            styles.bigNumber,
+            { color: netCashFlow >= 0 ? colors.success : colors.error },
+          ]}
+        />
         <Text style={styles.mainLabel}>{t('common:dashboard.netCashFlow')}</Text>
       </View>
 
@@ -113,6 +130,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -1,
     marginBottom: 4,
+    textAlign: 'center',
+    width: '100%',
   },
   mainLabel: {
     fontSize: 14,

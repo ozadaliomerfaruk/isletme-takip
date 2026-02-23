@@ -38,3 +38,5 @@ export type { UndoSnackbarProps } from './UndoSnackbar';
 export { AnimatedPressable } from './AnimatedPressable';
 export { Avatar } from './Avatar';
 export { TransactionIcon } from './TransactionIcon';
+export { AnimatedNumber } from './AnimatedNumber';
+export { AnimatedListItem } from './AnimatedListItem';
