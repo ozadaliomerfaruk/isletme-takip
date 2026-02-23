@@ -2,14 +2,15 @@ import React, { memo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image as ImageIcon } from 'lucide-react-native';
 import { Text } from './Text';
+import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
-import { spacing, fontSize, fontWeight } from '@/constants/spacing';
+import { spacing, fontSize, fontWeight, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { getTransactionColor, getTransactionPrefix, showAccentBar } from '@/lib/transactionColors';
+import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
 import type { IslemType } from '@/types/database';
 
 // ============================================================================
-// TRANSACTION ROW — Presentational Component
+// TRANSACTION ROW — Presentational Component (Modernized)
 // ============================================================================
 
 export interface TransactionRowProps {
@@ -18,14 +19,14 @@ export interface TransactionRowProps {
   amount: number | string;
   date: string;
   typeLabel: string;
-  /** Counterparty / entity name — rendered prominently (e.g. "→ Cari Adı") */
+  /** Counterparty / entity name — rendered prominently */
   entityText?: string | null;
   secondaryText?: string | null;
   tertiaryText?: string | null;
   subAmount?: string | null;
   hasPhoto?: boolean;
   currency?: string;
-  /** Override the default color derived from type (e.g. for hesap-perspective transfers) */
+  /** Override the default color derived from type */
   overrideColor?: string;
   /** Override the default prefix derived from type */
   overridePrefix?: string;
@@ -55,7 +56,6 @@ export const TransactionRow = memo(function TransactionRow({
 
   const txColor = overrideColor ?? getTransactionColor(type);
   const prefix = overridePrefix ?? getTransactionPrefix(type);
-  const hasBar = showAccentBar(type);
   const numAmount = typeof amount === 'string' ? toNumber(amount) : amount;
 
   return (
@@ -66,43 +66,44 @@ export const TransactionRow = memo(function TransactionRow({
       activeOpacity={0.7}
       delayLongPress={400}
     >
-      {/* Accent Bar */}
-      {hasBar ? (
-        <View style={[styles.accentBar, { backgroundColor: txColor }]} />
-      ) : (
-        <View style={styles.accentBarSpacer} />
-      )}
+      {/* Transaction Icon Circle */}
+      <TransactionIcon type={type} size={40} />
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Line 1: Type Label + Date */}
-        <View style={styles.line1}>
-          <Text style={[styles.typeText, { color: txColor }]} numberOfLines={1}>
-            {typeLabel}
-          </Text>
-          <Text style={styles.dateText}>{date}</Text>
-        </View>
-
-        {/* Entity line: counterparty name — prominent */}
-        {entityText && (
+        {/* Line 1: Entity name (most prominent) */}
+        {entityText ? (
           <Text style={styles.entityText} numberOfLines={1}>
             {entityText}
           </Text>
+        ) : (
+          <Text style={[styles.typeTextPrimary, { color: txColor }]} numberOfLines={1}>
+            {typeLabel}
+          </Text>
         )}
 
-        {/* Line 2: Secondary + Tertiary — small muted info */}
+        {/* Line 2: Type label + date */}
+        <View style={styles.line2}>
+          {entityText ? (
+            <Text style={[styles.typeTextSmall, { color: txColor }]} numberOfLines={1}>
+              {typeLabel}
+            </Text>
+          ) : null}
+          {entityText && <Text style={styles.dot}> · </Text>}
+          <Text style={styles.dateText}>{date}</Text>
+        </View>
+
+        {/* Line 3: Secondary + Tertiary info */}
         {(secondaryText || tertiaryText) && (
-          <View style={styles.line2}>
+          <View style={styles.line3}>
             {secondaryText ? (
               <Text style={styles.secondaryText} numberOfLines={1}>
                 {secondaryText}
               </Text>
-            ) : (
-              <View style={styles.flex1} />
-            )}
+            ) : null}
             {tertiaryText && (
               <Text style={styles.tertiaryText} numberOfLines={1}>
-                {tertiaryText}
+                {secondaryText ? ` · ${tertiaryText}` : tertiaryText}
               </Text>
             )}
           </View>
@@ -140,7 +141,7 @@ export const TransactionRow = memo(function TransactionRow({
 });
 
 // ============================================================================
-// DATE SECTION HEADER
+// DATE SECTION HEADER — Pill style (WhatsApp inspired)
 // ============================================================================
 
 export interface DateSectionHeaderProps {
@@ -150,9 +151,9 @@ export interface DateSectionHeaderProps {
 export function DateSectionHeader({ title }: DateSectionHeaderProps) {
   return (
     <View style={styles.sectionHeader}>
-      <View style={styles.sectionLine} />
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionLine} />
+      <View style={styles.pill}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+      </View>
     </View>
   );
 }
@@ -169,58 +170,49 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.borderLight,
     gap: spacing.md,
-  },
-  accentBar: {
-    width: 3,
-    alignSelf: 'stretch',
-    borderRadius: 1.5,
-  },
-  accentBarSpacer: {
-    width: 3,
   },
   content: {
     flex: 1,
-    gap: 3,
-  },
-  line1: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  typeText: {
-    fontSize: 13,
-    fontWeight: fontWeight.bold,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.3,
-    flex: 1,
-  },
-  dateText: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.medium,
-    color: colors.textMuted,
+    gap: 2,
   },
   entityText: {
     fontSize: 15,
     fontWeight: fontWeight.semibold,
     color: colors.text,
   },
+  typeTextPrimary: {
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
+  },
   line2: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
   },
-  flex1: {
-    flex: 1,
+  typeTextSmall: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.3,
+  },
+  dot: {
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+  },
+  dateText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.normal,
+    color: colors.textMuted,
+  },
+  line3: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   secondaryText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.normal,
     color: colors.textMuted,
-    flex: 1,
   },
   tertiaryText: {
     fontSize: fontSize.sm,
@@ -239,7 +231,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   amountText: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: fontWeight.bold,
   },
   subAmountText: {
@@ -248,24 +240,23 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
-  // Section header styles
+  // Pill-style section header (WhatsApp inspired)
   sectionHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xs,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
-  sectionLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
+  pill: {
+    backgroundColor: colors.surfaceLighter,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
   },
   sectionTitle: {
     fontSize: 11,
     fontWeight: fontWeight.semibold,
     color: colors.textMuted,
     textTransform: 'uppercase' as const,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
 });

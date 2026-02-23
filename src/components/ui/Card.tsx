@@ -1,6 +1,7 @@
-import { View, StyleSheet, TouchableOpacity, StyleProp, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, shadows } from '@/constants/spacing';
+import { AnimatedPressable } from './AnimatedPressable';
 
 interface CardProps {
   variant?: 'default' | 'elevated' | 'outlined';
@@ -19,7 +20,7 @@ export function Card({
 }: CardProps) {
   const cardStyle: StyleProp<ViewStyle> = [
     styles.base,
-    variant === 'elevated' && styles.elevated,
+    variant === 'elevated' && [styles.elevated, shadows.md],
     variant === 'outlined' && styles.outlined,
     padding === 'sm' && styles.padding_sm,
     padding === 'md' && styles.padding_md,
@@ -29,9 +30,9 @@ export function Card({
 
   if (onPress) {
     return (
-      <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.7}>
+      <AnimatedPressable style={cardStyle} onPress={onPress} scaleValue={0.98}>
         {children}
-      </TouchableOpacity>
+      </AnimatedPressable>
     );
   }
 
@@ -44,11 +45,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
   },
   elevated: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    // Shadow comes from shadows.md preset - soft Airbnb-style
   },
   outlined: {
     borderWidth: 1,

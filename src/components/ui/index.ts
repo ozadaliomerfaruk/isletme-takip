@@ -35,3 +35,6 @@ export { SwipeableRow, SwipeableProvider } from './SwipeableRow';
 export type { SwipeableRowProps } from './SwipeableRow';
 export { UndoSnackbar } from './UndoSnackbar';
 export type { UndoSnackbarProps } from './UndoSnackbar';
+export { AnimatedPressable } from './AnimatedPressable';
+export { Avatar } from './Avatar';
+export { TransactionIcon } from './TransactionIcon';

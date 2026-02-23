@@ -1,22 +1,20 @@
 import { useCallback } from 'react';
 import {
-  TouchableOpacity,
-  TouchableOpacityProps,
   StyleSheet,
   ActivityIndicator,
   View,
-  Platform,
-  GestureResponderEvent,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { Text } from './Text';
+import { AnimatedPressable } from './AnimatedPressable';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 type ButtonSize = 'sm' | 'md' | 'lg';
 
-interface ButtonProps extends TouchableOpacityProps {
+interface ButtonProps {
   variant?: ButtonVariant;
   size?: ButtonSize;
   loading?: boolean;
@@ -24,6 +22,9 @@ interface ButtonProps extends TouchableOpacityProps {
   iconPosition?: 'left' | 'right';
   fullWidth?: boolean;
   children: React.ReactNode;
+  disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
+  onPress?: () => void;
   /** Accessibility label - defaults to children text if string */
   accessibilityLabel?: string;
   /** Additional accessibility hint */
@@ -92,7 +93,6 @@ export function Button({
   accessibilityLabel,
   accessibilityHint,
   onPress,
-  ...props
 }: ButtonProps) {
   const isDisabled = disabled || loading;
 
@@ -100,19 +100,12 @@ export function Button({
   const derivedLabel = accessibilityLabel ||
     (typeof children === 'string' ? children : undefined);
 
-  // Wrap onPress with haptic feedback
-  const handlePress = useCallback(
-    (event: GestureResponderEvent) => {
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-      onPress?.(event);
-    },
-    [onPress]
-  );
+  const handlePress = useCallback(() => {
+    onPress?.();
+  }, [onPress]);
 
   return (
-    <TouchableOpacity
+    <AnimatedPressable
       onPress={handlePress}
       style={[
         styles.base,
@@ -123,7 +116,8 @@ export function Button({
         style,
       ]}
       disabled={isDisabled}
-      activeOpacity={0.7}
+      enableHaptic
+      scaleValue={0.97}
       accessibilityRole="button"
       accessibilityLabel={derivedLabel}
       accessibilityHint={accessibilityHint}
@@ -131,7 +125,6 @@ export function Button({
         disabled: isDisabled,
         busy: loading,
       }}
-      {...props}
     >
       {loading ? (
         <ActivityIndicator color={textColors[variant]} size="small" />
@@ -147,7 +140,7 @@ export function Button({
           {icon && iconPosition === 'right' && <View style={styles.iconRight}>{icon}</View>}
         </View>
       )}
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
