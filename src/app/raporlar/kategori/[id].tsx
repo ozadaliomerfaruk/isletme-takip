@@ -215,11 +215,19 @@ export default function KategoriDetayPage() {
             </View>
             <View style={styles.islemInfo}>
               <Text variant="body" numberOfLines={1} style={styles.islemTitle}>
-                {item.description || t(`transactions:types.${item.type}`)}
+                {item.cari?.name
+                  || (item.personel ? `${item.personel.first_name} ${item.personel.last_name ?? ''}`.trim() : null)
+                  || item.description
+                  || t(`transactions:types.${item.type}`)}
               </Text>
               <Text variant="caption" color="secondary">
-                {formatDateMedium(item.date)} • {t(`transactions:types.${item.type}`)}
+                {t(`transactions:types.${item.type}`)} • {formatDateMedium(item.date)}
               </Text>
+              {item.description && (item.cari || item.personel) && (
+                <Text variant="caption" color="secondary" numberOfLines={1}>
+                  {item.description}
+                </Text>
+              )}
               {item.hesap && (
                 <Text variant="caption" color="secondary">
                   {item.hesap.name}
