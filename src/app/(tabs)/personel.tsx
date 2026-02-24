@@ -34,6 +34,8 @@ import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
 import { useArchivePersonel } from '@/hooks/useArchive';
 import type { Personel } from '@/types/database';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
+import { PermissionGate } from '@/components/PermissionGate';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function PersonelPage() {
   const router = useRouter();
@@ -88,6 +90,9 @@ export default function PersonelPage() {
   // Mutations
   const archivePersonel = useArchivePersonel();
   const deletePersonel = useDeletePersonel();
+
+  // Permissions
+  const { canUpdate, canDelete } = usePermissions();
 
   // Settings ve döviz kurları
   const { currency: baseCurrency } = useSettings();
@@ -237,33 +242,43 @@ export default function PersonelPage() {
     );
   };
 
-  const actionSheetOptions: ActionSheetOption[] = [
-    {
-      label: t('common:bulkSelect.select'),
-      icon: <CheckSquare size={20} color={colors.info} />,
-      onPress: handleEnterSelectMode,
-    },
-    {
-      label: t('common:buttons.edit'),
-      icon: <Edit3 size={20} color={colors.primary} />,
-      onPress: () => {
-        if (actionSheetPersonel) {
-          router.push(`/personel/duzenle/${actionSheetPersonel.id}`);
-        }
+  const actionSheetOptions: ActionSheetOption[] = useMemo(() => {
+    const options: ActionSheetOption[] = [
+      {
+        label: t('common:bulkSelect.select'),
+        icon: <CheckSquare size={20} color={colors.info} />,
+        onPress: handleEnterSelectMode,
       },
-    },
-    {
-      label: t('common:archive.actions.archive'),
-      icon: <Archive size={20} color={colors.warning} />,
-      onPress: handleArchive,
-    },
-    {
-      label: t('common:buttons.delete'),
-      icon: <Trash2 size={20} color={colors.error} />,
-      onPress: handleDelete,
-      destructive: true,
-    },
-  ];
+    ];
+
+    if (actionSheetPersonel && canUpdate('personel', actionSheetPersonel.created_by ?? null)) {
+      options.push({
+        label: t('common:buttons.edit'),
+        icon: <Edit3 size={20} color={colors.primary} />,
+        onPress: () => {
+          if (actionSheetPersonel) {
+            router.push(`/personel/duzenle/${actionSheetPersonel.id}`);
+          }
+        },
+      });
+      options.push({
+        label: t('common:archive.actions.archive'),
+        icon: <Archive size={20} color={colors.warning} />,
+        onPress: handleArchive,
+      });
+    }
+
+    if (actionSheetPersonel && canDelete('personel', actionSheetPersonel.created_by ?? null)) {
+      options.push({
+        label: t('common:buttons.delete'),
+        icon: <Trash2 size={20} color={colors.error} />,
+        onPress: handleDelete,
+        destructive: true,
+      });
+    }
+
+    return options;
+  }, [actionSheetPersonel, t, handleEnterSelectMode, handleArchive, handleDelete, canUpdate, canDelete, router]);
 
   // Arama ve sıralama (aktif önce)
   const filteredPersonel = (personelList ?? [])
@@ -428,14 +443,16 @@ export default function PersonelPage() {
           >
             <ArrowUpDown size={18} color={colors.primary} />
           </TouchableOpacity>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={18} color={colors.white} />}
-            onPress={() => router.push('/personel/ekle')}
-          >
-            {t('common:buttons.add')}
-          </Button>
+          <PermissionGate module="personel" action="create">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={18} color={colors.white} />}
+              onPress={() => router.push('/personel/ekle')}
+            >
+              {t('common:buttons.add')}
+            </Button>
+          </PermissionGate>
         </View>
       </View>
 
@@ -443,11 +460,11 @@ export default function PersonelPage() {
       <View style={styles.summaryContainer}>
         <Card style={styles.summaryCard}>
           <Text variant="caption" color="secondary">{t('staff:balance.weOwe')}</Text>
-          <Text variant="h3" color="error">{formatCurrency(payables.personel)}</Text>
+          <Text variant="h3" color="error">{formatCurrency(payables.personel, baseCurrency)}</Text>
         </Card>
         <Card style={styles.summaryCard}>
           <Text variant="caption" color="secondary">{t('staff:balance.theyOwe')}</Text>
-          <Text variant="h3" color="success">{formatCurrency(receivables.personel)}</Text>
+          <Text variant="h3" color="success">{formatCurrency(receivables.personel, baseCurrency)}</Text>
         </Card>
       </View>
 

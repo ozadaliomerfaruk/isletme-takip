@@ -39,6 +39,7 @@ import { IslemWithRelations } from '@/types/database';
 import { LeaveQuotaCard } from '@/components/personel/LeaveQuotaCard';
 import { isLeaveType } from '@/constants/islemTypes';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -75,6 +76,7 @@ interface PersonelTransactionItemProps {
   t: (key: string) => string;
   currency?: string;
   deleteLabel: string;
+  canEdit?: boolean;
 }
 
 const PersonelTransactionItem = memo(function PersonelTransactionItem({
@@ -85,6 +87,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   t,
   currency,
   deleteLabel,
+  canEdit = true,
 }: PersonelTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
 
@@ -92,7 +95,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   const typeLabel = t(labelKey);
 
   return (
-    <SwipeableRow onDelete={handleDelete} deleteLabel={deleteLabel}>
+    <SwipeableRow onDelete={canEdit ? handleDelete : undefined} enabled={canEdit} deleteLabel={deleteLabel}>
       <TransactionRow
         id={islem.id}
         type={islem.type}
@@ -107,7 +110,8 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   );
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
-    && prev.islem.updated_at === next.islem.updated_at;
+    && prev.islem.updated_at === next.islem.updated_at
+    && prev.canEdit === next.canEdit;
 });
 
 // ============================================================================
@@ -127,6 +131,7 @@ export default function PersonelHareketleriPage() {
   const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
+  const { canUpdate, canDelete } = usePermissions();
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
   const updatePersonel = useUpdatePersonel();
@@ -342,6 +347,7 @@ export default function PersonelHareketleriPage() {
       return <DateSectionHeader title={item.title} />;
     }
     const islem = item.data;
+    const canEditItem = canDelete('islemler', islem.created_by ?? null);
     return (
       <PersonelTransactionItem
         islem={islem}
@@ -351,9 +357,10 @@ export default function PersonelHareketleriPage() {
         t={t}
         currency={personel?.currency}
         deleteLabel={deleteLabel}
+        canEdit={canEditItem}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, formatDateSmart, t, personel?.currency, deleteLabel]);
+  }, [handlePressIslem, handleDeleteIslem, formatDateSmart, t, personel?.currency, deleteLabel, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -583,25 +590,29 @@ export default function PersonelHareketleriPage() {
           >
             <View style={styles.menuContainer}>
               {/* Düzenle */}
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  router.push({ pathname: '/personel/duzenle/[id]', params: { id: id } });
-                }}
-              >
-                <Pencil size={20} color={colors.text} />
-                <Text variant="body">{t('common:buttons.edit')}</Text>
-              </TouchableOpacity>
+              {canUpdate('personel', personel?.created_by ?? null) && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    router.push({ pathname: '/personel/duzenle/[id]', params: { id: id } });
+                  }}
+                >
+                  <Pencil size={20} color={colors.text} />
+                  <Text variant="body">{t('common:buttons.edit')}</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Sil */}
-              <TouchableOpacity
-                style={[styles.menuItem, styles.menuItemDanger]}
-                onPress={handleDeletePersonel}
-              >
-                <Trash2 size={20} color={colors.error} />
-                <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
-              </TouchableOpacity>
+              {canDelete('personel', personel?.created_by ?? null) && (
+                <TouchableOpacity
+                  style={[styles.menuItem, styles.menuItemDanger]}
+                  onPress={handleDeletePersonel}
+                >
+                  <Trash2 size={20} color={colors.error} />
+                  <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </TouchableOpacity>
         </Modal>

@@ -1,0 +1,106 @@
+{
+  "roles": {
+    "owner": "Owner",
+    "manager": "Manager",
+    "operator": "Operator",
+    "purchaser": "Purchaser",
+    "custom": "Custom Role"
+  },
+  "status": {
+    "active": "Active",
+    "suspended": "Suspended",
+    "removed": "Removed",
+    "pending": "Pending",
+    "accepted": "Accepted",
+    "expired": "Expired",
+    "cancelled": "Cancelled"
+  },
+  "banner": {
+    "exit": "Exit",
+    "viewingAs": "Viewing as:"
+  },
+  "permissions": {
+    "noModuleAccess": "You do not have access to this module",
+    "noActionAccess": "You do not have permission for this action"
+  },
+  "users": {
+    "title": "Users",
+    "subtitle": "Manage users with access to your business",
+    "empty": "No users added yet",
+    "invite": "Invite User",
+    "editRole": "Edit Role",
+    "removeUser": "Remove User",
+    "removeConfirm": "Are you sure you want to remove this user's access?",
+    "suspendUser": "Suspend",
+    "activateUser": "Activate"
+  },
+  "invites": {
+    "title": "Create Invite",
+    "subtitle": "Generate a code to invite new users",
+    "selectRole": "Select Role",
+    "emailOptional": "Email (optional)",
+    "emailPlaceholder": "user@example.com",
+    "generateCode": "Generate Code",
+    "codeGenerated": "Invite Code",
+    "copyCode": "Copy Code",
+    "codeCopied": "Code copied!",
+    "shareCode": "Share this code with the person you are inviting",
+    "codeExpiry": "Code is valid for 7 days",
+    "pendingInvites": "Pending Invites",
+    "cancelInvite": "Cancel Invite",
+    "noInvites": "No pending invites"
+  },
+  "shared": {
+    "title": "Shared Businesses",
+    "subtitle": "View businesses shared with you",
+    "empty": "No shared businesses yet",
+    "enterCode": "Enter Invite Code",
+    "codePlaceholder": "ABC123",
+    "acceptInvite": "Accept Invite",
+    "switchTo": "Switch To",
+    "leaveIsletme": "Leave Business",
+    "leaveConfirm": "Are you sure you want to leave this business?"
+  },
+  "auditLog": {
+    "title": "Transaction History",
+    "subtitle": "View deleted and edited transactions",
+    "deleted": "Deleted Transactions",
+    "edited": "Edited Transactions",
+    "empty": "No records found",
+    "deletedBy": "Deleted by",
+    "editedBy": "Edited by",
+    "originalAmount": "Original Amount",
+    "newAmount": "New Amount"
+  },
+  "menu": {
+    "userManagement": "User Management",
+    "sharedBusinesses": "Shared Businesses",
+    "transactionHistory": "Transaction History"
+  },
+  "errors": {
+    "invalidCode": "Invalid or expired invite code",
+    "alreadyMember": "You already have access to this business",
+    "cannotInviteSelf": "You cannot accept an invite to your own business",
+    "rateLimitExceeded": "Too many invites created. Please try again in 1 hour.",
+    "userNotFound": "User not found"
+  },
+  "permissionActions": {
+    "create": "Create",
+    "editOwn": "Edit Own",
+    "editAll": "Edit All",
+    "deleteOwn": "Delete Own",
+    "deleteAll": "Delete All",
+    "visibility": "Visibility",
+    "canSeePassive": "Can see passive records",
+    "canSeeArchived": "Can see archived records",
+    "canSeeAllData": "Can see all users' data",
+    "moduleAccess": "Module Access"
+  },
+  "success": {
+    "inviteAccepted": "Invite accepted",
+    "userRemoved": "User removed",
+    "roleUpdated": "Role updated",
+    "inviteCancelled": "Invite cancelled",
+    "leftIsletme": "You have left the business"
+  }
+}

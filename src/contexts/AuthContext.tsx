@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
 import { Isletme } from '@/types/database';
+import type { Permissions, UserRole } from '@/types/multiUser';
 
 interface AuthContextType {
   session: Session | null;
@@ -11,6 +12,13 @@ interface AuthContextType {
   initialized: boolean;
   isletmeLoading: boolean;
   needsPasswordReset: boolean;
+  // Multi-user fields
+  ownIsletme: Isletme | null;
+  isOwner: boolean;
+  isSharedMode: boolean;
+  currentPermissions: Permissions | null;
+  currentUserRole: UserRole | 'owner' | null;
+  // Auth methods
   signIn: (email: string, password: string) => Promise<{ user: User; session: Session }>;
   signUp: (email: string, password: string, isletmeName: string) => Promise<{ user: User; isletme: Isletme }>;
   signOut: () => Promise<void>;
@@ -21,6 +29,9 @@ interface AuthContextType {
   signInWithGoogle: (idToken: string) => Promise<any>;
   isAppleSignInAvailable: boolean;
   clearPasswordReset: () => void;
+  // Multi-user methods
+  switchToSharedIsletme: (isletme: Isletme, permissions: Permissions, role: UserRole) => Promise<void>;
+  switchToOwnIsletme: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

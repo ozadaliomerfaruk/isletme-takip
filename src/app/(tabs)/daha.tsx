@@ -20,6 +20,9 @@ import {
   Calendar,
   Upload,
   Archive,
+  Users,
+  Share2,
+  History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card, Avatar } from '@/components/ui';
@@ -70,8 +73,8 @@ const languageOptions: { code: SupportedLanguage; label: string }[] = [
 
 export default function DahaPage() {
   const router = useRouter();
-  const { signOut, user, isletme } = useAuthContext();
-  const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors']);
+  const { signOut, user, isletme, isOwner } = useAuthContext();
+  const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser']);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
   const [dateFormatModalVisible, setDateFormatModalVisible] = useState(false);
@@ -207,6 +210,40 @@ export default function DahaPage() {
               label={t('common:archive.title')}
               onPress={() => router.push('/arsiv' as any)}
             />
+          </Card>
+        </View>
+
+        {/* Çoklu Kullanıcı */}
+        <View style={styles.section}>
+          <Text variant="label" color="secondary" style={styles.sectionTitle}>
+            {t('multiUser:menu.userManagement').toUpperCase()}
+          </Text>
+          <Card padding="none">
+            {isOwner && (
+              <>
+                <MenuItem
+                  icon={<Users size={22} color={colors.info} />}
+                  label={t('multiUser:menu.userManagement')}
+                  onPress={() => router.push('/ayarlar/kullanici-yonetimi' as any)}
+                />
+                <View style={styles.divider} />
+              </>
+            )}
+            <MenuItem
+              icon={<Share2 size={22} color={colors.success} />}
+              label={t('multiUser:menu.sharedBusinesses')}
+              onPress={() => router.push('/ayarlar/paylasilan-isletmeler' as any)}
+            />
+            {isOwner && (
+              <>
+                <View style={styles.divider} />
+                <MenuItem
+                  icon={<History size={22} color={colors.warning} />}
+                  label={t('multiUser:menu.transactionHistory')}
+                  onPress={() => router.push('/ayarlar/islem-gecmisi' as any)}
+                />
+              </>
+            )}
           </Card>
         </View>
 

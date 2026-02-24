@@ -22,6 +22,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
 import { IslemWithRelations } from '@/types/database';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -54,6 +55,7 @@ interface IslemlerTransactionItemProps {
   formatDateMedium: (date: string) => string;
   t: (key: string) => string;
   deleteLabel: string;
+  canEdit?: boolean;
 }
 
 const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
@@ -63,6 +65,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   formatDateMedium,
   t,
   deleteLabel,
+  canEdit = true,
 }: IslemlerTransactionItemProps) {
   const handleDelete = useCallback(
     () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
@@ -74,7 +77,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
 
   return (
     <SwipeableRow
-      onDelete={handleDelete}
+      onDelete={canEdit ? handleDelete : undefined}
+      enabled={canEdit}
       deleteLabel={deleteLabel}
     >
       <TransactionRow
@@ -93,7 +97,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
-    && prev.islem.photo_path === next.islem.photo_path;
+    && prev.islem.photo_path === next.islem.photo_path
+    && prev.canEdit === next.canEdit;
 });
 
 // ============================================================================
@@ -104,6 +109,7 @@ export default function IslemlerPage() {
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common', 'errors']);
   const { formatDateMedium } = useDateFormat();
+  const { canDelete } = usePermissions();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showLongLoadingMessage, setShowLongLoadingMessage] = useState(false);
@@ -330,17 +336,20 @@ export default function IslemlerPage() {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
     }
+    const islem = item.data;
+    const canEditItem = canDelete('islemler', islem.created_by ?? null);
     return (
       <IslemlerTransactionItem
-        islem={item.data}
+        islem={islem}
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
         formatDateMedium={formatDateMedium}
         t={t}
         deleteLabel={deleteLabel}
+        canEdit={canEditItem}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, formatDateMedium, t, deleteLabel]);
+  }, [handlePressIslem, handleDeleteIslem, formatDateMedium, t, deleteLabel, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

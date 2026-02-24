@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { colors } from '@/constants/colors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 function HapticTabButton({ style, onPress, children, ...rest }: BottomTabBarButtonProps) {
   return (
@@ -52,6 +53,7 @@ const tabIconStyles = StyleSheet.create({
 export default function TabsLayout() {
   const { t } = useTranslation('navigation');
   const insets = useSafeAreaInsets();
+  const { canAccessModule } = usePermissions();
 
   // Tab bar yüksekliği: base height + safe area bottom
   const tabBarHeight = 52 + insets.bottom;
@@ -102,6 +104,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="cariler"
         options={{
+          href: canAccessModule('cariler') ? undefined : null,
           title: t('tabs.clients'),
           tabBarIcon: ({ color, focused }) => <TabIcon Icon={Users} color={color} focused={focused} />,
         }}
@@ -109,6 +112,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="personel"
         options={{
+          href: canAccessModule('personel') ? undefined : null,
           title: t('tabs.personnel'),
           tabBarIcon: ({ color, focused }) => <TabIcon Icon={UserCircle} color={color} focused={focused} />,
         }}
@@ -116,6 +120,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="urunler"
         options={{
+          href: canAccessModule('urunler') ? undefined : null,
           title: t('tabs.stock'),
           tabBarIcon: ({ color, focused }) => <TabIcon Icon={Package} color={color} focused={focused} />,
         }}

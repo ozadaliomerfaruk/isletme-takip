@@ -1,0 +1,106 @@
+{
+  "roles": {
+    "owner": "İşletme Sahibi",
+    "manager": "Yönetici",
+    "operator": "Operatör",
+    "purchaser": "Satın Almacı",
+    "custom": "Özel Rol"
+  },
+  "status": {
+    "active": "Aktif",
+    "suspended": "Askıya Alındı",
+    "removed": "Kaldırıldı",
+    "pending": "Bekliyor",
+    "accepted": "Kabul Edildi",
+    "expired": "Süresi Doldu",
+    "cancelled": "İptal Edildi"
+  },
+  "banner": {
+    "exit": "Çıkış",
+    "viewingAs": "Görüntüleniyor:"
+  },
+  "permissions": {
+    "noModuleAccess": "Bu modüle erişim yetkiniz yok",
+    "noActionAccess": "Bu işlem için yetkiniz yok"
+  },
+  "users": {
+    "title": "Kullanıcılar",
+    "subtitle": "İşletmenize erişimi olan kullanıcıları yönetin",
+    "empty": "Henüz kullanıcı eklenmemiş",
+    "invite": "Kullanıcı Davet Et",
+    "editRole": "Rolü Düzenle",
+    "removeUser": "Kullanıcıyı Kaldır",
+    "removeConfirm": "Bu kullanıcının erişimini kaldırmak istediğinize emin misiniz?",
+    "suspendUser": "Askıya Al",
+    "activateUser": "Aktifleştir"
+  },
+  "invites": {
+    "title": "Davet Oluştur",
+    "subtitle": "Yeni kullanıcı davet etmek için kod oluşturun",
+    "selectRole": "Rol Seçin",
+    "emailOptional": "E-posta (opsiyonel)",
+    "emailPlaceholder": "kullanici@example.com",
+    "generateCode": "Kod Oluştur",
+    "codeGenerated": "Davet Kodu",
+    "copyCode": "Kodu Kopyala",
+    "codeCopied": "Kod kopyalandı!",
+    "shareCode": "Bu kodu davet ettiğiniz kişiyle paylaşın",
+    "codeExpiry": "Kod 7 gün geçerlidir",
+    "pendingInvites": "Bekleyen Davetler",
+    "cancelInvite": "Daveti İptal Et",
+    "noInvites": "Bekleyen davet yok"
+  },
+  "shared": {
+    "title": "Paylaşılan İşletmeler",
+    "subtitle": "Size paylaşılan işletmeleri görüntüleyin",
+    "empty": "Henüz paylaşılan işletme yok",
+    "enterCode": "Davet Kodu Gir",
+    "codePlaceholder": "ABC123",
+    "acceptInvite": "Daveti Kabul Et",
+    "switchTo": "Geçiş Yap",
+    "leaveIsletme": "İşletmeden Ayrıl",
+    "leaveConfirm": "Bu işletmeden ayrılmak istediğinize emin misiniz?"
+  },
+  "auditLog": {
+    "title": "İşlem Geçmişi",
+    "subtitle": "Silinen ve düzenlenen işlemleri görüntüleyin",
+    "deleted": "Silinen İşlemler",
+    "edited": "Düzenlenen İşlemler",
+    "empty": "Kayıt bulunamadı",
+    "deletedBy": "Silen",
+    "editedBy": "Düzenleyen",
+    "originalAmount": "Orijinal Tutar",
+    "newAmount": "Yeni Tutar"
+  },
+  "menu": {
+    "userManagement": "Kullanıcı Yönetimi",
+    "sharedBusinesses": "Paylaşılan İşletmeler",
+    "transactionHistory": "İşlem Geçmişi"
+  },
+  "errors": {
+    "invalidCode": "Geçersiz veya süresi dolmuş davet kodu",
+    "alreadyMember": "Bu işletmeye zaten erişiminiz var",
+    "cannotInviteSelf": "Kendi işletmenize davet kabul edemezsiniz",
+    "rateLimitExceeded": "Çok fazla davet oluşturdunuz. Lütfen 1 saat sonra tekrar deneyin.",
+    "userNotFound": "Kullanıcı bulunamadı"
+  },
+  "permissionActions": {
+    "create": "Oluşturma",
+    "editOwn": "Kendi Kaydını Düzenleme",
+    "editAll": "Tüm Kayıtları Düzenleme",
+    "deleteOwn": "Kendi Kaydını Silme",
+    "deleteAll": "Tüm Kayıtları Silme",
+    "visibility": "Görünürlük",
+    "canSeePassive": "Pasif kayıtları görebilir",
+    "canSeeArchived": "Arşiv kayıtlarını görebilir",
+    "canSeeAllData": "Tüm kullanıcıların verilerini görebilir",
+    "moduleAccess": "Modül Erişimi"
+  },
+  "success": {
+    "inviteAccepted": "Davet kabul edildi",
+    "userRemoved": "Kullanıcı kaldırıldı",
+    "roleUpdated": "Rol güncellendi",
+    "inviteCancelled": "Davet iptal edildi",
+    "leftIsletme": "İşletmeden ayrıldınız"
+  }
+}

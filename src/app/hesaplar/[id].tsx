@@ -41,6 +41,7 @@ import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM COMPONENT
@@ -55,6 +56,7 @@ interface HesapTransactionItemProps {
   onViewPhoto: (path: string, islemId: string) => void;
   t: (key: string) => string;
   deleteLabel: string;
+  canEdit?: boolean;
 }
 
 // Helper fonksiyonlar - component dışında tanımlı (her render'da yeniden oluşturulmaz)
@@ -198,6 +200,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   onViewPhoto,
   t,
   deleteLabel,
+  canEdit = true,
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
 
@@ -210,7 +213,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
 
   return (
     <SwipeableRow
-      onDelete={handleDelete}
+      onDelete={canEdit ? handleDelete : undefined}
+      enabled={canEdit}
       deleteLabel={deleteLabel}
     >
       <TransactionRow
@@ -233,7 +237,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
-    && prev.hesapCurrency === next.hesapCurrency;
+    && prev.hesapCurrency === next.hesapCurrency
+    && prev.canEdit === next.canEdit;
 });
 
 // ============================================================================
@@ -254,6 +259,7 @@ export default function HesapHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading } = useIslemlerByHesap(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByHesap(id!);
+  const { canUpdate, canDelete } = usePermissions();
   const deleteIslem = useDeleteIslem();
   const deleteHesap = useDeleteHesap();
   const updateHesap = useUpdateHesap();
@@ -600,6 +606,7 @@ export default function HesapHareketleriPage() {
       return <DateSectionHeader title={item.title} />;
     }
     const islem = item.data;
+    const canEditItem = canDelete('islemler', islem.created_by ?? null);
     return (
       <HesapTransactionItem
         islem={islem}
@@ -610,9 +617,10 @@ export default function HesapHareketleriPage() {
         onViewPhoto={handleViewPhoto}
         t={t}
         deleteLabel={deleteLabel}
+        canEdit={canEditItem}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleViewPhoto, t, deleteLabel]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleViewPhoto, t, deleteLabel, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -830,25 +838,29 @@ export default function HesapHareketleriPage() {
         >
           <View style={styles.menuContainer}>
             {/* Düzenle */}
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setShowMenu(false);
-                router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } });
-              }}
-            >
-              <Pencil size={20} color={colors.text} />
-              <Text variant="body">{t('common:buttons.edit')}</Text>
-            </TouchableOpacity>
+            {canUpdate('hesaplar', hesap?.created_by ?? null) && (
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setShowMenu(false);
+                  router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } });
+                }}
+              >
+                <Pencil size={20} color={colors.text} />
+                <Text variant="body">{t('common:buttons.edit')}</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Sil */}
-            <TouchableOpacity
-              style={[styles.menuItem, styles.menuItemDanger]}
-              onPress={handleDeleteHesap}
-            >
-              <Trash2 size={20} color={colors.error} />
-              <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
-            </TouchableOpacity>
+            {canDelete('hesaplar', hesap?.created_by ?? null) && (
+              <TouchableOpacity
+                style={[styles.menuItem, styles.menuItemDanger]}
+                onPress={handleDeleteHesap}
+              >
+                <Trash2 size={20} color={colors.error} />
+                <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </TouchableOpacity>
       </Modal>

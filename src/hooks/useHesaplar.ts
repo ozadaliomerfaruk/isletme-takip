@@ -5,6 +5,7 @@ import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber, safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import { useSettings } from './useSettings';
+import { useExchangeRates, convertCurrency } from './useExchangeRates';
 
 export function useHesaplar(includePassive: boolean = false, includeArchived: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -270,18 +271,22 @@ export function useDeleteHesap() {
   });
 }
 
-// Toplam bakiye hesapla (sadece ana para birimi - farklı para birimleri toplanamaz)
+// Toplam bakiye hesapla (döviz çevrimi ile ana para birimine dönüştür)
 export function useTotalBalance() {
   const { data: hesaplar } = useHesaplar();
   const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
 
-  // Sadece kullanıcının seçtiği ana para birimiyle eşleşen hesapları topla
   const total = hesaplar?.reduce((acc, h) => {
     const accountCurrency = h.currency || baseCurrency;
-    if (accountCurrency !== baseCurrency) {
-      return acc; // Farklı para birimlerini atla
+    const balance = toNumber(h.balance);
+    if (accountCurrency === baseCurrency) {
+      return acc + balance;
     }
-    return acc + toNumber(h.balance);
+    // Döviz kuru ile çevir, bulunamazsa orijinal bakiyeyi kullan
+    const converted = convertCurrency(balance, accountCurrency, baseCurrency, exchangeRates);
+    return acc + (converted ?? balance);
   }, 0) ?? 0;
 
   return total;

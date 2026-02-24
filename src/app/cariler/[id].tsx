@@ -44,6 +44,7 @@ import { useCariLinkStatus } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM COMPONENT
@@ -164,6 +165,7 @@ export default function CariHareketleriPage() {
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
   const { data: linkStatus } = useCariLinkStatus(id);
+  const { canUpdate, canDelete } = usePermissions();
 
   // Viewer olarak baglantili mi ve izin seviyesi nedir
   const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
@@ -377,6 +379,7 @@ export default function CariHareketleriPage() {
       return <DateSectionHeader title={item.title} />;
     }
     const islem = item.data;
+    const canEditItem = canEditTransactions && canDelete('islemler', islem.created_by ?? null);
     return (
       <CariTransactionItem
         islem={islem}
@@ -387,10 +390,10 @@ export default function CariHareketleriPage() {
         t={t}
         deleteLabel={deleteLabel}
         currency={cari?.currency}
-        canEdit={canEditTransactions}
+        canEdit={canEditItem}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, hasUrun, formatDateSmart, t, deleteLabel, cari?.currency, canEditTransactions]);
+  }, [handlePressIslem, handleDeleteIslem, hasUrun, formatDateSmart, t, deleteLabel, cari?.currency, canEditTransactions, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -593,24 +596,28 @@ export default function CariHareketleriPage() {
             onPress={() => setShowMenu(false)}
           >
             <View style={styles.menuContainer}>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } });
-                }}
-              >
-                <Pencil size={22} color={colors.text} />
-                <Text variant="body">{t('common:buttons.edit')}</Text>
-              </TouchableOpacity>
+              {canUpdate('cariler', cari?.created_by ?? null) && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } });
+                  }}
+                >
+                  <Pencil size={22} color={colors.text} />
+                  <Text variant="body">{t('common:buttons.edit')}</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={[styles.menuItem, styles.menuItemDanger]}
-                onPress={handleDeleteCari}
-              >
-                <Trash2 size={22} color={colors.error} />
-                <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
-              </TouchableOpacity>
+              {canDelete('cariler', cari?.created_by ?? null) && (
+                <TouchableOpacity
+                  style={[styles.menuItem, styles.menuItemDanger]}
+                  onPress={handleDeleteCari}
+                >
+                  <Trash2 size={22} color={colors.error} />
+                  <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </TouchableOpacity>
         </Modal>

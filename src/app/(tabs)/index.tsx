@@ -46,6 +46,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 
 export default function HomePage() {
   const router = useRouter();
@@ -429,6 +430,9 @@ export default function HomePage() {
             <NotificationBell />
           </View>
         </Animated.View>
+
+        {/* Shared İşletme Banner */}
+        <SharedIsletmeBanner />
 
         {/* Hesap Silme Uyarısı */}
         {scheduledDeletion && daysRemaining > 0 && (

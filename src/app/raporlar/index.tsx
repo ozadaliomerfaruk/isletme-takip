@@ -39,9 +39,11 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB, parseDateFromDB } from '@/lib/date';
 import { toNumber } from '@/lib/currency';
 import { useHesaplar, useTotalBalance } from '@/hooks/useHesaplar';
-import { useCariler, useCariSummary } from '@/hooks/useCariler';
-import { usePersonelList, usePersonelSummary } from '@/hooks/usePersonel';
+import { useCariler } from '@/hooks/useCariler';
+import { usePersonelList } from '@/hooks/usePersonel';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { PeriodType, useIslemlerByCari, useIslemlerByPersonel, useMonthSummary } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
@@ -130,12 +132,19 @@ export default function RaporlarPage() {
   const { data: hesaplar } = useHesaplar();
   const totalBalance = useTotalBalance();
   const { data: cariler } = useCariler();
-  const { totalReceivables, totalPayables } = useCariSummary();
   const { data: personelList } = usePersonelList();
-  const { totalDebt: personelDebt, totalReceivables: personelReceivables } = usePersonelSummary();
+  const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
 
-  // Ana sayfa ile senkronize finansal özet (birikim hesapları hariç)
+  // Ana sayfa ile senkronize finansal özet (birikim hesapları hariç, döviz çevrimi yapılmış)
   const financialSummary = useFinancialSummary();
+
+  // Cari ve personel özetleri artık financialSummary'den geliyor (döviz çevrimi dahil)
+  const totalReceivables = financialSummary.receivables.cari;
+  const totalPayables = financialSummary.payables.cari;
+  const personelReceivables = financialSummary.receivables.personel;
+  const personelDebt = financialSummary.payables.personel;
 
   // Dönem tarih aralığını hesapla
   const customRange =
@@ -317,7 +326,7 @@ export default function RaporlarPage() {
                 { color: netValue >= 0 ? colors.success : colors.error },
               ]}
             >
-              {netValue >= 0 ? '+' : ''}{formatCurrency(netValue)}
+              {netValue >= 0 ? '+' : ''}{formatCurrency(netValue, baseCurrency)}
             </Text>
             <Text variant="caption" color="secondary">
               {t('reports:summary.netValue')}
@@ -354,7 +363,7 @@ export default function RaporlarPage() {
                 </Text>
               </View>
               <Text style={[styles.heroDetailValue, { color: colors.success }]}>
-                {formatCurrency(totalAccounts)}
+                {formatCurrency(totalAccounts, baseCurrency)}
               </Text>
             </View>
 
@@ -368,7 +377,7 @@ export default function RaporlarPage() {
                 </Text>
               </View>
               <Text style={[styles.heroDetailValue, { color: colors.info }]}>
-                {formatCurrency(totalReceivablesAll)}
+                {formatCurrency(totalReceivablesAll, baseCurrency)}
               </Text>
             </View>
 
@@ -382,7 +391,7 @@ export default function RaporlarPage() {
                 <View style={[styles.heroDotIndicator, { backgroundColor: colors.error }]} />
               </View>
               <Text style={[styles.heroDetailValue, { color: colors.error }]}>
-                {formatCurrency(totalPayablesAll)}
+                {formatCurrency(totalPayablesAll, baseCurrency)}
               </Text>
             </View>
           </View>
@@ -393,8 +402,17 @@ export default function RaporlarPage() {
       {(() => {
         const normalHesaplar = hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
         const krediKartiHesaplar = hesaplar?.filter(h => h.type === 'kredi_karti') || [];
-        const normalHesaplarToplam = normalHesaplar.reduce((acc, h) => acc + toNumber(h.balance), 0);
-        const krediKartiToplam = krediKartiHesaplar.reduce((acc, h) => acc + toNumber(h.balance), 0);
+
+        // Döviz çevrimi ile toplam hesapla
+        const convertBalance = (h: typeof normalHesaplar[0]) => {
+          const balance = toNumber(h.balance);
+          const currency = h.currency || baseCurrency;
+          if (currency === baseCurrency) return balance;
+          return convertCurrency(balance, currency, baseCurrency, exchangeRates) ?? balance;
+        };
+
+        const normalHesaplarToplam = normalHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
+        const krediKartiToplam = krediKartiHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
 
         return (
           <>
@@ -410,17 +428,28 @@ export default function RaporlarPage() {
                   </Text>
                   <View style={{ flex: 1 }} />
                   <Text variant="h3" color={normalHesaplarToplam >= 0 ? 'primary' : 'error'}>
-                    {formatCurrency(normalHesaplarToplam)}
+                    {formatCurrency(normalHesaplarToplam, baseCurrency)}
                   </Text>
                 </View>
-                {normalHesaplar.map((hesap) => (
-                  <View key={hesap.id} style={styles.accountItem}>
-                    <Text variant="body">{hesap.name}</Text>
-                    <Text variant="label" color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}>
-                      {formatCurrency(toNumber(hesap.balance))}
-                    </Text>
-                  </View>
-                ))}
+                {normalHesaplar.map((hesap) => {
+                  const hesapCurrency = hesap.currency || baseCurrency;
+                  const balance = toNumber(hesap.balance);
+                  return (
+                    <View key={hesap.id} style={styles.accountItem}>
+                      <Text variant="body">{hesap.name}</Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text variant="label" color={balance >= 0 ? 'primary' : 'error'}>
+                          {formatCurrency(balance, hesapCurrency)}
+                        </Text>
+                        {hesapCurrency !== baseCurrency && exchangeRates && balance !== 0 && (
+                          <Text variant="caption" color="secondary">
+                            ~{formatCurrency(convertBalance(hesap), baseCurrency)}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
               </Card>
             </View>
 
@@ -438,17 +467,28 @@ export default function RaporlarPage() {
                     </Text>
                     <View style={{ flex: 1 }} />
                     <Text variant="h3" color="error">
-                      {formatCurrency(Math.abs(krediKartiToplam))}
+                      {formatCurrency(Math.abs(krediKartiToplam), baseCurrency)}
                     </Text>
                   </View>
-                  {krediKartiHesaplar.map((hesap) => (
-                    <View key={hesap.id} style={styles.accountItem}>
-                      <Text variant="body">{hesap.name}</Text>
-                      <Text variant="label" color="error">
-                        {formatCurrency(Math.abs(toNumber(hesap.balance)))}
-                      </Text>
-                    </View>
-                  ))}
+                  {krediKartiHesaplar.map((hesap) => {
+                    const hesapCurrency = hesap.currency || baseCurrency;
+                    const balance = toNumber(hesap.balance);
+                    return (
+                      <View key={hesap.id} style={styles.accountItem}>
+                        <Text variant="body">{hesap.name}</Text>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text variant="label" color="error">
+                            {formatCurrency(Math.abs(balance), hesapCurrency)}
+                          </Text>
+                          {hesapCurrency !== baseCurrency && exchangeRates && balance !== 0 && (
+                            <Text variant="caption" color="secondary">
+                              ~{formatCurrency(Math.abs(convertBalance(hesap)), baseCurrency)}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
                 </Card>
               </View>
             )}
@@ -475,7 +515,7 @@ export default function RaporlarPage() {
                   {t('reports:summary.receivables')}
                 </Text>
                 <Text variant="h3" color="success">
-                  {formatCurrency(totalReceivables)}
+                  {formatCurrency(totalReceivables, baseCurrency)}
                 </Text>
               </View>
               <View style={styles.cariSummaryItem}>
@@ -483,7 +523,7 @@ export default function RaporlarPage() {
                   {t('reports:summary.payables')}
                 </Text>
                 <Text variant="h3" color="error">
-                  {formatCurrency(totalPayables)}
+                  {formatCurrency(totalPayables, baseCurrency)}
                 </Text>
               </View>
             </View>
@@ -493,7 +533,7 @@ export default function RaporlarPage() {
                 {t('reports:summary.netStatus')}
               </Text>
               <Text variant="h3" color={totalReceivables - totalPayables >= 0 ? 'success' : 'error'}>
-                {formatCurrency(totalReceivables - totalPayables)}
+                {formatCurrency(totalReceivables - totalPayables, baseCurrency)}
               </Text>
             </View>
           </Card>
@@ -519,7 +559,7 @@ export default function RaporlarPage() {
                   {t('reports:summary.personnelReceivables')}
                 </Text>
                 <Text variant="h3" color="success">
-                  {formatCurrency(personelReceivables)}
+                  {formatCurrency(personelReceivables, baseCurrency)}
                 </Text>
               </View>
               <View style={styles.cariSummaryItem}>
@@ -527,7 +567,7 @@ export default function RaporlarPage() {
                   {t('reports:summary.totalPersonnelDebt')}
                 </Text>
                 <Text variant="h3" color="error">
-                  {formatCurrency(personelDebt)}
+                  {formatCurrency(personelDebt, baseCurrency)}
                 </Text>
               </View>
             </View>
@@ -537,7 +577,7 @@ export default function RaporlarPage() {
                 {t('reports:summary.netStatus')}
               </Text>
               <Text variant="h3" color={personelReceivables - personelDebt >= 0 ? 'success' : 'error'}>
-                {formatCurrency(personelReceivables - personelDebt)}
+                {formatCurrency(personelReceivables - personelDebt, baseCurrency)}
               </Text>
             </View>
           </Card>

@@ -36,16 +36,18 @@ import { useDeleteCari } from '@/hooks/useCariler';
 import { useDeletePersonel } from '@/hooks/usePersonel';
 import { usePermanentDeleteUrun } from '@/hooks/useUrunler';
 import type { Hesap, Cari, Personel, Urun, BirimType } from '@/types/database';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type TabType = 'hesaplar' | 'tedarikci' | 'musteri' | 'personel' | 'urunler';
 
 export default function ArsivPage() {
   const router = useRouter();
   const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
+  const { canUpdate, canDelete } = usePermissions();
   const [activeTab, setActiveTab] = useState<TabType>('hesaplar');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<{ id: string; type: TabType; name: string } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ id: string; type: TabType; name: string; created_by?: string | null } | null>(null);
 
   // Archive counts
   const { data: counts } = useArchiveCounts();
@@ -100,8 +102,8 @@ export default function ArsivPage() {
     (u.kod && u.kod.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const handleItemPress = useCallback((id: string, type: TabType, name: string) => {
-    setSelectedItem({ id, type, name });
+  const handleItemPress = useCallback((id: string, type: TabType, name: string, created_by?: string | null) => {
+    setSelectedItem({ id, type, name, created_by });
     setActionSheetVisible(true);
   }, []);
 
@@ -156,19 +158,36 @@ export default function ArsivPage() {
     );
   }, [selectedItem, deleteHesap, deleteCari, deletePersonel, permanentDeleteUrun, t]);
 
-  const actionSheetOptions: ActionSheetOption[] = [
-    {
-      label: t('common:archive.actions.unarchive'),
-      icon: <RotateCcw size={20} color={colors.primary} />,
-      onPress: handleUnarchive,
-    },
-    {
-      label: t('common:archive.actions.permanentDelete'),
-      icon: <Trash2 size={20} color={colors.error} />,
-      onPress: handlePermanentDelete,
-      destructive: true,
-    },
-  ];
+  // Map tab type to permission module name
+  const getPermModule = (type: TabType) => {
+    if (type === 'tedarikci' || type === 'musteri') return 'cariler' as const;
+    return type as 'hesaplar' | 'personel' | 'urunler';
+  };
+
+  const actionSheetOptions: ActionSheetOption[] = (() => {
+    const options: ActionSheetOption[] = [];
+    const mod = selectedItem ? getPermModule(selectedItem.type) : null;
+    const createdBy = selectedItem?.created_by ?? null;
+
+    if (mod && canUpdate(mod, createdBy)) {
+      options.push({
+        label: t('common:archive.actions.unarchive'),
+        icon: <RotateCcw size={20} color={colors.primary} />,
+        onPress: handleUnarchive,
+      });
+    }
+
+    if (mod && canDelete(mod, createdBy)) {
+      options.push({
+        label: t('common:archive.actions.permanentDelete'),
+        icon: <Trash2 size={20} color={colors.error} />,
+        onPress: handlePermanentDelete,
+        destructive: true,
+      });
+    }
+
+    return options;
+  })();
 
   const renderHesapItem = (hesap: Hesap) => {
     const isPassive = hesap.is_active === false;
@@ -199,7 +218,7 @@ export default function ArsivPage() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => handleItemPress(hesap.id, 'hesaplar', hesap.name)}
+          onPress={() => handleItemPress(hesap.id, 'hesaplar', hesap.name, hesap.created_by)}
         >
           <MoreVertical size={20} color={colors.textMuted} />
         </TouchableOpacity>
@@ -244,7 +263,7 @@ export default function ArsivPage() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => handleItemPress(cari.id, type, cari.name)}
+          onPress={() => handleItemPress(cari.id, type, cari.name, cari.created_by)}
         >
           <MoreVertical size={20} color={colors.textMuted} />
         </TouchableOpacity>
@@ -287,7 +306,7 @@ export default function ArsivPage() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => handleItemPress(personel.id, 'personel', `${personel.first_name} ${personel.last_name}`)}
+          onPress={() => handleItemPress(personel.id, 'personel', `${personel.first_name} ${personel.last_name}`, personel.created_by)}
         >
           <MoreVertical size={20} color={colors.textMuted} />
         </TouchableOpacity>
@@ -331,7 +350,7 @@ export default function ArsivPage() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => handleItemPress(urun.id, 'urunler', urun.ad)}
+          onPress={() => handleItemPress(urun.id, 'urunler', urun.ad, urun.created_by)}
         >
           <MoreVertical size={20} color={colors.textMuted} />
         </TouchableOpacity>

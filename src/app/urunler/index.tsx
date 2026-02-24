@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Animated, Modal, Pressable, Platform, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,6 +19,8 @@ import { Urun, BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { toErrorMessage } from '@/lib/errors';
+import { PermissionGate } from '@/components/PermissionGate';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 
@@ -82,6 +84,7 @@ export default function UrunlerPage() {
     }).start();
   }, [fabMenuVisible, fabAnim]);
 
+  const { canUpdate, canDelete } = usePermissions();
   const { data: urunler, isLoading, refetch } = useUrunler();
 
   // Pull-to-refresh
@@ -155,28 +158,37 @@ export default function UrunlerPage() {
     );
   };
 
-  const actionSheetOptions: ActionSheetOption[] = [
-    {
-      label: t('common:buttons.edit'),
-      icon: <Edit3 size={20} color={colors.primary} />,
-      onPress: () => {
-        if (actionSheetUrun) {
-          router.push(`/urunler/duzenle/${actionSheetUrun.id}` as any);
-        }
-      },
-    },
-    {
-      label: t('common:archive.actions.archive'),
-      icon: <Archive size={20} color={colors.warning} />,
-      onPress: handleArchive,
-    },
-    {
-      label: t('common:buttons.delete'),
-      icon: <Trash2 size={20} color={colors.error} />,
-      onPress: handleDelete,
-      destructive: true,
-    },
-  ];
+  const actionSheetOptions: ActionSheetOption[] = useMemo(() => {
+    const options: ActionSheetOption[] = [];
+
+    if (actionSheetUrun && canUpdate('urunler', actionSheetUrun.created_by ?? null)) {
+      options.push({
+        label: t('common:buttons.edit'),
+        icon: <Edit3 size={20} color={colors.primary} />,
+        onPress: () => {
+          if (actionSheetUrun) {
+            router.push(`/urunler/duzenle/${actionSheetUrun.id}` as any);
+          }
+        },
+      });
+      options.push({
+        label: t('common:archive.actions.archive'),
+        icon: <Archive size={20} color={colors.warning} />,
+        onPress: handleArchive,
+      });
+    }
+
+    if (actionSheetUrun && canDelete('urunler', actionSheetUrun.created_by ?? null)) {
+      options.push({
+        label: t('common:buttons.delete'),
+        icon: <Trash2 size={20} color={colors.error} />,
+        onPress: handleDelete,
+        destructive: true,
+      });
+    }
+
+    return options;
+  }, [actionSheetUrun, t, router, handleArchive, handleDelete, canUpdate, canDelete]);
 
   // Hızlı dönem seçimi fonksiyonları
   const handlePeriodLabelPress = () => {
@@ -271,15 +283,17 @@ export default function UrunlerPage() {
         {/* Header */}
         <View style={styles.header}>
           <Text variant="h2">{t('products:title')}</Text>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={18} color={colors.white} />}
-            iconPosition="left"
-            onPress={() => router.push('/urunler/ekle' as any)}
-          >
-            {t('common:buttons.add')}
-          </Button>
+          <PermissionGate module="urunler" action="create">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={18} color={colors.white} />}
+              iconPosition="left"
+              onPress={() => router.push('/urunler/ekle' as any)}
+            >
+              {t('common:buttons.add')}
+            </Button>
+          </PermissionGate>
         </View>
 
         {/* Arama */}

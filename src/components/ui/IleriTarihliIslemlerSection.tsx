@@ -23,6 +23,7 @@ import {
   useDeleteIleriTarihliIslem,
 } from '@/hooks/useIleriTarihliIslemler';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface IleriTarihliIslemlerSectionProps {
   ileriTarihliIslemler: IleriTarihliIslemWithRelations[] | undefined;
@@ -38,6 +39,7 @@ export function IleriTarihliIslemlerSection({
   const { t } = useTranslation(['transactions', 'common']);
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { canUpdate, canDelete } = usePermissions();
 
   const completeIslem = useCompleteIleriTarihliIslem();
   const deleteIslem = useDeleteIleriTarihliIslem();
@@ -189,35 +191,41 @@ export function IleriTarihliIslemlerSection({
             }
           >
             <View style={styles.actions}>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Check size={16} color={colors.surface} />}
-                onPress={() => handleComplete(item)}
-                loading={completeIslem.isPending}
-                style={styles.actionButton}
-              >
-                {t('transactions:scheduled.executed')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<Pencil size={16} color={colors.text} />}
-                onPress={() => handleEdit(item)}
-                style={styles.actionButton}
-              >
-                {t('common:buttons.edit')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<Trash2 size={16} color={colors.error} />}
-                onPress={() => handleDelete(item)}
-                loading={deleteIslem.isPending}
-                style={[styles.actionButton, styles.deleteButton]}
-              >
-                {t('common:buttons.delete')}
-              </Button>
+              {canUpdate('ileri_tarihli', item.created_by ?? null) && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Check size={16} color={colors.surface} />}
+                  onPress={() => handleComplete(item)}
+                  loading={completeIslem.isPending}
+                  style={styles.actionButton}
+                >
+                  {t('transactions:scheduled.executed')}
+                </Button>
+              )}
+              {canUpdate('ileri_tarihli', item.created_by ?? null) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Pencil size={16} color={colors.text} />}
+                  onPress={() => handleEdit(item)}
+                  style={styles.actionButton}
+                >
+                  {t('common:buttons.edit')}
+                </Button>
+              )}
+              {canDelete('ileri_tarihli', item.created_by ?? null) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Trash2 size={16} color={colors.error} />}
+                  onPress={() => handleDelete(item)}
+                  loading={deleteIslem.isPending}
+                  style={[styles.actionButton, styles.deleteButton]}
+                >
+                  {t('common:buttons.delete')}
+                </Button>
+              )}
             </View>
           </ExpandableCard>
         );

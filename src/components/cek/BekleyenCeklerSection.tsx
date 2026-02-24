@@ -19,6 +19,7 @@ import { formatCurrency } from '@/lib/currency';
 import { CekWithRelations } from '@/types/database';
 import { useCompleteCek, useCancelCek } from '@/hooks/useCekler';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface BekleyenCeklerSectionProps {
   cekler: CekWithRelations[] | undefined;
@@ -36,6 +37,7 @@ export function BekleyenCeklerSection({
   const { t } = useTranslation(['checks', 'common']);
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { canUpdate, canDelete } = usePermissions();
 
   const completeCek = useCompleteCek();
   const cancelCek = useCancelCek();
@@ -230,35 +232,41 @@ export function BekleyenCeklerSection({
 
             {/* Aksiyon butonları */}
             <View style={styles.actions}>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Check size={16} color={colors.surface} />}
-                onPress={() => handleComplete(cek)}
-                loading={completeCek.isPending}
-                style={styles.actionButton}
-              >
-                {t('checks:actions.complete')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<Pencil size={16} color={colors.text} />}
-                onPress={() => handleEdit(cek)}
-                style={styles.actionButton}
-              >
-                {t('common:buttons.edit')}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<XCircle size={16} color={colors.error} />}
-                onPress={() => handleCancel(cek)}
-                loading={cancelCek.isPending}
-                style={[styles.actionButton, styles.cancelButton]}
-              >
-                {t('checks:actions.cancel')}
-              </Button>
+              {canUpdate('cekler', cek.created_by ?? null) && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Check size={16} color={colors.surface} />}
+                  onPress={() => handleComplete(cek)}
+                  loading={completeCek.isPending}
+                  style={styles.actionButton}
+                >
+                  {t('checks:actions.complete')}
+                </Button>
+              )}
+              {canUpdate('cekler', cek.created_by ?? null) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Pencil size={16} color={colors.text} />}
+                  onPress={() => handleEdit(cek)}
+                  style={styles.actionButton}
+                >
+                  {t('common:buttons.edit')}
+                </Button>
+              )}
+              {canDelete('cekler', cek.created_by ?? null) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<XCircle size={16} color={colors.error} />}
+                  onPress={() => handleCancel(cek)}
+                  loading={cancelCek.isPending}
+                  style={[styles.actionButton, styles.cancelButton]}
+                >
+                  {t('checks:actions.cancel')}
+                </Button>
+              )}
             </View>
           </ExpandableCard>
         );

@@ -177,6 +177,21 @@ export const queryKeys = {
     linkedCariler: (isletmeId: string) =>
       ['linked-cariler', isletmeId] as const,
   },
+
+  // Multi-User
+  multiUser: {
+    all: () => ['multi-user'] as const,
+    users: (isletmeId: string) => ['isletme-users', isletmeId] as const,
+    invites: (isletmeId: string) => ['isletme-invites', isletmeId] as const,
+    sharedIsletmeler: (userId: string) => ['shared-isletmeler', userId] as const,
+    roleTemplates: () => ['role-templates'] as const,
+  },
+
+  // Profiles
+  profiles: {
+    all: () => ['profiles'] as const,
+    detail: (userId: string) => ['profile', userId] as const,
+  },
 } as const;
 
 // ============================================================================
@@ -402,6 +417,18 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     ],
     deferred: [],
   },
+
+  // İşletme kullanıcı değişikliği
+  isletmeUser: {
+    immediate: [
+      'isletme-users',
+      'isletme-invites',
+      'shared-isletmeler',
+    ],
+    deferred: [
+      'profile',
+    ],
+  },
 } as const;
 
 export type EntityType = keyof typeof invalidationMap;
@@ -526,4 +553,9 @@ export const createInvalidators = (queryClient: QueryClient) => ({
    * Cari sharing mutation'ları için
    */
   onCariSharingMutation: () => invalidateRelatedQueries(queryClient, 'cariSharing'),
+
+  /**
+   * İşletme kullanıcı mutation'ları için
+   */
+  onIsletmeUserMutation: () => invalidateRelatedQueries(queryClient, 'isletmeUser'),
 });

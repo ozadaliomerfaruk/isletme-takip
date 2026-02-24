@@ -7,6 +7,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
 import { Isletme } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import type { Permissions, UserRole } from '@/types/multiUser';
 
 // Google auth session için gerekli
 WebBrowser.maybeCompleteAuthSession();
@@ -19,6 +20,11 @@ interface AuthState {
   initialized: boolean;
   isletmeLoading: boolean;
   needsPasswordReset: boolean;
+  // Multi-user fields
+  ownIsletme: Isletme | null;  // Kullanıcının kendi işletmesi (her zaman saklanır)
+  isOwner: boolean;             // Aktif işletmenin sahibi mi?
+  currentPermissions: Permissions | null;  // Paylaşılan işletmedeki yetkiler
+  currentUserRole: UserRole | 'owner' | null;  // Aktif rol
 }
 
 export function useAuth() {
@@ -30,6 +36,10 @@ export function useAuth() {
     initialized: false,
     isletmeLoading: true,
     needsPasswordReset: false,
+    ownIsletme: null,
+    isOwner: true,
+    currentPermissions: null,
+    currentUserRole: null,
   });
 
   // AppState için ref - arka plan/ön plan takibi
@@ -64,6 +74,10 @@ export function useAuth() {
             initialized: true,
             isletmeLoading: false,
             needsPasswordReset: false,
+            ownIsletme: null,
+            isOwner: true,
+            currentPermissions: null,
+            currentUserRole: null,
           });
         }
         return null;
@@ -247,13 +261,18 @@ export function useAuth() {
             initialized: true,
             isletmeLoading: false,
             needsPasswordReset: false,
+            ownIsletme: null,
+            isOwner: true,
+            currentPermissions: null,
+            currentUserRole: null,
           });
           return;
         }
 
         if (session?.user) {
           // Önce session/user'ı hemen set et ki routing çalışsın
-          setState({
+          setState((prev) => ({
+            ...prev,
             session,
             user: session.user,
             isletme: null,
@@ -261,7 +280,7 @@ export function useAuth() {
             initialized: true,
             isletmeLoading: true,
             needsPasswordReset: false,
-          });
+          }));
 
           // Sonra işletmeyi arka planda getir
           try {
@@ -276,6 +295,10 @@ export function useAuth() {
             setState((prev) => ({
               ...prev,
               isletme,
+              ownIsletme: isletme,
+              isOwner: true,
+              currentPermissions: null,
+              currentUserRole: isletme ? 'owner' : null,
               isletmeLoading: false,
             }));
           } catch (e) {
@@ -298,6 +321,10 @@ export function useAuth() {
             initialized: true,
             isletmeLoading: false,
             needsPasswordReset: false,
+            ownIsletme: null,
+            isOwner: true,
+            currentPermissions: null,
+            currentUserRole: null,
           });
         }
       } catch (error) {
@@ -313,6 +340,10 @@ export function useAuth() {
             initialized: true,
             isletmeLoading: false,
             needsPasswordReset: false,
+            ownIsletme: null,
+            isOwner: true,
+            currentPermissions: null,
+            currentUserRole: null,
           });
         }
       }
@@ -387,6 +418,10 @@ export function useAuth() {
           initialized: true,
           isletmeLoading: false,
           needsPasswordReset: false,
+          ownIsletme: null,
+          isOwner: true,
+          currentPermissions: null,
+          currentUserRole: null,
         });
         return;
       }
@@ -416,6 +451,10 @@ export function useAuth() {
           setState((prev) => ({
             ...prev,
             isletme: isletme ?? prev.isletme,
+            ownIsletme: isletme ?? prev.ownIsletme,
+            isOwner: true,
+            currentPermissions: null,
+            currentUserRole: isletme ? 'owner' : prev.currentUserRole,
             isletmeLoading: false,
           }));
         } catch (e) {
@@ -578,6 +617,10 @@ export function useAuth() {
       initialized: true,
       isletmeLoading: false,
       needsPasswordReset: false,
+      ownIsletme: null,
+      isOwner: true,
+      currentPermissions: null,
+      currentUserRole: null,
     });
   };
 
@@ -591,7 +634,12 @@ export function useAuth() {
     if (!state.user) return;
 
     const isletme = await fetchIsletme(state.user.id);
-    setState((prev) => ({ ...prev, isletme }));
+    setState((prev) => ({
+      ...prev,
+      ownIsletme: isletme,
+      // Sadece kendi işletmesindeyse güncelle, paylaşılan moddaysa dokunma
+      isletme: prev.isOwner ? isletme : prev.isletme,
+    }));
   };
 
   // Apple ile giriş yap
@@ -709,6 +757,10 @@ export function useAuth() {
         initialized: true,
         isletmeLoading: false,
         needsPasswordReset: false,
+        ownIsletme: null,
+        isOwner: true,
+        currentPermissions: null,
+        currentUserRole: null,
       });
     } catch (error) {
       setState((prev) => ({ ...prev, loading: false }));
@@ -763,8 +815,41 @@ export function useAuth() {
   // Apple Sign-In kullanılabilir mi kontrol et
   const isAppleSignInAvailable = Platform.OS === 'ios';
 
+  // Paylaşılan işletmeye geçiş
+  const switchToSharedIsletme = useCallback(async (
+    sharedIsletme: Isletme,
+    permissions: Permissions,
+    role: UserRole,
+  ) => {
+    setState((prev) => ({
+      ...prev,
+      isletme: sharedIsletme,
+      isOwner: false,
+      currentPermissions: permissions,
+      currentUserRole: role,
+    }));
+  }, []);
+
+  // Kendi işletmesine geri dön
+  const switchToOwnIsletme = useCallback(() => {
+    setState((prev) => {
+      if (!prev.ownIsletme) return prev;
+      return {
+        ...prev,
+        isletme: prev.ownIsletme,
+        isOwner: true,
+        currentPermissions: null,
+        currentUserRole: 'owner',
+      };
+    });
+  }, []);
+
+  // Paylaşılan modda mıyız?
+  const isSharedMode = !state.isOwner;
+
   return {
     ...state,
+    isSharedMode,
     signIn,
     signUp,
     signOut,
@@ -776,5 +861,7 @@ export function useAuth() {
     isAppleSignInAvailable,
     changePassword,
     clearPasswordReset,
+    switchToSharedIsletme,
+    switchToOwnIsletme,
   };
 }

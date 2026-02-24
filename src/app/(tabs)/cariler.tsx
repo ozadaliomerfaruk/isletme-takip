@@ -39,6 +39,8 @@ import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { useLinkedCariler, useRemoveCariLink } from '@/hooks/useCariSharing';
 import type { SharingPermission } from '@/types/cariSharing';
+import { PermissionGate } from '@/components/PermissionGate';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // Merged cari type: own cari + optional link metadata
 type MergedCari = Cari & {
@@ -97,6 +99,9 @@ export default function CarilerPage() {
   // Toast ve Haptics
   const { showToast } = useToast();
   const haptics = useHaptics();
+
+  // Permissions
+  const { canUpdate, canDelete } = usePermissions();
 
   // Settings ve döviz kurları
   const { currency: baseCurrency } = useSettings();
@@ -317,14 +322,17 @@ export default function CarilerPage() {
       return options;
     }
 
-    // Own cari: full options + share
-    return [
+    // Own cari: full options + share (permission-filtered)
+    const options: ActionSheetOption[] = [
       {
         label: t('common:bulkSelect.select'),
         icon: <CheckSquare size={20} color={colors.info} />,
         onPress: handleEnterSelectMode,
       },
-      {
+    ];
+
+    if (canUpdate('cariler', cari.created_by ?? null)) {
+      options.push({
         label: t('common:buttons.edit'),
         icon: <Edit3 size={20} color={colors.primary} />,
         onPress: () => {
@@ -332,32 +340,40 @@ export default function CarilerPage() {
             router.push(`/cariler/duzenle/${actionSheetCari.id}`);
           }
         },
+      });
+    }
+
+    options.push({
+      label: t('clients:sharing.shareTitle'),
+      icon: <Link size={20} color={colors.primary} />,
+      onPress: () => {
+        if (actionSheetCari) {
+          const c = { id: actionSheetCari.id, name: actionSheetCari.name };
+          setShareModalCari(c);
+          setTimeout(() => setShareModalVisible(true), 250);
+        }
       },
-      {
-        label: t('clients:sharing.shareTitle'),
-        icon: <Link size={20} color={colors.primary} />,
-        onPress: () => {
-          if (actionSheetCari) {
-            const cari = { id: actionSheetCari.id, name: actionSheetCari.name };
-            setShareModalCari(cari);
-            // ActionSheet kapanma animasyonu bitmesini bekle
-            setTimeout(() => setShareModalVisible(true), 250);
-          }
-        },
-      },
-      {
+    });
+
+    if (canUpdate('cariler', cari.created_by ?? null)) {
+      options.push({
         label: t('common:archive.actions.archive'),
         icon: <Archive size={20} color={colors.warning} />,
         onPress: handleArchive,
-      },
-      {
+      });
+    }
+
+    if (canDelete('cariler', cari.created_by ?? null)) {
+      options.push({
         label: t('common:buttons.delete'),
         icon: <Trash2 size={20} color={colors.error} />,
         onPress: handleDelete,
         destructive: true,
-      },
-    ];
-  }, [actionSheetCari, t, router, handleEnterSelectMode, handleArchive, handleDelete, haptics, showToast]);
+      });
+    }
+
+    return options;
+  }, [actionSheetCari, t, router, handleEnterSelectMode, handleArchive, handleDelete, canUpdate, canDelete]);
 
   const actionSheetOptions = useMemo(() => {
     if (!actionSheetCari) return [];
@@ -575,14 +591,16 @@ export default function CarilerPage() {
           >
             <Link size={18} color={colors.primary} />
           </TouchableOpacity>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<Plus size={18} color={colors.white} />}
-            onPress={() => router.push('/cariler/ekle')}
-          >
-            {t('common:buttons.add')}
-          </Button>
+          <PermissionGate module="cariler" action="create">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={18} color={colors.white} />}
+              onPress={() => router.push('/cariler/ekle')}
+            >
+              {t('common:buttons.add')}
+            </Button>
+          </PermissionGate>
         </View>
       </View>
 
@@ -590,11 +608,11 @@ export default function CarilerPage() {
       <View style={styles.summaryContainer}>
         <Card style={styles.summaryCard}>
           <Text variant="caption" color="secondary">{t('clients:balance.weOwe')}</Text>
-          <Text variant="h3" color="error">{formatCurrency(payables.cari)}</Text>
+          <Text variant="h3" color="error">{formatCurrency(payables.cari, baseCurrency)}</Text>
         </Card>
         <Card style={styles.summaryCard}>
           <Text variant="caption" color="secondary">{t('clients:balance.theyOwe')}</Text>
-          <Text variant="h3" color="success">{formatCurrency(receivables.cari)}</Text>
+          <Text variant="h3" color="success">{formatCurrency(receivables.cari, baseCurrency)}</Text>
         </Card>
       </View>
 

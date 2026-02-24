@@ -1,0 +1,236 @@
+import { useState } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import {
+  UserPlus,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react-native';
+import { Text, Card, Avatar, Button } from '@/components/ui';
+import { UserEditSheet } from '@/components/multiUser/UserEditSheet';
+import { colors } from '@/constants/colors';
+import { spacing, borderRadius } from '@/constants/spacing';
+import { useIsletmeUsers, useIsletmeInvites, useCancelInvite } from '@/hooks/useMultiUser';
+import type { IsletmeUser } from '@/types/multiUser';
+
+export default function KullaniciYonetimiPage() {
+  const router = useRouter();
+  const { t } = useTranslation(['multiUser', 'common']);
+  const { data: users, isLoading: usersLoading } = useIsletmeUsers();
+  const { data: invites, isLoading: invitesLoading } = useIsletmeInvites();
+  const cancelInvite = useCancelInvite();
+  const [editingUser, setEditingUser] = useState<IsletmeUser | null>(null);
+
+  const handleCancelInvite = (inviteId: string) => {
+    Alert.alert(
+      t('common:buttons.confirm'),
+      t('multiUser:invites.cancelInvite') + '?',
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.confirm'),
+          style: 'destructive',
+          onPress: () => cancelInvite.mutate(inviteId),
+        },
+      ],
+    );
+  };
+
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <ChevronLeft size={24} color={colors.text} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text variant="h3">{t('multiUser:users.title')}</Text>
+          <Text variant="caption" color="muted">{t('multiUser:users.subtitle')}</Text>
+        </View>
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Davet Butonu */}
+        <View style={styles.section}>
+          <Button
+            onPress={() => router.push('/ayarlar/davet-olustur' as any)}
+            variant="primary"
+          >
+            <View style={styles.inviteButtonContent}>
+              <UserPlus size={20} color={colors.white} />
+              <Text variant="body" style={{ color: colors.white, fontWeight: '600' }}>
+                {t('multiUser:users.invite')}
+              </Text>
+            </View>
+          </Button>
+        </View>
+
+        {/* Kullanıcılar */}
+        <View style={styles.section}>
+          <Text variant="label" color="secondary" style={styles.sectionTitle}>
+            {t('multiUser:users.title')}
+          </Text>
+          {usersLoading ? (
+            <Card>
+              <Text variant="body" color="muted">{t('common:status.loading')}</Text>
+            </Card>
+          ) : !users?.length ? (
+            <Card>
+              <Text variant="body" color="muted">{t('multiUser:users.empty')}</Text>
+            </Card>
+          ) : (
+            <Card padding="none">
+              {users.map((user, index) => (
+                <View key={user.id}>
+                  {index > 0 && <View style={styles.divider} />}
+                  <TouchableOpacity
+                    style={styles.userRow}
+                    onPress={() => setEditingUser(user)}
+                    activeOpacity={0.7}
+                  >
+                    <Avatar
+                      name={user.profile?.display_name ?? user.profile?.email ?? '?'}
+                      size={40}
+                    />
+                    <View style={styles.userInfo}>
+                      <Text variant="body" numberOfLines={1}>
+                        {user.profile?.display_name ?? user.profile?.email ?? '?'}
+                      </Text>
+                      <Text variant="caption" color="muted">
+                        {user.role_label ?? t(`multiUser:roles.${user.role}`)} ·{' '}
+                        {t(`multiUser:status.${user.status}`)}
+                      </Text>
+                    </View>
+                    <ChevronRight size={18} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </Card>
+          )}
+        </View>
+
+        {/* Bekleyen Davetler */}
+        <View style={styles.section}>
+          <Text variant="label" color="secondary" style={styles.sectionTitle}>
+            {t('multiUser:invites.pendingInvites')}
+          </Text>
+          {invitesLoading ? (
+            <Card>
+              <Text variant="body" color="muted">{t('common:status.loading')}</Text>
+            </Card>
+          ) : !invites?.length ? (
+            <Card>
+              <Text variant="body" color="muted">{t('multiUser:invites.noInvites')}</Text>
+            </Card>
+          ) : (
+            <Card padding="none">
+              {invites.map((invite, index) => (
+                <View key={invite.id}>
+                  {index > 0 && <View style={styles.divider} />}
+                  <View style={styles.inviteRow}>
+                    <View style={styles.inviteInfo}>
+                      <Text variant="body" style={{ fontFamily: 'monospace', fontWeight: '600' }}>
+                        {invite.invite_code}
+                      </Text>
+                      <Text variant="caption" color="muted">
+                        {invite.role_label ?? t(`multiUser:roles.${invite.role}`)}
+                        {invite.invited_email ? ` · ${invite.invited_email}` : ''}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleCancelInvite(invite.id)}
+                      style={styles.cancelButton}
+                    >
+                      <Text variant="caption" style={{ color: colors.error }}>
+                        {t('multiUser:invites.cancelInvite')}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+            </Card>
+          )}
+        </View>
+      </ScrollView>
+
+      <UserEditSheet
+        user={editingUser}
+        visible={!!editingUser}
+        onClose={() => setEditingUser(null)}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  section: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.xl,
+  },
+  sectionTitle: {
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.borderLight,
+    marginLeft: spacing.lg + 40 + spacing.md,
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  userInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  inviteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  inviteInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  cancelButton: {
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  inviteButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+});

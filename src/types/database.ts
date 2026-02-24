@@ -106,6 +106,8 @@ export interface Hesap {
   is_archived: boolean;
   card_last_four: string | null;
   card_network: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -149,6 +151,8 @@ export interface Kategori {
   color: string | null;
   parent_id: string | null;
   is_active: boolean;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
 }
 
@@ -193,6 +197,8 @@ export interface Cari {
   notes: string | null;
   is_active: boolean;
   is_archived: boolean;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -241,6 +247,8 @@ export interface Personel {
   start_date: string | null;
   is_active: boolean;
   is_archived: boolean;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -294,6 +302,8 @@ export interface Islem {
   photo_path: string | null;       // Storage path for receipt/document photo
   // İzin tarih aralığı
   date_end: string | null;         // İzin kullanımında bitiş tarihi (YYYY-MM-DD)
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -376,6 +386,8 @@ export interface IleriTarihliIslem {
   personel_id: string | null;
   status: IleriTarihliIslemStatus;
   notified_at: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -433,6 +445,8 @@ export interface NakitAvans {
   is_taksitli: boolean;
   taksit_sayisi: number;
   status: NakitAvansStatus;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -528,6 +542,8 @@ export interface Cek {
   aciklama: string | null;
   notification_id: string | null;
   islem_id: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -678,6 +694,8 @@ export interface Urun {
   aciklama: string | null;
   is_active: boolean;
   is_archived: boolean;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -722,6 +740,8 @@ export interface UrunHareket {
   onceki_miktar: number | null;
   yeni_miktar: number | null;
   aciklama: string | null;
+  created_by: string | null;
+  updated_by: string | null;
   created_at: string;
 }
 
