@@ -38,13 +38,13 @@ import { usePermanentDeleteUrun } from '@/hooks/useUrunler';
 import type { Hesap, Cari, Personel, Urun, BirimType } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 
-type TabType = 'hesaplar' | 'tedarikci' | 'musteri' | 'personel' | 'urunler';
+type TabType = 'hepsi' | 'hesaplar' | 'tedarikci' | 'musteri' | 'personel' | 'urunler';
 
 export default function ArsivPage() {
   const router = useRouter();
   const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
   const { canUpdate, canDelete } = usePermissions();
-  const [activeTab, setActiveTab] = useState<TabType>('hesaplar');
+  const [activeTab, setActiveTab] = useState<TabType>('hepsi');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; type: TabType; name: string; created_by?: string | null } | null>(null);
@@ -69,7 +69,10 @@ export default function ArsivPage() {
   const deletePersonel = useDeletePersonel();
   const permanentDeleteUrun = usePermanentDeleteUrun();
 
+  const totalArchived = (counts?.hesaplar || 0) + (counts?.tedarikci || 0) + (counts?.musteri || 0) + (counts?.personel || 0) + (counts?.urunler || 0);
+
   const tabs = [
+    { key: 'hepsi' as TabType, label: t('common:archive.tabs.all'), count: totalArchived },
     { key: 'hesaplar' as TabType, label: t('common:archive.tabs.accounts'), count: counts?.hesaplar || 0 },
     { key: 'tedarikci' as TabType, label: t('common:archive.tabs.suppliers'), count: counts?.tedarikci || 0 },
     { key: 'musteri' as TabType, label: t('common:archive.tabs.customers'), count: counts?.musteri || 0 },
@@ -78,6 +81,7 @@ export default function ArsivPage() {
   ];
 
   const isLoading =
+    (activeTab === 'hepsi' && (hesaplarLoading || tedarikciLoading || musteriLoading || personelLoading || urunlerLoading)) ||
     (activeTab === 'hesaplar' && hesaplarLoading) ||
     (activeTab === 'tedarikci' && tedarikciLoading) ||
     (activeTab === 'musteri' && musteriLoading) ||
@@ -367,6 +371,16 @@ export default function ArsivPage() {
     let isEmpty = false;
 
     switch (activeTab) {
+      case 'hepsi':
+        items = [
+          ...(filteredHesaplar?.map(renderHesapItem) || []),
+          ...(filteredTedarikciler?.map((c) => renderCariItem(c, 'tedarikci')) || []),
+          ...(filteredMusteriler?.map((c) => renderCariItem(c, 'musteri')) || []),
+          ...(filteredPersonel?.map(renderPersonelItem) || []),
+          ...(filteredUrunler?.map(renderUrunItem) || []),
+        ];
+        isEmpty = items.length === 0;
+        break;
       case 'hesaplar':
         items = filteredHesaplar?.map(renderHesapItem) || [];
         isEmpty = !filteredHesaplar || filteredHesaplar.length === 0;
@@ -400,8 +414,6 @@ export default function ArsivPage() {
 
     return <View style={styles.listContainer}>{items}</View>;
   };
-
-  const totalArchived = (counts?.hesaplar || 0) + (counts?.tedarikci || 0) + (counts?.musteri || 0) + (counts?.personel || 0) + (counts?.urunler || 0);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

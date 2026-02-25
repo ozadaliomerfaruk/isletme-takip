@@ -126,13 +126,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.textMuted,
     letterSpacing: 0.3,
   },
   badge: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '500',
     color: colors.primary,
     backgroundColor: colors.primaryLight,
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   bigNumber: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '700',
     letterSpacing: -1,
     marginBottom: 2,
@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   heroLabel: {
-    fontSize: 13,
+    fontSize: 15,
     color: colors.textMuted,
     fontWeight: '500',
   },
@@ -204,13 +204,13 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
   },
   detailLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
     fontWeight: '500',
   },
   detailValue: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
   },
   divider: {
     width: 1,

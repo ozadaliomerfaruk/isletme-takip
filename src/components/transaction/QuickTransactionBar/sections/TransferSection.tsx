@@ -11,6 +11,7 @@ interface Hesap {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 export interface TransferSectionProps {
@@ -39,7 +40,7 @@ export function TransferSection({
             { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error },
           ]}
         >
-          {formatCurrency(Number(selectedHesap.balance))}
+          {formatCurrency(Number(selectedHesap.balance), selectedHesap.currency)}
         </Text>
       )}
       <ArrowRight size={16} color={colors.info} />
@@ -57,7 +58,7 @@ export function TransferSection({
               },
             ]}
           >
-            {formatCurrency(Number(selectedHedefHesap.balance))}
+            {formatCurrency(Number(selectedHedefHesap.balance), selectedHedefHesap.currency)}
           </Text>
         )}
         <ChevronDown size={16} color={colors.info} />

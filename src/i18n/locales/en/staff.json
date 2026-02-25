@@ -108,7 +108,8 @@
     "expenseRecorded": "Expense recorded",
     "paymentRecorded": "Payment recorded",
     "scheduledExpenseCreated": "Scheduled expense created",
-    "scheduledPaymentCreated": "Scheduled payment created"
+    "scheduledPaymentCreated": "Scheduled payment created",
+    "personnelCount": "{{count}} staff members"
   },
   "search": {
     "searchPersonnel": "Search staff...",

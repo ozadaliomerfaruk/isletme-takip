@@ -127,6 +127,8 @@
     "transfer": "Transfer",
     "client": "Client",
     "personnel": "Staff",
+    "leaveEntitlement": "Leave Earned",
+    "leaveUsage": "Leave Used",
     "byDate": "By Date",
     "byAmount": "By Amount",
     "byCategory": "By Category"

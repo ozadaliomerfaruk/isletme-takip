@@ -24,7 +24,6 @@ const MODULE_CONFIG: {
   { name: 'kategoriler', i18nKey: 'navigation:menu.categories', hasActions: true },
   { name: 'raporlar', i18nKey: 'navigation:menu.reports', hasActions: false },
   { name: 'cekler', i18nKey: 'navigation:menu.checks', hasActions: true },
-  { name: 'nakit_avans', i18nKey: 'navigation:menu.cashAdvance', hasActions: true },
   { name: 'ileri_tarihli', i18nKey: 'navigation:menu.futureTransactions', hasActions: true },
   { name: 'urunler', i18nKey: 'navigation:tabs.stock', hasActions: true },
   { name: 'arsiv', i18nKey: 'common:archive.title', hasActions: false },
@@ -42,13 +41,18 @@ const ACTION_LABELS = [
 export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
   const { t } = useTranslation(['multiUser', 'navigation', 'common']);
 
+  // Defensive: ensure nested objects exist
+  const modules = value.modules ?? ({} as Record<ModuleName, boolean>);
+  const actions = value.actions ?? {};
+  const visibility = value.visibility ?? { can_see_passive: false, can_see_archived: false, can_see_all_users_data: false };
+
   const toggleModule = (module: ModuleName) => {
-    const newModules = { ...value.modules, [module]: !value.modules[module] };
+    const newModules = { ...modules, [module]: !modules[module] };
     onChange({ ...value, modules: newModules });
   };
 
   const toggleAction = (module: string, actionKey: string) => {
-    const currentActions = value.actions[module] ?? {
+    const currentActions = actions[module] ?? {
       can_create: false,
       can_update_own: false,
       can_update_all: false,
@@ -56,7 +60,7 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
       can_delete_all: false,
     };
     const newActions = {
-      ...value.actions,
+      ...actions,
       [module]: { ...currentActions, [actionKey]: !currentActions[actionKey as keyof typeof currentActions] },
     };
     onChange({ ...value, actions: newActions });
@@ -65,7 +69,7 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
   const toggleVisibility = (key: keyof Permissions['visibility']) => {
     onChange({
       ...value,
-      visibility: { ...value.visibility, [key]: !value.visibility[key] },
+      visibility: { ...visibility, [key]: !visibility[key] },
     });
   };
 
@@ -83,15 +87,15 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
               {t(mod.i18nKey, { defaultValue: mod.name })}
             </Text>
             <Switch
-              value={value.modules[mod.name] ?? false}
+              value={modules[mod.name] ?? false}
               onValueChange={() => toggleModule(mod.name)}
               trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
-              thumbColor={value.modules[mod.name] ? colors.primary : colors.textMuted}
+              thumbColor={modules[mod.name] ? colors.primary : colors.textMuted}
             />
           </View>
 
           {/* Aksiyon detayları (modül açıksa ve aksiyonları varsa) */}
-          {mod.hasActions && value.modules[mod.name] && (
+          {mod.hasActions && modules[mod.name] && (
             <View style={styles.actionsContainer}>
               {ACTION_LABELS.map((action) => (
                 <TouchableOpacity
@@ -103,10 +107,10 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
                   <View
                     style={[
                       styles.checkbox,
-                      value.actions[mod.name]?.[action.key] && styles.checkboxChecked,
+                      actions[mod.name]?.[action.key] && styles.checkboxChecked,
                     ]}
                   >
-                    {value.actions[mod.name]?.[action.key] && (
+                    {actions[mod.name]?.[action.key] && (
                       <Text variant="caption" style={styles.checkmark}>✓</Text>
                     )}
                   </View>
@@ -130,10 +134,10 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
             {t('multiUser:permissionActions.canSeePassive')}
           </Text>
           <Switch
-            value={value.visibility.can_see_passive}
+            value={visibility.can_see_passive}
             onValueChange={() => toggleVisibility('can_see_passive')}
             trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
-            thumbColor={value.visibility.can_see_passive ? colors.primary : colors.textMuted}
+            thumbColor={visibility.can_see_passive ? colors.primary : colors.textMuted}
           />
         </View>
         <View style={styles.moduleRow}>
@@ -141,10 +145,10 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
             {t('multiUser:permissionActions.canSeeArchived')}
           </Text>
           <Switch
-            value={value.visibility.can_see_archived}
+            value={visibility.can_see_archived}
             onValueChange={() => toggleVisibility('can_see_archived')}
             trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
-            thumbColor={value.visibility.can_see_archived ? colors.primary : colors.textMuted}
+            thumbColor={visibility.can_see_archived ? colors.primary : colors.textMuted}
           />
         </View>
         <View style={styles.moduleRow}>
@@ -152,10 +156,10 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
             {t('multiUser:permissionActions.canSeeAllData')}
           </Text>
           <Switch
-            value={value.visibility.can_see_all_users_data}
+            value={visibility.can_see_all_users_data}
             onValueChange={() => toggleVisibility('can_see_all_users_data')}
             trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
-            thumbColor={value.visibility.can_see_all_users_data ? colors.primary : colors.textMuted}
+            thumbColor={visibility.can_see_all_users_data ? colors.primary : colors.textMuted}
           />
         </View>
       </View>

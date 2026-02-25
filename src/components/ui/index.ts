@@ -5,6 +5,8 @@ export { Input } from './Input';
 export { CurrencyInput } from './CurrencyInput';
 export { ExpandableCard } from './ExpandableCard';
 export { TabFilter } from './TabFilter';
+export { FilterChips } from './FilterChips';
+export type { FilterChipItem } from './FilterChips';
 export { SearchInput } from './SearchInput';
 export { EmptyState } from './EmptyState';
 export { DateTimePicker } from './DateTimePicker';

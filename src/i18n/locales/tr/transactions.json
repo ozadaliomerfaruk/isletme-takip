@@ -127,6 +127,8 @@
     "transfer": "Transfer",
     "client": "Cari",
     "personnel": "Personel",
+    "leaveEntitlement": "İzin Hakkı",
+    "leaveUsage": "İzin Kullanımı",
     "byDate": "Tarihe Göre",
     "byAmount": "Tutara Göre",
     "byCategory": "Kategoriye Göre"

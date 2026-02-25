@@ -19,12 +19,14 @@ interface Hesap {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 interface Cari {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 interface Personel {
@@ -32,6 +34,7 @@ interface Personel {
   first_name: string;
   last_name: string | null;
   balance: number;
+  currency?: string;
 }
 
 export interface TahsilatSectionProps {
@@ -109,7 +112,7 @@ export function TahsilatSection({
                   },
                 ]}
               >
-                {formatCurrency(Number((selectedHedefHesap || selectedHesap)?.balance))}
+                {formatCurrency(Number((selectedHedefHesap || selectedHesap)?.balance), (selectedHedefHesap || selectedHesap)?.currency)}
               </Text>
             )}
           </View>
@@ -131,7 +134,7 @@ export function TahsilatSection({
                 { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error },
               ]}
             >
-              {formatCurrency(Number(selectedCari.balance))}
+              {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
             </Text>
           )}
           <ChevronDown size={18} color={colors.textMuted} />
@@ -152,7 +155,7 @@ export function TahsilatSection({
                 { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error },
               ]}
             >
-              {formatCurrency(Number(selectedCari.balance))}
+              {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
             </Text>
           )}
           <ChevronDown size={18} color={colors.textMuted} />
@@ -175,7 +178,7 @@ export function TahsilatSection({
                 { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error },
               ]}
             >
-              {formatCurrency(Number(selectedPersonel.balance))}
+              {formatCurrency(Number(selectedPersonel.balance), selectedPersonel.currency)}
             </Text>
           )}
           <ChevronDown size={18} color={colors.textMuted} />

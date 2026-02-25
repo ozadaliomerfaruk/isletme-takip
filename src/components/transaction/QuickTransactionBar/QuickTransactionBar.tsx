@@ -62,6 +62,7 @@ export function QuickTransactionBar({
   mode = 'create',
   transactionId,
   isScheduledTransaction = false,
+  copySourceId,
 }: QuickTransactionBarProps) {
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
@@ -106,6 +107,7 @@ export function QuickTransactionBar({
     mode,
     transactionId,
     isScheduledTransaction,
+    copySourceId,
   });
 
   // Tab mode

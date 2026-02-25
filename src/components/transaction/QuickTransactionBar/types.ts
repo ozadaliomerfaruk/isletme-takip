@@ -77,6 +77,8 @@ export interface QuickTransactionBarProps {
   mode?: QuickTransactionMode;
   transactionId?: string;
   isScheduledTransaction?: boolean;
+  // Copy mode: load data from this transaction but create as new
+  copySourceId?: string;
 }
 
 // Exchange rate data for cross-currency transactions

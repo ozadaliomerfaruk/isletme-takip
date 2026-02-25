@@ -2,8 +2,8 @@ import { useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { useCreateIslem, useUpdateIslem } from '@/hooks/useIslemler';
-import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
+import { useCreateIslem, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
+import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem, useDeleteIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { parseCurrency, isValidAmount } from '@/lib/currency';
@@ -143,6 +143,13 @@ function needsHesapForType(type: TransactionType): boolean {
   ].includes(type);
 }
 
+// Helper: Strip fields not supported by ileri_tarihli_islemler table
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function stripScheduledUnsupportedFields(data: any): any {
+  const { source_currency, target_currency, exchange_rate, photo_path, date_end, ...rest } = data;
+  return rest;
+}
+
 // Helper: Check if type needs hesap in data
 function needsHesapInData(type: TransactionType): boolean {
   return ![
@@ -206,6 +213,8 @@ export function useTransactionSubmit({
   const updateIslem = useUpdateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
   const updateIleriTarihliIslem = useUpdateIleriTarihliIslem();
+  const deleteIslem = useDeleteIslem();
+  const deleteIleriTarihliIslem = useDeleteIleriTarihliIslem();
   const uploadPhoto = useUploadIslemPhoto();
   const createUrunHareket = useCreateUrunHareket();
 
@@ -586,16 +595,17 @@ export function useTransactionSubmit({
 
       // Edit mode - update existing transaction
       if (isEditMode && transactionId) {
-        // Upload photo if present (for edit mode, we don't change photo here)
-        if (isScheduledTransaction) {
+        if (isScheduledTransaction && isScheduled) {
+          // Was scheduled, stays scheduled → update scheduled transaction
           await updateIleriTarihliIslem.mutateAsync({
             id: transactionId,
             updates: {
-              ...transactionData,
+              ...stripScheduledUnsupportedFields(transactionData),
               scheduled_date: formatDateForDB(safeDate),
             },
           });
-        } else {
+        } else if (!isScheduledTransaction && !isScheduled) {
+          // Was regular, stays regular → update normal transaction
           await updateIslem.mutateAsync({
             id: transactionId,
             updates: {
@@ -603,14 +613,28 @@ export function useTransactionSubmit({
               date: formatDateTimeForDB(safeDate),
             },
           });
+        } else if (!isScheduledTransaction && isScheduled) {
+          // Was regular, now scheduled → delete regular + create scheduled
+          await deleteIslem.mutateAsync(transactionId);
+          await createIleriTarihliIslem.mutateAsync({
+            ...stripScheduledUnsupportedFields(transactionData),
+            scheduled_date: formatDateForDB(safeDate),
+          });
+        } else {
+          // Was scheduled, now regular → delete scheduled + create regular
+          await deleteIleriTarihliIslem.mutateAsync(transactionId);
+          await createIslem.mutateAsync({
+            ...transactionData,
+            date: formatDateTimeForDB(safeDate),
+          });
         }
       }
       // Create mode - create new transaction
       else {
         if (isScheduled) {
-          // Scheduled transactions don't support photos yet
+          // Scheduled transactions don't support photos/exchange rate
           await createIleriTarihliIslem.mutateAsync({
-            ...transactionData,
+            ...stripScheduledUnsupportedFields(transactionData),
             scheduled_date: formatDateForDB(safeDate),
           });
         } else {
@@ -717,6 +741,8 @@ export function useTransactionSubmit({
     createIslem,
     updateIslem,
     updateIleriTarihliIslem,
+    deleteIslem,
+    deleteIleriTarihliIslem,
     uploadPhoto,
     triggerReviewIfEligible,
     onSuccess,
@@ -747,15 +773,17 @@ export function useTransactionSubmit({
 
         // Edit mode - update existing transaction
         if (isEditMode && transactionId) {
-          if (isScheduledTransaction) {
+          if (isScheduledTransaction && isScheduled) {
+            // Was scheduled, stays scheduled → update scheduled (strip unsupported fields)
             await updateIleriTarihliIslem.mutateAsync({
               id: transactionId,
               updates: {
-                ...transactionData,
+                ...stripScheduledUnsupportedFields(transactionData),
                 scheduled_date: formatDateForDB(safeDate),
               },
             });
-          } else {
+          } else if (!isScheduledTransaction && !isScheduled) {
+            // Was regular, stays regular → update normal transaction
             await updateIslem.mutateAsync({
               id: transactionId,
               updates: {
@@ -763,13 +791,28 @@ export function useTransactionSubmit({
                 date: formatDateTimeForDB(safeDate),
               },
             });
+          } else if (!isScheduledTransaction && isScheduled) {
+            // Was regular, now scheduled → delete regular + create scheduled (strip unsupported fields)
+            await deleteIslem.mutateAsync(transactionId);
+            await createIleriTarihliIslem.mutateAsync({
+              ...stripScheduledUnsupportedFields(transactionData),
+              scheduled_date: formatDateForDB(safeDate),
+            });
+          } else {
+            // Was scheduled, now regular → delete scheduled + create regular
+            await deleteIleriTarihliIslem.mutateAsync(transactionId);
+            await createIslem.mutateAsync({
+              ...transactionData,
+              date: formatDateTimeForDB(safeDate),
+            });
           }
         }
         // Create mode - create new transaction
         else {
           if (isScheduled) {
+            // Scheduled transactions don't support exchange rate fields
             await createIleriTarihliIslem.mutateAsync({
-              ...transactionData,
+              ...stripScheduledUnsupportedFields(transactionData),
               scheduled_date: formatDateForDB(safeDate),
             });
           } else {
@@ -820,6 +863,8 @@ export function useTransactionSubmit({
       createIslem,
       updateIslem,
       updateIleriTarihliIslem,
+      deleteIslem,
+      deleteIleriTarihliIslem,
       triggerReviewIfEligible,
       setPendingExchangeData,
       onSuccess,

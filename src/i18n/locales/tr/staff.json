@@ -108,7 +108,8 @@
     "expenseRecorded": "Gider kaydedildi",
     "paymentRecorded": "Ödeme kaydedildi",
     "scheduledExpenseCreated": "İleri tarihli gider oluşturuldu",
-    "scheduledPaymentCreated": "İleri tarihli ödeme oluşturuldu"
+    "scheduledPaymentCreated": "İleri tarihli ödeme oluşturuldu",
+    "personnelCount": "{{count}} personel"
   },
   "search": {
     "searchPersonnel": "Personel ara...",

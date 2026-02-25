@@ -159,14 +159,17 @@ export function useUpdateUserStatus() {
 
 // Daveti iptal et
 export function useCancelInvite() {
+  const { isletme } = useAuthContext();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (inviteId: string) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
       const { error } = await supabase
         .from('isletme_invites')
         .update({ status: 'cancelled' })
-        .eq('id', inviteId);
+        .eq('id', inviteId)
+        .eq('isletme_id', isletme.id);
       if (error) throw error;
     },
     onSuccess: () => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,7 +10,7 @@ import { RoleSelector } from '@/components/multiUser/RoleSelector';
 import { PermissionEditor } from '@/components/multiUser/PermissionEditor';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useCreateInvite } from '@/hooks/useMultiUser';
+import { useCreateInvite, useRoleTemplates } from '@/hooks/useMultiUser';
 import type { UserRole, Permissions } from '@/types/multiUser';
 
 // Boş permissions objesi (custom rol için başlangıç)
@@ -43,15 +43,31 @@ export default function DavetOlusturPage() {
   const { t } = useTranslation(['multiUser', 'common']);
   const createInvite = useCreateInvite();
 
+  const { data: roleTemplates } = useRoleTemplates();
+
   const [selectedRole, setSelectedRole] = useState<UserRole>('operator');
   const [permissions, setPermissions] = useState<Permissions>(EMPTY_PERMISSIONS);
+  const [initialLoaded, setInitialLoaded] = useState(false);
   const [email, setEmail] = useState('');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Apply template permissions on initial load when templates become available
+  useEffect(() => {
+    if (roleTemplates && !initialLoaded) {
+      const template = roleTemplates.find((t) => t.name === selectedRole);
+      if (template?.default_permissions) {
+        setPermissions(template.default_permissions);
+      }
+      setInitialLoaded(true);
+    }
+  }, [roleTemplates, initialLoaded, selectedRole]);
+
   const handleRoleChange = (role: UserRole, defaultPermissions?: Permissions) => {
     setSelectedRole(role);
-    if (role !== 'custom' && defaultPermissions) {
+    if (role === 'custom') {
+      setPermissions(EMPTY_PERMISSIONS);
+    } else if (defaultPermissions?.modules) {
       setPermissions(defaultPermissions);
     }
   };
@@ -61,7 +77,7 @@ export default function DavetOlusturPage() {
       const code = await createInvite.mutateAsync({
         role: selectedRole,
         email: email.trim() || undefined,
-        permissions: selectedRole === 'custom' ? permissions : undefined,
+        permissions,
       });
       setGeneratedCode(code);
     } catch (error: any) {
@@ -104,12 +120,10 @@ export default function DavetOlusturPage() {
               <RoleSelector value={selectedRole} onChange={handleRoleChange} />
             </View>
 
-            {/* Özel Yetki Düzenleme (custom rol seçildiğinde) */}
-            {selectedRole === 'custom' && (
-              <View style={styles.section}>
-                <PermissionEditor value={permissions} onChange={setPermissions} />
-              </View>
-            )}
+            {/* Yetki Düzenleme (tüm roller için göster, şablon otomatik doldurulur) */}
+            <View style={styles.section}>
+              <PermissionEditor value={permissions} onChange={setPermissions} />
+            </View>
 
             {/* E-posta (opsiyonel) */}
             <View style={styles.section}>

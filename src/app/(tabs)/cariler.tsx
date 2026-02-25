@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -18,9 +18,10 @@ import {
   Camera,
   Link,
   ArrowUpDown,
+  MoreVertical,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem, SwipeableRow, SwipeableProvider } from '@/components/ui';
+import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -29,7 +30,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
-import { getCariIcon } from '@/lib/icons';
+import { getCariIcon as _getCariIcon } from '@/lib/icons';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
 import { useArchiveCari } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
@@ -66,6 +67,9 @@ export default function CarilerPage() {
     { label: t('clients:titles.suppliers'), value: 'tedarikci' },
     { label: t('clients:titles.customers'), value: 'musteri' },
   ];
+
+  // ExpandableCard için state
+  const [expandedCariId, setExpandedCariId] = useState<string | null>(null);
 
   // QuickTransactionBar için state
   const [quickBarVisible, setQuickBarVisible] = useState(false);
@@ -128,10 +132,10 @@ export default function CarilerPage() {
   }, [refetch, haptics]);
 
   // Action sheet handlers
-  const handleOpenActionSheet = (cari: Cari) => {
+  const handleOpenActionSheet = useCallback((cari: Cari) => {
     setActionSheetCari(cari);
     setActionSheetVisible(true);
-  };
+  }, []);
 
   const handleArchive = async () => {
     if (!actionSheetCari) return;
@@ -493,82 +497,105 @@ export default function CarilerPage() {
             </View>
           </TouchableOpacity>
         ) : (
-          <SwipeableRow
-            onAction={() => {
-              setSelectedCari(cari);
-              setQuickBarVisible(true);
-            }}
-            actionLabel={t('common:archive.actions.makeTransaction')}
-          >
-          <TouchableOpacity
-            style={styles.entityCard}
-            onPress={() => router.push(`/cariler/${cari.id}`)}
-            onLongPress={() => {
-              haptics.selection();
-              handleOpenActionSheet(cari);
-            }}
-            activeOpacity={0.7}
-          >
-            <View style={styles.cariHeader}>
-              <Avatar name={cari.name} size={40} />
-              <View style={styles.cariInfo}>
-                <View style={styles.cariNameRow}>
-                  <Text variant="body">{cari.name}</Text>
-                  {!cari.is_active && (
-                    <EyeOff size={14} color={colors.textMuted} />
+          <ExpandableCard
+            expanded={expandedCariId === cari.id}
+            onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
+            header={
+              <View style={styles.cariHeader}>
+                <Avatar name={cari.name} size={40} />
+                <View style={styles.cariInfo}>
+                  <View style={styles.cariNameRow}>
+                    <Text variant="body">{cari.name}</Text>
+                    {!cari.is_active && (
+                      <EyeOff size={14} color={colors.textMuted} />
+                    )}
+                  </View>
+                  {cari.isLinked ? (
+                    <LinkedCariBadge
+                      ownerIsletmeName={cari.linkOwnerName ?? ''}
+                      permission={cari.linkPermission ?? 'view'}
+                      variant="inline"
+                    />
+                  ) : (
+                    <Text variant="caption" color="secondary">
+                      {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
+                      {cari.phone ? ` • ${cari.phone}` : ''}
+                    </Text>
                   )}
                 </View>
-                {cari.isLinked ? (
-                  <LinkedCariBadge
-                    ownerIsletmeName={cari.linkOwnerName ?? ''}
-                    permission={cari.linkPermission ?? 'view'}
-                    variant="inline"
-                  />
-                ) : (
+                <View style={styles.cariBalance}>
                   <Text variant="caption" color="secondary">
-                    {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-                    {cari.phone ? ` • ${cari.phone}` : ''}
-                  </Text>
-                )}
-              </View>
-              <View style={styles.cariBalance}>
-                <Text variant="caption" color="secondary">
-                  {toNumber(cari.balance) === 0
-                    ? t('clients:balance.noBalance')
-                    : cari.type === 'tedarikci'
-                    ? toNumber(cari.balance) < 0
-                      ? t('clients:balance.weOwe')
-                      : t('clients:balance.theyOwe')
-                    : toNumber(cari.balance) > 0
-                    ? t('clients:balance.theyOwe')
-                    : t('clients:balance.weOwe')}
-                </Text>
-                <Text
-                  variant="h3"
-                  color={
-                    toNumber(cari.balance) === 0
-                      ? 'secondary'
+                    {toNumber(cari.balance) === 0
+                      ? t('clients:balance.noBalance')
+                      : cari.type === 'tedarikci'
+                      ? toNumber(cari.balance) < 0
+                        ? t('clients:balance.weOwe')
+                        : t('clients:balance.theyOwe')
                       : toNumber(cari.balance) > 0
-                      ? 'success'
-                      : 'error'
-                  }
-                >
-                  {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
-                </Text>
-                {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
-                  <Text variant="caption" color="secondary">
-                    ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                      ? t('clients:balance.theyOwe')
+                      : t('clients:balance.weOwe')}
                   </Text>
-                )}
+                  <Text
+                    variant="h3"
+                    color={
+                      toNumber(cari.balance) === 0
+                        ? 'secondary'
+                        : toNumber(cari.balance) > 0
+                        ? 'success'
+                        : 'error'
+                    }
+                  >
+                    {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
+                  </Text>
+                  {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
+                    <Text variant="caption" color="secondary">
+                      ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    haptics.selection();
+                    handleOpenActionSheet(cari);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.moreButton}
+                >
+                  <MoreVertical size={20} color={colors.textMuted} />
+                </TouchableOpacity>
               </View>
+            }
+          >
+            <View style={styles.actionButtons}>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Zap size={16} color={colors.surface} />}
+                onPress={() => {
+                  setSelectedCari(cari);
+                  setQuickBarVisible(true);
+                }}
+                style={styles.actionButton}
+              >
+                {t('common:archive.actions.makeTransaction')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<History size={16} color={colors.text} />}
+                onPress={() => router.push(`/cariler/${cari.id}`)}
+                style={styles.actionButton}
+              >
+                {t('clients:actions.viewTransactions')}
+              </Button>
             </View>
-          </TouchableOpacity>
-          </SwipeableRow>
+          </ExpandableCard>
         )}
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router]);
+  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router]);
 
   // FlatList ListHeaderComponent - header, özet, arama ve filtre
   const ListHeader = useMemo(() => (
@@ -655,7 +682,6 @@ export default function CarilerPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <SwipeableProvider>
       <FlatList
         style={styles.scrollView}
         data={isLoading ? [] : filteredCariler}
@@ -673,10 +699,9 @@ export default function CarilerPage() {
         windowSize={5}
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
-        extraData={{ selectedIds, isSelectMode, sortBy }}
+        extraData={{ selectedIds, isSelectMode, sortBy, expandedCariId }}
         contentContainerStyle={styles.listContainer}
       />
-      </SwipeableProvider>
 
       {/* Quick Transaction Bar */}
       <QuickTransactionBar
@@ -876,11 +901,15 @@ const styles = StyleSheet.create({
   cariBalance: {
     alignItems: 'flex-end',
   },
-  entityCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+  actionButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  moreButton: {
+    padding: spacing.xs,
   },
   // Multi-select styles
   selectedItem: {

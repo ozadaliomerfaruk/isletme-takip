@@ -17,6 +17,8 @@ import {
   Building2,
   UserCheck,
   Truck,
+  Package,
+  Archive,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -28,14 +30,16 @@ import { getHesapIconConfig } from '@/lib/icons';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
+import { useUrunler } from '@/hooks/useUrunler';
 
-import type { Hesap, Cari, Personel } from '@/types/database';
+import type { Hesap, Cari, Personel, Urun } from '@/types/database';
 
 type SearchResultItem =
   | { type: 'hesap'; data: Hesap }
   | { type: 'musteri'; data: Cari }
   | { type: 'tedarikci'; data: Cari }
-  | { type: 'personel'; data: Personel };
+  | { type: 'personel'; data: Personel }
+  | { type: 'urun'; data: Urun };
 
 interface Section {
   title: string;
@@ -44,7 +48,7 @@ interface Section {
 
 export default function AramaPage() {
   const router = useRouter();
-  const { t } = useTranslation(['common', 'accounts', 'clients', 'staff']);
+  const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
   const searchInputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState('');
 
@@ -54,11 +58,12 @@ export default function AramaPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Data hooks
-  const { data: hesaplar = [] } = useHesaplar();
-  const { data: musteriCariler = [] } = useCariler('musteri');
-  const { data: tedarikciCariler = [] } = useCariler('tedarikci');
-  const { data: personelList = [] } = usePersonelList();
+  // Data hooks — includePassive=true, includeArchived=true to search everything
+  const { data: hesaplar = [] } = useHesaplar(true, true);
+  const { data: musteriCariler = [] } = useCariler('musteri', true, true);
+  const { data: tedarikciCariler = [] } = useCariler('tedarikci', true, true);
+  const { data: personelList = [] } = usePersonelList(true, true);
+  const { data: urunler = [] } = useUrunler(true);
 
   // Filter and build sections
   const sections = useMemo<Section[]>(() => {
@@ -112,8 +117,20 @@ export default function AramaPage() {
       });
     }
 
+    // Ürünler
+    const filteredUrunler = urunler.filter((u) =>
+      u.ad.toLowerCase().includes(q) ||
+      (u.kod && u.kod.toLowerCase().includes(q))
+    );
+    if (filteredUrunler.length > 0) {
+      result.push({
+        title: t('products:title'),
+        data: filteredUrunler.map((u) => ({ type: 'urun' as const, data: u })),
+      });
+    }
+
     return result;
-  }, [query, hesaplar, musteriCariler, tedarikciCariler, personelList, t]);
+  }, [query, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, t]);
 
   const totalResults = useMemo(
     () => sections.reduce((sum, s) => sum + s.data.length, 0),
@@ -133,6 +150,9 @@ export default function AramaPage() {
           break;
         case 'personel':
           router.push(`/personel/${item.data.id}`);
+          break;
+        case 'urun':
+          router.push(`/urunler/${item.data.id}`);
           break;
       }
     },
@@ -167,6 +187,12 @@ export default function AramaPage() {
             <UserCheck size={20} color={colors.success} />
           </View>
         );
+      case 'urun':
+        return (
+          <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
+            <Package size={20} color={colors.primary} />
+          </View>
+        );
     }
   }, []);
 
@@ -179,28 +205,50 @@ export default function AramaPage() {
         return item.data.name;
       case 'personel':
         return `${item.data.first_name} ${item.data.last_name ?? ''}`.trim();
+      case 'urun':
+        return item.data.ad;
     }
   }, []);
 
+  const isArchived = useCallback((item: SearchResultItem) => {
+    return 'is_archived' in item.data && item.data.is_archived === true;
+  }, []);
+
   const getBalance = useCallback((item: SearchResultItem) => {
+    if (item.type === 'urun') {
+      return item.data.satis_fiyati > 0
+        ? formatCurrency(item.data.satis_fiyati, item.data.currency)
+        : '';
+    }
     return formatCurrency(item.data.balance, item.data.currency);
   }, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: SearchResultItem }) => (
-      <TouchableOpacity
-        style={styles.resultItem}
-        activeOpacity={0.7}
-        onPress={() => handleItemPress(item)}
-      >
-        {renderIcon(item)}
-        <Text style={styles.resultName} numberOfLines={1}>
-          {getName(item)}
-        </Text>
-        <Text style={styles.resultBalance}>{getBalance(item)}</Text>
-      </TouchableOpacity>
-    ),
-    [handleItemPress, renderIcon, getName, getBalance]
+    ({ item }: { item: SearchResultItem }) => {
+      const archived = isArchived(item);
+      return (
+        <TouchableOpacity
+          style={[styles.resultItem, archived && styles.resultItemArchived]}
+          activeOpacity={0.7}
+          onPress={() => handleItemPress(item)}
+        >
+          {renderIcon(item)}
+          <View style={styles.resultNameContainer}>
+            <Text style={[styles.resultName, archived && styles.resultNameArchived]} numberOfLines={1}>
+              {getName(item)}
+            </Text>
+            {archived && (
+              <View style={styles.archivedBadge}>
+                <Archive size={10} color={colors.textMuted} />
+                <Text style={styles.archivedBadgeText}>{t('common:archive.title')}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.resultBalance}>{getBalance(item)}</Text>
+        </TouchableOpacity>
+      );
+    },
+    [handleItemPress, renderIcon, getName, getBalance, isArchived, t]
   );
 
   const renderSectionHeader = useCallback(
@@ -340,11 +388,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  resultName: {
+  resultNameContainer: {
     flex: 1,
+    gap: 2,
+  },
+  resultName: {
     fontSize: 15,
     color: colors.text,
     fontWeight: '500',
+  },
+  resultNameArchived: {
+    opacity: 0.6,
+  },
+  resultItemArchived: {
+    opacity: 0.75,
+  },
+  archivedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  archivedBadgeText: {
+    fontSize: 11,
+    color: colors.textMuted,
   },
   resultBalance: {
     fontSize: 14,
