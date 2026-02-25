@@ -4,6 +4,7 @@
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
+    "copy": "Copy",
     "edit": "Edit",
     "add": "Add",
     "close": "Close",
@@ -343,6 +344,7 @@
   "archive": {
     "title": "Archive",
     "tabs": {
+      "all": "All",
       "accounts": "Accounts",
       "suppliers": "Suppliers",
       "customers": "Customers",

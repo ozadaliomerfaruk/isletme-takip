@@ -28,6 +28,8 @@ interface UseQuickTransactionFormOptions {
   mode?: QuickTransactionMode;
   transactionId?: string;
   isScheduledTransaction?: boolean;
+  // Copy mode: load data from this transaction but create as new
+  copySourceId?: string;
 }
 
 interface PendingExchangeData {
@@ -117,9 +119,13 @@ export function useQuickTransactionForm({
   mode = 'create',
   transactionId,
   isScheduledTransaction = false,
+  copySourceId,
 }: UseQuickTransactionFormOptions): UseQuickTransactionFormReturn {
   // Edit mode flag
   const isEditMode = mode === 'edit' && !!transactionId;
+  // Copy mode: load data like edit mode, but submit as create
+  const isCopyMode = !!copySourceId;
+  const loadSourceId = isEditMode ? transactionId : (isCopyMode ? copySourceId : undefined);
 
   // Mode flags (overridden in edit mode based on loaded transaction)
   const [isCariMode, setIsCariMode] = useState(!!defaultCariId);
@@ -133,24 +139,35 @@ export function useQuickTransactionForm({
     }
   }, [defaultCariId, defaultPersonelId, isEditMode]);
 
-  // Track if we've loaded edit data
+  // Track if we've loaded edit data — keyed by loadSourceId to reset when source changes
   const [editDataLoaded, setEditDataLoaded] = useState(false);
+  const prevLoadSourceIdRef = useRef<string | undefined>(undefined);
 
-  // Fetch transaction data for edit mode
+  // Reset editDataLoaded when the source transaction changes (e.g. different copy target)
+  if (loadSourceId !== prevLoadSourceIdRef.current) {
+    prevLoadSourceIdRef.current = loadSourceId;
+    if (editDataLoaded) {
+      setEditDataLoaded(false);
+    }
+  }
+
+  // Fetch transaction data for edit/copy mode
+  const shouldLoadNormal = (isEditMode || isCopyMode) && !isScheduledTransaction;
+  const shouldLoadScheduled = isEditMode && isScheduledTransaction;
   const { data: normalTransaction, isLoading: isLoadingNormal } = useIslem(
-    isEditMode && !isScheduledTransaction ? transactionId : undefined
+    shouldLoadNormal ? loadSourceId : undefined
   );
   const { data: scheduledTransaction, isLoading: isLoadingScheduled } = useIleriTarihliIslem(
-    isEditMode && isScheduledTransaction ? transactionId : undefined
+    shouldLoadScheduled ? loadSourceId : undefined
   );
 
-  // Fetch urun hareketler for edit mode (only for normal transactions)
+  // Fetch urun hareketler for edit/copy mode (only for normal transactions)
   const { data: urunHareketler, isLoading: isLoadingUrunHareketler } = useUrunHareketlerByIslemId(
-    isEditMode && !isScheduledTransaction ? transactionId : undefined
+    shouldLoadNormal ? loadSourceId : undefined
   );
 
   // Combined loading state
-  const isLoadingTransaction = isEditMode && (isLoadingNormal || isLoadingScheduled || isLoadingUrunHareketler);
+  const isLoadingTransaction = (isEditMode || isCopyMode) && (isLoadingNormal || isLoadingScheduled || isLoadingUrunHareketler);
 
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType);
@@ -261,12 +278,15 @@ export function useQuickTransactionForm({
     }
   }, [visible]);
 
-  // Load transaction data in edit mode
+  // Load transaction data in edit/copy mode
   useEffect(() => {
-    if (!isEditMode || !visible || editDataLoaded) return;
+    if ((!isEditMode && !isCopyMode) || !visible || editDataLoaded) return;
 
     const transaction = isScheduledTransaction ? scheduledTransaction : normalTransaction;
     if (!transaction) return;
+
+    // Ensure the loaded transaction matches the requested source ID (avoid stale cache)
+    if (transaction.id !== loadSourceId) return;
 
     // Map API type to form state using reverse mapper
     const mappedState = mapApiTypeToFormState(
@@ -280,16 +300,22 @@ export function useQuickTransactionForm({
     setType(mappedState.type);
     setAmount(transaction.amount.toString());
     setDescription(transaction.description || '');
-    // Use scheduled_date for scheduled transactions, date for normal transactions
-    const transactionDate = isScheduledTransaction
-      ? (transaction as { scheduled_date?: string }).scheduled_date
-      : (transaction as { date?: string }).date;
-    if (transactionDate) {
-      setDate(new Date(transactionDate));
+
+    // Copy mode: set date to today; Edit mode: use original date
+    if (isCopyMode) {
+      setDate(new Date());
+    } else {
+      const transactionDate = isScheduledTransaction
+        ? (transaction as { scheduled_date?: string }).scheduled_date
+        : (transaction as { date?: string }).date;
+      if (transactionDate) {
+        setDate(new Date(transactionDate));
+      }
     }
+
     setKategoriId(transaction.kategori_id || null);
-    // Load date_end for leave usage date range
-    if ((transaction as { date_end?: string | null }).date_end) {
+    // Load date_end for leave usage date range (only in edit mode)
+    if (!isCopyMode && (transaction as { date_end?: string | null }).date_end) {
       setDateEnd(new Date((transaction as { date_end?: string | null }).date_end!));
     }
     setSourceHesapId(transaction.hesap_id || null);
@@ -301,8 +327,8 @@ export function useQuickTransactionForm({
     setIsCariMode(mappedState.isCariMode);
     setIsPersonelMode(mappedState.isPersonelMode);
 
-    // For scheduled transactions, mark as scheduled
-    if (isScheduledTransaction) {
+    // For scheduled transactions in edit mode, mark as scheduled
+    if (isScheduledTransaction && !isCopyMode) {
       setIsScheduled(true);
     }
 
@@ -322,6 +348,7 @@ export function useQuickTransactionForm({
     setEditDataLoaded(true);
   }, [
     isEditMode,
+    isCopyMode,
     visible,
     editDataLoaded,
     isScheduledTransaction,

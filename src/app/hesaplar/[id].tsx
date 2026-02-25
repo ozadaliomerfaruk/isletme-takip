@@ -53,9 +53,11 @@ interface HesapTransactionItemProps {
   hesapCurrency: Currency;
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
+  onCopy: (id: string) => void;
   onViewPhoto: (path: string, islemId: string) => void;
   t: (key: string) => string;
   deleteLabel: string;
+  copyLabel: string;
   canEdit?: boolean;
 }
 
@@ -197,12 +199,15 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   hesapCurrency,
   onPress,
   onDelete,
+  onCopy,
   onViewPhoto,
   t,
   deleteLabel,
+  copyLabel,
   canEdit = true,
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
+  const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
 
   const target = getTransactionTarget(islem, hesapId);
   const labelKey = getHareketLabelKey(islem.type);
@@ -214,8 +219,10 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   return (
     <SwipeableRow
       onDelete={canEdit ? handleDelete : undefined}
+      onCopy={canEdit ? handleCopy : undefined}
       enabled={canEdit}
       deleteLabel={deleteLabel}
+      copyLabel={copyLabel}
     >
       <TransactionRow
         id={islem.id}
@@ -256,7 +263,7 @@ export default function HesapHareketleriPage() {
   const { formatDateMedium } = useDateFormat();
 
   const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
-  const { data: islemler, isLoading: islemlerLoading } = useIslemlerByHesap(id!);
+  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByHesap(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByHesap(id!);
   const { canUpdate, canDelete } = usePermissions();
@@ -296,6 +303,9 @@ export default function HesapHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Copy transaction state
+  const [copySourceId, setCopySourceId] = useState<string | null>(null);
+  const [showCopyBar, setShowCopyBar] = useState(false);
   // Photo viewer state
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
   const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
@@ -441,6 +451,11 @@ export default function HesapHareketleriPage() {
   const handleEditIslem = useCallback((islemId: string) => {
     setEditTransactionId(islemId);
     setShowEditBar(true);
+  }, []);
+
+  const handleCopyIslem = useCallback((islemId: string) => {
+    setCopySourceId(islemId);
+    setShowCopyBar(true);
   }, []);
 
   const handleViewPhoto = useCallback((path: string, islemId: string) => {
@@ -599,6 +614,7 @@ export default function HesapHareketleriPage() {
 
   // Localized labels for swipe actions (stable refs)
   const deleteLabel = t('common:buttons.delete');
+  const copyLabel = t('common:buttons.copy');
 
   // === FlatList renderItem ===
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
@@ -614,13 +630,15 @@ export default function HesapHareketleriPage() {
         hesapCurrency={(hesap?.currency ?? 'TRY') as Currency}
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
+        onCopy={handleCopyIslem}
         onViewPhoto={handleViewPhoto}
         t={t}
         deleteLabel={deleteLabel}
+        copyLabel={copyLabel}
         canEdit={canEditItem}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleViewPhoto, t, deleteLabel, canDelete]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -753,6 +771,18 @@ export default function HesapHareketleriPage() {
     if (!hesap || islemlerLoading) return null;
     return (
       <View style={styles.section}>
+        {hasNextPage && (
+          <TouchableOpacity
+            style={styles.loadMoreBtn}
+            onPress={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.loadMoreText}>
+              {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
+            </Text>
+          </TouchableOpacity>
+        )}
         {/* Başlangıç Bakiyesi - düzenleme/silme yok */}
         <Card style={styles.hareketCard}>
           <View style={styles.hareketHeader}>
@@ -772,7 +802,7 @@ export default function HesapHareketleriPage() {
         </Card>
       </View>
     );
-  }, [hesap, islemlerLoading, initialBalance, t]);
+  }, [hesap, islemlerLoading, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage]);
 
   // === FlatList ListEmptyComponent ===
   const ListEmpty = useMemo(() => {
@@ -894,6 +924,22 @@ export default function HesapHareketleriPage() {
         onSuccess={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
+        }}
+      />
+
+      {/* Copy Transaction Bar */}
+      <QuickTransactionBar
+        visible={showCopyBar}
+        onDismiss={() => {
+          setShowCopyBar(false);
+          setCopySourceId(null);
+        }}
+        mode="create"
+        copySourceId={copySourceId ?? undefined}
+        defaultHesapId={id}
+        onSuccess={() => {
+          setShowCopyBar(false);
+          setCopySourceId(null);
         }}
       />
 
@@ -1155,6 +1201,20 @@ const styles = StyleSheet.create({
   },
   editBalanceBtn: {
     padding: spacing.xs,
+  },
+  loadMoreBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  loadMoreText: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
   balanceModalOverlay: {
     flex: 1,

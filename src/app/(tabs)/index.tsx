@@ -20,9 +20,12 @@ import {
   UserCheck,
   Truck,
   Search,
+  MoreVertical,
+  Zap,
+  History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, SwipeableRow, SwipeableProvider } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -32,7 +35,7 @@ import { CariPickerSheet } from '@/components/transaction/QuickTransactionBar/co
 import type { Hesap, CariType } from '@/types/database';
 import { DashboardCarousel, InlinePeriodSelector } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { getHesapIcon } from '@/lib/icons';
@@ -63,6 +66,10 @@ export default function HomePage() {
   // CreditCardTransactionBar state
   const [creditCardForTransaction, setCreditCardForTransaction] = useState<Hesap | null>(null);
 
+  // Hesap QuickTransactionBar state
+  const [hesapQuickBarVisible, setHesapQuickBarVisible] = useState(false);
+  const [selectedHesapId, setSelectedHesapId] = useState<string | null>(null);
+
   // Özel tarih aralığı için state'ler
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
@@ -74,6 +81,9 @@ export default function HomePage() {
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+
+  // ExpandableCard için state
+  const [expandedHesapId, setExpandedHesapId] = useState<string | null>(null);
 
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -140,7 +150,7 @@ export default function HomePage() {
     return groups;
   }, [hesaplar]);
 
-  // Kategori toplamlarını hesapla (sadece aktif ve ana para birimi hesapları)
+  // Kategori toplamlarını hesapla (aktif hesaplar, dövizler ana birime çevrilir)
   const categoryTotals = useMemo(() => {
     const totals: Record<string, number> = {
       nakit: 0,
@@ -150,14 +160,21 @@ export default function HomePage() {
     };
 
     Object.entries(groupedHesaplar).forEach(([key, accounts]) => {
-      // Sadece ana para birimi hesaplarını topla - farklı para birimleri karıştırılamaz
       totals[key] = accounts
-        .filter(h => h.is_active && ((h.currency || baseCurrency) === baseCurrency))
-        .reduce((acc, h) => acc + toNumber(h.balance), 0);
+        .filter(h => h.is_active)
+        .reduce((acc, h) => {
+          const balance = toNumber(h.balance);
+          const cur = h.currency || baseCurrency;
+          if (cur === baseCurrency) return acc + balance;
+          if (exchangeRates) {
+            return acc + (convertCurrency(balance, cur, baseCurrency, exchangeRates) ?? 0);
+          }
+          return acc + balance;
+        }, 0);
     });
 
     return totals;
-  }, [groupedHesaplar, baseCurrency]);
+  }, [groupedHesaplar, baseCurrency, exchangeRates]);
 
   // Grup başlık ve ikon tanımları
   const groupConfig: Record<string, { label: string; icon: React.ReactNode }> = {
@@ -628,7 +645,7 @@ export default function HomePage() {
               onAction={() => router.push('/hesaplar/ekle')}
             />
           ) : (
-            <SwipeableProvider>
+            <View>
             {['nakit', 'banka', 'kredi_karti', 'birikim', 'diger'].map((groupKey) => {
               const groupHesaplar = groupedHesaplar[groupKey] || [];
               if (groupHesaplar.length === 0) return null;
@@ -646,61 +663,91 @@ export default function HomePage() {
                     <View style={{ flex: 1 }} />
                     <Text
                       variant="label"
-                      color={categoryTotals[groupKey] >= 0 ? 'primary' : 'error'}
+                      color={(categoryTotals[groupKey] || 0) >= 0 ? 'primary' : 'error'}
                       style={styles.groupTotal}
                     >
-                      {formatCurrency(categoryTotals[groupKey])}
+                      {formatCurrency(categoryTotals[groupKey] || 0)}
                     </Text>
                   </View>
 
                   {/* Grup İçindeki Hesaplar */}
                   {groupHesaplar.map((hesap) => (
                     <View key={hesap.id} style={!hesap.is_active ? styles.passiveItem : undefined}>
-                      <SwipeableRow
-                        onAction={() => router.push(`/hesaplar/${hesap.id}`)}
-                        actionLabel={t('common:archive.actions.makeTransaction')}
-                      >
-                      <TouchableOpacity
-                        style={styles.entityCard}
-                        onPress={() => router.push(`/hesaplar/${hesap.id}`)}
-                        onLongPress={() => {
-                          haptics.selection();
-                          handleOpenHesapActionSheet(hesap);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.hesapHeader}>
-                          {getHesapIcon(hesap.type, 24)}
-                          <View style={styles.hesapInfo}>
-                            <View style={styles.hesapNameRow}>
-                              <Text variant="body">{hesap.name}</Text>
-                              {!hesap.is_active && (
-                                <EyeOff size={14} color={colors.textMuted} />
+                      <ExpandableCard
+                        expanded={expandedHesapId === hesap.id}
+                        onToggle={() => setExpandedHesapId(expandedHesapId === hesap.id ? null : hesap.id)}
+                        header={
+                          <View style={styles.hesapHeader}>
+                            {getHesapIcon(hesap.type, 24)}
+                            <View style={styles.hesapInfo}>
+                              <View style={styles.hesapNameRow}>
+                                <Text variant="body">{hesap.name}</Text>
+                                {!hesap.is_active && (
+                                  <EyeOff size={14} color={colors.textMuted} />
+                                )}
+                              </View>
+                            </View>
+                            <View style={styles.hesapBalance}>
+                              <Text
+                                variant="h3"
+                                color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}
+                              >
+                                {formatCurrency(toNumber(hesap.balance), hesap.currency)}
+                              </Text>
+                              {hesap.currency !== baseCurrency && exchangeRates && (
+                                <Text variant="caption" color="secondary">
+                                  ~{formatCurrency(convertCurrency(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                                </Text>
                               )}
                             </View>
-                          </View>
-                          <View style={styles.hesapBalance}>
-                            <Text
-                              variant="h3"
-                              color={toNumber(hesap.balance) >= 0 ? 'primary' : 'error'}
+                            <TouchableOpacity
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                haptics.selection();
+                                handleOpenHesapActionSheet(hesap);
+                              }}
+                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                              style={styles.moreButton}
                             >
-                              {formatCurrency(toNumber(hesap.balance), hesap.currency)}
-                            </Text>
-                            {hesap.currency !== baseCurrency && exchangeRates && (
-                              <Text variant="caption" color="secondary">
-                                ~{formatCurrency(convertCurrency(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                              </Text>
-                            )}
+                              <MoreVertical size={20} color={colors.textMuted} />
+                            </TouchableOpacity>
                           </View>
+                        }
+                      >
+                        <View style={styles.actionButtons}>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<Zap size={16} color={colors.surface} />}
+                            onPress={() => {
+                              if (hesap.type === 'kredi_karti') {
+                                setCreditCardForTransaction(hesap);
+                              } else {
+                                setSelectedHesapId(hesap.id);
+                                setHesapQuickBarVisible(true);
+                              }
+                            }}
+                            style={styles.actionButton}
+                          >
+                            {t('common:archive.actions.makeTransaction')}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            icon={<History size={16} color={colors.text} />}
+                            onPress={() => router.push(`/hesaplar/${hesap.id}`)}
+                            style={styles.actionButton}
+                          >
+                            {t('clients:actions.viewTransactions')}
+                          </Button>
                         </View>
-                      </TouchableOpacity>
-                      </SwipeableRow>
+                      </ExpandableCard>
                     </View>
                   ))}
                 </View>
               );
             })}
-            </SwipeableProvider>
+            </View>
           )}
         </View>
       </Animated.ScrollView>
@@ -811,6 +858,20 @@ export default function HomePage() {
           creditCard={creditCardForTransaction}
         />
       )}
+
+      {/* Hesap QuickTransactionBar */}
+      <QuickTransactionBar
+        visible={hesapQuickBarVisible}
+        onDismiss={() => {
+          setHesapQuickBarVisible(false);
+          setSelectedHesapId(null);
+        }}
+        defaultHesapId={selectedHesapId || undefined}
+        onSuccess={() => {
+          setHesapQuickBarVisible(false);
+          setSelectedHesapId(null);
+        }}
+      />
 
       {/* Hesap Action Sheet */}
       <ActionSheet
@@ -1103,17 +1164,12 @@ const styles = StyleSheet.create({
   },
   groupLabel: {
     textTransform: 'uppercase',
-    fontSize: 12,
+    fontSize: fontSize.md,
     letterSpacing: 0.5,
   },
   groupTotal: {
-    fontWeight: '600',
-  },
-  entityCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    fontWeight: '700',
+    fontSize: fontSize.lg,
   },
   hesapHeader: {
     flexDirection: 'row',
@@ -1133,6 +1189,16 @@ const styles = StyleSheet.create({
   },
   passiveItem: {
     opacity: 0.5,
+  },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  moreButton: {
+    padding: spacing.xs,
   },
   pickerModalOverlay: {
     flex: 1,

@@ -1,20 +1,29 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Receipt,
   Clock,
+  ListFilter,
+  TrendingUp,
+  TrendingDown,
+  ArrowLeftRight,
+  Users,
+  UserCheck,
+  CalendarPlus,
+  CalendarMinus,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, EmptyState } from '@/components/ui';
+import { Text, FilterChips, SearchInput, EmptyState } from '@/components/ui';
+import type { FilterChipItem } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useIslemler, useDeleteIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
@@ -52,9 +61,11 @@ interface IslemlerTransactionItemProps {
   islem: IslemWithRelations;
   onPress: (id: string) => void;
   onDelete: (id: string, description: string) => void;
+  onCopy: (id: string) => void;
   formatDateMedium: (date: string) => string;
   t: (key: string) => string;
   deleteLabel: string;
+  copyLabel: string;
   canEdit?: boolean;
 }
 
@@ -62,14 +73,21 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   islem,
   onPress,
   onDelete,
+  onCopy,
   formatDateMedium,
   t,
   deleteLabel,
+  copyLabel,
   canEdit = true,
 }: IslemlerTransactionItemProps) {
   const handleDelete = useCallback(
     () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
     [onDelete, islem.id, islem.description, islem.type, t]
+  );
+
+  const handleCopy = useCallback(
+    () => onCopy(islem.id),
+    [onCopy, islem.id]
   );
 
   const entityName = getIslemEntity(islem);
@@ -78,8 +96,10 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   return (
     <SwipeableRow
       onDelete={canEdit ? handleDelete : undefined}
+      onCopy={canEdit ? handleCopy : undefined}
       enabled={canEdit}
       deleteLabel={deleteLabel}
+      copyLabel={copyLabel}
     >
       <TransactionRow
         id={islem.id}
@@ -116,13 +136,16 @@ export default function IslemlerPage() {
   // Edit mode state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Copy mode state
+  const [copySourceId, setCopySourceId] = useState<string | null>(null);
+  const [showCopyBar, setShowCopyBar] = useState(false);
   // Photo viewer state
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
   const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
   const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
 
   const { isletme } = useAuthContext();
-  const { data: islemler, isLoading, isFetching } = useIslemler();
+  const { data: islemler, isLoading, isFetching, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemler();
   const deleteIslem = useDeleteIslem();
   const updateIslem = useUpdateIslem();
   const deletePhoto = useDeleteIslemPhoto();
@@ -160,13 +183,15 @@ export default function IslemlerPage() {
     return () => clearTimeout(timer);
   }, [isLoading, isFetching]);
 
-  const filterOptions = useMemo(() => [
-    { label: t('transactions:filters.all'), value: 'all' },
-    { label: t('transactions:filters.income'), value: 'gelir' },
-    { label: t('transactions:filters.expense'), value: 'gider' },
-    { label: t('transactions:filters.transfer'), value: 'transfer' },
-    { label: t('transactions:filters.client'), value: 'cari' },
-    { label: t('transactions:filters.personnel'), value: 'personel' },
+  const filterChips = useMemo<FilterChipItem[]>(() => [
+    { key: 'all', label: t('transactions:filters.all'), icon: <ListFilter size={14} color={colors.textMuted} /> },
+    { key: 'gelir', label: t('transactions:filters.income'), icon: <TrendingUp size={14} color={colors.success} /> },
+    { key: 'gider', label: t('transactions:filters.expense'), icon: <TrendingDown size={14} color={colors.error} /> },
+    { key: 'transfer', label: t('transactions:filters.transfer'), icon: <ArrowLeftRight size={14} color={colors.info} /> },
+    { key: 'cari', label: t('transactions:filters.client'), icon: <Users size={14} color={colors.orange} /> },
+    { key: 'personel', label: t('transactions:filters.personnel'), icon: <UserCheck size={14} color={colors.success} /> },
+    { key: 'izin_hakki', label: t('transactions:filters.leaveEntitlement'), icon: <CalendarPlus size={14} color={colors.info} /> },
+    { key: 'izin_kullanimi', label: t('transactions:filters.leaveUsage'), icon: <CalendarMinus size={14} color={colors.warning} /> },
   ], [t]);
 
   // Memoized filtreleme - sadece islemler, filter veya searchQuery değiştiğinde çalışır
@@ -185,6 +210,8 @@ export default function IslemlerPage() {
       if (filter === 'transfer') matchesFilter = islem.type === 'transfer';
       if (filter === 'cari') matchesFilter = islem.type.startsWith('cari_');
       if (filter === 'personel') matchesFilter = islem.type.startsWith('personel_');
+      if (filter === 'izin_hakki') matchesFilter = islem.type === 'personel_izin_hakki';
+      if (filter === 'izin_kullanimi') matchesFilter = islem.type === 'personel_izin_kullanimi';
 
       if (!searchQuery) return matchesFilter;
 
@@ -237,6 +264,12 @@ export default function IslemlerPage() {
   const handleEditIslem = useCallback((islemId: string) => {
     setEditTransactionId(islemId);
     setShowEditBar(true);
+  }, []);
+
+  // Copy → open create bar with pre-filled data from source transaction
+  const handleCopyIslem = useCallback((islemId: string) => {
+    setCopySourceId(islemId);
+    setShowCopyBar(true);
   }, []);
 
   const handleViewPhoto = useCallback((photoPath: string, islemId: string) => {
@@ -331,6 +364,7 @@ export default function IslemlerPage() {
 
   // Localized labels for swipe actions (stable refs)
   const deleteLabel = t('common:buttons.delete');
+  const copyLabel = t('common:buttons.copy');
 
   const renderItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
@@ -343,13 +377,15 @@ export default function IslemlerPage() {
         islem={islem}
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
+        onCopy={handleCopyIslem}
         formatDateMedium={formatDateMedium}
         t={t}
         deleteLabel={deleteLabel}
+        copyLabel={copyLabel}
         canEdit={canEditItem}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, formatDateMedium, t, deleteLabel, canDelete]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, formatDateMedium, t, deleteLabel, copyLabel, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -367,12 +403,12 @@ export default function IslemlerPage() {
         />
       </View>
 
-      {/* Filtre */}
+      {/* Filtre Chips */}
       <View style={styles.filterContainer}>
-        <TabFilter options={filterOptions} value={filter} onChange={setFilter} />
+        <FilterChips chips={filterChips} activeKey={filter} onChange={setFilter} />
       </View>
     </View>
-  ), [searchQuery, filterOptions, filter]);
+  ), [searchQuery, filterChips, filter]);
 
   // ============================================================================
   // FlatList Empty component (loading or empty state)
@@ -418,6 +454,18 @@ export default function IslemlerPage() {
           renderItem={renderItem}
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={ListEmpty}
+          ListFooterComponent={hasNextPage ? (
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loadMoreText}>
+                {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
           showsVerticalScrollIndicator={false}
           initialNumToRender={15}
           maxToRenderPerBatch={10}
@@ -440,6 +488,21 @@ export default function IslemlerPage() {
         onSuccess={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
+        }}
+      />
+
+      {/* Copy Transaction Bar */}
+      <QuickTransactionBar
+        visible={showCopyBar}
+        onDismiss={() => {
+          setShowCopyBar(false);
+          setCopySourceId(null);
+        }}
+        mode="create"
+        copySourceId={copySourceId ?? undefined}
+        onSuccess={() => {
+          setShowCopyBar(false);
+          setCopySourceId(null);
         }}
       />
 
@@ -472,6 +535,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  loadMoreBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginVertical: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  loadMoreText: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
   flatListContent: {
     flexGrow: 1,

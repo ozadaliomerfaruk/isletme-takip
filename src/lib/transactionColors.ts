@@ -19,6 +19,7 @@ import type { IslemType } from '@/types/database';
 const COLOR_IN = '#059669';    // Gelen para — yeşil
 const COLOR_OUT = '#DC2626';   // Çıkan para — kırmızı
 const COLOR_NEUTRAL = '#6B7280'; // Nötr — muted
+const COLOR_TRADE = '#2563EB';   // Ticari işlem (satış/alış) — mavi
 
 /**
  * İşlem tipine göre birincil renk döndür.
@@ -89,6 +90,84 @@ export function getTransactionPrefix(type: IslemType): string {
       return '↩ ';
 
     // Transfer ve diğer
+    default:
+      return '';
+  }
+}
+
+// ============================================================================
+// ENTITY PERSPECTIVE COLOR
+// ============================================================================
+
+/**
+ * Cari/Personel detay sayfasında işlem rengini belirler.
+ * Genel kasa perspektifinden değil, cari/personel ilişkisi perspektifinden renk verir.
+ *
+ * 3 kategori:
+ * - Nakit hareketler (ödeme, tahsilat) → mavi (nakit akış)
+ * - Bakiye artıran (satış, izin hakkı) → yeşil
+ * - Bakiye azaltan (alış, gider) → kırmızı
+ * - İade, transfer → nötr gri
+ */
+export function getEntityPerspectiveColor(type: IslemType): string {
+  switch (type) {
+    // Nakit hareketler (ödeme/tahsilat) → mavi
+    case 'cari_odeme':
+    case 'cari_tahsilat':
+    case 'personel_odeme':
+    case 'personel_tahsilat':
+      return COLOR_TRADE;
+
+    // Bakiye artıran ticari işlemler → yeşil
+    case 'cari_satis':
+    case 'personel_satis':
+    case 'personel_izin_hakki':
+      return COLOR_IN;
+
+    // Bakiye azaltan / gider → kırmızı
+    case 'cari_alis':
+    case 'personel_gider':
+    case 'nakit_avans_taksit':
+    case 'personel_izin_kullanimi':
+      return COLOR_OUT;
+
+    // İade, transfer → nötr
+    case 'cari_alis_iade':
+    case 'cari_satis_iade':
+    case 'transfer':
+    default:
+      return COLOR_NEUTRAL;
+  }
+}
+
+/**
+ * Cari/Personel detay sayfasında tutar öneki.
+ * Bakiye etkisini gösterir: bakiye artıran +, bakiye azaltan -.
+ */
+export function getEntityPerspectivePrefix(type: IslemType): string {
+  switch (type) {
+    // Artı prefix: bakiye artıran (satış, ödeme, izin hakkı)
+    case 'cari_satis':
+    case 'cari_odeme':
+    case 'personel_satis':
+    case 'personel_odeme':
+    case 'personel_izin_hakki':
+      return '+';
+
+    // Eksi prefix: bakiye azaltan (alış, tahsilat, gider)
+    case 'cari_alis':
+    case 'cari_tahsilat':
+    case 'personel_gider':
+    case 'personel_tahsilat':
+    case 'nakit_avans_taksit':
+    case 'personel_izin_kullanimi':
+      return '-';
+
+    // İade
+    case 'cari_alis_iade':
+    case 'cari_satis_iade':
+      return '↩ ';
+
     default:
       return '';
   }

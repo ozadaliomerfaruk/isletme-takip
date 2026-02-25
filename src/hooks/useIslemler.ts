@@ -402,7 +402,8 @@ export function useIslemlerByCari(cariId: string) {
         .from('islemler')
         .select(`
           *,
-          kategori:kategoriler(*)
+          kategori:kategoriler(*),
+          hesap:hesaplar!hesap_id(*)
         `)
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)

@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import {
   Phone,
   Briefcase,
+  CalendarDays,
+  Banknote,
   Zap,
   CircleDollarSign,
   Pencil,
@@ -39,6 +41,7 @@ import { IslemWithRelations } from '@/types/database';
 import { LeaveQuotaCard } from '@/components/personel/LeaveQuotaCard';
 import { isLeaveType } from '@/constants/islemTypes';
 import { toErrorMessage } from '@/lib/errors';
+import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
@@ -72,10 +75,12 @@ interface PersonelTransactionItemProps {
   islem: IslemWithRelations;
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
+  onCopy: (id: string) => void;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
   currency?: string;
   deleteLabel: string;
+  copyLabel: string;
   canEdit?: boolean;
 }
 
@@ -83,19 +88,22 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   islem,
   onPress,
   onDelete,
+  onCopy,
   formatDateSmart,
   t,
   currency,
   deleteLabel,
+  copyLabel,
   canEdit = true,
 }: PersonelTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
+  const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
 
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = t(labelKey);
 
   return (
-    <SwipeableRow onDelete={canEdit ? handleDelete : undefined} enabled={canEdit} deleteLabel={deleteLabel}>
+    <SwipeableRow onDelete={canEdit ? handleDelete : undefined} onCopy={canEdit ? handleCopy : undefined} enabled={canEdit} deleteLabel={deleteLabel} copyLabel={copyLabel}>
       <TransactionRow
         id={islem.id}
         type={islem.type}
@@ -104,6 +112,8 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         typeLabel={typeLabel}
         secondaryText={islem.kategori?.name || islem.description || null}
         currency={currency}
+        overrideColor={getEntityPerspectiveColor(islem.type)}
+        overridePrefix={getEntityPerspectivePrefix(islem.type)}
         onPress={onPress}
       />
     </SwipeableRow>
@@ -129,7 +139,7 @@ export default function PersonelHareketleriPage() {
   const insets = useSafeAreaInsets();
 
   const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
-  const { data: islemler, isLoading: islemlerLoading } = useIslemlerByPersonel(id!);
+  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const { canUpdate, canDelete } = usePermissions();
   const deleteIslem = useDeleteIslem();
@@ -147,6 +157,9 @@ export default function PersonelHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Copy transaction state
+  const [copySourceId, setCopySourceId] = useState<string | null>(null);
+  const [showCopyBar, setShowCopyBar] = useState(false);
 
   const {
     pendingDeleteIds,
@@ -272,6 +285,11 @@ export default function PersonelHareketleriPage() {
     setShowEditBar(true);
   }, []);
 
+  const handleCopyIslem = useCallback((islemId: string) => {
+    setCopySourceId(islemId);
+    setShowCopyBar(true);
+  }, []);
+
   const handleDeletePersonel = useCallback(() => {
     setShowMenu(false);
     Alert.alert(
@@ -341,6 +359,7 @@ export default function PersonelHareketleriPage() {
   }, [islemler, pendingDeleteIds, t, formatDateSmart]);
 
   const deleteLabel = t('common:buttons.delete');
+  const copyLabel = t('common:buttons.copy');
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
@@ -353,14 +372,16 @@ export default function PersonelHareketleriPage() {
         islem={islem}
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
+        onCopy={handleCopyIslem}
         formatDateSmart={formatDateSmart}
         t={t}
         currency={personel?.currency}
         deleteLabel={deleteLabel}
+        copyLabel={copyLabel}
         canEdit={canEditItem}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, formatDateSmart, t, personel?.currency, deleteLabel, canDelete]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, formatDateSmart, t, personel?.currency, deleteLabel, copyLabel, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -394,6 +415,22 @@ export default function PersonelHareketleriPage() {
                   <Phone size={14} color={colors.textMuted} />
                   <Text variant="caption" color="secondary">
                     {personel.phone}
+                  </Text>
+                </View>
+              )}
+              {personel.start_date && (
+                <View style={styles.infoRow}>
+                  <CalendarDays size={14} color={colors.textMuted} />
+                  <Text variant="caption" color="secondary">
+                    {formatDateShort(personel.start_date)}
+                  </Text>
+                </View>
+              )}
+              {personel.salary != null && personel.salary > 0 && (
+                <View style={styles.infoRow}>
+                  <Banknote size={14} color={colors.textMuted} />
+                  <Text variant="caption" color="secondary">
+                    {formatCurrency(personel.salary, personel.currency)}
                   </Text>
                 </View>
               )}
@@ -461,6 +498,18 @@ export default function PersonelHareketleriPage() {
     if (!personel) return null;
     return (
       <View style={styles.section}>
+        {hasNextPage && (
+          <TouchableOpacity
+            style={styles.loadMoreBtn}
+            onPress={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.loadMoreText}>
+              {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
+            </Text>
+          </TouchableOpacity>
+        )}
         <Card style={styles.hareketCard}>
           <View style={styles.hareketHeader}>
             <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
@@ -488,7 +537,7 @@ export default function PersonelHareketleriPage() {
         </Card>
       </View>
     );
-  }, [personel, initialBalance, handleOpenEditBalance, t]);
+  }, [personel, initialBalance, handleOpenEditBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage]);
 
   // ============================================================================
   // FlatList Empty component
@@ -640,6 +689,22 @@ export default function PersonelHareketleriPage() {
           onSuccess={() => {
             setShowEditBar(false);
             setEditTransactionId(null);
+          }}
+        />
+
+        {/* Copy Transaction Bar */}
+        <QuickTransactionBar
+          visible={showCopyBar}
+          onDismiss={() => {
+            setShowCopyBar(false);
+            setCopySourceId(null);
+          }}
+          mode="create"
+          copySourceId={copySourceId ?? undefined}
+          defaultPersonelId={personel?.id}
+          onSuccess={() => {
+            setShowCopyBar(false);
+            setCopySourceId(null);
           }}
         />
 
@@ -875,6 +940,20 @@ const styles = StyleSheet.create({
   },
   editBalanceBtn: {
     padding: spacing.xs,
+  },
+  loadMoreBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  loadMoreText: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
   balanceModalOverlay: {
     flex: 1,

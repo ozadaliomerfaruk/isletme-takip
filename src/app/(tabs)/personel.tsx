@@ -18,9 +18,12 @@ import {
   Circle,
   CheckSquare,
   ArrowUpDown,
+  MoreVertical,
+  Zap,
+  History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem, SwipeableRow, SwipeableProvider } from '@/components/ui';
+import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, SkeletonSummaryPair, Avatar, AnimatedListItem, ExpandableCard } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -46,6 +49,9 @@ export default function PersonelPage() {
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
+
+  // ExpandableCard için state
+  const [expandedPersonelId, setExpandedPersonelId] = useState<string | null>(null);
 
   // Multi-select state
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -358,83 +364,113 @@ export default function PersonelPage() {
             </View>
           </TouchableOpacity>
         ) : (
-          <SwipeableRow
-            onAction={() => {
-              setSelectedPersonelId(personel.id);
-              setQuickBarVisible(true);
-            }}
-            actionLabel={t('common:archive.actions.makeTransaction')}
-          >
-          <TouchableOpacity
-            onPress={() => router.push(`/personel/${personel.id}`)}
-            onLongPress={() => {
-              haptics.selection();
-              handleOpenActionSheet(personel);
-            }}
-            activeOpacity={0.7}
-            style={styles.entityCard}
-          >
-            <View style={styles.personelHeader}>
-              <Avatar name={`${personel.first_name} ${personel.last_name}`} size={40} />
-              <View style={styles.personelInfo}>
-                <View style={styles.personelNameRow}>
-                  <Text variant="body">
-                    {personel.first_name} {personel.last_name}
-                  </Text>
-                  {!personel.is_active && (
-                    <EyeOff size={14} color={colors.textMuted} />
-                  )}
+          <ExpandableCard
+            expanded={expandedPersonelId === personel.id}
+            onToggle={() => setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id)}
+            header={
+              <View style={styles.personelHeader}>
+                <Avatar name={`${personel.first_name} ${personel.last_name}`} size={40} />
+                <View style={styles.personelInfo}>
+                  <View style={styles.personelNameRow}>
+                    <Text variant="body">
+                      {personel.first_name} {personel.last_name}
+                    </Text>
+                    {!personel.is_active && (
+                      <EyeOff size={14} color={colors.textMuted} />
+                    )}
+                  </View>
+                  <View style={styles.personelMeta}>
+                    {personel.position && (
+                      <>
+                        <Briefcase size={12} color={colors.textMuted} />
+                        <Text variant="caption" color="secondary">
+                          {personel.position}
+                        </Text>
+                      </>
+                    )}
+                    {personel.phone && (
+                      <>
+                        <Phone size={12} color={colors.textMuted} style={{ marginLeft: spacing.sm }} />
+                        <Text variant="caption" color="secondary">
+                          {personel.phone}
+                        </Text>
+                      </>
+                    )}
+                  </View>
                 </View>
-                <View style={styles.personelMeta}>
-                  {personel.position && (
-                    <>
-                      <Briefcase size={12} color={colors.textMuted} />
-                      <Text variant="caption" color="secondary">
-                        {personel.position}
-                      </Text>
-                    </>
-                  )}
-                  {personel.phone && (
-                    <>
-                      <Phone size={12} color={colors.textMuted} style={{ marginLeft: spacing.sm }} />
-                      <Text variant="caption" color="secondary">
-                        {personel.phone}
-                      </Text>
-                    </>
-                  )}
-                </View>
-              </View>
-              <View style={styles.personelBalance}>
-                <Text variant="caption" color="secondary">
-                  {getBalanceLabel(toNumber(personel.balance))}
-                </Text>
-                <Text
-                  variant="h3"
-                  color={getBalanceColor(toNumber(personel.balance))}
-                >
-                  {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
-                </Text>
-                {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
+                <View style={styles.personelBalance}>
                   <Text variant="caption" color="secondary">
-                    ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                    {getBalanceLabel(toNumber(personel.balance))}
                   </Text>
-                )}
+                  <Text
+                    variant="h3"
+                    color={getBalanceColor(toNumber(personel.balance))}
+                  >
+                    {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
+                  </Text>
+                  {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
+                    <Text variant="caption" color="secondary">
+                      ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                    </Text>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    haptics.selection();
+                    handleOpenActionSheet(personel);
+                  }}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  style={styles.moreButton}
+                >
+                  <MoreVertical size={20} color={colors.textMuted} />
+                </TouchableOpacity>
               </View>
+            }
+          >
+            <View style={styles.actionButtons}>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Zap size={16} color={colors.surface} />}
+                onPress={() => {
+                  setSelectedPersonelId(personel.id);
+                  setQuickBarVisible(true);
+                }}
+                style={styles.actionButton}
+              >
+                {t('common:archive.actions.makeTransaction')}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<History size={16} color={colors.text} />}
+                onPress={() => router.push(`/personel/${personel.id}`)}
+                style={styles.actionButton}
+              >
+                {t('clients:actions.viewTransactions')}
+              </Button>
             </View>
-          </TouchableOpacity>
-          </SwipeableRow>
+          </ExpandableCard>
         )}
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor]);
+  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor]);
 
   // FlatList ListHeaderComponent - header, özet ve arama
   const ListHeader = useMemo(() => (
     <>
       {/* Header */}
       <View style={styles.header}>
-        <Text variant="h2">{t('staff:titles.personnel')}</Text>
+        <View>
+          <Text variant="h2">{t('staff:titles.personnel')}</Text>
+          {personelList && personelList.length > 0 && (
+            <Text variant="caption" color="secondary">
+              {t('staff:messages.personnelCount', { count: personelList.length })}
+            </Text>
+          )}
+        </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={styles.sortButton}
@@ -466,6 +502,10 @@ export default function PersonelPage() {
           <Text variant="caption" color="secondary">{t('staff:balance.theyOwe')}</Text>
           <Text variant="h3" color="success">{formatCurrency(receivables.personel, baseCurrency)}</Text>
         </Card>
+        <Card style={styles.summaryCard}>
+          <Text variant="caption" color="secondary">{t('common:labels.total')}</Text>
+          <Text variant="h3">{personelList?.length ?? 0}</Text>
+        </Card>
       </View>
 
       {/* Arama */}
@@ -480,7 +520,7 @@ export default function PersonelPage() {
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, payables.personel, receivables.personel, searchQuery, isLoading]);
+  ), [t, router, payables.personel, receivables.personel, searchQuery, isLoading, personelList]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {
@@ -502,7 +542,6 @@ export default function PersonelPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <SwipeableProvider>
       <FlatList
         style={styles.scrollView}
         data={isLoading ? [] : filteredPersonel}
@@ -520,10 +559,9 @@ export default function PersonelPage() {
         windowSize={5}
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
-        extraData={{ selectedIds, isSelectMode, sortBy }}
+        extraData={{ selectedIds, isSelectMode, sortBy, expandedPersonelId }}
         contentContainerStyle={styles.listContainer}
       />
-      </SwipeableProvider>
 
       {/* FAB Backdrop */}
       {fabMenuVisible && (
@@ -780,11 +818,15 @@ const styles = StyleSheet.create({
   personelBalance: {
     alignItems: 'flex-end',
   },
-  entityCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+  actionButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+  },
+  moreButton: {
+    padding: spacing.xs,
   },
   // FAB Styles
   fab: {

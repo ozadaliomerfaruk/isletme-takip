@@ -4,6 +4,7 @@
     "save": "Kaydet",
     "cancel": "İptal",
     "delete": "Sil",
+    "copy": "Kopyala",
     "edit": "Düzenle",
     "add": "Ekle",
     "close": "Kapat",
@@ -208,6 +209,7 @@
   "labels": {
     "name": "Ad",
     "title": "Başlık",
+    "total": "Toplam",
     "description": "Açıklama",
     "note": "Not",
     "notes": "Notlar",
@@ -361,6 +363,7 @@
   "archive": {
     "title": "Arşiv",
     "tabs": {
+      "all": "Hepsi",
       "accounts": "Hesaplar",
       "suppliers": "Tedarikçiler",
       "customers": "Müşteriler",

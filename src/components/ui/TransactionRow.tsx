@@ -5,8 +5,10 @@ import { Text } from './Text';
 import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize, fontWeight, borderRadius } from '@/constants/spacing';
+import { useTranslation } from 'react-i18next';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
+import { isLeaveType } from '@/constants/islemTypes';
 import type { IslemType } from '@/types/database';
 
 // ============================================================================
@@ -54,9 +56,14 @@ export const TransactionRow = memo(function TransactionRow({
   const handlePress = useCallback(() => onPress?.(id), [onPress, id]);
   const handleLongPress = useCallback(() => onLongPress?.(id), [onLongPress, id]);
 
+  const { t } = useTranslation(['staff']);
   const txColor = overrideColor ?? getTransactionColor(type);
   const prefix = overridePrefix ?? getTransactionPrefix(type);
   const numAmount = typeof amount === 'string' ? toNumber(amount) : amount;
+  const isLeave = isLeaveType(type);
+  const formattedAmount = isLeave
+    ? `${Math.abs(numAmount)} ${t('staff:leave.days')}`
+    : formatCurrency(Math.abs(numAmount), currency);
 
   return (
     <TouchableOpacity
@@ -117,7 +124,7 @@ export const TransactionRow = memo(function TransactionRow({
             <ImageIcon size={14} color={colors.primary} style={styles.photoIcon} />
           )}
           <Text style={[styles.amountText, { color: txColor }]}>
-            {prefix}{formatCurrency(Math.abs(numAmount), currency)}
+            {prefix}{formattedAmount}
           </Text>
         </View>
         {subAmount && (

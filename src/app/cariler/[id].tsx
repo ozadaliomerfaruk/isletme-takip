@@ -44,6 +44,7 @@ import { useCariLinkStatus } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { toErrorMessage } from '@/lib/errors';
+import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
@@ -54,10 +55,12 @@ interface CariTransactionItemProps {
   islem: IslemWithRelations;
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
+  onCopy: (id: string) => void;
   hasUrunFn: (id: string) => boolean;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
   deleteLabel: string;
+  copyLabel: string;
   currency?: string;
   canEdit?: boolean;
 }
@@ -108,23 +111,33 @@ const CariTransactionItem = memo(function CariTransactionItem({
   islem,
   onPress,
   onDelete,
+  onCopy,
   hasUrunFn,
   formatDateSmart,
   t,
   deleteLabel,
+  copyLabel,
   currency,
   canEdit = true,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
+  const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
 
   const labelKey = getCariHareketLabelKey(islem.type);
   const typeLabel = labelKey ? t(labelKey) : islem.type;
 
+  // Ödeme/tahsilat işlemlerinde hangi hesaba yapıldığını göster
+  const entityText = (islem.type === 'cari_odeme' || islem.type === 'cari_tahsilat')
+    ? islem.hesap?.name || null
+    : null;
+
   return (
     <SwipeableRow
       onDelete={canEdit ? handleDelete : undefined}
+      onCopy={canEdit ? handleCopy : undefined}
       enabled={canEdit}
       deleteLabel={deleteLabel}
+      copyLabel={copyLabel}
     >
       <TransactionRow
         id={islem.id}
@@ -132,10 +145,13 @@ const CariTransactionItem = memo(function CariTransactionItem({
         amount={getCariDisplayAmount(islem)}
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
+        entityText={entityText}
         secondaryText={islem.description || islem.kategori?.name || null}
         hasPhoto={hasUrunFn(islem.id)}
         currency={currency}
         subAmount={getCariSubAmount(islem)}
+        overrideColor={getEntityPerspectiveColor(islem.type)}
+        overridePrefix={getEntityPerspectivePrefix(islem.type)}
         onPress={onPress}
       />
     </SwipeableRow>
@@ -161,7 +177,7 @@ export default function CariHareketleriPage() {
   const exchangeRates = exchangeRatesData?.rates;
 
   const { data: cari, isLoading: cariLoading, refetch: refetchCari } = useCari(id!);
-  const { data: islemler, isLoading: islemlerLoading } = useIslemlerByCari(id!);
+  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByCari(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
   const { data: linkStatus } = useCariLinkStatus(id);
@@ -191,6 +207,9 @@ export default function CariHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Copy transaction state
+  const [copySourceId, setCopySourceId] = useState<string | null>(null);
+  const [showCopyBar, setShowCopyBar] = useState(false);
 
   // Undo delete hook
   const {
@@ -296,6 +315,11 @@ export default function CariHareketleriPage() {
     setShowEditBar(true);
   }, []);
 
+  const handleCopyIslem = useCallback((islemId: string) => {
+    setCopySourceId(islemId);
+    setShowCopyBar(true);
+  }, []);
+
   const handleDeleteCari = () => {
     setShowMenu(false);
     Alert.alert(
@@ -373,6 +397,7 @@ export default function CariHareketleriPage() {
 
   // === FlatList renderItem ===
   const deleteLabel = t('common:buttons.delete');
+  const copyLabel = t('common:buttons.copy');
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
@@ -385,15 +410,17 @@ export default function CariHareketleriPage() {
         islem={islem}
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
+        onCopy={handleCopyIslem}
         hasUrunFn={hasUrun}
         formatDateSmart={formatDateSmart}
         t={t}
         deleteLabel={deleteLabel}
+        copyLabel={copyLabel}
         currency={cari?.currency}
         canEdit={canEditItem}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, hasUrun, formatDateSmart, t, deleteLabel, cari?.currency, canEditTransactions, canDelete]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, hasUrun, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -510,6 +537,18 @@ export default function CariHareketleriPage() {
     if (!cari || islemlerLoading) return null;
     return (
       <View style={styles.section}>
+        {hasNextPage && (
+          <TouchableOpacity
+            style={styles.loadMoreBtn}
+            onPress={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.loadMoreText}>
+              {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
+            </Text>
+          </TouchableOpacity>
+        )}
         <Card style={styles.hareketCard}>
           <View style={styles.hareketHeader}>
             <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
@@ -539,7 +578,7 @@ export default function CariHareketleriPage() {
         </Card>
       </View>
     );
-  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isViewer]);
+  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isViewer, hasNextPage, fetchNextPage, isFetchingNextPage]);
 
   if (cariLoading) {
     return (
@@ -646,6 +685,23 @@ export default function CariHareketleriPage() {
           onSuccess={() => {
             setShowEditBar(false);
             setEditTransactionId(null);
+          }}
+        />
+
+        {/* Copy Transaction Bar */}
+        <QuickTransactionBar
+          visible={showCopyBar}
+          onDismiss={() => {
+            setShowCopyBar(false);
+            setCopySourceId(null);
+          }}
+          mode="create"
+          copySourceId={copySourceId ?? undefined}
+          defaultCariId={cari?.id}
+          defaultCariType={cari?.type}
+          onSuccess={() => {
+            setShowCopyBar(false);
+            setCopySourceId(null);
           }}
         />
 
@@ -895,6 +951,20 @@ const styles = StyleSheet.create({
   },
   editBalanceBtn: {
     padding: spacing.xs,
+  },
+  loadMoreBtn: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  loadMoreText: {
+    color: colors.primary,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
   },
   balanceModalOverlay: {
     flex: 1,
