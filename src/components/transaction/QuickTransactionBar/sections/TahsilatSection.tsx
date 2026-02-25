@@ -168,7 +168,7 @@ export function TahsilatSection({
           <UserCheck size={18} color={colors.success} />
           <Text style={styles.pickerButtonText}>
             {selectedPersonel
-              ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
+              ? `${selectedPersonel.first_name}${selectedPersonel.last_name ? ` ${selectedPersonel.last_name}` : ''}`
               : t('staff:transactionForm.selectPersonel')}
           </Text>
           {selectedPersonel && (

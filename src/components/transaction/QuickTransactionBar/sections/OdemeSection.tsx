@@ -145,7 +145,7 @@ export function OdemeSection({
           <UserCheck size={18} color={colors.orange} />
           <Text style={styles.pickerButtonText}>
             {selectedPersonel
-              ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
+              ? `${selectedPersonel.first_name}${selectedPersonel.last_name ? ` ${selectedPersonel.last_name}` : ''}`
               : t('staff:transactionForm.selectPersonel')}
           </Text>
           {selectedPersonel && (

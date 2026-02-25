@@ -105,6 +105,8 @@
     "transferCompleted": "Transfer completed",
     "selectAccountRequired": "Please select an account",
     "saveFailedRetry": "Transaction could not be saved. Please try again.",
+    "photoUploadFailed": "Transaction saved but photo upload failed.",
+    "urunMovementFailed": "Transaction saved but product stock movement could not be created.",
     "addAsIncome": "Add as income",
     "addAsExpense": "Add as expense",
     "loading": "Loading transactions...",

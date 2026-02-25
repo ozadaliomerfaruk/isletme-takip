@@ -128,7 +128,7 @@ export function useOcrImport(sessionId: string) {
     return '';
   }, []);
 
-  // Helper: build cari transaction from invoice
+  // Helper: build cari transaction from invoice (returns islem ID)
   const createCariTransaction = useCallback(async (
     invoice: OcrParsedInvoice,
     hareketTipi: UrunHareketTipi,
@@ -136,11 +136,11 @@ export function useOcrImport(sessionId: string) {
     invoiceRef: string,
     dateInfo: string,
     hesapId?: string,
-  ) => {
+  ): Promise<string> => {
     const islemType: IslemType = hareketTipi === 'giris' ? 'cari_alis' : 'cari_satis';
     const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
-    await createIslem.mutateAsync({
+    const newIslem = await createIslem.mutateAsync({
       type: islemType,
       amount: totalAmount,
       cari_id: invoice.supplierMatchCariId!,
@@ -152,6 +152,8 @@ export function useOcrImport(sessionId: string) {
     invalidateRelatedQueries(queryClient, 'islem');
     invalidateRelatedQueries(queryClient, 'cari');
     if (hesapId) invalidateRelatedQueries(queryClient, 'hesap');
+
+    return newIslem.id;
   }, [createIslem, queryClient, parseDateForDB, buildOcrDescription]);
 
   // Helper: check for duplicate invoice
@@ -467,7 +469,15 @@ export function useOcrImport(sessionId: string) {
           const totalAmount = options?.editedGrandTotal
             ?? invoice.grandTotal
             ?? itemsToSave.reduce((sum, item) => sum + item.totalPrice, 0);
-          await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId);
+          const islemId = await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId);
+
+          // Link urun_hareketler to the created islem
+          if (islemId && createdIds.current.hareketIds.length > 0) {
+            await supabase
+              .from('urun_hareketler')
+              .update({ islem_id: islemId })
+              .in('id', createdIds.current.hareketIds);
+          }
         }
       }
 

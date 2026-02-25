@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,7 +22,7 @@ interface ExpandableCardProps {
   // Controlled mode props
   expanded?: boolean;
   onToggle?: () => void;
-  // Performance: FlatList içinde LayoutAnimation kapatmak için (compat, artık gerek yok)
+  // Compat prop (no longer needed, kept for API compatibility)
   disableAnimation?: boolean;
 }
 
@@ -44,9 +44,10 @@ export function ExpandableCard({
   const isControlled = controlledExpanded !== undefined;
   const expanded = isControlled ? controlledExpanded : internalExpanded;
 
-  // Content opacity + height animation
-  const contentOpacity = useSharedValue(expanded ? 1 : 0);
+  // Track previous expanded to detect changes
+  const prevExpanded = useRef(expanded);
   const [showContent, setShowContent] = useState(expanded);
+  const contentOpacity = useSharedValue(expanded ? 1 : 0);
 
   const animatedContentStyle = useAnimatedStyle(() => ({
     opacity: contentOpacity.value,
@@ -56,29 +57,32 @@ export function ExpandableCard({
     setShowContent(false);
   }, []);
 
+  // Sync animation when expanded state changes
+  useEffect(() => {
+    if (expanded === prevExpanded.current) return;
+    prevExpanded.current = expanded;
+
+    if (expanded) {
+      // Opening: show content, fade in
+      setShowContent(true);
+      contentOpacity.value = withTiming(1, TIMING_CONFIG);
+    } else {
+      // Closing: fade out, then unmount content
+      contentOpacity.value = withTiming(0, { ...TIMING_CONFIG, duration: 150 }, (finished) => {
+        if (finished) {
+          runOnJS(handleHideContent)();
+        }
+      });
+    }
+  }, [expanded, contentOpacity, handleHideContent]);
+
   const toggleExpand = useCallback(() => {
     if (isControlled && onToggle) {
-      // For controlled mode, parent manages the state
-      // We animate based on the new value in next render
       onToggle();
     } else {
       setInternalExpanded((prev) => !prev);
     }
   }, [isControlled, onToggle]);
-
-  // Sync animation with expanded state
-  if (expanded && !showContent) {
-    // Opening: show content immediately, fade in
-    setShowContent(true);
-    contentOpacity.value = withTiming(1, TIMING_CONFIG);
-  } else if (!expanded && showContent) {
-    // Closing: fade out, then hide content
-    contentOpacity.value = withTiming(0, { ...TIMING_CONFIG, duration: 150 }, (finished) => {
-      if (finished) {
-        runOnJS(handleHideContent)();
-      }
-    });
-  }
 
   return (
     <View style={styles.container}>

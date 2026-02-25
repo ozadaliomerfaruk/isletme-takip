@@ -346,23 +346,6 @@ export function useTransactionSubmit({
         }
       }
 
-      // Cari mode cross-currency check - compare hesap currency with cari currency
-      if (isCariMode && ['odeme', 'tahsilat'].includes(type) && sourceHesapId && cariId) {
-        const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
-        const targetCari = cariler?.find((c) => c.id === cariId);
-        const sourceCurr = sourceAcc?.currency || 'TRY';
-        const targetCurr = targetCari?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, targetCurr)) {
-          setPendingExchangeData({
-            sourceCurrency: sourceCurr as Currency,
-            targetCurrency: targetCurr as Currency,
-            sourceAmount: parsedAmount,
-          });
-          setShowExchangeRateBar(true);
-          return true;
-        }
-      }
-
       // Normal mode personel payment cross-currency check - compare hesap currency with personel currency
       if (!isPersonelMode && type === 'odeme' && odemeHedefType === 'staff' && hesapId && personelId) {
         const sourceAcc = hesaplar?.find((h) => h.id === hesapId);
@@ -661,9 +644,8 @@ export function useTransactionSubmit({
               });
               console.log('[PhotoUpload] Transaction updated with photo_path');
             } catch (photoError) {
-              // Log photo upload error but don't fail the transaction
               console.error('[PhotoUpload] Error:', photoError);
-              // Transaction was created successfully, just photo upload failed
+              Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
             }
           }
 
@@ -673,9 +655,8 @@ export function useTransactionSubmit({
               await createUrunHareketler(type, description.trim(), newIslem.id);
               console.log('[UrunHareket] Urun movements created successfully');
             } catch (urunError) {
-              // Log urun movement error but don't fail the transaction
               console.error('[UrunHareket] Error creating urun movements:', urunError);
-              // Transaction was created successfully, urun movement creation failed
+              Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
             }
           }
         }

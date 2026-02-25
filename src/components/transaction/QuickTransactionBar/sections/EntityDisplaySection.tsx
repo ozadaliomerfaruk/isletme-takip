@@ -131,7 +131,7 @@ export function EntityDisplaySection({
         <View style={[styles.sourceAccountRow, { backgroundColor: colors.successLight }]}>
           <UserCheck size={16} color={colors.success} />
           <Text style={styles.sourceAccountText}>
-            {selectedPersonel.first_name} {selectedPersonel.last_name}
+            {selectedPersonel.first_name}{selectedPersonel.last_name ? ` ${selectedPersonel.last_name}` : ''}
           </Text>
           <Text
             style={[
