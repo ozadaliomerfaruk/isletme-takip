@@ -602,6 +602,39 @@ export function useDeleteIslem() {
       // Önce bakiyeleri geri al (silme başarısız olursa geri alınabilir)
       await reverseBalances(islem);
 
+      // Bağlı ürün hareketlerini geri al ve sil
+      const { data: urunHareketler } = await supabase
+        .from('urun_hareketler')
+        .select('*')
+        .eq('islem_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (urunHareketler && urunHareketler.length > 0) {
+        for (const hareket of urunHareketler) {
+          // Stok miktarını geri al
+          let miktarDegisim: number;
+          if (hareket.hareket_tipi === 'giris') {
+            miktarDegisim = -Math.abs(hareket.miktar);
+          } else if (hareket.hareket_tipi === 'cikis') {
+            miktarDegisim = Math.abs(hareket.miktar);
+          } else {
+            miktarDegisim = -hareket.miktar;
+          }
+
+          await supabase.rpc('update_urun_miktar', {
+            p_urun_id: hareket.urun_id,
+            p_miktar_degisim: miktarDegisim,
+          });
+        }
+
+        // Ürün hareketlerini sil
+        await supabase
+          .from('urun_hareketler')
+          .delete()
+          .eq('islem_id', id)
+          .eq('isletme_id', isletme.id);
+      }
+
       // Sonra işlemi sil - ownership kontrolü ile
       const { error } = await supabase
         .from('islemler')
@@ -624,6 +657,7 @@ export function useDeleteIslem() {
     onSuccess: () => {
       // Merkezi invalidation helper kullan
       invalidateRelatedQueries(queryClient, 'islem');
+      invalidateRelatedQueries(queryClient, 'urunHareket');
     },
   });
 }

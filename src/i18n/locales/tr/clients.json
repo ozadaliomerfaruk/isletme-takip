@@ -240,5 +240,9 @@
     "noLinksDescription": "Bir cari hesabını paylaşarak diğer işletmelerle karşılıklı bakiye takibi yapabilirsiniz.",
     "enterCode": "6 haneli kodu girin",
     "partnerBusiness": "Paylaşan İşletme"
+  },
+  "productDetail": {
+    "title": "Fatura Ürün Detayları",
+    "noProducts": "Bu işleme ait ürün bulunamadı"
   }
 }

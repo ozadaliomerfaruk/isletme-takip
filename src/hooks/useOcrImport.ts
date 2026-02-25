@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
+import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useCreateUrun, useUrunler } from '@/hooks/useUrunler';
@@ -10,6 +11,7 @@ import { useUrunAliases } from '@/hooks/useUrunAliases';
 import { useCariAliases } from '@/hooks/useCariAliases';
 import { useCreateIrsaliyeRecord } from '@/hooks/useIrsaliyeRecords';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { supabase } from '@/lib/supabase';
 import { recognizeInvoice } from '@/lib/ocrEngine';
 import { matchItemsToProducts, matchSupplier } from '@/lib/fuzzyMatch';
 import { formatDateTimeForDB } from '@/lib/date';
@@ -119,6 +121,13 @@ export function useOcrImport(sessionId: string) {
     return formatDateTimeForDB(d);
   }, []);
 
+  // Helper: build description from invoice
+  const buildOcrDescription = useCallback((invoiceNumber: string | null, dateInfo: string): string => {
+    if (invoiceNumber) return `Fatura: ${invoiceNumber}`;
+    if (dateInfo) return `Fatura: ${dateInfo}`;
+    return '';
+  }, []);
+
   // Helper: build cari transaction from invoice
   const createCariTransaction = useCallback(async (
     invoice: OcrParsedInvoice,
@@ -129,9 +138,7 @@ export function useOcrImport(sessionId: string) {
     hesapId?: string,
   ) => {
     const islemType: IslemType = hareketTipi === 'giris' ? 'cari_alis' : 'cari_satis';
-    const aciklama = dateInfo
-      ? `OCR import - ${invoiceRef} - Tarih: ${dateInfo}`
-      : `OCR import - ${invoiceRef}`;
+    const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
     await createIslem.mutateAsync({
       type: islemType,
@@ -145,7 +152,29 @@ export function useOcrImport(sessionId: string) {
     invalidateRelatedQueries(queryClient, 'islem');
     invalidateRelatedQueries(queryClient, 'cari');
     if (hesapId) invalidateRelatedQueries(queryClient, 'hesap');
-  }, [createIslem, queryClient, parseDateForDB]);
+  }, [createIslem, queryClient, parseDateForDB, buildOcrDescription]);
+
+  // Helper: check for duplicate invoice
+  const checkDuplicateInvoice = useCallback(async (
+    invoiceNumber: string | null,
+    cariId: string | null,
+  ): Promise<boolean> => {
+    if (!invoiceNumber || !isletme) return false;
+
+    const query = supabase
+      .from('islemler')
+      .select('id')
+      .eq('isletme_id', isletme.id)
+      .ilike('description', `%${invoiceNumber}%`)
+      .limit(1);
+
+    if (cariId) {
+      query.eq('cari_id', cariId);
+    }
+
+    const { data } = await query;
+    return (data && data.length > 0) || false;
+  }, [isletme]);
 
   // Save a single invoice
   const saveImport = useCallback(async (
@@ -161,6 +190,30 @@ export function useOcrImport(sessionId: string) {
     try {
       const invoiceRef = invoice.invoiceNumber || sessionId;
       const dateInfo = invoice.invoiceDate || '';
+
+      // Mükerrer fatura kontrolü
+      if (invoice.invoiceNumber) {
+        const isDuplicate = await checkDuplicateInvoice(
+          invoice.invoiceNumber,
+          invoice.supplierMatchCariId || null,
+        );
+        if (isDuplicate) {
+          const confirmed = await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              'Mükerrer Fatura',
+              `"${invoice.invoiceNumber}" numaralı fatura daha önce kaydedilmiş olabilir. Yine de kaydetmek istiyor musunuz?`,
+              [
+                { text: 'İptal', style: 'cancel', onPress: () => resolve(false) },
+                { text: 'Kaydet', onPress: () => resolve(true) },
+              ],
+            );
+          });
+          if (!confirmed) {
+            setIsSaving(false);
+            return { productCount: 0, movementCount: 0 };
+          }
+        }
+      }
 
       // ===== direct_gider: Create expense transaction =====
       if (saveMode === 'direct_gider') {
@@ -178,9 +231,7 @@ export function useOcrImport(sessionId: string) {
 
         setSaveProgress({ total: 1, current: 0, currentItemName: '', phase: 'creating_movements' });
 
-        const aciklama = dateInfo
-          ? `OCR import - ${invoiceRef} - Tarih: ${dateInfo}`
-          : `OCR import - ${invoiceRef}`;
+        const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
         await createIslem.mutateAsync({
           type: 'gider',
@@ -215,9 +266,7 @@ export function useOcrImport(sessionId: string) {
         }
 
         const islemType: IslemType = hareketTipi === 'giris' ? 'cari_tahsilat' : 'cari_odeme';
-        const aciklama = dateInfo
-          ? `OCR import - ${invoiceRef} - Tarih: ${dateInfo}`
-          : `OCR import - ${invoiceRef}`;
+        const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
         await createIslem.mutateAsync({
           type: islemType,
@@ -306,9 +355,9 @@ export function useOcrImport(sessionId: string) {
           current++;
           setSaveProgress({ total, current, currentItemName: item.name, phase: 'creating_movements' });
 
-          const aciklama = dateInfo
-            ? `İrsaliye - ${invoiceRef} - Tarih: ${dateInfo}`
-            : `İrsaliye - ${invoiceRef}`;
+          const aciklama = invoice.invoiceNumber
+            ? `İrsaliye: ${invoice.invoiceNumber}`
+            : (dateInfo ? `İrsaliye: ${dateInfo}` : '');
 
           const hareket = await createUrunHareket.mutateAsync({
             urun_id: item.matchedUrunId,
@@ -398,9 +447,7 @@ export function useOcrImport(sessionId: string) {
           current++;
           setSaveProgress({ total, current, currentItemName: item.name, phase: 'creating_movements' });
 
-          const aciklama = dateInfo
-            ? `OCR import - ${invoiceRef} - Tarih: ${dateInfo}`
-            : `OCR import - ${invoiceRef}`;
+          const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
           const hareket = await createUrunHareket.mutateAsync({
             urun_id: item.matchedUrunId,
@@ -415,9 +462,11 @@ export function useOcrImport(sessionId: string) {
           movementCount++;
         }
 
-        // Phase 3: Create cari transaction
+        // Phase 3: Create cari transaction (KDV dahil grandTotal kullan)
         if (invoice.supplierMatchCariId && movementCount > 0) {
-          const totalAmount = itemsToSave.reduce((sum, item) => sum + item.totalPrice, 0);
+          const totalAmount = options?.editedGrandTotal
+            ?? invoice.grandTotal
+            ?? itemsToSave.reduce((sum, item) => sum + item.totalPrice, 0);
           await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId);
         }
       }
@@ -429,7 +478,7 @@ export function useOcrImport(sessionId: string) {
     } finally {
       setIsSaving(false);
     }
-  }, [isletme, createUrun, createUrunHareket, createIslem, createIrsaliyeRecord, createCariTransaction, queryClient, sessionId, parseDateForDB]);
+  }, [isletme, createUrun, createUrunHareket, createIslem, createIrsaliyeRecord, createCariTransaction, queryClient, sessionId, parseDateForDB, checkDuplicateInvoice, buildOcrDescription]);
 
   // Save all unsaved invoices in batch
   const saveAll = useCallback(async (

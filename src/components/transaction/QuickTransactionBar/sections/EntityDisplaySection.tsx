@@ -13,12 +13,14 @@ interface Hesap {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 interface Cari {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 interface Personel {
@@ -26,6 +28,7 @@ interface Personel {
   first_name: string;
   last_name: string | null;
   balance: number;
+  currency?: string;
 }
 
 export interface EntityDisplaySectionProps {
@@ -66,9 +69,33 @@ export function EntityDisplaySection({
               { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error },
             ]}
           >
-            {formatCurrency(Number(selectedHesap.balance))}
+            {formatCurrency(Number(selectedHesap.balance), selectedHesap.currency)}
           </Text>
         </View>
+      )}
+
+      {/* Cari Modunda Ödeme/Tahsilat için Kaynak Hesap Seçimi (üstte) */}
+      {isCariMode && (type === 'odeme' || type === 'tahsilat') && (
+        <TouchableOpacity style={styles.sourceAccountRow} onPress={onOpenHesapPicker}>
+          <Wallet size={16} color={colors.textMuted} />
+          <Text style={styles.sourceAccountText}>
+            {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
+          </Text>
+          {selectedSourceHesap && (
+            <Text
+              style={[
+                styles.balanceText,
+                {
+                  color:
+                    Number(selectedSourceHesap.balance) >= 0 ? colors.success : colors.error,
+                },
+              ]}
+            >
+              {formatCurrency(Number(selectedSourceHesap.balance), selectedSourceHesap.currency)}
+            </Text>
+          )}
+          <ChevronDown size={16} color={colors.info} />
+        </TouchableOpacity>
       )}
 
       {/* Cari Modu: Seçili cari bilgisi */}
@@ -94,33 +121,9 @@ export function EntityDisplaySection({
               { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error },
             ]}
           >
-            {formatCurrency(Number(selectedCari.balance))}
+            {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
           </Text>
         </View>
-      )}
-
-      {/* Cari Modunda Ödeme/Tahsilat için Hesap Seçimi */}
-      {isCariMode && (type === 'odeme' || type === 'tahsilat') && (
-        <TouchableOpacity style={styles.sourceAccountRow} onPress={onOpenHesapPicker}>
-          <Wallet size={16} color={colors.textMuted} />
-          <Text style={styles.sourceAccountText}>
-            {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
-          </Text>
-          {selectedSourceHesap && (
-            <Text
-              style={[
-                styles.balanceText,
-                {
-                  color:
-                    Number(selectedSourceHesap.balance) >= 0 ? colors.success : colors.error,
-                },
-              ]}
-            >
-              {formatCurrency(Number(selectedSourceHesap.balance))}
-            </Text>
-          )}
-          <ChevronDown size={16} color={colors.info} />
-        </TouchableOpacity>
       )}
 
       {/* Personel Modu: Seçili personel bilgisi */}
@@ -136,7 +139,7 @@ export function EntityDisplaySection({
               { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error },
             ]}
           >
-            {formatCurrency(Number(selectedPersonel.balance))}
+            {formatCurrency(Number(selectedPersonel.balance), selectedPersonel.currency)}
           </Text>
         </View>
       )}
@@ -158,7 +161,7 @@ export function EntityDisplaySection({
                 },
               ]}
             >
-              {formatCurrency(Number(selectedSourceHesap.balance))}
+              {formatCurrency(Number(selectedSourceHesap.balance), selectedSourceHesap.currency)}
             </Text>
           )}
           <ChevronDown size={16} color={colors.info} />

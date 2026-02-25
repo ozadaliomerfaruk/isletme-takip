@@ -240,5 +240,9 @@
     "noLinksDescription": "Share a contact to track mutual balances with other businesses.",
     "enterCode": "Enter the 6-digit code",
     "partnerBusiness": "Shared by"
+  },
+  "productDetail": {
+    "title": "Invoice Product Details",
+    "noProducts": "No products found for this transaction"
   }
 }

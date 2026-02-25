@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import {
   X,
   Share2,
   Link,
+  Package,
 } from 'lucide-react-native';
 import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -35,7 +36,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useIslemlerWithUrun } from '@/hooks/useUrunHareketler';
+import { useIslemlerWithUrun, useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
@@ -163,6 +164,162 @@ const CariTransactionItem = memo(function CariTransactionItem({
 });
 
 // ============================================================================
+// PRODUCT DETAIL MODAL
+// ============================================================================
+
+function ProductDetailModal({
+  islemId,
+  onDismiss,
+  onEdit,
+  t,
+}: {
+  islemId: string | null;
+  onDismiss: () => void;
+  onEdit: (islemId: string) => void;
+  t: (key: string) => string;
+}) {
+  const { data: urunHareketler, isLoading } = useUrunHareketlerByIslemId(islemId || undefined);
+  const windowHeight = Dimensions.get('window').height;
+
+  if (!islemId) return null;
+
+  return (
+    <Modal
+      visible={!!islemId}
+      transparent
+      animationType="slide"
+      onRequestClose={onDismiss}
+    >
+      <TouchableOpacity
+        style={productDetailStyles.overlay}
+        activeOpacity={1}
+        onPress={onDismiss}
+      >
+        <View
+          style={[productDetailStyles.content, { maxHeight: windowHeight * 0.6 }]}
+          onStartShouldSetResponder={() => true}
+        >
+          <View style={productDetailStyles.header}>
+            <Text variant="h3">{t('clients:productDetail.title')}</Text>
+            <TouchableOpacity onPress={onDismiss}>
+              <X size={24} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {isLoading ? (
+            <View style={productDetailStyles.loading}>
+              <Text variant="body" color="secondary">{t('common:status.loading')}</Text>
+            </View>
+          ) : !urunHareketler || urunHareketler.length === 0 ? (
+            <View style={productDetailStyles.loading}>
+              <Text variant="body" color="secondary">{t('clients:productDetail.noProducts')}</Text>
+            </View>
+          ) : (
+            <ScrollView style={productDetailStyles.list}>
+              {urunHareketler.map((hareket) => {
+                const subtotal = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
+                const kdvAmount = subtotal * ((hareket.kdv_orani || 0) / 100);
+                const total = subtotal + kdvAmount;
+                return (
+                  <View key={hareket.id} style={productDetailStyles.item}>
+                    <View style={productDetailStyles.itemHeader}>
+                      <Package size={16} color={colors.primary} />
+                      <Text variant="body" style={productDetailStyles.itemName} numberOfLines={2}>
+                        {hareket.urunler?.ad || '-'}
+                      </Text>
+                    </View>
+                    <View style={productDetailStyles.itemDetails}>
+                      <Text variant="caption" color="secondary">
+                        {Math.abs(hareket.miktar)} {hareket.urunler?.birim || 'adet'} x {formatCurrency(hareket.birim_fiyat || 0)}
+                      </Text>
+                      {(hareket.kdv_orani ?? 0) > 0 && (
+                        <Text variant="caption" color="secondary">
+                          KDV %{hareket.kdv_orani}: {formatCurrency(kdvAmount)}
+                        </Text>
+                      )}
+                      <Text variant="body" color="primary" style={productDetailStyles.itemTotal}>
+                        {formatCurrency(total)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+
+          <View style={productDetailStyles.footer}>
+            <Button
+              variant="secondary"
+              size="md"
+              onPress={() => onEdit(islemId)}
+              style={{ flex: 1 }}
+            >
+              {t('common:buttons.edit')}
+            </Button>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
+const productDetailStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  content: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  loading: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  list: {
+    marginBottom: spacing.md,
+  },
+  item: {
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  itemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  itemName: {
+    flex: 1,
+    fontWeight: fontWeight.medium as '500',
+  },
+  itemDetails: {
+    paddingLeft: spacing.lg + spacing.sm,
+  },
+  itemTotal: {
+    fontWeight: fontWeight.semibold as '600',
+    marginTop: spacing.xs,
+  },
+  footer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+});
+
+// ============================================================================
 // MAIN PAGE COMPONENT
 // ============================================================================
 
@@ -210,6 +367,8 @@ export default function CariHareketleriPage() {
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
+  // Product detail modal state
+  const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
 
   // Undo delete hook
   const {
@@ -298,9 +457,13 @@ export default function CariHareketleriPage() {
 
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
-    setEditTransactionId(islemId);
-    setShowEditBar(true);
-  }, []);
+    if (hasUrun(islemId)) {
+      setProductDetailIslemId(islemId);
+    } else {
+      setEditTransactionId(islemId);
+      setShowEditBar(true);
+    }
+  }, [hasUrun]);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = (islemler || []).find(i => i.id === islemId);
@@ -792,6 +955,18 @@ export default function CariHareketleriPage() {
             </View>
           </TouchableOpacity>
         </Modal>
+
+        {/* Ürün Detay Modal */}
+        <ProductDetailModal
+          islemId={productDetailIslemId}
+          onDismiss={() => setProductDetailIslemId(null)}
+          onEdit={(islemId) => {
+            setProductDetailIslemId(null);
+            setEditTransactionId(islemId);
+            setShowEditBar(true);
+          }}
+          t={t}
+        />
 
         {/* Floating Yeni İşlem FAB */}
         {!cari.is_archived && !(isViewerViewOnly) && (

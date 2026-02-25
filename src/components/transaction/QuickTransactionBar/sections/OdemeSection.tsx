@@ -19,12 +19,14 @@ interface Hesap {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 interface Cari {
   id: string;
   name: string;
   balance: number;
+  currency?: string;
 }
 
 interface Personel {
@@ -32,6 +34,7 @@ interface Personel {
   first_name: string;
   last_name: string | null;
   balance: number;
+  currency?: string;
 }
 
 export interface OdemeSectionProps {
@@ -50,7 +53,7 @@ export interface OdemeSectionProps {
 
 export function OdemeSection({
   selectedHesap,
-  selectedSourceHesap,
+  selectedSourceHesap: _selectedSourceHesap,
   selectedCari,
   selectedPersonel,
   selectedKrediKarti,
@@ -58,7 +61,7 @@ export function OdemeSection({
   onOpenOdemeTypePicker,
   onOpenCariPicker,
   onOpenPersonelPicker,
-  onOpenSourceHesapPicker,
+  onOpenSourceHesapPicker: _onOpenSourceHesapPicker,
   onOpenKrediKartiPicker,
 }: OdemeSectionProps) {
   const { t } = useTranslation(['transactions', 'clients', 'staff', 'accounts']);
@@ -81,7 +84,7 @@ export function OdemeSection({
                   { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error },
                 ]}
               >
-                {formatCurrency(Number(selectedHesap.balance))}
+                {formatCurrency(Number(selectedHesap.balance), selectedHesap.currency)}
               </Text>
             )}
           </View>
@@ -129,7 +132,7 @@ export function OdemeSection({
                 { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error },
               ]}
             >
-              {formatCurrency(Number(selectedCari.balance))}
+              {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
             </Text>
           )}
           <ChevronDown size={18} color={colors.textMuted} />
@@ -152,46 +155,33 @@ export function OdemeSection({
                 { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error },
               ]}
             >
-              {formatCurrency(Number(selectedPersonel.balance))}
+              {formatCurrency(Number(selectedPersonel.balance), selectedPersonel.currency)}
             </Text>
           )}
           <ChevronDown size={18} color={colors.textMuted} />
         </TouchableOpacity>
       )}
 
-      {/* Kredi Kartı Seçici */}
+      {/* Kredi Kartı Seçici - sadece hedef kredi kartı seç (kaynak hesap üstte zaten gösteriliyor) */}
       {odemeHedefType === 'kredi_karti' && (
-        <TouchableOpacity style={styles.sourceAccountRow} onPress={onOpenSourceHesapPicker}>
-          <Wallet size={16} color={colors.textMuted} />
-          <Text style={styles.sourceAccountText}>
-            {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
+        <TouchableOpacity style={styles.pickerButton} onPress={onOpenKrediKartiPicker}>
+          <CreditCard size={18} color={colors.orange} />
+          <Text style={styles.pickerButtonText}>
+            {selectedKrediKarti
+              ? selectedKrediKarti.name
+              : t('accounts:titles.selectCreditCard')}
           </Text>
-          {selectedSourceHesap && (
+          {selectedKrediKarti && (
             <Text
               style={[
-                styles.balanceTextSmall,
-                {
-                  color: Number(selectedSourceHesap.balance) >= 0 ? colors.success : colors.error,
-                },
+                styles.balanceText,
+                { color: colors.error },
               ]}
             >
-              {formatCurrency(Number(selectedSourceHesap.balance))}
+              {formatCurrency(Math.abs(Number(selectedKrediKarti.balance)), selectedKrediKarti.currency)}
             </Text>
           )}
-          <ArrowRight size={16} color={colors.info} />
-          <TouchableOpacity style={styles.targetAccountButton} onPress={onOpenKrediKartiPicker}>
-            <Text style={styles.targetAccountText}>
-              {selectedKrediKarti
-                ? selectedKrediKarti.name
-                : t('accounts:titles.selectCreditCard')}
-            </Text>
-            {selectedKrediKarti && (
-              <Text style={[styles.balanceTextSmall, { color: colors.error, marginRight: 4 }]}>
-                {formatCurrency(Math.abs(Number(selectedKrediKarti.balance)))}
-              </Text>
-            )}
-            <ChevronDown size={16} color={colors.info} />
-          </TouchableOpacity>
+          <ChevronDown size={18} color={colors.textMuted} />
         </TouchableOpacity>
       )}
     </>
