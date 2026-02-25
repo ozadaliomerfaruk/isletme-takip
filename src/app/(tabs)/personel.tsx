@@ -160,6 +160,7 @@ export default function PersonelPage() {
   // Multi-select handlers
   const handleEnterSelectMode = () => {
     if (actionSheetPersonel) {
+      setExpandedPersonelId(null); // Collapse expanded card to prevent layout jump
       setIsSelectMode(true);
       setSelectedIds(new Set([actionSheetPersonel.id]));
     }
@@ -883,13 +884,12 @@ const styles = StyleSheet.create({
   selectedItem: {
     backgroundColor: colors.primaryLight,
     borderRadius: borderRadius.lg,
-    marginBottom: spacing.xs,
   },
   selectableCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
   },
   checkbox: {
     marginRight: spacing.sm,

@@ -177,6 +177,7 @@ export default function CarilerPage() {
   // Multi-select handlers
   const handleEnterSelectMode = () => {
     if (actionSheetCari) {
+      setExpandedCariId(null); // Collapse expanded card to prevent layout jump
       setIsSelectMode(true);
       setSelectedIds(new Set([actionSheetCari.id]));
     }
@@ -915,12 +916,12 @@ const styles = StyleSheet.create({
   selectedItem: {
     backgroundColor: colors.primaryLight,
     borderRadius: borderRadius.lg,
-    marginBottom: spacing.xs,
   },
   selectableCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
+    marginBottom: spacing.md,
   },
   checkbox: {
     marginRight: spacing.xs,

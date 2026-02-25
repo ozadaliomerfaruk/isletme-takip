@@ -1,20 +1,19 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
-  LayoutAnimation,
-  Platform,
-  UIManager,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+  runOnJS,
+} from 'react-native-reanimated';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-
-// Android için LayoutAnimation'ı etkinleştir
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface ExpandableCardProps {
   header: React.ReactNode;
@@ -23,9 +22,14 @@ interface ExpandableCardProps {
   // Controlled mode props
   expanded?: boolean;
   onToggle?: () => void;
-  // Performance: FlatList içinde LayoutAnimation kapatmak için
+  // Performance: FlatList içinde LayoutAnimation kapatmak için (compat, artık gerek yok)
   disableAnimation?: boolean;
 }
+
+const TIMING_CONFIG = {
+  duration: 250,
+  easing: Easing.out(Easing.cubic),
+};
 
 export function ExpandableCard({
   header,
@@ -33,7 +37,6 @@ export function ExpandableCard({
   defaultExpanded = false,
   expanded: controlledExpanded,
   onToggle,
-  disableAnimation = false,
 }: ExpandableCardProps) {
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
 
@@ -41,16 +44,41 @@ export function ExpandableCard({
   const isControlled = controlledExpanded !== undefined;
   const expanded = isControlled ? controlledExpanded : internalExpanded;
 
-  const toggleExpand = () => {
-    if (!disableAnimation) {
-      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    }
+  // Content opacity + height animation
+  const contentOpacity = useSharedValue(expanded ? 1 : 0);
+  const [showContent, setShowContent] = useState(expanded);
+
+  const animatedContentStyle = useAnimatedStyle(() => ({
+    opacity: contentOpacity.value,
+  }));
+
+  const handleHideContent = useCallback(() => {
+    setShowContent(false);
+  }, []);
+
+  const toggleExpand = useCallback(() => {
     if (isControlled && onToggle) {
+      // For controlled mode, parent manages the state
+      // We animate based on the new value in next render
       onToggle();
     } else {
-      setInternalExpanded(!internalExpanded);
+      setInternalExpanded((prev) => !prev);
     }
-  };
+  }, [isControlled, onToggle]);
+
+  // Sync animation with expanded state
+  if (expanded && !showContent) {
+    // Opening: show content immediately, fade in
+    setShowContent(true);
+    contentOpacity.value = withTiming(1, TIMING_CONFIG);
+  } else if (!expanded && showContent) {
+    // Closing: fade out, then hide content
+    contentOpacity.value = withTiming(0, { ...TIMING_CONFIG, duration: 150 }, (finished) => {
+      if (finished) {
+        runOnJS(handleHideContent)();
+      }
+    });
+  }
 
   return (
     <View style={styles.container}>
@@ -68,11 +96,11 @@ export function ExpandableCard({
           )}
         </View>
       </TouchableOpacity>
-      {expanded && (
-        <View style={styles.content}>
+      {showContent && (
+        <Animated.View style={[styles.content, animatedContentStyle]}>
           <View style={styles.divider} />
           {children}
-        </View>
+        </Animated.View>
       )}
     </View>
   );
