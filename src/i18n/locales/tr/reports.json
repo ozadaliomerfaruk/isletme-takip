@@ -9,7 +9,27 @@
     "expenseAnalysis": "Gider Analizi",
     "incomeAnalysis": "Gelir Analizi",
     "categoryDetail": "Kategori Detayı",
-    "uncategorized": "Kategorisiz"
+    "uncategorized": "Kategorisiz",
+    "personnelReport": "Personel Raporu",
+    "comparison": "Karşılaştırma"
+  },
+  "home": {
+    "explore": "Raporları Keşfet",
+    "quickInsights": "HIZLI ÖZETLER",
+    "netPosition": "Net Durum",
+    "topExpense": "En çok harcama: {{category}}",
+    "totalReceivables": "Toplam Alacak",
+    "totalPayables": "Toplam Borç"
+  },
+  "explore": {
+    "genel": "Genel Durum",
+    "gider": "Gider Analizi",
+    "gelir": "Gelir Analizi",
+    "nakit": "Nakit Akışı",
+    "cari": "Cari Rapor",
+    "personel": "Personel",
+    "aging": "Bakiye & Aktivite",
+    "karsilastirma": "Karşılaştır"
   },
   "tabs": {
     "general": "Genel",
@@ -154,9 +174,26 @@
     "decrease": "Azalış",
     "noChange": "Değişim yok",
     "net": "Net",
+    "last6Months": "Son 6 Ay",
+    "total": "Toplam",
+    "average": "Ortalama",
     "last3Months": "Son 3 Ay",
     "details": "DETAY TABLO",
     "period": "Dönem"
+  },
+  "activity": {
+    "title": "Cari Bakiye & Aktivite",
+    "receivables": "Alacaklar",
+    "payables": "Borçlar",
+    "lastActivity": "Son hareket: {{days}} gün önce",
+    "noActivity": "Hareket yok",
+    "inactive": "Hareketsiz",
+    "noBalance": "Bakiyesi olan cari yok",
+    "filterAll": "Tümü",
+    "filter30": "30+ gün",
+    "filter60": "60+ gün",
+    "sortBalance": "Bakiye",
+    "sortActivity": "Son hareket"
   },
   "entityPicker": {
     "selectClient": "Cari Seçin",

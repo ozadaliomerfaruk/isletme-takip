@@ -9,7 +9,27 @@
     "expenseAnalysis": "Expense Analysis",
     "incomeAnalysis": "Income Analysis",
     "categoryDetail": "Category Detail",
-    "uncategorized": "Uncategorized"
+    "uncategorized": "Uncategorized",
+    "personnelReport": "Staff Report",
+    "comparison": "Comparison"
+  },
+  "home": {
+    "explore": "Explore Reports",
+    "quickInsights": "QUICK INSIGHTS",
+    "netPosition": "Net Position",
+    "topExpense": "Top expense: {{category}}",
+    "totalReceivables": "Total Receivables",
+    "totalPayables": "Total Payables"
+  },
+  "explore": {
+    "genel": "Overview",
+    "gider": "Expense Analysis",
+    "gelir": "Income Analysis",
+    "nakit": "Cash Flow",
+    "cari": "Client Report",
+    "personel": "Staff",
+    "aging": "Balance & Activity",
+    "karsilastirma": "Compare"
   },
   "tabs": {
     "general": "General",
@@ -154,9 +174,26 @@
     "decrease": "Decrease",
     "noChange": "No change",
     "net": "Net",
+    "last6Months": "Last 6 Months",
+    "total": "Total",
+    "average": "Average",
     "last3Months": "Last 3 Months",
     "details": "DETAILS",
     "period": "Period"
+  },
+  "activity": {
+    "title": "Balance & Activity",
+    "receivables": "Receivables",
+    "payables": "Payables",
+    "lastActivity": "Last activity: {{days}} days ago",
+    "noActivity": "No activity",
+    "inactive": "Inactive",
+    "noBalance": "No contacts with balance",
+    "filterAll": "All",
+    "filter30": "30+ days",
+    "filter60": "60+ days",
+    "sortBalance": "Balance",
+    "sortActivity": "Last activity"
   },
   "entityPicker": {
     "selectClient": "Select Client",

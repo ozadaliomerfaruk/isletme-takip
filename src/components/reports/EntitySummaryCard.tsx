@@ -294,10 +294,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   balanceValue: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   currentBalanceLabel: {
-    fontWeight: '600',
+    fontWeight: '700',
   },
   currentBalanceContainer: {
     alignItems: 'flex-end',

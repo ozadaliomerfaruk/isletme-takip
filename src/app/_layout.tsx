@@ -385,6 +385,83 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen
+          name="raporlar/genel"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:titles.overview'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="raporlar/gider"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:titles.expenseAnalysis'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="raporlar/gelir"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:titles.incomeAnalysis'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="raporlar/cari"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:titles.clientReport'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="raporlar/personel"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:titles.personnelReport'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="raporlar/karsilastirma"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:titles.comparison'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="raporlar/aging"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:activity.title'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Nakit Akışı */}
         <Stack.Screen
           name="nakit-akisi/index"

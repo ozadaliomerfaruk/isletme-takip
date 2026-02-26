@@ -43,8 +43,9 @@ export function PeriodComparisonChart({
 
   const maxValue = Math.max(...data.map((d) => d.value), 1);
   const chartPadding = 16;
-  const barWidth = 50;
-  const barGap = 20;
+  const screenWidth = Dimensions.get('window').width - spacing.lg * 4;
+  const barGap = Math.max(8, Math.floor(40 / data.length));
+  const barWidth = Math.max(24, Math.floor((screenWidth - chartPadding * 2 - barGap * (data.length - 1)) / data.length));
   const chartWidth = data.length * (barWidth + barGap) + chartPadding * 2;
   const chartHeight = height - 60; // Label için alan bırak
 
@@ -103,7 +104,7 @@ export function PeriodComparisonChart({
                   x={x + barWidth / 2}
                   y={y - 8}
                   textAnchor="middle"
-                  fontSize={10}
+                  fontSize={12}
                   fontWeight="600"
                   fill={colors.text}
                 >
@@ -116,7 +117,7 @@ export function PeriodComparisonChart({
                   x={x + barWidth / 2}
                   y={height - 10}
                   textAnchor="middle"
-                  fontSize={11}
+                  fontSize={12}
                   fill={item.isCurrentPeriod ? color : colors.textMuted}
                   fontWeight={item.isCurrentPeriod ? '600' : '400'}
                 >
@@ -192,7 +193,8 @@ const styles = StyleSheet.create({
     marginHorizontal: -spacing.xs,
   },
   detailValue: {
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });
 

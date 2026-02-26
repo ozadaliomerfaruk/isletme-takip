@@ -369,15 +369,16 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
         <View style={styles.rightSection}>
           <View style={styles.amountContainer}>
             <Text
-              variant="label"
               color={type === 'gelir' ? 'success' : 'error'}
               style={styles.amount}
             >
               {formatCurrency(item.total)}
             </Text>
-            <Text variant="caption" color="secondary">
-              %{(item.percentage ?? 0).toFixed(1)}
-            </Text>
+            <View style={[styles.percentageBadge, { backgroundColor: barColor + '18' }]}>
+              <Text style={[styles.percentageText, { color: barColor }]}>
+                %{(item.percentage ?? 0).toFixed(1)}
+              </Text>
+            </View>
           </View>
           <ChevronRight size={20} color={colors.textMuted} />
         </View>
@@ -482,15 +483,16 @@ export function HierarchicalCategoryReportCard({
           <View style={styles.rightSection}>
             <View style={styles.amountContainer}>
               <Text
-                variant="label"
                 color={type === 'gelir' ? 'success' : 'error'}
                 style={styles.amount}
               >
                 {formatCurrency(hasChildren ? item.totalWithChildren : item.total)}
               </Text>
-              <Text variant="caption" color="secondary">
-                %{((hasChildren ? item.percentageWithChildren : item.percentage) ?? 0).toFixed(1)}
-              </Text>
+              <View style={[styles.percentageBadge, { backgroundColor: barColor + '18' }]}>
+                <Text style={[styles.percentageText, { color: barColor }]}>
+                  %{((hasChildren ? item.percentageWithChildren : item.percentage) ?? 0).toFixed(1)}
+                </Text>
+              </View>
             </View>
             {!hasChildren && <ChevronRight size={20} color={colors.textMuted} />}
           </View>
@@ -619,7 +621,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -666,10 +668,20 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   amount: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  percentageBadge: {
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+  },
+  percentageText: {
+    fontSize: 11,
     fontWeight: '600',
   },
   progressBarContainer: {
-    height: 8,
+    height: 6,
     backgroundColor: colors.surfaceLighter,
     borderRadius: borderRadius.full,
     overflow: 'hidden',
