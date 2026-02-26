@@ -23,7 +23,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.isletmetakip.app",
-      "buildNumber": "23",
+      "buildNumber": "24",
       "usesAppleSignIn": true,
       "infoPlist": {
         "CFBundleAllowMixedLocalizations": true,
