@@ -4,7 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, Trash2 } from 'lucide-react-native';
+import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, Trash2, ArrowUpDown } from 'lucide-react-native';
 import { Text, Button, Input, EmptyState, ExpandableCard, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -23,6 +23,7 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 
 type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
+type SortType = 'nameAZ' | 'nameZA' | 'purchaseMost' | 'purchaseLeast' | 'saleMost' | 'saleLeast';
 
 export default function UrunlerPage() {
   const router = useRouter();
@@ -35,6 +36,8 @@ export default function UrunlerPage() {
   const [quickUrunVisible, setQuickUrunVisible] = useState(false);
   const [selectedUrun, setSelectedUrun] = useState<Urun | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
+  const [sortType, setSortType] = useState<SortType>('nameAZ');
+  const [sortSheetVisible, setSortSheetVisible] = useState(false);
 
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -105,15 +108,58 @@ export default function UrunlerPage() {
   const kategoriMap = new Map(kategoriler?.map(k => [k.id, k.name]) || []);
 
   // Arama filtresi (ürün adı, kodu ve kategori adı)
-  const filteredUrunler = urunler?.filter((urun) => {
-    const query = searchQuery.toLowerCase();
-    const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
-    return (
-      urun.ad.toLowerCase().includes(query) ||
-      (urun.kod && urun.kod.toLowerCase().includes(query)) ||
-      (kategoriAdi && kategoriAdi.includes(query))
-    );
-  }) || [];
+  const filteredUrunler = useMemo(() => {
+    const filtered = urunler?.filter((urun) => {
+      const query = searchQuery.toLowerCase();
+      const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
+      return (
+        urun.ad.toLowerCase().includes(query) ||
+        (urun.kod && urun.kod.toLowerCase().includes(query)) ||
+        (kategoriAdi && kategoriAdi.includes(query))
+      );
+    }) || [];
+
+    // Sıralama
+    return [...filtered].sort((a, b) => {
+      const ozetA = donemUrunOzet?.[a.id];
+      const ozetB = donemUrunOzet?.[b.id];
+      switch (sortType) {
+        case 'nameAZ':
+          return a.ad.localeCompare(b.ad, 'tr');
+        case 'nameZA':
+          return b.ad.localeCompare(a.ad, 'tr');
+        case 'purchaseMost':
+          return (ozetB?.giris ?? 0) - (ozetA?.giris ?? 0);
+        case 'purchaseLeast':
+          return (ozetA?.giris ?? 0) - (ozetB?.giris ?? 0);
+        case 'saleMost':
+          return (ozetB?.cikis ?? 0) - (ozetA?.cikis ?? 0);
+        case 'saleLeast':
+          return (ozetA?.cikis ?? 0) - (ozetB?.cikis ?? 0);
+        default:
+          return 0;
+      }
+    });
+  }, [urunler, searchQuery, kategoriMap, sortType, donemUrunOzet]);
+
+  // Sıralama seçenekleri
+  const sortOptions: ActionSheetOption[] = useMemo(() => {
+    const options: { key: SortType; label: string }[] = [
+      { key: 'nameAZ', label: t('products:sort.nameAZ') },
+      { key: 'nameZA', label: t('products:sort.nameZA') },
+      { key: 'purchaseMost', label: t('products:sort.purchaseMost') },
+      { key: 'purchaseLeast', label: t('products:sort.purchaseLeast') },
+      { key: 'saleMost', label: t('products:sort.saleMost') },
+      { key: 'saleLeast', label: t('products:sort.saleLeast') },
+    ];
+    return options.map(opt => ({
+      label: opt.key === sortType ? `✓  ${opt.label}` : `    ${opt.label}`,
+      onPress: () => {
+        setSortType(opt.key);
+        haptics.light();
+      },
+    }));
+  }, [sortType, t, haptics]);
 
   // ActionSheet handlers
   const handleOpenActionSheet = (urun: Urun) => {
@@ -283,17 +329,31 @@ export default function UrunlerPage() {
         {/* Header */}
         <View style={styles.header}>
           <Text variant="h2">{t('products:title')}</Text>
-          <PermissionGate module="urunler" action="create">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus size={18} color={colors.white} />}
-              iconPosition="left"
-              onPress={() => router.push('/urunler/ekle' as any)}
-            >
-              {t('common:buttons.add')}
-            </Button>
-          </PermissionGate>
+          <View style={styles.headerButtons}>
+            {(urunler && urunler.length > 0) && (
+              <TouchableOpacity
+                style={styles.sortButton}
+                onPress={() => {
+                  haptics.light();
+                  setSortSheetVisible(true);
+                }}
+                activeOpacity={0.7}
+              >
+                <ArrowUpDown size={18} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+            <PermissionGate module="urunler" action="create">
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Plus size={18} color={colors.white} />}
+                iconPosition="left"
+                onPress={() => router.push('/urunler/ekle' as any)}
+              >
+                {t('common:buttons.add')}
+              </Button>
+            </PermissionGate>
+          </View>
         </View>
 
         {/* Arama */}
@@ -480,6 +540,15 @@ export default function UrunlerPage() {
         }}
         title={actionSheetUrun?.ad}
         options={actionSheetOptions}
+        cancelLabel={t('common:buttons.cancel')}
+      />
+
+      {/* Sort ActionSheet */}
+      <ActionSheet
+        visible={sortSheetVisible}
+        onClose={() => setSortSheetVisible(false)}
+        title={t('products:sort.title')}
+        options={sortOptions}
         cancelLabel={t('common:buttons.cancel')}
       />
 
@@ -850,6 +919,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sortButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   searchSection: {
     paddingHorizontal: spacing.lg,

@@ -121,6 +121,15 @@
     "archive": "Arşivle",
     "unarchive": "Arşivden Çıkar"
   },
+  "sort": {
+    "title": "Sıralama",
+    "nameAZ": "A-Z",
+    "nameZA": "Z-A",
+    "purchaseMost": "Alış (En Fazla)",
+    "purchaseLeast": "Alış (En Az)",
+    "saleMost": "Satış (En Fazla)",
+    "saleLeast": "Satış (En Az)"
+  },
   "bulk": {
     "stockIn": "Toplu Ürün Alımı",
     "stockOut": "Toplu Ürün Satışı",

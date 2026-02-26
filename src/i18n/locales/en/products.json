@@ -121,6 +121,15 @@
     "archive": "Archive",
     "unarchive": "Unarchive"
   },
+  "sort": {
+    "title": "Sort",
+    "nameAZ": "A-Z",
+    "nameZA": "Z-A",
+    "purchaseMost": "Purchase (Most)",
+    "purchaseLeast": "Purchase (Least)",
+    "saleMost": "Sale (Most)",
+    "saleLeast": "Sale (Least)"
+  },
   "bulk": {
     "stockIn": "Bulk Product Purchase",
     "stockOut": "Bulk Product Sale",
