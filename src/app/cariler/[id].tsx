@@ -516,7 +516,7 @@ export default function CariHareketleriPage() {
   };
 
   // Header right buttons - viewer'lar icin share ve menu gizle
-  const HeaderRightButtons = () => (
+  const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
       {!isViewer && (
         <TouchableOpacity
@@ -544,7 +544,7 @@ export default function CariHareketleriPage() {
         </TouchableOpacity>
       )}
     </View>
-  );
+  ), [isViewer, linkStatus?.is_linked]);
 
   // === DATE GROUPING ===
   const groupedData = useMemo(() => {
@@ -770,7 +770,7 @@ export default function CariHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: cari.name,
-          headerRight: () => <HeaderRightButtons />,
+          headerRight: () => headerRightElement,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>

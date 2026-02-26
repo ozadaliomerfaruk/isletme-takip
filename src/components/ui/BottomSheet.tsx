@@ -47,6 +47,20 @@ export function BottomSheet({
   const lastGestureDy = useRef(0);
   const currentSnapIndexRef = useRef(currentSnapIndex);
   const isKeyboardVisibleRef = useRef(false);
+  const keyboardHeightRef = useRef(0);
+
+  // Keep a state version for paddingBottom render only
+  const [kbVisible, setKbVisible] = useState(false);
+
+  // Store latest props in refs for PanResponder access
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+  const onSnapChangeRef = useRef(onSnapChange);
+  onSnapChangeRef.current = onSnapChange;
+  const enablePanDownToCloseRef = useRef(enablePanDownToClose);
+  enablePanDownToCloseRef.current = enablePanDownToClose;
+  const snapPointsRef = useRef(snapPoints);
+  snapPointsRef.current = snapPoints;
 
   // Cleanup animations on unmount
   useEffect(() => {
@@ -56,24 +70,19 @@ export function BottomSheet({
     };
   }, [translateY, backdropOpacity]);
 
-  // Track keyboard height
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
   // Calculate heights from snap points
   const getHeightForSnap = useCallback(
     (index: number) => {
-      const snapPoint = snapPoints[index] ?? snapPoints[0];
-      return SCREEN_HEIGHT * snapPoint;
+      const sp = snapPointsRef.current[index] ?? snapPointsRef.current[0];
+      return SCREEN_HEIGHT * sp;
     },
-    [snapPoints]
+    []
   );
 
   // Calculate target translateY - accounts for keyboard
   const getTargetY = useCallback(
     (snapIndex: number, kbHeight: number) => {
       const height = getHeightForSnap(snapIndex);
-      // Base position: sheet at bottom of screen
-      // With keyboard: sheet positioned so bottom is at keyboard top
       return SCREEN_HEIGHT - height - kbHeight;
     },
     [getHeightForSnap]
@@ -81,8 +90,9 @@ export function BottomSheet({
 
   // Animate to snap point
   const animateToSnap = useCallback(
-    (index: number, velocity = 0, kbHeight = keyboardHeight) => {
-      const toValue = getTargetY(index, kbHeight);
+    (index: number, velocity = 0, kbHeight?: number) => {
+      const kb = kbHeight ?? keyboardHeightRef.current;
+      const toValue = getTargetY(index, kb);
 
       Animated.spring(translateY, {
         toValue,
@@ -94,9 +104,9 @@ export function BottomSheet({
       }).start();
 
       currentSnapIndexRef.current = index;
-      onSnapChange?.(index);
+      onSnapChangeRef.current?.(index);
     },
-    [getTargetY, translateY, onSnapChange, keyboardHeight]
+    [getTargetY, translateY]
   );
 
   // Animate backdrop
@@ -111,13 +121,6 @@ export function BottomSheet({
     [backdropOpacity]
   );
 
-  // Open sheet
-  const open = useCallback(() => {
-    translateY.setValue(SCREEN_HEIGHT);
-    animateToSnap(currentSnapIndex, 0, keyboardHeight);
-    animateBackdrop(0.5);
-  }, [translateY, animateToSnap, animateBackdrop, currentSnapIndex, keyboardHeight]);
-
   // Close sheet
   const close = useCallback(() => {
     Keyboard.dismiss();
@@ -127,22 +130,25 @@ export function BottomSheet({
       stiffness: 300,
       useNativeDriver: true,
     }).start(() => {
-      onDismiss();
+      onDismissRef.current();
     });
     animateBackdrop(0);
-  }, [translateY, animateBackdrop, onDismiss]);
+  }, [translateY, animateBackdrop]);
+
+  // Store close in ref for PanResponder
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  const animateToSnapRef = useRef(animateToSnap);
+  animateToSnapRef.current = animateToSnap;
 
   // Keyboard listeners
   useEffect(() => {
     const handleKeyboardShow = (e: KeyboardEvent) => {
       const kbHeight = e.endCoordinates.height;
-      if (__DEV__) {
-        console.log('[BottomSheet] Keyboard SHOW, height:', kbHeight);
-      }
       isKeyboardVisibleRef.current = true;
-      setKeyboardHeight(kbHeight);
+      keyboardHeightRef.current = kbHeight;
+      setKbVisible(true);
 
-      // Animate sheet to new position above keyboard
       if (visible) {
         const toValue = getTargetY(currentSnapIndexRef.current, kbHeight);
         Animated.spring(translateY, {
@@ -156,13 +162,10 @@ export function BottomSheet({
     };
 
     const handleKeyboardHide = () => {
-      if (__DEV__) {
-        console.log('[BottomSheet] Keyboard HIDE');
-      }
       isKeyboardVisibleRef.current = false;
-      setKeyboardHeight(0);
+      keyboardHeightRef.current = 0;
+      setKbVisible(false);
 
-      // Animate sheet back to original position
       if (visible) {
         const toValue = getTargetY(currentSnapIndexRef.current, 0);
         Animated.spring(translateY, {
@@ -187,7 +190,7 @@ export function BottomSheet({
     };
   }, [visible, translateY, getTargetY]);
 
-  // Pan responder for drag gesture
+  // Pan responder for drag gesture — uses refs to avoid stale closures
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => false,
@@ -199,15 +202,15 @@ export function BottomSheet({
         lastGestureDy.current = 0;
       },
       onPanResponderMove: (_, gestureState) => {
-        const currentHeight = getHeightForSnap(currentSnapIndexRef.current);
+        const snapPt = snapPointsRef.current[currentSnapIndexRef.current] ?? snapPointsRef.current[0];
+        const currentHeight = SCREEN_HEIGHT * snapPt;
         const baseY = SCREEN_HEIGHT - currentHeight;
-        const newY = baseY + gestureState.dy;
 
         if (gestureState.dy < 0) {
           const resistance = 0.3;
           translateY.setValue(baseY + gestureState.dy * resistance);
         } else {
-          translateY.setValue(newY);
+          translateY.setValue(baseY + gestureState.dy);
         }
 
         lastGestureDy.current = gestureState.dy;
@@ -218,21 +221,21 @@ export function BottomSheet({
       onPanResponderRelease: (_, gestureState) => {
         const { dy, vy } = gestureState;
 
-        if (enablePanDownToClose && (dy > DISMISS_THRESHOLD || vy > VELOCITY_THRESHOLD)) {
+        if (enablePanDownToCloseRef.current && (dy > DISMISS_THRESHOLD || vy > VELOCITY_THRESHOLD)) {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          close();
+          closeRef.current();
           return;
         }
 
         if (vy > 0 && currentSnapIndexRef.current > 0) {
-          animateToSnap(currentSnapIndexRef.current - 1, vy);
-        } else if (vy < -VELOCITY_THRESHOLD && currentSnapIndexRef.current < snapPoints.length - 1) {
-          animateToSnap(currentSnapIndexRef.current + 1, vy);
+          animateToSnapRef.current(currentSnapIndexRef.current - 1, vy);
+        } else if (vy < -VELOCITY_THRESHOLD && currentSnapIndexRef.current < snapPointsRef.current.length - 1) {
+          animateToSnapRef.current(currentSnapIndexRef.current + 1, vy);
         } else {
-          animateToSnap(currentSnapIndexRef.current);
+          animateToSnapRef.current(currentSnapIndexRef.current);
         }
 
-        animateBackdrop(0.5);
+        backdropOpacity.setValue(0.5);
       },
     })
   ).current;
@@ -240,15 +243,17 @@ export function BottomSheet({
   // Track if we've already opened for this visible state
   const hasOpenedRef = useRef(false);
 
-  // Handle visibility changes
+  // Handle visibility changes — only depend on `visible`
   useEffect(() => {
     if (visible && !hasOpenedRef.current) {
       hasOpenedRef.current = true;
-      open();
+      translateY.setValue(SCREEN_HEIGHT);
+      animateToSnap(currentSnapIndex, 0, 0);
+      animateBackdrop(0.5);
     } else if (!visible) {
       hasOpenedRef.current = false;
     }
-  }, [visible, open]);
+  }, [visible, animateToSnap, animateBackdrop, currentSnapIndex, translateY]);
 
   // Handle snap index changes from parent
   useEffect(() => {
@@ -267,9 +272,6 @@ export function BottomSheet({
   if (!visible) return null;
 
   const sheetHeight = getHeightForSnap(currentSnapIndex);
-  if (__DEV__) {
-    console.log('[BottomSheet] Render - height:', sheetHeight, 'kbHeight:', keyboardHeight);
-  }
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
@@ -284,7 +286,7 @@ export function BottomSheet({
           styles.sheet,
           {
             height: sheetHeight,
-            paddingBottom: keyboardHeight > 0 ? 0 : insets.bottom,
+            paddingBottom: kbVisible ? 0 : insets.bottom,
             transform: [{ translateY }],
           },
         ]}

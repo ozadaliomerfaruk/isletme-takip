@@ -1,6 +1,7 @@
 /**
  * ShareCodeModal - Cari paylasim kodu olusturma ve paylasma modal'i (v2)
  *
+ * Centered Modal dialog - BottomSheet yerine basit Modal kullanir.
  * Iki asamali UI:
  * A) Izin secimi (view/full) + "Kod Olustur" butonu
  * B) Olusan kod gosterimi + kopyala/paylas butonlari
@@ -10,16 +11,17 @@ import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
-  ActivityIndicator,
   Share,
   TouchableOpacity,
+  Modal,
+  Pressable,
+  ScrollView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { Link, Copy, Share2, Check, AlertCircle, Eye, Edit3 } from 'lucide-react-native';
 
-import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
@@ -81,208 +83,229 @@ export function ShareCodeModal({
   }, [code, t]);
 
   return (
-    <BottomSheet
+    <Modal
       visible={visible}
-      onDismiss={onDismiss}
-      snapPoints={[0.6]}
+      transparent
+      animationType="fade"
+      onRequestClose={onDismiss}
+      statusBarTranslucent
     >
-      <View style={styles.container}>
-        {/* Baslik */}
-        <View style={styles.header}>
-          <Link size={24} color={colors.primary} />
-          <Text style={styles.title}>{t('clients:sharing.shareTitle')}</Text>
-        </View>
-
-        {/* Cari bilgisi */}
-        <View style={styles.entityInfo}>
-          <Text style={styles.entityLabel}>{t('common:labels.client')}</Text>
-          <Text style={styles.entityName}>{cariName}</Text>
-        </View>
-
-        {/* Aşama A: İzin seçimi + Kod Oluştur */}
-        {!generateCode.isSuccess && (
-          <>
-            {/* Izin secimi */}
-            <Text style={styles.permissionLabel}>
-              {t('clients:sharing.permissionLabel')}
-            </Text>
-            <View style={styles.permissionRow}>
-              <TouchableOpacity
-                style={[
-                  styles.permissionOption,
-                  permission === 'view' && styles.permissionOptionSelected,
-                ]}
-                onPress={() => {
-                  setPermission('view');
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                activeOpacity={0.7}
-              >
-                <Eye
-                  size={20}
-                  color={permission === 'view' ? colors.primary : colors.textSecondary}
-                />
-                <View style={styles.permissionTextContainer}>
-                  <Text
-                    style={[
-                      styles.permissionTitle,
-                      permission === 'view' && styles.permissionTitleSelected,
-                    ]}
-                  >
-                    {t('clients:sharing.permissionView')}
-                  </Text>
-                  <Text style={styles.permissionDesc}>
-                    {t('clients:sharing.permissionViewDesc')}
-                  </Text>
-                </View>
-                {permission === 'view' && <Check size={16} color={colors.primary} />}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.permissionOption,
-                  permission === 'full' && styles.permissionOptionSelected,
-                ]}
-                onPress={() => {
-                  setPermission('full');
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                }}
-                activeOpacity={0.7}
-              >
-                <Edit3
-                  size={20}
-                  color={permission === 'full' ? colors.primary : colors.textSecondary}
-                />
-                <View style={styles.permissionTextContainer}>
-                  <Text
-                    style={[
-                      styles.permissionTitle,
-                      permission === 'full' && styles.permissionTitleSelected,
-                    ]}
-                  >
-                    {t('clients:sharing.permissionFull')}
-                  </Text>
-                  <Text style={styles.permissionDesc}>
-                    {t('clients:sharing.permissionFullDesc')}
-                  </Text>
-                </View>
-                {permission === 'full' && <Check size={16} color={colors.primary} />}
-              </TouchableOpacity>
+      <Pressable style={styles.overlay} onPress={onDismiss}>
+        <Pressable style={styles.dialogContainer} onPress={(e) => e.stopPropagation()}>
+          <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+            {/* Baslik */}
+            <View style={styles.header}>
+              <Link size={22} color={colors.primary} />
+              <Text style={styles.title}>{t('clients:sharing.shareTitle')}</Text>
             </View>
 
-            {/* Hata mesaji */}
-            {generateCode.isError && (
-              <View style={styles.errorContainer}>
-                <AlertCircle size={18} color={colors.error} />
-                <Text style={styles.errorText} color="error">
-                  {generateCode.error?.message ?? t('common:messages.operationFailed')}
+            {/* Cari bilgisi */}
+            <View style={styles.entityInfo}>
+              <Text style={styles.entityLabel}>{t('common:labels.client')}</Text>
+              <Text style={styles.entityName}>{cariName}</Text>
+            </View>
+
+            {/* Asama A: Izin secimi + Kod Olustur */}
+            {!generateCode.isSuccess && (
+              <>
+                {/* Izin secimi */}
+                <Text style={styles.permissionLabel}>
+                  {t('clients:sharing.permissionLabel')}
                 </Text>
-              </View>
+                <View style={styles.permissionRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.permissionOption,
+                      permission === 'view' && styles.permissionOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setPermission('view');
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Eye
+                      size={20}
+                      color={permission === 'view' ? colors.primary : colors.textSecondary}
+                    />
+                    <View style={styles.permissionTextContainer}>
+                      <Text
+                        style={[
+                          styles.permissionTitle,
+                          permission === 'view' && styles.permissionTitleSelected,
+                        ]}
+                      >
+                        {t('clients:sharing.permissionView')}
+                      </Text>
+                      <Text style={styles.permissionDesc}>
+                        {t('clients:sharing.permissionViewDesc')}
+                      </Text>
+                    </View>
+                    {permission === 'view' && <Check size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.permissionOption,
+                      permission === 'full' && styles.permissionOptionSelected,
+                    ]}
+                    onPress={() => {
+                      setPermission('full');
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Edit3
+                      size={20}
+                      color={permission === 'full' ? colors.primary : colors.textSecondary}
+                    />
+                    <View style={styles.permissionTextContainer}>
+                      <Text
+                        style={[
+                          styles.permissionTitle,
+                          permission === 'full' && styles.permissionTitleSelected,
+                        ]}
+                      >
+                        {t('clients:sharing.permissionFull')}
+                      </Text>
+                      <Text style={styles.permissionDesc}>
+                        {t('clients:sharing.permissionFullDesc')}
+                      </Text>
+                    </View>
+                    {permission === 'full' && <Check size={16} color={colors.primary} />}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Hata mesaji */}
+                {generateCode.isError && (
+                  <View style={styles.errorContainer}>
+                    <AlertCircle size={18} color={colors.error} />
+                    <Text style={styles.errorText} color="error">
+                      {generateCode.error?.message ?? t('common:messages.operationFailed')}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Kod Olustur butonu */}
+                <Button
+                  onPress={handleGenerateCode}
+                  loading={generateCode.isPending}
+                  fullWidth
+                  icon={<Link size={18} color={colors.white} />}
+                  style={styles.generateButton}
+                >
+                  {t('clients:sharing.generateCodeButton')}
+                </Button>
+              </>
             )}
 
-            {/* Kod Olustur butonu */}
-            <Button
-              onPress={handleGenerateCode}
-              loading={generateCode.isPending}
-              fullWidth
-              icon={<Link size={18} color={colors.white} />}
-              style={styles.generateButton}
-            >
-              {t('clients:sharing.generateCodeButton')}
-            </Button>
-          </>
-        )}
+            {/* Asama B: Olusan kod gosterimi */}
+            {generateCode.isSuccess && code && (
+              <>
+                {/* Kod label */}
+                <Text style={styles.codeLabel} color="secondary">
+                  {t('clients:sharing.codeLabel')}
+                </Text>
 
-        {/* Aşama B: Oluşan kod gösterimi */}
-        {generateCode.isSuccess && code && (
-          <>
-            {/* Kod label */}
-            <Text style={styles.codeLabel} color="secondary">
-              {t('clients:sharing.codeLabel')}
-            </Text>
-
-            {/* 6 haneli kod */}
-            <View style={styles.codeContainer}>
-              {code.split('').map((char, index) => (
-                <View key={index} style={styles.codeBox}>
-                  <Text style={styles.codeChar}>{char}</Text>
+                {/* 6 haneli kod */}
+                <View style={styles.codeContainer}>
+                  {code.split('').map((char, index) => (
+                    <View key={index} style={styles.codeBox}>
+                      <Text style={styles.codeChar}>{char}</Text>
+                    </View>
+                  ))}
                 </View>
-              ))}
-            </View>
 
-            {/* Gecerlilik */}
-            <Text style={styles.expiryText} color="secondary" center>
-              {t('clients:sharing.codeExpiry')}
-            </Text>
-
-            {/* Izin bilgisi */}
-            <View style={styles.permissionBadge}>
-              {permission === 'view' ? (
-                <Eye size={14} color={colors.warning} />
-              ) : (
-                <Edit3 size={14} color={colors.success} />
-              )}
-              <Text style={[
-                styles.permissionBadgeText,
-                { color: permission === 'view' ? colors.warning : colors.success }
-              ]}>
-                {permission === 'view'
-                  ? t('clients:sharing.permissionView')
-                  : t('clients:sharing.permissionFull')}
-              </Text>
-            </View>
-
-            {/* Aciklama */}
-            <Text style={styles.instructionText} color="secondary" center>
-              {t('clients:sharing.shareInstructions')}
-            </Text>
-
-            {/* Butonlar */}
-            <View style={styles.buttonRow}>
-              <TouchableOpacity
-                style={[styles.actionButton, copied && styles.actionButtonSuccess]}
-                onPress={handleCopy}
-                activeOpacity={0.7}
-              >
-                {copied ? (
-                  <Check size={20} color={colors.success} />
-                ) : (
-                  <Copy size={20} color={colors.primary} />
-                )}
-                <Text
-                  style={[
-                    styles.actionButtonText,
-                    copied && styles.actionButtonTextSuccess,
-                  ]}
-                >
-                  {copied
-                    ? t('clients:sharing.codeCopied')
-                    : t('clients:sharing.copyCode')}
+                {/* Gecerlilik */}
+                <Text style={styles.expiryText} color="secondary" center>
+                  {t('clients:sharing.codeExpiry')}
                 </Text>
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={handleShare}
-                activeOpacity={0.7}
-              >
-                <Share2 size={20} color={colors.primary} />
-                <Text style={styles.actionButtonText}>
-                  {t('clients:sharing.shareCode')}
+                {/* Izin bilgisi */}
+                <View style={styles.permissionBadge}>
+                  {permission === 'view' ? (
+                    <Eye size={14} color={colors.warning} />
+                  ) : (
+                    <Edit3 size={14} color={colors.success} />
+                  )}
+                  <Text style={[
+                    styles.permissionBadgeText,
+                    { color: permission === 'view' ? colors.warning : colors.success }
+                  ]}>
+                    {permission === 'view'
+                      ? t('clients:sharing.permissionView')
+                      : t('clients:sharing.permissionFull')}
+                  </Text>
+                </View>
+
+                {/* Aciklama */}
+                <Text style={styles.instructionText} color="secondary" center>
+                  {t('clients:sharing.shareInstructions')}
                 </Text>
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </View>
-    </BottomSheet>
+
+                {/* Butonlar */}
+                <View style={styles.buttonRow}>
+                  <TouchableOpacity
+                    style={[styles.actionButton, copied && styles.actionButtonSuccess]}
+                    onPress={handleCopy}
+                    activeOpacity={0.7}
+                  >
+                    {copied ? (
+                      <Check size={20} color={colors.success} />
+                    ) : (
+                      <Copy size={20} color={colors.primary} />
+                    )}
+                    <Text
+                      style={[
+                        styles.actionButtonText,
+                        copied && styles.actionButtonTextSuccess,
+                      ]}
+                    >
+                      {copied
+                        ? t('clients:sharing.codeCopied')
+                        : t('clients:sharing.copyCode')}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.actionButton}
+                    onPress={handleShare}
+                    activeOpacity={0.7}
+                  >
+                    <Share2 size={20} color={colors.primary} />
+                    <Text style={styles.actionButtonText}>
+                      {t('clients:sharing.shareCode')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </ScrollView>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogContainer: {
+    width: '88%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 10,
   },
   header: {
     flexDirection: 'row',
@@ -417,13 +440,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     paddingHorizontal: spacing.md,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.lg,
   },
   buttonRow: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginTop: 'auto',
-    paddingBottom: spacing.md,
   },
   actionButton: {
     flex: 1,

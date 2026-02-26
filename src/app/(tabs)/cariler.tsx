@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -91,6 +91,7 @@ export default function CarilerPage() {
   const [acceptCodeVisible, setAcceptCodeVisible] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [shareModalCari, setShareModalCari] = useState<{ id: string; name: string } | null>(null);
+  const pendingShareRef = useRef<{ id: string; name: string } | null>(null);
 
   // Mutations
   const archiveCari = useArchiveCari();
@@ -353,9 +354,7 @@ export default function CarilerPage() {
       icon: <Link size={20} color={colors.primary} />,
       onPress: () => {
         if (actionSheetCari) {
-          const c = { id: actionSheetCari.id, name: actionSheetCari.name };
-          setShareModalCari(c);
-          setTimeout(() => setShareModalVisible(true), 250);
+          pendingShareRef.current = { id: actionSheetCari.id, name: actionSheetCari.name };
         }
       },
     });
@@ -725,6 +724,15 @@ export default function CarilerPage() {
         onClose={() => {
           setActionSheetVisible(false);
           setActionSheetCari(null);
+          // ActionSheet tamamen kapandiktan sonra pending share modal'i ac
+          if (pendingShareRef.current) {
+            const cariData = pendingShareRef.current;
+            pendingShareRef.current = null;
+            requestAnimationFrame(() => {
+              setShareModalCari(cariData);
+              setShareModalVisible(true);
+            });
+          }
         }}
         title={actionSheetCari?.name}
         options={actionSheetOptions}
