@@ -102,7 +102,6 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
           <CategoryPicker
             value={item.kategoriId}
             onChange={(kategoriId) => onUpdate(index, { ...item, kategoriId, userEdited: true })}
-            type="urun"
             label={t('ocrImport:review.category')}
             optional
           />

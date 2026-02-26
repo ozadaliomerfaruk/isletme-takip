@@ -202,15 +202,16 @@ export function UrunPickerModal({
       animationType="slide"
       onRequestClose={handleClose}
     >
-      <TouchableWithoutFeedback onPress={handleClose}>
-        <View style={sharedStyles.bottomSheetOverlay}>
-          <TouchableWithoutFeedback onPress={() => {}}>
-            <View
-              style={[
-                sharedStyles.bottomSheetContent,
-                { height: windowHeight * 0.85, paddingBottom: insets.bottom },
-              ]}
-            >
+      <View style={sharedStyles.bottomSheetOverlay}>
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <View style={{ flex: 1 }} />
+        </TouchableWithoutFeedback>
+        <View
+          style={[
+            sharedStyles.bottomSheetContent,
+            { height: windowHeight * 0.85, paddingBottom: insets.bottom },
+          ]}
+        >
               {/* Header */}
               <View style={sharedStyles.bottomSheetHeader}>
                 <Text style={sharedStyles.bottomSheetTitle}>
@@ -246,6 +247,8 @@ export function UrunPickerModal({
                 style={styles.content}
                 contentContainerStyle={styles.contentContainer}
                 keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
               >
                 {/* Ürün Ekleme Formu */}
                 {addingProduct && (
@@ -500,10 +503,8 @@ export function UrunPickerModal({
                   </Button>
                 </View>
               )}
-            </View>
-          </TouchableWithoutFeedback>
         </View>
-      </TouchableWithoutFeedback>
+      </View>
     </Modal>
   );
 }

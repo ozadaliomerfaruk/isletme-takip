@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useNavigation } from 'expo-router';
+import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { ChevronLeft } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import {
   OcrCaptureStep,
@@ -14,23 +15,63 @@ import { spacing } from '@/constants/spacing';
 import { useFotoImportContext } from '@/contexts/FotoImportContext';
 
 export default function FotoImportIndexPage() {
-  const { t } = useTranslation('ocrImport');
+  const { t } = useTranslation(['ocrImport', 'common']);
   const ctx = useFotoImportContext();
   const navigation = useNavigation();
+  const router = useRouter();
   const wasUnfocused = useRef(false);
 
-  // Intercept back gesture: if we have unsaved entries and we're in capture step
-  // (user clicked "Add More" then swiped back), go back to invoice-list instead
-  // of leaving the foto-import flow entirely.
+  // Protect against accidental back navigation when entries exist.
+  // - capture step with entries → back button returns to invoice-list, swipe disabled
+  // - invoice-list step with unsaved entries → back button asks for confirmation, swipe disabled
+  const hasUnsavedEntries = ctx.entries.length > 0 && ctx.entries.some(e => !e.isSaved);
+  const inCaptureWithEntries = ctx.step === 'capture' && ctx.entries.length > 0;
+  const inListWithEntries = (ctx.step === 'invoice-list' || (ctx.step === 'review' && ctx.entries.length > 0)) && hasUnsavedEntries;
+  const shouldDisableGesture = inCaptureWithEntries || inListWithEntries;
+
   useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      if (ctx.step === 'capture' && ctx.entries.length > 0) {
-        e.preventDefault();
-        ctx.setStep('invoice-list');
+    const getHeaderLeft = () => {
+      if (inCaptureWithEntries) {
+        // Return to invoice-list instead of leaving
+        return () => (
+          <TouchableOpacity
+            onPress={() => ctx.setStep('invoice-list')}
+            style={{ padding: 8, marginLeft: Platform.OS === 'ios' ? -8 : 0 }}
+            hitSlop={8}
+          >
+            <ChevronLeft size={28} color={colors.text} />
+          </TouchableOpacity>
+        );
       }
+      if (inListWithEntries) {
+        // Confirm before losing unsaved entries
+        return () => (
+          <TouchableOpacity
+            onPress={() => {
+              Alert.alert(
+                t('common:status.warning'),
+                t('ocrImport:messages.unsavedWarning'),
+                [
+                  { text: t('common:buttons.cancel'), style: 'cancel' },
+                  { text: t('common:buttons.leave'), style: 'destructive', onPress: () => router.back() },
+                ]
+              );
+            }}
+            style={{ padding: 8, marginLeft: Platform.OS === 'ios' ? -8 : 0 }}
+            hitSlop={8}
+          >
+            <ChevronLeft size={28} color={colors.text} />
+          </TouchableOpacity>
+        );
+      }
+      return undefined;
+    };
+
+    navigation.setOptions({
+      gestureEnabled: !shouldDisableGesture,
+      headerLeft: getHeaderLeft(),
     });
-    return unsubscribe;
-  }, [navigation, ctx.step, ctx.entries.length]);
+  }, [navigation, shouldDisableGesture, inCaptureWithEntries, inListWithEntries]);
 
   // Only reset step when page truly regains focus after being in the background
   // (e.g. native swipe-back from review). Do NOT reset on initial mount or

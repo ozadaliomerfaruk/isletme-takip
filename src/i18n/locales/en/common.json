@@ -26,6 +26,7 @@
     "update": "Update",
     "create": "Create",
     "remove": "Remove",
+    "leave": "Leave",
     "select": "Select",
     "selectAll": "Select All",
     "deselectAll": "Deselect All",

@@ -148,7 +148,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.description || islem.kategori?.name || null}
-        hasPhoto={hasUrunFn(islem.id)}
+        hasPhoto={!!islem.photo_path}
+        hasUrunler={hasUrunFn(islem.id)}
         currency={currency}
         subAmount={getCariSubAmount(islem)}
         overrideColor={getEntityPerspectiveColor(islem.type)}
@@ -190,14 +191,14 @@ function ProductDetailModal({
       animationType="slide"
       onRequestClose={onDismiss}
     >
-      <TouchableOpacity
-        style={productDetailStyles.overlay}
-        activeOpacity={1}
-        onPress={onDismiss}
-      >
+      <View style={productDetailStyles.overlay}>
+        <TouchableOpacity
+          style={productDetailStyles.overlayBackdrop}
+          activeOpacity={1}
+          onPress={onDismiss}
+        />
         <View
-          style={[productDetailStyles.content, { maxHeight: windowHeight * 0.6 }]}
-          onStartShouldSetResponder={() => true}
+          style={[productDetailStyles.content, { maxHeight: windowHeight * 0.75 }]}
         >
           <View style={productDetailStyles.header}>
             <Text variant="h3">{t('clients:productDetail.title')}</Text>
@@ -215,7 +216,12 @@ function ProductDetailModal({
               <Text variant="body" color="secondary">{t('clients:productDetail.noProducts')}</Text>
             </View>
           ) : (
-            <ScrollView style={productDetailStyles.list}>
+            <ScrollView
+              style={productDetailStyles.list}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              bounces={true}
+            >
               {urunHareketler.map((hareket) => {
                 const subtotal = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
                 const kdvAmount = subtotal * ((hareket.kdv_orani || 0) / 100);
@@ -258,7 +264,7 @@ function ProductDetailModal({
             </Button>
           </View>
         </View>
-      </TouchableOpacity>
+      </View>
     </Modal>
   );
 }
@@ -268,6 +274,9 @@ const productDetailStyles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
+  },
+  overlayBackdrop: {
+    flex: 1,
   },
   content: {
     backgroundColor: colors.surface,

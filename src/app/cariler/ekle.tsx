@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
 import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
@@ -21,6 +21,11 @@ import { toErrorMessage } from '@/lib/errors';
 
 export default function CariEklePage() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    prefillName?: string;
+    prefillType?: string;
+    prefillTaxNumber?: string;
+  }>();
   const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
   const createCari = useCreateCari();
 
@@ -33,15 +38,15 @@ export default function CariEklePage() {
     { type: 'musteri', label: t('clients:types.musteri'), icon: <User size={24} color={colors.info} /> },
   ];
 
-  const [name, setName] = useState('');
-  const [type, setType] = useState<CariType>('tedarikci');
+  const [name, setName] = useState(params.prefillName || '');
+  const [type, setType] = useState<CariType>((params.prefillType as CariType) || 'tedarikci');
   const [currency, setCurrency] = useState<Currency>(defaultCurrency);
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [balance, setBalance] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(params.prefillTaxNumber ? `VKN: ${params.prefillTaxNumber}` : '');
   const [errors, setErrors] = useState<{ name?: string }>({});
 
   // Cari tipi değiştiğinde varsayılan yönü güncelle

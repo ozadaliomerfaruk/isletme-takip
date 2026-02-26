@@ -1,6 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Image as ImageIcon } from 'lucide-react-native';
+import { Image as ImageIcon, Package } from 'lucide-react-native';
 import { Text } from './Text';
 import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
@@ -27,6 +27,7 @@ export interface TransactionRowProps {
   tertiaryText?: string | null;
   subAmount?: string | null;
   hasPhoto?: boolean;
+  hasUrunler?: boolean;
   currency?: string;
   /** Override the default color derived from type */
   overrideColor?: string;
@@ -47,6 +48,7 @@ export const TransactionRow = memo(function TransactionRow({
   tertiaryText,
   subAmount,
   hasPhoto,
+  hasUrunler,
   currency,
   overrideColor,
   overridePrefix,
@@ -120,6 +122,9 @@ export const TransactionRow = memo(function TransactionRow({
       {/* Amount */}
       <View style={styles.amountContainer}>
         <View style={styles.amountRow}>
+          {hasUrunler && (
+            <Package size={14} color={colors.primary} style={styles.photoIcon} />
+          )}
           {hasPhoto && (
             <ImageIcon size={14} color={colors.primary} style={styles.photoIcon} />
           )}
@@ -139,6 +144,7 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.type === next.type
     && prev.date === next.date
     && prev.hasPhoto === next.hasPhoto
+    && prev.hasUrunler === next.hasUrunler
     && prev.entityText === next.entityText
     && prev.secondaryText === next.secondaryText
     && prev.tertiaryText === next.tertiaryText

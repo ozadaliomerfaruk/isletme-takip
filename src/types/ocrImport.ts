@@ -93,6 +93,7 @@ export interface MultiInvoiceEntry {
   selectedHesapId: string | null;
   selectedKategoriId: string | null;
   editedGrandTotal: number | null;
+  description: string | null;
 }
 
 /** Progress during batch OCR processing */
@@ -121,7 +122,7 @@ export interface DocumentTypeConfig {
 export const DOCUMENT_TYPE_DEFAULTS: Record<OcrDocumentType, DocumentTypeConfig> = {
   fatura:            { saveMode: 'stock_and_cari',      color: '#3b82f6', labelKey: 'docType.fatura',            icon: 'FileText' },
   irsaliye:          { saveMode: 'irsaliye_pending',     color: '#8b5cf6', labelKey: 'docType.irsaliye',          icon: 'Truck' },
-  siparis_fisi:      { saveMode: 'stock_and_cari',      color: '#06b6d4', labelKey: 'docType.siparis_fisi',      icon: 'ClipboardList' },
+  siparis_fisi:      { saveMode: 'irsaliye_pending',     color: '#06b6d4', labelKey: 'docType.siparis_fisi',      icon: 'ClipboardList' },
   kasa_fisi:         { saveMode: 'stock_and_cari',      color: '#f59e0b', labelKey: 'docType.kasa_fisi',         icon: 'Receipt' },
   pos_fisi:          { saveMode: 'direct_gider',        color: '#ef4444', labelKey: 'docType.pos_fisi',          icon: 'CreditCard' },
   fis:               { saveMode: 'direct_gider',        color: '#d97706', labelKey: 'docType.fis',               icon: 'Receipt' },

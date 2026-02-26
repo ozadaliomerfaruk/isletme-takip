@@ -90,6 +90,7 @@
     "newProductWarning": "{{count}} new product(s) will be created",
     "confirmNewProducts": "Confirm New Products",
     "addNewCari": "Add New Account",
+    "createCari": "Create Account",
     "cariMatched": "Matched with existing account",
     "cariNotMatched": "No matching account found",
     "buyButton": "BUY",
@@ -145,7 +146,8 @@
     "manualFallback": "Switch to manual entry",
     "networkError": "No internet connection found. Internet is required for invoice analysis.",
     "analysisError": "Invoice analysis error: {{message}}",
-    "analysisFailed": "Invoice analysis failed"
+    "analysisFailed": "Invoice analysis failed",
+    "unsavedWarning": "You have unsaved invoices. Are you sure you want to leave?"
   },
   "batch": {
     "processingPhoto": "Processing invoice {{current}}/{{total}}...",

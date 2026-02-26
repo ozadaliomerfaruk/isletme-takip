@@ -401,16 +401,16 @@ export default function UrunlerPage() {
                         <>
                           {urunOzet.giris > 0 && (
                             <View style={styles.periodSummaryItem}>
-                              <TrendingUp size={12} color={colors.success} />
-                              <Text variant="caption" color="success">
+                              <TrendingUp size={14} color={colors.success} />
+                              <Text variant="body" color="success" style={styles.periodSummaryText}>
                                 +{urunOzet.giris}
                               </Text>
                             </View>
                           )}
                           {urunOzet.cikis > 0 && (
                             <View style={styles.periodSummaryItem}>
-                              <TrendingDown size={12} color={colors.error} />
-                              <Text variant="caption" color="error">
+                              <TrendingDown size={14} color={colors.error} />
+                              <Text variant="body" color="error" style={styles.periodSummaryText}>
                                 -{urunOzet.cikis}
                               </Text>
                             </View>
@@ -934,7 +934,11 @@ const styles = StyleSheet.create({
   periodSummaryItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
+  },
+  periodSummaryText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   actionButtons: {
     flexDirection: 'row',

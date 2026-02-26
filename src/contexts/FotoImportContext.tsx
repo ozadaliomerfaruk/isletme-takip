@@ -489,6 +489,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
           selectedHesapId: autoHesapId,
           selectedKategoriId: autoKategoriId,
           editedGrandTotal: null,
+          description: null,
         };
       });
 
@@ -728,6 +729,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         hesapId: entry.selectedHesapId || undefined,
         kategoriId: entry.selectedKategoriId || undefined,
         editedGrandTotal: entry.editedGrandTotal,
+        description: entry.description || undefined,
       });
 
       setEntries(prev => {

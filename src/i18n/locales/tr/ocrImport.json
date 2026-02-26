@@ -90,6 +90,7 @@
     "newProductWarning": "{{count}} adet yeni ürün oluşturulacak",
     "confirmNewProducts": "Yeni Ürünleri Onayla",
     "addNewCari": "Yeni Cari Ekle",
+    "createCari": "Cari Oluştur",
     "cariMatched": "Sistemdeki cari ile eşleşti",
     "cariNotMatched": "Sistemde eşleşen cari bulunamadı",
     "buyButton": "AL",
@@ -145,7 +146,8 @@
     "manualFallback": "Manuel girişe geç",
     "networkError": "İnternet bağlantısı bulunamadı. Fatura analizi için internet gereklidir.",
     "analysisError": "Fatura analiz hatası: {{message}}",
-    "analysisFailed": "Fatura analizi başarısız oldu"
+    "analysisFailed": "Fatura analizi başarısız oldu",
+    "unsavedWarning": "Kaydedilmemiş faturalar var. Çıkmak istediğinize emin misiniz?"
   },
   "batch": {
     "processingPhoto": "Fatura {{current}}/{{total}} işleniyor...",

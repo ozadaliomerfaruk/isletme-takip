@@ -327,6 +327,12 @@ export function useQuickTransactionForm({
     setIsCariMode(mappedState.isCariMode);
     setIsPersonelMode(mappedState.isPersonelMode);
 
+    // Load photo indicator (storage path) so the photo icon appears active
+    const photoPath = (transaction as { photo_path?: string | null }).photo_path;
+    if (photoPath) {
+      setPhotoUri(photoPath);
+    }
+
     // For scheduled transactions in edit mode, mark as scheduled
     if (isScheduledTransaction && !isCopyMode) {
       setIsScheduled(true);

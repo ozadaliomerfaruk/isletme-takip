@@ -180,9 +180,9 @@ const localStyles = StyleSheet.create({
   urunButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     backgroundColor: colors.primaryLight,
     borderRadius: 10,
     borderWidth: 1,

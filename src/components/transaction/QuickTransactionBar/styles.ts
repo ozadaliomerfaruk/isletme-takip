@@ -120,7 +120,7 @@ export const styles = StyleSheet.create({
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
     height: 56,
     marginBottom: 8,
     borderTopWidth: 1,
@@ -134,6 +134,7 @@ export const styles = StyleSheet.create({
   },
   amountInput: {
     flex: 1,
+    minWidth: 80,
     fontSize: 28,
     fontWeight: '600',
     color: colors.text,
@@ -142,9 +143,9 @@ export const styles = StyleSheet.create({
   },
   saveButton: {
     paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     borderRadius: 10,
-    minWidth: 100,
+    minWidth: 72,
     alignItems: 'center',
   },
   saveButtonDisabled: {

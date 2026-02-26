@@ -28,6 +28,7 @@ export interface SaveImportOptions {
   hesapId?: string;
   kategoriId?: string;
   editedGrandTotal?: number | null;
+  description?: string;
 }
 
 export function useOcrImport(sessionId: string) {
@@ -233,7 +234,7 @@ export function useOcrImport(sessionId: string) {
 
         setSaveProgress({ total: 1, current: 0, currentItemName: '', phase: 'creating_movements' });
 
-        const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
+        const aciklama = options?.description || buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
         await createIslem.mutateAsync({
           type: 'gider',
@@ -469,14 +470,19 @@ export function useOcrImport(sessionId: string) {
           const totalAmount = options?.editedGrandTotal
             ?? invoice.grandTotal
             ?? itemsToSave.reduce((sum, item) => sum + item.totalPrice, 0);
-          const islemId = await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId);
 
-          // Link urun_hareketler to the created islem
-          if (islemId && createdIds.current.hareketIds.length > 0) {
-            await supabase
-              .from('urun_hareketler')
-              .update({ islem_id: islemId })
-              .in('id', createdIds.current.hareketIds);
+          // Sıfır tutarlı işlemlerde (irsaliye/sipariş fişi gibi) cari hareketi oluşturma
+          // ama ürün hareketlerini kaydet - amount 0 olunca DB constraint hata verir
+          if (totalAmount > 0) {
+            const islemId = await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId);
+
+            // Link urun_hareketler to the created islem
+            if (islemId && createdIds.current.hareketIds.length > 0) {
+              await supabase
+                .from('urun_hareketler')
+                .update({ islem_id: islemId })
+                .in('id', createdIds.current.hareketIds);
+            }
           }
         }
       }

@@ -229,14 +229,31 @@ export default function FotoImportReviewPage() {
                     </View>
                   ) : null}
                 </View>
-                <TouchableOpacity
-                  style={styles.selectCariButton}
-                  onPress={() => { setCariSearch(''); setCariPickerVisible(true); }}
-                >
-                  <Text variant="body" color="primary" style={styles.selectCariButtonText}>
-                    {matchedCari ? t('ocrImport:review.changeCari') : t('ocrImport:review.selectCari')}
-                  </Text>
-                </TouchableOpacity>
+                <View style={{ gap: spacing.xs }}>
+                  <TouchableOpacity
+                    style={styles.selectCariButton}
+                    onPress={() => { setCariSearch(''); setCariPickerVisible(true); }}
+                  >
+                    <Text variant="body" color="primary" style={styles.selectCariButtonText}>
+                      {matchedCari ? t('ocrImport:review.changeCari') : t('ocrImport:review.selectCari')}
+                    </Text>
+                  </TouchableOpacity>
+                  {!matchedCari && (
+                    <TouchableOpacity
+                      style={[styles.selectCariButton, { borderColor: colors.success, backgroundColor: colors.successLight }]}
+                      onPress={() => {
+                        const prefillParams: Record<string, string> = { prefillType: 'tedarikci' };
+                        if (selectedInvoice?.supplierName) prefillParams.prefillName = selectedInvoice.supplierName;
+                        if (selectedInvoice?.supplierTaxNumber) prefillParams.prefillTaxNumber = selectedInvoice.supplierTaxNumber;
+                        router.push({ pathname: '/cariler/ekle', params: prefillParams } as any);
+                      }}
+                    >
+                      <Text variant="body" color="success" style={styles.selectCariButtonText}>
+                        {t('ocrImport:review.createCari')}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             )}
 
@@ -373,6 +390,30 @@ export default function FotoImportReviewPage() {
             </Card>
           )}
 
+          {/* Not alanı - direct_gider modunda */}
+          {saveMode === 'direct_gider' && (
+            <Card style={styles.hesapCard}>
+              <Text variant="label" color="secondary">{t('common:placeholders.enterNote')}</Text>
+              <TextInput
+                style={styles.descriptionInput}
+                placeholder={t('common:placeholders.enterNote')}
+                placeholderTextColor={colors.textMuted}
+                value={currentEntry?.description || ''}
+                onChangeText={(text) => {
+                  if (selectedIndex !== null) {
+                    setEntries(prev => {
+                      const ne = [...prev];
+                      ne[selectedIndex] = { ...ne[selectedIndex], description: text };
+                      return ne;
+                    });
+                  }
+                }}
+                multiline
+                maxLength={200}
+              />
+            </Card>
+          )}
+
           {/* Items - only for stock modes */}
           {showItemsList && (
             <>
@@ -500,9 +541,6 @@ export default function FotoImportReviewPage() {
                 {t(`ocrImport:review.paymentMethod.${selectedInvoice.paymentInfo.paymentMethod}`)}
                 {selectedInvoice.paymentInfo.cardLastFour ? ` (****${selectedInvoice.paymentInfo.cardLastFour})` : ''}
               </Text>
-              {selectedInvoice.paymentInfo.bankName && (
-                <Text variant="caption" color="secondary">{selectedInvoice.paymentInfo.bankName}</Text>
-              )}
             </Card>
           )}
 
@@ -758,7 +796,15 @@ export default function FotoImportReviewPage() {
                 style={styles.addNewCariButton}
                 onPress={() => {
                   setCariPickerVisible(false);
-                  router.push('/cariler/ekle');
+                  const prefillParams: Record<string, string> = {};
+                  if (selectedInvoice?.supplierName) {
+                    prefillParams.prefillName = selectedInvoice.supplierName;
+                  }
+                  if (selectedInvoice?.supplierTaxNumber) {
+                    prefillParams.prefillTaxNumber = selectedInvoice.supplierTaxNumber;
+                  }
+                  prefillParams.prefillType = 'tedarikci';
+                  router.push({ pathname: '/cariler/ekle', params: prefillParams } as any);
                 }}
               >
                 <View style={[styles.pickerIcon, { backgroundColor: colors.successLight }]}>
@@ -1115,6 +1161,15 @@ const styles = StyleSheet.create({
   paymentInfoCard: {
     padding: spacing.md,
     gap: spacing.xs,
+  },
+  descriptionInput: {
+    fontSize: 15,
+    color: colors.text,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: 0,
+    minHeight: 40,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   rememberRow: {
     flexDirection: 'row',

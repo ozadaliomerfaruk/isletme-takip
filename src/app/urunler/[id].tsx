@@ -343,17 +343,17 @@ export default function UrunDetayPage() {
                             {hareket.cari && (
                               <View style={styles.cariBadge}>
                                 {hareket.cari.type === 'tedarikci' ? (
-                                  <Building2 size={10} color={colors.warning} />
+                                  <Building2 size={12} color={colors.warning} />
                                 ) : (
-                                  <User size={10} color={colors.info} />
+                                  <User size={12} color={colors.info} />
                                 )}
-                                <Text variant="caption" style={styles.cariName} numberOfLines={1}>
+                                <Text style={styles.cariName} numberOfLines={1}>
                                   {hareket.cari.name}
                                 </Text>
                               </View>
                             )}
                           </View>
-                          <Text variant="caption" color="secondary">
+                          <Text variant="body" color="secondary" style={{ fontSize: 14 }}>
                             {hareket.hareket_tipi === 'giris'
                               ? t('products:stock.stockIn')
                               : hareket.hareket_tipi === 'cikis'
@@ -361,7 +361,7 @@ export default function UrunDetayPage() {
                               : t('products:stock.adjustment')}
                           </Text>
                           {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
-                            <Text variant="caption" color="secondary">
+                            <Text variant="body" color="secondary" style={{ fontSize: 14 }}>
                               {formatCurrency(hareket.birim_fiyat)}/{getBirimLabel(urun.birim)}
                             </Text>
                           )}
@@ -601,15 +601,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: borderRadius.sm,
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
   },
   cariName: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    maxWidth: 100,
+    fontSize: 13,
+    color: colors.text,
+    fontWeight: '500',
+    maxWidth: 120,
   },
   divider: {
     height: 1,
