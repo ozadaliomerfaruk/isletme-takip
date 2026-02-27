@@ -22,11 +22,11 @@ import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
 import { useCreateUrunHareket, useUpdateUrunHareket } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { Urun, BirimType, UrunHareketTipi } from '@/types/database';
+import { Urun, BirimType } from '@/types/database';
 import { styles } from './styles';
 import { toErrorMessage } from '@/lib/errors';
 
-type UrunType = 'giris' | 'cikis';
+type UrunType = 'giris' | 'cikis' | 'duzeltme';
 
 interface QuickUrunBarProps {
   visible: boolean;
@@ -208,6 +208,35 @@ export function QuickUrunBar({
     if (!urun) return;
 
     const miktarNum = parseFloat(miktar.replace(',', '.'));
+
+    if (urunType === 'duzeltme') {
+      // For adjustment, miktar is the new target stock (can be 0 or positive)
+      if (!miktar || isNaN(miktarNum) || miktarNum < 0) {
+        Alert.alert(t('common:status.error'), t('products:validation.quantityRequired'));
+        return;
+      }
+      // Calculate the delta from current stock
+      const delta = miktarNum - urun.miktar;
+      if (delta === 0) {
+        handleDismiss();
+        return;
+      }
+      try {
+        await createUrunHareket.mutateAsync({
+          urun_id: urun.id,
+          hareket_tipi: 'duzeltme',
+          miktar: Math.abs(delta),
+          birim_fiyat: null,
+          aciklama: null,
+        });
+        handleDismiss();
+        Alert.alert(t('common:status.success'), t('products:messages.stockAdjustmentSuccess'));
+      } catch (error) {
+        Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
+      }
+      return;
+    }
+
     if (!miktar || isNaN(miktarNum) || miktarNum <= 0) {
       Alert.alert(t('common:status.error'), t('products:validation.quantityPositive'));
       return;
@@ -256,7 +285,9 @@ export function QuickUrunBar({
   if (!urun) return null;
 
   const miktarNum = parseFloat(miktar.replace(',', '.'));
-  const isValidAmount = !isNaN(miktarNum) && miktarNum > 0;
+  const isValidAmount = urunType === 'duzeltme'
+    ? !isNaN(miktarNum) && miktarNum >= 0
+    : !isNaN(miktarNum) && miktarNum > 0;
   const isPending = createUrunHareket.isPending || updateUrunHareket.isPending;
 
   // Position card above keyboard (like QuickTransactionBar)
@@ -322,37 +353,42 @@ export function QuickUrunBar({
               style={styles.amountInput}
               value={miktar}
               onChangeText={setMiktar}
-              placeholder={t('products:stock.quantity')}
+              placeholder={urunType === 'duzeltme'
+                ? `${t('products:stock.currentStock')}: ${urun.miktar}`
+                : t('products:stock.quantity')}
               placeholderTextColor={colors.textMuted}
               keyboardType="decimal-pad"
-              returnKeyType="next"
+              returnKeyType={urunType === 'duzeltme' ? 'done' : 'next'}
+              onSubmitEditing={urunType === 'duzeltme' ? handleSave : undefined}
             />
           </View>
           <RNText style={styles.unitLabel}>{getBirimLabel(urun.birim)}</RNText>
         </View>
 
-        {/* Price Input Row */}
-        <View style={styles.inputRow}>
-          <View style={styles.amountInputContainer}>
-            <TextInput
-              style={styles.priceInput}
-              value={birimFiyat}
-              onChangeText={setBirimFiyat}
-              placeholder={`${t('products:stock.unitPrice')} (${t('common:optional')})`}
-              placeholderTextColor={colors.textMuted}
-              keyboardType="decimal-pad"
-              returnKeyType="done"
-              onSubmitEditing={handleSave}
-            />
+        {/* Price Input Row (hidden for adjustment) */}
+        {urunType !== 'duzeltme' && (
+          <View style={styles.inputRow}>
+            <View style={styles.amountInputContainer}>
+              <TextInput
+                style={styles.priceInput}
+                value={birimFiyat}
+                onChangeText={setBirimFiyat}
+                placeholder={`${t('products:stock.unitPrice')} (${t('common:labels.optional')})`}
+                placeholderTextColor={colors.textMuted}
+                keyboardType="decimal-pad"
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
+              />
+            </View>
+            <RNText style={styles.unitLabel}>₺</RNText>
           </View>
-          <RNText style={styles.unitLabel}>₺</RNText>
-        </View>
+        )}
 
         {/* Save Button */}
         <TouchableOpacity
           style={[
             styles.saveButton,
-            urunType === 'giris' ? styles.saveButtonGiris : styles.saveButtonCikis,
+            urunType === 'giris' ? styles.saveButtonGiris : urunType === 'cikis' ? styles.saveButtonCikis : styles.saveButtonDuzeltme,
             (!isValidAmount || isPending) && styles.saveButtonDisabled,
           ]}
           onPress={handleSave}
@@ -367,7 +403,7 @@ export function QuickUrunBar({
           )}
         </TouchableOpacity>
 
-        {/* Tabs: Ürün Giriş / Ürün Çıkış */}
+        {/* Tabs: Ürün Giriş / Ürün Çıkış / Düzeltme */}
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[
@@ -407,6 +443,26 @@ export function QuickUrunBar({
               ]}
             >
               {t('products:stock.stockOut')}
+            </RNText>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.tab,
+              urunType === 'duzeltme' && styles.tabDuzeltme,
+            ]}
+            onPress={() => {
+              setUrunType('duzeltme');
+              setBirimFiyat('');
+            }}
+            activeOpacity={0.7}
+          >
+            <RNText
+              style={[
+                styles.tabText,
+                urunType === 'duzeltme' && styles.tabTextDuzeltme,
+              ]}
+            >
+              {t('products:stock.adjustment')}
             </RNText>
           </TouchableOpacity>
         </View>

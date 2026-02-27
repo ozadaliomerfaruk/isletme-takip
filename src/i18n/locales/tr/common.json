@@ -359,6 +359,15 @@
       "closingBalance": "SON BAKİYE",
       "sheetName": "Ekstre",
       "statementFileName": "Ekstre"
+    },
+    "reportExcel": {
+      "amount": "TUTAR",
+      "total": "TOPLAM",
+      "transactionCount": "ADET",
+      "categoryBreakdown": "KATEGORİ DAĞILIMI",
+      "sheetName": "Rapor",
+      "incomeFileName": "Gelir_Raporu",
+      "expenseFileName": "Gider_Raporu"
     }
   },
   "archive": {

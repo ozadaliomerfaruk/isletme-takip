@@ -77,7 +77,8 @@
     "unarchiveSuccess": "Product unarchived",
     "stockUpdated": "Quantity updated",
     "stockInSuccess": "Product purchase completed",
-    "stockOutSuccess": "Product sale completed"
+    "stockOutSuccess": "Product sale completed",
+    "stockAdjustmentSuccess": "Stock adjustment completed"
   },
   "validation": {
     "nameRequired": "Product name is required",

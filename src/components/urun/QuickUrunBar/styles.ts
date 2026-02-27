@@ -187,6 +187,9 @@ export const styles = StyleSheet.create({
   tabCikis: {
     backgroundColor: colors.errorLight,
   },
+  tabDuzeltme: {
+    backgroundColor: colors.primaryLight,
+  },
   tabText: {
     fontSize: 14,
     fontWeight: '500',
@@ -203,5 +206,12 @@ export const styles = StyleSheet.create({
   tabTextCikis: {
     color: colors.error,
     fontWeight: '600',
+  },
+  tabTextDuzeltme: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  saveButtonDuzeltme: {
+    backgroundColor: colors.primary,
   },
 });

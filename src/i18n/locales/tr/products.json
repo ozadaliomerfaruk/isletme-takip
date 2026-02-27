@@ -77,7 +77,8 @@
     "unarchiveSuccess": "Ürün arşivden çıkarıldı",
     "stockUpdated": "Miktar güncellendi",
     "stockInSuccess": "Ürün alımı yapıldı",
-    "stockOutSuccess": "Ürün satışı yapıldı"
+    "stockOutSuccess": "Ürün satışı yapıldı",
+    "stockAdjustmentSuccess": "Stok düzeltmesi yapıldı"
   },
   "validation": {
     "nameRequired": "Ürün adı zorunludur",

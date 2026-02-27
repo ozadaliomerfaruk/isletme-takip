@@ -340,6 +340,15 @@
       "closingBalance": "CLOSING BALANCE",
       "sheetName": "Statement",
       "statementFileName": "Statement"
+    },
+    "reportExcel": {
+      "amount": "AMOUNT",
+      "total": "TOTAL",
+      "transactionCount": "COUNT",
+      "categoryBreakdown": "CATEGORY BREAKDOWN",
+      "sheetName": "Report",
+      "incomeFileName": "Income_Report",
+      "expenseFileName": "Expense_Report"
     }
   },
   "archive": {

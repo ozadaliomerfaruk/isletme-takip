@@ -4,21 +4,21 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, Trash2, ArrowUpDown } from 'lucide-react-native';
+import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown } from 'lucide-react-native';
 import { Text, Button, Input, EmptyState, ExpandableCard, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useUrunler, useDeleteUrun, useArchiveUrun } from '@/hooks/useUrunler';
+import { useUrunler, useDeleteUrun, useArchiveUrun, usePermanentDeleteUrun } from '@/hooks/useUrunler';
+import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
 import { useToast } from '@/contexts/ToastContext';
 import { useDonemUrunOzet } from '@/hooks/useUrunHareketler';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
-import { toErrorMessage } from '@/lib/errors';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -38,6 +38,7 @@ export default function UrunlerPage() {
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
   const [sortType, setSortType] = useState<SortType>('nameAZ');
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -89,15 +90,20 @@ export default function UrunlerPage() {
 
   const { canUpdate, canDelete } = usePermissions();
   const { data: urunler, isLoading, refetch } = useUrunler();
+  const { data: archivedUrunler, refetch: refetchArchived } = useArchivedUrunler();
+  const deleteUrun = useDeleteUrun();
+  const archiveUrun = useArchiveUrun();
+  const permanentDeleteUrun = usePermanentDeleteUrun();
+  const unarchiveUrun = useUnarchiveUrun();
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    try { await refetch(); } finally { setIsRefreshing(false); }
-  }, [refetch]);
-  const deleteUrun = useDeleteUrun();
-  const archiveUrun = useArchiveUrun();
+    try {
+      await Promise.all([refetch(), refetchArchived()]);
+    } finally { setIsRefreshing(false); }
+  }, [refetch, refetchArchived]);
   const { data: kategoriler } = useKategoriler();
   const { showToast } = useToast();
 
@@ -105,7 +111,7 @@ export default function UrunlerPage() {
   const { data: donemUrunOzet } = useDonemUrunOzet({ startDate, endDate });
 
   // Kategori id -> ad map'i
-  const kategoriMap = new Map(kategoriler?.map(k => [k.id, k.name]) || []);
+  const kategoriMap = useMemo(() => new Map(kategoriler?.map(k => [k.id, k.name]) || []), [kategoriler]);
 
   // Arama filtresi (ürün adı, kodu ve kategori adı)
   const filteredUrunler = useMemo(() => {
@@ -142,6 +148,29 @@ export default function UrunlerPage() {
     });
   }, [urunler, searchQuery, kategoriMap, sortType, donemUrunOzet]);
 
+  // Arşivlenmiş ürünler filtresi
+  const filteredArchivedUrunler = useMemo(() => {
+    if (!archivedUrunler) return [];
+    if (!searchQuery) return archivedUrunler;
+    const query = searchQuery.toLowerCase();
+    return archivedUrunler.filter((urun) => {
+      const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
+      return (
+        urun.ad.toLowerCase().includes(query) ||
+        (urun.kod && urun.kod.toLowerCase().includes(query)) ||
+        (kategoriAdi && kategoriAdi.includes(query))
+      );
+    });
+  }, [archivedUrunler, searchQuery, kategoriMap]);
+
+  const archivedCount = archivedUrunler?.length ?? 0;
+
+  // Tab seçenekleri
+  const TAB_OPTIONS = useMemo(() => [
+    { label: t('products:tabs.active'), value: 'active' },
+    { label: archivedCount > 0 ? `${t('products:tabs.archived')} (${archivedCount})` : t('products:tabs.archived'), value: 'archived' },
+  ], [t, archivedCount]);
+
   // Sıralama seçenekleri
   const sortOptions: ActionSheetOption[] = useMemo(() => {
     const options: { key: SortType; label: string }[] = [
@@ -167,19 +196,19 @@ export default function UrunlerPage() {
     setActionSheetVisible(true);
   };
 
-  const handleArchive = async () => {
+  const handleArchive = useCallback(async () => {
     if (!actionSheetUrun) return;
     try {
       await archiveUrun.mutateAsync(actionSheetUrun.id);
       haptics.success();
       showToast(t('common:archive.messages.archiveSuccess'), 'success');
-    } catch (error) {
+    } catch {
       haptics.error();
       showToast(t('common:messages.operationFailed'), 'error');
     }
-  };
+  }, [actionSheetUrun, archiveUrun, haptics, showToast, t]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (!actionSheetUrun) return;
     Alert.alert(
       t('common:confirm.deleteTitle'),
@@ -194,7 +223,7 @@ export default function UrunlerPage() {
               await deleteUrun.mutateAsync(actionSheetUrun.id);
               haptics.success();
               showToast(t('common:messages.deletedSuccessfully'), 'success');
-            } catch (error) {
+            } catch {
               haptics.error();
               showToast(t('common:messages.operationFailed'), 'error');
             }
@@ -202,9 +231,68 @@ export default function UrunlerPage() {
         },
       ]
     );
-  };
+  }, [actionSheetUrun, deleteUrun, haptics, showToast, t]);
+
+  const handleUnarchive = useCallback(async () => {
+    if (!actionSheetUrun) return;
+    try {
+      await unarchiveUrun.mutateAsync(actionSheetUrun.id);
+      haptics.success();
+      showToast(t('common:archive.messages.unarchiveSuccess'), 'success');
+    } catch {
+      haptics.error();
+      showToast(t('common:messages.operationFailed'), 'error');
+    }
+  }, [actionSheetUrun, unarchiveUrun, haptics, showToast, t]);
+
+  const handlePermanentDelete = useCallback(() => {
+    if (!actionSheetUrun) return;
+    Alert.alert(
+      t('common:confirm.deleteTitle'),
+      t('common:confirm.deleteMessage', { item: actionSheetUrun.ad }),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await permanentDeleteUrun.mutateAsync(actionSheetUrun.id);
+              haptics.success();
+              showToast(t('common:messages.deletedSuccessfully'), 'success');
+            } catch {
+              haptics.error();
+              showToast(t('common:messages.operationFailed'), 'error');
+            }
+          },
+        },
+      ]
+    );
+  }, [actionSheetUrun, permanentDeleteUrun, haptics, showToast, t]);
 
   const actionSheetOptions: ActionSheetOption[] = useMemo(() => {
+    if (activeTab === 'archived') {
+      // Arşiv modunda: Arşivden çıkar + Kalıcı sil
+      const options: ActionSheetOption[] = [];
+      if (actionSheetUrun && canUpdate('urunler', actionSheetUrun.created_by ?? null)) {
+        options.push({
+          label: t('common:archive.actions.unarchive'),
+          icon: <ArchiveRestore size={20} color={colors.primary} />,
+          onPress: handleUnarchive,
+        });
+      }
+      if (actionSheetUrun && canDelete('urunler', actionSheetUrun.created_by ?? null)) {
+        options.push({
+          label: t('common:archive.actions.permanentDelete'),
+          icon: <Trash2 size={20} color={colors.error} />,
+          onPress: handlePermanentDelete,
+          destructive: true,
+        });
+      }
+      return options;
+    }
+
+    // Aktif modunda: Düzenle + Arşivle + Sil
     const options: ActionSheetOption[] = [];
 
     if (actionSheetUrun && canUpdate('urunler', actionSheetUrun.created_by ?? null)) {
@@ -234,7 +322,8 @@ export default function UrunlerPage() {
     }
 
     return options;
-  }, [actionSheetUrun, t, router, handleArchive, handleDelete, canUpdate, canDelete]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionSheetUrun, t, router, activeTab, handleArchive, handleDelete, handleUnarchive, handlePermanentDelete, canUpdate, canDelete]);
 
   // Hızlı dönem seçimi fonksiyonları
   const handlePeriodLabelPress = () => {
@@ -357,7 +446,7 @@ export default function UrunlerPage() {
         </View>
 
         {/* Arama */}
-        {(urunler && urunler.length > 0) && (
+        {((urunler && urunler.length > 0) || archivedCount > 0) && (
           <View style={styles.searchSection}>
             <Input
               placeholder={t('products:search.placeholder')}
@@ -368,8 +457,19 @@ export default function UrunlerPage() {
           </View>
         )}
 
+        {/* Aktif / Arşiv Tab */}
+        {archivedCount > 0 && (
+          <View style={styles.tabSection}>
+            <TabFilter
+              options={TAB_OPTIONS}
+              value={activeTab}
+              onChange={(v) => setActiveTab(v as 'active' | 'archived')}
+            />
+          </View>
+        )}
+
         {/* Dönem Seçici */}
-        {(urunler && urunler.length > 0) && (
+        {activeTab === 'active' && (urunler && urunler.length > 0) && (
           <View style={styles.periodSection}>
             <TabFilter
               options={PERIOD_OPTIONS}
@@ -427,96 +527,152 @@ export default function UrunlerPage() {
 
         {/* Liste */}
         <View style={styles.listSection}>
-          {filteredUrunler.length === 0 ? (
-            <EmptyState
-              icon={<Package size={48} color={colors.textMuted} />}
-              title={t('products:empty.title')}
-              description={t('products:empty.description')}
-              actionLabel={t('products:addProduct')}
-              onAction={() => router.push('/urunler/ekle' as any)}
-            />
-          ) : (
-            filteredUrunler.map((urun) => {
-              const urunOzet = donemUrunOzet?.[urun.id];
-              const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
+          {activeTab === 'active' ? (
+            // Aktif ürünler
+            filteredUrunler.length === 0 ? (
+              <EmptyState
+                icon={<Package size={48} color={colors.textMuted} />}
+                title={t('products:empty.title')}
+                description={t('products:empty.description')}
+                actionLabel={t('products:addProduct')}
+                onAction={() => router.push('/urunler/ekle' as any)}
+              />
+            ) : (
+              filteredUrunler.map((urun) => {
+                const urunOzet = donemUrunOzet?.[urun.id];
+                const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
 
-              return (
-              <ExpandableCard
-                key={urun.id}
-                expanded={expandedId === urun.id}
-                onToggle={() => handleToggle(urun.id)}
-                header={
-                  <View style={styles.urunHeader}>
-                    <Package size={24} color={colors.primary} />
-                    <View style={styles.urunInfo}>
-                      <Text variant="body">{urun.ad}</Text>
-                      <Text variant="caption" color="secondary">
-                        {urun.miktar} {getBirimLabel(urun.birim)}
-                        {urun.satis_fiyati > 0 && ` • ${formatCurrency(urun.satis_fiyati, urun.currency)}/${getBirimLabel(urun.birim)}`}
-                      </Text>
+                return (
+                <ExpandableCard
+                  key={urun.id}
+                  expanded={expandedId === urun.id}
+                  onToggle={() => handleToggle(urun.id)}
+                  header={
+                    <View style={styles.urunHeader}>
+                      <Package size={24} color={colors.primary} />
+                      <View style={styles.urunInfo}>
+                        <Text variant="body">{urun.ad}</Text>
+                        <Text variant="caption" color="secondary">
+                          {urun.miktar} {getBirimLabel(urun.birim)}
+                          {urun.satis_fiyati > 0 && ` • ${formatCurrency(urun.satis_fiyati, urun.currency)}/${getBirimLabel(urun.birim)}`}
+                        </Text>
+                      </View>
+                      {/* Dönem özeti */}
+                      <View style={styles.periodSummary}>
+                        {hasMovements ? (
+                          <>
+                            {urunOzet.giris > 0 && (
+                              <View style={styles.periodSummaryItem}>
+                                <TrendingUp size={14} color={colors.success} />
+                                <Text variant="body" color="success" style={styles.periodSummaryText}>
+                                  +{urunOzet.giris}
+                                </Text>
+                              </View>
+                            )}
+                            {urunOzet.cikis > 0 && (
+                              <View style={styles.periodSummaryItem}>
+                                <TrendingDown size={14} color={colors.error} />
+                                <Text variant="body" color="error" style={styles.periodSummaryText}>
+                                  -{urunOzet.cikis}
+                                </Text>
+                              </View>
+                            )}
+                          </>
+                        ) : null}
+                      </View>
+                      <TouchableOpacity
+                        style={styles.moreButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleOpenActionSheet(urun);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <MoreVertical size={20} color={colors.textMuted} />
+                      </TouchableOpacity>
                     </View>
-                    {/* Dönem özeti */}
-                    <View style={styles.periodSummary}>
-                      {hasMovements ? (
-                        <>
-                          {urunOzet.giris > 0 && (
-                            <View style={styles.periodSummaryItem}>
-                              <TrendingUp size={14} color={colors.success} />
-                              <Text variant="body" color="success" style={styles.periodSummaryText}>
-                                +{urunOzet.giris}
-                              </Text>
-                            </View>
-                          )}
-                          {urunOzet.cikis > 0 && (
-                            <View style={styles.periodSummaryItem}>
-                              <TrendingDown size={14} color={colors.error} />
-                              <Text variant="body" color="error" style={styles.periodSummaryText}>
-                                -{urunOzet.cikis}
-                              </Text>
-                            </View>
-                          )}
-                        </>
-                      ) : null}
-                    </View>
-                    <TouchableOpacity
-                      style={styles.moreButton}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        handleOpenActionSheet(urun);
-                      }}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  }
+                >
+                  {/* Expanded Content - Action Buttons */}
+                  <View style={styles.actionButtons}>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<ArrowRightLeft size={16} color={colors.white} />}
+                      iconPosition="left"
+                      onPress={() => handleNewTransaction(urun)}
+                      style={styles.actionButton}
                     >
-                      <MoreVertical size={20} color={colors.textMuted} />
-                    </TouchableOpacity>
+                      {t('products:actions.newTransaction')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<History size={16} color={colors.primary} />}
+                      iconPosition="left"
+                      onPress={() => handleViewMovements(urun.id)}
+                      style={styles.actionButton}
+                    >
+                      {t('products:actions.viewMovements')}
+                    </Button>
                   </View>
-                }
-              >
-                {/* Expanded Content - Action Buttons */}
-                <View style={styles.actionButtons}>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={<ArrowRightLeft size={16} color={colors.white} />}
-                    iconPosition="left"
-                    onPress={() => handleNewTransaction(urun)}
-                    style={styles.actionButton}
-                  >
-                    {t('products:actions.newTransaction')}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={<History size={16} color={colors.primary} />}
-                    iconPosition="left"
-                    onPress={() => handleViewMovements(urun.id)}
-                    style={styles.actionButton}
-                  >
-                    {t('products:actions.viewMovements')}
-                  </Button>
-                </View>
-              </ExpandableCard>
-              );
-            })
+                </ExpandableCard>
+                );
+              })
+            )
+          ) : (
+            // Arşivlenmiş ürünler
+            filteredArchivedUrunler.length === 0 ? (
+              <EmptyState
+                icon={<Archive size={48} color={colors.textMuted} />}
+                title={t('products:empty.archivedTitle')}
+                description={t('products:empty.archivedDescription')}
+              />
+            ) : (
+              filteredArchivedUrunler.map((urun) => (
+                <ExpandableCard
+                  key={urun.id}
+                  expanded={expandedId === urun.id}
+                  onToggle={() => handleToggle(urun.id)}
+                  header={
+                    <View style={styles.urunHeader}>
+                      <Package size={24} color={colors.textMuted} />
+                      <View style={styles.urunInfo}>
+                        <Text variant="body" color="secondary">{urun.ad}</Text>
+                        <Text variant="caption" color="muted">
+                          {urun.miktar} {getBirimLabel(urun.birim)}
+                          {urun.kod && ` • ${urun.kod}`}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.moreButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleOpenActionSheet(urun);
+                        }}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      >
+                        <MoreVertical size={20} color={colors.textMuted} />
+                      </TouchableOpacity>
+                    </View>
+                  }
+                >
+                  {/* Archived - only view movements */}
+                  <View style={styles.actionButtons}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={<History size={16} color={colors.primary} />}
+                      iconPosition="left"
+                      onPress={() => handleViewMovements(urun.id)}
+                      style={styles.actionButton}
+                    >
+                      {t('products:actions.viewMovements')}
+                    </Button>
+                  </View>
+                </ExpandableCard>
+              ))
+            )
           )}
         </View>
       </ScrollView>
@@ -810,7 +966,7 @@ export default function UrunlerPage() {
       )}
 
       {/* FAB Backdrop */}
-      {fabMenuVisible && (
+      {activeTab === 'active' && fabMenuVisible && (
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setFabMenuVisible(false)}>
           <Animated.View
             style={[
@@ -822,7 +978,7 @@ export default function UrunlerPage() {
       )}
 
       {/* FAB Menu Items */}
-      {fabMenuVisible && (
+      {activeTab === 'active' && fabMenuVisible && (
         <View style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}>
           {[
             {
@@ -877,25 +1033,27 @@ export default function UrunlerPage() {
       )}
 
       {/* FAB Button */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-        onPress={() => {
-          haptics.light();
-          setFabMenuVisible(!fabMenuVisible);
-        }}
-        activeOpacity={0.8}
-      >
-        <Animated.View style={{
-          transform: [{
-            rotate: fabAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0deg', '45deg'],
-            }),
-          }],
-        }}>
-          <Plus size={24} color={colors.surface} />
-        </Animated.View>
-      </TouchableOpacity>
+      {activeTab === 'active' && (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+          onPress={() => {
+            haptics.light();
+            setFabMenuVisible(!fabMenuVisible);
+          }}
+          activeOpacity={0.8}
+        >
+          <Animated.View style={{
+            transform: [{
+              rotate: fabAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '45deg'],
+              }),
+            }],
+          }}>
+            <Plus size={24} color={colors.surface} />
+          </Animated.View>
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -935,6 +1093,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   searchSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  tabSection: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },

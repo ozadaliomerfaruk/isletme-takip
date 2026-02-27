@@ -6,27 +6,41 @@ import {
   TouchableOpacity,
   Modal,
   Pressable,
+  Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react-native';
-import { Text, TabFilter } from '@/components/ui';
+import { ChevronLeft, ChevronRight, X, Calendar } from 'lucide-react-native';
+import { Text, TabFilter, Button } from '@/components/ui';
 import { FinanceKPIGrid, TrendChartWidget, CategoryDonutWidget } from '@/widgets/finance';
-import { QuickInsights, ExploreGrid } from '@/components/reports';
+import { QuickInsights, InsightsWidget, ExploreGrid } from '@/components/reports';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { formatDateForDB } from '@/lib/date';
 import { useTranslation } from 'react-i18next';
 import type { AnalyticsPeriod, DateRange } from '@/types/analytics';
+
+type ReportPeriod = AnalyticsPeriod | 'custom';
 
 export default function RaporlarPage() {
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
   const { getDateRangeLabel, locale } = useDateFormat();
 
-  // Home sadece AnalyticsPeriod kullanır (weekly/monthly/yearly — daily/custom YOK)
-  const [period, setPeriod] = useState<AnalyticsPeriod>('monthly');
+  const [period, setPeriod] = useState<ReportPeriod>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
+
+  // Custom date range state
+  const [customStartDate, setCustomStartDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 1);
+    return d;
+  });
+  const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
 
   // Quick period picker modals
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -37,49 +51,71 @@ export default function RaporlarPage() {
     { label: t('reports:period.weekly'), value: 'weekly' },
     { label: t('reports:period.monthly'), value: 'monthly' },
     { label: t('reports:period.yearly'), value: 'yearly' },
+    { label: t('reports:period.custom'), value: 'custom' },
   ];
 
+  // For widgets, use the closest AnalyticsPeriod equivalent
+  const widgetPeriod: AnalyticsPeriod = period === 'custom' ? 'monthly' : period;
+
   // Dönem tarih aralığını hesapla
-  const { startDate, endDate, label: periodLabel } = getDateRangeLabel(period, periodOffset);
+  const customRange = period === 'custom' ? {
+    startDate: formatDateForDB(customStartDate),
+    endDate: formatDateForDB(customEndDate),
+  } : undefined;
+  const { startDate, endDate, label: periodLabel } = getDateRangeLabel(
+    period === 'custom' ? 'monthly' : period,
+    period === 'custom' ? 0 : periodOffset,
+    customRange,
+  );
 
   const dateRange = useMemo<DateRange>(
-    () => ({ startDate, endDate }),
-    [startDate, endDate]
+    () => period === 'custom'
+      ? { startDate: formatDateForDB(customStartDate), endDate: formatDateForDB(customEndDate) }
+      : { startDate, endDate },
+    [period, startDate, endDate, customStartDate, customEndDate]
   );
 
   // previousDateRange: current offset'in bir önceki dönemi
-  // getPreviousDateRange sadece offset=-1 destekler, bu yüzden getDateRangeLabel ile hesaplıyoruz
   const previousDateRange = useMemo<DateRange>(() => {
+    if (period === 'custom') {
+      // For custom, use a previous range of same duration
+      const durationMs = customEndDate.getTime() - customStartDate.getTime();
+      const prevEnd = new Date(customStartDate.getTime() - 1);
+      const prevStart = new Date(prevEnd.getTime() - durationMs);
+      return { startDate: formatDateForDB(prevStart), endDate: formatDateForDB(prevEnd) };
+    }
     const prev = getDateRangeLabel(period, periodOffset - 1);
     return { startDate: prev.startDate, endDate: prev.endDate };
-  }, [period, periodOffset, getDateRangeLabel]);
+  }, [period, periodOffset, getDateRangeLabel, customStartDate, customEndDate]);
 
   // Widget navigation helper — detay sayfalarına period params ile yönlendir
   const handleNavigate = useCallback((route: string, params?: Record<string, string>) => {
     router.push({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pathname: route as any,
       params: {
-        period,
+        period: widgetPeriod,
         periodOffset: String(periodOffset),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         ...params,
       },
     });
-  }, [router, period, periodOffset, dateRange]);
+  }, [router, widgetPeriod, periodOffset, dateRange]);
 
   // Explore grid handler — route'a göre navigate
   const handleExplorePress = useCallback((route: string) => {
     router.push({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       pathname: route as any,
       params: {
-        period,
+        period: widgetPeriod,
         periodOffset: String(periodOffset),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       },
     });
-  }, [router, period, periodOffset, dateRange]);
+  }, [router, widgetPeriod, periodOffset, dateRange]);
 
   // Hızlı dönem seçimi
   const handlePeriodLabelPress = () => {
@@ -121,45 +157,64 @@ export default function RaporlarPage() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Dönem Seçici — sadece weekly/monthly/yearly */}
+        {/* Dönem Seçici */}
         <View style={styles.periodFilter}>
           <TabFilter
             options={PERIOD_OPTIONS}
             value={period}
             onChange={(v) => {
-              setPeriod(v as AnalyticsPeriod);
+              setPeriod(v as ReportPeriod);
               setPeriodOffset(0);
             }}
           />
-          <View style={styles.periodNavigator}>
-            <TouchableOpacity
-              style={styles.periodNavButton}
-              onPress={() => setPeriodOffset(periodOffset - 1)}
-            >
-              <ChevronLeft size={20} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={handlePeriodLabelPress}
-              style={styles.periodLabelButton}
-              activeOpacity={0.7}
-            >
-              <Text variant="body" style={styles.periodLabel}>
-                {periodLabel}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.periodNavButton}
-              onPress={() => setPeriodOffset(periodOffset + 1)}
-            >
-              <ChevronRight size={20} color={colors.text} />
-            </TouchableOpacity>
-          </View>
+          {period === 'custom' ? (
+            <View style={styles.customDateRow}>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowStartPicker(true)}
+              >
+                <Calendar size={16} color={colors.primary} />
+                <Text variant="caption">{t('reports:period.startDate')}: {formatDateForDB(customStartDate)}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowEndPicker(true)}
+              >
+                <Calendar size={16} color={colors.primary} />
+                <Text variant="caption">{t('reports:period.endDate')}: {formatDateForDB(customEndDate)}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.periodNavigator}>
+              <TouchableOpacity
+                style={styles.periodNavButton}
+                onPress={() => setPeriodOffset(periodOffset - 1)}
+              >
+                <ChevronLeft size={20} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handlePeriodLabelPress}
+                style={styles.periodLabelButton}
+                activeOpacity={0.7}
+              >
+                <Text variant="body" style={styles.periodLabel}>
+                  {periodLabel}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.periodNavButton}
+                onPress={() => setPeriodOffset(periodOffset + 1)}
+              >
+                <ChevronRight size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         {/* KPI Grid — mevcut FinanceKPIGrid widget */}
         <View style={styles.widgetSection}>
           <FinanceKPIGrid
-            period={period}
+            period={widgetPeriod}
             dateRange={dateRange}
             previousDateRange={previousDateRange}
             onNavigate={handleNavigate}
@@ -169,7 +224,7 @@ export default function RaporlarPage() {
         {/* Trend Chart — mevcut TrendChartWidget */}
         <View style={styles.widgetSection}>
           <TrendChartWidget
-            period={period}
+            period={widgetPeriod}
             dateRange={dateRange}
             previousDateRange={previousDateRange}
             onNavigate={handleNavigate}
@@ -179,7 +234,7 @@ export default function RaporlarPage() {
         {/* Kategori Donut — mevcut CategoryDonutWidget */}
         <View style={styles.widgetSection}>
           <CategoryDonutWidget
-            period={period}
+            period={widgetPeriod}
             dateRange={dateRange}
             previousDateRange={previousDateRange}
             onNavigate={handleNavigate}
@@ -188,6 +243,9 @@ export default function RaporlarPage() {
 
         {/* Quick Insights — 4 kart, yatay scroll */}
         <QuickInsights dateRange={dateRange} />
+
+        {/* AI Insights — akıllı içgörüler */}
+        <InsightsWidget period={widgetPeriod} />
 
         {/* Explore Grid — 8 rapor kartı */}
         <ExploreGrid onPress={handleExplorePress} />
@@ -293,6 +351,85 @@ export default function RaporlarPage() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Custom Date Pickers - iOS */}
+      {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (
+        <Modal visible={showStartPicker || showEndPicker} transparent animationType="slide">
+          <Pressable
+            style={styles.pickerModalOverlay}
+            onPress={() => { setShowStartPicker(false); setShowEndPicker(false); }}
+          >
+            <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.pickerModalHeader}>
+                <Text variant="h3">
+                  {showStartPicker ? t('reports:period.startDateTitle') : t('reports:period.endDateTitle')}
+                </Text>
+                <TouchableOpacity onPress={() => { setShowStartPicker(false); setShowEndPicker(false); }}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <DateTimePicker
+                  value={showStartPicker ? customStartDate : customEndDate}
+                  mode="date"
+                  display="inline"
+                  themeVariant="light"
+                  accentColor={colors.primary}
+                  locale={locale}
+                  style={{ height: 350 }}
+                  onChange={(_, date) => {
+                    if (date) {
+                      if (showStartPicker) {
+                        setCustomStartDate(date);
+                        if (date > customEndDate) setCustomEndDate(date);
+                      } else {
+                        setCustomEndDate(date);
+                      }
+                    }
+                  }}
+                  minimumDate={showEndPicker ? customStartDate : undefined}
+                  maximumDate={new Date()}
+                />
+              </View>
+              <Button variant="primary" onPress={() => { setShowStartPicker(false); setShowEndPicker(false); }}>
+                {t('common:buttons.ok')}
+              </Button>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
+
+      {/* Custom Date Pickers - Android */}
+      {Platform.OS === 'android' && showStartPicker && (
+        <DateTimePicker
+          value={customStartDate}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowStartPicker(false);
+            if (event.type === 'set' && date) {
+              setCustomStartDate(date);
+              if (date > customEndDate) setCustomEndDate(date);
+            }
+          }}
+          maximumDate={new Date()}
+        />
+      )}
+      {Platform.OS === 'android' && showEndPicker && (
+        <DateTimePicker
+          value={customEndDate}
+          mode="date"
+          display="default"
+          onChange={(event, date) => {
+            setShowEndPicker(false);
+            if (event.type === 'set' && date) {
+              setCustomEndDate(date);
+            }
+          }}
+          minimumDate={customStartDate}
+          maximumDate={new Date()}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -329,6 +466,23 @@ const styles = StyleSheet.create({
   periodLabel: {
     minWidth: 150,
     textAlign: 'center',
+  },
+  customDateRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   widgetSection: {
     paddingHorizontal: spacing.lg,
