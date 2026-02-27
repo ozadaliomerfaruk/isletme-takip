@@ -36,7 +36,6 @@ function AnalyticsDashboard() {
   const {
     period,
     setPeriod,
-    periodOffset,
     setPeriodOffset,
     periodLabel,
     userRole,
@@ -54,6 +53,8 @@ function AnalyticsDashboard() {
         activeModules,
         hiddenWidgets,
       }),
+    // refreshKey forces re-computation on manual refresh
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [userRole, activeModules, hiddenWidgets, refreshKey]
   );
 

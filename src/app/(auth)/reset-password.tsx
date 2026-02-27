@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Lock, CheckCircle } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import * as Linking from 'expo-linking';
@@ -20,7 +20,6 @@ import { toErrorMessage } from '@/lib/errors';
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const params = useLocalSearchParams();
   const { t } = useTranslation(['auth', 'common', 'errors']);
 
   const [password, setPassword] = useState('');
@@ -35,6 +34,7 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     handleDeepLink();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDeepLink = async () => {

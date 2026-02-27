@@ -30,7 +30,6 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
-import { getCariIcon as _getCariIcon } from '@/lib/icons';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
 import { useArchiveCari } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
@@ -62,11 +61,11 @@ export default function CarilerPage() {
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const filterOptions = [
+  const filterOptions = useMemo(() => [
     { label: t('clients:filters.all'), value: 'all' },
     { label: t('clients:titles.suppliers'), value: 'tedarikci' },
     { label: t('clients:titles.customers'), value: 'musteri' },
-  ];
+  ], [t]);
 
   // ExpandableCard için state
   const [expandedCariId, setExpandedCariId] = useState<string | null>(null);
@@ -138,7 +137,7 @@ export default function CarilerPage() {
     setActionSheetVisible(true);
   }, []);
 
-  const handleArchive = async () => {
+  const handleArchive = useCallback(async () => {
     if (!actionSheetCari) return;
     try {
       await archiveCari.mutateAsync(actionSheetCari.id);
@@ -148,9 +147,9 @@ export default function CarilerPage() {
       haptics.error();
       showToast(t('common:messages.operationFailed'), 'error');
     }
-  };
+  }, [actionSheetCari, archiveCari, haptics, showToast, t]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (!actionSheetCari) return;
     Alert.alert(
       t('common:confirm.deleteTitle'),
@@ -173,18 +172,18 @@ export default function CarilerPage() {
         },
       ]
     );
-  };
+  }, [actionSheetCari, deleteCari, haptics, showToast, t]);
 
   // Multi-select handlers
-  const handleEnterSelectMode = () => {
+  const handleEnterSelectMode = useCallback(() => {
     if (actionSheetCari) {
       setExpandedCariId(null); // Collapse expanded card to prevent layout jump
       setIsSelectMode(true);
       setSelectedIds(new Set([actionSheetCari.id]));
     }
-  };
+  }, [actionSheetCari]);
 
-  const toggleSelection = (id: string) => {
+  const toggleSelection = useCallback((id: string) => {
     setSelectedIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -195,7 +194,7 @@ export default function CarilerPage() {
       return newSet;
     });
     haptics.selection();
-  };
+  }, [haptics]);
 
   const handleSelectAll = () => {
     if (filteredCariler) {
@@ -268,7 +267,7 @@ export default function CarilerPage() {
     );
   };
 
-  const handleRemoveLink = (linkId: string) => {
+  const handleRemoveLink = useCallback((linkId: string) => {
     Alert.alert(
       t('clients:sharing.removeLinkConfirmTitle'),
       t('clients:sharing.removeLinkConfirmMessage'),
@@ -290,7 +289,7 @@ export default function CarilerPage() {
         },
       ]
     );
-  };
+  }, [removeCariLink, haptics, showToast, t]);
 
   // Determine which action sheet options to show based on whether cari is linked
   const getActionSheetOptions = useCallback((cari: MergedCari): ActionSheetOption[] => {
@@ -377,13 +376,15 @@ export default function CarilerPage() {
     }
 
     return options;
-  }, [actionSheetCari, t, router, handleEnterSelectMode, handleArchive, handleDelete, canUpdate, canDelete]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actionSheetCari, t, router, handleEnterSelectMode, handleArchive, handleDelete, handleRemoveLink, canUpdate, canDelete]);
 
   const actionSheetOptions = useMemo(() => {
     if (!actionSheetCari) return [];
     // Check if actionSheetCari is a linked cari
     const mergedItem = mergedCariler?.find(c => c.id === actionSheetCari.id);
     return getActionSheetOptions(mergedItem ?? (actionSheetCari as MergedCari));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionSheetCari, getActionSheetOptions]);
 
   // Merge own cariler + linked cariler
@@ -660,7 +661,8 @@ export default function CarilerPage() {
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, payables.cari, receivables.cari, searchQuery, filterOptions, filter, isLoading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [t, router, payables.cari, receivables.cari, searchQuery, filterOptions, filter, isLoading, baseCurrency]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {
@@ -773,6 +775,7 @@ export default function CarilerPage() {
           style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
           onPress={() => {
             haptics.light();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             router.push('/foto-import' as any);
           }}
           activeOpacity={0.8}

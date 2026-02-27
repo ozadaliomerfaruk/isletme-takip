@@ -33,7 +33,7 @@ export default function FotoImportIndexPage() {
     const getHeaderLeft = () => {
       if (inCaptureWithEntries) {
         // Return to invoice-list instead of leaving
-        return () => (
+        const CaptureBackButton = () => (
           <TouchableOpacity
             onPress={() => ctx.setStep('invoice-list')}
             style={{ padding: 8, marginLeft: Platform.OS === 'ios' ? -8 : 0 }}
@@ -42,10 +42,11 @@ export default function FotoImportIndexPage() {
             <ChevronLeft size={28} color={colors.text} />
           </TouchableOpacity>
         );
+        return CaptureBackButton;
       }
       if (inListWithEntries) {
         // Confirm before losing unsaved entries
-        return () => (
+        const ListBackButton = () => (
           <TouchableOpacity
             onPress={() => {
               Alert.alert(
@@ -63,6 +64,7 @@ export default function FotoImportIndexPage() {
             <ChevronLeft size={28} color={colors.text} />
           </TouchableOpacity>
         );
+        return ListBackButton;
       }
       return undefined;
     };
@@ -71,6 +73,7 @@ export default function FotoImportIndexPage() {
       gestureEnabled: !shouldDisableGesture,
       headerLeft: getHeaderLeft(),
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, shouldDisableGesture, inCaptureWithEntries, inListWithEntries]);
 
   // Only reset step when page truly regains focus after being in the background
@@ -90,6 +93,7 @@ export default function FotoImportIndexPage() {
       return () => {
         wasUnfocused.current = true;
       };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ctx.entries.length])
   );
 

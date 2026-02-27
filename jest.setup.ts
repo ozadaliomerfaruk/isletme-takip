@@ -1,5 +1,5 @@
 // Global __DEV__ mock
-(global as any).__DEV__ = true;
+(global as unknown as Record<string, boolean>).__DEV__ = true;
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () => ({
