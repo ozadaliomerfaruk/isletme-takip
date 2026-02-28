@@ -596,6 +596,27 @@ export function useTransactionSubmit({
               date: formatDateTimeForDB(safeDate),
             },
           });
+
+          // Upload photo if present (supports adding photo to existing transaction)
+          if (photoUri && isletme?.id) {
+            try {
+              console.log('[PhotoUpload] Starting upload for existing islem:', transactionId);
+              const photoPath = await uploadPhoto.mutateAsync({
+                uri: photoUri,
+                isletmeId: isletme.id,
+                islemId: transactionId,
+              });
+              console.log('[PhotoUpload] Upload success, path:', photoPath);
+              await updateIslem.mutateAsync({
+                id: transactionId,
+                updates: { photo_path: photoPath },
+              });
+              console.log('[PhotoUpload] Transaction updated with photo_path');
+            } catch (photoError) {
+              console.error('[PhotoUpload] Error:', photoError);
+              Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
+            }
+          }
         } else if (!isScheduledTransaction && isScheduled) {
           // Was regular, now scheduled → delete regular + create scheduled
           await deleteIslem.mutateAsync(transactionId);

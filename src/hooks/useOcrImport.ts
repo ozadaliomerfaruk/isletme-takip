@@ -12,7 +12,7 @@ import { useCariAliases } from '@/hooks/useCariAliases';
 import { useCreateIrsaliyeRecord } from '@/hooks/useIrsaliyeRecords';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { supabase } from '@/lib/supabase';
-import { recognizeInvoice } from '@/lib/ocrEngine';
+import { recognizeInvoice, recognizeInvoicesBatch } from '@/lib/ocrEngine';
 import { matchItemsToProducts, matchSupplier } from '@/lib/fuzzyMatch';
 import { formatDateTimeForDB } from '@/lib/date';
 import {
@@ -29,6 +29,7 @@ export interface SaveImportOptions {
   kategoriId?: string;
   editedGrandTotal?: number | null;
   description?: string;
+  imageUri?: string;
 }
 
 export function useOcrImport(sessionId: string) {
@@ -38,7 +39,6 @@ export function useOcrImport(sessionId: string) {
   const createUrunHareket = useCreateUrunHareket();
   const createIslem = useCreateIslem();
   const createIrsaliyeRecord = useCreateIrsaliyeRecord();
-
   const { data: existingProducts } = useUrunler();
   const { data: cariler } = useCariler();
   const { data: hesaplar } = useHesaplar();
@@ -94,7 +94,7 @@ export function useOcrImport(sessionId: string) {
     return parsed;
   }, [existingProducts, cariler, urunAliases, cariAliases]);
 
-  // Process multiple images sequentially
+  // Process multiple images sequentially (each image → separate Gemini call)
   const processImages = useCallback(async (imageUris: string[]): Promise<OcrParsedInvoice[]> => {
     setIsProcessing(true);
     setProcessingProgress({ current: 0, total: imageUris.length });
@@ -104,6 +104,7 @@ export function useOcrImport(sessionId: string) {
       for (let i = 0; i < imageUris.length; i++) {
         setProcessingProgress({ current: i + 1, total: imageUris.length });
         const parsed = await processImage(imageUris[i]);
+        console.log(`[useOcrImport] Image ${i + 1}/${imageUris.length}: ettn="${parsed.ettn}" invNo="${parsed.invoiceNumber}" supplier="${parsed.supplierName}" items=${parsed.items.length}`);
         results.push(parsed);
       }
       return results;
@@ -137,6 +138,7 @@ export function useOcrImport(sessionId: string) {
     invoiceRef: string,
     dateInfo: string,
     hesapId?: string,
+    kategoriId?: string | null,
   ): Promise<string> => {
     const islemType: IslemType = hareketTipi === 'giris' ? 'cari_alis' : 'cari_satis';
     const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
@@ -147,6 +149,7 @@ export function useOcrImport(sessionId: string) {
       cari_id: invoice.supplierMatchCariId!,
       description: aciklama,
       ...(hesapId ? { hesap_id: hesapId } : {}),
+      ...(kategoriId ? { kategori_id: kategoriId } : {}),
       ...(parseDateForDB(dateInfo) ? { date: parseDateForDB(dateInfo) } : {}),
     });
 
@@ -189,6 +192,9 @@ export function useOcrImport(sessionId: string) {
     if (!isletme) throw new Error('No business context');
 
     setIsSaving(true);
+
+    // Her save öncesi createdIds'i temizle - önceki faturaların hareketlerinin karışmasını önler
+    createdIds.current = { urunIds: [], hareketIds: [] };
 
     try {
       const invoiceRef = invoice.invoiceNumber || sessionId;
@@ -236,7 +242,7 @@ export function useOcrImport(sessionId: string) {
 
         const aciklama = options?.description || buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
-        await createIslem.mutateAsync({
+        const giderIslem = await createIslem.mutateAsync({
           type: 'gider',
           amount: totalAmount,
           hesap_id: options.hesapId,
@@ -271,7 +277,7 @@ export function useOcrImport(sessionId: string) {
         const islemType: IslemType = hareketTipi === 'giris' ? 'cari_tahsilat' : 'cari_odeme';
         const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
-        await createIslem.mutateAsync({
+        const tahsilatIslem = await createIslem.mutateAsync({
           type: islemType,
           amount: totalAmount,
           cari_id: invoice.supplierMatchCariId,
@@ -304,7 +310,7 @@ export function useOcrImport(sessionId: string) {
           throw new Error('Tutar girilmeden kaydedilemez');
         }
 
-        await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId);
+        const borcIslemId = await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId, options?.kategoriId || null);
 
         setSaveProgress({ total: 1, current: 1, currentItemName: '', phase: 'done' });
         return { productCount: 0, movementCount: 0 };
@@ -473,8 +479,9 @@ export function useOcrImport(sessionId: string) {
 
           // Sıfır tutarlı işlemlerde (irsaliye/sipariş fişi gibi) cari hareketi oluşturma
           // ama ürün hareketlerini kaydet - amount 0 olunca DB constraint hata verir
+          // Kategori artık ürün bazlı raporlanıyor, islem'e kategori atamaya gerek yok
           if (totalAmount > 0) {
-            const islemId = await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId);
+            const islemId = await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId, null);
 
             // Link urun_hareketler to the created islem
             if (islemId && createdIds.current.hareketIds.length > 0) {
@@ -514,6 +521,7 @@ export function useOcrImport(sessionId: string) {
         hesapId: entry.selectedHesapId || undefined,
         kategoriId: entry.selectedKategoriId || undefined,
         editedGrandTotal: entry.editedGrandTotal,
+        imageUri: entry.imageUri || undefined,
       });
       totalProducts += result.productCount;
       totalMovements += result.movementCount;

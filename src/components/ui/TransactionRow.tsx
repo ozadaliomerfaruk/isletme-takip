@@ -28,6 +28,7 @@ export interface TransactionRowProps {
   subAmount?: string | null;
   hasPhoto?: boolean;
   hasUrunler?: boolean;
+  urunCount?: number;
   currency?: string;
   /** Override the default color derived from type */
   overrideColor?: string;
@@ -35,6 +36,7 @@ export interface TransactionRowProps {
   overridePrefix?: string;
   onPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
+  onPhotoPress?: (id: string) => void;
 }
 
 export const TransactionRow = memo(function TransactionRow({
@@ -49,14 +51,17 @@ export const TransactionRow = memo(function TransactionRow({
   subAmount,
   hasPhoto,
   hasUrunler,
+  urunCount,
   currency,
   overrideColor,
   overridePrefix,
   onPress,
   onLongPress,
+  onPhotoPress,
 }: TransactionRowProps) {
   const handlePress = useCallback(() => onPress?.(id), [onPress, id]);
   const handleLongPress = useCallback(() => onLongPress?.(id), [onLongPress, id]);
+  const handlePhotoPress = useCallback(() => onPhotoPress?.(id), [onPhotoPress, id]);
 
   const { t } = useTranslation(['staff']);
   const txColor = overrideColor ?? getTransactionColor(type);
@@ -123,10 +128,17 @@ export const TransactionRow = memo(function TransactionRow({
       <View style={styles.amountContainer}>
         <View style={styles.amountRow}>
           {hasUrunler && (
-            <Package size={14} color={colors.primary} style={styles.photoIcon} />
+            <View style={styles.urunBadge}>
+              <Package size={14} color={colors.primary} />
+              {(urunCount ?? 0) > 0 && (
+                <Text style={styles.urunCountText}>{urunCount}</Text>
+              )}
+            </View>
           )}
           {hasPhoto && (
-            <ImageIcon size={14} color={colors.primary} style={styles.photoIcon} />
+            <TouchableOpacity onPress={handlePhotoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <ImageIcon size={14} color={colors.primary} style={styles.photoIcon} />
+            </TouchableOpacity>
           )}
           <Text style={[styles.amountText, { color: txColor }]}>
             {prefix}{formattedAmount}
@@ -145,6 +157,7 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.date === next.date
     && prev.hasPhoto === next.hasPhoto
     && prev.hasUrunler === next.hasUrunler
+    && prev.urunCount === next.urunCount
     && prev.entityText === next.entityText
     && prev.secondaryText === next.secondaryText
     && prev.tertiaryText === next.tertiaryText
@@ -239,6 +252,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  urunBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 1,
+  },
+  urunCountText: {
+    fontSize: 11,
+    fontWeight: fontWeight.semibold,
+    color: colors.primary,
   },
   photoIcon: {
     marginTop: 1,

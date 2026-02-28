@@ -47,6 +47,8 @@ export interface OcrParsedItem {
   rawLine: string;
   userEdited: boolean;
   matchedAliasId?: string;
+  /** True if OCR couldn't fully read this row (stamp/seal overlay) — needs user verification */
+  needsReview?: boolean;
 }
 
 /** The full parsed invoice structure */

@@ -221,5 +221,8 @@
   },
   "entityTransactions": {
     "viewAll": "Tüm işlemleri gör ({{count}})"
+  },
+  "labels": {
+    "invoiceTotal": "Fatura toplamı"
   }
 }

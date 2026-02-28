@@ -316,10 +316,13 @@ export function useCreateUrunHareket() {
 export function useIslemlerWithUrun(islemIds: string[]) {
   const { isletme, isletmeLoading } = useAuthContext();
 
+  // Batch islemIds in chunks of 100 to avoid too-large queries, but use a stable key
+  const stableKey = islemIds.length > 0 ? islemIds.slice().sort().join(',') : '';
+
   const result = useQuery({
-    queryKey: ['urun-hareketler', 'islemler-with-urun', islemIds.join(','), isletme?.id || ''],
+    queryKey: ['urun-hareketler', 'islemler-with-urun', stableKey, isletme?.id || ''],
     queryFn: async () => {
-      if (!isletme || islemIds.length === 0) return new Set<string>();
+      if (!isletme || islemIds.length === 0) return new Map<string, number>();
 
       const { data, error } = await supabase
         .from('urun_hareketler')
@@ -330,23 +333,79 @@ export function useIslemlerWithUrun(islemIds: string[]) {
 
       if (error) throw error;
 
-      // Unique islem_id'leri Set olarak döndür
-      const islemIdsWithUrun = new Set<string>();
+      // islem_id -> ürün sayısı map'i oluştur
+      const islemUrunCountMap = new Map<string, number>();
       data?.forEach(row => {
         if (row.islem_id) {
-          islemIdsWithUrun.add(row.islem_id);
+          islemUrunCountMap.set(row.islem_id, (islemUrunCountMap.get(row.islem_id) || 0) + 1);
         }
       });
 
-      return islemIdsWithUrun;
+      return islemUrunCountMap;
     },
     enabled: !!isletme && islemIds.length > 0,
+    // Keep previous data while refetching with new islemIds to prevent icon flicker
+    placeholderData: (previousData) => previousData,
   });
 
   return {
     ...result,
     isLoading: result.isLoading || isletmeLoading,
-    hasUrun: (islemId: string) => result.data?.has(islemId) ?? false,
+    hasUrun: (islemId: string) => (result.data?.get(islemId) ?? 0) > 0,
+    getUrunCount: (islemId: string) => result.data?.get(islemId) ?? 0,
+  };
+}
+
+/**
+ * Bir carinin işlemleri için ürün sayılarını getir
+ * Cari ID ile doğrudan sorgular - islemler yüklenmeden önce bile çalışır
+ */
+export function useIslemlerWithUrunByCari(cariId: string | undefined) {
+  const { isletme, isletmeLoading } = useAuthContext();
+
+  const result = useQuery({
+    queryKey: ['urun-hareketler', 'islemler-with-urun-by-cari', cariId || '', isletme?.id || ''],
+    queryFn: async () => {
+      if (!isletme || !cariId) return new Map<string, number>();
+
+      // Join through islemler to get urun_hareketler for this cari
+      const { data: islemlerData, error: islemError } = await supabase
+        .from('islemler')
+        .select('id')
+        .eq('isletme_id', isletme.id)
+        .eq('cari_id', cariId);
+
+      if (islemError) throw islemError;
+      if (!islemlerData || islemlerData.length === 0) return new Map<string, number>();
+
+      const islemIds = islemlerData.map(i => i.id);
+
+      const { data, error } = await supabase
+        .from('urun_hareketler')
+        .select('islem_id')
+        .eq('isletme_id', isletme.id)
+        .in('islem_id', islemIds)
+        .not('islem_id', 'is', null);
+
+      if (error) throw error;
+
+      const islemUrunCountMap = new Map<string, number>();
+      data?.forEach(row => {
+        if (row.islem_id) {
+          islemUrunCountMap.set(row.islem_id, (islemUrunCountMap.get(row.islem_id) || 0) + 1);
+        }
+      });
+
+      return islemUrunCountMap;
+    },
+    enabled: !!isletme && !!cariId,
+  });
+
+  return {
+    ...result,
+    isLoading: result.isLoading || isletmeLoading,
+    hasUrun: (islemId: string) => (result.data?.get(islemId) ?? 0) > 0,
+    getUrunCount: (islemId: string) => result.data?.get(islemId) ?? 0,
   };
 }
 

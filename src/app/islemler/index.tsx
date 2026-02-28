@@ -62,6 +62,7 @@ interface IslemlerTransactionItemProps {
   onPress: (id: string) => void;
   onDelete: (id: string, description: string) => void;
   onCopy: (id: string) => void;
+  onPhotoPress?: (id: string) => void;
   formatDateMedium: (date: string) => string;
   t: (key: string) => string;
   deleteLabel: string;
@@ -74,6 +75,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   onPress,
   onDelete,
   onCopy,
+  onPhotoPress,
   formatDateMedium,
   t,
   deleteLabel,
@@ -111,6 +113,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
         secondaryText={description}
         hasPhoto={!!islem.photo_path}
         onPress={onPress}
+        onPhotoPress={onPhotoPress}
       />
     </SwipeableRow>
   );
@@ -272,10 +275,13 @@ export default function IslemlerPage() {
     setShowCopyBar(true);
   }, []);
 
-  const handleViewPhoto = useCallback((photoPath: string, islemId: string) => {
-    setViewPhotoPath(photoPath);
-    setViewPhotoIslemId(islemId);
-  }, []);
+  const handleViewPhoto = useCallback((islemId: string) => {
+    const islem = (islemler || []).find(i => i.id === islemId);
+    if (islem?.photo_path) {
+      setViewPhotoPath(islem.photo_path);
+      setViewPhotoIslemId(islemId);
+    }
+  }, [islemler]);
 
   // Photo delete handler
   const handleDeletePhoto = useCallback(async () => {
@@ -378,6 +384,7 @@ export default function IslemlerPage() {
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
         onCopy={handleCopyIslem}
+        onPhotoPress={handleViewPhoto}
         formatDateMedium={formatDateMedium}
         t={t}
         deleteLabel={deleteLabel}
@@ -385,7 +392,7 @@ export default function IslemlerPage() {
         canEdit={canEditItem}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, formatDateMedium, t, deleteLabel, copyLabel, canDelete]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, formatDateMedium, t, deleteLabel, copyLabel, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

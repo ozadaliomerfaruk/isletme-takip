@@ -229,6 +229,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'month-summary',
       'category-report',
       'cash-flow-by-category',
+      'urun-hareketler',
     ],
     deferred: [
       'dashboard',

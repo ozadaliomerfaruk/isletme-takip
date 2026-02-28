@@ -501,6 +501,9 @@ export function useHierarchicalCategoryReport(
 }
 
 // Belirli bir kategorinin işlemlerini getir
+// Ürün bazlı kategori raporlamasını destekler:
+// - Ürünlü işlemler: ürünün kategorisine göre filtrelenir
+// - Ürünsüz işlemler: islemler.kategori_id'ye göre filtrelenir
 export function useCategoryTransactions(
   kategoriId: string | null,
   type: KategoriType,
@@ -518,7 +521,8 @@ export function useCategoryTransactions(
     queryFn: async () => {
       if (!isletme) return [];
 
-      let query = supabase
+      // 1. Ürünsüz işlemler: islemler.kategori_id ile filtrele
+      let noProductQuery = supabase
         .from('islemler')
         .select(`
           *,
@@ -533,23 +537,121 @@ export function useCategoryTransactions(
         .lte('date', endDateTime)
         .order('date', { ascending: false });
 
-      // Kategorisiz işlemler için null kontrolü
       if (kategoriId === null || kategoriId === 'uncategorized') {
-        query = query.is('kategori_id', null);
+        noProductQuery = noProductQuery.is('kategori_id', null);
       } else {
-        query = query.eq('kategori_id', kategoriId);
+        noProductQuery = noProductQuery.eq('kategori_id', kategoriId);
       }
 
-      const { data, error } = await query;
+      const { data: noProductData, error: noProductError } = await noProductQuery;
+      if (noProductError) throw noProductError;
 
-      if (error) throw error;
-      return data;
+      // Filter out transactions that have urun_hareketler (those are handled by product categories)
+      const noProductIslemIds = (noProductData || []).map(i => i.id);
+      let pureNoProductData = noProductData || [];
+      if (noProductIslemIds.length > 0) {
+        const { data: hasProducts } = await supabase
+          .from('urun_hareketler')
+          .select('islem_id')
+          .eq('isletme_id', isletme.id)
+          .in('islem_id', noProductIslemIds)
+          .not('islem_id', 'is', null);
+
+        const productIslemIds = new Set((hasProducts || []).map(h => h.islem_id));
+        pureNoProductData = (noProductData || []).filter(i => !productIslemIds.has(i.id));
+      }
+
+      // 2. Ürünlü işlemler: urun_hareketler -> urunler.kategori_id ile filtrele
+      let productIslemIds: string[] = [];
+      if (kategoriId && kategoriId !== 'uncategorized') {
+        // Find islem_ids where any urun_hareket's urun has this kategori_id
+        const { data: urunHareketler } = await supabase
+          .from('urun_hareketler')
+          .select('islem_id, urunler!inner(kategori_id)')
+          .eq('isletme_id', isletme.id)
+          .eq('urunler.kategori_id', kategoriId)
+          .not('islem_id', 'is', null);
+
+        productIslemIds = [...new Set((urunHareketler || []).map(h => h.islem_id).filter(Boolean))] as string[];
+      } else if (kategoriId === null || kategoriId === 'uncategorized') {
+        // Find islem_ids where any urun_hareket's urun has no kategori_id
+        const { data: urunHareketler } = await supabase
+          .from('urun_hareketler')
+          .select('islem_id, urunler!inner(kategori_id)')
+          .eq('isletme_id', isletme.id)
+          .is('urunler.kategori_id', null)
+          .not('islem_id', 'is', null);
+
+        productIslemIds = [...new Set((urunHareketler || []).map(h => h.islem_id).filter(Boolean))] as string[];
+      }
+
+      let productIslemData: typeof noProductData = [];
+      if (productIslemIds.length > 0) {
+        const { data, error } = await supabase
+          .from('islemler')
+          .select(`
+            *,
+            hesap:hesaplar!hesap_id(*),
+            kategori:kategoriler(*),
+            cari:cariler(*),
+            personel:personel(*)
+          `)
+          .eq('isletme_id', isletme.id)
+          .in('id', productIslemIds)
+          .in('type', islemTypes)
+          .gte('date', startDateTime)
+          .lte('date', endDateTime)
+          .order('date', { ascending: false });
+
+        if (error) throw error;
+        productIslemData = data || [];
+      }
+
+      // 3. For product-based transactions, compute the category-specific amount
+      // from urun_hareketler where urun.kategori_id matches
+      const productIslemIdList = productIslemData.map(i => i.id);
+      const categoryAmountMap = new Map<string, number>();
+
+      if (productIslemIdList.length > 0 && kategoriId && kategoriId !== 'uncategorized') {
+        const { data: categoryHareketler } = await supabase
+          .from('urun_hareketler')
+          .select('islem_id, miktar, birim_fiyat, kdv_orani, urunler!inner(kategori_id)')
+          .eq('isletme_id', isletme.id)
+          .eq('urunler.kategori_id', kategoriId)
+          .in('islem_id', productIslemIdList);
+
+        (categoryHareketler || []).forEach((h: any) => {
+          const amount = Math.abs(h.miktar) * (h.birim_fiyat || 0) * (1 + (h.kdv_orani || 0) / 100);
+          const prev = categoryAmountMap.get(h.islem_id) || 0;
+          categoryAmountMap.set(h.islem_id, prev + amount);
+        });
+      }
+
+      // 4. Combine and deduplicate
+      const seenIds = new Set<string>();
+      const combined = [];
+      for (const item of [...pureNoProductData, ...productIslemData]) {
+        if (!seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          const catAmount = categoryAmountMap.get(item.id);
+          combined.push({
+            ...item,
+            _categoryAmount: catAmount !== undefined ? catAmount : undefined,
+          });
+        }
+      }
+
+      // Sort by date descending
+      combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      return combined;
     },
     enabled: !!isletme && !!startDate && !!endDate,
   });
 }
 
 // Birden fazla kategori için işlemleri getir (checkbox filtresi için)
+// Ürün bazlı kategori raporlamasını destekler
 export function useMultiCategoryTransactions(
   kategoriIds: string[],
   type: KategoriType,
@@ -567,7 +669,8 @@ export function useMultiCategoryTransactions(
     queryFn: async () => {
       if (!isletme || kategoriIds.length === 0) return [];
 
-      const { data, error } = await supabase
+      // 1. İslemler.kategori_id ile eşleşen (ürünsüz) işlemler
+      const { data: directData, error: directError } = await supabase
         .from('islemler')
         .select(`
           *,
@@ -583,8 +686,80 @@ export function useMultiCategoryTransactions(
         .lte('date', endDateTime)
         .order('date', { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (directError) throw directError;
+
+      // Filter out transactions that have urun_hareketler
+      const directIds = (directData || []).map(i => i.id);
+      let pureDirectData = directData || [];
+      if (directIds.length > 0) {
+        const { data: hasProducts } = await supabase
+          .from('urun_hareketler')
+          .select('islem_id')
+          .eq('isletme_id', isletme.id)
+          .in('islem_id', directIds)
+          .not('islem_id', 'is', null);
+
+        const productIslemIds = new Set((hasProducts || []).map(h => h.islem_id));
+        pureDirectData = (directData || []).filter(i => !productIslemIds.has(i.id));
+      }
+
+      // 2. Ürünlü işlemler: urun_hareketler -> urunler.kategori_id ile filtrele
+      const { data: urunHareketler } = await supabase
+        .from('urun_hareketler')
+        .select('islem_id, miktar, birim_fiyat, kdv_orani, urunler!inner(kategori_id)')
+        .eq('isletme_id', isletme.id)
+        .in('urunler.kategori_id', kategoriIds)
+        .not('islem_id', 'is', null);
+
+      const productIslemIdSet = new Set((urunHareketler || []).map(h => h.islem_id).filter(Boolean));
+
+      // Calculate category-specific amounts
+      const categoryAmountMap = new Map<string, number>();
+      (urunHareketler || []).forEach((h: any) => {
+        const amount = Math.abs(h.miktar) * (h.birim_fiyat || 0) * (1 + (h.kdv_orani || 0) / 100);
+        const prev = categoryAmountMap.get(h.islem_id) || 0;
+        categoryAmountMap.set(h.islem_id, prev + amount);
+      });
+
+      let productIslemData: typeof directData = [];
+      const productIslemIds = [...productIslemIdSet] as string[];
+      if (productIslemIds.length > 0) {
+        const { data, error } = await supabase
+          .from('islemler')
+          .select(`
+            *,
+            hesap:hesaplar!hesap_id(*),
+            kategori:kategoriler(*),
+            cari:cariler(*),
+            personel:personel(*)
+          `)
+          .eq('isletme_id', isletme.id)
+          .in('id', productIslemIds)
+          .in('type', islemTypes)
+          .gte('date', startDateTime)
+          .lte('date', endDateTime)
+          .order('date', { ascending: false });
+
+        if (error) throw error;
+        productIslemData = data || [];
+      }
+
+      // 3. Combine and deduplicate
+      const seenIds = new Set<string>();
+      const combined = [];
+      for (const item of [...pureDirectData, ...productIslemData]) {
+        if (!seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          const catAmount = categoryAmountMap.get(item.id);
+          combined.push({
+            ...item,
+            _categoryAmount: catAmount !== undefined ? catAmount : undefined,
+          });
+        }
+      }
+
+      combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      return combined;
     },
     enabled: !!isletme && !!startDate && !!endDate && kategoriIds.length > 0,
   });
@@ -668,39 +843,43 @@ export function useSubCategoryReport(
     return ids;
   }, [parentKategoriId, kategoriler]);
 
+  // RPC-based aggregate data for this parent category and its children
   const {
-    data: islemler,
-    isLoading: islemlerLoading,
-    error: islemlerError,
+    data: rpcData,
+    isLoading: rpcLoading,
+    error: rpcError,
   } = useQuery({
-    queryKey: ['sub-category-transactions', isletme?.id, allKategoriIds.sort().join(','), type, source, startDateTime, endDateTime],
+    queryKey: ['sub-category-report-rpc', isletme?.id, allKategoriIds.sort().join(','), type, source, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme || allKategoriIds.length === 0) return [];
 
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          id,
-          type,
-          amount,
-          kategori_id,
-          kategori:kategoriler(*)
-        `)
-        .eq('isletme_id', isletme.id)
-        .in('type', islemTypes)
-        .in('kategori_id', allKategoriIds)
-        .gte('date', startDateTime)
-        .lte('date', endDateTime);
+      const { data, error } = await supabase.rpc('get_category_report', {
+        p_isletme_id: isletme.id,
+        p_types: islemTypes as string[],
+        p_start_date: startDateTime,
+        p_end_date: endDateTime,
+      });
 
       if (error) throw error;
-      return data;
+
+      // Filter to only categories in allKategoriIds
+      const idSet = new Set(allKategoriIds);
+      return ((data || []) as Array<{
+        kategori_id: string | null;
+        kategori_adi: string | null;
+        kategori_renk: string | null;
+        kategori_icon: string | null;
+        parent_id: string | null;
+        islem_count: number;
+        total_amount: number;
+      }>).filter(row => row.kategori_id && idSet.has(row.kategori_id));
     },
     enabled: !!isletme && !!startDate && !!endDate && allKategoriIds.length > 0,
   });
 
-  // Sonuçları hesapla
+  // Sonuçları hesapla (RPC aggregate verisinden)
   const result = useMemo(() => {
-    if (!kategoriler || !islemler) {
+    if (!kategoriler || !rpcData) {
       return {
         parentKategori: null,
         subCategories: [],
@@ -723,22 +902,20 @@ export function useSubCategoryReport(
       subCategoryMap.set(child.id, { total: 0, count: 0 });
     });
 
-    // İşlemleri grupla
-    islemler.forEach((islem) => {
-      const amount = Number(islem.amount);
-      if (isNaN(amount)) return;
+    // RPC aggregate verisini grupla
+    rpcData.forEach((row) => {
+      const amount = Number(row.total_amount) || 0;
+      const count = Number(row.islem_count) || 0;
       totalAmount += amount;
-      totalCount += 1;
+      totalCount += count;
 
-      if (islem.kategori_id === parentKategoriId) {
-        // Ana kategoriye ait doğrudan işlem
+      if (row.kategori_id === parentKategoriId) {
         parentTotal += amount;
-        parentCount += 1;
-      } else if (subCategoryMap.has(islem.kategori_id)) {
-        // Alt kategoriye ait işlem
-        const existing = subCategoryMap.get(islem.kategori_id)!;
+        parentCount += count;
+      } else if (row.kategori_id && subCategoryMap.has(row.kategori_id)) {
+        const existing = subCategoryMap.get(row.kategori_id)!;
         existing.total += amount;
-        existing.count += 1;
+        existing.count += count;
       }
     });
 
@@ -764,14 +941,14 @@ export function useSubCategoryReport(
       totalAmount,
       totalCount,
     };
-  }, [kategoriler, islemler, parentKategoriId]);
+  }, [kategoriler, rpcData, parentKategoriId]);
 
-  // Combine errors - prefer islemler error as it's more critical
-  const combinedError = islemlerError || kategorilerError;
+  // Combine errors - prefer rpc error as it's more critical
+  const combinedError = rpcError || kategorilerError;
 
   return {
     ...result,
-    isLoading: kategorilerLoading || islemlerLoading,
+    isLoading: kategorilerLoading || rpcLoading,
     error: combinedError as Error | null,
   };
 }

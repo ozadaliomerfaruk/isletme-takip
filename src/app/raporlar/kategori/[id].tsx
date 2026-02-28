@@ -171,8 +171,11 @@ export default function KategoriDetayPage() {
   // Tümü seçili mi kontrolü
   const allSubCategoriesSelected = effectiveSelectedSubCategories.size === subCategoryReport.subCategories.length;
 
-  // Filtrelenmiş toplam
-  const filteredTotal = filteredIslemler?.reduce((acc, islem) => acc + Number(islem.amount), 0) ?? 0;
+  // Filtrelenmiş toplam (kategori-spesifik tutarları kullan)
+  const filteredTotal = filteredIslemler?.reduce((acc, islem: any) => {
+    const amount = islem._categoryAmount !== undefined ? islem._categoryAmount : Number(islem.amount);
+    return acc + amount;
+  }, 0) ?? 0;
   const filteredCount = filteredIslemler?.length ?? 0;
 
   // Sayfa başlığı
@@ -192,8 +195,11 @@ export default function KategoriDetayPage() {
   };
 
   // İşlem kartı render
-  const renderIslemItem = ({ item }: { item: IslemWithRelations }) => {
+  const renderIslemItem = ({ item }: { item: IslemWithRelations & { _categoryAmount?: number } }) => {
     const isGelir = type === 'gelir';
+    // If _categoryAmount exists, show it as the main amount and full invoice as sub-text
+    const hasCategoryAmount = item._categoryAmount !== undefined && item._categoryAmount !== Number(item.amount);
+    const displayAmount = hasCategoryAmount ? item._categoryAmount! : Number(item.amount);
 
     return (
       <TouchableOpacity
@@ -236,13 +242,20 @@ export default function KategoriDetayPage() {
             </View>
           </View>
           <View style={styles.islemRight}>
-            <Text
-              variant="label"
-              color={isGelir ? 'success' : 'error'}
-              style={styles.islemAmount}
-            >
-              {isGelir ? '+' : '-'}{formatCurrency(Number(item.amount))}
-            </Text>
+            <View style={styles.islemAmountContainer}>
+              <Text
+                variant="label"
+                color={isGelir ? 'success' : 'error'}
+                style={styles.islemAmount}
+              >
+                {isGelir ? '+' : '-'}{formatCurrency(displayAmount)}
+              </Text>
+              {hasCategoryAmount && (
+                <Text variant="caption" color="secondary" style={styles.islemSubAmount}>
+                  {t('reports:labels.invoiceTotal')}: {formatCurrency(Number(item.amount))}
+                </Text>
+              )}
+            </View>
             <ChevronRight size={16} color={colors.textMuted} />
           </View>
         </View>
@@ -785,8 +798,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  islemAmountContainer: {
+    alignItems: 'flex-end',
+  },
   islemAmount: {
     fontWeight: '600',
+  },
+  islemSubAmount: {
+    fontSize: 10,
+    marginTop: 1,
   },
   emptyCard: {
     padding: spacing.xl,

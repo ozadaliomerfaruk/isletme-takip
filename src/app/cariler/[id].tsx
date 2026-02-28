@@ -24,6 +24,7 @@ import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
@@ -36,7 +37,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useIslemlerWithUrun, useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
+import { useIslemlerWithUrunByCari, useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
@@ -55,9 +56,12 @@ import { usePermissions } from '@/hooks/usePermissions';
 interface CariTransactionItemProps {
   islem: IslemWithRelations;
   onPress: (id: string) => void;
+  onLongPress?: (id: string) => void;
+  onPhotoPress?: (id: string) => void;
   onDelete: (id: string) => void;
   onCopy: (id: string) => void;
   hasUrunFn: (id: string) => boolean;
+  getUrunCountFn: (id: string) => number;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
   deleteLabel: string;
@@ -111,9 +115,12 @@ function getCariSubAmount(islem: IslemWithRelations): string | null {
 const CariTransactionItem = memo(function CariTransactionItem({
   islem,
   onPress,
+  onLongPress,
+  onPhotoPress,
   onDelete,
   onCopy,
   hasUrunFn,
+  getUrunCountFn,
   formatDateSmart,
   t,
   deleteLabel,
@@ -150,11 +157,14 @@ const CariTransactionItem = memo(function CariTransactionItem({
         secondaryText={islem.description || islem.kategori?.name || null}
         hasPhoto={!!islem.photo_path}
         hasUrunler={hasUrunFn(islem.id)}
+        urunCount={getUrunCountFn(islem.id)}
         currency={currency}
         subAmount={getCariSubAmount(islem)}
         overrideColor={getEntityPerspectiveColor(islem.type)}
         overridePrefix={getEntityPerspectivePrefix(islem.type)}
         onPress={onPress}
+        onLongPress={onLongPress}
+        onPhotoPress={onPhotoPress}
       />
     </SwipeableRow>
   );
@@ -354,9 +364,8 @@ export default function CariHareketleriPage() {
   const isViewerViewOnly = isViewer && linkStatus?.permission === 'view';
   const canEditTransactions = !isViewer || linkStatus?.permission === 'full';
 
-  // İşlemlerin ürünlü olup olmadığını kontrol et
-  const islemIds = islemler?.map(i => i.id) || [];
-  const { hasUrun } = useIslemlerWithUrun(islemIds);
+  // İşlemlerin ürünlü olup olmadığını kontrol et - cari bazlı sorgu ile ilk yüklemede de hızlı
+  const { hasUrun, getUrunCount } = useIslemlerWithUrunByCari(id);
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
   const updateCari = useUpdateCari();
@@ -378,6 +387,8 @@ export default function CariHareketleriPage() {
   const [showCopyBar, setShowCopyBar] = useState(false);
   // Product detail modal state
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
+  // Photo viewer state
+  const [photoViewerIslemId, setPhotoViewerIslemId] = useState<string | null>(null);
 
   // Undo delete hook
   const {
@@ -474,6 +485,11 @@ export default function CariHareketleriPage() {
     }
   }, [hasUrun]);
 
+  // Fotoğraf ikonuna basıldığında fotoğraf viewer aç
+  const handlePressPhoto = useCallback((islemId: string) => {
+    setPhotoViewerIslemId(islemId);
+  }, []);
+
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = (islemler || []).find(i => i.id === islemId);
     if (islem) {
@@ -481,6 +497,11 @@ export default function CariHareketleriPage() {
       requestDelete(islemId, islem, desc);
     }
   }, [islemler, requestDelete, t]);
+
+  const handleLongPressIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+  }, []);
 
   const handleEditIslem = useCallback((islemId: string) => {
     setEditTransactionId(islemId);
@@ -581,9 +602,12 @@ export default function CariHareketleriPage() {
       <CariTransactionItem
         islem={islem}
         onPress={handlePressIslem}
+        onLongPress={handleLongPressIslem}
+        onPhotoPress={handlePressPhoto}
         onDelete={handleDeleteIslem}
         onCopy={handleCopyIslem}
         hasUrunFn={hasUrun}
+        getUrunCountFn={getUrunCount}
         formatDateSmart={formatDateSmart}
         t={t}
         deleteLabel={deleteLabel}
@@ -592,7 +616,7 @@ export default function CariHareketleriPage() {
         canEdit={canEditItem}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, hasUrun, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -975,6 +999,15 @@ export default function CariHareketleriPage() {
             setShowEditBar(true);
           }}
           t={t}
+        />
+
+        {/* Fotoğraf Görüntüleyici Modal */}
+        <PhotoViewerModal
+          visible={!!photoViewerIslemId}
+          photoPath={photoViewerIslemId ? (islemler || []).find(i => i.id === photoViewerIslemId)?.photo_path ?? null : null}
+          onClose={() => setPhotoViewerIslemId(null)}
+          onDelete={undefined}
+          onChange={undefined}
         />
 
         {/* Floating Yeni İşlem FAB */}

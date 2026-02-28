@@ -291,7 +291,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
       const base = invoices[i];
       // Only merge documents that have identifiable supplier info
-      const hasMergeKey = base.supplierTaxNumber || base.ettn || base.invoiceNumber;
+      const hasMergeKey = base.supplierTaxNumber || base.ettn || base.invoiceNumber || base.supplierName || base.supplierMatchCariId;
       if (!hasMergeKey) {
         merged.push(base);
         mergedUris.push(uris[i]);
@@ -299,22 +299,87 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       }
 
       // Find matching pages
+      console.log(`[FotoImport] ═══ Merge check base[${i}]: supplier="${base.supplierName}" tax="${base.supplierTaxNumber}" invNo="${base.invoiceNumber}" ettn="${base.ettn}" date="${base.invoiceDate}" cariId="${base.supplierMatchCariId}" items=${base.items.length}`);
       const group: number[] = [i];
+
+      // Normalize ETTN for comparison (trim, lowercase, remove whitespace)
+      const normalizeEttn = (e: string | null): string => (e || '').trim().toLowerCase().replace(/\s/g, '');
+      // Normalize invoice numbers for comparison (trim whitespace, lowercase, remove spaces/dashes)
+      const normalizeInvNo = (n: string | null): string => (n || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+
+      const baseEttnNorm = normalizeEttn(base.ettn);
+      const baseInvNorm = normalizeInvNo(base.invoiceNumber);
+
       for (let j = i + 1; j < invoices.length; j++) {
         if (consumed.has(j)) continue;
         const candidate = invoices[j];
 
+        const candidateEttnNorm = normalizeEttn(candidate.ettn);
+        const candidateInvNorm = normalizeInvNo(candidate.invoiceNumber);
+
+        console.log(`[FotoImport]   vs [${j}]: supplier="${candidate.supplierName}" invNo="${candidate.invoiceNumber}" ettn="${candidate.ettn}" date="${candidate.invoiceDate}" items=${candidate.items.length}`);
+
         // Must share at least one identifier
-        const sameSupplier = base.supplierTaxNumber && candidate.supplierTaxNumber
+        const sameSupplierTax = base.supplierTaxNumber && candidate.supplierTaxNumber
           && base.supplierTaxNumber === candidate.supplierTaxNumber;
-        const sameEttn = base.ettn && candidate.ettn && base.ettn === candidate.ettn;
-        const sameInvoiceNo = base.invoiceNumber && candidate.invoiceNumber
-          && base.invoiceNumber === candidate.invoiceNumber;
+        const sameSupplierName = base.supplierName && candidate.supplierName
+          && normalizeTurkish(base.supplierName) === normalizeTurkish(candidate.supplierName);
+        // Fuzzy supplier name matching (one contains the other)
+        const fuzzySupplierName = base.supplierName && candidate.supplierName && (
+          normalizeTurkish(base.supplierName).includes(normalizeTurkish(candidate.supplierName))
+          || normalizeTurkish(candidate.supplierName).includes(normalizeTurkish(base.supplierName))
+        );
+        const sameSupplier = sameSupplierTax || sameSupplierName || fuzzySupplierName;
+        const sameSupplierCari = base.supplierMatchCariId && candidate.supplierMatchCariId
+          && base.supplierMatchCariId === candidate.supplierMatchCariId;
+
+        // ETTN comparison (normalized)
+        const sameEttn = baseEttnNorm && candidateEttnNorm && baseEttnNorm === candidateEttnNorm;
+        const bothHaveEttn = baseEttnNorm && candidateEttnNorm;
+        const differentEttn = bothHaveEttn && !sameEttn;
+
+        // Invoice number comparison (normalized)
+        const sameInvoiceNo = baseInvNorm && candidateInvNorm && baseInvNorm === candidateInvNorm;
+        const bothHaveInvNo = baseInvNorm && candidateInvNorm;
+        const differentInvNo = bothHaveInvNo && !sameInvoiceNo;
+
         const sameDate = base.invoiceDate && candidate.invoiceDate
           && base.invoiceDate === candidate.invoiceDate;
 
-        // Merge if: (same ETTN) OR (same supplier + same invoice no) OR (same supplier + same date + same invoice no)
-        if (sameEttn || (sameSupplier && sameInvoiceNo) || (sameSupplier && sameDate && sameInvoiceNo)) {
+        // Check if either page has no invoice number
+        const eitherMissingInvNo = !baseInvNorm || !candidateInvNorm;
+
+        console.log(`[FotoImport]   → sameEttn=${!!sameEttn} diffEttn=${!!differentEttn} sameInvNo=${!!sameInvoiceNo} diffInvNo=${!!differentInvNo} sameSupplier=${!!sameSupplier} sameCari=${!!sameSupplierCari} sameDate=${!!sameDate} missingInvNo=${eitherMissingInvNo}`);
+
+        // ÖNCELİK SIRASI: invoiceNumber > ETTN (ETTN OCR'da güvenilmez, kısmen silik/örtülü olabilir)
+
+        // 1) İkisinde de invoiceNumber varsa → invoiceNumber belirleyici
+        if (bothHaveInvNo) {
+          if (sameInvoiceNo) {
+            console.log(`[FotoImport]   ✓ MERGE: same invoiceNo (${baseInvNorm})`);
+            group.push(j);
+            continue;
+          } else {
+            console.log(`[FotoImport]   SKIP: different invoiceNo (${baseInvNorm} vs ${candidateInvNorm})`);
+            continue;
+          }
+        }
+
+        // 2) invoiceNumber eksik → ETTN'e bak
+        if (sameEttn) {
+          console.log(`[FotoImport]   ✓ MERGE: same ETTN (${baseEttnNorm})`);
+          group.push(j);
+          continue;
+        }
+
+        if (differentEttn) {
+          console.log(`[FotoImport]   SKIP: different ETTN (${baseEttnNorm} vs ${candidateEttnNorm})`);
+          continue;
+        }
+
+        // 3) Ne invoiceNumber ne ETTN yok → tedarikçi + tarih ile birleştir
+        if ((sameSupplier || sameSupplierCari) && sameDate) {
+          console.log(`[FotoImport]   ✓ MERGE: same supplier+date, no invoiceNo/ETTN`);
           group.push(j);
         }
       }
@@ -333,10 +398,10 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         consumed.add(group[k]);
         // Append items
         mergedInvoice.items = [...mergedInvoice.items, ...page.items];
-        // Take non-null values for totals
-        mergedInvoice.grandTotal = mergedInvoice.grandTotal ?? page.grandTotal;
-        mergedInvoice.subtotal = mergedInvoice.subtotal ?? page.subtotal;
-        mergedInvoice.vatTotal = mergedInvoice.vatTotal ?? page.vatTotal;
+        // Toplam bilgileri: son sayfanın değerleri varsa onları tercih et (genelde toplam son sayfadadır)
+        if (page.grandTotal != null) mergedInvoice.grandTotal = page.grandTotal;
+        if (page.subtotal != null) mergedInvoice.subtotal = page.subtotal;
+        if (page.vatTotal != null) mergedInvoice.vatTotal = page.vatTotal;
         mergedInvoice.supplierBalance = mergedInvoice.supplierBalance ?? page.supplierBalance;
         // Take supplier info from whichever page has it
         mergedInvoice.supplierName = mergedInvoice.supplierName ?? page.supplierName;
@@ -347,6 +412,16 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         mergedInvoice.paymentInfo = mergedInvoice.paymentInfo ?? page.paymentInfo;
         mergedInvoice.paidStatus = mergedInvoice.paidStatus ?? page.paidStatus;
       }
+      // After merging pages, remove EKSİK_SATIR placeholders
+      // (they were added by edge function for single-page subtotal mismatch, but other pages fill the gap)
+      const beforeClean = mergedInvoice.items.length;
+      mergedInvoice.items = mergedInvoice.items.filter(
+        item => item.name !== 'EKSİK_SATIR' && item.name !== 'OKUNAMAYAN_URUN'
+      );
+      if (mergedInvoice.items.length < beforeClean) {
+        console.log(`[FotoImport] Cleaned ${beforeClean - mergedInvoice.items.length} placeholder items after merge`);
+      }
+
       merged.push(mergedInvoice);
       mergedUris.push(uris[i]); // Use the first page's image URI
     }
@@ -446,6 +521,8 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     try {
       const results = await processImages(uris);
 
+      console.log(`[FotoImport] Processing complete: ${uris.length} images → ${results.length} parsed invoices, starting merge...`);
+
       // === Post-processing merges ===
       // 1) Merge multi-page invoices (same ETTN / invoice number)
       const afterPageMerge = mergeMultiPageInvoices(results, uris);
@@ -453,6 +530,8 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       const afterPosMerge = mergeTahsilatPosEntries(afterPageMerge.invoices, afterPageMerge.uris);
       const finalInvoices = afterPosMerge.invoices;
       const finalUris = afterPosMerge.uris;
+
+      console.log(`[FotoImport] After merge: ${results.length} parsed → ${finalInvoices.length} final invoices`);
 
       const newEntries: MultiInvoiceEntry[] = finalInvoices.map((invoice, i) => {
         const defaultMode = DOCUMENT_TYPE_DEFAULTS[invoice.documentType]?.saveMode || 'stock_and_cari';

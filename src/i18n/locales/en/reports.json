@@ -221,5 +221,8 @@
   },
   "entityTransactions": {
     "viewAll": "View all transactions ({{count}})"
+  },
+  "labels": {
+    "invoiceTotal": "Invoice total"
   }
 }

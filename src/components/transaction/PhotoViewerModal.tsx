@@ -103,11 +103,19 @@ export function PhotoViewerModal({
     }
   }, [visible]);
 
-  // Fetch signed URL when modal opens
+  // Fetch signed URL when modal opens (skip for local file:// URIs)
   useEffect(() => {
     if (visible && photoPath) {
       console.log('[PhotoViewer] Opening with path:', photoPath);
       setImageUrl(null);
+
+      // Local file URIs (file://, content://, ph://) can be used directly
+      if (photoPath.startsWith('file://') || photoPath.startsWith('content://') || photoPath.startsWith('ph://')) {
+        console.log('[PhotoViewer] Using local URI directly');
+        setImageUrl(photoPath);
+        return;
+      }
+
       getPhotoUrl.mutate(photoPath, {
         onSuccess: (url) => {
           console.log('[PhotoViewer] Got signed URL:', url);

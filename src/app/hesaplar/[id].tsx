@@ -208,6 +208,9 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
+  const handlePhotoPress = useCallback(() => {
+    if (islem.photo_path) onViewPhoto(islem.photo_path, islem.id);
+  }, [onViewPhoto, islem.photo_path, islem.id]);
 
   const target = getTransactionTarget(islem, hesapId);
   const labelKey = getHareketLabelKey(islem.type);
@@ -238,12 +241,14 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         overrideColor={getHesapPerspectiveColor(islem.type, hesapId, islem.hedef_hesap_id)}
         overridePrefix={getHesapPerspectivePrefix(islem.type, hesapId, islem.hedef_hesap_id)}
         onPress={onPress}
+        onPhotoPress={handlePhotoPress}
       />
     </SwipeableRow>
   );
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
+    && prev.islem.photo_path === next.islem.photo_path
     && prev.hesapCurrency === next.hesapCurrency
     && prev.canEdit === next.canEdit;
 });

@@ -30,6 +30,7 @@ export interface AmountInputSectionProps {
   onPickImage: () => void;
   onTakePhoto: () => void;
   onRemovePhoto: () => void;
+  onViewPhoto?: () => void;
   photoLoading?: boolean;
   // Scheduled
   isScheduled: boolean;
@@ -64,6 +65,7 @@ export function AmountInputSection({
   onPickImage,
   onTakePhoto,
   onRemovePhoto,
+  onViewPhoto,
   photoLoading,
   isScheduled,
   isSaving,
@@ -133,6 +135,7 @@ export function AmountInputSection({
           onPickImage={onPickImage}
           onTakePhoto={onTakePhoto}
           onRemovePhoto={onRemovePhoto}
+          onViewPhoto={onViewPhoto}
           loading={photoLoading}
           disabled={isSaving}
           size="small"

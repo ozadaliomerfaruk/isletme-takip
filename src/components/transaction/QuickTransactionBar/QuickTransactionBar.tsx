@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo, useEffect } from 'react';
+import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
 import {
   View,
   Modal,
@@ -16,6 +16,7 @@ import { TAB_BAR_HEIGHT } from '@/constants/spacing';
 
 import { getTransactionTypeColor } from '../TransactionTypeTabs';
 import { ExchangeRateBar } from '../ExchangeRateBar';
+import { PhotoViewerModal } from '../PhotoViewerModal';
 import { styles } from './styles';
 import type {
   QuickTransactionBarProps,
@@ -187,6 +188,15 @@ export function QuickTransactionBar({
   const handleRemovePhoto = useCallback(() => {
     form.setPhotoUri(null);
   }, [form]);
+
+  // Photo viewer state
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+
+  const handleViewPhoto = useCallback(() => {
+    if (form.photoUri) {
+      setShowPhotoViewer(true);
+    }
+  }, [form.photoUri]);
 
   // Handle dismiss with animation
   const handleDismiss = useCallback(() => {
@@ -537,6 +547,7 @@ export function QuickTransactionBar({
           onPickImage={handlePickImage}
           onTakePhoto={handleTakePhoto}
           onRemovePhoto={handleRemovePhoto}
+          onViewPhoto={handleViewPhoto}
           photoLoading={pickImage.isPending || takePhoto.isPending}
           isScheduled={form.isScheduled}
           isSaving={form.isSaving || form.isLoadingTransaction}
@@ -673,6 +684,13 @@ export function QuickTransactionBar({
             form.setAmount(total.toString());
           }
         }}
+      />
+
+      {/* Photo Viewer Modal */}
+      <PhotoViewerModal
+        visible={showPhotoViewer}
+        photoPath={form.photoUri}
+        onClose={() => setShowPhotoViewer(false)}
       />
     </Modal>
   );
