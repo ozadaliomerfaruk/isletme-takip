@@ -77,11 +77,11 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
             .from('islemler')
             .select(`
               *,
-              hesap:hesaplar!islemler_hesap_id_fkey(*),
-              hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(*),
-              kategori:kategoriler(*),
-              cari:cariler(*),
-              personel:personel(*)
+              hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
+              hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
+              kategori:kategoriler(id,name),
+              cari:cariler(id,name,type),
+              personel:personel(id,first_name,last_name)
             `)
             .eq('isletme_id', isletme.id)
             .in('type', islemTypes)

@@ -180,7 +180,7 @@ export function useAnalyticsTrend(
       };
     },
     enabled: !!isletme,
-    staleTime: 60000, // 1 minute
+    staleTime: 5 * 60 * 1000, // 5 dk
   });
 
   return {

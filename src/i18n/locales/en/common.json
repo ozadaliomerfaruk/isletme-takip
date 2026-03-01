@@ -129,6 +129,7 @@
   },
   "date": {
     "today": "Today",
+    "now": "Now",
     "yesterday": "Yesterday",
     "tomorrow": "Tomorrow",
     "thisWeek": "This Week",

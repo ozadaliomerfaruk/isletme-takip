@@ -13,7 +13,7 @@ import { Filter, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useAnalyticsTrend } from '@/hooks/useAnalyticsTrend';
 import { useSettings } from '@/hooks/useSettings';
-import { TrendFilterModal } from '@/components/analytics';
+import { TrendFilterModal } from '@/components/reports';
 import { formatCurrency, formatCurrencyCompact } from '@/lib/currency';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';

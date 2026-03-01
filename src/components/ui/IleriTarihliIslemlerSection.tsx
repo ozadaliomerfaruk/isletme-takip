@@ -1,22 +1,21 @@
 import { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   CalendarClock,
-  TrendingUp,
-  TrendingDown,
   Check,
   Pencil,
   Trash2,
 } from 'lucide-react-native';
 import { Text } from './Text';
-import { Card } from './Card';
 import { ExpandableCard } from './ExpandableCard';
+import { TransactionIcon } from './TransactionIcon';
 import { Button } from './Button';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
+import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
 import { IleriTarihliIslemWithRelations } from '@/types/database';
 import {
   useCompleteIleriTarihliIslem,
@@ -29,6 +28,32 @@ interface IleriTarihliIslemlerSectionProps {
   ileriTarihliIslemler: IleriTarihliIslemWithRelations[] | undefined;
   isLoading: boolean;
   title?: string;
+}
+
+// İşlem tipine göre ilgili entity adını çıkar
+function getEntityText(item: IleriTarihliIslemWithRelations): string | null {
+  if (item.type === 'transfer') {
+    if (item.hesap?.name && item.hedef_hesap?.name) {
+      return `${item.hesap.name} → ${item.hedef_hesap.name}`;
+    }
+    return item.hesap?.name || item.hedef_hesap?.name || null;
+  }
+  if (item.cari?.name) return item.cari.name;
+  if (item.personel) {
+    const name = `${item.personel.first_name} ${item.personel.last_name ?? ''}`.trim();
+    return name || null;
+  }
+  if (item.hesap?.name) return item.hesap.name;
+  return null;
+}
+
+// Cari/personel işlemlerinde hesap adını göster
+function getAccountText(item: IleriTarihliIslemWithRelations): string | null {
+  if (item.type === 'transfer') return null;
+  if ((item.cari || item.personel) && item.hesap?.name) {
+    return item.hesap.name;
+  }
+  return null;
 }
 
 export function IleriTarihliIslemlerSection({
@@ -76,7 +101,7 @@ export function IleriTarihliIslemlerSection({
   const handleComplete = (item: IleriTarihliIslemWithRelations) => {
     Alert.alert(
       t('transactions:scheduled.execute'),
-      t('transactions:scheduled.executeConfirm', { amount: formatCurrency(item.amount), type: t(`transactions:types.${item.type}`).toLowerCase() }),
+      t('transactions:scheduled.executeConfirm', { amount: formatCurrency(item.amount, item.hesap?.currency), type: t(`transactions:types.${item.type}`).toLowerCase() }),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -136,7 +161,17 @@ export function IleriTarihliIslemlerSection({
       {ileriTarihliIslemler.map((item) => {
         const overdue = isOverdue(item.scheduled_date);
         const today = isToday(item.scheduled_date);
-        const isGelir = item.type === 'gelir';
+        const txColor = getTransactionColor(item.type);
+        const prefix = getTransactionPrefix(item.type);
+        const entityText = getEntityText(item);
+        const accountText = getAccountText(item);
+        const typeLabel = t(`transactions:types.${item.type}`);
+
+        // Satır 3: açıklama veya kategori + hesap adı
+        const secondaryParts: string[] = [];
+        if (item.description) secondaryParts.push(item.description);
+        if (item.kategori?.name) secondaryParts.push(item.kategori.name);
+        if (accountText) secondaryParts.push(accountText);
 
         return (
           <ExpandableCard
@@ -145,47 +180,53 @@ export function IleriTarihliIslemlerSection({
             onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)}
             header={
               <View style={styles.itemHeader}>
-                <View
-                  style={[
-                    styles.itemIcon,
-                    { backgroundColor: isGelir ? colors.success + '20' : colors.error + '20' },
-                  ]}
-                >
-                  {isGelir ? (
-                    <TrendingUp size={18} color={colors.success} />
-                  ) : (
-                    <TrendingDown size={18} color={colors.error} />
-                  )}
-                </View>
+                <TransactionIcon type={item.type} size={40} />
                 <View style={styles.itemContent}>
-                  <View style={styles.itemTitleRow}>
-                    <Text variant="body" numberOfLines={1} style={styles.itemTitle}>
-                      {item.description || t(`transactions:types.${item.type}`)}
+                  {/* Satır 1: Entity adı + tarih */}
+                  <View style={styles.row1}>
+                    <Text style={styles.entityText} numberOfLines={1}>
+                      {entityText || typeLabel}
                     </Text>
-                    <Text
-                      variant="caption"
-                      style={{
-                        color: overdue ? colors.error : today ? colors.warning : colors.textMuted,
-                        fontWeight: overdue || today ? '600' : '400',
-                      }}
-                    >
-                      {overdue ? t('transactions:scheduled.overdue') : today ? t('transactions:scheduled.dueToday') : formatDate(item.scheduled_date)}
-                    </Text>
+                    {overdue ? (
+                      <View style={[styles.dateBadge, styles.dateBadgeOverdue]}>
+                        <Text style={[styles.dateBadgeText, { color: colors.error }]}>
+                          {t('transactions:scheduled.overdue')}
+                        </Text>
+                      </View>
+                    ) : today ? (
+                      <View style={[styles.dateBadge, styles.dateBadgeToday]}>
+                        <Text style={[styles.dateBadgeText, { color: colors.warning }]}>
+                          {t('transactions:scheduled.dueToday')}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.dateText}>
+                        {formatDate(item.scheduled_date)}
+                      </Text>
+                    )}
                   </View>
-                  <View style={styles.itemSubRow}>
-                    <Text variant="caption" color="secondary">
-                      {item.kategori?.name || t(`transactions:types.${item.type}`)}
-                    </Text>
-                    <Text
-                      variant="body"
-                      style={{
-                        color: isGelir ? colors.success : colors.error,
-                        fontWeight: '600',
-                      }}
-                    >
-                      {isGelir ? '+' : '-'}{formatCurrency(item.amount)}
-                    </Text>
+
+                  {/* Satır 2: İşlem tipi + açıklama/kategori/hesap */}
+                  <View style={styles.row2}>
+                    {entityText && (
+                      <Text style={[styles.typeLabel, { color: txColor }]} numberOfLines={1}>
+                        {typeLabel}
+                      </Text>
+                    )}
+                    {entityText && secondaryParts.length > 0 && (
+                      <Text style={styles.dot}> · </Text>
+                    )}
+                    {secondaryParts.length > 0 && (
+                      <Text style={styles.secondaryText} numberOfLines={1}>
+                        {secondaryParts.join(' · ')}
+                      </Text>
+                    )}
                   </View>
+
+                  {/* Satır 3: Tutar */}
+                  <Text style={[styles.amountText, { color: txColor }]}>
+                    {prefix}{formatCurrency(Math.abs(item.amount), item.hesap?.currency || undefined)}
+                  </Text>
                 </View>
               </View>
             }
@@ -263,31 +304,72 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  itemIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   itemContent: {
     flex: 1,
+    gap: 2,
   },
-  itemTitleRow: {
+  // Satır 1: entity + tarih
+  row1: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 2,
+    gap: spacing.sm,
   },
-  itemTitle: {
+  entityText: {
     flex: 1,
-    marginRight: spacing.sm,
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
   },
-  itemSubRow: {
+  dateText: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.textSecondary,
+  },
+  dateBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  dateBadgeOverdue: {
+    backgroundColor: colors.error + '15',
+  },
+  dateBadgeToday: {
+    backgroundColor: colors.warning + '15',
+  },
+  dateBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  // Satır 2: tip + kategori/açıklama
+  row2: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
   },
+  typeLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  dot: {
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+  },
+  secondaryText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+  },
+  // Satır 3: tutar
+  amountText: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+    marginTop: 2,
+  },
+  // Actions
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,

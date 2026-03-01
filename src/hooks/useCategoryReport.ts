@@ -526,10 +526,10 @@ export function useCategoryTransactions(
         .from('islemler')
         .select(`
           *,
-          hesap:hesaplar!hesap_id(*),
-          kategori:kategoriler(*),
-          cari:cariler(*),
-          personel:personel(*)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name,type),
+          personel:personel(id,first_name,last_name)
         `)
         .eq('isletme_id', isletme.id)
         .in('type', islemTypes)
@@ -591,10 +591,10 @@ export function useCategoryTransactions(
           .from('islemler')
           .select(`
             *,
-            hesap:hesaplar!hesap_id(*),
-            kategori:kategoriler(*),
-            cari:cariler(*),
-            personel:personel(*)
+            hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+            kategori:kategoriler(id,name),
+            cari:cariler(id,name,type),
+            personel:personel(id,first_name,last_name)
           `)
           .eq('isletme_id', isletme.id)
           .in('id', productIslemIds)
@@ -674,10 +674,10 @@ export function useMultiCategoryTransactions(
         .from('islemler')
         .select(`
           *,
-          hesap:hesaplar!hesap_id(*),
-          kategori:kategoriler(*),
-          cari:cariler(*),
-          personel:personel(*)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name,type),
+          personel:personel(id,first_name,last_name)
         `)
         .eq('isletme_id', isletme.id)
         .in('type', islemTypes)
@@ -728,10 +728,10 @@ export function useMultiCategoryTransactions(
           .from('islemler')
           .select(`
             *,
-            hesap:hesaplar!hesap_id(*),
-            kategori:kategoriler(*),
-            cari:cariler(*),
-            personel:personel(*)
+            hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+            kategori:kategoriler(id,name),
+            cari:cariler(id,name,type),
+            personel:personel(id,first_name,last_name)
           `)
           .eq('isletme_id', isletme.id)
           .in('id', productIslemIds)

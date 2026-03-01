@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import i18n from 'i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import {
@@ -36,9 +37,9 @@ export function useBekleyenCekler() {
         .from('cekler')
         .select(`
           *,
-          hesap:hesaplar(*),
-          cari:cariler(*),
-          kategori:kategoriler(*)
+          hesap:hesaplar(id,name,currency),
+          cari:cariler(id,name),
+          kategori:kategoriler(id,name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('durum', 'beklemede')
@@ -48,6 +49,8 @@ export function useBekleyenCekler() {
       return data as CekWithRelations[];
     },
     enabled: !!isletme,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 
   return {
@@ -67,7 +70,7 @@ export function useCekler(filters?: {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: queryKeys.cekler.list(isletme?.id || ''),
+    queryKey: [...queryKeys.cekler.list(isletme?.id || ''), filters],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -75,9 +78,9 @@ export function useCekler(filters?: {
         .from('cekler')
         .select(`
           *,
-          hesap:hesaplar(*),
-          cari:cariler(*),
-          kategori:kategoriler(*)
+          hesap:hesaplar(id,name,currency),
+          cari:cariler(id,name),
+          kategori:kategoriler(id,name)
         `)
         .eq('isletme_id', isletme.id);
 
@@ -97,6 +100,8 @@ export function useCekler(filters?: {
       return data as CekWithRelations[];
     },
     enabled: !!isletme,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
   });
 
   return {
@@ -120,9 +125,9 @@ export function useCek(id: string | undefined) {
         .from('cekler')
         .select(`
           *,
-          hesap:hesaplar(*),
-          cari:cariler(*),
-          kategori:kategoriler(*)
+          hesap:hesaplar(id,name,currency),
+          cari:cariler(id,name),
+          kategori:kategoriler(id,name)
         `)
         .eq('id', id)
         .eq('isletme_id', isletme.id)
@@ -150,8 +155,8 @@ export function useCeklerByHesap(hesapId: string) {
         .from('cekler')
         .select(`
           *,
-          cari:cariler(*),
-          kategori:kategoriler(*)
+          cari:cariler(id,name),
+          kategori:kategoriler(id,name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('hesap_id', hesapId)
@@ -180,8 +185,8 @@ export function useCeklerByCari(cariId: string) {
         .from('cekler')
         .select(`
           *,
-          hesap:hesaplar(*),
-          kategori:kategoriler(*)
+          hesap:hesaplar(id,name,currency),
+          kategori:kategoriler(id,name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
@@ -211,9 +216,9 @@ export function useBugunVadeliCekler() {
         .from('cekler')
         .select(`
           *,
-          hesap:hesaplar(*),
-          cari:cariler(*),
-          kategori:kategoriler(*)
+          hesap:hesaplar(id,name,currency),
+          cari:cariler(id,name),
+          kategori:kategoriler(id,name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('durum', 'beklemede')
@@ -296,9 +301,9 @@ export function useCreateCek() {
         })
         .select(`
           *,
-          hesap:hesaplar(*),
-          cari:cariler(*),
-          kategori:kategoriler(*)
+          hesap:hesaplar(id,name,currency),
+          cari:cariler(id,name),
+          kategori:kategoriler(id,name)
         `)
         .single();
 
@@ -318,8 +323,11 @@ export function useCreateCek() {
         if (reminderDate > new Date()) {
           const notificationId = await scheduleTransactionReminder(
             cek.id,
-            'Çek Vadesi Yaklaşıyor',
-            `${cek.cek_no} numaralı çekin vadesi ${daysBefore === 0 ? 'bugün' : daysBefore === 1 ? 'yarın' : `${daysBefore} gün sonra`}. Tutar: ${formatCurrency(Number(cek.tutar))}`,
+            i18n.t('checks:notifications.dueReminder'),
+            i18n.t('checks:notifications.dueReminderBody', {
+              cekNo: cek.cek_no,
+              tutar: formatCurrency(Number(cek.tutar)),
+            }),
             reminderDate,
             {
               type: 'cek',
@@ -433,11 +441,13 @@ export function useCompleteCek() {
         await safeIncrementBalance('hesaplar', cek.hesap_id, -Number(cek.tutar));
         hesapBalanceUpdated = true;
 
-        await safeIncrementBalance('cariler', cek.cari_id, Number(cek.tutar));
-        cariBalanceUpdated = true;
+        if (cek.cari_id) {
+          await safeIncrementBalance('cariler', cek.cari_id, Number(cek.tutar));
+          cariBalanceUpdated = true;
+        }
       } catch (balanceError) {
         // Cari bakiyesi güncellendiyse geri al
-        if (cariBalanceUpdated) {
+        if (cariBalanceUpdated && cek.cari_id) {
           try {
             await safeIncrementBalance('cariler', cek.cari_id, -Number(cek.tutar));
           } catch (rollbackError) {
@@ -482,7 +492,9 @@ export function useCompleteCek() {
             }
           }
           await safeIncrementBalance('hesaplar', cek.hesap_id, Number(cek.tutar));
-          await safeIncrementBalance('cariler', cek.cari_id, -Number(cek.tutar));
+          if (cek.cari_id) {
+            await safeIncrementBalance('cariler', cek.cari_id, -Number(cek.tutar));
+          }
         } catch (rollbackError) {
           if (__DEV__) {
             console.error('CRITICAL: Rollback tamamen başarısız, veri tutarsız olabilir:', rollbackError);
@@ -587,38 +599,16 @@ export function useDeleteCek() {
 // ============================================================================
 
 async function safeIncrementBalance(tableName: string, rowId: string, amount: number) {
-  // Direkt manuel güncelleme (RPC güvenilir olmayabilir)
-  // 1. Mevcut bakiyeyi al
-  const { data: currentData, error: fetchError } = await supabase
-    .from(tableName)
-    .select('balance')
-    .eq('id', rowId)
-    .single();
+  const { error } = await supabase.rpc('increment_balance', {
+    table_name: tableName,
+    row_id: rowId,
+    amount: amount,
+  });
 
-  if (fetchError) {
+  if (error) {
     if (__DEV__) {
-      console.error(`Bakiye okuma hatası (${tableName}):`, fetchError);
+      console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
     }
-    throw new Error(`Bakiye okunamadı: ${fetchError.message}`);
-  }
-
-  const currentBalance = Number(currentData?.balance ?? 0);
-  const newBalance = currentBalance + amount;
-
-  // 2. Yeni bakiyeyi güncelle
-  const { error: updateError } = await supabase
-    .from(tableName)
-    .update({ balance: newBalance })
-    .eq('id', rowId);
-
-  if (updateError) {
-    if (__DEV__) {
-      console.error(`Bakiye güncelleme hatası (${tableName}):`, updateError);
-    }
-    throw new Error(`Bakiye güncellenemedi: ${updateError.message}`);
-  }
-
-  if (__DEV__) {
-    console.log(`Bakiye güncellendi (${tableName}): ${currentBalance} -> ${newBalance}`);
+    throw new Error(`Bakiye güncellenemedi: ${error.message}`);
   }
 }

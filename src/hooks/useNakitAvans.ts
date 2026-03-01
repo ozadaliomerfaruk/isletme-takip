@@ -27,9 +27,9 @@ export function useNakitAvanslarByKrediKarti(krediKartiId: string | undefined) {
         .from('nakit_avanslar')
         .select(`
           *,
-          kredi_karti:hesaplar!kredi_karti_id(*),
-          hedef_hesap:hesaplar!hedef_hesap_id(*),
-          kategori:kategoriler(*),
+          kredi_karti:hesaplar!kredi_karti_id(id,name,currency,type),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type),
+          kategori:kategoriler(id,name),
           taksitler:nakit_avans_taksitler(*)
         `)
         .eq('isletme_id', isletme.id)
@@ -66,9 +66,9 @@ export function useNakitAvans(id: string | undefined) {
         .from('nakit_avanslar')
         .select(`
           *,
-          kredi_karti:hesaplar!kredi_karti_id(*),
-          hedef_hesap:hesaplar!hedef_hesap_id(*),
-          kategori:kategoriler(*),
+          kredi_karti:hesaplar!kredi_karti_id(id,name,currency,type),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type),
+          kategori:kategoriler(id,name),
           taksitler:nakit_avans_taksitler(*)
         `)
         .eq('id', id)

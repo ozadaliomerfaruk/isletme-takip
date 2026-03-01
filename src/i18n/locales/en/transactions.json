@@ -84,7 +84,8 @@
     "clientReturn": "Return",
     "personnelExpense": "Staff Expense",
     "personnelPayment": "Staff Payment",
-    "personnelCollection": "Staff Payment Received"
+    "personnelCollection": "Staff Payment Received",
+    "transactionNotes": "Transaction Notes"
   },
   "messages": {
     "createSuccess": "Transaction saved",

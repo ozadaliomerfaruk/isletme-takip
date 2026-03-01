@@ -6,3 +6,4 @@ export { TrendIndicator } from './TrendIndicator';
 export { QuickInsights } from './QuickInsights';
 export { InsightsWidget } from './InsightsWidget';
 export { ExploreGrid } from './ExploreGrid';
+export { TrendFilterModal } from './TrendFilterModal';

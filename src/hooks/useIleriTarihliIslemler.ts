@@ -9,7 +9,8 @@ import {
   IslemInsert,
 } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
+import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import { cancelTransactionReminder } from '@/lib/notifications';
 
 // ============================================================================
@@ -31,11 +32,11 @@ export function useIleriTarihliIslemler() {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          hesap:hesaplar!hesap_id(*),
-          hedef_hesap:hesaplar!hedef_hesap_id(*),
-          kategori:kategoriler(*),
-          cari:cariler(*),
-          personel:personel(*)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name),
+          personel:personel(id,first_name,last_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -68,11 +69,11 @@ export function useIleriTarihliIslem(id: string | undefined) {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          hesap:hesaplar!hesap_id(*),
-          hedef_hesap:hesaplar!hedef_hesap_id(*),
-          kategori:kategoriler(*),
-          cari:cariler(*),
-          personel:personel(*)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name),
+          personel:personel(id,first_name,last_name)
         `)
         .eq('id', id)
         .eq('isletme_id', isletme.id)
@@ -100,7 +101,7 @@ export function useIleriTarihliIslemlerByHesap(hesapId: string) {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          kategori:kategoriler(*)
+          kategori:kategoriler(id,name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -129,7 +130,7 @@ export function useIleriTarihliIslemlerByCari(cariId: string) {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          kategori:kategoriler(*)
+          kategori:kategoriler(id,name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -158,7 +159,7 @@ export function useIleriTarihliIslemlerByPersonel(personelId: string) {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          kategori:kategoriler(*)
+          kategori:kategoriler(id,name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -200,11 +201,11 @@ export function useTodayIleriTarihliIslemler() {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          hesap:hesaplar!hesap_id(*),
-          hedef_hesap:hesaplar!hedef_hesap_id(*),
-          kategori:kategoriler(*),
-          cari:cariler(*),
-          personel:personel(*)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name),
+          personel:personel(id,first_name,last_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('scheduled_date', today)
@@ -333,10 +334,16 @@ export function useCompleteIleriTarihliIslem() {
       // 0. Hatırlatıcıyı iptal et (varsa)
       await cancelTransactionReminder(id);
 
-      // 1. İleri tarihli işlemi al
+      // 1. İleri tarihli işlemi al (relations ile birlikte - para birimi belirlemek için)
       const { data: ileriIslem, error: fetchError } = await supabase
         .from('ileri_tarihli_islemler')
-        .select('*')
+        .select(`
+          *,
+          hesap:hesaplar!hesap_id(currency),
+          hedef_hesap:hesaplar!hedef_hesap_id(currency),
+          cari:cariler!cari_id(currency),
+          personel:personel!personel_id(currency)
+        `)
         .eq('id', id)
         .eq('isletme_id', isletme.id)
         .single();
@@ -344,18 +351,41 @@ export function useCompleteIleriTarihliIslem() {
       if (fetchError) throw fetchError;
       if (!ileriIslem) throw new Error('İşlem bulunamadı');
 
-      // 2. Gerçek işlem olarak oluştur
+      // 2. Para birimlerini belirle (cross-currency desteği)
+      const hesapCurrency = ileriIslem.hesap?.currency || 'TRY';
+      const hedefHesapCurrency = ileriIslem.hedef_hesap?.currency || 'TRY';
+      const cariCurrency = ileriIslem.cari?.currency || 'TRY';
+      const personelCurrency = ileriIslem.personel?.currency || 'TRY';
+
+      // Source/target currency belirleme (işlem tipine göre)
+      let sourceCurrency = hesapCurrency;
+      let targetCurrency = hesapCurrency;
+
+      if (ileriIslem.type === 'transfer') {
+        sourceCurrency = hesapCurrency;
+        targetCurrency = hedefHesapCurrency;
+      } else if (ileriIslem.type.startsWith('cari_')) {
+        sourceCurrency = hesapCurrency;
+        targetCurrency = cariCurrency;
+      } else if (ileriIslem.type.startsWith('personel_')) {
+        sourceCurrency = hesapCurrency;
+        targetCurrency = personelCurrency;
+      }
+
+      // 3. Gerçek işlem olarak oluştur
       const islemData: IslemInsert = {
         isletme_id: isletme.id,
         type: ileriIslem.type,
         amount: ileriIslem.amount,
         description: ileriIslem.description,
-        date: formatDateForDB(new Date()), // Bugünün tarihi
+        date: formatDateTimeForDB(new Date()), // Bugünün tarihi + saat (timezone dahil)
         hesap_id: ileriIslem.hesap_id,
         hedef_hesap_id: ileriIslem.hedef_hesap_id,
         kategori_id: ileriIslem.kategori_id,
         cari_id: ileriIslem.cari_id,
         personel_id: ileriIslem.personel_id,
+        source_currency: sourceCurrency,
+        target_currency: targetCurrency,
       };
 
       const { data: newIslem, error: insertError } = await supabase
@@ -420,7 +450,10 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
 }
 
 async function updateBalancesForIslem(islem: IslemInsert) {
-  const amount = Number(islem.amount);
+  const amount = safeParseAmount(islem.amount, 'işlem tutarı');
+  const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
+  const sourceCurrency = islem.source_currency || 'TRY';
+  const targetCurrency = islem.target_currency || 'TRY';
 
   switch (islem.type) {
     case 'gelir':
@@ -436,11 +469,14 @@ async function updateBalancesForIslem(islem: IslemInsert) {
       break;
 
     case 'transfer':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
-      if (islem.hedef_hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, amount);
+      {
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
+        if (islem.hedef_hesap_id) {
+          const targetAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+          await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, targetAmount);
+        }
       }
       break;
 
@@ -457,20 +493,26 @@ async function updateBalancesForIslem(islem: IslemInsert) {
       break;
 
     case 'cari_odeme':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      {
+        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 
     case 'cari_tahsilat':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      {
+        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 
@@ -481,11 +523,14 @@ async function updateBalancesForIslem(islem: IslemInsert) {
       break;
 
     case 'personel_odeme':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      {
+        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 
@@ -502,11 +547,14 @@ async function updateBalancesForIslem(islem: IslemInsert) {
       break;
 
     case 'personel_tahsilat':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      {
+        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 
@@ -525,7 +573,10 @@ async function updateBalancesForIslem(islem: IslemInsert) {
 }
 
 async function reverseBalancesForIslem(islem: IslemInsert) {
-  const amount = Number(islem.amount);
+  const amount = safeParseAmount(islem.amount, 'işlem tutarı');
+  const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
+  const sourceCurrency = islem.source_currency || 'TRY';
+  const targetCurrency = islem.target_currency || 'TRY';
 
   switch (islem.type) {
     case 'gelir':
@@ -541,11 +592,14 @@ async function reverseBalancesForIslem(islem: IslemInsert) {
       break;
 
     case 'transfer':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-      }
-      if (islem.hedef_hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, -amount);
+      {
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
+        if (islem.hedef_hesap_id) {
+          const targetAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+          await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, -targetAmount);
+        }
       }
       break;
 
@@ -562,20 +616,26 @@ async function reverseBalancesForIslem(islem: IslemInsert) {
       break;
 
     case 'cari_odeme':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      {
+        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 
     case 'cari_tahsilat':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      {
+        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 
@@ -586,11 +646,14 @@ async function reverseBalancesForIslem(islem: IslemInsert) {
       break;
 
     case 'personel_odeme':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      {
+        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 
@@ -607,11 +670,14 @@ async function reverseBalancesForIslem(islem: IslemInsert) {
       break;
 
     case 'personel_tahsilat':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      {
+        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 

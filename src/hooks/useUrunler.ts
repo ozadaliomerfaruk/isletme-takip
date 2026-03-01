@@ -32,6 +32,8 @@ export function useUrunler(includeArchived: boolean = false) {
       return data as Urun[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   return {

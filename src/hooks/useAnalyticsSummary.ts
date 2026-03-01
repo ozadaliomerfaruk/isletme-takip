@@ -113,7 +113,7 @@ export function useAnalyticsSummary(period: AnalyticsPeriod): AnalyticsSummary {
       return periodData;
     },
     enabled: !!isletme,
-    staleTime: 30000, // 30 seconds
+    staleTime: 5 * 60 * 1000, // 5 dk - mutation'lar zaten invalidate eder
   });
 
   // Calculate metrics

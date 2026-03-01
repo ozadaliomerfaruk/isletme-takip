@@ -19,6 +19,7 @@ import {
   Truck,
   Package,
   Archive,
+  FileText,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -31,15 +32,17 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
+import { useSearchIslemler } from '@/hooks/useIslemler';
 
-import type { Hesap, Cari, Personel, Urun } from '@/types/database';
+import type { Hesap, Cari, Personel, Urun, IslemWithRelations } from '@/types/database';
 
 type SearchResultItem =
   | { type: 'hesap'; data: Hesap }
   | { type: 'musteri'; data: Cari }
   | { type: 'tedarikci'; data: Cari }
   | { type: 'personel'; data: Personel }
-  | { type: 'urun'; data: Urun };
+  | { type: 'urun'; data: Urun }
+  | { type: 'islem'; data: IslemWithRelations };
 
 interface Section {
   title: string;
@@ -48,9 +51,11 @@ interface Section {
 
 export default function AramaPage() {
   const router = useRouter();
-  const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
+  const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products', 'transactions']);
   const searchInputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-focus on mount
   useEffect(() => {
@@ -58,12 +63,24 @@ export default function AramaPage() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Debounce server-side search query (300ms)
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(query);
+    }, 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [query]);
+
   // Data hooks — includePassive=true, includeArchived=true to search everything
   const { data: hesaplar = [] } = useHesaplar(true, true);
   const { data: musteriCariler = [] } = useCariler('musteri', true, true);
   const { data: tedarikciCariler = [] } = useCariler('tedarikci', true, true);
   const { data: personelList = [] } = usePersonelList(true, true);
   const { data: urunler = [] } = useUrunler(true);
+  const { data: islemResults = [] } = useSearchIslemler(debouncedQuery);
 
   // Filter and build sections
   const sections = useMemo<Section[]>(() => {
@@ -129,8 +146,16 @@ export default function AramaPage() {
       });
     }
 
+    // İşlem Notları (server-side search)
+    if (islemResults.length > 0) {
+      result.push({
+        title: t('transactions:titles.transactionNotes'),
+        data: islemResults.map((i) => ({ type: 'islem' as const, data: i })),
+      });
+    }
+
     return result;
-  }, [query, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, t]);
+  }, [query, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, islemResults, t]);
 
   const totalResults = useMemo(
     () => sections.reduce((sum, s) => sum + s.data.length, 0),
@@ -153,6 +178,9 @@ export default function AramaPage() {
           break;
         case 'urun':
           router.push(`/urunler/${item.data.id}`);
+          break;
+        case 'islem':
+          router.push(`/islemler/duzenle/${item.data.id}`);
           break;
       }
     },
@@ -193,6 +221,12 @@ export default function AramaPage() {
             <Package size={20} color={colors.primary} />
           </View>
         );
+      case 'islem':
+        return (
+          <View style={[styles.iconContainer, { backgroundColor: colors.warningLight }]}>
+            <FileText size={20} color={colors.warning} />
+          </View>
+        );
     }
   }, []);
 
@@ -207,6 +241,8 @@ export default function AramaPage() {
         return `${item.data.first_name} ${item.data.last_name ?? ''}`.trim();
       case 'urun':
         return item.data.ad;
+      case 'islem':
+        return item.data.description || '';
     }
   }, []);
 
@@ -220,12 +256,29 @@ export default function AramaPage() {
         ? formatCurrency(item.data.satis_fiyati, item.data.currency)
         : '';
     }
+    if (item.type === 'islem') {
+      return formatCurrency(item.data.amount, item.data.source_currency || 'TRY');
+    }
     return formatCurrency(item.data.balance, item.data.currency);
   }, []);
+
+  const getSubtitle = useCallback((item: SearchResultItem) => {
+    if (item.type !== 'islem') return null;
+    const typeLabel = t(`transactions:types.${item.data.type}`);
+    const entityParts: string[] = [typeLabel];
+    if (item.data.hesap?.name) entityParts.push(item.data.hesap.name);
+    if (item.data.cari?.name) entityParts.push(item.data.cari.name);
+    if (item.data.personel) {
+      const name = `${item.data.personel.first_name} ${item.data.personel.last_name ?? ''}`.trim();
+      if (name) entityParts.push(name);
+    }
+    return entityParts.join(' · ');
+  }, [t]);
 
   const renderItem = useCallback(
     ({ item }: { item: SearchResultItem }) => {
       const archived = isArchived(item);
+      const subtitle = getSubtitle(item);
       return (
         <TouchableOpacity
           style={[styles.resultItem, archived && styles.resultItemArchived]}
@@ -237,6 +290,11 @@ export default function AramaPage() {
             <Text style={[styles.resultName, archived && styles.resultNameArchived]} numberOfLines={1}>
               {getName(item)}
             </Text>
+            {subtitle && (
+              <Text style={styles.resultSubtitle} numberOfLines={1}>
+                {subtitle}
+              </Text>
+            )}
             {archived && (
               <View style={styles.archivedBadge}>
                 <Archive size={10} color={colors.textMuted} />
@@ -248,7 +306,7 @@ export default function AramaPage() {
         </TouchableOpacity>
       );
     },
-    [handleItemPress, renderIcon, getName, getBalance, isArchived, t]
+    [handleItemPress, renderIcon, getName, getBalance, getSubtitle, isArchived, t]
   );
 
   const renderSectionHeader = useCallback(
@@ -396,6 +454,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text,
     fontWeight: '500',
+  },
+  resultSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
   },
   resultNameArchived: {
     opacity: 0.6,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, AlertTriangle, PlusCircle, Trash2, ChevronDown, ChevronUp, List, Tag } from 'lucide-react-native';
@@ -42,23 +42,54 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
   const { t } = useTranslation(['ocrImport', 'products', 'transactions']);
   const [showRawLine, setShowRawLine] = useState(false);
 
+  const [quantityText, setQuantityText] = useState(item.quantity ? item.quantity.toString().replace('.', ',') : '');
+  const [unitPriceText, setUnitPriceText] = useState(item.unitPrice ? item.unitPrice.toString().replace('.', ',') : '');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Dışarıdan gelen değer değişince (ör: OCR yeniden parse) text'i güncelle
+  useEffect(() => {
+    setQuantityText(item.quantity ? item.quantity.toString().replace('.', ',') : '');
+  }, [item.quantity]);
+  useEffect(() => {
+    setUnitPriceText(item.unitPrice ? item.unitPrice.toString().replace('.', ',') : '');
+  }, [item.unitPrice]);
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  const debouncedUpdate = useCallback((updated: OcrParsedItem) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onUpdate(index, updated);
+    }, 300);
+  }, [onUpdate, index]);
+
   const handleFieldChange = (field: keyof OcrParsedItem, value: string) => {
-    const numValue = parseFloat(value.replace(',', '.')) || 0;
+    // Hem virgül hem nokta kabul et
+    const normalized = value.replace(',', '.');
+    const numValue = parseFloat(normalized) || 0;
     let updated = { ...item, userEdited: true };
 
     switch (field) {
       case 'name':
         updated = { ...updated, name: value };
-        break;
+        onUpdate(index, updated); // İsim değişikliği hemen yansımalı (ürün eşleştirme için)
+        return;
       case 'quantity':
+        setQuantityText(value);
         updated = { ...updated, quantity: numValue, totalPrice: numValue * item.unitPrice };
         break;
       case 'unitPrice':
+        setUnitPriceText(value);
         updated = { ...updated, unitPrice: numValue, totalPrice: item.quantity * numValue };
         break;
     }
 
-    onUpdate(index, updated);
+    debouncedUpdate(updated);
   };
 
   const isNewProduct = item.matchTier === 'new' || !item.matchedUrunId;
@@ -119,7 +150,7 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
           <Text variant="caption" color="secondary">{t('products:stock.quantity')}</Text>
           <TextInput
             style={styles.compactInput}
-            value={item.quantity.toString()}
+            value={quantityText}
             onChangeText={(val) => handleFieldChange('quantity', val)}
             keyboardType="decimal-pad"
             placeholder="0"
@@ -130,7 +161,7 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
           <Text variant="caption" color="secondary">{t('products:stock.unitPrice')}</Text>
           <TextInput
             style={styles.compactInput}
-            value={item.unitPrice.toString()}
+            value={unitPriceText}
             onChangeText={(val) => handleFieldChange('unitPrice', val)}
             keyboardType="decimal-pad"
             placeholder="0"

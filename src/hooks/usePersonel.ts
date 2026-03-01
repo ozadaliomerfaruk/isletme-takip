@@ -35,6 +35,8 @@ export function usePersonelList(includePassive: boolean = false, includeArchived
       return data as Personel[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   // isletme henüz yükleniyorsa loading olarak göster

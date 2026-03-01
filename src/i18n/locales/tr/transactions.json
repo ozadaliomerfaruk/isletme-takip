@@ -84,7 +84,8 @@
     "clientReturn": "İade",
     "personnelExpense": "Personel Gideri",
     "personnelPayment": "Personel Ödemesi",
-    "personnelCollection": "Personelden Tahsilat"
+    "personnelCollection": "Personelden Tahsilat",
+    "transactionNotes": "İşlem Notları"
   },
   "messages": {
     "createSuccess": "İşlem kaydedildi",

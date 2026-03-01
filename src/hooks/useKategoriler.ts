@@ -87,6 +87,8 @@ export function useKategoriler(type?: KategoriType) {
       return data as Kategori[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   // isletme henüz yükleniyorsa loading olarak göster

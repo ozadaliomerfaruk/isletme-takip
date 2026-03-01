@@ -447,6 +447,7 @@ export function QuickTransactionBar({
           onDatePress={() => modals.setShowDatePicker(true)}
           onScheduledToggle={() => form.setIsScheduled(!form.isScheduled)}
           onClose={handleDismiss}
+          onResetToNow={() => form.setDate(new Date())}
           isLeaveUsageType={isLeaveUsageType}
           dateEnd={form.dateEnd}
           onDateEndPress={() => modals.setShowDateEndPicker(true)}

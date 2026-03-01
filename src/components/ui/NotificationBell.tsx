@@ -11,24 +11,43 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Bell, CalendarClock, TrendingUp, TrendingDown, X, FileCheck } from 'lucide-react-native';
+import { Bell, CalendarClock, X, FileCheck } from 'lucide-react-native';
 import { Text } from './Text';
-import { Card } from './Card';
+import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { useIleriTarihliIslemler } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency } from '@/lib/currency';
+import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { IleriTarihliIslemWithRelations, CekWithRelations } from '@/types/database';
 import { useBekleyenCekler } from '@/hooks/useCekler';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+// İşlem tipine göre ilgili entity adını çıkar
+function getEntityText(item: IleriTarihliIslemWithRelations): string | null {
+  if (item.type === 'transfer') {
+    if (item.hesap?.name && item.hedef_hesap?.name) {
+      return `${item.hesap.name} → ${item.hedef_hesap.name}`;
+    }
+    return item.hesap?.name || item.hedef_hesap?.name || null;
+  }
+  if (item.cari?.name) return item.cari.name;
+  if (item.personel) {
+    const name = `${item.personel.first_name} ${item.personel.last_name ?? ''}`.trim();
+    return name || null;
+  }
+  if (item.hesap?.name) return item.hesap.name;
+  return null;
+}
+
 export function NotificationBell() {
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common', 'checks']);
   const { monthsShort } = useDateFormat();
   const [isOpen, setIsOpen] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -67,12 +86,22 @@ export function NotificationBell() {
 
   const count = combinedItems.length;
 
+  const openModal = () => {
+    setIsVisible(true);
+    setIsOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsOpen(false);
+  };
+
   useEffect(() => {
     if (isOpen) {
       Animated.parallel([
-        Animated.timing(slideAnim, {
+        Animated.spring(slideAnim, {
           toValue: 0,
-          duration: 250,
+          damping: 20,
+          stiffness: 200,
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
@@ -81,24 +110,28 @@ export function NotificationBell() {
           useNativeDriver: true,
         }),
       ]).start();
-    } else {
+    } else if (isVisible) {
       Animated.parallel([
         Animated.timing(slideAnim, {
           toValue: -300,
-          duration: 200,
+          duration: 280,
           useNativeDriver: true,
         }),
         Animated.timing(fadeAnim, {
           toValue: 0,
-          duration: 200,
+          duration: 280,
           useNativeDriver: true,
         }),
-      ]).start();
+      ]).start(({ finished }) => {
+        if (finished) {
+          setIsVisible(false);
+        }
+      });
     }
-  }, [isOpen]);
+  }, [isOpen, isVisible, slideAnim, fadeAnim]);
 
   const handleItemPress = (item: NotificationItem) => {
-    setIsOpen(false);
+    closeModal();
 
     if (item.itemType === 'islem') {
       const islem = item.data;
@@ -137,12 +170,36 @@ export function NotificationBell() {
     return scheduled.getTime() === today.getTime();
   };
 
+  const renderDateLabel = (dateStr: string) => {
+    const overdue = isOverdue(dateStr);
+    const today = isToday(dateStr);
+    if (overdue) {
+      return (
+        <View style={[styles.datePill, { backgroundColor: colors.error + '12' }]}>
+          <Text style={[styles.datePillText, { color: colors.error }]}>
+            {t('transactions:scheduled.overdue')}
+          </Text>
+        </View>
+      );
+    }
+    if (today) {
+      return (
+        <View style={[styles.datePill, { backgroundColor: colors.warning + '12' }]}>
+          <Text style={[styles.datePillText, { color: colors.warning }]}>
+            {t('transactions:scheduled.dueToday')}
+          </Text>
+        </View>
+      );
+    }
+    return <Text style={styles.dateText}>{formatDate(dateStr)}</Text>;
+  };
+
   return (
     <>
       {/* Çan İkonu */}
       <TouchableOpacity
         style={styles.bellButton}
-        onPress={() => setIsOpen(true)}
+        onPress={openModal}
         activeOpacity={0.7}
       >
         <Bell size={24} color={colors.text} />
@@ -157,12 +214,12 @@ export function NotificationBell() {
 
       {/* Dropdown Modal */}
       <Modal
-        visible={isOpen}
+        visible={isVisible}
         transparent
         animationType="none"
-        onRequestClose={() => setIsOpen(false)}
+        onRequestClose={closeModal}
       >
-        <Pressable style={styles.modalOverlay} onPress={() => setIsOpen(false)}>
+        <Pressable style={styles.modalOverlay} onPress={closeModal}>
           <Animated.View style={[styles.backdrop, { opacity: fadeAnim }]} />
         </Pressable>
 
@@ -177,16 +234,17 @@ export function NotificationBell() {
             <View style={styles.dropdownHeader}>
               <View style={styles.dropdownHeaderLeft}>
                 <CalendarClock size={20} color={colors.primary} />
-                <Text variant="h3">{t('transactions:scheduled.title')}</Text>
+                <Text style={styles.headerTitle}>{t('transactions:scheduled.title')}</Text>
               </View>
-              <TouchableOpacity onPress={() => setIsOpen(false)}>
-                <X size={24} color={colors.textMuted} />
+              <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                <X size={20} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {/* Liste */}
             <ScrollView
               style={styles.dropdownList}
+              contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
             >
               {isLoading ? (
@@ -201,50 +259,36 @@ export function NotificationBell() {
                   </Text>
                 </View>
               ) : (
-                combinedItems.map((item) => {
+                combinedItems.map((item, index) => {
                   const isCek = item.itemType === 'cek';
                   const date = isCek ? item.data.vade_tarihi : item.data.scheduled_date;
-                  const overdue = isOverdue(date);
-                  const today = isToday(date);
+                  const isLast = index === combinedItems.length - 1;
 
                   if (isCek) {
                     const cek = item.data;
                     return (
                       <TouchableOpacity
                         key={`cek-${cek.id}`}
-                        style={[
-                          styles.dropdownItem,
-                          overdue && styles.dropdownItemOverdue,
-                          today && styles.dropdownItemToday,
-                        ]}
+                        style={[styles.dropdownItem, isLast && styles.dropdownItemLast]}
                         onPress={() => handleItemPress(item)}
-                        activeOpacity={0.7}
+                        activeOpacity={0.6}
                       >
-                        <View style={styles.itemLeft}>
-                          <View style={[styles.itemIcon, { backgroundColor: colors.info + '20' }]}>
-                            <FileCheck size={16} color={colors.info} />
-                          </View>
-                          <View style={styles.itemContent}>
-                            <Text variant="body" numberOfLines={1}>
-                              {t('checks:labels.check')} - {cek.cek_no}
-                            </Text>
-                            <Text variant="caption" color="secondary">
-                              {cek.cari?.name || cek.hesap?.name}
-                            </Text>
-                          </View>
+                        <View style={[styles.itemIcon, { backgroundColor: colors.info + '15' }]}>
+                          <FileCheck size={18} color={colors.info} />
+                        </View>
+                        <View style={styles.itemContent}>
+                          <Text style={styles.itemTitle} numberOfLines={1}>
+                            {cek.cari?.name || cek.hesap?.name}
+                          </Text>
+                          <Text style={styles.itemSubtitle} numberOfLines={1}>
+                            {t('checks:labels.check')} · {cek.cek_no}
+                          </Text>
                         </View>
                         <View style={styles.itemRight}>
-                          <Text variant="body" style={{ color: colors.error }}>
-                            -{formatCurrency(cek.tutar)}
+                          <Text style={[styles.itemAmount, { color: colors.error }]}>
+                            -{formatCurrency(cek.tutar, cek.hesap?.currency)}
                           </Text>
-                          <Text
-                            variant="caption"
-                            style={{
-                              color: overdue ? colors.error : today ? colors.warning : colors.textMuted,
-                            }}
-                          >
-                            {overdue ? t('transactions:scheduled.overdue') : today ? t('transactions:scheduled.dueToday') : formatDate(date)}
-                          </Text>
+                          {renderDateLabel(date)}
                         </View>
                       </TouchableOpacity>
                     );
@@ -252,57 +296,32 @@ export function NotificationBell() {
 
                   // İleri tarihli işlem render
                   const islem = item.data;
-                  const isGelir = islem.type === 'gelir';
+                  const txColor = getTransactionColor(islem.type);
+                  const prefix = getTransactionPrefix(islem.type);
+                  const entityText = getEntityText(islem);
+                  const typeLabel = t(`transactions:types.${islem.type}`);
 
                   return (
                     <TouchableOpacity
                       key={`islem-${islem.id}`}
-                      style={[
-                        styles.dropdownItem,
-                        overdue && styles.dropdownItemOverdue,
-                        today && styles.dropdownItemToday,
-                      ]}
+                      style={[styles.dropdownItem, isLast && styles.dropdownItemLast]}
                       onPress={() => handleItemPress(item)}
-                      activeOpacity={0.7}
+                      activeOpacity={0.6}
                     >
-                      <View style={styles.itemLeft}>
-                        <View
-                          style={[
-                            styles.itemIcon,
-                            { backgroundColor: isGelir ? colors.success + '20' : colors.error + '20' },
-                          ]}
-                        >
-                          {isGelir ? (
-                            <TrendingUp size={16} color={colors.success} />
-                          ) : (
-                            <TrendingDown size={16} color={colors.error} />
-                          )}
-                        </View>
-                        <View style={styles.itemContent}>
-                          <Text variant="body" numberOfLines={1}>
-                            {islem.description || t(`transactions:types.${islem.type}`)}
-                          </Text>
-                          <Text variant="caption" color="secondary">
-                            {islem.hesap?.name || islem.cari?.name ||
-                             (islem.personel && `${islem.personel.first_name} ${islem.personel.last_name}`)}
-                          </Text>
-                        </View>
+                      <TransactionIcon type={islem.type} size={38} />
+                      <View style={styles.itemContent}>
+                        <Text style={styles.itemTitle} numberOfLines={1}>
+                          {entityText || typeLabel}
+                        </Text>
+                        <Text style={[styles.itemTypeLabel, { color: txColor }]} numberOfLines={1}>
+                          {entityText ? typeLabel : (islem.description || islem.hesap?.name || '')}
+                        </Text>
                       </View>
                       <View style={styles.itemRight}>
-                        <Text
-                          variant="body"
-                          style={{ color: isGelir ? colors.success : colors.error }}
-                        >
-                          {isGelir ? '+' : '-'}{formatCurrency(islem.amount)}
+                        <Text style={[styles.itemAmount, { color: txColor }]}>
+                          {prefix}{formatCurrency(Math.abs(islem.amount), islem.hesap?.currency)}
                         </Text>
-                        <Text
-                          variant="caption"
-                          style={{
-                            color: overdue ? colors.error : today ? colors.warning : colors.textMuted,
-                          }}
-                        >
-                          {overdue ? t('transactions:scheduled.overdue') : today ? t('transactions:scheduled.dueToday') : formatDate(date)}
-                        </Text>
+                        {renderDateLabel(date)}
                       </View>
                     </TouchableOpacity>
                   );
@@ -343,7 +362,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   dropdownContainer: {
     position: 'absolute',
@@ -353,15 +372,15 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     backgroundColor: colors.surface,
-    borderBottomLeftRadius: borderRadius.xl,
-    borderBottomRightRadius: borderRadius.xl,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     maxHeight: SCREEN_HEIGHT * 0.6,
-    paddingTop: spacing.xl + 44, // Safe area için
+    paddingTop: spacing.xl + 44, // Safe area
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
   },
   dropdownHeader: {
     flexDirection: 'row',
@@ -369,16 +388,30 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   dropdownHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   dropdownList: {
-    maxHeight: SCREEN_HEIGHT * 0.4,
+    maxHeight: SCREEN_HEIGHT * 0.42,
+  },
+  listContent: {
+    paddingBottom: spacing.md,
   },
   emptyState: {
     alignItems: 'center',
@@ -391,36 +424,62 @@ const styles = StyleSheet.create({
   },
   dropdownItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: 14,
     paddingHorizontal: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    gap: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
   },
-  dropdownItemOverdue: {
-    backgroundColor: colors.error + '10',
-  },
-  dropdownItemToday: {
-    backgroundColor: colors.warning + '10',
-  },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.sm,
+  dropdownItemLast: {
+    borderBottomWidth: 0,
   },
   itemIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
   },
   itemContent: {
     flex: 1,
+    gap: 1,
+  },
+  itemTitle: {
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+  },
+  itemSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+  },
+  itemTypeLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
   },
   itemRight: {
     alignItems: 'flex-end',
+    gap: 2,
+  },
+  itemAmount: {
+    fontSize: 15,
+    fontWeight: fontWeight.bold,
+  },
+  dateText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.textMuted,
+  },
+  datePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.full,
+  },
+  datePillText: {
+    fontSize: 10,
+    fontWeight: fontWeight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
 });

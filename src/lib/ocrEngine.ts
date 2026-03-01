@@ -176,7 +176,7 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
   console.log('[ocrEngine] Parsed response:', data?.success, data?.data?.items?.length, 'items');
 
   // Log debug info from edge function (rawColumns, tableRowNames, etc.)
-  const debugInfo = (data as Record<string, unknown>)?._debug;
+  const debugInfo = (data as unknown as Record<string, unknown>)?._debug;
   if (debugInfo) {
     console.log('[ocrEngine] EDGE DEBUG:', JSON.stringify(debugInfo));
   }

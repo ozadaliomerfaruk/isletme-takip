@@ -1,7 +1,7 @@
 import { Tabs } from 'expo-router';
 import { View, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, BarChart3, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } from 'lucide-react-native';
+import { Home, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
@@ -90,15 +90,6 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.home'),
           tabBarIcon: ({ color, focused }) => <TabIcon Icon={Home} color={color} focused={focused} />,
-        }}
-      />
-      {/* Analytics tab hidden from navbar but page still accessible via URL */}
-      <Tabs.Screen
-        name="analitik"
-        options={{
-          href: null, // Hide from tab bar
-          title: t('tabs.analytics'),
-          tabBarIcon: ({ color, focused }) => <TabIcon Icon={BarChart3} color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen

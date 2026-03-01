@@ -14,6 +14,7 @@ export interface HeaderSectionProps {
   onDatePress: () => void;
   onScheduledToggle: () => void;
   onClose: () => void;
+  onResetToNow: () => void;
   // Leave usage date range
   isLeaveUsageType?: boolean;
   dateEnd?: Date | null;
@@ -27,11 +28,13 @@ export function HeaderSection({
   onDatePress,
   onScheduledToggle,
   onClose,
+  onResetToNow,
   isLeaveUsageType,
   dateEnd,
   onDateEndPress,
 }: HeaderSectionProps) {
   const { t } = useTranslation(['transactions', 'common', 'staff']);
+  const dateIsToday = isToday(date);
 
   return (
     <>
@@ -45,7 +48,7 @@ export function HeaderSection({
 
       {isScheduled && <Text style={styles.dateLabel}>{t('transactions:future.scheduled')}:</Text>}
 
-      {/* Row 1: Date + Bell + Close */}
+      {/* Row 1: Date + Bell + Now + Close */}
       <View style={styles.headerRow}>
         {isLeaveUsageType ? (
           /* Leave usage: dual date display (start → end) */
@@ -53,7 +56,7 @@ export function HeaderSection({
             <TouchableOpacity style={[styles.dateButton, { marginRight: 0 }]} onPress={onDatePress}>
               <Calendar size={16} color={colors.textMuted} />
               <Text style={styles.dateText} numberOfLines={1}>
-                {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
+                {dateIsToday ? t('common:date.today') : formatDateMedium(date)}
               </Text>
             </TouchableOpacity>
             <ArrowRight size={14} color={colors.textMuted} />
@@ -69,28 +72,36 @@ export function HeaderSection({
             </TouchableOpacity>
           </View>
         ) : (
-          /* Normal: single date */
-          <TouchableOpacity
-            style={[styles.dateButton, isScheduled && styles.dateButtonScheduled]}
-            onPress={onDatePress}
-          >
-            <Calendar size={18} color={isScheduled ? colors.warning : colors.textMuted} />
-            <Text style={[styles.dateText, isScheduled && styles.dateTextScheduled]}>
-              {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        <View style={styles.headerCenter}>
-          {!isLeaveUsageType && (
+          /* Normal: date + bell inline */
+          <View style={styles.dateRowInline}>
             <TouchableOpacity
-              style={[styles.bellButton, isScheduled && styles.iconButtonActive]}
+              style={[styles.dateButton, styles.dateButtonInline, isScheduled && styles.dateButtonScheduled]}
+              onPress={onDatePress}
+            >
+              <Calendar size={18} color={isScheduled ? colors.warning : colors.textMuted} />
+              <Text style={[styles.dateText, isScheduled && styles.dateTextScheduled]}>
+                {dateIsToday ? t('common:date.today') : formatDateMedium(date)}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bellButtonInline, isScheduled && styles.iconButtonActive]}
               onPress={onScheduledToggle}
             >
               <Bell size={18} color={isScheduled ? colors.warning : colors.textMuted} />
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        )}
+
+        {/* "Şimdi" button — only visible when date is not today */}
+        {!dateIsToday && !isLeaveUsageType && (
+          <TouchableOpacity
+            style={styles.nowButton}
+            onPress={onResetToNow}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.nowButtonText}>{t('common:date.now')}</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity
           style={styles.closeButton}

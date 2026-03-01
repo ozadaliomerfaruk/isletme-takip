@@ -30,6 +30,8 @@ export function useArchivedHesaplar() {
       return data as Hesap[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -62,6 +64,8 @@ export function useArchivedCariler(type?: CariType) {
       return data as Cari[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -87,6 +91,8 @@ export function useArchivedPersonel() {
       return data as Personel[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
@@ -112,6 +118,8 @@ export function useArchivedUrunler() {
       return data as Urun[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 

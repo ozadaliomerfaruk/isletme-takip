@@ -438,10 +438,10 @@ export default function HomePage() {
         }
       >
         {/* Collapsible Header */}
-        <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]}>
+        <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]} pointerEvents="box-none">
           <Text variant="h2">{t('navigation:tabs.home')}</Text>
           <View style={styles.headerRight}>
-            <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn}>
+            <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Search size={22} color={colors.text} />
             </TouchableOpacity>
             <NotificationBell />
@@ -1084,7 +1084,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    overflow: 'hidden',
   },
   headerRight: {
     flexDirection: 'row',

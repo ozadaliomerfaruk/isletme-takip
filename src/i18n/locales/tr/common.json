@@ -136,6 +136,7 @@
   },
   "date": {
     "today": "Bugün",
+    "now": "Şimdi",
     "yesterday": "Dün",
     "tomorrow": "Yarın",
     "thisWeek": "Bu Hafta",

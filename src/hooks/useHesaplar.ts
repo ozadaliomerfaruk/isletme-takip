@@ -37,6 +37,8 @@ export function useHesaplar(includePassive: boolean = false, includeArchived: bo
       return data as Hesap[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000, // 10 dk - mutation'lar zaten invalidate eder
+    gcTime: 30 * 60 * 1000,    // 30 dk cache
   });
 
   // isletme henüz yükleniyorsa loading olarak göster

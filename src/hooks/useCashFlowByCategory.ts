@@ -145,7 +145,7 @@ export function useCashFlowByCategory(
           kategori_id,
           hesap_id,
           hedef_hesap_id,
-          kategori:kategoriler(*),
+          kategori:kategoriler(id,name),
           hesap:hesaplar!hesap_id(id, type, is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id, type, is_active)
         `)

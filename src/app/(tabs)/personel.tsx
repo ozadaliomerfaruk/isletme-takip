@@ -503,10 +503,6 @@ export default function PersonelPage() {
           <Text variant="caption" color="secondary">{t('staff:balance.theyOwe')}</Text>
           <Text variant="h3" color="success">{formatCurrency(receivables.personel, baseCurrency)}</Text>
         </Card>
-        <Card style={styles.summaryCard}>
-          <Text variant="caption" color="secondary">{t('common:labels.total')}</Text>
-          <Text variant="h3">{personelList?.length ?? 0}</Text>
-        </Card>
       </View>
 
       {/* Arama */}

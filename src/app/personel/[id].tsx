@@ -625,7 +625,7 @@ export default function PersonelHareketleriPage() {
             initialNumToRender={15}
             maxToRenderPerBatch={10}
             windowSize={7}
-            removeClippedSubviews={true}
+            removeClippedSubviews={false}
             contentContainerStyle={styles.flatListContent}
           />
         </SwipeableProvider>

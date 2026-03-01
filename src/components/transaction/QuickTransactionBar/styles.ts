@@ -54,6 +54,14 @@ export const styles = StyleSheet.create({
     gap: 6,
     marginRight: 12,
   },
+  dateRowInline: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 8,
+    marginRight: 12,
+  },
   dateButton: {
     flex: 1,
     flexDirection: 'row',
@@ -64,6 +72,12 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 8,
     marginRight: 12,
+  },
+  dateButtonInline: {
+    marginRight: 0,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+    backgroundColor: 'transparent',
   },
   dateText: {
     fontSize: 14,
@@ -78,6 +92,18 @@ export const styles = StyleSheet.create({
     color: colors.warning,
     fontWeight: '500',
   },
+  nowButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: colors.primaryLight,
+    marginRight: 8,
+  },
+  nowButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   headerCenter: {
     marginRight: 12,
   },
@@ -85,6 +111,13 @@ export const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     backgroundColor: colors.background,
+  },
+  bellButtonInline: {
+    padding: 10,
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border,
   },
   closeButton: {
     padding: 6,

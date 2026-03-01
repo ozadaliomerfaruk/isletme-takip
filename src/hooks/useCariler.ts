@@ -39,6 +39,8 @@ export function useCariler(type?: CariType, includePassive: boolean = false, inc
       return data as Cari[];
     },
     enabled: !!isletme,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 
   // isletme henüz yükleniyorsa loading olarak göster
