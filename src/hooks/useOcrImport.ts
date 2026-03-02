@@ -94,25 +94,62 @@ export function useOcrImport(sessionId: string) {
     return parsed;
   }, [existingProducts, cariler, urunAliases, cariAliases]);
 
-  // Process multiple images sequentially (each image → separate Gemini call)
+  // Process multiple images — use batch mode for 2+ images (single Gemini call)
   const processImages = useCallback(async (imageUris: string[]): Promise<OcrParsedInvoice[]> => {
     setIsProcessing(true);
     setProcessingProgress({ current: 0, total: imageUris.length });
-    const results: OcrParsedInvoice[] = [];
 
     try {
-      for (let i = 0; i < imageUris.length; i++) {
-        setProcessingProgress({ current: i + 1, total: imageUris.length });
-        const parsed = await processImage(imageUris[i]);
-        console.log(`[useOcrImport] Image ${i + 1}/${imageUris.length}: ettn="${parsed.ettn}" invNo="${parsed.invoiceNumber}" supplier="${parsed.supplierName}" items=${parsed.items.length}`);
-        results.push(parsed);
+      let results: OcrParsedInvoice[];
+
+      if (imageUris.length <= 1) {
+        // Single image — use direct call
+        const parsed = await processImage(imageUris[0]);
+        results = [parsed];
+      } else {
+        // Multiple images — use batch mode (single API call, avoids 429)
+        setProcessingProgress({ current: 1, total: imageUris.length });
+        const batchResults = await recognizeInvoicesBatch(imageUris);
+        results = batchResults;
+
+        // Apply supplier matching and product matching to each result
+        for (const parsed of results) {
+          if (cariler && cariler.length > 0) {
+            const matchedCariId = matchSupplier(
+              parsed.supplierName,
+              parsed.supplierTaxNumber,
+              cariler,
+              cariAliases || undefined,
+            );
+            if (matchedCariId) {
+              parsed.supplierMatchCariId = matchedCariId;
+            }
+          }
+
+          if (existingProducts && existingProducts.length > 0) {
+            parsed.items = matchItemsToProducts(
+              parsed.items,
+              existingProducts,
+              urunAliases || undefined,
+              parsed.supplierMatchCariId,
+            );
+          }
+        }
       }
+
+      setProcessingProgress({ current: imageUris.length, total: imageUris.length });
+
+      for (let i = 0; i < results.length; i++) {
+        const parsed = results[i];
+        console.log(`[useOcrImport] Invoice ${i + 1}/${results.length}: ettn="${parsed.ettn}" invNo="${parsed.invoiceNumber}" supplier="${parsed.supplierName}" items=${parsed.items.length}`);
+      }
+
       return results;
     } finally {
       setIsProcessing(false);
       setProcessingProgress(null);
     }
-  }, [processImage]);
+  }, [processImage, existingProducts, cariler, urunAliases, cariAliases]);
 
   // Helper: parse invoice date to DB format
   const parseDateForDB = useCallback((dateInfo: string): string | undefined => {

@@ -20,6 +20,7 @@ import { toNumber } from '@/lib/currency';
 import type {
   AnalyticsSummary,
   AnalyticsPeriod,
+  DateRange,
   MetricWithDelta,
 } from '@/types/analytics';
 import type { IslemType } from '@/types/database';
@@ -37,7 +38,11 @@ function calculateDelta(current: number, previous: number): { delta: number; del
  * Main hook for analytics summary data
  * Composes multiple data sources into a unified summary
  */
-export function useAnalyticsSummary(period: AnalyticsPeriod): AnalyticsSummary {
+export function useAnalyticsSummary(
+  period: AnalyticsPeriod,
+  dateRange?: DateRange,
+  previousDateRange?: DateRange,
+): AnalyticsSummary {
   const { isletme } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
 
@@ -49,19 +54,59 @@ export function useAnalyticsSummary(period: AnalyticsPeriod): AnalyticsSummary {
 
   // Fetch period-based data for current and previous + 6 periods for sparkline
   const periodsQuery = useQuery({
-    queryKey: ['analytics-periods', isletme?.id, period, baseCurrency],
+    queryKey: ['analytics-periods', isletme?.id, period, baseCurrency, dateRange?.startDate, dateRange?.endDate],
     queryFn: async () => {
       if (!isletme) return null;
 
       // Calculate date ranges for 6 periods (for sparkline) + current + previous
+      // Use dateRange/previousDateRange if provided, otherwise fall back to offset-based
       const periods: Array<{ offset: number; startDate: string; endDate: string }> = [];
-      for (let offset = -5; offset <= 0; offset++) {
-        const range = getDateRange(period, offset);
-        periods.push({
-          offset,
-          startDate: range.startDate,
-          endDate: range.endDate,
-        });
+
+      if (dateRange) {
+        // Use the provided dateRange as the current period (offset 0)
+        // Calculate 5 previous periods based on period type
+        // First, figure out which offset this dateRange corresponds to
+        for (let offset = -5; offset <= -1; offset++) {
+          const range = getDateRange(period, offset);
+          // Check if this period overlaps with dateRange — if so, shift all offsets
+          periods.push({
+            offset,
+            startDate: range.startDate,
+            endDate: range.endDate,
+          });
+        }
+
+        // For the "current" period, we need to figure out the right offset.
+        // Strategy: find which period the dateRange.startDate belongs to
+        // by testing offsets until we find a match
+        let currentOffset = 0;
+        for (let testOffset = -50; testOffset <= 50; testOffset++) {
+          const testRange = getDateRange(period, testOffset);
+          if (testRange.startDate === dateRange.startDate) {
+            currentOffset = testOffset;
+            break;
+          }
+        }
+
+        // Rebuild periods using the correct offset
+        periods.length = 0;
+        for (let offset = currentOffset - 5; offset <= currentOffset; offset++) {
+          const range = getDateRange(period, offset);
+          periods.push({
+            offset: offset - currentOffset, // normalize so current = 0
+            startDate: range.startDate,
+            endDate: range.endDate,
+          });
+        }
+      } else {
+        for (let offset = -5; offset <= 0; offset++) {
+          const range = getDateRange(period, offset);
+          periods.push({
+            offset,
+            startDate: range.startDate,
+            endDate: range.endDate,
+          });
+        }
       }
 
       // Fetch all transactions in the date range (oldest to newest)
@@ -72,8 +117,8 @@ export function useAnalyticsSummary(period: AnalyticsPeriod): AnalyticsSummary {
       const { data, error } = await supabase
         .from('islemler')
         .select(`
-          type, 
-          amount, 
+          type,
+          amount,
           date,
           hesap:hesaplar!hesap_id(is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(is_active)

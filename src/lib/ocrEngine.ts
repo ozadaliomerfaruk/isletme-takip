@@ -72,6 +72,31 @@ function generateId(): string {
   return `ocr_item_${Date.now()}_${++idCounter}`;
 }
 
+/** Retry wrapper with exponential backoff for 429 rate limit errors */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxRetries: number = 3,
+): Promise<T> {
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      const is429 = message.includes('429') || message.includes('rate limit') || message.includes('Rate limit');
+      if (is429 && attempt < maxRetries) {
+        const delayMs = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+        console.log(`[ocrEngine] Rate limit hit, retrying in ${delayMs}ms (attempt ${attempt + 1}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        lastError = err instanceof Error ? err : new Error(message);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
 /** Map parsed data from edge function to OcrParsedInvoice */
 function mapParsedDataToInvoice(parsed: ParsedInvoiceData): OcrParsedInvoice {
   const items: OcrParsedItem[] = parsed.items.map(item => ({
@@ -148,9 +173,8 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
   const extension = imageUri.split('.').pop()?.toLowerCase();
   const mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
 
-  // Call the Edge Function
-  let data: EdgeFunctionResponse;
-  try {
+  // Call the Edge Function with retry for 429
+  const data = await withRetry<EdgeFunctionResponse>(async () => {
     console.log(`[ocrEngine] Calling parse-invoice edge function (image size: ${Math.round(base64.length / 1024)}KB)`);
 
     const result = await supabase.functions.invoke('parse-invoice', {
@@ -163,15 +187,15 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
       throw result.error;
     }
 
-    data = result.data as EdgeFunctionResponse;
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[ocrEngine] Edge function error:', message);
-    if (message.includes('fetch') || message.includes('network') || message.includes('Failed')) {
-      throw new Error(i18n.t('ocrImport:messages.networkError'));
+    const responseData = result.data as EdgeFunctionResponse;
+
+    // Check if the edge function returned a 429-related error
+    if (!responseData.success && responseData.error?.includes('429')) {
+      throw new Error(responseData.error);
     }
-    throw new Error(i18n.t('ocrImport:messages.analysisError', { message }));
-  }
+
+    return responseData;
+  });
 
   console.log('[ocrEngine] Parsed response:', data?.success, data?.data?.items?.length, 'items');
 
@@ -211,8 +235,7 @@ export async function recognizeInvoicesBatch(imageUris: string[]): Promise<OcrPa
 
   console.log(`[ocrEngine] BATCH: Sending ${images.length} images to parse-invoice in single call`);
 
-  let responseData: EdgeFunctionBatchResponse;
-  try {
+  const responseData = await withRetry<EdgeFunctionBatchResponse>(async () => {
     const result = await supabase.functions.invoke('parse-invoice', {
       body: { images },
     });
@@ -221,15 +244,15 @@ export async function recognizeInvoicesBatch(imageUris: string[]): Promise<OcrPa
       throw result.error;
     }
 
-    responseData = result.data as EdgeFunctionBatchResponse;
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[ocrEngine] Batch edge function error:', message);
-    if (message.includes('fetch') || message.includes('network') || message.includes('Failed')) {
-      throw new Error(i18n.t('ocrImport:messages.networkError'));
+    const batchData = result.data as EdgeFunctionBatchResponse;
+
+    // Check if the edge function returned a 429-related error
+    if (!batchData.success && batchData.error?.includes('429')) {
+      throw new Error(batchData.error);
     }
-    throw new Error(i18n.t('ocrImport:messages.analysisError', { message }));
-  }
+
+    return batchData;
+  });
 
   if (!responseData.success || !responseData.data) {
     console.error('[ocrEngine] Batch parse failed:', responseData.error);

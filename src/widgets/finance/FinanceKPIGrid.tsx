@@ -139,10 +139,12 @@ function KPICard({
 
 export function FinanceKPIGrid({
   period,
+  dateRange,
+  previousDateRange,
 }: WidgetProps) {
   const { t } = useTranslation('analytics');
   const { currency } = useSettings();
-  const summary = useAnalyticsSummary(period);
+  const summary = useAnalyticsSummary(period, dateRange, previousDateRange);
 
   if (summary.isLoading) {
     return (

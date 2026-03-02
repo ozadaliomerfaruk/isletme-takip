@@ -21,7 +21,7 @@ import type { WidgetProps, TrendFilter } from '@/types/analytics';
 
 type MetricType = 'income' | 'expense' | 'net';
 
-export function TrendChartWidget({ period }: WidgetProps) {
+export function TrendChartWidget({ period, dateRange }: WidgetProps) {
   const { t } = useTranslation('analytics');
   const { currency } = useSettings();
 
@@ -29,8 +29,8 @@ export function TrendChartWidget({ period }: WidgetProps) {
   const [activeFilter, setActiveFilter] = useState<TrendFilter | null>(null);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
-  // Pass filter to hook
-  const trend = useAnalyticsTrend(period, activeFilter);
+  // Pass filter and dateRange to hook
+  const trend = useAnalyticsTrend(period, activeFilter, dateRange);
 
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('net');
 

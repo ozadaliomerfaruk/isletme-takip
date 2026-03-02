@@ -15,6 +15,7 @@ import { calculateIncomeSummary } from '@/constants/islemTypes';
 import type {
   AnalyticsTrend,
   AnalyticsPeriod,
+  DateRange,
   TrendDataPoint,
   TrendFilter,
 } from '@/types/analytics';
@@ -64,7 +65,8 @@ function getPeriodLabel(
  */
 export function useAnalyticsTrend(
   period: AnalyticsPeriod,
-  filter?: TrendFilter | null
+  filter?: TrendFilter | null,
+  dateRange?: DateRange,
 ): AnalyticsTrend {
   const { isletme } = useAuthContext();
   const { t } = useTranslation('common');
@@ -79,7 +81,7 @@ export function useAnalyticsTrend(
   }, [t]);
 
   const trendQuery = useQuery({
-    queryKey: ['analytics-trend', isletme?.id, period, filter?.type || null, filter?.id || null],
+    queryKey: ['analytics-trend', isletme?.id, period, filter?.type || null, filter?.id || null, dateRange?.startDate, dateRange?.endDate],
     queryFn: async () => {
       if (!isletme) return null;
 
@@ -91,10 +93,23 @@ export function useAnalyticsTrend(
         label: string;
       }> = [];
 
-      for (let offset = -5; offset <= 0; offset++) {
+      // Find the correct offset for the given dateRange
+      let currentOffset = 0;
+      if (dateRange) {
+        for (let testOffset = -50; testOffset <= 50; testOffset++) {
+          const testRange = getDateRange(period, testOffset);
+          if (testRange.startDate === dateRange.startDate) {
+            currentOffset = testOffset;
+            break;
+          }
+        }
+      }
+
+      for (let i = 0; i < 6; i++) {
+        const offset = currentOffset - 5 + i;
         const range = getDateRange(period, offset);
         periods.push({
-          offset,
+          offset: offset - currentOffset, // normalize so current = 0
           startDate: range.startDate,
           endDate: range.endDate,
           label: getPeriodLabel(period, offset, monthsShort),

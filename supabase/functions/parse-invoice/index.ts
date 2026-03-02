@@ -943,7 +943,7 @@ function sanitizeInvoice(parsed: ParsedInvoiceResponse): {
 // GEMINI API
 // ═══════════════════════════════════════════════════════════════
 
-/** Call Gemini API and return raw text response */
+/** Call Gemini API with retry for 429 rate limit errors */
 async function callGemini(apiKey: string, parts: Array<Record<string, unknown>>): Promise<string> {
   const geminiUrl =
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
@@ -957,34 +957,54 @@ async function callGemini(apiKey: string, parts: Array<Record<string, unknown>>)
     },
   });
 
-  const geminiResponse = await fetch(geminiUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: requestBody,
-  });
+  const MAX_RETRIES = 2;
+  let lastError: Error | null = null;
 
-  if (!geminiResponse.ok) {
-    const errorText = await geminiResponse.text();
-    console.error("[parse-invoice] Gemini API error:", errorText);
-    throw new Error(
-      `Gemini API error: ${geminiResponse.status} ${geminiResponse.statusText}`,
-    );
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      const delayMs = attempt * 2000; // 2s, 4s
+      console.log(`[parse-invoice] Retry ${attempt}/${MAX_RETRIES} after ${delayMs}ms delay...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+
+    const geminiResponse = await fetch(geminiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: requestBody,
+    });
+
+    if (geminiResponse.status === 429) {
+      const errorText = await geminiResponse.text();
+      console.warn(`[parse-invoice] Gemini 429 rate limit (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, errorText);
+      lastError = new Error(`Gemini API rate limit (429)`);
+      continue;
+    }
+
+    if (!geminiResponse.ok) {
+      const errorText = await geminiResponse.text();
+      console.error("[parse-invoice] Gemini API error:", errorText);
+      throw new Error(
+        `Gemini API error: ${geminiResponse.status} ${geminiResponse.statusText}`,
+      );
+    }
+
+    const geminiData: GeminiResponse = await geminiResponse.json();
+
+    if (geminiData.error) {
+      throw new Error(`Gemini error: ${geminiData.error.message}`);
+    }
+
+    const textContent =
+      geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!textContent) {
+      throw new Error("No response from Gemini");
+    }
+
+    return textContent;
   }
 
-  const geminiData: GeminiResponse = await geminiResponse.json();
-
-  if (geminiData.error) {
-    throw new Error(`Gemini error: ${geminiData.error.message}`);
-  }
-
-  const textContent =
-    geminiData.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!textContent) {
-    throw new Error("No response from Gemini");
-  }
-
-  return textContent;
+  throw lastError || new Error("Gemini API rate limit exceeded after retries");
 }
 
 // ═══════════════════════════════════════════════════════════════
