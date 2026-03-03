@@ -13,15 +13,23 @@ CREATE TABLE IF NOT EXISTS app_sessions (
   platform   TEXT        NOT NULL CHECK (platform IN ('ios', 'android', 'web'))
 );
 
-CREATE INDEX idx_app_sessions_user ON app_sessions(user_id);
-CREATE INDEX idx_app_sessions_opened ON app_sessions(opened_at);
+CREATE INDEX IF NOT EXISTS idx_app_sessions_user ON app_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_app_sessions_opened ON app_sessions(opened_at);
 
 ALTER TABLE app_sessions ENABLE ROW LEVEL SECURITY;
 
 -- Kullanici sadece kendi session kaydini ekleyebilir
-CREATE POLICY "Users can insert own session"
-ON app_sessions FOR INSERT TO authenticated
-WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE policyname = 'Users can insert own session' AND tablename = 'app_sessions'
+  ) THEN
+    CREATE POLICY "Users can insert own session"
+    ON app_sessions FOR INSERT TO authenticated
+    WITH CHECK (auth.uid() = user_id);
+  END IF;
+END
+$$;
 
 -- =============================================================================
 -- Dashboard View: daily_usage_summary
