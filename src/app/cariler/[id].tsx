@@ -142,9 +142,11 @@ const CariTransactionItem = memo(function CariTransactionItem({
   const labelKey = getCariHareketLabelKey(islem.type);
   const typeLabel = labelKey ? t(labelKey) : islem.type;
 
-  // Ödeme/tahsilat işlemlerinde hangi hesaba yapıldığını göster
+  // Ödeme/tahsilat işlemlerinde hangi hesaba yapıldığını göster (ok ile yön belirt)
   const entityText = (islem.type === 'cari_odeme' || islem.type === 'cari_tahsilat')
-    ? islem.hesap?.name || null
+    ? islem.hesap?.name
+      ? `${islem.type === 'cari_odeme' ? '→' : '←'} ${islem.hesap.name}`
+      : null
     : null;
   const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
 

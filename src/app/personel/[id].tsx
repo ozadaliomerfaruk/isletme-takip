@@ -109,6 +109,12 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
 
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = t(labelKey);
+  // Ödeme/tahsilat işlemlerinde hangi hesaba yapıldığını göster (ok ile yön belirt)
+  const entityText = (islem.type === 'personel_odeme' || islem.type === 'personel_tahsilat')
+    ? islem.hesap?.name
+      ? `${islem.type === 'personel_odeme' ? '→' : '←'} ${islem.hesap.name}`
+      : null
+    : null;
   const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
 
   return (
@@ -119,6 +125,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         amount={Number(islem.amount)}
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
+        entityText={entityText}
         secondaryText={islem.kategori?.name || islem.description || null}
         creatorText={creatorText}
         currency={currency}

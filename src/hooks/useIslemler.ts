@@ -479,6 +479,7 @@ export function useIslemlerByPersonel(personelId: string) {
         .select(`
           *,
           kategori:kategoriler(id,name),
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)

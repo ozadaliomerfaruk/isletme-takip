@@ -314,7 +314,10 @@ export function NotificationBell() {
                           {entityText || typeLabel}
                         </Text>
                         <Text style={[styles.itemTypeLabel, { color: txColor }]} numberOfLines={1}>
-                          {entityText ? typeLabel : (islem.description || islem.hesap?.name || '')}
+                          {entityText
+                            ? [typeLabel, islem.kategori?.name].filter(Boolean).join(' · ')
+                            : [islem.description || islem.hesap?.name, islem.kategori?.name].filter(Boolean).join(' · ') || ''
+                          }
                         </Text>
                       </View>
                       <View style={styles.itemRight}>
