@@ -40,6 +40,9 @@ interface EdgeFunctionResponse {
   success: boolean;
   data?: ParsedInvoiceData;
   error?: string;
+  rateLimited?: boolean;
+  dailyLimit?: number;
+  remaining?: number;
 }
 
 /** Response shape from the parse-invoice Edge Function (batch mode) */
@@ -48,6 +51,9 @@ interface EdgeFunctionBatchResponse {
   data?: ParsedInvoiceData[];
   batch: true;
   error?: string;
+  rateLimited?: boolean;
+  dailyLimit?: number;
+  remaining?: number;
   debug?: Array<{
     index: number;
     ettn: string | null;
@@ -72,7 +78,16 @@ function generateId(): string {
   return `ocr_item_${Date.now()}_${++idCounter}`;
 }
 
-/** Retry wrapper with exponential backoff for 429 rate limit errors */
+/** Custom error class for our own daily rate limit (should NOT be retried) */
+export class DailyRateLimitError extends Error {
+  constructor(message: string, public dailyLimit: number, public remaining: number) {
+    super(message);
+    this.name = 'DailyRateLimitError';
+  }
+}
+
+/** Retry wrapper with exponential backoff for Gemini 429 rate limit errors.
+ *  Does NOT retry our own daily rate limits (DailyRateLimitError). */
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
@@ -82,6 +97,10 @@ async function withRetry<T>(
     try {
       return await fn();
     } catch (err: unknown) {
+      // Our own daily limit - don't retry, throw immediately
+      if (err instanceof DailyRateLimitError) {
+        throw err;
+      }
       const message = err instanceof Error ? err.message : String(err);
       const is429 = message.includes('429') || message.includes('rate limit') || message.includes('Rate limit');
       if (is429 && attempt < maxRetries) {
@@ -183,13 +202,23 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
 
     console.log('[ocrEngine] Edge function response:', JSON.stringify(result.error || 'no error'), typeof result.data);
 
-    if (result.error) {
+    // Supabase may put non-2xx responses in result.error or result.data
+    const responseData = (result.data ?? result.error) as EdgeFunctionResponse;
+
+    // Our own daily rate limit - throw special error (won't be retried)
+    if (responseData?.rateLimited) {
+      throw new DailyRateLimitError(
+        responseData.error || `Günlük fatura tarama limitine ulaştınız (${responseData.dailyLimit}/gün)`,
+        responseData.dailyLimit ?? 20,
+        responseData.remaining ?? 0,
+      );
+    }
+
+    if (result.error && !responseData?.rateLimited) {
       throw result.error;
     }
 
-    const responseData = result.data as EdgeFunctionResponse;
-
-    // Check if the edge function returned a 429-related error
+    // Gemini 429 - will be retried by withRetry
     if (!responseData.success && responseData.error?.includes('429')) {
       throw new Error(responseData.error);
     }
@@ -240,13 +269,23 @@ export async function recognizeInvoicesBatch(imageUris: string[]): Promise<OcrPa
       body: { images },
     });
 
-    if (result.error) {
+    // Supabase may put non-2xx responses in result.error or result.data
+    const batchData = (result.data ?? result.error) as EdgeFunctionBatchResponse;
+
+    // Our own daily rate limit - throw special error (won't be retried)
+    if (batchData?.rateLimited) {
+      throw new DailyRateLimitError(
+        batchData.error || `Günlük fatura tarama limitine ulaştınız (${batchData.dailyLimit}/gün)`,
+        batchData.dailyLimit ?? 20,
+        batchData.remaining ?? 0,
+      );
+    }
+
+    if (result.error && !batchData?.rateLimited) {
       throw result.error;
     }
 
-    const batchData = result.data as EdgeFunctionBatchResponse;
-
-    // Check if the edge function returned a 429-related error
+    // Gemini 429 - will be retried by withRetry
     if (!batchData.success && batchData.error?.includes('429')) {
       throw new Error(batchData.error);
     }

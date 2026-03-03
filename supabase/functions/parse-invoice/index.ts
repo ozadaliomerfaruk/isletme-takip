@@ -1,6 +1,11 @@
 // Edge Function: Fatura Fotoğrafını Gemini Flash 2.0 ile Parse Et
 // Base64 fotoğraf alır, Gemini Vision API ile yapılandırılmış JSON döndürür
 // Architecture: Segmented prompts + deterministic server-side validation pipeline
+// Security: JWT auth + per-user daily rate limiting (20/day)
+
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const DAILY_LIMIT = 20; // Kullanici basina gunluk fatura tarama limiti
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -1018,6 +1023,64 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // ===== AUTH: JWT'den kullanici kimligini dogrula =====
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Yetkilendirme gerekli" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 },
+      );
+    }
+
+    const supabaseAdmin = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { autoRefreshToken: false, persistSession: false } },
+    );
+
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ success: false, error: "Gecersiz oturum" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 401 },
+      );
+    }
+
+    // ===== RATE LIMIT: Kullanici basina gunluk limit =====
+    const { data: allowed } = await supabaseAdmin.rpc("check_rate_limit", {
+      p_user_id: user.id,
+      p_function_name: "parse-invoice",
+      p_daily_limit: DAILY_LIMIT,
+    });
+
+    if (!allowed) {
+      const { data: remaining } = await supabaseAdmin.rpc("get_remaining_usage", {
+        p_user_id: user.id,
+        p_function_name: "parse-invoice",
+        p_daily_limit: DAILY_LIMIT,
+      });
+      console.warn(`[parse-invoice] Rate limit exceeded for user ${user.id}. Remaining: ${remaining}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Günlük fatura tarama limitine ulaştınız (${DAILY_LIMIT}/gün). Yarın tekrar deneyin.`,
+          rateLimited: true,
+          dailyLimit: DAILY_LIMIT,
+          remaining: remaining ?? 0,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 },
+      );
+    }
+
+    // Kullanimi kaydet
+    await supabaseAdmin.rpc("record_api_usage", {
+      p_user_id: user.id,
+      p_function_name: "parse-invoice",
+    });
+
+    console.log(`[parse-invoice] User ${user.id} - usage recorded`);
+
     const body = await req.json() as {
       image?: string;
       mimeType?: string;
