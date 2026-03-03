@@ -305,7 +305,7 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       // Normalize ETTN for comparison (trim, lowercase, remove whitespace)
       const normalizeEttn = (e: string | null): string => (e || '').trim().toLowerCase().replace(/\s/g, '');
       // Normalize invoice numbers for comparison (trim whitespace, lowercase, remove spaces/dashes)
-      const normalizeInvNo = (n: string | null): string => (n || '').trim().toLowerCase().replace(/[\s\-]/g, '');
+      const normalizeInvNo = (n: string | null): string => (n || '').trim().toLowerCase().replace(/[\s-]/g, '');
 
       const baseEttnNorm = normalizeEttn(base.ettn);
       const baseInvNorm = normalizeInvNo(base.invoiceNumber);

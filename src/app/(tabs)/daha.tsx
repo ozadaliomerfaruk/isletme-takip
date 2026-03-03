@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import {
   Receipt,
   BarChart3,
@@ -202,13 +202,13 @@ export default function DahaPage() {
             <MenuItem
               icon={<Upload size={22} color={colors.primary} />}
               label={t('navigation:menu.importData')}
-              onPress={() => router.push('/ayarlar/data-import' as any)}
+              onPress={() => router.push('/ayarlar/data-import' as Href)}
             />
             <View style={styles.divider} />
             <MenuItem
               icon={<Archive size={22} color={colors.textSecondary} />}
               label={t('common:archive.title')}
-              onPress={() => router.push('/arsiv' as any)}
+              onPress={() => router.push('/arsiv' as Href)}
             />
           </Card>
         </View>
@@ -224,7 +224,7 @@ export default function DahaPage() {
                 <MenuItem
                   icon={<Users size={22} color={colors.info} />}
                   label={t('multiUser:menu.userManagement')}
-                  onPress={() => router.push('/ayarlar/kullanici-yonetimi' as any)}
+                  onPress={() => router.push('/ayarlar/kullanici-yonetimi' as Href)}
                 />
                 <View style={styles.divider} />
               </>
@@ -232,7 +232,7 @@ export default function DahaPage() {
             <MenuItem
               icon={<Share2 size={22} color={colors.success} />}
               label={t('multiUser:menu.sharedBusinesses')}
-              onPress={() => router.push('/ayarlar/paylasilan-isletmeler' as any)}
+              onPress={() => router.push('/ayarlar/paylasilan-isletmeler' as Href)}
             />
             {isOwner && (
               <>
@@ -240,7 +240,7 @@ export default function DahaPage() {
                 <MenuItem
                   icon={<History size={22} color={colors.warning} />}
                   label={t('multiUser:menu.transactionHistory')}
-                  onPress={() => router.push('/ayarlar/islem-gecmisi' as any)}
+                  onPress={() => router.push('/ayarlar/islem-gecmisi' as Href)}
                 />
               </>
             )}

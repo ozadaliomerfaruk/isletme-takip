@@ -115,12 +115,12 @@ export default function LoginPage() {
     try {
       await signIn(email, password);
       // Auth context router'ı yönlendirecek
-    } catch (error: any) {
+    } catch (error: unknown) {
       const msg = toErrorMessage(error) || '';
       const isInvalidCredentials =
         msg.includes('Invalid login credentials') ||
         msg.includes('invalid_credentials') ||
-        error?.status === 400;
+        (error as Record<string, unknown>)?.status === 400;
       Alert.alert(
         t('common:status.error'),
         isInvalidCredentials

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Modal, Pressable, Platform, RefreshControl, Animated } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Pressable, Platform, RefreshControl, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -39,7 +39,7 @@ import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { getHesapIcon } from '@/lib/icons';
-import { useHesaplar, useTotalBalance, useDeleteHesap } from '@/hooks/useHesaplar';
+import { useHesaplar, useDeleteHesap } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { useArchiveHesap } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
@@ -185,7 +185,6 @@ export default function HomePage() {
     diger: { label: t('accounts:typeLabels.diger'), icon: <PiggyBank size={20} color={colors.warning} /> },
   };
 
-  const totalBalance = useTotalBalance();
   const { accounts, payables, receivables, generalStatus } = useFinancialSummary();
   const customRange = period === 'custom' ? {
     startDate: formatDateForDB(customStartDate),
