@@ -1047,45 +1047,62 @@ Deno.serve(async (req) => {
       );
     }
 
-    // ===== RATE LIMIT: Kullanici basina gunluk limit =====
-    const { data: allowed } = await supabaseAdmin.rpc("check_rate_limit", {
+    // Body'yi once oku - fotograf sayisini bilmemiz lazim
+    const body = await req.json() as {
+      image?: string;
+      mimeType?: string;
+      images?: Array<{ image: string; mimeType?: string }>;
+    };
+
+    // Fotograf sayisini belirle (batch modda N, tekli modda 1)
+    const imageCount = (body.images && Array.isArray(body.images)) ? body.images.length : 1;
+
+    // ===== RATE LIMIT: Kullanici basina gunluk limit (fotograf bazli) =====
+    const { data: remaining } = await supabaseAdmin.rpc("get_remaining_usage", {
       p_user_id: user.id,
       p_function_name: "parse-invoice",
       p_daily_limit: DAILY_LIMIT,
     });
 
-    if (!allowed) {
-      const { data: remaining } = await supabaseAdmin.rpc("get_remaining_usage", {
-        p_user_id: user.id,
-        p_function_name: "parse-invoice",
-        p_daily_limit: DAILY_LIMIT,
-      });
-      console.warn(`[parse-invoice] Rate limit exceeded for user ${user.id}. Remaining: ${remaining}`);
+    const remainingCount = remaining ?? DAILY_LIMIT;
+
+    if (remainingCount <= 0) {
+      console.warn(`[parse-invoice] Rate limit exceeded for user ${user.id}. Remaining: 0`);
       return new Response(
         JSON.stringify({
           success: false,
           error: `Günlük fatura tarama limitine ulaştınız (${DAILY_LIMIT}/gün). Yarın tekrar deneyin.`,
           rateLimited: true,
           dailyLimit: DAILY_LIMIT,
-          remaining: remaining ?? 0,
+          remaining: 0,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 },
       );
     }
 
-    // Kullanimi kaydet
-    await supabaseAdmin.rpc("record_api_usage", {
-      p_user_id: user.id,
-      p_function_name: "parse-invoice",
-    });
+    if (imageCount > remainingCount) {
+      console.warn(`[parse-invoice] Not enough quota for user ${user.id}. Requested: ${imageCount}, Remaining: ${remainingCount}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Günlük ${remainingCount} fatura tarama hakkınız kaldı, ${imageCount} fotoğraf gönderdiniz. Daha az fotoğraf ile deneyin.`,
+          rateLimited: true,
+          dailyLimit: DAILY_LIMIT,
+          remaining: remainingCount,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 429 },
+      );
+    }
 
-    console.log(`[parse-invoice] User ${user.id} - usage recorded`);
+    // Her fotograf icin birer kullanim kaydi ekle
+    for (let i = 0; i < imageCount; i++) {
+      await supabaseAdmin.rpc("record_api_usage", {
+        p_user_id: user.id,
+        p_function_name: "parse-invoice",
+      });
+    }
 
-    const body = await req.json() as {
-      image?: string;
-      mimeType?: string;
-      images?: Array<{ image: string; mimeType?: string }>;
-    };
+    console.log(`[parse-invoice] User ${user.id} - ${imageCount} image(s) recorded, ${remainingCount - imageCount} remaining`);
 
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
