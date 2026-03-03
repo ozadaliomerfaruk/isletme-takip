@@ -83,7 +83,7 @@ interface PersonelTransactionItemProps {
   deleteLabel: string;
   copyLabel: string;
   canEdit?: boolean;
-  isSharedMode?: boolean;
+  currentUserId?: string;
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -102,14 +102,14 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   deleteLabel,
   copyLabel,
   canEdit = true,
-  isSharedMode,
+  currentUserId,
 }: PersonelTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
 
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = t(labelKey);
-  const creatorText = isSharedMode ? getCreatorName(islem) : null;
+  const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
 
   return (
     <SwipeableRow onDelete={canEdit ? handleDelete : undefined} onCopy={canEdit ? handleCopy : undefined} enabled={canEdit} deleteLabel={deleteLabel} copyLabel={copyLabel}>
@@ -132,7 +132,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
     && prev.canEdit === next.canEdit
-    && prev.isSharedMode === next.isSharedMode;
+    && prev.currentUserId === next.currentUserId;
 });
 
 // ============================================================================
@@ -153,7 +153,7 @@ export default function PersonelHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const { canUpdate, canDelete } = usePermissions();
-  const { isSharedMode } = useAuthContext();
+  const { user } = useAuthContext();
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
   const updatePersonel = useUpdatePersonel();
@@ -391,10 +391,10 @@ export default function PersonelHareketleriPage() {
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
         canEdit={canEditItem}
-        isSharedMode={isSharedMode}
+        currentUserId={user?.id}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, formatDateSmart, t, personel?.currency, deleteLabel, copyLabel, canDelete, isSharedMode]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, formatDateSmart, t, personel?.currency, deleteLabel, copyLabel, canDelete, user?.id]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

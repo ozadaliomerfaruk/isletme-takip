@@ -74,7 +74,7 @@ interface IslemlerTransactionItemProps {
   deleteLabel: string;
   copyLabel: string;
   canEdit?: boolean;
-  isSharedMode?: boolean;
+  currentUserId?: string;
 }
 
 const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
@@ -88,7 +88,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   deleteLabel,
   copyLabel,
   canEdit = true,
-  isSharedMode,
+  currentUserId,
 }: IslemlerTransactionItemProps) {
   const handleDelete = useCallback(
     () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
@@ -102,7 +102,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
 
   const entityName = getIslemEntity(islem);
   const description = islem.description || islem.kategori?.name || null;
-  const creatorText = isSharedMode ? getCreatorName(islem) : null;
+  const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
 
   return (
     <SwipeableRow
@@ -132,7 +132,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
     && prev.islem.updated_at === next.islem.updated_at
     && prev.islem.photo_path === next.islem.photo_path
     && prev.canEdit === next.canEdit
-    && prev.isSharedMode === next.isSharedMode;
+    && prev.currentUserId === next.currentUserId;
 });
 
 // ============================================================================
@@ -158,7 +158,7 @@ export default function IslemlerPage() {
   const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
   const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
 
-  const { isletme, isSharedMode } = useAuthContext();
+  const { isletme, user } = useAuthContext();
   const { data: islemler, isLoading, isFetching, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemler();
   const deleteIslem = useDeleteIslem();
   const updateIslem = useUpdateIslem();
@@ -401,10 +401,10 @@ export default function IslemlerPage() {
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
         canEdit={canEditItem}
-        isSharedMode={isSharedMode}
+        currentUserId={user?.id}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, formatDateMedium, t, deleteLabel, copyLabel, canDelete, isSharedMode]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, formatDateMedium, t, deleteLabel, copyLabel, canDelete, user?.id]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

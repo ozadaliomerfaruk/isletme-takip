@@ -60,7 +60,7 @@ interface HesapTransactionItemProps {
   deleteLabel: string;
   copyLabel: string;
   canEdit?: boolean;
-  isSharedMode?: boolean;
+  currentUserId?: string;
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -220,7 +220,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   deleteLabel,
   copyLabel,
   canEdit = true,
-  isSharedMode,
+  currentUserId,
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -234,7 +234,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   const entityText = target
     ? `${target.incoming ? '← ' : '→ '}${target.name}`
     : null;
-  const creatorText = isSharedMode ? getCreatorName(islem) : null;
+  const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
 
   return (
     <SwipeableRow
@@ -269,7 +269,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
     && prev.islem.photo_path === next.islem.photo_path
     && prev.hesapCurrency === next.hesapCurrency
     && prev.canEdit === next.canEdit
-    && prev.isSharedMode === next.isSharedMode;
+    && prev.currentUserId === next.currentUserId;
 });
 
 // ============================================================================
@@ -300,7 +300,7 @@ export default function HesapHareketleriPage() {
   const pickImage = usePickImage();
   const takePhoto = useTakePhoto();
   const uploadPhoto = useUploadIslemPhoto();
-  const { isletme, isSharedMode } = useAuthContext();
+  const { isletme, user } = useAuthContext();
 
   // Döviz kurları ve kullanıcı para birimi
   const { data: exchangeRatesData } = useExchangeRates();
@@ -663,10 +663,10 @@ export default function HesapHareketleriPage() {
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
         canEdit={canEditItem}
-        isSharedMode={isSharedMode}
+        currentUserId={user?.id}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canDelete, isSharedMode]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canDelete, user?.id]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

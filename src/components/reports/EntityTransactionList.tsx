@@ -67,7 +67,7 @@ export function EntityTransactionList({
   const { t } = useTranslation(['reports', 'transactions', 'staff']);
   const { formatDateNative } = useDateFormat();
   const router = useRouter();
-  const { isSharedMode } = useAuthContext();
+  const { user } = useAuthContext();
 
   const displayTransactions = maxItems > 0 ? transactions.slice(0, maxItems) : transactions;
   const hasMore = transactions.length > maxItems;
@@ -135,7 +135,7 @@ export function EntityTransactionList({
                       {transaction.description}
                     </Text>
                   )}
-                  {isSharedMode && transaction.creator && (
+                  {transaction.created_by && transaction.created_by !== user?.id && transaction.creator && (
                     <Text variant="caption" style={styles.creatorText} numberOfLines={1}>
                       {transaction.creator.display_name || transaction.creator.email}
                     </Text>
