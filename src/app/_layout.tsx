@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { queryClient } from '@/lib/queryClient';
@@ -19,6 +19,7 @@ import {
   savePushToken,
   addNotificationListeners,
 } from '@/lib/notifications';
+import { supabase } from '@/lib/supabase';
 
 // Initialize i18n
 import '@/i18n';
@@ -34,6 +35,7 @@ function RootLayoutNav() {
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);
+  const sessionTracked = useRef(false);
 
   // Onboarding durumunu kontrol et ve dil tercihini yükle
   useEffect(() => {
@@ -66,6 +68,19 @@ function RootLayoutNav() {
     };
 
     setupPushNotifications();
+  }, [user]);
+
+  // Session tracking (DAU)
+  useEffect(() => {
+    if (!user || sessionTracked.current) return;
+    sessionTracked.current = true;
+
+    supabase
+      .from('app_sessions')
+      .insert({ user_id: user.id, platform: Platform.OS })
+      .then(({ error }) => {
+        if (error && __DEV__) console.warn('Session tracking:', error.message);
+      });
   }, [user]);
 
   // Bildirim dinleyicileri
