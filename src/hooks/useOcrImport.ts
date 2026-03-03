@@ -151,13 +151,17 @@ export function useOcrImport(sessionId: string) {
     }
   }, [processImage, existingProducts, cariler, urunAliases, cariAliases]);
 
-  // Helper: parse invoice date to DB format
-  const parseDateForDB = useCallback((dateInfo: string): string | undefined => {
-    if (!dateInfo) return undefined;
-    const parts = dateInfo.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!parts) return undefined;
-    const d = new Date(parseInt(parts[1]), parseInt(parts[2]) - 1, parseInt(parts[3]), 12, 0, 0);
-    return formatDateTimeForDB(d);
+  // Helper: parse invoice date to DB format (fallback to today if parse fails)
+  const parseDateForDB = useCallback((dateInfo: string): string => {
+    if (dateInfo) {
+      const parts = dateInfo.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (parts) {
+        const d = new Date(parseInt(parts[1]), parseInt(parts[2]) - 1, parseInt(parts[3]), 12, 0, 0);
+        return formatDateTimeForDB(d);
+      }
+    }
+    // Fallback: bugunun tarihi (islemler.date NOT NULL constraint icin)
+    return formatDateTimeForDB(new Date());
   }, []);
 
   // Helper: build description from invoice
@@ -187,7 +191,7 @@ export function useOcrImport(sessionId: string) {
       description: aciklama,
       ...(hesapId ? { hesap_id: hesapId } : {}),
       ...(kategoriId ? { kategori_id: kategoriId } : {}),
-      ...(parseDateForDB(dateInfo) ? { date: parseDateForDB(dateInfo) } : {}),
+      date: parseDateForDB(dateInfo),
     });
 
     invalidateRelatedQueries(queryClient, 'islem');
@@ -285,7 +289,7 @@ export function useOcrImport(sessionId: string) {
           hesap_id: options.hesapId,
           kategori_id: options.kategoriId || null,
           description: aciklama,
-          ...(parseDateForDB(dateInfo) ? { date: parseDateForDB(dateInfo) } : {}),
+          date: parseDateForDB(dateInfo),
         });
 
         invalidateRelatedQueries(queryClient, 'islem');
@@ -320,7 +324,7 @@ export function useOcrImport(sessionId: string) {
           cari_id: invoice.supplierMatchCariId,
           description: aciklama,
           ...(options?.hesapId ? { hesap_id: options.hesapId } : {}),
-          ...(parseDateForDB(dateInfo) ? { date: parseDateForDB(dateInfo) } : {}),
+          date: parseDateForDB(dateInfo),
         });
 
         invalidateRelatedQueries(queryClient, 'islem');
