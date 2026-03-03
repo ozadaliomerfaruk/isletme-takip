@@ -2,7 +2,7 @@
  * useAnalyticsSummary Hook
  *
  * Aggregates financial data for the Analytics dashboard
- * Provides KPI metrics with delta calculations and sparkline data
+ * Provides KPI metrics with delta calculations (current vs previous period)
  */
 
 import { useMemo } from 'react';
@@ -52,68 +52,33 @@ export function useAnalyticsSummary(
   const { data: cariler, isLoading: carilerLoading } = useCariler();
   const { data: personelList, isLoading: personelLoading } = usePersonelList();
 
-  // Fetch period-based data for current and previous + 6 periods for sparkline
+  // Fetch current + previous period data
   const periodsQuery = useQuery({
     queryKey: ['analytics-periods', isletme?.id, period, baseCurrency, dateRange?.startDate, dateRange?.endDate],
     queryFn: async () => {
       if (!isletme) return null;
 
-      // Calculate date ranges for 6 periods (for sparkline) + current + previous
-      // Use dateRange/previousDateRange if provided, otherwise fall back to offset-based
-      const periods: Array<{ offset: number; startDate: string; endDate: string }> = [];
+      // Determine current and previous date ranges
+      let currentStart: string;
+      let currentEnd: string;
+      let prevStart: string;
+      let prevEnd: string;
 
-      if (dateRange) {
-        // Use the provided dateRange as the current period (offset 0)
-        // Calculate 5 previous periods based on period type
-        // First, figure out which offset this dateRange corresponds to
-        for (let offset = -5; offset <= -1; offset++) {
-          const range = getDateRange(period, offset);
-          // Check if this period overlaps with dateRange — if so, shift all offsets
-          periods.push({
-            offset,
-            startDate: range.startDate,
-            endDate: range.endDate,
-          });
-        }
-
-        // For the "current" period, we need to figure out the right offset.
-        // Strategy: find which period the dateRange.startDate belongs to
-        // by testing offsets until we find a match
-        let currentOffset = 0;
-        for (let testOffset = -50; testOffset <= 50; testOffset++) {
-          const testRange = getDateRange(period, testOffset);
-          if (testRange.startDate === dateRange.startDate) {
-            currentOffset = testOffset;
-            break;
-          }
-        }
-
-        // Rebuild periods using the correct offset
-        periods.length = 0;
-        for (let offset = currentOffset - 5; offset <= currentOffset; offset++) {
-          const range = getDateRange(period, offset);
-          periods.push({
-            offset: offset - currentOffset, // normalize so current = 0
-            startDate: range.startDate,
-            endDate: range.endDate,
-          });
-        }
+      if (dateRange && previousDateRange) {
+        currentStart = dateRange.startDate;
+        currentEnd = dateRange.endDate;
+        prevStart = previousDateRange.startDate;
+        prevEnd = previousDateRange.endDate;
       } else {
-        for (let offset = -5; offset <= 0; offset++) {
-          const range = getDateRange(period, offset);
-          periods.push({
-            offset,
-            startDate: range.startDate,
-            endDate: range.endDate,
-          });
-        }
+        const current = getDateRange(period, 0);
+        const prev = getDateRange(period, -1);
+        currentStart = current.startDate;
+        currentEnd = current.endDate;
+        prevStart = prev.startDate;
+        prevEnd = prev.endDate;
       }
 
-      // Fetch all transactions in the date range (oldest to newest)
-      // Hesap bilgisi ile birlikte çek (pasif filtresi için)
-      const oldestStart = periods[0].startDate;
-      const newestEnd = periods[periods.length - 1].endDate;
-
+      // Fetch all transactions in the full date range (previous start to current end)
       const { data, error } = await supabase
         .from('islemler')
         .select(`
@@ -124,46 +89,56 @@ export function useAnalyticsSummary(
           hedef_hesap:hesaplar!hedef_hesap_id(is_active)
         `)
         .eq('isletme_id', isletme.id)
-        .gte('date', `${oldestStart}T00:00:00`)
-        .lte('date', `${newestEnd}T23:59:59`);
+        .gte('date', `${prevStart}T00:00:00`)
+        .lte('date', `${currentEnd}T23:59:59`);
 
       if (error) throw error;
 
-      // Pasif hesaplardaki işlemleri filtrele
+      // Filter out transactions from inactive accounts
       const activeData = (data || []).filter((item: any) => {
-        const hesapActive = item.hesap ? (Array.isArray(item.hesap) ? item.hesap[0]?.is_active : item.hesap.is_active) : true;
-        const hedefHesapActive = item.hedef_hesap ? (Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0]?.is_active : item.hedef_hesap.is_active) : true;
-        return hesapActive !== false && hedefHesapActive !== false;
+        const hesapActive = item.hesap ? (Array.isArray(item.hesap) ? item.hesap[0]?.is_active : item.hesap.is_active) ?? true : true;
+        const hedefHesapActive = item.hedef_hesap ? (Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0]?.is_active : item.hedef_hesap.is_active) ?? true : true;
+        return hesapActive === true && hedefHesapActive === true;
       });
 
-      // Group transactions by period
-      const periodData = periods.map((p) => {
-        const periodTransactions = activeData.filter((t: any) => {
-          const txDate = t.date.split('T')[0];
-          return txDate >= p.startDate && txDate <= p.endDate;
-        });
-
-        const summary = calculateIncomeSummary(
-          periodTransactions as Array<{ type: IslemType; amount: number }>
-        );
-
-        return {
-          offset: p.offset,
-          income: summary.income,
-          expense: summary.expense,
-          net: summary.income - summary.expense,
-        };
+      // Split into current and previous period
+      const currentTransactions = activeData.filter((t: any) => {
+        const txDate = t.date.split('T')[0];
+        return txDate >= currentStart && txDate <= currentEnd;
       });
 
-      return periodData;
+      const previousTransactions = activeData.filter((t: any) => {
+        const txDate = t.date.split('T')[0];
+        return txDate >= prevStart && txDate <= prevEnd;
+      });
+
+      const currentSummary = calculateIncomeSummary(
+        currentTransactions as Array<{ type: IslemType; amount: number }>
+      );
+      const previousSummary = calculateIncomeSummary(
+        previousTransactions as Array<{ type: IslemType; amount: number }>
+      );
+
+      return {
+        current: {
+          income: currentSummary.income,
+          expense: currentSummary.expense,
+          net: currentSummary.income - currentSummary.expense,
+        },
+        previous: {
+          income: previousSummary.income,
+          expense: previousSummary.expense,
+          net: previousSummary.income - previousSummary.expense,
+        },
+      };
     },
     enabled: !!isletme,
-    staleTime: 5 * 60 * 1000, // 5 dk - mutation'lar zaten invalidate eder
+    staleTime: 5 * 60 * 1000,
   });
 
   // Calculate metrics
   const summary = useMemo<AnalyticsSummary>(() => {
-    const periodData = periodsQuery.data || [];
+    const periodData = periodsQuery.data;
     const isLoading =
       periodsQuery.isLoading ||
       financialSummary.isLoading ||
@@ -171,61 +146,39 @@ export function useAnalyticsSummary(
       carilerLoading ||
       personelLoading;
 
-    // Current period (offset 0) and previous period (offset -1)
-    const currentPeriod = periodData.find((p) => p.offset === 0) || {
-      income: 0,
-      expense: 0,
-      net: 0,
-    };
-    const previousPeriod = periodData.find((p) => p.offset === -1) || {
-      income: 0,
-      expense: 0,
-      net: 0,
-    };
+    const currentPeriod = periodData?.current || { income: 0, expense: 0, net: 0 };
+    const previousPeriod = periodData?.previous || { income: 0, expense: 0, net: 0 };
 
-    // Sparkline data (last 6 periods including current)
-    const sparklineIncome = periodData.map((p) => p.income);
-    const sparklineExpense = periodData.map((p) => p.expense);
-    const sparklineNet = periodData.map((p) => p.net);
-
-    // Calculate metrics with delta
     const incomeMetric: MetricWithDelta = {
       current: currentPeriod.income,
       previous: previousPeriod.income,
       ...calculateDelta(currentPeriod.income, previousPeriod.income),
-      sparklineData: sparklineIncome,
     };
 
     const expenseMetric: MetricWithDelta = {
       current: currentPeriod.expense,
       previous: previousPeriod.expense,
       ...calculateDelta(currentPeriod.expense, previousPeriod.expense),
-      sparklineData: sparklineExpense,
     };
 
     const netProfitMetric: MetricWithDelta = {
       current: currentPeriod.net,
       previous: previousPeriod.net,
       ...calculateDelta(currentPeriod.net, previousPeriod.net),
-      sparklineData: sparklineNet,
     };
 
-    // Calculate account count (only base currency accounts)
     const accountCount =
       hesaplar?.filter((h) => {
         const accountCurrency = h.currency || baseCurrency;
         return accountCurrency === baseCurrency && toNumber(h.balance) !== 0;
       }).length ?? 0;
 
-    // Calculate customer count (positive balance = they owe us)
     const customerCount =
       cariler?.filter((c) => Number(c.balance) > 0).length ?? 0;
 
-    // Calculate supplier count (negative balance = we owe them)
     const supplierCount =
       cariler?.filter((c) => Number(c.balance) < 0).length ?? 0;
 
-    // Calculate staff count (negative balance = we owe them)
     const staffCount =
       personelList?.filter((p) => Number(p.balance) < 0).length ?? 0;
 

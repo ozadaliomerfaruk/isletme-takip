@@ -82,7 +82,9 @@
     "alreadyMember": "Bu işletmeye zaten erişiminiz var",
     "cannotInviteSelf": "Kendi işletmenize davet kabul edemezsiniz",
     "rateLimitExceeded": "Çok fazla davet oluşturdunuz. Lütfen 1 saat sonra tekrar deneyin.",
-    "userNotFound": "Kullanıcı bulunamadı"
+    "userNotFound": "Kullanıcı bulunamadı",
+    "accessRevoked": "Bu işletmeye erişiminiz kaldırılmış veya askıya alınmış",
+    "switchFailed": "İşletme geçişi sırasında bir hata oluştu"
   },
   "permissionActions": {
     "create": "Oluşturma",

@@ -93,13 +93,17 @@ export function useCreateHesap() {
 
 export function useUpdateHesap() {
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: HesapUpdate & { id: string }) => {
+      if (!isletme) throw new Error('İşletme bulunamadı');
+
       const { data, error } = await supabase
         .from('hesaplar')
         .update(input)
         .eq('id', id)
+        .eq('isletme_id', isletme.id)
         .select()
         .single();
 

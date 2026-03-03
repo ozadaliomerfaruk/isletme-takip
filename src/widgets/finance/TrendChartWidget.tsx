@@ -64,17 +64,20 @@ export function TrendChartWidget({ period, dateRange }: WidgetProps) {
         ? point.expense
         : point.net;
 
+    const absValue = Math.abs(value);
+
     return {
-      value: Math.abs(value), // Use absolute value for bar height
+      value: absValue,
       label: point.label,
       frontColor: getBarColor(value, selectedMetric),
-      topLabelComponent: point.isCurrentPeriod
-        ? () => (
-            <View style={styles.currentPeriodIndicator}>
-              <View style={styles.currentPeriodDot} />
-            </View>
-          )
-        : undefined,
+      topLabelComponent: () => (
+        <View style={styles.barTopLabel}>
+          {point.isCurrentPeriod && <View style={styles.currentPeriodDot} />}
+          <Text style={styles.barValueText}>
+            {formatCurrencyCompact(absValue, currency)}
+          </Text>
+        </View>
+      ),
     };
   });
 
@@ -218,7 +221,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: colors.border,
   },
   header: {
@@ -287,24 +290,29 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   yAxisText: {
-    fontSize: 10,
+    fontSize: 11,
     color: colors.textMuted,
   },
   xAxisLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: colors.textMuted,
     marginTop: 4,
   },
-  currentPeriodIndicator: {
-    position: 'absolute',
-    top: -8,
+  barTopLabel: {
     alignItems: 'center',
+    marginBottom: 2,
+  },
+  barValueText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   currentPeriodDot: {
-    width: 6,
-    height: 6,
+    width: 5,
+    height: 5,
     borderRadius: 3,
     backgroundColor: colors.primary,
+    marginBottom: 1,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -319,13 +327,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
     marginBottom: spacing.xs,
   },
   summaryValue: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.text,
   },
   summaryValueNegative: {

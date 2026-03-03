@@ -34,6 +34,8 @@ export interface TransactionRowProps {
   overrideColor?: string;
   /** Override the default prefix derived from type */
   overridePrefix?: string;
+  /** Creator name shown as a small badge (multi-user mode) */
+  creatorText?: string | null;
   onPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
   onPhotoPress?: (id: string) => void;
@@ -55,6 +57,7 @@ export const TransactionRow = memo(function TransactionRow({
   currency,
   overrideColor,
   overridePrefix,
+  creatorText,
   onPress,
   onLongPress,
   onPhotoPress,
@@ -96,7 +99,7 @@ export const TransactionRow = memo(function TransactionRow({
           </Text>
         )}
 
-        {/* Line 2: Type label + date */}
+        {/* Line 2: Type label + date + creator */}
         <View style={styles.line2}>
           {entityText ? (
             <Text style={[styles.typeTextSmall, { color: txColor }]} numberOfLines={1}>
@@ -105,6 +108,12 @@ export const TransactionRow = memo(function TransactionRow({
           ) : null}
           {entityText && <Text style={styles.dot}> · </Text>}
           <Text style={styles.dateText}>{date}</Text>
+          {creatorText ? (
+            <>
+              <Text style={styles.dot}> · </Text>
+              <Text style={styles.creatorText} numberOfLines={1}>{creatorText}</Text>
+            </>
+          ) : null}
         </View>
 
         {/* Line 3: Secondary + Tertiary info */}
@@ -163,7 +172,8 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.tertiaryText === next.tertiaryText
     && prev.subAmount === next.subAmount
     && prev.overrideColor === next.overrideColor
-    && prev.overridePrefix === next.overridePrefix;
+    && prev.overridePrefix === next.overridePrefix
+    && prev.creatorText === next.creatorText;
 });
 
 // ============================================================================
@@ -230,6 +240,12 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.normal,
     color: colors.textMuted,
+  },
+  creatorText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.primary,
+    flexShrink: 1,
   },
   line3: {
     flexDirection: 'row',

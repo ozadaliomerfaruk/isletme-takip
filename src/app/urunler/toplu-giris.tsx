@@ -24,6 +24,8 @@ import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { isToday } from '@/lib/date';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
+import { getCurrencySymbol } from '@/constants/currencies';
+import { useSettings } from '@/hooks/useSettings';
 import { Urun, BirimType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 
@@ -37,6 +39,7 @@ interface StockRow {
 export default function TopluGirisPage() {
   const router = useRouter();
   const { t } = useTranslation(['products', 'common', 'transactions']);
+  const { currency } = useSettings();
   const createUrunHareket = useCreateUrunHareket();
   const { locale, formatDateMedium } = useDateFormat();
 
@@ -254,7 +257,7 @@ export default function TopluGirisPage() {
                             keyboardType="decimal-pad"
                           />
                           <Text variant="caption" color="secondary" style={styles.unitText}>
-                            ₺
+                            {getCurrencySymbol(currency)}
                           </Text>
                         </View>
                       </View>

@@ -48,6 +48,7 @@ import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { toErrorMessage } from '@/lib/errors';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM COMPONENT
@@ -68,6 +69,12 @@ interface CariTransactionItemProps {
   copyLabel: string;
   currency?: string;
   canEdit?: boolean;
+  isSharedMode?: boolean;
+}
+
+function getCreatorName(islem: IslemWithRelations): string | null {
+  if (!islem.creator) return null;
+  return islem.creator.display_name || islem.creator.email || null;
 }
 
 function getCariHareketLabelKey(type: string): string {
@@ -127,6 +134,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   copyLabel,
   currency,
   canEdit = true,
+  isSharedMode,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -138,6 +146,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   const entityText = (islem.type === 'cari_odeme' || islem.type === 'cari_tahsilat')
     ? islem.hesap?.name || null
     : null;
+  const creatorText = isSharedMode ? getCreatorName(islem) : null;
 
   return (
     <SwipeableRow
@@ -155,6 +164,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.description || islem.kategori?.name || null}
+        creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         hasUrunler={hasUrunFn(islem.id)}
         urunCount={getUrunCountFn(islem.id)}
@@ -171,7 +181,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
-    && prev.canEdit === next.canEdit;
+    && prev.canEdit === next.canEdit
+    && prev.isSharedMode === next.isSharedMode;
 });
 
 // ============================================================================
@@ -358,6 +369,7 @@ export default function CariHareketleriPage() {
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
   const { data: linkStatus } = useCariLinkStatus(id);
   const { canUpdate, canDelete } = usePermissions();
+  const { isSharedMode } = useAuthContext();
 
   // Viewer olarak baglantili mi ve izin seviyesi nedir
   const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
@@ -614,9 +626,10 @@ export default function CariHareketleriPage() {
         copyLabel={copyLabel}
         currency={cari?.currency}
         canEdit={canEditItem}
+        isSharedMode={isSharedMode}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, isSharedMode]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

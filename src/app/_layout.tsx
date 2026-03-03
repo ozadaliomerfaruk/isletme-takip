@@ -150,6 +150,7 @@ function RootLayoutNav() {
           headerShown: false,
           contentStyle: { backgroundColor: colors.background },
           animation: 'slide_from_right',
+          gestureEnabled: true,
           headerBackTitle: t('common:buttons.back'),
           headerBackVisible: true,
           headerBackButtonDisplayMode: 'minimal',
@@ -718,6 +719,31 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('products:bulk.stockOut'),
             headerShadowVisible: false,
+          }}
+        />
+        {/* Kullanıcı Yönetimi */}
+        <Stack.Screen
+          name="ayarlar/kullanici-yonetimi"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ayarlar/davet-olustur"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ayarlar/paylasilan-isletmeler"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="ayarlar/islem-gecmisi"
+          options={{
+            headerShown: false,
           }}
         />
         <Stack.Screen

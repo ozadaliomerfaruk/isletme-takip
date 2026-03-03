@@ -25,6 +25,8 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { Urun, BirimType } from '@/types/database';
 import { styles } from './styles';
 import { toErrorMessage } from '@/lib/errors';
+import { useSettings } from '@/hooks/useSettings';
+import { getCurrencySymbol } from '@/constants/currencies';
 
 type UrunType = 'giris' | 'cikis' | 'duzeltme';
 
@@ -53,6 +55,7 @@ export function QuickUrunBar({
   editInitialValues,
 }: QuickUrunBarProps) {
   const { t } = useTranslation(['products', 'common', 'errors']);
+  const { currency } = useSettings();
   const createUrunHareket = useCreateUrunHareket();
   const updateUrunHareket = useUpdateUrunHareket();
   const isEditMode = mode === 'edit' && editHareketId;
@@ -225,7 +228,7 @@ export function QuickUrunBar({
         await createUrunHareket.mutateAsync({
           urun_id: urun.id,
           hareket_tipi: 'duzeltme',
-          miktar: Math.abs(delta),
+          miktar: delta,
           birim_fiyat: null,
           aciklama: null,
         });
@@ -380,7 +383,7 @@ export function QuickUrunBar({
                 onSubmitEditing={handleSave}
               />
             </View>
-            <RNText style={styles.unitLabel}>₺</RNText>
+            <RNText style={styles.unitLabel}>{getCurrencySymbol(currency)}</RNText>
           </View>
         )}
 

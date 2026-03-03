@@ -115,12 +115,17 @@ export default function LoginPage() {
     try {
       await signIn(email, password);
       // Auth context router'ı yönlendirecek
-    } catch (error) {
+    } catch (error: any) {
+      const msg = toErrorMessage(error) || '';
+      const isInvalidCredentials =
+        msg.includes('Invalid login credentials') ||
+        msg.includes('invalid_credentials') ||
+        error?.status === 400;
       Alert.alert(
         t('common:status.error'),
-        toErrorMessage(error) === 'Invalid login credentials'
+        isInvalidCredentials
           ? t('errors:auth.invalidCredentials')
-          : toErrorMessage(error) || t('errors:general.generic')
+          : msg || t('errors:general.generic')
       );
     }
   };

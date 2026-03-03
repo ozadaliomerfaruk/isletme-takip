@@ -7,6 +7,7 @@ import { ChevronLeft, Building2, ArrowRightLeft, LogOut } from 'lucide-react-nat
 import { Text, Card, Input, Button, Avatar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSharedIsletmeler, useAcceptInvite, useUpdateUserStatus } from '@/hooks/useMultiUser';
 
@@ -31,10 +32,27 @@ export default function PaylasilanIsletmelerPage() {
     }
   };
 
-  const handleSwitchTo = (item: typeof sharedIsletmeler extends (infer T)[] | undefined ? T : never) => {
-    if (!item?.isletme || !item.permissions) return;
-    switchToSharedIsletme(item.isletme, item.permissions, item.role);
-    router.replace('/(tabs)' as any);
+  const handleSwitchTo = async (item: typeof sharedIsletmeler extends (infer T)[] | undefined ? T : never) => {
+    if (!item?.isletme || !item.permissions || !user) return;
+    try {
+      // Sunucudan taze izinleri doğrula
+      const { data: freshData, error } = await supabase
+        .from('isletme_users')
+        .select('permissions, role, status')
+        .eq('isletme_id', item.isletme_id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (error || !freshData || freshData.status !== 'active') {
+        Alert.alert(t('common:status.error'), t('multiUser:errors.accessRevoked'));
+        return;
+      }
+
+      await switchToSharedIsletme(item.isletme, freshData.permissions, freshData.role);
+      router.replace('/(tabs)' as any);
+    } catch {
+      Alert.alert(t('common:status.error'), t('multiUser:errors.switchFailed'));
+    }
   };
 
   const handleLeave = (item: typeof sharedIsletmeler extends (infer T)[] | undefined ? T : never) => {

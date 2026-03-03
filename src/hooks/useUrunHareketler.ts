@@ -270,6 +270,7 @@ export function useCreateUrunHareket() {
         .rpc('update_urun_miktar', {
           p_urun_id: input.urun_id,
           p_miktar_degisim: miktarDegisim,
+          p_isletme_id: isletme.id,
         });
 
       if (rpcError) throw rpcError;
@@ -297,6 +298,7 @@ export function useCreateUrunHareket() {
         await supabase.rpc('update_urun_miktar', {
           p_urun_id: input.urun_id,
           p_miktar_degisim: -miktarDegisim,
+          p_isletme_id: isletme.id,
         });
         throw hareketError;
       }
@@ -499,6 +501,7 @@ export function useUpdateUrunHareket() {
         .rpc('update_urun_miktar', {
           p_urun_id: eskiHareket.urun_id,
           p_miktar_degisim: netDegisim,
+          p_isletme_id: isletme.id,
         });
 
       if (rpcError) throw rpcError;
@@ -522,6 +525,7 @@ export function useUpdateUrunHareket() {
         await supabase.rpc('update_urun_miktar', {
           p_urun_id: eskiHareket.urun_id,
           p_miktar_degisim: -netDegisim,
+          p_isletme_id: isletme.id,
         });
         throw updateError;
       }
@@ -578,6 +582,7 @@ export function useDeleteUrunHareket() {
         .rpc('update_urun_miktar', {
           p_urun_id: hareket.urun_id,
           p_miktar_degisim: miktarDegisim,
+          p_isletme_id: isletme.id,
         });
 
       if (rpcError) throw rpcError;
@@ -594,6 +599,7 @@ export function useDeleteUrunHareket() {
         await supabase.rpc('update_urun_miktar', {
           p_urun_id: hareket.urun_id,
           p_miktar_degisim: -miktarDegisim,
+          p_isletme_id: isletme.id,
         });
         throw deleteError;
       }

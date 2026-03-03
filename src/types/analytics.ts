@@ -62,7 +62,6 @@ export interface MetricWithDelta {
   previous: number;
   delta: number;
   deltaPercent: number;
-  sparklineData: number[]; // Last 6 periods
 }
 
 export interface AnalyticsSummary {

@@ -174,9 +174,14 @@ export function CategoryDonutWidget({
                   <Text style={styles.legendName} numberOfLines={1}>
                     {item.name}
                   </Text>
-                  <Text style={styles.legendValue}>
-                    {item.percentage.toFixed(1)}%
-                  </Text>
+                  <View style={styles.legendValues}>
+                    <Text style={styles.legendAmount} numberOfLines={1}>
+                      {formatCurrency(item.value, currency)}
+                    </Text>
+                    <Text style={styles.legendPercent}>
+                      {item.percentage.toFixed(0)}%
+                    </Text>
+                  </View>
                 </View>
               </TouchableOpacity>
             ))}
@@ -192,7 +197,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    borderWidth: 1,
+    borderWidth: 0.5,
     borderColor: colors.border,
   },
   header: {
@@ -277,20 +282,26 @@ const styles = StyleSheet.create({
   },
   legendTextContainer: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
   legendName: {
     fontSize: 13,
     color: colors.text,
-    flex: 1,
-    marginRight: spacing.sm,
+    marginBottom: 1,
   },
-  legendValue: {
+  legendValues: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  legendAmount: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+    flexShrink: 1,
+  },
+  legendPercent: {
     fontSize: 12,
-    fontWeight: '500',
-    color: colors.textSecondary,
+    color: colors.textMuted,
   },
   skeletonChart: {
     height: 160,

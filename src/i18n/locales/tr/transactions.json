@@ -190,14 +190,14 @@
     "invalidAmount": "Geçerli bir tutar girin"
   },
   "exchangeRate": {
-    "title": "Kur Girisi",
+    "title": "Kur Girişi",
     "rateLabel": "1 {{source}} = ? {{target}}",
     "enterRate": "Kuru girin",
     "result": "{{sourceAmount}} {{source}} = {{targetAmount}} {{target}}",
-    "conversion": "Donusum",
+    "conversion": "Dönüşüm",
     "confirm": "Onayla ve Kaydet",
-    "cancel": "Iptal",
-    "invalidRate": "Gecerli bir kur girin"
+    "cancel": "İptal",
+    "invalidRate": "Geçerli bir kur girin"
   },
   "dailyCash": {
     "enterButton": "Günlük Ciro Gir",

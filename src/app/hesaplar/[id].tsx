@@ -38,7 +38,8 @@ import { useCeklerByHesap } from '@/hooks/useCekler';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useSettings } from '@/hooks/useSettings';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
-import { IslemWithRelations, Currency } from '@/types/database';
+import { IslemWithRelations, Currency, IslemType } from '@/types/database';
+import { isLeaveType } from '@/constants/islemTypes';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -59,6 +60,12 @@ interface HesapTransactionItemProps {
   deleteLabel: string;
   copyLabel: string;
   canEdit?: boolean;
+  isSharedMode?: boolean;
+}
+
+function getCreatorName(islem: IslemWithRelations): string | null {
+  if (!islem.creator) return null;
+  return islem.creator.display_name || islem.creator.email || null;
 }
 
 // Helper fonksiyonlar - component dışında tanımlı (her render'da yeniden oluşturulmaz)
@@ -74,6 +81,10 @@ function getHesapPerspectiveColor(type: string, hesapId: string, hedefHesapId: s
   if (type === 'cari_alis_iade' || type === 'cari_satis_iade') {
     return COLOR_NEUTRAL;
   }
+  // İzin işlemleri parasal değil, nötr göster
+  if (type === 'personel_izin_hakki' || type === 'personel_izin_kullanimi') {
+    return COLOR_NEUTRAL;
+  }
   if (type === 'gelir' || type === 'cari_tahsilat' || type === 'cari_satis' || type === 'personel_tahsilat' || type === 'personel_satis') {
     return COLOR_IN;
   }
@@ -86,6 +97,10 @@ function getHesapPerspectivePrefix(type: string, hesapId: string, hedefHesapId: 
   }
   if (type === 'cari_alis_iade' || type === 'cari_satis_iade') {
     return '↩ ';
+  }
+  // İzin işlemleri parasal değil, prefix yok
+  if (type === 'personel_izin_hakki' || type === 'personel_izin_kullanimi') {
+    return '';
   }
   if (type === 'gelir' || type === 'cari_tahsilat' || type === 'cari_satis' || type === 'personel_tahsilat' || type === 'personel_satis') {
     return '+';
@@ -205,6 +220,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   deleteLabel,
   copyLabel,
   canEdit = true,
+  isSharedMode,
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -218,6 +234,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   const entityText = target
     ? `${target.incoming ? '← ' : '→ '}${target.name}`
     : null;
+  const creatorText = isSharedMode ? getCreatorName(islem) : null;
 
   return (
     <SwipeableRow
@@ -235,6 +252,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.description || islem.kategori?.name || null}
+        creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         currency={hesapCurrency}
         subAmount={getCrossCurrencySubText(islem, hesapId)}
@@ -250,7 +268,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
     && prev.islem.updated_at === next.islem.updated_at
     && prev.islem.photo_path === next.islem.photo_path
     && prev.hesapCurrency === next.hesapCurrency
-    && prev.canEdit === next.canEdit;
+    && prev.canEdit === next.canEdit
+    && prev.isSharedMode === next.isSharedMode;
 });
 
 // ============================================================================
@@ -281,7 +300,7 @@ export default function HesapHareketleriPage() {
   const pickImage = usePickImage();
   const takePhoto = useTakePhoto();
   const uploadPhoto = useUploadIslemPhoto();
-  const { isletme } = useAuthContext();
+  const { isletme, isSharedMode } = useAuthContext();
 
   // Döviz kurları ve kullanıcı para birimi
   const { data: exchangeRatesData } = useExchangeRates();
@@ -374,6 +393,9 @@ export default function HesapHareketleriPage() {
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
+      // İzin işlemleri gün bazlıdır, parasal bakiye hesaplamasına dahil edilmez
+      if (isLeaveType(islem.type as IslemType)) return;
+
       const amount = getAmountInAccountCurrency(islem as IslemWithRelations);
       if (islem.type === 'transfer') {
         if (islem.hedef_hesap_id === id) {
@@ -641,9 +663,10 @@ export default function HesapHareketleriPage() {
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
         canEdit={canEditItem}
+        isSharedMode={isSharedMode}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canDelete]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canDelete, isSharedMode]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

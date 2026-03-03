@@ -82,7 +82,9 @@
     "alreadyMember": "You already have access to this business",
     "cannotInviteSelf": "You cannot accept an invite to your own business",
     "rateLimitExceeded": "Too many invites created. Please try again in 1 hour.",
-    "userNotFound": "User not found"
+    "userNotFound": "User not found",
+    "accessRevoked": "Your access to this business has been revoked or suspended",
+    "switchFailed": "An error occurred while switching businesses"
   },
   "permissionActions": {
     "create": "Create",

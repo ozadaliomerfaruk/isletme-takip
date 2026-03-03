@@ -43,7 +43,8 @@ export function useIslemler(filters?: IslemFilters) {
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
           cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name)
+          personel:personel(id,first_name,last_name),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)
         .order('date', { ascending: false })
@@ -389,7 +390,8 @@ export function useIslemlerByCari(cariId: string) {
         .select(`
           *,
           kategori:kategoriler(id,name),
-          hesap:hesaplar!hesap_id(id,name,currency,type,is_active)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
@@ -434,7 +436,8 @@ export function useIslemlerByHesap(hesapId: string) {
           hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
           cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name)
+          personel:personel(id,first_name,last_name),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)
         .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`)
@@ -475,7 +478,8 @@ export function useIslemlerByPersonel(personelId: string) {
         .from('islemler')
         .select(`
           *,
-          kategori:kategoriler(id,name)
+          kategori:kategoriler(id,name),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)
         .eq('personel_id', personelId)
@@ -610,6 +614,7 @@ export function useDeleteIslem() {
           await supabase.rpc('update_urun_miktar', {
             p_urun_id: hareket.urun_id,
             p_miktar_degisim: miktarDegisim,
+            p_isletme_id: isletme.id,
           });
         }
 
@@ -900,7 +905,8 @@ export function useSearchIslemler(searchQuery: string) {
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
           cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name)
+          personel:personel(id,first_name,last_name),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)
         .ilike('description', `%${sanitized}%`)

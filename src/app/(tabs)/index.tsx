@@ -259,14 +259,17 @@ export default function HomePage() {
       case 'yearly':
         setShowYearPicker(true);
         break;
-      case 'monthly':
-      case 'weekly': {
-        // Mevcut tarihten yılı al ve selectedYear'ı ayarla
+      case 'monthly': {
         const now = new Date();
-        const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth();
-        // periodOffset'ten mevcut seçili yılı hesapla
-        const targetDate = new Date(currentYear, currentMonth + periodOffset, 1);
+        const targetDate = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
+        setSelectedYear(targetDate.getFullYear());
+        setShowMonthYearPicker(true);
+        break;
+      }
+      case 'weekly': {
+        const now = new Date();
+        // Haftalık offset: her offset = 7 gün
+        const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + periodOffset * 7);
         setSelectedYear(targetDate.getFullYear());
         setShowMonthYearPicker(true);
         break;
@@ -553,7 +556,12 @@ export default function HomePage() {
                             setCustomEndDate(date);
                           }
                         } else {
-                          setCustomEndDate(date);
+                          // Bitiş tarihi başlangıçtan önce olamaz
+                          if (date < customStartDate) {
+                            setCustomEndDate(customStartDate);
+                          } else {
+                            setCustomEndDate(date);
+                          }
                         }
                       }
                     }}

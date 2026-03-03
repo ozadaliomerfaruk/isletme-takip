@@ -37,7 +37,9 @@
     "incomeAnalysis": "Income",
     "client": "Client",
     "personnel": "Staff",
-    "comparison": "Compare"
+    "comparison": "Compare",
+    "summary": "Summary",
+    "charts": "Charts"
   },
   "summary": {
     "generalStatus": "General Status",

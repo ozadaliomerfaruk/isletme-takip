@@ -13,9 +13,9 @@ import type {
 } from '@/types/multiUser';
 import type { Isletme } from '@/types/database';
 
-// İşletme kullanıcıları (sadece owner görür)
+// İşletme kullanıcıları (owner ve yetkili paylaşılan kullanıcılar görebilir)
 export function useIsletmeUsers() {
-  const { isletme, isOwner } = useAuthContext();
+  const { isletme } = useAuthContext();
 
   return useQuery({
     queryKey: queryKeys.multiUser.users(isletme?.id ?? ''),
@@ -28,13 +28,13 @@ export function useIsletmeUsers() {
       if (error) throw error;
       return data as IsletmeUser[];
     },
-    enabled: !!isletme && isOwner,
+    enabled: !!isletme,
   });
 }
 
-// Bekleyen davetler (sadece owner görür)
+// Bekleyen davetler (owner ve yetkili paylaşılan kullanıcılar görebilir)
 export function useIsletmeInvites() {
-  const { isletme, isOwner } = useAuthContext();
+  const { isletme } = useAuthContext();
 
   return useQuery({
     queryKey: queryKeys.multiUser.invites(isletme?.id ?? ''),
@@ -47,7 +47,7 @@ export function useIsletmeInvites() {
       if (error) throw error;
       return data as IsletmeInvite[];
     },
-    enabled: !!isletme && isOwner,
+    enabled: !!isletme,
   });
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Platform, AppState, AppStateStatus } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
@@ -28,6 +29,7 @@ interface AuthState {
 }
 
 export function useAuth() {
+  const queryClient = useQueryClient();
   const [state, setState] = useState<AuthState>({
     session: null,
     user: null,
@@ -725,14 +727,14 @@ export function useAuth() {
 
   // Hesap silme isteği (7 gün sonra silinecek)
   const deleteAccount = async () => {
-    if (!state.user || !state.isletme) {
+    if (!state.user || !state.ownIsletme) {
       throw new Error('Kullanıcı bulunamadı');
     }
 
     setState((prev) => ({ ...prev, loading: true }));
 
     try {
-      const isletmeId = state.isletme.id;
+      const isletmeId = state.ownIsletme.id;
 
       // 7 gün sonrası için silme tarihi ayarla
       const deletionDate = new Date();
@@ -770,14 +772,14 @@ export function useAuth() {
 
   // Hesap silme isteğini iptal et
   const cancelAccountDeletion = async () => {
-    if (!state.user || !state.isletme) {
+    if (!state.user || !state.ownIsletme) {
       throw new Error('Kullanıcı bulunamadı');
     }
 
     setState((prev) => ({ ...prev, loading: true }));
 
     try {
-      const isletmeId = state.isletme.id;
+      const isletmeId = state.ownIsletme.id;
 
       // Silme tarihini kaldır
       const { error } = await supabase
@@ -790,7 +792,8 @@ export function useAuth() {
       // State'i güncelle
       setState((prev) => ({
         ...prev,
-        isletme: prev.isletme ? { ...prev.isletme, scheduled_deletion_at: null } : null,
+        ownIsletme: prev.ownIsletme ? { ...prev.ownIsletme, scheduled_deletion_at: null } : null,
+        isletme: prev.isOwner && prev.isletme ? { ...prev.isletme, scheduled_deletion_at: null } : prev.isletme,
         loading: false,
       }));
     } catch (error) {
@@ -821,6 +824,10 @@ export function useAuth() {
     permissions: Permissions,
     role: UserRole,
   ) => {
+    // Önce bekleyen sorguları iptal et ve cache'i temizle
+    await queryClient.cancelQueries();
+    queryClient.removeQueries();
+
     setState((prev) => ({
       ...prev,
       isletme: sharedIsletme,
@@ -828,10 +835,14 @@ export function useAuth() {
       currentPermissions: permissions,
       currentUserRole: role,
     }));
-  }, []);
+  }, [queryClient]);
 
   // Kendi işletmesine geri dön
   const switchToOwnIsletme = useCallback(() => {
+    // Bekleyen sorguları iptal et ve cache'i temizle
+    queryClient.cancelQueries();
+    queryClient.removeQueries();
+
     setState((prev) => {
       if (!prev.ownIsletme) return prev;
       return {
@@ -842,7 +853,7 @@ export function useAuth() {
         currentUserRole: 'owner',
       };
     });
-  }, []);
+  }, [queryClient]);
 
   // Paylaşılan modda mıyız?
   const isSharedMode = !state.isOwner;

@@ -35,6 +35,7 @@ import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useKategorilerHierarchical, FlattenedCategory } from '@/hooks/useKategoriler';
+import { usePermissions } from '@/hooks/usePermissions';
 import { KategoriType } from '@/types/database';
 
 // Lucide icon haritası
@@ -97,6 +98,7 @@ export function CategoryPicker({
 }: CategoryPickerProps) {
   const router = useRouter();
   const { t } = useTranslation(['common', 'categories']);
+  const { canCreate: canCreateCategory } = usePermissions();
   const [internalOpen, setInternalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -241,16 +243,18 @@ export function CategoryPicker({
                 <View style={styles.modalHeader}>
               <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
               <View style={styles.headerActions}>
-                <TouchableOpacity
-                  onPress={handleAddCategory}
-                  style={styles.addButton}
-                  activeOpacity={0.7}
-                >
-                  <Plus size={18} color={colors.primary} />
-                  <Text variant="caption" color="primary" style={styles.addButtonText}>
-                    {t('categories:titles.addCategory')}
-                  </Text>
-                </TouchableOpacity>
+                {canCreateCategory('kategoriler') && (
+                  <TouchableOpacity
+                    onPress={handleAddCategory}
+                    style={styles.addButton}
+                    activeOpacity={0.7}
+                  >
+                    <Plus size={18} color={colors.primary} />
+                    <Text variant="caption" color="primary" style={styles.addButtonText}>
+                      {t('categories:titles.addCategory')}
+                    </Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   onPress={handleCloseModal}
                   style={styles.closeButton}

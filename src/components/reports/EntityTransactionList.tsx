@@ -10,13 +10,20 @@ import {
   TrendingDown,
   ArrowUpRight,
   ArrowDownLeft,
+  ArrowLeftRight,
   RotateCcw,
+  CalendarPlus,
+  CalendarMinus,
+  Wallet,
+  Banknote,
 } from 'lucide-react-native';
 import { IslemWithRelations } from '@/types/database';
 import { formatCurrency, toNumber } from '@/lib/currency';
+import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 interface EntityTransactionListProps {
   transactions: IslemWithRelations[];
@@ -27,6 +34,9 @@ interface EntityTransactionListProps {
 // İşlem tipine göre ikon ve renk
 const getTransactionStyle = (type: string, t: (key: string) => string) => {
   const iconMap: Record<string, { Icon: typeof CreditCard; color: string }> = {
+    gelir: { Icon: Wallet, color: colors.success },
+    gider: { Icon: Banknote, color: colors.error },
+    transfer: { Icon: ArrowLeftRight, color: colors.textMuted },
     cari_alis: { Icon: ShoppingCart, color: colors.error },
     cari_satis: { Icon: TrendingUp, color: colors.success },
     cari_odeme: { Icon: ArrowUpRight, color: colors.info },
@@ -36,6 +46,10 @@ const getTransactionStyle = (type: string, t: (key: string) => string) => {
     personel_gider: { Icon: TrendingDown, color: colors.error },
     personel_odeme: { Icon: CreditCard, color: colors.info },
     personel_tahsilat: { Icon: ArrowDownLeft, color: colors.warning },
+    personel_satis: { Icon: TrendingUp, color: colors.success },
+    nakit_avans_taksit: { Icon: Banknote, color: colors.error },
+    personel_izin_hakki: { Icon: CalendarPlus, color: colors.success },
+    personel_izin_kullanimi: { Icon: CalendarMinus, color: colors.warning },
   };
   const match = iconMap[type];
   const label = t(`transactions:types.${type}`);
@@ -50,9 +64,10 @@ export function EntityTransactionList({
   maxItems = 10,
   onViewAll,
 }: EntityTransactionListProps) {
-  const { t } = useTranslation(['reports', 'transactions']);
+  const { t } = useTranslation(['reports', 'transactions', 'staff']);
   const { formatDateNative } = useDateFormat();
   const router = useRouter();
+  const { isSharedMode } = useAuthContext();
 
   const displayTransactions = maxItems > 0 ? transactions.slice(0, maxItems) : transactions;
   const hasMore = transactions.length > maxItems;
@@ -101,7 +116,9 @@ export function EntityTransactionList({
                     variant="body"
                     style={[styles.transactionAmount, { color }]}
                   >
-                    {formatCurrency(toNumber(transaction.amount))}
+                    {isLeaveType(transaction.type)
+                      ? `${toNumber(transaction.amount)} ${t('staff:leave.days')}`
+                      : formatCurrency(toNumber(transaction.amount))}
                   </Text>
                 </View>
                 <View style={styles.transactionFooter}>
@@ -116,6 +133,11 @@ export function EntityTransactionList({
                       style={styles.transactionDescription}
                     >
                       {transaction.description}
+                    </Text>
+                  )}
+                  {isSharedMode && transaction.creator && (
+                    <Text variant="caption" style={styles.creatorText} numberOfLines={1}>
+                      {transaction.creator.display_name || transaction.creator.email}
                     </Text>
                   )}
                 </View>
@@ -187,6 +209,10 @@ const styles = StyleSheet.create({
   },
   transactionDescription: {
     flex: 1,
+  },
+  creatorText: {
+    color: colors.primary,
+    fontWeight: '500',
   },
   categoryBadge: {
     alignSelf: 'flex-start',

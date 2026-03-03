@@ -539,7 +539,7 @@ export function useDataImport() {
               if (hesapData.initial_balance && hesapData.initial_balance !== 0) {
                 balanceSkippedTransactions.push({ transaction: tx, reason: `Bu hesap için daha önce başlangıç bakiyesi işlenmiş (mevcut: ${hesapData.initial_balance})`, rowNumber });
               } else {
-                await supabase.from('hesaplar').update({ balance: (hesapData.balance || 0) + balanceValue, initial_balance: balanceValue }).eq('id', existingId);
+                await supabase.from('hesaplar').update({ balance: (hesapData.balance || 0) + balanceValue, initial_balance: balanceValue }).eq('id', existingId).eq('isletme_id', isletme!.id);
                 startingBalancesUpdatedCount++;
               }
             }
@@ -572,7 +572,7 @@ export function useDataImport() {
               if (cariInitialBalance !== 0) {
                 balanceSkippedTransactions.push({ transaction: tx, reason: `Bu cari için daha önce başlangıç bakiyesi işlenmiş (mevcut başlangıç bakiyesi: ${cariInitialBalance})`, rowNumber });
               } else {
-                await supabase.from('cariler').update({ balance: balanceValue + cariTxEffect }).eq('id', existingId);
+                await supabase.from('cariler').update({ balance: balanceValue + cariTxEffect }).eq('id', existingId).eq('isletme_id', isletme!.id);
                 startingBalancesUpdatedCount++;
               }
             }
@@ -601,7 +601,7 @@ export function useDataImport() {
               if (personelInitialBalance !== 0) {
                 balanceSkippedTransactions.push({ transaction: tx, reason: `Bu personel için daha önce başlangıç bakiyesi işlenmiş (mevcut başlangıç bakiyesi: ${personelInitialBalance})`, rowNumber });
               } else {
-                await supabase.from('personel').update({ balance: balanceValue + personelTxEffect }).eq('id', existingId);
+                await supabase.from('personel').update({ balance: balanceValue + personelTxEffect }).eq('id', existingId).eq('isletme_id', isletme!.id);
                 startingBalancesUpdatedCount++;
               }
             }

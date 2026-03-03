@@ -32,10 +32,16 @@ import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
 import { IslemWithRelations } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
+import { isLeaveType } from '@/constants/islemTypes';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
 // ============================================================================
+
+function getCreatorName(islem: IslemWithRelations): string | null {
+  if (!islem.creator) return null;
+  return islem.creator.display_name || islem.creator.email || null;
+}
 
 function getIslemEntity(islem: IslemWithRelations): string | null {
   if (islem.type === 'transfer') {
@@ -68,6 +74,7 @@ interface IslemlerTransactionItemProps {
   deleteLabel: string;
   copyLabel: string;
   canEdit?: boolean;
+  isSharedMode?: boolean;
 }
 
 const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
@@ -81,6 +88,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   deleteLabel,
   copyLabel,
   canEdit = true,
+  isSharedMode,
 }: IslemlerTransactionItemProps) {
   const handleDelete = useCallback(
     () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
@@ -94,6 +102,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
 
   const entityName = getIslemEntity(islem);
   const description = islem.description || islem.kategori?.name || null;
+  const creatorText = isSharedMode ? getCreatorName(islem) : null;
 
   return (
     <SwipeableRow
@@ -111,6 +120,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
         typeLabel={t(`transactions:types.${islem.type}`)}
         entityText={entityName}
         secondaryText={description}
+        creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         onPress={onPress}
         onPhotoPress={onPhotoPress}
@@ -121,7 +131,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
     && prev.islem.photo_path === next.islem.photo_path
-    && prev.canEdit === next.canEdit;
+    && prev.canEdit === next.canEdit
+    && prev.isSharedMode === next.isSharedMode;
 });
 
 // ============================================================================
@@ -147,7 +158,7 @@ export default function IslemlerPage() {
   const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
   const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
 
-  const { isletme } = useAuthContext();
+  const { isletme, isSharedMode } = useAuthContext();
   const { data: islemler, isLoading, isFetching, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemler();
   const deleteIslem = useDeleteIslem();
   const updateIslem = useUpdateIslem();
@@ -212,7 +223,7 @@ export default function IslemlerPage() {
       }
       if (filter === 'transfer') matchesFilter = islem.type === 'transfer';
       if (filter === 'cari') matchesFilter = islem.type.startsWith('cari_');
-      if (filter === 'personel') matchesFilter = islem.type.startsWith('personel_');
+      if (filter === 'personel') matchesFilter = islem.type.startsWith('personel_') && !isLeaveType(islem.type);
       if (filter === 'izin_hakki') matchesFilter = islem.type === 'personel_izin_hakki';
       if (filter === 'izin_kullanimi') matchesFilter = islem.type === 'personel_izin_kullanimi';
 
@@ -390,9 +401,10 @@ export default function IslemlerPage() {
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
         canEdit={canEditItem}
+        isSharedMode={isSharedMode}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, formatDateMedium, t, deleteLabel, copyLabel, canDelete]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, formatDateMedium, t, deleteLabel, copyLabel, canDelete, isSharedMode]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

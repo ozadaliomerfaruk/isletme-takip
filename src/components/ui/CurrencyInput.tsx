@@ -21,6 +21,8 @@ interface CurrencyInputProps {
   style?: StyleProp<TextStyle>;
   /** Para birimi - belirtilmezse TRY kullanılır */
   currency?: Currency;
+  /** Özel prefix - belirtilirse para birimi sembolü yerine bu gösterilir */
+  prefix?: string;
 }
 
 export function CurrencyInput({
@@ -31,8 +33,9 @@ export function CurrencyInput({
   placeholder = '0,00',
   style,
   currency,
+  prefix,
 }: CurrencyInputProps) {
-  const currencySymbol = getCurrencySymbol(currency);
+  const currencySymbol = prefix ?? getCurrencySymbol(currency);
   // Doğrudan value'dan hesapla - gereksiz useState kaldırıldı
   const displayValue = formatCurrencyInput(value) || '';
 

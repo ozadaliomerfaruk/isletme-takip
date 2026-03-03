@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, IslemType, HesapType } from '@/types/database';
+import { CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { queryKeys } from '@/lib/queryKeys';
 
 /**
@@ -41,15 +42,7 @@ interface NormalizedCashFlowItem {
  */
 const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'birikim', 'diger']; // kredi_karti hariç
 
-/**
- * Nakit girişi yapan işlem tipleri (hesaba para GİREN)
- */
-const CASH_INFLOW_TYPES: IslemType[] = ['gelir', 'cari_tahsilat'];
-
-/**
- * Nakit çıkışı yapan işlem tipleri (hesaptan para ÇIKAN)
- */
-const CASH_OUTFLOW_TYPES: IslemType[] = ['gider', 'cari_odeme', 'personel_gider', 'personel_odeme'];
+// CASH_INFLOW_TYPES ve CASH_OUTFLOW_TYPES: @/constants/islemTypes'dan import edilir
 
 /**
  * Nakit akışı kategori item'ı

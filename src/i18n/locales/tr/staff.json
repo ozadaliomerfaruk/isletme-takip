@@ -164,7 +164,8 @@
     "viewAll": "Tümünü Gör",
     "dayCount": "{{count}} gün",
     "dateRange": "{{start}} - {{end}}",
-    "noLeaveHistory": "Henüz izin kaydı bulunmuyor"
+    "noLeaveHistory": "Henüz izin kaydı bulunmuyor",
+    "dayCountLabel": "Gün Sayısı"
   },
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",

@@ -43,6 +43,7 @@ import { isLeaveType } from '@/constants/islemTypes';
 import { toErrorMessage } from '@/lib/errors';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -82,6 +83,12 @@ interface PersonelTransactionItemProps {
   deleteLabel: string;
   copyLabel: string;
   canEdit?: boolean;
+  isSharedMode?: boolean;
+}
+
+function getCreatorName(islem: IslemWithRelations): string | null {
+  if (!islem.creator) return null;
+  return islem.creator.display_name || islem.creator.email || null;
 }
 
 const PersonelTransactionItem = memo(function PersonelTransactionItem({
@@ -95,12 +102,14 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   deleteLabel,
   copyLabel,
   canEdit = true,
+  isSharedMode,
 }: PersonelTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
 
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = t(labelKey);
+  const creatorText = isSharedMode ? getCreatorName(islem) : null;
 
   return (
     <SwipeableRow onDelete={canEdit ? handleDelete : undefined} onCopy={canEdit ? handleCopy : undefined} enabled={canEdit} deleteLabel={deleteLabel} copyLabel={copyLabel}>
@@ -111,6 +120,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         secondaryText={islem.kategori?.name || islem.description || null}
+        creatorText={creatorText}
         currency={currency}
         overrideColor={getEntityPerspectiveColor(islem.type)}
         overridePrefix={getEntityPerspectivePrefix(islem.type)}
@@ -121,7 +131,8 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
-    && prev.canEdit === next.canEdit;
+    && prev.canEdit === next.canEdit
+    && prev.isSharedMode === next.isSharedMode;
 });
 
 // ============================================================================
@@ -142,6 +153,7 @@ export default function PersonelHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const { canUpdate, canDelete } = usePermissions();
+  const { isSharedMode } = useAuthContext();
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
   const updatePersonel = useUpdatePersonel();
@@ -379,9 +391,10 @@ export default function PersonelHareketleriPage() {
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
         canEdit={canEditItem}
+        isSharedMode={isSharedMode}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, formatDateSmart, t, personel?.currency, deleteLabel, copyLabel, canDelete]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, formatDateSmart, t, personel?.currency, deleteLabel, copyLabel, canDelete, isSharedMode]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

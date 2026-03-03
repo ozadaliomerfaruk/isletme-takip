@@ -37,7 +37,9 @@
     "incomeAnalysis": "Gelir",
     "client": "Cari",
     "personnel": "Personel",
-    "comparison": "Karşılaştır"
+    "comparison": "Karşılaştır",
+    "summary": "Özet",
+    "charts": "Grafikler"
   },
   "summary": {
     "generalStatus": "Genel Durum",

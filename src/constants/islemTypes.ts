@@ -122,6 +122,9 @@ export function calculateIncomeSummary<T extends { type: IslemType; amount: numb
 ): { income: number; expense: number } {
   const result = islemler.reduce(
     (acc, islem) => {
+      // İzin işlemleri gün bazlıdır, parasal hesaplamaya dahil edilmez
+      if (isLeaveType(islem.type)) return acc;
+
       // Güvenli number dönüşümü - NaN için 0 döner
       const rawAmount = islem.amount;
       const amount = typeof rawAmount === 'number'

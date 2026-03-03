@@ -164,7 +164,8 @@
     "viewAll": "View All",
     "dayCount": "{{count}} days",
     "dateRange": "{{start}} - {{end}}",
-    "noLeaveHistory": "No leave records found"
+    "noLeaveHistory": "No leave records found",
+    "dayCountLabel": "Number of Days"
   },
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",

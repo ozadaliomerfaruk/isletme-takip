@@ -329,7 +329,7 @@ export default function RegisterPage() {
                   label={t('auth:forgotPassword.verificationCode')}
                   placeholder="000000"
                   keyboardType="number-pad"
-                  maxLength={8}
+                  maxLength={6}
                   value={otp}
                   onChangeText={setOtp}
                   error={errors.otp}

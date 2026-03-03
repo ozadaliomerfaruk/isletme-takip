@@ -30,6 +30,7 @@ import {
 } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
+import { isLeaveType } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
 import { toErrorMessage } from '@/lib/errors';
 
@@ -113,6 +114,7 @@ export default function IleriTarihliIslemDuzenlePage() {
   const selectedCari = cariler?.find((c) => c.id === cariId);
   const selectedPersonel = personelList?.find((p) => p.id === personelId);
 
+  const isLeave = islemType ? isLeaveType(islemType) : false;
   const needsHesap = ['gelir', 'gider', 'transfer', 'cari_odeme', 'cari_tahsilat', 'personel_odeme', 'personel_tahsilat'].includes(islemType || '');
   const needsHedefHesap = islemType === 'transfer';
   const needsKategori = ['gelir', 'gider', 'cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat', 'personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(islemType || '');
@@ -238,10 +240,12 @@ export default function IleriTarihliIslemDuzenlePage() {
             <View style={styles.section}>
               {/* Tutar */}
               <CurrencyInput
-                label={t('transactions:form.amount')}
+                label={isLeave ? t('staff:leave.dayCountLabel') : t('transactions:form.amount')}
                 value={amount}
                 onChangeText={setAmount}
                 error={errors.amount}
+                placeholder={isLeave ? '0' : undefined}
+                {...(isLeave ? { prefix: t('staff:leave.days') } : {})}
               />
 
               {/* Hesap Seçici */}
@@ -388,7 +392,7 @@ export default function IleriTarihliIslemDuzenlePage() {
                           ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}`
                           : t('staff:transactionForm.selectPersonel')}
                       </Text>
-                      {selectedPersonel && (
+                      {selectedPersonel && !isLeave && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error }]}>
                           {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
                         </Text>

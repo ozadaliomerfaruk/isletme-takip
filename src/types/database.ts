@@ -357,6 +357,7 @@ export interface IslemWithRelations extends Islem {
   kategori?: Kategori | null;
   cari?: Cari | null;
   personel?: Personel | null;
+  creator?: { display_name: string | null; email: string } | null;
 }
 
 // Dashboard özet

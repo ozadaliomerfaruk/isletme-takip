@@ -150,6 +150,9 @@ export function useAnalyticsTrend(
 
       if (error) throw error;
 
+      // Determine today's date string for current period check
+      const todayStr = new Date().toISOString().split('T')[0];
+
       // Group transactions by period
       const trendData: TrendDataPoint[] = periods.map((p) => {
         const periodTransactions = (data || []).filter((t) => {
@@ -166,7 +169,7 @@ export function useAnalyticsTrend(
           income: summary.income,
           expense: summary.expense,
           net: summary.income - summary.expense,
-          isCurrentPeriod: p.offset === 0,
+          isCurrentPeriod: todayStr >= p.startDate && todayStr <= p.endDate,
         };
       });
 
