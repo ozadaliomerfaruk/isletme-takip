@@ -1,6 +1,6 @@
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Camera, Images, Lightbulb } from 'lucide-react-native';
+import { Camera, Images, Lightbulb, ScanLine, AlertTriangle } from 'lucide-react-native';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -10,10 +10,34 @@ interface OcrCaptureStepProps {
   onPickImages: () => void;
   isLoading: boolean;
   capturedCount?: number;
+  remainingUsage?: number;
+  dailyLimit?: number;
 }
 
-export function OcrCaptureStep({ onTakePhoto, onPickImages, isLoading, capturedCount = 0 }: OcrCaptureStepProps) {
+export function OcrCaptureStep({
+  onTakePhoto,
+  onPickImages,
+  isLoading,
+  capturedCount = 0,
+  remainingUsage,
+  dailyLimit = 20,
+}: OcrCaptureStepProps) {
   const { t } = useTranslation('ocrImport');
+
+  const isExhausted = remainingUsage !== undefined && remainingUsage <= 0;
+  const isLow = remainingUsage !== undefined && remainingUsage > 0 && remainingUsage <= 5;
+
+  const quotaBannerColor = isExhausted
+    ? colors.error
+    : isLow
+      ? colors.warning
+      : colors.primary;
+
+  const quotaBannerBg = isExhausted
+    ? colors.errorLight
+    : isLow
+      ? colors.warningLight
+      : colors.primaryLight;
 
   return (
     <View style={styles.container}>
@@ -30,6 +54,23 @@ export function OcrCaptureStep({ onTakePhoto, onPickImages, isLoading, capturedC
         <Text variant="body" color="success" style={styles.capturedInfo}>
           {t('batch.photosAdded', { count: capturedCount })}
         </Text>
+      )}
+
+      {/* Quota banner */}
+      {remainingUsage !== undefined && (
+        <View style={[styles.quotaBanner, { backgroundColor: quotaBannerBg, borderColor: quotaBannerColor + '40' }]}>
+          {isExhausted ? (
+            <AlertTriangle size={16} color={quotaBannerColor} />
+          ) : (
+            <ScanLine size={16} color={quotaBannerColor} />
+          )}
+          <Text variant="caption" style={{ color: quotaBannerColor, fontWeight: '600', flex: 1 }}>
+            {isExhausted
+              ? `Günlük tarama limitine ulaştınız (${dailyLimit}/${dailyLimit})`
+              : `${remainingUsage}/${dailyLimit} tarama hakkı`
+            }
+          </Text>
+        </View>
       )}
 
       {/* Tips */}
@@ -49,10 +90,11 @@ export function OcrCaptureStep({ onTakePhoto, onPickImages, isLoading, capturedC
         <Button
           variant="primary"
           size="lg"
-          icon={<Camera size={20} color={colors.white} />}
+          icon={<Camera size={20} color={isExhausted ? colors.textMuted : colors.white} />}
           iconPosition="left"
           onPress={onTakePhoto}
           loading={isLoading}
+          disabled={isExhausted}
           style={styles.button}
         >
           {t('capture.takePhoto')}
@@ -60,10 +102,11 @@ export function OcrCaptureStep({ onTakePhoto, onPickImages, isLoading, capturedC
         <Button
           variant="outline"
           size="lg"
-          icon={<Images size={20} color={colors.primary} />}
+          icon={<Images size={20} color={isExhausted ? colors.textMuted : colors.primary} />}
           iconPosition="left"
           onPress={onPickImages}
           loading={isLoading}
+          disabled={isExhausted}
           style={styles.button}
         >
           {t('capture.pickImages')}
@@ -92,6 +135,17 @@ const styles = StyleSheet.create({
   title: {
     textAlign: 'center',
     marginBottom: spacing.xl,
+  },
+  quotaBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    width: '100%',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    marginBottom: spacing.md,
   },
   tipsContainer: {
     width: '100%',

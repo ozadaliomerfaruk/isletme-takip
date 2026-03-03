@@ -13,10 +13,12 @@ import {
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useFotoImportContext } from '@/contexts/FotoImportContext';
+import { useRemainingUsage } from '@/hooks/useRemainingUsage';
 
 export default function FotoImportIndexPage() {
   const { t } = useTranslation(['ocrImport', 'common']);
   const ctx = useFotoImportContext();
+  const { remaining, dailyLimit, invalidate: invalidateUsage } = useRemainingUsage();
   const navigation = useNavigation();
   const router = useRouter();
   const wasUnfocused = useRef(false);
@@ -76,6 +78,13 @@ export default function FotoImportIndexPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, shouldDisableGesture, inCaptureWithEntries, inListWithEntries]);
 
+  // Refresh remaining usage when processing completes
+  useEffect(() => {
+    if (ctx.step === 'invoice-list' || ctx.step === 'capture') {
+      invalidateUsage();
+    }
+  }, [ctx.step, invalidateUsage]);
+
   // Only reset step when page truly regains focus after being in the background
   // (e.g. native swipe-back from review). Do NOT reset on initial mount or
   // when step changes while this page is still focused.
@@ -110,6 +119,8 @@ export default function FotoImportIndexPage() {
           onPickImages={ctx.handlePickImages}
           isLoading={ctx.isCameraLoading}
           capturedCount={ctx.pendingUris.length}
+          remainingUsage={remaining}
+          dailyLimit={dailyLimit}
         />
       )}
 
