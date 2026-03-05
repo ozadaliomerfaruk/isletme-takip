@@ -729,11 +729,11 @@ export default function HesapHareketleriPage() {
                 </View>
                 <View style={styles.creditLimitItem}>
                   <Text variant="caption" color="secondary">{t('accounts:creditCard.usedCredit')}</Text>
-                  <Text variant="body" style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(Math.max(0, Number(hesap.balance)), hesap.currency)}</Text>
+                  <Text variant="body" style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}</Text>
                 </View>
                 <View style={styles.creditLimitItem}>
                   <Text variant="caption" color="secondary">{t('accounts:creditCard.availableCredit')}</Text>
-                  <Text variant="body" style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(hesap.credit_limit - Number(hesap.balance), hesap.currency)}</Text>
+                  <Text variant="body" style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(Math.max(0, hesap.credit_limit - Math.abs(Number(hesap.balance))), hesap.currency)}</Text>
                 </View>
               </View>
             </View>
