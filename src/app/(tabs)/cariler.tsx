@@ -15,7 +15,6 @@ import {
   Circle,
   CheckSquare,
   X,
-  Camera,
   Link,
   ArrowUpDown,
   MoreVertical,
@@ -769,21 +768,6 @@ export default function CarilerPage() {
         />
       )}
 
-      {/* Camera FAB for photo import */}
-      {!isSelectMode && (
-        <TouchableOpacity
-          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-          onPress={() => {
-            haptics.light();
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            router.push('/foto-import' as any);
-          }}
-          activeOpacity={0.8}
-        >
-          <Camera size={24} color={colors.surface} />
-        </TouchableOpacity>
-      )}
-
       {/* Bulk Action Bar */}
       {isSelectMode && (
         <View style={[styles.bulkActionBar, { paddingBottom: insets.bottom + spacing.sm }]}>
@@ -982,20 +966,5 @@ const styles = StyleSheet.create({
   },
   bulkActionDelete: {
     // Style handled by text/icon color
-  },
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });
