@@ -131,7 +131,7 @@ export default function TopluOdemePage() {
       // Personelin borcu varsa (balance < 0) bu miktarı doldur
       if (balance < 0) {
         const debt = Math.abs(balance);
-        newAmounts[personel.id] = String(debt);
+        newAmounts[personel.id] = String(debt).replace('.', ',');
       }
     });
     setAmounts(newAmounts);

@@ -70,7 +70,7 @@ export default function TopluGiderPage() {
       const initialAmounts: Record<string, string> = {};
       activePersonel.forEach(personel => {
         const salary = personel.salary ? toNumber(personel.salary) : 0;
-        initialAmounts[personel.id] = String(salary);
+        initialAmounts[personel.id] = String(salary).replace('.', ',');
       });
       setAmounts(initialAmounts);
     }
