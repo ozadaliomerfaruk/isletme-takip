@@ -824,9 +824,9 @@ export function useAuth() {
     permissions: Permissions,
     role: UserRole,
   ) => {
-    // Önce bekleyen sorguları iptal et ve cache'i temizle
+    // Önce bekleyen sorguları iptal et ve cache'i stale olarak işaretle
     await queryClient.cancelQueries();
-    queryClient.removeQueries();
+    queryClient.invalidateQueries();
 
     setState((prev) => ({
       ...prev,
@@ -839,9 +839,9 @@ export function useAuth() {
 
   // Kendi işletmesine geri dön
   const switchToOwnIsletme = useCallback(() => {
-    // Bekleyen sorguları iptal et ve cache'i temizle
+    // Bekleyen sorguları iptal et ve cache'i stale olarak işaretle
     queryClient.cancelQueries();
-    queryClient.removeQueries();
+    queryClient.invalidateQueries();
 
     setState((prev) => {
       if (!prev.ownIsletme) return prev;

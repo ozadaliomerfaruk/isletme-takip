@@ -18,8 +18,8 @@ import type { IsletmeUser } from '@/types/multiUser';
 export default function KullaniciYonetimiPage() {
   const router = useRouter();
   const { t } = useTranslation(['multiUser', 'common']);
-  const { data: users, isLoading: usersLoading } = useIsletmeUsers();
-  const { data: invites, isLoading: invitesLoading } = useIsletmeInvites();
+  const { data: users, isLoading: usersLoading, error: usersError } = useIsletmeUsers();
+  const { data: invites, isLoading: invitesLoading, error: invitesError } = useIsletmeInvites();
   const cancelInvite = useCancelInvite();
   const [editingUser, setEditingUser] = useState<IsletmeUser | null>(null);
 
@@ -78,6 +78,12 @@ export default function KullaniciYonetimiPage() {
             <Card>
               <Text variant="body" color="muted">{t('common:status.loading')}</Text>
             </Card>
+          ) : usersError ? (
+            <Card>
+              <Text variant="body" style={{ color: colors.error }}>
+                {t('common:status.error')}: {(usersError as Error).message}
+              </Text>
+            </Card>
           ) : !users?.length ? (
             <Card>
               <Text variant="body" color="muted">{t('multiUser:users.empty')}</Text>
@@ -121,6 +127,12 @@ export default function KullaniciYonetimiPage() {
           {invitesLoading ? (
             <Card>
               <Text variant="body" color="muted">{t('common:status.loading')}</Text>
+            </Card>
+          ) : invitesError ? (
+            <Card>
+              <Text variant="body" style={{ color: colors.error }}>
+                {t('common:status.error')}: {(invitesError as Error).message}
+              </Text>
             </Card>
           ) : !invites?.length ? (
             <Card>

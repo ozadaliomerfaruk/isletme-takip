@@ -71,7 +71,7 @@ CREATE POLICY "..." ON table FOR ...
 | cekler | ✅ | ❌ | ❌ | ❌ | ✅ Ayrı |
 | nakit_avanslar | ✅ | ❌ | ❌ | ❌ | ✅ Ayrı |
 | ileri_tarihli_islemler | ✅ | ❌ | ❌ | ❌ | ✅ Ayrı |
-| urunler | ✅ | ❌ | ✅ | ❌ | ✅ FOR ALL |
+| urunler | ✅ | ✅ | ✅ | ❌ | ✅ FOR ALL |
 | urun_hareketler | ✅ | ❌ | ❌ | ❌ | ✅ FOR ALL |
 
 ### Mevcut RLS Pattern
@@ -430,6 +430,10 @@ CREATE TRIGGER trg_islem_audit_update
 
 ### Yeni Sayfa: İşlem Geçmişi
 
+> **NOT:** Bu sayfa `formatRelativeTime` yardımcı fonksiyonuna ihtiyaç duyar.
+> Bu fonksiyon `src/lib/date.ts`'e eklenmelidir (mevcut kodda yok).
+> Alternatif olarak `useDateFormat` hook'undaki `formatDateNative` ile tarih gösterilebilir.
+
 ```typescript
 // src/app/ayarlar/islem-gecmisi.tsx
 
@@ -447,7 +451,7 @@ import { Text, Card, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useDeletedIslemler, useEditedIslemler, useRestoreIslem } from '@/hooks/useAuditLog';
+import { useDeletedIslemler, useEditedIslemler, useRecreateIslem } from '@/hooks/useAuditLog';
 import { UserAvatar } from '@/components/UserAvatar';
 
 type Tab = 'deleted' | 'edited';
@@ -522,7 +526,7 @@ export default function IslemGecmisiPage() {
 function DeletedTransactionsList() {
   const { t } = useTranslation('multiUser');
   const { data: islemler, isLoading } = useDeletedIslemler();
-  const restoreIslem = useRestoreIslem();
+  const recreateIslem = useRecreateIslem();
 
   if (isLoading) return <LoadingSpinner />;
 
@@ -547,22 +551,22 @@ function DeletedTransactionsList() {
           </View>
 
           <View style={styles.cardMeta}>
-            <UserAvatar userId={islem.deleted_by} size="sm" />
+            <UserAvatar userId={islem.performed_by} size="sm" />
             <Text variant="caption" color="muted">
-              {t('auditLog.deletedBy', { name: islem.deleter?.display_name })}
+              {t('auditLog.deletedBy', { name: islem.performer?.display_name })}
             </Text>
             <Text variant="caption" color="muted">
-              {formatRelativeTime(islem.deleted_at)}
+              {formatRelativeTime(islem.created_at)}
             </Text>
           </View>
 
           <Button
             variant="outline"
             size="sm"
-            onPress={() => restoreIslem.mutate(islem.id)}
-            loading={restoreIslem.isPending}
+            onPress={() => recreateIslem.mutate(islem.id)}
+            loading={recreateIslem.isPending}
           >
-            {t('auditLog.restore')}
+            {t('auditLog.recreate')}
           </Button>
         </Card>
       ))}
@@ -798,6 +802,7 @@ export const queryKeys = {
     "recreate": "Yeniden Oluştur",
     "recreateConfirm": "Bu işlemi yeniden oluşturmak istediğinize emin misiniz?",
     "recreateSuccess": "İşlem yeniden oluşturuldu",
+    "autoDeleteWarning": "Silinen işlemler 30 gün sonra kalıcı olarak silinir",
     "empty": {
       "deleted": "Silinen işlem yok",
       "edited": "Düzenlenen işlem yok"
@@ -822,6 +827,7 @@ export const queryKeys = {
     "recreate": "Recreate",
     "recreateConfirm": "Are you sure you want to recreate this transaction?",
     "recreateSuccess": "Transaction recreated",
+    "autoDeleteWarning": "Deleted transactions are permanently removed after 30 days",
     "empty": {
       "deleted": "No deleted transactions",
       "edited": "No edited transactions"
@@ -2775,8 +2781,16 @@ const styles = StyleSheet.create({
 
 ### UserAvatar (İşlem sahibi)
 
+> **NOT:** Mevcut `Avatar` bileşenini (`src/components/ui/Avatar.tsx`) sarmalayarak kullanır.
+> Projede Tooltip bileşeni yok, icon kütüphanesi `lucide-react-native`.
+
 ```typescript
 // src/components/UserAvatar.tsx
+
+import { View, StyleSheet } from 'react-native';
+import { Pencil } from 'lucide-react-native';
+import { Avatar } from '@/components/ui';
+import { useProfile } from '@/hooks/useMultiUser';
 
 interface UserAvatarProps {
   userId: string | null;
@@ -2784,27 +2798,25 @@ interface UserAvatarProps {
   size?: 'sm' | 'md';
 }
 
+const avatarSizeMap = { sm: 32, md: 40 } as const;
+
 export function UserAvatar({ userId, updatedBy, size = 'sm' }: UserAvatarProps) {
   const { data: profile } = useProfile(userId);
   const wasEdited = updatedBy && updatedBy !== userId;
 
   if (!userId) return null;
 
-  const initials = profile?.display_name
-    ? profile.display_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
-    : profile?.email?.charAt(0).toUpperCase() ?? '?';
+  const displayName = profile?.display_name ?? profile?.email ?? '?';
 
   return (
-    <Tooltip content={`${profile?.display_name ?? profile?.email ?? 'Bilinmiyor'}${wasEdited ? ' (düzenlendi)' : ''}`}>
-      <View style={[styles.avatar, styles[size]]}>
-        <Text style={styles.initials}>{initials}</Text>
-        {wasEdited && (
-          <View style={styles.editBadge}>
-            <Ionicons name="pencil" size={8} color="#fff" />
-          </View>
-        )}
-      </View>
-    </Tooltip>
+    <View style={styles.container}>
+      <Avatar name={displayName} size={avatarSizeMap[size]} />
+      {wasEdited && (
+        <View style={styles.editBadge}>
+          <Pencil size={8} color="#fff" />
+        </View>
+      )}
+    </View>
   );
 }
 ```
@@ -2960,17 +2972,23 @@ export const queryKeys = {
 } as const;
 
 // invalidationMap - EKLENTİ
-const invalidationMap = {
+// NOT: Mevcut invalidationMap formatı InvalidationConfig kullanır:
+//   { immediate: readonly string[], deferred: readonly string[] }
+const invalidationMap: Record<string, InvalidationConfig> = {
   // ... mevcut entries ...
 
   // İşletme kullanıcı değişikliği
-  isletmeUser: [
-    'isletme-users',
-    'isletme-invites',
-    'shared-isletmeler',
-    'profile',
-  ],
-} as const;
+  isletmeUser: {
+    immediate: [
+      'isletme-users',
+      'isletme-invites',
+      'shared-isletmeler',
+    ],
+    deferred: [
+      'profile',
+    ],
+  },
+};
 
 // createInvalidators - EKLENTİ
 export const createInvalidators = (queryClient: QueryClient) => ({
@@ -2988,6 +3006,38 @@ export const createInvalidators = (queryClient: QueryClient) => ({
 ## i18n Dosyaları (JSON Format)
 
 > **ÖNEMLİ:** Proje `src/i18n/locales/` yapısı kullanıyor (constants/strings DEĞİL). Her dil için ayrı JSON dosyası oluşturulacak.
+
+### `src/i18n/index.ts` Güncellemesi (ZORUNLU)
+
+Yeni `multiUser` namespace'i i18n sistemine kayıt edilmelidir:
+
+```typescript
+// src/i18n/index.ts - EKLENTİLER
+
+// Import Turkish locales - EKLE:
+import trMultiUser from './locales/tr/multiUser.json';
+
+// Import English locales - EKLE:
+import enMultiUser from './locales/en/multiUser.json';
+
+// Resource bundle - EKLE:
+export const resources = {
+  tr: {
+    // ... mevcut namespaces ...
+    multiUser: trMultiUser,
+  },
+  en: {
+    // ... mevcut namespaces ...
+    multiUser: enMultiUser,
+  },
+} as const;
+
+// Namespace list - EKLE:
+export const namespaces = [
+  // ... mevcut namespaces ...
+  'multiUser',
+] as const;
+```
 
 ### 1. Türkçe Çeviri: `src/i18n/locales/tr/multiUser.json`
 
@@ -3249,7 +3299,7 @@ function MyComponent() {
 ```typescript
 // src/app/(tabs)/daha.tsx - DEĞİŞİKLİKLER
 
-import { Users, Building2, UserPlus } from 'lucide-react-native';
+import { Users, Building2, UserPlus, History } from 'lucide-react-native';
 
 // Yeni state (paylaşılan işletme sayısı için badge)
 const { sharedIsletmeler, isOwner } = useAuthContext();

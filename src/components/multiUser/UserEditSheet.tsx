@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Shield, UserX, Pause, Play } from 'lucide-react-native';
 import { Text, Button, Avatar } from '@/components/ui';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { RoleSelector } from './RoleSelector';
 import { PermissionEditor } from './PermissionEditor';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
 import { useTranslation } from 'react-i18next';
 import { useUpdateIsletmeUser, useUpdateUserStatus } from '@/hooks/useMultiUser';
 import type { IsletmeUser, UserRole, Permissions } from '@/types/multiUser';
@@ -41,6 +42,12 @@ const EMPTY_PERMISSIONS: Permissions = {
   },
 };
 
+const STATUS_CONFIG = {
+  active: { color: colors.success, bg: colors.successLight },
+  suspended: { color: colors.warning, bg: colors.warningLight },
+  removed: { color: colors.error, bg: colors.errorLight },
+} as const;
+
 export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
   const { t } = useTranslation(['multiUser', 'common']);
   const updateUser = useUpdateIsletmeUser();
@@ -72,7 +79,7 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
         userId: user.user_id,
         isletmeId: user.isletme_id,
         role,
-        permissions: role === 'custom' ? permissions : undefined,
+        permissions,
       });
       onClose();
     } catch (error: any) {
@@ -113,6 +120,7 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
   };
 
   const displayName = user.profile?.display_name ?? user.profile?.email ?? '?';
+  const statusConfig = STATUS_CONFIG[user.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.active;
 
   return (
     <BottomSheet visible={visible} onDismiss={onClose} snapPoints={[0.85]}>
@@ -125,21 +133,29 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
         <View style={styles.profileSection}>
           <Avatar name={displayName} size={48} />
           <View style={styles.profileInfo}>
-            <Text variant="h3" numberOfLines={1}>{displayName}</Text>
+            <Text style={styles.profileName} numberOfLines={1}>{displayName}</Text>
             {user.profile?.email && (
-              <Text variant="caption" color="muted">{user.profile.email}</Text>
+              <Text variant="caption" color="muted" style={styles.profileEmail}>
+                {user.profile.email}
+              </Text>
             )}
-            <Text variant="caption" color="muted">
-              {t(`multiUser:status.${user.status}`)}
-            </Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
+              <View style={[styles.statusDot, { backgroundColor: statusConfig.color }]} />
+              <Text style={[styles.statusText, { color: statusConfig.color }]}>
+                {t(`multiUser:status.${user.status}`)}
+              </Text>
+            </View>
           </View>
         </View>
 
         {/* Rol Seçimi */}
         <View style={styles.section}>
-          <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            {t('multiUser:invites.selectRole')}
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Shield size={16} color={colors.textMuted} />
+            <Text style={styles.sectionTitle}>
+              {t('multiUser:invites.selectRole')}
+            </Text>
+          </View>
           <RoleSelector value={role} onChange={handleRoleChange} />
         </View>
 
@@ -150,8 +166,8 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
           </View>
         )}
 
-        {/* Aksiyon Butonları */}
-        <View style={styles.section}>
+        {/* Kaydet */}
+        <View style={styles.saveSection}>
           <Button
             onPress={handleSave}
             loading={updateUser.isPending}
@@ -161,25 +177,43 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
           </Button>
         </View>
 
-        <View style={styles.section}>
-          <Button
-            onPress={handleToggleStatus}
-            loading={updateStatus.isPending}
-            variant="secondary"
-          >
-            {user.status === 'active'
-              ? t('multiUser:users.suspendUser')
-              : t('multiUser:users.activateUser')}
-          </Button>
-        </View>
-
-        <View style={[styles.section, { marginBottom: spacing['3xl'] }]}>
-          <Button
-            onPress={handleRemove}
-            variant="danger"
-          >
-            {t('multiUser:users.removeUser')}
-          </Button>
+        {/* Yönetim Aksiyonları */}
+        <View style={styles.managementSection}>
+          <View style={styles.managementRow}>
+            <Button
+              onPress={handleToggleStatus}
+              loading={updateStatus.isPending}
+              variant="ghost"
+            >
+              <View style={styles.managementButtonContent}>
+                {user.status === 'active'
+                  ? <Pause size={16} color={colors.warning} />
+                  : <Play size={16} color={colors.success} />
+                }
+                <Text style={[styles.managementButtonText, {
+                  color: user.status === 'active' ? colors.warning : colors.success,
+                }]}>
+                  {user.status === 'active'
+                    ? t('multiUser:users.suspendUser')
+                    : t('multiUser:users.activateUser')}
+                </Text>
+              </View>
+            </Button>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.managementRow}>
+            <Button
+              onPress={handleRemove}
+              variant="ghost"
+            >
+              <View style={styles.managementButtonContent}>
+                <UserX size={16} color={colors.error} />
+                <Text style={[styles.managementButtonText, { color: colors.error }]}>
+                  {t('multiUser:users.removeUser')}
+                </Text>
+              </View>
+            </Button>
+          </View>
         </View>
       </ScrollView>
     </BottomSheet>
@@ -197,21 +231,86 @@ const styles = StyleSheet.create({
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderLight,
-    marginBottom: spacing.lg,
+    gap: spacing.lg,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.md,
   },
   profileInfo: {
     flex: 1,
-    gap: 2,
+    gap: 4,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+  },
+  profileEmail: {
+    marginTop: 1,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    marginTop: 4,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: fontWeight.semibold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   section: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
-  sectionTitle: {
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: fontWeight.semibold,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  saveSection: {
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
+  },
+  managementSection: {
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    marginBottom: spacing['3xl'],
+  },
+  managementRow: {
+    paddingHorizontal: spacing.xs,
+  },
+  managementButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  managementButtonText: {
+    fontSize: 15,
+    fontWeight: fontWeight.medium,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colors.borderLight,
+    marginHorizontal: spacing.lg,
   },
 });
