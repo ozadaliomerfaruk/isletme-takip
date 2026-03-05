@@ -20,13 +20,13 @@ interface DashboardCarouselProps {
   // IncomeExpenseCard
   income: number;
   expense: number;
+  onIncomeExpensePress?: () => void;
   // CashFlowCard
   totalInflow: number;
   totalOutflow: number;
   netCashFlow: number;
+  onCashFlowPress?: () => void;
   // Shared
-  startDate?: string;
-  endDate?: string;
   periodBadge?: string;
 }
 
@@ -40,11 +40,11 @@ export function DashboardCarousel({
   onHeroPress,
   income,
   expense,
+  onIncomeExpensePress,
   totalInflow,
   totalOutflow,
   netCashFlow,
-  startDate,
-  endDate,
+  onCashFlowPress,
   periodBadge,
 }: DashboardCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -75,9 +75,8 @@ export function DashboardCarousel({
           <IncomeExpenseCard
             income={income}
             expense={expense}
-            startDate={startDate}
-            endDate={endDate}
             periodBadge={periodBadge}
+            onPress={onIncomeExpensePress}
           />
         )}
         {index === 2 && (
@@ -85,14 +84,13 @@ export function DashboardCarousel({
             totalInflow={totalInflow}
             totalOutflow={totalOutflow}
             netCashFlow={netCashFlow}
-            startDate={startDate}
-            endDate={endDate}
             periodBadge={periodBadge}
+            onPress={onCashFlowPress}
           />
         )}
       </View>
     );
-  }, [generalStatus, assets, receivables, payables, onHeroPress, income, expense, totalInflow, totalOutflow, netCashFlow, startDate, endDate, periodBadge]);
+  }, [generalStatus, assets, receivables, payables, onHeroPress, income, expense, onIncomeExpensePress, totalInflow, totalOutflow, netCashFlow, onCashFlowPress, periodBadge]);
 
   const data = useRef(Array.from({ length: CARD_COUNT }, (_, i) => i)).current;
 

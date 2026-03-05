@@ -97,9 +97,9 @@ export function BottomSheet({
       Animated.spring(translateY, {
         toValue,
         velocity: velocity * -1,
-        damping: 20,
-        stiffness: 300,
-        mass: 1,
+        damping: 36,
+        stiffness: 340,
+        mass: 0.8,
         useNativeDriver: true,
       }).start();
 
@@ -111,7 +111,7 @@ export function BottomSheet({
 
   // Animate backdrop
   const animateBackdrop = useCallback(
-    (toValue: number, duration = 200) => {
+    (toValue: number, duration = 280) => {
       Animated.timing(backdropOpacity, {
         toValue,
         duration,
@@ -126,13 +126,14 @@ export function BottomSheet({
     Keyboard.dismiss();
     Animated.spring(translateY, {
       toValue: SCREEN_HEIGHT,
-      damping: 20,
+      damping: 32,
       stiffness: 300,
+      mass: 0.8,
       useNativeDriver: true,
     }).start(() => {
       onDismissRef.current();
     });
-    animateBackdrop(0);
+    animateBackdrop(0, 220);
   }, [translateY, animateBackdrop]);
 
   // Store close in ref for PanResponder

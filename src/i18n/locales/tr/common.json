@@ -309,7 +309,13 @@
     "category": "Kategori",
     "creditCardSpending": "Kredi Kartı Harcamaları",
     "creditCardSpendingCount": "KREDİ KARTI HARCAMALARI ({{count}} KATEGORİ)",
-    "totalCreditCardSpending": "Toplam Kredi Kartı Harcaması"
+    "totalCreditCardSpending": "Toplam Kredi Kartı Harcaması",
+    "profit": "Kâr",
+    "profitLoss": "Kâr/Zarar",
+    "profitDescription": "Tüm gelir ve giderleriniz arasındaki farkı gösterir.",
+    "cashFlowDescription": "Nakit hesaplarınıza giren ve çıkan para akışını gösterir. Kredi kartı hariçtir.",
+    "received": "Alınan",
+    "paid": "Ödenen"
   },
   "passiveMode": {
     "title": "Pasif Mod",

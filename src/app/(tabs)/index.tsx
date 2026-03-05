@@ -1,14 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Pressable, Platform, RefreshControl, Animated } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Pressable, Animated, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Wallet,
   Plus,
   AlertTriangle,
-  X,
   Banknote,
   Building2,
   CreditCard,
@@ -33,17 +31,16 @@ import { CreditCardTransactionBar } from '@/components/transaction/CreditCardTra
 import { DailyCashModal } from '@/components/transaction/DailyCashModal';
 import { CariPickerSheet } from '@/components/transaction/QuickTransactionBar/components';
 import type { Hesap, CariType } from '@/types/database';
-import { DashboardCarousel, InlinePeriodSelector } from '@/components/dashboard';
+import { DashboardCarousel, FinancialDetailModal } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { formatDateForDB } from '@/lib/date';
 import { getHesapIcon } from '@/lib/icons';
 import { useHesaplar, useDeleteHesap } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { useArchiveHesap } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
-import { useMonthSummary, PeriodType } from '@/hooks/useIslemler';
+import { useMonthSummary } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSettings } from '@/hooks/useSettings';
@@ -55,13 +52,11 @@ export default function HomePage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff']);
-  const { getDateRangeLabel, locale, formatDateNative } = useDateFormat();
+  const { getDateRangeLabel } = useDateFormat();
 
-  const [period, setPeriod] = useState<PeriodType>('monthly');
-  const [periodOffset, setPeriodOffset] = useState(0);
   const [isCancelling, setIsCancelling] = useState(false);
   const [dailyCashModalVisible, setDailyCashModalVisible] = useState(false);
-
+  const [financialModalVisible, setFinancialModalVisible] = useState(false);
 
   // CreditCardTransactionBar state
   const [creditCardForTransaction, setCreditCardForTransaction] = useState<Hesap | null>(null);
@@ -69,18 +64,6 @@ export default function HomePage() {
   // Hesap QuickTransactionBar state
   const [hesapQuickBarVisible, setHesapQuickBarVisible] = useState(false);
   const [selectedHesapId, setSelectedHesapId] = useState<string | null>(null);
-
-  // Özel tarih aralığı için state'ler
-  const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
-  const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
-
-  // Hızlı dönem seçimi için state'ler
-  const [showYearPicker, setShowYearPicker] = useState(false);
-  const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
-  const [showDayPicker, setShowDayPicker] = useState(false);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // ExpandableCard için state
   const [expandedHesapId, setExpandedHesapId] = useState<string | null>(null);
@@ -186,14 +169,10 @@ export default function HomePage() {
   };
 
   const { accounts, payables, receivables, generalStatus } = useFinancialSummary();
-  const customRange = period === 'custom' ? {
-    startDate: formatDateForDB(customStartDate),
-    endDate: formatDateForDB(customEndDate),
-  } : undefined;
-  const { data: monthSummary, refetch: refetchSummary } = useMonthSummary(period, periodOffset, customRange);
 
-  // Nakit akışı için tarih aralığını hesapla (i18n periodLabel buradan gelir)
-  const { startDate: periodStartDate, endDate: periodEndDate, label: periodLabel } = getDateRangeLabel(period, periodOffset, customRange);
+  // Sabit olarak bulunduğumuz ay (monthly, offset=0)
+  const { startDate: currentMonthStart, endDate: currentMonthEnd, label: currentMonthLabel } = getDateRangeLabel('monthly', 0);
+  const { data: monthSummary, refetch: refetchSummary } = useMonthSummary('monthly', 0);
 
   // Nakit akışı hook'u
   const {
@@ -202,8 +181,8 @@ export default function HomePage() {
     netCashFlow,
     refetch: refetchCashFlow,
   } = useCashFlowByCategory({
-    startDate: periodStartDate,
-    endDate: periodEndDate,
+    startDate: currentMonthStart,
+    endDate: currentMonthEnd,
   });
 
   // Pull-to-refresh (manuel state — arka plan refetch'te spinner gösterme)
@@ -250,72 +229,6 @@ export default function HomePage() {
         },
       ]
     );
-  };
-
-  // Hızlı dönem seçimi için fonksiyonlar
-  const handlePeriodLabelPress = () => {
-    switch (period) {
-      case 'yearly':
-        setShowYearPicker(true);
-        break;
-      case 'monthly': {
-        const now = new Date();
-        const targetDate = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
-        setSelectedYear(targetDate.getFullYear());
-        setShowMonthYearPicker(true);
-        break;
-      }
-      case 'weekly': {
-        const now = new Date();
-        // Haftalık offset: her offset = 7 gün
-        const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + periodOffset * 7);
-        setSelectedYear(targetDate.getFullYear());
-        setShowMonthYearPicker(true);
-        break;
-      }
-      case 'daily':
-        setShowDayPicker(true);
-        break;
-    }
-  };
-
-  // Yıl seçildiğinde offset hesapla
-  const goToYear = (year: number) => {
-    const currentYear = new Date().getFullYear();
-    setPeriodOffset(year - currentYear);
-    setShowYearPicker(false);
-  };
-
-  // Ay seçildiğinde offset hesapla
-  const goToMonth = (year: number, month: number) => {
-    const now = new Date();
-    const monthsDiff = (year - now.getFullYear()) * 12 + (month - now.getMonth());
-    setPeriodOffset(monthsDiff);
-    setShowMonthYearPicker(false);
-  };
-
-  // Gün seçildiğinde offset hesapla
-  const goToDay = (date: Date) => {
-    const now = new Date();
-    // Sadece gün farkını hesapla (saat farkını yoksay)
-    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dateMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const daysDiff = Math.round((dateMidnight.getTime() - nowMidnight.getTime()) / (1000 * 60 * 60 * 24));
-    setPeriodOffset(daysDiff);
-    setShowDayPicker(false);
-  };
-
-  // Haftalık mod için - ayın ilk haftasına git
-  const goToWeekOfMonth = (year: number, month: number) => {
-    const now = new Date();
-    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    // Seçilen ayın ilk günü
-    const firstDayOfMonth = new Date(year, month, 1);
-    // Haftalık offset hesapla
-    const daysDiff = Math.round((firstDayOfMonth.getTime() - nowMidnight.getTime()) / (1000 * 60 * 60 * 24));
-    const weeksDiff = Math.floor(daysDiff / 7);
-    setPeriodOffset(weeksDiff);
-    setShowMonthYearPicker(false);
   };
 
   // Action sheet handlers for hesaplar
@@ -488,142 +401,13 @@ export default function HomePage() {
           onHeroPress={() => router.push('/raporlar')}
           income={totalIncome}
           expense={totalExpense}
+          onIncomeExpensePress={() => setFinancialModalVisible(true)}
           totalInflow={totalInflow}
           totalOutflow={totalOutflow}
           netCashFlow={netCashFlow}
-          startDate={periodStartDate}
-          endDate={periodEndDate}
-          periodBadge={periodLabel}
+          onCashFlowPress={() => setFinancialModalVisible(true)}
+          periodBadge={currentMonthLabel}
         />
-
-        {/* Inline Period Selector */}
-        <InlinePeriodSelector
-          period={period}
-          periodLabel={periodLabel}
-          onPeriodChange={(p) => {
-            setPeriod(p);
-            setPeriodOffset(0);
-          }}
-          onPrevious={() => setPeriodOffset(periodOffset - 1)}
-          onNext={() => setPeriodOffset(periodOffset + 1)}
-          onLabelPress={handlePeriodLabelPress}
-          isCustom={period === 'custom'}
-          customStartLabel={formatDateNative(customStartDate)}
-          customEndLabel={formatDateNative(customEndDate)}
-          onStartDatePress={() => setShowStartPicker(true)}
-          onEndDatePress={() => setShowEndPicker(true)}
-        />
-
-        {/* iOS için DateTimePicker Modal (Özel tarih seçimi için) */}
-        {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (
-          <Modal
-            visible={showStartPicker || showEndPicker}
-            transparent
-            animationType="slide"
-          >
-            <Pressable
-              style={styles.datePickerModalOverlay}
-              onPress={() => {
-                setShowStartPicker(false);
-                setShowEndPicker(false);
-              }}
-            >
-              <Pressable style={styles.datePickerModalContent} onPress={(e) => e.stopPropagation()}>
-                <View style={styles.datePickerModalHeader}>
-                  <Text variant="h3">
-                    {showStartPicker ? t('reports:period.startDateTitle') : t('reports:period.endDateTitle')}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setShowStartPicker(false);
-                      setShowEndPicker(false);
-                    }}
-                  >
-                    <X size={24} color={colors.text} />
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.datePickerWrapper}>
-                  <DateTimePicker
-                    value={showStartPicker ? customStartDate : customEndDate}
-                    mode="date"
-                    display="inline"
-                    onChange={(event, date) => {
-                      if (date) {
-                        if (showStartPicker) {
-                          setCustomStartDate(date);
-                          if (date > customEndDate) {
-                            setCustomEndDate(date);
-                          }
-                        } else {
-                          // Bitiş tarihi başlangıçtan önce olamaz
-                          if (date < customStartDate) {
-                            setCustomEndDate(customStartDate);
-                          } else {
-                            setCustomEndDate(date);
-                          }
-                        }
-                      }
-                    }}
-                    minimumDate={showEndPicker ? customStartDate : undefined}
-                    maximumDate={new Date()}
-                    locale={locale}
-                    themeVariant="light"
-                    accentColor={colors.primary}
-                    style={{ height: 350 }}
-                  />
-                </View>
-                <Button
-                  variant="primary"
-                  onPress={() => {
-                    if (showStartPicker) {
-                      setShowStartPicker(false);
-                      setShowEndPicker(true);
-                    } else {
-                      setShowEndPicker(false);
-                    }
-                  }}
-                  style={{ marginTop: spacing.md }}
-                >
-                  {showStartPicker ? t('common:buttons.next') : t('common:buttons.ok')}
-                </Button>
-              </Pressable>
-            </Pressable>
-          </Modal>
-        )}
-        {/* Android için DateTimePicker */}
-        {Platform.OS === 'android' && showStartPicker && (
-          <DateTimePicker
-            value={customStartDate}
-            mode="date"
-            display="default"
-            onChange={(event, date) => {
-              setShowStartPicker(false);
-              if (event.type === 'set' && date) {
-                setCustomStartDate(date);
-                if (date > customEndDate) {
-                  setCustomEndDate(date);
-                }
-                setShowEndPicker(true);
-              }
-            }}
-            maximumDate={new Date()}
-          />
-        )}
-        {Platform.OS === 'android' && showEndPicker && (
-          <DateTimePicker
-            value={customEndDate}
-            mode="date"
-            display="default"
-            onChange={(event, date) => {
-              setShowEndPicker(false);
-              if (event.type === 'set' && date) {
-                setCustomEndDate(date);
-              }
-            }}
-            minimumDate={customStartDate}
-            maximumDate={new Date()}
-          />
-        )}
 
         {/* Hesaplar Bölümü */}
         <View style={styles.section}>
@@ -911,169 +695,11 @@ export default function HomePage() {
         onSuccess={() => setSelectedCariForQuickBar(null)}
       />
 
-      {/* Yıl Picker Modal */}
-      <Modal
-        visible={showYearPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowYearPicker(false)}
-      >
-        <Pressable
-          style={styles.pickerModalOverlay}
-          onPress={() => setShowYearPicker(false)}
-        >
-          <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.pickerModalHeader}>
-              <Text variant="h3">{t('reports:period.selectYear')}</Text>
-              <TouchableOpacity onPress={() => setShowYearPicker(false)}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.yearGrid}>
-              {Array.from({ length: 12 }, (_, i) => 2020 + i).map((year) => {
-                const isSelected = year === new Date().getFullYear() + periodOffset;
-                return (
-                  <TouchableOpacity
-                    key={year}
-                    style={[styles.yearGridCell, isSelected && styles.yearGridCellActive]}
-                    onPress={() => goToYear(year)}
-                  >
-                    <Text
-                      variant="body"
-                      style={isSelected ? styles.yearGridTextActive : undefined}
-                    >
-                      {year}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Ay + Yıl Picker Modal */}
-      <Modal
-        visible={showMonthYearPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowMonthYearPicker(false)}
-      >
-        <Pressable
-          style={styles.pickerModalOverlay}
-          onPress={() => setShowMonthYearPicker(false)}
-        >
-          <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.pickerModalHeader}>
-              <Text variant="h3">{t('reports:period.selectMonthYear')}</Text>
-              <TouchableOpacity onPress={() => setShowMonthYearPicker(false)}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Yıl seçici */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.yearScrollView}
-              contentContainerStyle={styles.yearScrollContent}
-            >
-              {Array.from({ length: 12 }, (_, i) => 2020 + i).map((year) => (
-                <TouchableOpacity
-                  key={year}
-                  style={[
-                    styles.yearChip,
-                    selectedYear === year && styles.yearChipActive,
-                  ]}
-                  onPress={() => setSelectedYear(year)}
-                >
-                  <Text
-                    variant="body"
-                    style={selectedYear === year ? styles.yearChipTextActive : styles.yearChipText}
-                  >
-                    {year}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Ay grid */}
-            <View style={styles.monthGrid}>
-              {((() => { const m = t('common:date.monthsShort', { returnObjects: true }); return Array.isArray(m) ? m : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; })() as string[]).map((monthName, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.monthCell}
-                  onPress={() => {
-                    if (period === 'weekly') {
-                      goToWeekOfMonth(selectedYear, index);
-                    } else {
-                      goToMonth(selectedYear, index);
-                    }
-                  }}
-                >
-                  <Text variant="body">{monthName}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Günlük DatePicker Modal (iOS) */}
-      {Platform.OS === 'ios' && showDayPicker && (
-        <Modal
-          visible={showDayPicker}
-          transparent
-          animationType="slide"
-        >
-          <Pressable
-            style={styles.datePickerModalOverlay}
-            onPress={() => setShowDayPicker(false)}
-          >
-            <Pressable style={styles.datePickerModalContent} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.datePickerModalHeader}>
-                <Text variant="h3">{t('reports:period.selectDate')}</Text>
-                <TouchableOpacity onPress={() => setShowDayPicker(false)}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.datePickerWrapper}>
-                <DateTimePicker
-                  value={new Date()}
-                  mode="date"
-                  display="inline"
-                  onChange={(event, date) => {
-                    if (date) {
-                      goToDay(date);
-                    }
-                  }}
-                  maximumDate={new Date()}
-                  locale={locale}
-                  themeVariant="light"
-                  accentColor={colors.primary}
-                  style={{ height: 350 }}
-                />
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
-
-      {/* Günlük DatePicker (Android) */}
-      {Platform.OS === 'android' && showDayPicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowDayPicker(false);
-            if (event.type === 'set' && date) {
-              goToDay(date);
-            }
-          }}
-          maximumDate={new Date()}
-        />
-      )}
+      {/* Financial Detail Modal */}
+      <FinancialDetailModal
+        visible={financialModalVisible}
+        onDismiss={() => setFinancialModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -1118,29 +744,6 @@ const styles = StyleSheet.create({
   },
   cancelDeletionBtn: {
     alignSelf: 'flex-start',
-  },
-  datePickerModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  datePickerModalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
-    padding: spacing.lg,
-    paddingBottom: spacing['2xl'],
-  },
-  datePickerModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  datePickerWrapper: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
   },
   section: {
     paddingHorizontal: spacing.lg,
@@ -1205,86 +808,6 @@ const styles = StyleSheet.create({
   },
   moreButton: {
     padding: spacing.xs,
-  },
-  pickerModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  pickerModalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
-    padding: spacing.lg,
-    paddingBottom: spacing['2xl'],
-  },
-  pickerModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  yearScrollView: {
-    marginBottom: spacing.lg,
-  },
-  yearScrollContent: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  yearChip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  yearChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  yearChipText: {
-    color: colors.text,
-  },
-  yearChipTextActive: {
-    color: colors.surface,
-    fontWeight: '600',
-  },
-  yearGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  yearGridCell: {
-    width: '23%',
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  yearGridCellActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  yearGridTextActive: {
-    color: colors.surface,
-    fontWeight: '600',
-  },
-  monthGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  monthCell: {
-    width: '31%',
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   fab: {
     position: 'absolute',

@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text, AnimatedNumber } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -12,21 +11,18 @@ interface CashFlowCardProps {
   totalInflow: number;
   totalOutflow: number;
   netCashFlow: number;
-  startDate?: string;
-  endDate?: string;
   periodBadge?: string;
+  onPress?: () => void;
 }
 
 export function CashFlowCard({
   totalInflow,
   totalOutflow,
   netCashFlow,
-  startDate,
-  endDate,
   periodBadge,
+  onPress,
 }: CashFlowCardProps) {
   const { t } = useTranslation(['common']);
-  const router = useRouter();
 
   const currencyConfig = useMemo(() => {
     const config = getCurrentCurrency();
@@ -45,10 +41,7 @@ export function CashFlowCard({
     <TouchableOpacity
       style={styles.card}
       activeOpacity={0.8}
-      onPress={() => router.push({
-        pathname: '/nakit-akisi',
-        params: startDate && endDate ? { startDate, endDate } : undefined,
-      })}
+      onPress={onPress}
     >
       {/* Header */}
       <View style={styles.header}>

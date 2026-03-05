@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text, AnimatedNumber } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -11,20 +10,17 @@ import { getCurrentCurrency } from '@/hooks/useSettings';
 interface IncomeExpenseCardProps {
   income: number;
   expense: number;
-  startDate?: string;
-  endDate?: string;
   periodBadge?: string;
+  onPress?: () => void;
 }
 
 export function IncomeExpenseCard({
   income,
   expense,
-  startDate,
-  endDate,
   periodBadge,
+  onPress,
 }: IncomeExpenseCardProps) {
   const { t } = useTranslation(['common']);
-  const router = useRouter();
 
   const currencyConfig = useMemo(() => {
     const config = getCurrentCurrency();
@@ -44,10 +40,7 @@ export function IncomeExpenseCard({
     <TouchableOpacity
       style={styles.card}
       activeOpacity={0.8}
-      onPress={() => router.push({
-        pathname: '/raporlar',
-        params: startDate && endDate ? { startDate, endDate } : undefined,
-      })}
+      onPress={onPress}
     >
       {/* Header */}
       <View style={styles.header}>

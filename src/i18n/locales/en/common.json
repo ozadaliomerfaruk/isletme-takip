@@ -290,7 +290,13 @@
     "category": "Category",
     "creditCardSpending": "Credit Card Spending",
     "creditCardSpendingCount": "CREDIT CARD SPENDING ({{count}} CATEGORIES)",
-    "totalCreditCardSpending": "Total Credit Card Spending"
+    "totalCreditCardSpending": "Total Credit Card Spending",
+    "profit": "Profit",
+    "profitLoss": "Profit/Loss",
+    "profitDescription": "Shows the difference between all your income and expenses.",
+    "cashFlowDescription": "Shows the cash flow in and out of your cash accounts. Credit card excluded.",
+    "received": "Received",
+    "paid": "Paid"
   },
   "passiveMode": {
     "title": "Passive Mode",
