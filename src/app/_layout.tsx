@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { Stack, useRouter, useSegments, Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { View, ActivityIndicator, StyleSheet, Platform } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { queryClient } from '@/lib/queryClient';
@@ -35,7 +35,30 @@ function RootLayoutNav() {
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);
-  const sessionTracked = useRef(false);
+
+  // Session tracking: Türkiye saatine göre günde 1 kez kayıt
+  const SESSION_DATE_KEY = '@defter_last_session_date';
+
+  const trackSession = useCallback(async (userId: string) => {
+    try {
+      // Türkiye saatine göre bugünün tarihini al
+      const todayTR = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Istanbul' }); // "2026-03-05"
+      const lastDate = await AsyncStorage.getItem(SESSION_DATE_KEY);
+      if (lastDate === todayTR) return; // Bugün zaten kaydedildi
+
+      const { error } = await supabase
+        .from('app_sessions')
+        .insert({ user_id: userId, platform: Platform.OS });
+
+      if (error) {
+        if (__DEV__) console.warn('Session tracking:', error.message);
+        return;
+      }
+      await AsyncStorage.setItem(SESSION_DATE_KEY, todayTR);
+    } catch (e) {
+      if (__DEV__) console.warn('Session tracking error:', e);
+    }
+  }, []);
 
   // Onboarding durumunu kontrol et ve dil tercihini yükle
   useEffect(() => {
@@ -70,18 +93,22 @@ function RootLayoutNav() {
     setupPushNotifications();
   }, [user]);
 
-  // Session tracking (DAU)
+  // Session tracking: cold start + her foreground'da kontrol
   useEffect(() => {
-    if (!user || sessionTracked.current) return;
-    sessionTracked.current = true;
+    if (!user) return;
 
-    supabase
-      .from('app_sessions')
-      .insert({ user_id: user.id, platform: Platform.OS })
-      .then(({ error }) => {
-        if (error && __DEV__) console.warn('Session tracking:', error.message);
-      });
-  }, [user]);
+    // Cold start
+    trackSession(user.id);
+
+    // Background → foreground (arka plandan geri gelince)
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        trackSession(user.id);
+      }
+    });
+
+    return () => sub.remove();
+  }, [user, trackSession]);
 
   // Bildirim dinleyicileri
   useEffect(() => {
