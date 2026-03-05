@@ -228,6 +228,12 @@ export function useTransactionSubmit({
     if (txnType === 'alis_iade') return 'cikis';
     // satis_iade: Müşteriden mal iade alındı → Ürün Girişi
     if (txnType === 'satis_iade') return 'giris';
+    // gelir: Gelir işleminde ürün eklenmişse → Ürün Girişi
+    if (txnType === 'gelir') return 'giris';
+    // gider: Gider işleminde ürün eklenmişse → Ürün Çıkışı
+    if (txnType === 'gider') return 'cikis';
+    // kredi_karti_gider: Kredi kartı gideri → Ürün Çıkışı
+    if (txnType === 'kredi_karti_gider') return 'cikis';
     return null;
   }, []);
 
@@ -670,7 +676,7 @@ export function useTransactionSubmit({
             }
           }
 
-          // Create urun movements if urunItems present (for alis/satis/iade)
+          // Create urun movements if urunItems present (for alis/satis/iade/gelir/gider/kredi_karti_gider)
           if (urunItems.length > 0 && newIslem?.id) {
             try {
               await createUrunHareketler(type, description.trim(), newIslem.id);

@@ -412,8 +412,8 @@ export function QuickTransactionBar({
   };
   const categoryType = modals.selectedCategoryType || getCategoryType();
 
-  // Urun button visibility - only show for alis/satis/iade types AND if user has products
-  const urunTransactionTypes: TransactionType[] = ['alis', 'satis', 'alis_iade', 'satis_iade'];
+  // Urun button visibility - show for alis/satis/iade, gelir/gider, and kredi_karti_gider types if user has products
+  const urunTransactionTypes: TransactionType[] = ['alis', 'satis', 'alis_iade', 'satis_iade', 'gelir', 'gider', 'kredi_karti_gider'];
   const showUrunButton = entities.hasUrunler && urunTransactionTypes.includes(form.type);
 
   // Position card above keyboard and tab bar
