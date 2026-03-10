@@ -165,7 +165,8 @@
     "dayCount": "{{count}} days",
     "dateRange": "{{start}} - {{end}}",
     "noLeaveHistory": "No leave records found",
-    "dayCountLabel": "Number of Days"
+    "dayCountLabel": "Number of Days",
+    "carryOver": "Carry over from previous period"
   },
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",

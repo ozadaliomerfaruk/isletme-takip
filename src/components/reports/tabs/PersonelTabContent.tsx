@@ -16,10 +16,14 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useIslemlerByPersonel } from '@/hooks/useIslemler';
 import type { TabContentProps } from './types';
 
-export function PersonelTabContent({ dateRange, periodLabel }: TabContentProps) {
+interface PersonelTabContentProps extends TabContentProps {
+  initialPersonelId?: string;
+}
+
+export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }: PersonelTabContentProps) {
   const { t } = useTranslation(['reports']);
   const { data: personelList } = usePersonelList();
-  const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
+  const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(initialPersonelId ?? null);
 
   const { data: personelIslemler = [], isLoading: personelIslemlerLoading } = useIslemlerByPersonel(selectedPersonelId || '');
 
@@ -32,6 +36,18 @@ export function PersonelTabContent({ dateRange, periodLabel }: TabContentProps) 
       return islemDate >= dateRange.startDate && islemDate <= dateRange.endDate;
     });
   }, [personelIslemler, dateRange.startDate, dateRange.endDate]);
+
+  // Dönem öncesi izin devri hesapla
+  const leaveCarryOver = useMemo(() => {
+    if (!personelIslemler) return 0;
+    return personelIslemler
+      .filter((islem) => islem.date < dateRange.startDate)
+      .reduce((acc, islem) => {
+        if (islem.type === 'personel_izin_hakki') return acc + Number(islem.amount);
+        if (islem.type === 'personel_izin_kullanimi') return acc - Number(islem.amount);
+        return acc;
+      }, 0);
+  }, [personelIslemler, dateRange.startDate]);
 
   return (
     <>
@@ -52,6 +68,7 @@ export function PersonelTabContent({ dateRange, periodLabel }: TabContentProps) 
               entity={selectedPersonel}
               transactions={filteredPersonelIslemler}
               periodLabel={periodLabel}
+              leaveCarryOver={leaveCarryOver}
             />
           </View>
 

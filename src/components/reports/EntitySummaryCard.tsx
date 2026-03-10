@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { Building2, Users, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react-native';
+import { Building2, Users, TrendingUp, TrendingDown, ArrowRight, CalendarDays } from 'lucide-react-native';
 import { Cari, Personel, IslemWithRelations } from '@/types/database';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,7 @@ interface EntitySummaryCardProps {
   entity: Cari | Personel | null;
   transactions: IslemWithRelations[];
   periodLabel: string;
+  leaveCarryOver?: number;
 }
 
 export function EntitySummaryCard({
@@ -22,8 +23,9 @@ export function EntitySummaryCard({
   entity,
   transactions,
   periodLabel,
+  leaveCarryOver = 0,
 }: EntitySummaryCardProps) {
-  const { t } = useTranslation(['reports', 'transactions']);
+  const { t } = useTranslation(['reports', 'transactions', 'staff']);
 
   // Metrikleri hesapla
   const metrics = useMemo(() => {
@@ -96,6 +98,18 @@ export function EntitySummaryCard({
     }
   }, [transactions, type, t]);
 
+  const leaveMetrics = useMemo(() => {
+    if (type !== 'personel') return null;
+    const entitled = transactions
+      .filter((tx) => tx.type === 'personel_izin_hakki')
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+    const used = transactions
+      .filter((tx) => tx.type === 'personel_izin_kullanimi')
+      .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+    const remaining = leaveCarryOver + entitled - used;
+    return { carryOver: leaveCarryOver, entitled, used, remaining };
+  }, [transactions, type, leaveCarryOver]);
+
   const Icon = type === 'cari' ? Building2 : Users;
   const currentBalance = entity ? toNumber(entity.balance) : 0;
 
@@ -123,20 +137,23 @@ export function EntitySummaryCard({
 
   return (
     <Card style={styles.card}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.iconContainer}>
-          <Icon size={24} color={colors.primary} />
-        </View>
-        <View style={styles.headerContent}>
-          <Text variant="h3">{getEntityName()}</Text>
-          <Text variant="caption" color="secondary">
-            {t('reports:entitySummary.period')}: {periodLabel}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.divider} />
+      {/* Header - only for cari */}
+      {type === 'cari' && (
+        <>
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <Icon size={24} color={colors.primary} />
+            </View>
+            <View style={styles.headerContent}>
+              <Text variant="h3">{getEntityName()}</Text>
+              <Text variant="caption" color="secondary">
+                {t('reports:entitySummary.period')}: {periodLabel}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.divider} />
+        </>
+      )}
 
       {/* Primary & Secondary Metrics */}
       <View style={styles.metricsRow}>
@@ -190,6 +207,50 @@ export function EntitySummaryCard({
           </Text>
         </View>
       </View>
+
+      {/* Leave Summary - only for personel */}
+      {leaveMetrics && (
+        <>
+          <View style={styles.divider} />
+          <View style={styles.leaveSection}>
+            <View style={styles.leaveTitleRow}>
+              <CalendarDays size={16} color={colors.primary} />
+              <Text variant="caption" color="secondary" style={styles.leaveTitleText}>
+                {t('staff:leave.leaveStatus')}
+              </Text>
+            </View>
+            <View style={styles.leaveRow}>
+              <View style={styles.leaveItem}>
+                <Text variant="caption" color="secondary">{t('staff:leave.entitled')}</Text>
+                <Text variant="body" color="success" style={styles.leaveValue}>
+                  {leaveMetrics.entitled} {t('staff:leave.days')}
+                </Text>
+              </View>
+              <View style={styles.leaveItem}>
+                <Text variant="caption" color="secondary">{t('staff:leave.used')}</Text>
+                <Text variant="body" color="error" style={styles.leaveValue}>
+                  {leaveMetrics.used} {t('staff:leave.days')}
+                </Text>
+              </View>
+              <View style={styles.leaveItem}>
+                <Text variant="caption" color="secondary">{t('staff:leave.remaining')}</Text>
+                <Text
+                  variant="body"
+                  color={leaveMetrics.remaining >= 0 ? 'success' : 'error'}
+                  style={styles.leaveValue}
+                >
+                  {leaveMetrics.remaining} {t('staff:leave.days')}
+                </Text>
+              </View>
+            </View>
+            {leaveMetrics.carryOver !== 0 && (
+              <Text variant="caption" color="secondary" style={styles.leaveCarryOverText}>
+                {t('staff:leave.carryOver')}: {leaveMetrics.carryOver} {t('staff:leave.days')}
+              </Text>
+            )}
+          </View>
+        </>
+      )}
 
       <View style={styles.divider} />
 
@@ -302,6 +363,37 @@ const styles = StyleSheet.create({
   currentBalanceContainer: {
     alignItems: 'flex-end',
     gap: 2,
+  },
+  leaveSection: {
+    gap: spacing.sm,
+  },
+  leaveTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  leaveTitleText: {
+    fontWeight: '600',
+  },
+  leaveRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surfaceLight,
+    padding: spacing.md,
+    borderRadius: 8,
+  },
+  leaveItem: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  leaveValue: {
+    fontWeight: '700',
+  },
+  leaveCarryOverText: {
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
   },
 });
 

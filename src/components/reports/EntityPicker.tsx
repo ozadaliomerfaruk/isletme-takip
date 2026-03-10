@@ -6,11 +6,12 @@ import {
   Modal,
   FlatList,
   Pressable,
+  TextInput,
 } from 'react-native';
-import { Text, Card } from '@/components/ui';
+import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { ChevronDown, X, Building2, Users, Check } from 'lucide-react-native';
+import { ChevronDown, X, Building2, Users, Check, Search } from 'lucide-react-native';
 import { Cari, Personel } from '@/types/database';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +35,7 @@ export function EntityPicker({
 }: EntityPickerProps) {
   const { t } = useTranslation(['reports', 'common']);
   const [modalVisible, setModalVisible] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState('');
 
   const selectedEntity = entities.find((e) => e.id === selectedId);
 
@@ -51,8 +53,20 @@ export function EntityPicker({
 
   const Icon = type === 'cari' ? Building2 : Users;
 
+  const filteredEntities = React.useMemo(() => {
+    if (!searchQuery.trim()) return entities;
+    const q = searchQuery.toLowerCase().trim();
+    return entities.filter((e) => getEntityName(e).toLowerCase().includes(q));
+  }, [entities, searchQuery]);
+
   const handleSelect = (id: string | null) => {
     onSelect(id);
+    setSearchQuery('');
+    setModalVisible(false);
+  };
+
+  const handleClose = () => {
+    setSearchQuery('');
     setModalVisible(false);
   };
 
@@ -125,11 +139,11 @@ export function EntityPicker({
         visible={modalVisible}
         animationType="slide"
         transparent
-        onRequestClose={() => setModalVisible(false)}
+        onRequestClose={handleClose}
       >
         <Pressable
           style={styles.modalOverlay}
-          onPress={() => setModalVisible(false)}
+          onPress={handleClose}
         >
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
@@ -138,13 +152,31 @@ export function EntityPicker({
                   ? t('reports:entityPicker.selectClient')
                   : t('reports:entityPicker.selectStaff')}
               </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity onPress={handleClose}>
                 <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+              <Search size={18} color={colors.textMuted} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder={t('common:actions.search', { defaultValue: 'Ara...' })}
+                placeholderTextColor={colors.textMuted}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <X size={18} color={colors.textMuted} />
+                </TouchableOpacity>
+              )}
+            </View>
+
             {/* Tümü seçeneği */}
-            <TouchableOpacity
+            {!searchQuery && <TouchableOpacity
               style={[styles.listItem, !selectedId && styles.listItemSelected]}
               onPress={() => handleSelect(null)}
               activeOpacity={0.7}
@@ -163,16 +195,17 @@ export function EntityPicker({
                 </Text>
               </View>
               {!selectedId && <Check size={20} color={colors.primary} />}
-            </TouchableOpacity>
+            </TouchableOpacity>}
 
             <View style={styles.listDivider} />
 
             <FlatList
-              data={entities as (Cari | Personel)[]}
+              data={filteredEntities as (Cari | Personel)[]}
               keyExtractor={(item) => item.id}
               renderItem={renderItem}
               contentContainerStyle={styles.listContainer}
               showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <Text variant="body" color="secondary">
@@ -222,7 +255,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '70%',
+    height: '70%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -231,6 +264,24 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    gap: spacing.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.text,
+    padding: 0,
   },
   listContainer: {
     paddingBottom: spacing['2xl'],

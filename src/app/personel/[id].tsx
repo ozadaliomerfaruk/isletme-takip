@@ -16,6 +16,7 @@ import {
   MoreVertical,
   X,
   Share2,
+  BarChart3,
 } from 'lucide-react-native';
 import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
@@ -345,6 +346,13 @@ export default function PersonelHareketleriPage() {
   const HeaderRightButtons = useCallback(() => (
     <View style={styles.headerRightContainer}>
       <TouchableOpacity
+        onPress={() => router.push({ pathname: '/raporlar/personel', params: { personelId: id } })}
+        style={styles.headerBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <BarChart3 size={22} color={colors.text} />
+      </TouchableOpacity>
+      <TouchableOpacity
         onPress={() => setShowExportSheet(true)}
         style={styles.headerBtn}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -359,7 +367,7 @@ export default function PersonelHareketleriPage() {
         <MoreVertical size={24} color={colors.text} />
       </TouchableOpacity>
     </View>
-  ), []);
+  ), [id]);
 
   // ============================================================================
   // FlatList renderItem + key extractor

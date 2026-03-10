@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, KategoriType } from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
 
 /**
  * İşlem tiplerini kaynak ve tipe göre belirler
@@ -522,29 +523,32 @@ export function useCategoryTransactions(
       if (!isletme) return [];
 
       // 1. Ürünsüz işlemler: islemler.kategori_id ile filtrele
-      let noProductQuery = supabase
-        .from('islemler')
-        .select(`
+      // fetchAllPages ile 1000 satır limitini aş
+      const selectStr = `
           *,
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
           cari:cariler(id,name,type),
           personel:personel(id,first_name,last_name)
-        `)
-        .eq('isletme_id', isletme.id)
-        .in('type', islemTypes)
-        .gte('date', startDateTime)
-        .lte('date', endDateTime)
-        .order('date', { ascending: false });
+        `;
 
-      if (kategoriId === null || kategoriId === 'uncategorized') {
-        noProductQuery = noProductQuery.is('kategori_id', null);
-      } else {
-        noProductQuery = noProductQuery.eq('kategori_id', kategoriId);
-      }
+      const noProductData = await fetchAllPages(() => {
+        let q = supabase
+          .from('islemler')
+          .select(selectStr)
+          .eq('isletme_id', isletme.id)
+          .in('type', islemTypes)
+          .gte('date', startDateTime)
+          .lte('date', endDateTime)
+          .order('date', { ascending: false });
 
-      const { data: noProductData, error: noProductError } = await noProductQuery;
-      if (noProductError) throw noProductError;
+        if (kategoriId === null || kategoriId === 'uncategorized') {
+          q = q.is('kategori_id', null);
+        } else {
+          q = q.eq('kategori_id', kategoriId);
+        }
+        return q;
+      });
 
       // Filter out transactions that have urun_hareketler (those are handled by product categories)
       const noProductIslemIds = (noProductData || []).map(i => i.id);
@@ -587,24 +591,17 @@ export function useCategoryTransactions(
 
       let productIslemData: typeof noProductData = [];
       if (productIslemIds.length > 0) {
-        const { data, error } = await supabase
-          .from('islemler')
-          .select(`
-            *,
-            hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-            kategori:kategoriler(id,name),
-            cari:cariler(id,name,type),
-            personel:personel(id,first_name,last_name)
-          `)
-          .eq('isletme_id', isletme.id)
-          .in('id', productIslemIds)
-          .in('type', islemTypes)
-          .gte('date', startDateTime)
-          .lte('date', endDateTime)
-          .order('date', { ascending: false });
-
-        if (error) throw error;
-        productIslemData = data || [];
+        productIslemData = await fetchAllPages(() =>
+          supabase
+            .from('islemler')
+            .select(selectStr)
+            .eq('isletme_id', isletme.id)
+            .in('id', productIslemIds)
+            .in('type', islemTypes)
+            .gte('date', startDateTime)
+            .lte('date', endDateTime)
+            .order('date', { ascending: false })
+        );
       }
 
       // 3. For product-based transactions, compute the category-specific amount
@@ -670,27 +667,30 @@ export function useMultiCategoryTransactions(
       if (!isletme || kategoriIds.length === 0) return [];
 
       // 1. İslemler.kategori_id ile eşleşen (ürünsüz) işlemler
-      const { data: directData, error: directError } = await supabase
-        .from('islemler')
-        .select(`
+      // fetchAllPages ile 1000 satır limitini aş
+      const selectStr = `
           *,
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
           cari:cariler(id,name,type),
           personel:personel(id,first_name,last_name)
-        `)
-        .eq('isletme_id', isletme.id)
-        .in('type', islemTypes)
-        .in('kategori_id', kategoriIds)
-        .gte('date', startDateTime)
-        .lte('date', endDateTime)
-        .order('date', { ascending: false });
+        `;
 
-      if (directError) throw directError;
+      const directData = await fetchAllPages(() =>
+        supabase
+          .from('islemler')
+          .select(selectStr)
+          .eq('isletme_id', isletme.id)
+          .in('type', islemTypes)
+          .in('kategori_id', kategoriIds)
+          .gte('date', startDateTime)
+          .lte('date', endDateTime)
+          .order('date', { ascending: false })
+      );
 
       // Filter out transactions that have urun_hareketler
-      const directIds = (directData || []).map(i => i.id);
-      let pureDirectData = directData || [];
+      const directIds = directData.map(i => i.id);
+      let pureDirectData = directData;
       if (directIds.length > 0) {
         const { data: hasProducts } = await supabase
           .from('urun_hareketler')
@@ -724,24 +724,17 @@ export function useMultiCategoryTransactions(
       let productIslemData: typeof directData = [];
       const productIslemIds = [...productIslemIdSet] as string[];
       if (productIslemIds.length > 0) {
-        const { data, error } = await supabase
-          .from('islemler')
-          .select(`
-            *,
-            hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-            kategori:kategoriler(id,name),
-            cari:cariler(id,name,type),
-            personel:personel(id,first_name,last_name)
-          `)
-          .eq('isletme_id', isletme.id)
-          .in('id', productIslemIds)
-          .in('type', islemTypes)
-          .gte('date', startDateTime)
-          .lte('date', endDateTime)
-          .order('date', { ascending: false });
-
-        if (error) throw error;
-        productIslemData = data || [];
+        productIslemData = await fetchAllPages(() =>
+          supabase
+            .from('islemler')
+            .select(selectStr)
+            .eq('isletme_id', isletme.id)
+            .in('id', productIslemIds)
+            .in('type', islemTypes)
+            .gte('date', startDateTime)
+            .lte('date', endDateTime)
+            .order('date', { ascending: false })
+        );
       }
 
       // 3. Combine and deduplicate

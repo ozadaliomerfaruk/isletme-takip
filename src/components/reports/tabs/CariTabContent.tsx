@@ -16,10 +16,14 @@ import { useCariler } from '@/hooks/useCariler';
 import { useIslemlerByCari } from '@/hooks/useIslemler';
 import type { TabContentProps } from './types';
 
-export function CariTabContent({ dateRange, periodLabel }: TabContentProps) {
+interface CariTabContentProps extends TabContentProps {
+  initialCariId?: string;
+}
+
+export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTabContentProps) {
   const { t } = useTranslation(['reports']);
   const { data: cariler } = useCariler();
-  const [selectedCariId, setSelectedCariId] = useState<string | null>(null);
+  const [selectedCariId, setSelectedCariId] = useState<string | null>(initialCariId ?? null);
 
   const { data: cariIslemler = [], isLoading: cariIslemlerLoading } = useIslemlerByCari(selectedCariId || '');
 

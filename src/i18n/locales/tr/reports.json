@@ -5,6 +5,7 @@
     "incomeExpense": "Gelir/Gider",
     "cashFlow": "Nakit Akışı",
     "categoryAnalysis": "Kategori Analizi",
+    "categoryDistribution": "Gelir-Gider Dağılımı",
     "clientReport": "Cari Raporu",
     "expenseAnalysis": "Gider Analizi",
     "incomeAnalysis": "Gelir Analizi",
@@ -28,8 +29,8 @@
     "nakit": "Nakit Akışı",
     "cari": "Cari Rapor",
     "personel": "Personel",
-    "aging": "Bakiye & Aktivite",
-    "karsilastirma": "Karşılaştır"
+    "karsilastirma": "Karşılaştır",
+    "kategoriDagilimi": "Gelir-Gider Dağılımı"
   },
   "tabs": {
     "general": "Genel",
@@ -182,20 +183,6 @@
     "last3Months": "Son 3 Ay",
     "details": "DETAY TABLO",
     "period": "Dönem"
-  },
-  "activity": {
-    "title": "Cari Bakiye & Aktivite",
-    "receivables": "Alacaklar",
-    "payables": "Borçlar",
-    "lastActivity": "Son hareket: {{days}} gün önce",
-    "noActivity": "Hareket yok",
-    "inactive": "Hareketsiz",
-    "noBalance": "Bakiyesi olan cari yok",
-    "filterAll": "Tümü",
-    "filter30": "30+ gün",
-    "filter60": "60+ gün",
-    "sortBalance": "Bakiye",
-    "sortActivity": "Son hareket"
   },
   "entityPicker": {
     "selectClient": "Cari Seçin",

@@ -440,24 +440,13 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
-          name="raporlar/gider"
+          name="raporlar/gelir-gider"
           options={{
             presentation: 'card',
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('reports:titles.expenseAnalysis'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/gelir"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.incomeAnalysis'),
+            headerTitle: t('reports:titles.categoryDistribution'),
             headerShadowVisible: false,
           }}
         />
@@ -491,17 +480,6 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.comparison'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/aging"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:activity.title'),
             headerShadowVisible: false,
           }}
         />

@@ -2,12 +2,10 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
   BarChart3,
-  TrendingDown,
-  TrendingUp,
+  PieChart,
   Wallet,
   Building2,
   Users,
-  Clock,
   GitCompareArrows,
 } from 'lucide-react-native';
 import { Text } from '@/components/ui';
@@ -20,12 +18,10 @@ interface ExploreGridProps {
 
 const REPORT_CARDS = [
   { id: 'genel', icon: BarChart3, labelKey: 'reports:explore.genel', route: '/raporlar/genel', color: colors.primary },
-  { id: 'gider', icon: TrendingDown, labelKey: 'reports:explore.gider', route: '/raporlar/gider', color: colors.error },
-  { id: 'gelir', icon: TrendingUp, labelKey: 'reports:explore.gelir', route: '/raporlar/gelir', color: colors.success },
-  { id: 'nakit', icon: Wallet, labelKey: 'reports:explore.nakit', route: '/nakit-akisi', color: colors.info },
+  { id: 'kategori-dagilimi', icon: PieChart, labelKey: 'reports:explore.kategoriDagilimi', route: '/raporlar/gelir-gider', color: colors.info },
+  { id: 'nakit', icon: Wallet, labelKey: 'reports:explore.nakit', route: '/nakit-akisi', color: colors.success },
   { id: 'cari', icon: Building2, labelKey: 'reports:explore.cari', route: '/raporlar/cari', color: colors.warning },
   { id: 'personel', icon: Users, labelKey: 'reports:explore.personel', route: '/raporlar/personel', color: colors.info },
-  { id: 'aging', icon: Clock, labelKey: 'reports:explore.aging', route: '/raporlar/aging', color: '#F97316' },
   { id: 'karsilastirma', icon: GitCompareArrows, labelKey: 'reports:explore.karsilastirma', route: '/raporlar/karsilastirma', color: colors.primary },
 ] as const;
 

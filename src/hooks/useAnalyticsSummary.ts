@@ -15,7 +15,7 @@ import { useCariler } from './useCariler';
 import { usePersonelList } from './usePersonel';
 import { useSettings } from './useSettings';
 import { getDateRange } from '@/lib/date';
-import { calculateIncomeSummary } from '@/constants/islemTypes';
+import { isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
 import { toNumber } from '@/lib/currency';
 import type {
   AnalyticsSummary,
@@ -52,7 +52,7 @@ export function useAnalyticsSummary(
   const { data: cariler, isLoading: carilerLoading } = useCariler();
   const { data: personelList, isLoading: personelLoading } = usePersonelList();
 
-  // Fetch current + previous period data
+  // Fetch current + previous period data via RPC (no 1000-row limit)
   const periodsQuery = useQuery({
     queryKey: ['analytics-periods', isletme?.id, period, baseCurrency, dateRange?.startDate, dateRange?.endDate],
     queryFn: async () => {
@@ -78,46 +78,43 @@ export function useAnalyticsSummary(
         prevEnd = prev.endDate;
       }
 
-      // Fetch all transactions in the full date range (previous start to current end)
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          type,
-          amount,
-          date,
-          hesap:hesaplar!hesap_id(is_active),
-          hedef_hesap:hesaplar!hedef_hesap_id(is_active)
-        `)
-        .eq('isletme_id', isletme.id)
-        .gte('date', `${prevStart}T00:00:00`)
-        .lte('date', `${currentEnd}T23:59:59`);
+      // Server-side aggregation via RPC: no 1000-row limit
+      // Parallel fetch for current and previous period
+      const [currentResult, previousResult] = await Promise.all([
+        supabase.rpc('get_income_expense_summary', {
+          p_isletme_id: isletme.id,
+          p_start_date: `${currentStart}T00:00:00`,
+          p_end_date: `${currentEnd}T23:59:59`,
+        }),
+        supabase.rpc('get_income_expense_summary', {
+          p_isletme_id: isletme.id,
+          p_start_date: `${prevStart}T00:00:00`,
+          p_end_date: `${prevEnd}T23:59:59`,
+        }),
+      ]);
 
-      if (error) throw error;
+      if (currentResult.error) throw currentResult.error;
+      if (previousResult.error) throw previousResult.error;
 
-      // Filter out transactions from inactive accounts
-      const activeData = (data || []).filter((item: any) => {
-        const hesapActive = item.hesap ? (Array.isArray(item.hesap) ? item.hesap[0]?.is_active : item.hesap.is_active) ?? true : true;
-        const hedefHesapActive = item.hedef_hesap ? (Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0]?.is_active : item.hedef_hesap.is_active) ?? true : true;
-        return hesapActive === true && hedefHesapActive === true;
-      });
+      // Parse RPC results into income/expense using type classification
+      function parseSummary(rows: Array<{ type: string; total: number }>) {
+        const result = { income: 0, expense: 0 };
+        for (const row of rows || []) {
+          const amount = Number(row.total) || 0;
+          const t = row.type as IslemType;
+          if (isIncomeType(t)) result.income += amount;
+          else if (isIncomeReturnType(t)) result.income -= amount;
+          if (isExpenseType(t)) result.expense += amount;
+          else if (isExpenseReturnType(t)) result.expense -= amount;
+        }
+        return {
+          income: Math.round(result.income * 100) / 100,
+          expense: Math.round(result.expense * 100) / 100,
+        };
+      }
 
-      // Split into current and previous period
-      const currentTransactions = activeData.filter((t: any) => {
-        const txDate = t.date.split('T')[0];
-        return txDate >= currentStart && txDate <= currentEnd;
-      });
-
-      const previousTransactions = activeData.filter((t: any) => {
-        const txDate = t.date.split('T')[0];
-        return txDate >= prevStart && txDate <= prevEnd;
-      });
-
-      const currentSummary = calculateIncomeSummary(
-        currentTransactions as Array<{ type: IslemType; amount: number }>
-      );
-      const previousSummary = calculateIncomeSummary(
-        previousTransactions as Array<{ type: IslemType; amount: number }>
-      );
+      const currentSummary = parseSummary(currentResult.data || []);
+      const previousSummary = parseSummary(previousResult.data || []);
 
       return {
         current: {

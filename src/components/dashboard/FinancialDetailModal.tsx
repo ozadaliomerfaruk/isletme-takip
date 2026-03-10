@@ -152,7 +152,7 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
           <View style={styles.detailRows}>
             <TouchableOpacity
               style={styles.detailRow}
-              onPress={() => navigateToReport('/raporlar/gelir')}
+              onPress={() => navigateToReport('/raporlar/gelir-gider')}
               activeOpacity={0.6}
             >
               <View style={styles.detailLeft}>
@@ -167,7 +167,7 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
 
             <TouchableOpacity
               style={styles.detailRow}
-              onPress={() => navigateToReport('/raporlar/gider')}
+              onPress={() => navigateToReport('/raporlar/gelir-gider')}
               activeOpacity={0.6}
             >
               <View style={styles.detailLeft}>

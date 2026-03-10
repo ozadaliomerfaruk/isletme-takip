@@ -3,25 +3,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Share2, Calendar, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, CategoryReportCard, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
-import { useCashFlowByCategory, CashFlowItem } from '@/hooks/useCashFlowByCategory';
+import { useReportExcelExport } from '@/hooks/useReportExcelExport';
+import { useCategoryReport } from '@/hooks/useCategoryReport';
 import { PeriodType } from '@/hooks/useIslemler';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+type ReportType = 'gelir' | 'gider';
 
-type FlowType = 'inflow' | 'outflow';
-
-export default function NakitAkisiPage() {
+export default function GelirGiderRaporPage() {
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
   const state = useReportRouteState();
-  const [selectedType, setSelectedType] = useState<FlowType>('outflow');
+  const [selectedType, setSelectedType] = useState<ReportType>('gider');
+
+  const { isExporting, exportReport } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
 
   // Custom date pickers
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -35,33 +37,54 @@ export default function NakitAkisiPage() {
     { label: t('reports:period.custom'), value: 'custom' },
   ];
 
-  const cashFlow = useCashFlowByCategory({
+  const gelirRaporu = useCategoryReport('gelir', {
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
-    limit: 100,
   });
 
-  const activeItems = selectedType === 'inflow' ? cashFlow.allInflowItems : cashFlow.allOutflowItems;
+  const giderRaporu = useCategoryReport('gider', {
+    startDate: state.dateRange.startDate,
+    endDate: state.dateRange.endDate,
+  });
 
-  const handleCategoryPress = (item: CashFlowItem) => {
-    const type = selectedType === 'inflow' ? 'gelir' : 'gider';
+  const activeReport = selectedType === 'gelir' ? gelirRaporu : giderRaporu;
+
+  const handleCategoryPress = (kategoriId: string | null) => {
+    const id = kategoriId || 'uncategorized';
     router.push({
       pathname: '/raporlar/kategori/[id]',
       params: {
-        id: item.kategori?.id || 'uncategorized',
-        type,
+        id,
+        type: selectedType,
         startDate: state.dateRange.startDate,
         endDate: state.dateRange.endDate,
-        source: 'cash-flow',
       },
     });
+  };
+
+  const handleExport = () => {
+    exportReport(state.dateRange.startDate, state.dateRange.endDate, state.periodLabel);
   };
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: t('reports:cashFlow.title'),
+          title: t('reports:titles.categoryDistribution'),
+          headerRight: () => (
+            <TouchableOpacity
+              onPress={handleExport}
+              disabled={isExporting}
+              style={styles.headerBtn}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              {isExporting ? (
+                <ActivityIndicator size="small" color={colors.text} />
+              ) : (
+                <Share2 size={22} color={colors.text} />
+              )}
+            </TouchableOpacity>
+          ),
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -78,7 +101,7 @@ export default function NakitAkisiPage() {
             />
           </View>
 
-          {/* Date Navigator + Inflow/Outflow Summary Tabs */}
+          {/* Date Navigator + Gelir/Gider Summary Tabs */}
           <View style={styles.summaryBar}>
             {state.period === 'custom' ? (
               <View style={styles.customDateRow}>
@@ -122,56 +145,56 @@ export default function NakitAkisiPage() {
               <TouchableOpacity
                 style={[
                   styles.summaryTab,
-                  selectedType === 'inflow' && styles.summaryTabActiveInflow,
+                  selectedType === 'gelir' && styles.summaryTabActiveGelir,
                 ]}
-                onPress={() => setSelectedType('inflow')}
+                onPress={() => setSelectedType('gelir')}
               >
                 <Text
                   variant="caption"
                   style={[
                     styles.summaryTabLabel,
-                    selectedType === 'inflow' && styles.summaryTabLabelActiveInflow,
+                    selectedType === 'gelir' && styles.summaryTabLabelActiveGelir,
                   ]}
                 >
-                  {t('reports:cashFlow.inflow').toUpperCase()}
+                  {t('reports:summary.income').toUpperCase()}
                 </Text>
                 <Text
                   variant="body"
                   style={[
                     styles.summaryTabAmount,
-                    selectedType === 'inflow' && styles.summaryTabAmountActiveInflow,
+                    selectedType === 'gelir' && styles.summaryTabAmountActiveGelir,
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(cashFlow.totalInflow)}
+                  {formatCurrency(gelirRaporu.totalAmount)}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.summaryTab,
-                  selectedType === 'outflow' && styles.summaryTabActiveOutflow,
+                  selectedType === 'gider' && styles.summaryTabActiveGider,
                 ]}
-                onPress={() => setSelectedType('outflow')}
+                onPress={() => setSelectedType('gider')}
               >
                 <Text
                   variant="caption"
                   style={[
                     styles.summaryTabLabel,
-                    selectedType === 'outflow' && styles.summaryTabLabelActiveOutflow,
+                    selectedType === 'gider' && styles.summaryTabLabelActiveGider,
                   ]}
                 >
-                  {t('reports:cashFlow.outflow').toUpperCase()}
+                  {t('reports:summary.expense').toUpperCase()}
                 </Text>
                 <Text
                   variant="body"
                   style={[
                     styles.summaryTabAmount,
-                    selectedType === 'outflow' && styles.summaryTabAmountActiveOutflow,
+                    selectedType === 'gider' && styles.summaryTabAmountActiveGider,
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(cashFlow.totalOutflow)}
+                  {formatCurrency(giderRaporu.totalAmount)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -179,28 +202,28 @@ export default function NakitAkisiPage() {
 
           {/* Category List */}
           <View style={styles.categoryList}>
-            {cashFlow.isLoading ? (
+            {activeReport.isLoading ? (
               <View style={styles.loadingContainer}>
                 <SkeletonListItem />
                 <SkeletonListItem />
                 <SkeletonListItem />
               </View>
-            ) : activeItems.length === 0 ? (
+            ) : activeReport.items.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Text variant="body" color="secondary" style={styles.emptyText}>
-                  {selectedType === 'inflow'
-                    ? t('reports:cashFlow.noInflow')
-                    : t('reports:cashFlow.noOutflow')}
+                  {selectedType === 'gelir'
+                    ? t('reports:empty.noIncomeTransactions')
+                    : t('reports:empty.noExpenseTransactions')}
                 </Text>
               </View>
             ) : (
-              activeItems.map((item, index) => (
+              activeReport.items.map((item, index) => (
                 <CategoryReportCard
-                  key={item.kategori?.id || `uncategorized-${index}`}
+                  key={item.kategori?.id || 'uncategorized'}
                   item={item}
                   index={index}
-                  type={selectedType === 'inflow' ? 'gelir' : 'gider'}
-                  onPress={() => handleCategoryPress(item)}
+                  type={selectedType}
+                  onPress={() => handleCategoryPress(item.kategori?.id || null)}
                 />
               ))
             )}
@@ -335,12 +358,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  summaryTabActiveInflow: {
+  summaryTabActiveGelir: {
     backgroundColor: colors.success + '12',
     borderColor: colors.success,
     borderWidth: 1.5,
   },
-  summaryTabActiveOutflow: {
+  summaryTabActiveGider: {
     backgroundColor: colors.error + '12',
     borderColor: colors.error,
     borderWidth: 1.5,
@@ -351,10 +374,10 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     letterSpacing: 0.5,
   },
-  summaryTabLabelActiveInflow: {
+  summaryTabLabelActiveGelir: {
     color: colors.success,
   },
-  summaryTabLabelActiveOutflow: {
+  summaryTabLabelActiveGider: {
     color: colors.error,
   },
   summaryTabAmount: {
@@ -363,10 +386,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
-  summaryTabAmountActiveInflow: {
+  summaryTabAmountActiveGelir: {
     color: colors.success,
   },
-  summaryTabAmountActiveOutflow: {
+  summaryTabAmountActiveGider: {
     color: colors.error,
   },
   categoryList: {
@@ -383,6 +406,9 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
+  },
+  headerBtn: {
+    padding: 6,
   },
   customDateRow: {
     flexDirection: 'row',

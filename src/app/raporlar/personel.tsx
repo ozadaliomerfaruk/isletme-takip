@@ -1,5 +1,6 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter } from '@/components/ui';
@@ -11,6 +12,7 @@ import { spacing } from '@/constants/spacing';
 
 export default function PersonelRaporPage() {
   const { t } = useTranslation(['reports']);
+  const { personelId } = useLocalSearchParams<{ personelId?: string }>();
   const state = useReportRouteState();
 
   const PERIOD_OPTIONS = [
@@ -56,6 +58,7 @@ export default function PersonelRaporPage() {
           period={state.period}
           periodOffset={state.periodOffset}
           periodLabel={state.periodLabel}
+          initialPersonelId={personelId}
         />
       </ScrollView>
     </SafeAreaView>

@@ -11,7 +11,8 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getDateRange } from '@/lib/date';
-import { calculateIncomeSummary } from '@/constants/islemTypes';
+import { calculateIncomeSummary, isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
 import type {
   AnalyticsTrend,
   AnalyticsPeriod,
@@ -32,6 +33,14 @@ function getPeriodLabel(
   const now = new Date();
 
   switch (period) {
+    case 'daily': {
+      const targetDay = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + offset
+      );
+      return `${targetDay.getDate()}/${targetDay.getMonth() + 1}`;
+    }
     case 'weekly': {
       // Calculate the week's start date
       const dayOfWeek = now.getDay();
@@ -116,62 +125,96 @@ export function useAnalyticsTrend(
         });
       }
 
-      // Fetch all transactions in the full date range
-      const oldestStart = periods[0].startDate;
-      const newestEnd = periods[periods.length - 1].endDate;
-
-      // Build query with optional filter
-      let query = supabase
-        .from('islemler')
-        .select('type, amount, date')
-        .eq('isletme_id', isletme.id)
-        .gte('date', `${oldestStart}T00:00:00`)
-        .lte('date', `${newestEnd}T23:59:59`);
-
-      // Apply filter if present
-      if (filter?.type && filter?.id) {
-        switch (filter.type) {
-          case 'hesap':
-            query = query.eq('hesap_id', filter.id);
-            break;
-          case 'cari':
-            query = query.eq('cari_id', filter.id);
-            break;
-          case 'kategori':
-            query = query.eq('kategori_id', filter.id);
-            break;
-          case 'personel':
-            query = query.eq('personel_id', filter.id);
-            break;
-        }
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      // Determine today's date string for current period check
+      const hasFilter = !!(filter?.type && filter?.id);
       const todayStr = new Date().toISOString().split('T')[0];
 
-      // Group transactions by period
-      const trendData: TrendDataPoint[] = periods.map((p) => {
-        const periodTransactions = (data || []).filter((t) => {
-          const txDate = t.date.split('T')[0];
-          return txDate >= p.startDate && txDate <= p.endDate;
-        });
+      let trendData: TrendDataPoint[];
 
-        const summary = calculateIncomeSummary(
-          periodTransactions as Array<{ type: IslemType; amount: number }>
+      if (!hasFilter) {
+        // No filter: use RPC for each period (no 1000-row limit)
+        const rpcResults = await Promise.all(
+          periods.map((p) =>
+            supabase.rpc('get_income_expense_summary', {
+              p_isletme_id: isletme.id,
+              p_start_date: `${p.startDate}T00:00:00`,
+              p_end_date: `${p.endDate}T23:59:59`,
+            })
+          )
         );
 
-        return {
-          label: p.label,
-          income: summary.income,
-          expense: summary.expense,
-          net: summary.income - summary.expense,
-          isCurrentPeriod: todayStr >= p.startDate && todayStr <= p.endDate,
-        };
-      });
+        trendData = periods.map((p, i) => {
+          const result = rpcResults[i];
+          if (result.error) throw result.error;
+
+          let income = 0;
+          let expense = 0;
+          for (const row of result.data || []) {
+            const amount = Number(row.total) || 0;
+            const t = row.type as IslemType;
+            if (isIncomeType(t)) income += amount;
+            else if (isIncomeReturnType(t)) income -= amount;
+            if (isExpenseType(t)) expense += amount;
+            else if (isExpenseReturnType(t)) expense -= amount;
+          }
+
+          return {
+            label: p.label,
+            income: Math.round(income * 100) / 100,
+            expense: Math.round(expense * 100) / 100,
+            net: Math.round((income - expense) * 100) / 100,
+            isCurrentPeriod: todayStr >= p.startDate && todayStr <= p.endDate,
+          };
+        });
+      } else {
+        // With filter: use fetchAllPages to bypass 1000-row limit
+        const oldestStart = periods[0].startDate;
+        const newestEnd = periods[periods.length - 1].endDate;
+
+        const data = await fetchAllPages<{ type: string; amount: number; date: string }>(() => {
+          let q = supabase
+            .from('islemler')
+            .select('type, amount, date')
+            .eq('isletme_id', isletme.id)
+            .gte('date', `${oldestStart}T00:00:00`)
+            .lte('date', `${newestEnd}T23:59:59`);
+
+          switch (filter!.type) {
+            case 'hesap':
+              q = q.eq('hesap_id', filter!.id);
+              break;
+            case 'cari':
+              q = q.eq('cari_id', filter!.id);
+              break;
+            case 'kategori':
+              q = q.eq('kategori_id', filter!.id);
+              break;
+            case 'personel':
+              q = q.eq('personel_id', filter!.id);
+              break;
+          }
+
+          return q;
+        });
+
+        trendData = periods.map((p) => {
+          const periodTransactions = data.filter((t) => {
+            const txDate = t.date.split('T')[0];
+            return txDate >= p.startDate && txDate <= p.endDate;
+          });
+
+          const summary = calculateIncomeSummary(
+            periodTransactions as Array<{ type: IslemType; amount: number }>
+          );
+
+          return {
+            label: p.label,
+            income: summary.income,
+            expense: summary.expense,
+            net: summary.income - summary.expense,
+            isCurrentPeriod: todayStr >= p.startDate && todayStr <= p.endDate,
+          };
+        });
+      }
 
       // Calculate totals
       const totals = trendData.reduce(

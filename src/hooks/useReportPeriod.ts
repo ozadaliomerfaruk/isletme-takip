@@ -43,7 +43,7 @@ async function initializeState() {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed: PersistedState = JSON.parse(stored);
-      if (['weekly', 'monthly', 'yearly', 'custom'].includes(parsed.period)) {
+      if (['daily', 'weekly', 'monthly', 'yearly', 'custom'].includes(parsed.period)) {
         globalPeriod = parsed.period;
       }
       if (typeof parsed.periodOffset === 'number') {
@@ -144,7 +144,7 @@ export function useReportPeriod() {
     persistState();
   }, []);
 
-  const widgetPeriod: AnalyticsPeriod = period === 'custom' ? 'monthly' : period;
+  const widgetPeriod: AnalyticsPeriod = period === 'custom' ? 'monthly' : period as AnalyticsPeriod;
 
   const customRange = period === 'custom' ? {
     startDate: formatDateForDB(customStartDate),

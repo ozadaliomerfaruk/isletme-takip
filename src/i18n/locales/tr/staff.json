@@ -165,7 +165,8 @@
     "dayCount": "{{count}} gün",
     "dateRange": "{{start}} - {{end}}",
     "noLeaveHistory": "Henüz izin kaydı bulunmuyor",
-    "dayCountLabel": "Gün Sayısı"
+    "dayCountLabel": "Gün Sayısı",
+    "carryOver": "Önceki dönemden devir"
   },
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",

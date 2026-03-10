@@ -5,6 +5,7 @@
     "incomeExpense": "Income/Expense",
     "cashFlow": "Cash Flow",
     "categoryAnalysis": "Category Analysis",
+    "categoryDistribution": "Income-Expense Distribution",
     "clientReport": "Client Report",
     "expenseAnalysis": "Expense Analysis",
     "incomeAnalysis": "Income Analysis",
@@ -28,8 +29,8 @@
     "nakit": "Cash Flow",
     "cari": "Client Report",
     "personel": "Staff",
-    "aging": "Balance & Activity",
-    "karsilastirma": "Compare"
+    "karsilastirma": "Compare",
+    "kategoriDagilimi": "Income-Expense Distribution"
   },
   "tabs": {
     "general": "General",
@@ -182,20 +183,6 @@
     "last3Months": "Last 3 Months",
     "details": "DETAILS",
     "period": "Period"
-  },
-  "activity": {
-    "title": "Balance & Activity",
-    "receivables": "Receivables",
-    "payables": "Payables",
-    "lastActivity": "Last activity: {{days}} days ago",
-    "noActivity": "No activity",
-    "inactive": "Inactive",
-    "noBalance": "No contacts with balance",
-    "filterAll": "All",
-    "filter30": "30+ days",
-    "filter60": "60+ days",
-    "sortBalance": "Balance",
-    "sortActivity": "Last activity"
   },
   "entityPicker": {
     "selectClient": "Select Client",

@@ -57,9 +57,10 @@ export default function RaporlarPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const PERIOD_OPTIONS = [
-    { label: t('reports:period.weekly'), value: 'weekly' },
-    { label: t('reports:period.monthly'), value: 'monthly' },
     { label: t('reports:period.yearly'), value: 'yearly' },
+    { label: t('reports:period.monthly'), value: 'monthly' },
+    { label: t('reports:period.weekly'), value: 'weekly' },
+    { label: t('reports:period.daily'), value: 'daily' },
     { label: t('reports:period.custom'), value: 'custom' },
   ];
 

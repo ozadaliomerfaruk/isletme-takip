@@ -17,6 +17,7 @@ import {
   Share2,
   Link,
   Package,
+  BarChart3,
 } from 'lucide-react-native';
 import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -562,6 +563,13 @@ export default function CariHareketleriPage() {
   // Header right buttons - viewer'lar icin share ve menu gizle
   const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
+      <TouchableOpacity
+        onPress={() => router.push({ pathname: '/raporlar/cari', params: { cariId: id } })}
+        style={styles.headerBtn}
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <BarChart3 size={22} color={colors.text} />
+      </TouchableOpacity>
       {!isViewer && (
         <TouchableOpacity
           onPress={() => setShowShareCodeModal(true)}
@@ -588,7 +596,7 @@ export default function CariHareketleriPage() {
         </TouchableOpacity>
       )}
     </View>
-  ), [isViewer, linkStatus?.is_linked]);
+  ), [isViewer, linkStatus?.is_linked, id]);
 
   // === DATE GROUPING ===
   const groupedData = useMemo(() => {

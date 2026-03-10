@@ -7,7 +7,7 @@ import React from 'react';
 export type WidgetSize = 'half' | 'full';
 export type WidgetType = 'kpi' | 'chart' | 'list' | 'insight' | 'custom';
 export type UserRole = 'owner' | 'cashier' | 'purchaser' | 'accountant';
-export type AnalyticsPeriod = 'weekly' | 'monthly' | 'yearly';
+export type AnalyticsPeriod = 'weekly' | 'monthly' | 'yearly' | 'daily';
 
 /**
  * Props passed to every widget component
