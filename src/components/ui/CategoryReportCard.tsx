@@ -345,7 +345,7 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
   const barColor = item.kategori === null ? colors.textMuted : categoryColor;
 
   // Kategori adı
-  const categoryName = item.kategori?.name || 'Kategorisiz';
+  const categoryName = item.kategori?.name || t('reports:category.uncategorized');
 
   return (
     <TouchableOpacity
@@ -426,7 +426,7 @@ export function HierarchicalCategoryReportCard({
   const barColor = item.kategori === null ? colors.textMuted : categoryColor;
 
   // Kategori adı
-  const categoryName = item.kategori?.name || 'Kategorisiz';
+  const categoryName = item.kategori?.name || t('reports:category.uncategorized');
 
   const handleToggle = () => {
     if (hasChildren) {
@@ -555,7 +555,7 @@ export function HierarchicalCategoryReportCard({
           {item.children.map((child, childIndex) => {
             const childColor = child.kategori?.color || DEFAULT_COLORS[(index + childIndex + 1) % DEFAULT_COLORS.length];
             const childBarColor = child.kategori === null ? colors.textMuted : childColor;
-            const childName = child.kategori?.name || 'Kategorisiz';
+            const childName = child.kategori?.name || t('reports:category.uncategorized');
             const isLast = childIndex === item.children.length - 1 && item.total === 0;
 
             return (

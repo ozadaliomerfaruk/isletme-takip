@@ -57,7 +57,7 @@ export function EntityPicker({
     if (!searchQuery.trim()) return entities;
     const q = searchQuery.toLowerCase().trim();
     return entities.filter((e) => getEntityName(e).toLowerCase().includes(q));
-  }, [entities, searchQuery]);
+  }, [entities, searchQuery, type]);
 
   const handleSelect = (id: string | null) => {
     onSelect(id);
@@ -162,7 +162,7 @@ export function EntityPicker({
               <Search size={18} color={colors.textMuted} />
               <TextInput
                 style={styles.searchInput}
-                placeholder={t('common:actions.search', { defaultValue: 'Ara...' })}
+                placeholder={t('common:search.searchPlaceholder')}
                 placeholderTextColor={colors.textMuted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}

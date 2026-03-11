@@ -3,6 +3,7 @@ import { StyleSheet, TouchableOpacity } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Reanimated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
 import { Trash2, Zap, Copy } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -64,13 +65,18 @@ export function SwipeableRow({
   onAction,
   onCopy,
   enabled = true,
-  deleteLabel = 'Sil',
-  actionLabel = 'İşlem Yap',
+  deleteLabel,
+  actionLabel,
   actionIcon,
-  copyLabel = 'Kopyala',
+  copyLabel,
 }: SwipeableRowProps) {
+  const { t } = useTranslation(['common']);
   const swipeableRef = useRef<SwipeableMethods>(null);
   const { registerOpen } = useContext(SwipeableContext);
+
+  const resolvedDeleteLabel = deleteLabel ?? t('common:buttons.delete');
+  const resolvedActionLabel = actionLabel ?? t('common:buttons.action', { defaultValue: 'Action' });
+  const resolvedCopyLabel = copyLabel ?? t('common:buttons.copy');
 
   const close = useCallback(() => {
     swipeableRef.current?.close();
@@ -107,15 +113,15 @@ export function SwipeableRow({
           onAction={onAction ? handleAction : undefined}
           onCopy={onCopy ? handleCopy : undefined}
           onDelete={onDelete ? handleDelete : undefined}
-          actionLabel={actionLabel}
+          actionLabel={resolvedActionLabel}
           actionIcon={actionIcon}
-          copyLabel={copyLabel}
-          deleteLabel={deleteLabel}
+          copyLabel={resolvedCopyLabel}
+          deleteLabel={resolvedDeleteLabel}
           totalWidth={totalRightWidth}
         />
       );
     },
-    [handleAction, handleCopy, handleDelete, actionLabel, actionIcon, copyLabel, deleteLabel, onAction, onCopy, onDelete, totalRightWidth],
+    [handleAction, handleCopy, handleDelete, resolvedActionLabel, actionIcon, resolvedCopyLabel, resolvedDeleteLabel, onAction, onCopy, onDelete, totalRightWidth],
   );
 
   if (!enabled || (!onDelete && !onAction && !onCopy)) {

@@ -272,7 +272,7 @@ export function TrendFilterModal({
             <Search size={20} color={colors.textMuted} />
             <TextInput
               style={styles.searchInput}
-              placeholder={t('common:buttons.search')}
+              placeholder={t('common:search.searchPlaceholder')}
               placeholderTextColor={colors.textMuted}
               value={searchQuery}
               onChangeText={setSearchQuery}

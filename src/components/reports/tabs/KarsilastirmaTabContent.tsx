@@ -162,6 +162,9 @@ export function KarsilastirmaTabContent(_props: TabContentProps) {
     return value >= 0 ? 'success' : 'error';
   };
 
+  // Ters sıralı ay verisi (en yeni ay en üstte)
+  const reversedMonths = useMemo(() => [...monthsData].reverse(), [monthsData]);
+
   // En yüksek değeri bul (bar genişliği hesabı için)
   const maxValue = useMemo(() => {
     return Math.max(...monthsData.map((d) => Math.abs(getMetricValue(d))), 1);
@@ -240,7 +243,7 @@ export function KarsilastirmaTabContent(_props: TabContentProps) {
           {t('reports:comparison.last6Months')}
         </Text>
         <Card style={styles.listCard}>
-          {[...monthsData].reverse().map((month, index) => {
+          {reversedMonths.map((month, index) => {
             const isCurrentMonth = index === 0;
             const value = getMetricValue(month);
             const barWidth = maxValue > 0 ? (Math.abs(value) / maxValue) * 100 : 0;
@@ -313,7 +316,7 @@ export function KarsilastirmaTabContent(_props: TabContentProps) {
 
                 {/* Trend ikonu */}
                 {index < monthsData.length - 1 && (() => {
-                  const prevMonth = [...monthsData].reverse()[index + 1];
+                  const prevMonth = reversedMonths[index + 1];
                   const prevValue = getMetricValue(prevMonth);
                   const diff = value - prevValue;
                   if (diff > 0) return <TrendingUp size={16} color={colors.success} />;
