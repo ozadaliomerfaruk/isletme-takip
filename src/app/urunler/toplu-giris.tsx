@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
-import { Plus, Trash2, Calendar, ChevronDown, Package, Search } from 'lucide-react-native';
-import { Text, Button, Card } from '@/components/ui';
+import { Plus, Trash2, Calendar, ChevronDown, Package, Search, X, Check } from 'lucide-react-native';
+import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
@@ -79,6 +79,11 @@ export default function TopluGirisPage() {
     return urunler?.find(u => u.id === id);
   };
 
+  // Already selected product IDs (to mark in picker)
+  const selectedProductIds = useMemo(() => {
+    return new Set(rows.map(r => r.urunId).filter(Boolean) as string[]);
+  }, [rows]);
+
   const addRow = () => {
     const newId = Date.now().toString();
     setRows([...rows, { id: newId, urunId: null, miktar: '', birimFiyat: '' }]);
@@ -127,6 +132,14 @@ export default function TopluGirisPage() {
     return total;
   }, [validRows]);
 
+  // Row line total
+  const getRowTotal = (row: StockRow) => {
+    const miktar = parseCurrency(row.miktar);
+    const fiyat = parseCurrency(row.birimFiyat);
+    if (miktar > 0 && fiyat > 0) return miktar * fiyat;
+    return 0;
+  };
+
   // Cari totals for display
   const cariTotals = useMemo(() => {
     if (!cariLinkEnabled || totalAmount === 0) return null;
@@ -148,7 +161,6 @@ export default function TopluGirisPage() {
 
     try {
       if (cariLinkEnabled && selectedCariId) {
-        // Bulk save with cari linkage (single islem + multiple urun_hareket)
         const items = validRows.map(row => {
           const urun = getUrunById(row.urunId);
           return {
@@ -167,7 +179,6 @@ export default function TopluGirisPage() {
           date: date.toISOString().split('T')[0],
         });
       } else {
-        // Standard save without cari
         const promises = validRows.map(row =>
           createUrunHareket.mutateAsync({
             urun_id: row.urunId!,
@@ -202,29 +213,25 @@ export default function TopluGirisPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
+          style={styles.flex}
         >
           <ScrollView
-            style={styles.scrollView}
+            style={styles.flex}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Date Picker */}
-            <View style={styles.section}>
-              <Text variant="label" color="secondary" style={styles.label}>
-                {t('transactions:form.date')}
+            {/* Date Row - compact inline */}
+            <TouchableOpacity
+              style={styles.dateRow}
+              onPress={() => setShowDatePicker(true)}
+            >
+              <Calendar size={18} color={colors.primary} />
+              <Text variant="body" style={styles.dateLabel}>
+                {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
               </Text>
-              <TouchableOpacity
-                style={styles.dateButton}
-                onPress={() => setShowDatePicker(true)}
-              >
-                <Calendar size={20} color={colors.textMuted} />
-                <Text variant="body" style={styles.dateText}>
-                  {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
-                </Text>
-              </TouchableOpacity>
-            </View>
+              <ChevronDown size={16} color={colors.textMuted} />
+            </TouchableOpacity>
 
             {/* Cari Link Section */}
             <View style={styles.section}>
@@ -241,51 +248,66 @@ export default function TopluGirisPage() {
               />
             </View>
 
-            {/* Rows */}
+            {/* Product Rows */}
             <View style={styles.rowsContainer}>
               {rows.map((row, index) => {
                 const urun = getUrunById(row.urunId);
+                const rowTotal = getRowTotal(row);
                 return (
-                  <Card key={row.id} style={styles.rowCard}>
+                  <View key={row.id} style={styles.rowCard}>
+                    {/* Row header: number + delete */}
                     <View style={styles.rowHeader}>
-                      <Text variant="caption" color="secondary">#{index + 1}</Text>
+                      <View style={styles.rowNumberBadge}>
+                        <Text style={styles.rowNumberText}>{index + 1}</Text>
+                      </View>
                       {rows.length > 1 && (
-                        <TouchableOpacity onPress={() => removeRow(row.id)}>
-                          <Trash2 size={18} color={colors.error} />
+                        <TouchableOpacity
+                          style={styles.deleteBtn}
+                          onPress={() => removeRow(row.id)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <Trash2 size={15} color={colors.error} />
                         </TouchableOpacity>
                       )}
                     </View>
 
                     {/* Product Selector */}
                     <TouchableOpacity
-                      style={styles.productSelector}
+                      style={[styles.productSelector, urun && styles.productSelectorFilled]}
                       onPress={() => openProductPicker(row.id)}
                     >
                       {urun ? (
                         <View style={styles.selectedProduct}>
-                          <Package size={16} color={colors.primary} />
-                          <Text variant="body" numberOfLines={1} style={styles.productName}>
-                            {urun.ad}
-                          </Text>
-                          <Text variant="caption" color="secondary">
-                            {urun.miktar} {getBirimLabel(urun.birim)}
-                          </Text>
+                          <View style={styles.productIconSmall}>
+                            <Package size={14} color={colors.primary} />
+                          </View>
+                          <View style={styles.productNameWrap}>
+                            <Text style={styles.productNameText} numberOfLines={1}>
+                              {urun.ad}
+                            </Text>
+                            <Text style={styles.productStockText}>
+                              {t('products:stock.currentStock')}: {urun.miktar} {getBirimLabel(urun.birim)}
+                            </Text>
+                          </View>
                         </View>
                       ) : (
-                        <Text variant="body" color="muted">
-                          {t('products:bulk.selectProduct')}
-                        </Text>
+                        <View style={styles.placeholderRow}>
+                          <Package size={16} color={colors.textMuted} />
+                          <Text style={styles.placeholderText}>
+                            {t('products:bulk.selectProduct')}
+                          </Text>
+                        </View>
                       )}
-                      <ChevronDown size={20} color={colors.textMuted} />
+                      <ChevronDown size={16} color={colors.textMuted} />
                     </TouchableOpacity>
 
-                    {/* Miktar & Fiyat Row */}
+                    {/* Miktar & Fiyat inputs */}
                     <View style={styles.inputsRow}>
                       <View style={styles.inputGroup}>
-                        <Text variant="caption" color="secondary">{t('products:stock.quantity')}</Text>
-                        <View style={styles.inputWithUnit}>
+                        <Text style={styles.inputLabel}>{t('products:stock.quantity')}</Text>
+                        <View style={styles.inputBox}>
                           <TextInput
-                            style={styles.compactInput}
+                            style={styles.input}
                             value={row.miktar}
                             onChangeText={(val) => updateRow(row.id, 'miktar', val)}
                             placeholder="0"
@@ -293,51 +315,57 @@ export default function TopluGirisPage() {
                             keyboardType="decimal-pad"
                           />
                           {urun && (
-                            <Text variant="caption" color="secondary" style={styles.unitText}>
+                            <Text style={styles.inputUnit}>
                               {getBirimLabel(urun.birim)}
                             </Text>
                           )}
                         </View>
                       </View>
                       <View style={styles.inputGroup}>
-                        <Text variant="caption" color="secondary">{t('products:stock.unitPrice')}</Text>
-                        <View style={styles.inputWithUnit}>
+                        <Text style={styles.inputLabel}>{t('products:stock.unitPrice')}</Text>
+                        <View style={styles.inputBox}>
                           <TextInput
-                            style={styles.compactInput}
+                            style={styles.input}
                             value={row.birimFiyat}
                             onChangeText={(val) => updateRow(row.id, 'birimFiyat', val)}
                             placeholder="0"
                             placeholderTextColor={colors.textMuted}
                             keyboardType="decimal-pad"
                           />
-                          <Text variant="caption" color="secondary" style={styles.unitText}>
+                          <Text style={styles.inputUnit}>
                             {getCurrencySymbol(currency)}
                           </Text>
                         </View>
                       </View>
                     </View>
-                  </Card>
+
+                    {/* Row total */}
+                    {rowTotal > 0 && (
+                      <View style={styles.rowTotalRow}>
+                        <Text style={styles.rowTotalLabel}>{t('common:total')}:</Text>
+                        <Text style={styles.rowTotalAmount}>{formatCurrency(rowTotal)}</Text>
+                      </View>
+                    )}
+                  </View>
                 );
               })}
 
               {/* Add Row Button */}
               <TouchableOpacity style={styles.addRowButton} onPress={addRow}>
-                <Plus size={20} color={colors.primary} />
-                <Text variant="body" color="primary">{t('products:bulk.addRow')}</Text>
+                <Plus size={18} color={colors.primary} />
+                <Text style={styles.addRowText}>{t('products:bulk.addRow')}</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
 
           {/* Footer */}
           <View style={styles.footer}>
-            <View style={styles.summary}>
-              <Text variant="caption" color="secondary">
+            <View style={styles.footerLeft}>
+              <Text style={styles.footerCount}>
                 {validRows.length} {t('products:title').toLowerCase()}
               </Text>
               {totalAmount > 0 && (
-                <Text variant="h3" color="success">
-                  {formatCurrency(totalAmount)}
-                </Text>
+                <Text style={styles.footerAmount}>{formatCurrency(totalAmount)}</Text>
               )}
             </View>
             <Button
@@ -357,9 +385,9 @@ export default function TopluGirisPage() {
         {showDatePicker && (
           <Modal visible transparent animationType="fade">
             <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
-              <View style={styles.pickerBackdrop}>
+              <View style={styles.backdrop}>
                 <TouchableWithoutFeedback onPress={() => {}}>
-                  <View style={styles.pickerContainer}>
+                  <View style={styles.pickerSheet}>
                     <Text style={styles.pickerTitle}>{t('common:date.date')}</Text>
                     <DateTimePickerRN
                       value={date}
@@ -378,10 +406,10 @@ export default function TopluGirisPage() {
                       locale={locale}
                       textColor={colors.text}
                       themeVariant="light"
-                      style={styles.datePickerStyle}
+                      style={{ height: 150 }}
                     />
                     <TouchableOpacity
-                      style={styles.pickerDoneButton}
+                      style={styles.pickerDone}
                       onPress={() => setShowDatePicker(false)}
                     >
                       <Text style={styles.pickerDoneText}>{t('common:buttons.done')}</Text>
@@ -396,42 +424,77 @@ export default function TopluGirisPage() {
         {/* Product Picker Modal */}
         {productPickerVisible && (
           <Modal visible transparent animationType="slide">
-            <View style={styles.productPickerContainer}>
-              <View style={styles.productPickerHeader}>
-                <Text variant="h3">{t('products:bulk.selectProduct')}</Text>
-                <TouchableOpacity onPress={() => setProductPickerVisible(false)}>
-                  <Text variant="body" color="primary">{t('common:buttons.close')}</Text>
+            <View style={styles.pickerModal}>
+              {/* Header */}
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerHeaderTitle}>{t('products:bulk.selectProduct')}</Text>
+                <TouchableOpacity
+                  onPress={() => setProductPickerVisible(false)}
+                  style={styles.pickerClose}
+                >
+                  <X size={20} color={colors.text} />
                 </TouchableOpacity>
               </View>
-              <View style={styles.productSearchContainer}>
-                <Search size={20} color={colors.textMuted} />
+
+              {/* Search */}
+              <View style={styles.searchBar}>
+                <Search size={18} color={colors.textMuted} />
                 <TextInput
-                  style={styles.productSearchInput}
+                  style={styles.searchInput}
                   value={productSearch}
                   onChangeText={setProductSearch}
                   placeholder={t('common:search.searchPlaceholder')}
                   placeholderTextColor={colors.textMuted}
                   autoFocus
                 />
-              </View>
-              <ScrollView style={styles.productList} keyboardShouldPersistTaps="handled">
-                {filteredUrunler?.map(urun => (
-                  <TouchableOpacity
-                    key={urun.id}
-                    style={styles.productItem}
-                    onPress={() => selectProduct(urun.id)}
-                  >
-                    <View style={styles.productIcon}>
-                      <Package size={20} color={colors.primary} />
-                    </View>
-                    <View style={styles.productInfo}>
-                      <Text variant="body">{urun.ad}</Text>
-                      <Text variant="caption" color="secondary">
-                        {t('products:stock.currentStock')}: {urun.miktar} {getBirimLabel(urun.birim)}
-                      </Text>
-                    </View>
+                {productSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setProductSearch('')}>
+                    <X size={16} color={colors.textMuted} />
                   </TouchableOpacity>
-                ))}
+                )}
+              </View>
+
+              {/* Product list */}
+              <ScrollView style={styles.flex} keyboardShouldPersistTaps="handled">
+                {filteredUrunler?.map(urun => {
+                  const isSelected = selectedProductIds.has(urun.id);
+                  return (
+                    <TouchableOpacity
+                      key={urun.id}
+                      style={[styles.pickerItem, isSelected && styles.pickerItemSelected]}
+                      onPress={() => selectProduct(urun.id)}
+                    >
+                      <View style={styles.pickerItemIcon}>
+                        <Package size={18} color={colors.primary} />
+                      </View>
+                      <View style={styles.pickerItemInfo}>
+                        <Text style={styles.pickerItemName}>{urun.ad}</Text>
+                        <View style={styles.pickerItemMeta}>
+                          {urun.kod && (
+                            <View style={styles.codePill}>
+                              <Text style={styles.codePillText}>{urun.kod}</Text>
+                            </View>
+                          )}
+                          <Text style={styles.pickerItemStock}>
+                            {urun.miktar} {getBirimLabel(urun.birim)}
+                          </Text>
+                        </View>
+                      </View>
+                      {isSelected && (
+                        <View style={styles.checkBadge}>
+                          <Check size={14} color={colors.white} />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                {filteredUrunler?.length === 0 && (
+                  <View style={styles.emptyPicker}>
+                    <Text style={styles.emptyPickerText}>
+                      {t('common:search.noResults')}
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
             </View>
           </Modal>
@@ -446,211 +509,368 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
+  flex: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  // Date row
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  dateLabel: {
+    flex: 1,
+    fontWeight: '500',
   },
   section: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  label: {
     marginBottom: spacing.sm,
   },
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  dateText: {
-    flex: 1,
-  },
+  // Rows
   rowsContainer: {
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap: 10,
   },
   rowCard: {
-    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 14,
   },
   rowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 10,
   },
+  rowNumberBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowNumberText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  deleteBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.errorLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Product selector
   productSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  productSelectorFilled: {
+    borderColor: colors.primaryLight,
+    backgroundColor: colors.primaryLight + '30',
   },
   selectedProduct: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 8,
     flex: 1,
   },
-  productName: {
-    flex: 1,
-  },
-  inputsRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  inputGroup: {
-    flex: 1,
-  },
-  inputWithUnit: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  compactInput: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    fontSize: 16,
-    color: colors.text,
-    textAlign: 'center',
-  },
-  unitText: {
-    marginLeft: spacing.xs,
-  },
-  addRowButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-    gap: spacing.lg,
-  },
-  summary: {
-    flex: 1,
-  },
-  saveButton: {
-    minWidth: 120,
-  },
-  // Date Picker Modal
-  pickerBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pickerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
-  },
-  pickerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  datePickerStyle: {
-    height: 150,
-  },
-  pickerDoneButton: {
-    marginTop: 16,
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  pickerDoneText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Product Picker Modal
-  productPickerContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-    marginTop: 50,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-  },
-  productPickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  productSearchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  productSearchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    paddingVertical: spacing.sm,
-  },
-  productList: {
-    flex: 1,
-  },
-  productItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  productIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: borderRadius.md,
+  productIconSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  productInfo: {
+  productNameWrap: {
     flex: 1,
+  },
+  productNameText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  productStockText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  placeholderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: colors.textMuted,
+  },
+  // Inputs
+  inputsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  inputGroup: {
+    flex: 1,
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 10,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  inputUnit: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+  // Row total
+  rowTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 6,
+  },
+  rowTotalLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  rowTotalAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  // Add row button
+  addRowButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+    backgroundColor: colors.primaryLight + '40',
+  },
+  addRowText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  // Footer
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.surface,
+    gap: spacing.md,
+  },
+  footerLeft: {
+    flex: 1,
+  },
+  footerCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  footerAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.income,
+    marginTop: 2,
+  },
+  saveButton: {
+    minWidth: 120,
+  },
+  // Backdrop / Date picker
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pickerSheet: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    width: '90%',
+    maxWidth: 360,
+  },
+  pickerTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  pickerDone: {
+    marginTop: 14,
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  pickerDoneText: {
+    color: colors.white,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  // Product Picker Modal
+  pickerModal: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    marginTop: Platform.OS === 'ios' ? 56 : 0,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  pickerHeaderTitle: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  pickerClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: spacing.lg,
+    marginVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: colors.text,
+  },
+  // Picker items
+  pickerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  pickerItemSelected: {
+    backgroundColor: colors.primaryLight + '40',
+  },
+  pickerItemIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerItemInfo: {
+    flex: 1,
+  },
+  pickerItemName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
+  },
+  pickerItemMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 3,
+  },
+  codePill: {
+    backgroundColor: colors.background,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  codePillText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  pickerItemStock: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  checkBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyPicker: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyPickerText: {
+    fontSize: 14,
+    color: colors.textMuted,
   },
 });
