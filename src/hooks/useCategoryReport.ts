@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, KategoriType } from '@/types/database';
-import { INCOME_TYPES, EXPENSE_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
+import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 
 /**
@@ -83,6 +83,9 @@ export function useCategoryReport(
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
 
+  // İade tiplerini belirle (dashboard tutarlılığı için)
+  const returnTypes = type === 'gider' ? EXPENSE_RETURN_TYPES : INCOME_RETURN_TYPES;
+
   // Tüm kategorileri çek (parent bilgisi için) - sadece aktif kategoriler
   const {
     data: allKategoriler,
@@ -143,6 +146,37 @@ export function useCategoryReport(
       }>;
     },
     enabled: !!isletme && !!startDate && !!endDate,
+  });
+
+  // İade işlemlerinin toplamını çek (dashboard ile tutarlılık için)
+  // Dashboard: gelir -= iade tutarı, gider -= iade tutarı
+  const {
+    data: returnTotal,
+    isLoading: returnLoading,
+  } = useQuery({
+    queryKey: ['category-report-returns', isletme?.id, type, startDateTime, endDateTime],
+    queryFn: async () => {
+      if (!isletme || returnTypes.length === 0) return 0;
+
+      const { data, error } = await supabase.rpc('get_category_report', {
+        p_isletme_id: isletme.id,
+        p_types: returnTypes as string[],
+        p_start_date: startDateTime,
+        p_end_date: endDateTime,
+      });
+
+      if (error) {
+        if (__DEV__) console.error('[useCategoryReport] returns RPC error:', error.message);
+        return 0;
+      }
+
+      // Sum all return amounts
+      const total = (data || []).reduce((sum: number, row: any) =>
+        sum + (Number(row.total_amount) || 0), 0);
+      if (__DEV__) console.log('[useCategoryReport]', type, 'returns total:', total);
+      return total;
+    },
+    enabled: !!isletme && !!startDate && !!endDate && returnTypes.length > 0,
   });
 
   // Kategori bazlı gruplama ve hesaplama (alt kategoriler ana kategoriye dahil)
@@ -258,20 +292,23 @@ export function useCategoryReport(
       });
     }
 
+    // İade tutarını toplam tutardan çıkar (dashboard ile tutarlılık)
+    const adjustedTotalAmount = totalAmount - (returnTotal || 0);
+
     return {
       items,
-      totalAmount,
+      totalAmount: adjustedTotalAmount,
       uncategorizedAmount,
       uncategorizedCount,
     };
-  }, [islemler, allKategoriler]);
+  }, [islemler, allKategoriler, returnTotal]);
 
   // Combine errors - prefer islemler error as it's more critical
   const combinedError = islemlerError || kategorilerError;
 
   return {
     ...result,
-    isLoading: islemlerLoading || kategorilerLoading,
+    isLoading: islemlerLoading || kategorilerLoading || returnLoading,
     isFetching: islemlerFetching,
     refetch: refetchIslemler,
     error: combinedError as Error | null,
@@ -289,6 +326,9 @@ export function useHierarchicalCategoryReport(
 
   // İşlem tiplerini belirle
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+
+  // İade tiplerini belirle (dashboard tutarlılığı için)
+  const returnTypes = type === 'gider' ? EXPENSE_RETURN_TYPES : INCOME_RETURN_TYPES;
 
   // Server-side aggregation: Supabase max_rows sınırından etkilenmez
   const {
@@ -324,6 +364,33 @@ export function useHierarchicalCategoryReport(
       }>;
     },
     enabled: !!isletme && !!startDate && !!endDate,
+  });
+
+  // İade işlemlerinin toplamını çek (dashboard ile tutarlılık için)
+  const {
+    data: returnTotal,
+    isLoading: returnLoading,
+  } = useQuery({
+    queryKey: ['hierarchical-category-report-returns', isletme?.id, type, startDateTime, endDateTime],
+    queryFn: async () => {
+      if (!isletme || returnTypes.length === 0) return 0;
+
+      const { data, error } = await supabase.rpc('get_category_report', {
+        p_isletme_id: isletme.id,
+        p_types: returnTypes as string[],
+        p_start_date: startDateTime,
+        p_end_date: endDateTime,
+      });
+
+      if (error) {
+        if (__DEV__) console.error('[useHierarchicalCategoryReport] returns RPC error:', error.message);
+        return 0;
+      }
+
+      return (data || []).reduce((sum: number, row: any) =>
+        sum + (Number(row.total_amount) || 0), 0);
+    },
+    enabled: !!isletme && !!startDate && !!endDate && returnTypes.length > 0,
   });
 
   // Hiyerarşik gruplama (RPC aggregate verisi üzerinden)
@@ -486,17 +553,20 @@ export function useHierarchicalCategoryReport(
       });
     }
 
+    // İade tutarını toplam tutardan çıkar (dashboard ile tutarlılık)
+    const adjustedTotalAmount = totalAmount - (returnTotal || 0);
+
     return {
       items,
-      totalAmount,
+      totalAmount: adjustedTotalAmount,
       uncategorizedAmount,
       uncategorizedCount,
     };
-  }, [islemler]);
+  }, [islemler, returnTotal]);
 
   return {
     ...result,
-    isLoading: islemlerLoading,
+    isLoading: islemlerLoading || returnLoading,
     error: islemlerError as Error | null,
   };
 }
