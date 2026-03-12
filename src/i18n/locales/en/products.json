@@ -140,5 +140,54 @@
     "success": "{{count}} product movements saved",
     "selectAll": "Select All",
     "selectNone": "Select None"
+  },
+  "cariLink": {
+    "toggle": "Link to Client Account",
+    "selectClient": "Select Client",
+    "supplier": "Supplier",
+    "customer": "Customer",
+    "linkedTo": "Linked to {{name}}",
+    "vatRate": "VAT Rate",
+    "totalWithVat": "Total: {{total}} (VAT: {{vat}})",
+    "successSingle": "Product movement and client transaction saved",
+    "successBulk": "{{count}} product movements and client transaction saved"
+  },
+  "export": {
+    "title": "Excel Export",
+    "productMovements": "Product Movements",
+    "allProducts": "All Products",
+    "singleProduct": "Product Report",
+    "selectPeriod": "Select Period",
+    "exporting": "Exporting...",
+    "success": "Excel file created",
+    "error": "Error during export",
+    "product": "Product",
+    "movementType": "Movement Type",
+    "client": "Client",
+    "quantity": "Quantity",
+    "unit": "Unit",
+    "unitPrice": "Unit Price",
+    "subtotal": "Subtotal",
+    "vatRate": "VAT %",
+    "vatAmount": "VAT Amount",
+    "total": "Total",
+    "totalIn": "Total In",
+    "totalOut": "Total Out",
+    "netChange": "Net Change",
+    "periodSummary": "Period Summary",
+    "sheetName": "Movements",
+    "fileName": "product_movements",
+    "shareDialogTitle": "Share Product Movements",
+    "sharingNotSupported": "Sharing is not supported on this device",
+    "movementTypes": {
+      "giris": "Stock In",
+      "cikis": "Stock Out",
+      "duzeltme": "Adjustment"
+    }
+  },
+  "movementRow": {
+    "totalAmount": "{{amount}}",
+    "vatIncluded": "({{vat}} VAT)",
+    "perUnit": "{{price}}/{{unit}} × {{qty}}"
   }
 }

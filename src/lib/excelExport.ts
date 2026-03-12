@@ -9,7 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
 import { formatCurrency, toNumber } from './currency';
-import { IslemWithRelations, Currency } from '@/types/database';
+import { IslemWithRelations, Currency, UrunHareket } from '@/types/database';
 
 // ============================================================================
 // STYLE DEFINITIONS
@@ -677,6 +677,254 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   });
 
   // Paylaş
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (isAvailable) {
+    await Sharing.shareAsync(filePath, {
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      dialogTitle: t.shareDialogTitle,
+      UTI: 'com.microsoft.excel.xlsx',
+    });
+  } else {
+    throw new Error(t.sharingNotSupported);
+  }
+}
+
+// ============================================================================
+// ÜRÜN HAREKETLER EXCEL EXPORT
+// ============================================================================
+
+export interface UrunExcelTranslations {
+  productMovements: string;
+  product: string;
+  period: string;
+  createdAt: string;
+  business: string;
+  date: string;
+  movementType: string;
+  client: string;
+  quantity: string;
+  unit: string;
+  unitPrice: string;
+  subtotal: string;
+  vatRate: string;
+  vatAmount: string;
+  total: string;
+  description: string;
+  totalIn: string;
+  totalOut: string;
+  netChange: string;
+  periodSummary: string;
+  sheetName: string;
+  fileName: string;
+  shareDialogTitle: string;
+  sharingNotSupported: string;
+  movementTypes: Record<string, string>;
+}
+
+export interface UrunHareketExportRow {
+  date: string;
+  movementType: string;
+  cariName: string;
+  quantity: number;
+  unitLabel: string;
+  unitPrice: number | null;
+  subtotal: number | null;
+  vatRate: number | null;
+  vatAmount: number | null;
+  total: number | null;
+  description: string;
+}
+
+export interface UrunExportOptions {
+  productName: string;
+  productCode?: string;
+  productUnit: string;
+  productCurrency: Currency | string;
+  isletmeName: string;
+  startDate: string;
+  endDate: string;
+  hareketler: (UrunHareket & { cari?: { id: string; name: string } | null })[];
+  translations: UrunExcelTranslations;
+}
+
+/**
+ * Ürün hareketlerini Excel olarak export eder.
+ * Kolonlar: Tarih, Hareket Tipi, Cari, Miktar, Birim, Birim Fiyat, Ara Toplam, KDV %, KDV Tutar, Toplam, Açıklama
+ * + Dönem Özeti satırları
+ */
+export async function exportUrunHareketlerToExcel(options: UrunExportOptions): Promise<void> {
+  const {
+    productName,
+    productCode,
+    productUnit,
+    productCurrency,
+    isletmeName,
+    startDate,
+    endDate,
+    hareketler,
+    translations: t,
+  } = options;
+
+  const currency = productCurrency || 'TRY';
+  const formatAmount = (val: number | null) =>
+    val !== null && val !== undefined ? formatCurrency(val, currency) : '';
+
+  // İşlemleri tarih sırasına göre sırala (eskiden yeniye)
+  const sorted = [...hareketler].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at)
+  );
+
+  // Satırları oluştur
+  const rows: UrunHareketExportRow[] = sorted.map((h) => {
+    const birimFiyat = h.birim_fiyat != null ? toNumber(h.birim_fiyat) : null;
+    const kdvOrani = h.kdv_orani != null ? toNumber(h.kdv_orani) : null;
+    const subtotal = birimFiyat != null ? h.miktar * birimFiyat : null;
+    const kdvAmount = subtotal != null && kdvOrani != null ? subtotal * (kdvOrani / 100) : null;
+    const total = subtotal != null ? subtotal + (kdvAmount ?? 0) : null;
+
+    return {
+      date: formatDateShort(h.created_at),
+      movementType: t.movementTypes[h.hareket_tipi] || h.hareket_tipi,
+      cariName: h.cari?.name || '',
+      quantity: h.hareket_tipi === 'cikis' ? -Math.abs(h.miktar) : h.miktar,
+      unitLabel: productUnit,
+      unitPrice: birimFiyat,
+      subtotal,
+      vatRate: kdvOrani,
+      vatAmount: kdvAmount,
+      total,
+      description: h.aciklama || '',
+    };
+  });
+
+  // Toplamları hesapla
+  const totalIn = sorted
+    .filter(h => h.hareket_tipi === 'giris')
+    .reduce((sum, h) => sum + Math.abs(h.miktar), 0);
+  const totalOut = sorted
+    .filter(h => h.hareket_tipi === 'cikis')
+    .reduce((sum, h) => sum + Math.abs(h.miktar), 0);
+  const totalInAmount = rows
+    .filter(r => r.quantity > 0)
+    .reduce((sum, r) => sum + (r.total || 0), 0);
+  const totalOutAmount = rows
+    .filter(r => r.quantity < 0)
+    .reduce((sum, r) => sum + Math.abs(r.total || 0), 0);
+
+  // Workbook oluştur
+  const wb = XLSX.utils.book_new();
+  const ws: XLSX.WorkSheet = {};
+
+  // ============ BAŞLIK BÖLÜMÜ ============
+  const productLabel = productCode ? `${productName} (${productCode})` : productName;
+  ws['A1'] = { v: t.productMovements, s: titleStyle };
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
+
+  ws['A3'] = { v: `${t.product}:`, s: metaLabelStyle };
+  ws['B3'] = { v: productLabel, s: businessNameStyle };
+
+  ws['A4'] = { v: `${t.period}:`, s: metaLabelStyle };
+  ws['B4'] = { v: `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`, s: metaValueStyle };
+
+  ws['A5'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
+  ws['B5'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+
+  ws['A6'] = { v: `${t.business}:`, s: metaLabelStyle };
+  ws['B6'] = { v: isletmeName, s: businessNameStyle };
+
+  // ============ TABLO BAŞLIKLARI ============
+  const headerRow = 8;
+  const headers = [
+    t.date, t.movementType, t.client, t.quantity, t.unit,
+    t.unitPrice, t.subtotal, t.vatRate, t.vatAmount, t.total, t.description,
+  ];
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+
+  headers.forEach((header, i) => {
+    ws[`${cols[i]}${headerRow}`] = { v: header, s: headerStyle };
+  });
+
+  // ============ VERİ SATIRLARI ============
+  const dataRowStart = 9;
+  rows.forEach((r, i) => {
+    const rowNum = dataRowStart + i;
+    ws[`A${rowNum}`] = { v: r.date, s: cellStyle };
+    ws[`B${rowNum}`] = { v: r.movementType, s: cellStyle };
+    ws[`C${rowNum}`] = { v: r.cariName, s: cellStyle };
+    ws[`D${rowNum}`] = { v: r.quantity, s: currencyCellStyle };
+    ws[`E${rowNum}`] = { v: r.unitLabel, s: cellStyle };
+    ws[`F${rowNum}`] = { v: formatAmount(r.unitPrice), s: currencyCellStyle };
+    ws[`G${rowNum}`] = { v: formatAmount(r.subtotal), s: currencyCellStyle };
+    ws[`H${rowNum}`] = { v: r.vatRate != null ? `%${r.vatRate}` : '', s: cellStyle };
+    ws[`I${rowNum}`] = { v: formatAmount(r.vatAmount), s: currencyCellStyle };
+    ws[`J${rowNum}`] = { v: formatAmount(r.total), s: currencyCellStyle };
+    ws[`K${rowNum}`] = { v: r.description, s: cellStyle };
+  });
+
+  // ============ DÖNEM ÖZETİ ============
+  const summaryStartRow = dataRowStart + rows.length + 1;
+
+  // Toplam Giriş
+  ws[`A${summaryStartRow}`] = { v: '', s: summaryRowStyle };
+  ws[`B${summaryStartRow}`] = { v: '', s: summaryRowStyle };
+  ws[`C${summaryStartRow}`] = { v: t.totalIn, s: summaryRowStyle };
+  ws[`D${summaryStartRow}`] = { v: totalIn, s: summaryCurrencyStyle };
+  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${summaryStartRow}`] = { v: '', s: summaryRowStyle };
+  ws[`J${summaryStartRow}`] = { v: formatAmount(totalInAmount), s: summaryCurrencyStyle };
+  ws[`K${summaryStartRow}`] = { v: '', s: summaryRowStyle };
+
+  // Toplam Çıkış
+  const outRow = summaryStartRow + 1;
+  ws[`A${outRow}`] = { v: '', s: summaryRowStyle };
+  ws[`B${outRow}`] = { v: '', s: summaryRowStyle };
+  ws[`C${outRow}`] = { v: t.totalOut, s: summaryRowStyle };
+  ws[`D${outRow}`] = { v: -totalOut, s: summaryCurrencyStyle };
+  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${outRow}`] = { v: '', s: summaryRowStyle };
+  ws[`J${outRow}`] = { v: formatAmount(totalOutAmount), s: summaryCurrencyStyle };
+  ws[`K${outRow}`] = { v: '', s: summaryRowStyle };
+
+  // Net Değişim
+  const netRow = outRow + 1;
+  ws[`A${netRow}`] = { v: '', s: totalRowStyle };
+  ws[`B${netRow}`] = { v: '', s: totalRowStyle };
+  ws[`C${netRow}`] = { v: t.netChange, s: totalRowStyle };
+  ws[`D${netRow}`] = { v: totalIn - totalOut, s: totalCurrencyStyle };
+  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${netRow}`] = { v: '', s: totalRowStyle };
+  ws[`J${netRow}`] = { v: formatAmount(totalInAmount - totalOutAmount), s: totalCurrencyStyle };
+  ws[`K${netRow}`] = { v: '', s: totalRowStyle };
+
+  // Worksheet aralığını ayarla
+  ws['!ref'] = `A1:K${netRow}`;
+
+  // Sütun genişlikleri
+  ws['!cols'] = [
+    { wch: 12 }, // Tarih
+    { wch: 14 }, // Hareket Tipi
+    { wch: 20 }, // Cari
+    { wch: 10 }, // Miktar
+    { wch: 10 }, // Birim
+    { wch: 14 }, // Birim Fiyat
+    { wch: 14 }, // Ara Toplam
+    { wch: 8 },  // KDV %
+    { wch: 14 }, // KDV Tutar
+    { wch: 14 }, // Toplam
+    { wch: 25 }, // Açıklama
+  ];
+
+  ws['!rows'] = [{ hpt: 24 }];
+
+  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
+
+  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+
+  const safeName = productName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\s]/g, '').trim();
+  const fileName = `${safeName}_${t.fileName}_${startDate}_${endDate}.xlsx`;
+  const filePath = `${FileSystem.cacheDirectory}${fileName}`;
+
+  await FileSystem.writeAsStringAsync(filePath, wbout, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
   const isAvailable = await Sharing.isAvailableAsync();
   if (isAvailable) {
     await Sharing.shareAsync(filePath, {

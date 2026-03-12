@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View,
   Modal,
@@ -20,13 +20,15 @@ import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { X, Package, Calendar } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
-import { useCreateUrunHareket, useUpdateUrunHareket } from '@/hooks/useUrunHareketler';
+import { useCreateUrunHareket, useUpdateUrunHareket, useCreateUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { Urun, BirimType } from '@/types/database';
+import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { styles } from './styles';
+import { CariLinkSection } from './CariLinkSection';
 import { toErrorMessage } from '@/lib/errors';
 import { useSettings } from '@/hooks/useSettings';
 import { getCurrencySymbol } from '@/constants/currencies';
+import { formatCurrency } from '@/lib/currency';
 
 type UrunType = 'giris' | 'cikis' | 'duzeltme';
 
@@ -58,6 +60,7 @@ export function QuickUrunBar({
   const { currency } = useSettings();
   const createUrunHareket = useCreateUrunHareket();
   const updateUrunHareket = useUpdateUrunHareket();
+  const createUrunHareketWithCari = useCreateUrunHareketWithCari();
   const isEditMode = mode === 'edit' && editHareketId;
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
@@ -75,6 +78,27 @@ export function QuickUrunBar({
   const [birimFiyat, setBirimFiyat] = useState('');
   const [tarih, setTarih] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Cari link state
+  const [cariLinkEnabled, setCariLinkEnabled] = useState(false);
+  const [selectedCariId, setSelectedCariId] = useState<string | null>(null);
+  const [kdvOrani, setKdvOrani] = useState<KdvOrani>((urun?.kdv_orani ?? 0) as KdvOrani);
+
+  // Calculated totals for cari link display
+  const cariTotals = useMemo(() => {
+    const miktarNum = parseFloat((miktar || '0').replace(',', '.'));
+    const fiyatNum = parseFloat((birimFiyat || '0').replace(',', '.'));
+    if (isNaN(miktarNum) || isNaN(fiyatNum) || miktarNum <= 0 || fiyatNum <= 0) {
+      return null;
+    }
+    const subtotal = miktarNum * fiyatNum;
+    const kdvAmount = subtotal * (kdvOrani / 100);
+    const total = subtotal + kdvAmount;
+    return {
+      total: formatCurrency(total, currency),
+      kdv: kdvAmount > 0 ? formatCurrency(kdvAmount, currency) : null,
+    };
+  }, [miktar, birimFiyat, kdvOrani, currency]);
 
   // Keyboard state
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -127,6 +151,9 @@ export function QuickUrunBar({
       }
       setTarih(new Date());
       setShowDatePicker(false);
+      setCariLinkEnabled(false);
+      setSelectedCariId(null);
+      setKdvOrani((urun?.kdv_orani ?? 0) as KdvOrani);
 
       // Animate in
       opacity.setValue(0);
@@ -262,8 +289,26 @@ export function QuickUrunBar({
           t('common:status.success'),
           t('products:messages.stockUpdated')
         );
+      } else if (cariLinkEnabled && selectedCariId && fiyatNum && fiyatNum > 0) {
+        // Create with cari linkage
+        await createUrunHareketWithCari.mutateAsync({
+          urun_id: urun.id,
+          urun_ad: urun.ad,
+          hareket_tipi: urunType as 'giris' | 'cikis',
+          miktar: miktarNum,
+          birim_fiyat: fiyatNum,
+          kdv_orani: kdvOrani,
+          cari_id: selectedCariId,
+          date: tarih.toISOString(),
+        });
+
+        handleDismiss();
+        Alert.alert(
+          t('common:status.success'),
+          t('products:cariLink.successSingle')
+        );
       } else {
-        // Create new movement
+        // Create new movement (without cari)
         await createUrunHareket.mutateAsync({
           urun_id: urun.id,
           hareket_tipi: urunType,
@@ -291,7 +336,7 @@ export function QuickUrunBar({
   const isValidAmount = urunType === 'duzeltme'
     ? !isNaN(miktarNum) && miktarNum >= 0
     : !isNaN(miktarNum) && miktarNum > 0;
-  const isPending = createUrunHareket.isPending || updateUrunHareket.isPending;
+  const isPending = createUrunHareket.isPending || updateUrunHareket.isPending || createUrunHareketWithCari.isPending;
 
   // Position card above keyboard (like QuickTransactionBar)
   const cardBottom = keyboardHeight > 0
@@ -385,6 +430,24 @@ export function QuickUrunBar({
             </View>
             <RNText style={styles.unitLabel}>{getCurrencySymbol(currency)}</RNText>
           </View>
+        )}
+
+        {/* Cari Link Section (hidden for adjustment and edit mode) */}
+        {urunType !== 'duzeltme' && !isEditMode && (
+          <CariLinkSection
+            enabled={cariLinkEnabled}
+            onToggle={(val) => {
+              setCariLinkEnabled(val);
+              if (!val) setSelectedCariId(null);
+            }}
+            selectedCariId={selectedCariId}
+            onSelectCari={setSelectedCariId}
+            kdvOrani={kdvOrani}
+            onKdvChange={setKdvOrani}
+            hareketTipi={urunType as 'giris' | 'cikis'}
+            totalDisplay={cariTotals?.total}
+            kdvDisplay={cariTotals?.kdv ?? undefined}
+          />
         )}
 
         {/* Save Button */}

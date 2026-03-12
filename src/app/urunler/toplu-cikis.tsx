@@ -20,14 +20,15 @@ import { Text, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
-import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
+import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { isToday } from '@/lib/date';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
-import { Urun, BirimType } from '@/types/database';
+import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { CariLinkSection } from '@/components/urun/QuickUrunBar/CariLinkSection';
 
 interface StockRow {
   id: string;
@@ -41,6 +42,7 @@ export default function TopluCikisPage() {
   const { t } = useTranslation(['products', 'common', 'transactions']);
   const { currency } = useSettings();
   const createUrunHareket = useCreateUrunHareket();
+  const createBulkWithCari = useCreateBulkUrunHareketWithCari();
   const { locale, formatDateMedium } = useDateFormat();
 
   const [date, setDate] = useState(new Date());
@@ -52,6 +54,11 @@ export default function TopluCikisPage() {
   const [productPickerVisible, setProductPickerVisible] = useState(false);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState('');
+
+  // Cari link state
+  const [cariLinkEnabled, setCariLinkEnabled] = useState(false);
+  const [selectedCariId, setSelectedCariId] = useState<string | null>(null);
+  const [kdvOrani, setKdvOrani] = useState<KdvOrani>(0);
 
   const { data: urunler } = useUrunler();
 
@@ -120,6 +127,17 @@ export default function TopluCikisPage() {
     return total;
   }, [validRows]);
 
+  // Cari totals for display
+  const cariTotals = useMemo(() => {
+    if (!cariLinkEnabled || totalAmount === 0) return null;
+    const kdvAmount = totalAmount * (kdvOrani / 100);
+    const grandTotal = totalAmount + kdvAmount;
+    return {
+      totalDisplay: formatCurrency(grandTotal),
+      kdvDisplay: kdvAmount > 0 ? formatCurrency(kdvAmount) : undefined,
+    };
+  }, [cariLinkEnabled, totalAmount, kdvOrani]);
+
   const handleSave = async () => {
     if (validRows.length === 0) {
       Alert.alert(t('common:status.error'), t('transactions:dailyCash.noEntries'));
@@ -129,17 +147,38 @@ export default function TopluCikisPage() {
     setIsSaving(true);
 
     try {
-      const promises = validRows.map(row =>
-        createUrunHareket.mutateAsync({
-          urun_id: row.urunId!,
-          hareket_tipi: 'cikis',
-          miktar: parseCurrency(row.miktar),
-          birim_fiyat: parseCurrency(row.birimFiyat) || null,
-          aciklama: null,
-        })
-      );
+      if (cariLinkEnabled && selectedCariId) {
+        // Bulk save with cari linkage (single islem + multiple urun_hareket)
+        const items = validRows.map(row => {
+          const urun = getUrunById(row.urunId);
+          return {
+            urun_id: row.urunId!,
+            urun_ad: urun?.ad || '',
+            miktar: parseCurrency(row.miktar),
+            birim_fiyat: parseCurrency(row.birimFiyat) || 0,
+            kdv_orani: kdvOrani,
+          };
+        });
 
-      await Promise.all(promises);
+        await createBulkWithCari.mutateAsync({
+          hareket_tipi: 'cikis',
+          items,
+          cari_id: selectedCariId,
+          date: date.toISOString().split('T')[0],
+        });
+      } else {
+        // Standard save without cari
+        const promises = validRows.map(row =>
+          createUrunHareket.mutateAsync({
+            urun_id: row.urunId!,
+            hareket_tipi: 'cikis',
+            miktar: parseCurrency(row.miktar),
+            birim_fiyat: parseCurrency(row.birimFiyat) || null,
+            aciklama: null,
+          })
+        );
+        await Promise.all(promises);
+      }
 
       Alert.alert(
         t('common:status.success'),
@@ -185,6 +224,21 @@ export default function TopluCikisPage() {
                   {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
                 </Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Cari Link Section */}
+            <View style={styles.section}>
+              <CariLinkSection
+                enabled={cariLinkEnabled}
+                onToggle={setCariLinkEnabled}
+                selectedCariId={selectedCariId}
+                onSelectCari={setSelectedCariId}
+                kdvOrani={kdvOrani}
+                onKdvChange={setKdvOrani}
+                hareketTipi="cikis"
+                totalDisplay={cariTotals?.totalDisplay}
+                kdvDisplay={cariTotals?.kdvDisplay}
+              />
             </View>
 
             {/* Rows */}

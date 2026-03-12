@@ -140,5 +140,54 @@
     "success": "{{count}} adet ürün hareketi kaydedildi",
     "selectAll": "Tümünü Seç",
     "selectNone": "Hiçbirini Seçme"
+  },
+  "cariLink": {
+    "toggle": "Cari Hesaba Bağla",
+    "selectClient": "Cari Seç",
+    "supplier": "Tedarikçi",
+    "customer": "Müşteri",
+    "linkedTo": "{{name}} ile bağlantılı",
+    "vatRate": "KDV Oranı",
+    "totalWithVat": "Toplam: {{total}} (KDV: {{vat}})",
+    "successSingle": "Ürün hareketi ve cari işlem kaydedildi",
+    "successBulk": "{{count}} ürün hareketi ve cari işlem kaydedildi"
+  },
+  "export": {
+    "title": "Excel Export",
+    "productMovements": "Ürün Hareketleri",
+    "allProducts": "Tüm Ürünler",
+    "singleProduct": "Ürün Raporu",
+    "selectPeriod": "Dönem Seçin",
+    "exporting": "Export ediliyor...",
+    "success": "Excel dosyası oluşturuldu",
+    "error": "Export sırasında hata oluştu",
+    "product": "Ürün",
+    "movementType": "Hareket Tipi",
+    "client": "Cari",
+    "quantity": "Miktar",
+    "unit": "Birim",
+    "unitPrice": "Birim Fiyat",
+    "subtotal": "Ara Toplam",
+    "vatRate": "KDV %",
+    "vatAmount": "KDV Tutar",
+    "total": "Toplam",
+    "totalIn": "Toplam Giriş",
+    "totalOut": "Toplam Çıkış",
+    "netChange": "Net Değişim",
+    "periodSummary": "Dönem Özeti",
+    "sheetName": "Hareketler",
+    "fileName": "urun_hareketleri",
+    "shareDialogTitle": "Ürün Hareketlerini Paylaş",
+    "sharingNotSupported": "Paylaşım bu cihazda desteklenmiyor",
+    "movementTypes": {
+      "giris": "Giriş",
+      "cikis": "Çıkış",
+      "duzeltme": "Düzeltme"
+    }
+  },
+  "movementRow": {
+    "totalAmount": "{{amount}}",
+    "vatIncluded": "({{vat}} KDV)",
+    "perUnit": "{{price}}/{{unit}} × {{qty}}"
   }
 }

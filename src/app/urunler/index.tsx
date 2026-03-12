@@ -549,32 +549,46 @@ export default function UrunlerPage() {
                   onToggle={() => handleToggle(urun.id)}
                   header={
                     <View style={styles.urunHeader}>
-                      <Package size={24} color={colors.primary} />
-                      <View style={styles.urunInfo}>
-                        <Text variant="body">{urun.ad}</Text>
-                        <Text variant="caption" color="secondary">
-                          {urun.miktar} {getBirimLabel(urun.birim)}
-                          {urun.satis_fiyati > 0 && ` • ${formatCurrency(urun.satis_fiyati, urun.currency)}/${getBirimLabel(urun.birim)}`}
-                        </Text>
+                      <View style={styles.urunIconWrap}>
+                        <Package size={18} color={colors.primary} />
                       </View>
-                      {/* Dönem özeti */}
+                      <View style={styles.urunInfo}>
+                        <View style={styles.urunNameRow}>
+                          <Text variant="body" style={styles.urunName} numberOfLines={1}>{urun.ad}</Text>
+                          {urun.kod ? (
+                            <View style={styles.codeBadge}>
+                              <Text style={styles.codeBadgeText}>{urun.kod}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <View style={styles.urunMetaRow}>
+                          <Text variant="caption" color="secondary">
+                            {urun.miktar} {getBirimLabel(urun.birim)}
+                          </Text>
+                          {urun.satis_fiyati > 0 && (
+                            <Text variant="caption" color="secondary">
+                              {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
+                            </Text>
+                          )}
+                          {urun.kategori_id && kategoriMap.get(urun.kategori_id) && (
+                            <View style={styles.categoryChip}>
+                              <Text style={styles.categoryChipText}>{kategoriMap.get(urun.kategori_id)}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      {/* Dönem özeti - pill badges */}
                       <View style={styles.periodSummary}>
                         {hasMovements ? (
                           <>
                             {urunOzet.giris > 0 && (
-                              <View style={styles.periodSummaryItem}>
-                                <TrendingUp size={14} color={colors.success} />
-                                <Text variant="body" color="success" style={styles.periodSummaryText}>
-                                  +{urunOzet.giris}
-                                </Text>
+                              <View style={styles.pillBadgeIn}>
+                                <Text style={styles.pillBadgeInText}>+{urunOzet.giris}</Text>
                               </View>
                             )}
                             {urunOzet.cikis > 0 && (
-                              <View style={styles.periodSummaryItem}>
-                                <TrendingDown size={14} color={colors.error} />
-                                <Text variant="body" color="error" style={styles.periodSummaryText}>
-                                  -{urunOzet.cikis}
-                                </Text>
+                              <View style={styles.pillBadgeOut}>
+                                <Text style={styles.pillBadgeOutText}>-{urunOzet.cikis}</Text>
                               </View>
                             )}
                           </>
@@ -588,7 +602,7 @@ export default function UrunlerPage() {
                         }}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                       >
-                        <MoreVertical size={20} color={colors.textMuted} />
+                        <MoreVertical size={18} color={colors.textMuted} />
                       </TouchableOpacity>
                     </View>
                   }
@@ -1076,7 +1090,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
   },
   headerButtons: {
     flexDirection: 'row',
@@ -1102,7 +1116,7 @@ const styles = StyleSheet.create({
   },
   periodSection: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
     gap: spacing.sm,
   },
   periodNav: {
@@ -1162,28 +1176,89 @@ const styles = StyleSheet.create({
   urunHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+  },
+  urunIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   urunInfo: {
     flex: 1,
+    gap: 2,
+  },
+  urunNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  urunName: {
+    fontSize: 15,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  codeBadge: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+  },
+  codeBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  urunMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  categoryChip: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  categoryChipText: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   moreButton: {
     padding: spacing.xs,
-    marginLeft: spacing.sm,
+    marginLeft: 2,
   },
   periodSummary: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-  },
-  periodSummaryItem: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
   },
-  periodSummaryText: {
-    fontSize: 14,
-    fontWeight: '600',
+  pillBadgeIn: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  pillBadgeInText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  pillBadgeOut: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  pillBadgeOutText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.error,
   },
   actionButtons: {
     flexDirection: 'row',

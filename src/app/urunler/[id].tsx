@@ -23,9 +23,11 @@ import {
   ArchiveRestore,
   Building2,
   User,
+  FileSpreadsheet,
 } from 'lucide-react-native';
 import { Text, Card, Button, ExpandableCard } from '@/components/ui';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
+import { UrunExportSheet } from '@/components/export/UrunExportSheet';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { colors } from '@/constants/colors';
@@ -54,6 +56,7 @@ export default function UrunDetayPage() {
   const [menuVisible, setMenuVisible] = useState(false);
   const [quickUrunVisible, setQuickUrunVisible] = useState(false);
   const [quickUrunType, setQuickUrunType] = useState<'giris' | 'cikis'>('giris');
+  const [exportSheetVisible, setExportSheetVisible] = useState(false);
 
   // Expanded hareket state
   const [expandedHareketId, setExpandedHareketId] = useState<string | null>(null);
@@ -197,9 +200,14 @@ export default function UrunDetayPage() {
           title: urun.ad,
           headerBackTitle: t('navigation:back.back'),
           headerRight: () => (
-            <TouchableOpacity onPress={() => setMenuVisible(true)}>
-              <MoreVertical size={24} color={colors.text} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <TouchableOpacity onPress={() => setExportSheetVisible(true)}>
+                <FileSpreadsheet size={22} color={colors.success} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setMenuVisible(true)}>
+                <MoreVertical size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
           ),
         }}
       />
@@ -211,24 +219,31 @@ export default function UrunDetayPage() {
               <View style={styles.urunCard}>
                 <View style={styles.urunLeft}>
                   <View style={styles.urunIcon}>
-                    <Package size={24} color={colors.primary} />
+                    <Package size={20} color={colors.primary} />
                   </View>
                   <View style={styles.urunInfo}>
                     <Text variant="body" style={styles.urunName} numberOfLines={1}>
                       {urun.ad}
                     </Text>
-                    {urun.satis_fiyati > 0 && (
-                      <Text variant="caption" color="muted">
-                        {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
-                      </Text>
-                    )}
+                    <View style={styles.urunMeta}>
+                      {urun.kod ? (
+                        <View style={styles.urunCodeBadge}>
+                          <Text style={styles.urunCodeText}>{urun.kod}</Text>
+                        </View>
+                      ) : null}
+                      {urun.satis_fiyati > 0 && (
+                        <Text variant="caption" color="muted">
+                          {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
+                        </Text>
+                      )}
+                    </View>
                   </View>
                 </View>
                 <View style={styles.urunRight}>
                   <Text variant="caption" color="secondary">
                     {t('products:stock.currentStock')}
                   </Text>
-                  <Text variant="h2" color="primary">
+                  <Text variant="h3" color="primary">
                     {urun.miktar} {getBirimLabel(urun.birim)}
                   </Text>
                 </View>
@@ -241,8 +256,8 @@ export default function UrunDetayPage() {
             <View style={styles.actionButtons}>
               <Button
                 variant="primary"
-                size="lg"
-                icon={<Plus size={20} color={colors.white} />}
+                size="md"
+                icon={<Plus size={18} color={colors.white} />}
                 iconPosition="left"
                 onPress={() => openQuickUrun('giris')}
                 style={styles.actionButton}
@@ -251,8 +266,8 @@ export default function UrunDetayPage() {
               </Button>
               <Button
                 variant="outline"
-                size="lg"
-                icon={<Minus size={20} color={colors.primary} />}
+                size="md"
+                icon={<Minus size={18} color={colors.primary} />}
                 iconPosition="left"
                 onPress={() => openQuickUrun('cikis')}
                 style={styles.actionButton}
@@ -272,19 +287,13 @@ export default function UrunDetayPage() {
                 {aylikOzet.slice(0, 6).map((ozet, index) => (
                   <View key={ozet.ay}>
                     <View style={styles.aylikItem}>
-                      <Text variant="body">{getMonthLabel(ozet.ay)}</Text>
+                      <Text variant="body" style={{ fontSize: 14 }}>{getMonthLabel(ozet.ay)}</Text>
                       <View style={styles.aylikValues}>
-                        <View style={styles.aylikValue}>
-                          <TrendingUp size={14} color={colors.success} />
-                          <Text variant="caption" color="success">
-                            +{ozet.giris}
-                          </Text>
+                        <View style={styles.aylikPillIn}>
+                          <Text style={styles.aylikPillInText}>+{ozet.giris}</Text>
                         </View>
-                        <View style={styles.aylikValue}>
-                          <TrendingDown size={14} color={colors.error} />
-                          <Text variant="caption" color="error">
-                            -{ozet.cikis}
-                          </Text>
+                        <View style={styles.aylikPillOut}>
+                          <Text style={styles.aylikPillOutText}>-{ozet.cikis}</Text>
                         </View>
                       </View>
                     </View>
@@ -325,11 +334,11 @@ export default function UrunDetayPage() {
                           ]}
                         >
                           {hareket.hareket_tipi === 'giris' ? (
-                            <TrendingUp size={16} color={colors.success} />
+                            <TrendingUp size={14} color={colors.success} />
                           ) : hareket.hareket_tipi === 'cikis' ? (
-                            <TrendingDown size={16} color={colors.error} />
+                            <TrendingDown size={14} color={colors.error} />
                           ) : (
-                            <Package size={16} color={colors.warning} />
+                            <Package size={14} color={colors.warning} />
                           )}
                         </View>
                         <View style={styles.hareketInfo}>
@@ -361,25 +370,37 @@ export default function UrunDetayPage() {
                               : t('products:stock.adjustment')}
                           </Text>
                           {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
-                            <Text variant="body" color="secondary" style={{ fontSize: 14 }}>
-                              {formatCurrency(hareket.birim_fiyat)}/{getBirimLabel(urun.birim)}
+                            <Text variant="body" color="secondary" style={{ fontSize: 13 }}>
+                              {formatCurrency(hareket.birim_fiyat)}/{getBirimLabel(urun.birim)} × {Math.abs(hareket.miktar)}
                             </Text>
                           )}
                         </View>
-                        <Text
-                          variant="h3"
-                          style={{
-                            color:
-                              hareket.hareket_tipi === 'giris'
-                                ? colors.success
-                                : hareket.hareket_tipi === 'cikis'
-                                ? colors.error
-                                : colors.warning,
-                          }}
-                        >
-                          {hareket.hareket_tipi === 'giris' ? '+' : '-'}
-                          {Math.abs(hareket.miktar)}
-                        </Text>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text
+                            variant="h3"
+                            style={{
+                              color:
+                                hareket.hareket_tipi === 'giris'
+                                  ? colors.success
+                                  : hareket.hareket_tipi === 'cikis'
+                                  ? colors.error
+                                  : colors.warning,
+                            }}
+                          >
+                            {hareket.hareket_tipi === 'giris' ? '+' : '-'}
+                            {Math.abs(hareket.miktar)}
+                          </Text>
+                          {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (() => {
+                            const subtotal = Math.abs(hareket.miktar) * hareket.birim_fiyat;
+                            const kdv = hareket.kdv_orani ? subtotal * (hareket.kdv_orani / 100) : 0;
+                            const total = subtotal + kdv;
+                            return (
+                              <Text variant="body" color="secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                                {formatCurrency(total)}{kdv > 0 ? ` (${formatCurrency(kdv)} KDV)` : ''}
+                              </Text>
+                            );
+                          })()}
+                        </View>
                       </View>
                     }
                   >
@@ -497,6 +518,17 @@ export default function UrunDetayPage() {
           editHareketId={editHareketId}
           editInitialValues={editInitialValues}
         />
+
+        {/* Export Sheet */}
+        <UrunExportSheet
+          visible={exportSheetVisible}
+          onDismiss={() => setExportSheetVisible(false)}
+          productName={urun.ad}
+          productCode={urun.kod || undefined}
+          productUnit={getBirimLabel(urun.birim)}
+          productCurrency={urun.currency}
+          urunId={urun.id}
+        />
       </SafeAreaView>
     </>
   );
@@ -517,10 +549,10 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.md,
   },
   sectionTitle: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   urunCard: {
     flexDirection: 'row',
@@ -530,13 +562,13 @@ const styles = StyleSheet.create({
   urunLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     flex: 1,
   },
   urunIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -547,6 +579,23 @@ const styles = StyleSheet.create({
   },
   urunName: {
     fontWeight: '600',
+    fontSize: 15,
+  },
+  urunMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  urunCodeBadge: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+  },
+  urunCodeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
   },
   urunRight: {
     alignItems: 'flex-end',
@@ -562,26 +611,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.lg,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   aylikValues: {
     flexDirection: 'row',
-    gap: spacing.lg,
+    gap: spacing.sm,
   },
-  aylikValue: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  aylikPillIn: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
+  aylikPillInText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  aylikPillOut: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
+  aylikPillOutText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.error,
   },
   hareketHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   hareketIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
