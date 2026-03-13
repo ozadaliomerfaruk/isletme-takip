@@ -719,16 +719,6 @@ export default function UrunlerPage() {
 
   const keyExtractor = useCallback((item: Urun) => item.id, []);
 
-  if (isLoading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <Text color="secondary">{t('common:status.loading')}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
   // List header: search, tabs, period selector
   const listHeaderComponent = useMemo(() => (
     <View>
@@ -884,6 +874,16 @@ export default function UrunlerPage() {
 
   // Active list data
   const listData = activeTab === 'active' ? filteredUrunler : filteredArchivedUrunler;
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <Text color="secondary">{t('common:status.loading')}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

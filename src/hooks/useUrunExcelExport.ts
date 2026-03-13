@@ -58,7 +58,7 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
           .filter(h => h.islem_id)
           .map(h => h.islem_id as string);
 
-        let islemCariMap = new Map<string, { id: string; name: string } | null>();
+        const islemCariMap = new Map<string, { id: string; name: string } | null>();
 
         if (islemIds.length > 0) {
           const { data: islemler } = await supabase
