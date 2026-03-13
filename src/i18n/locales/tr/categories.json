@@ -6,27 +6,37 @@
   },
   "types": {
     "gelir": "Gelir",
-    "gider": "Gider"
+    "gider": "Gider",
+    "urun": "Ürün"
   },
   "typeLabels": {
     "incomeCategory": "Gelir Kategorisi",
     "expenseCategory": "Gider Kategorisi",
+    "productCategory": "Ürün Kategorisi",
     "subCategory": "Alt Kategori"
   },
   "form": {
     "categoryType": "Kategori Tipi",
     "categoryName": "Kategori Adı",
     "categoryNamePlaceholder": "Örn: Yemek, Ulaşım, Kira...",
+    "categoryNamePlaceholderProduct": "Örn: Et ve Tavuk, Süt Ürünleri...",
     "iconAndParent": "İkon ve Üst Kategori",
     "color": "Renk",
     "exampleCategories": "Örnek Kategoriler",
     "parentCategory": "Üst Kategori Seç",
     "parentCategoryPlaceholder": "Üst Kategori Seç",
-    "noParent": "Yok"
+    "noParent": "Yok",
+    "categoryMapping": "Kategori Eşleme",
+    "mapToIncomeCategory": "Gelir Kategorisine Eşle",
+    "mapToExpenseCategory": "Gider Kategorisine Eşle",
+    "mappingDescription": "Ürün kategorisini gelir/gider raporlarında doğru kategoriye eşlemek için kullanılır",
+    "noMapping": "Eşleme yok",
+    "mappedTo": "Eşleşmiş: {{name}}"
   },
   "examples": {
     "income": ["Satış", "Hizmet", "Faiz", "Kira Geliri", "Diğer Gelir"],
-    "expense": ["Kira", "Maaş", "Fatura", "Malzeme", "Ulaşım", "Yemek", "Reklam", "Diğer Gider"]
+    "expense": ["Kira", "Maaş", "Fatura", "Malzeme", "Ulaşım", "Yemek", "Reklam", "Diğer Gider"],
+    "product": ["Gıda", "İçecek", "Temizlik", "Ambalaj", "Hammadde", "Et ve Tavuk", "Süt Ürünleri"]
   },
   "messages": {
     "createSuccess": "Kategori eklendi",
@@ -34,6 +44,7 @@
     "deleteSuccess": "Kategori silindi",
     "noIncomeCategory": "Gelir kategorisi yok",
     "noExpenseCategory": "Gider kategorisi yok",
+    "noProductCategory": "Ürün kategorisi yok",
     "addFirst": "Yeni kategori ekleyerek başlayın",
     "infoText": "Kategoriler, gelir ve gider işlemlerinizi gruplamak için kullanılır.",
     "noParentCategories": "Henüz ana kategori yok",
@@ -46,5 +57,10 @@
   },
   "validation": {
     "nameRequired": "Kategori adı gerekli"
+  },
+  "warnings": {
+    "unmappedProducts": "{{count}} ürün kategorisi gelir/gider kategorisine eşlenmemiş",
+    "noProductCategory": "Bu ürüne kategori atanmamış",
+    "uncategorizedProducts": "{{count}} ürüne kategori atanmamış"
   }
 }

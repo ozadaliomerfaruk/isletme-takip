@@ -483,6 +483,17 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen
+          name="raporlar/alis-satis"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:titles.purchaseSales'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Nakit Akışı */}
         <Stack.Screen
           name="nakit-akisi/index"

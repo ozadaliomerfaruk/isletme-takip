@@ -30,7 +30,7 @@ import {
 import { Text, Card, TabFilter, EmptyState, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useKategorilerHierarchical, useDeleteKategori, FlattenedCategory } from '@/hooks/useKategoriler';
+import { useKategoriler, useKategorilerHierarchical, useDeleteKategori, FlattenedCategory } from '@/hooks/useKategoriler';
 import { KategoriType, Kategori } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 
@@ -75,10 +75,15 @@ export default function KategorilerPage() {
   const typeOptions = [
     { label: t('categories:types.gelir'), value: 'gelir' },
     { label: t('categories:types.gider'), value: 'gider' },
+    { label: t('categories:types.urun'), value: 'urun' },
   ];
 
   const { flatList, isLoading } = useKategorilerHierarchical(selectedType);
+  const { data: allKategoriler } = useKategoriler();
   const deleteKategori = useDeleteKategori();
+
+  // Kategori id -> name map (eşleme badge'leri için)
+  const kategoriNameMap = new Map(allKategoriler?.map(k => [k.id, k.name]) || []);
 
   const handleDelete = (id: string, name: string, hasChildren: boolean) => {
     const message = hasChildren
@@ -115,6 +120,9 @@ export default function KategorilerPage() {
     }
 
     // Varsayılan icon
+    if (kategori.type === 'urun') {
+      return <Package size={20} color={colors.primary} />;
+    }
     return kategori.type === 'gelir' ? (
       <TrendingUp size={20} color={colors.success} />
     ) : (
@@ -123,7 +131,7 @@ export default function KategorilerPage() {
   };
 
   const getCategoryBgColor = (kategori: FlattenedCategory) => {
-    const categoryColor = kategori.color || (kategori.type === 'gelir' ? colors.success : colors.error);
+    const categoryColor = kategori.color || (kategori.type === 'urun' ? colors.primary : kategori.type === 'gelir' ? colors.success : colors.error);
     return categoryColor + '20';
   };
 
@@ -160,7 +168,7 @@ export default function KategorilerPage() {
             ) : !flatList || flatList.length === 0 ? (
               <EmptyState
                 icon={<Tag size={48} color={colors.textMuted} />}
-                title={selectedType === 'gelir' ? t('categories:messages.noIncomeCategory') : t('categories:messages.noExpenseCategory')}
+                title={selectedType === 'gelir' ? t('categories:messages.noIncomeCategory') : selectedType === 'gider' ? t('categories:messages.noExpenseCategory') : t('categories:messages.noProductCategory')}
                 description={t('categories:messages.addFirst')}
                 actionLabel={t('categories:titles.addCategory')}
                 onAction={() => router.push('/kategoriler/ekle')}
@@ -189,8 +197,28 @@ export default function KategorilerPage() {
                           )}
                         </View>
                         <Text variant="caption" color="secondary">
-                          {kategori.level > 0 ? t('categories:typeLabels.subCategory') : (kategori.type === 'gelir' ? t('categories:typeLabels.incomeCategory') : t('categories:typeLabels.expenseCategory'))}
+                          {kategori.level > 0 ? t('categories:typeLabels.subCategory') : (kategori.type === 'gelir' ? t('categories:typeLabels.incomeCategory') : kategori.type === 'gider' ? t('categories:typeLabels.expenseCategory') : t('categories:typeLabels.productCategory'))}
                         </Text>
+                        {kategori.type === 'urun' && (kategori.mapped_gider_kategori_id || kategori.mapped_gelir_kategori_id) && (
+                          <View style={styles.mappingBadges}>
+                            {kategori.mapped_gider_kategori_id && (
+                              <View style={[styles.mappingBadge, { backgroundColor: colors.errorLight }]}>
+                                <TrendingDown size={10} color={colors.error} />
+                                <Text style={[styles.mappingBadgeText, { color: colors.error }]}>
+                                  {kategoriNameMap.get(kategori.mapped_gider_kategori_id) || '?'}
+                                </Text>
+                              </View>
+                            )}
+                            {kategori.mapped_gelir_kategori_id && (
+                              <View style={[styles.mappingBadge, { backgroundColor: colors.successLight }]}>
+                                <TrendingUp size={10} color={colors.success} />
+                                <Text style={[styles.mappingBadgeText, { color: colors.success }]}>
+                                  {kategoriNameMap.get(kategori.mapped_gelir_kategori_id) || '?'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
                       </View>
                       <View style={styles.kategoriActions}>
                         <TouchableOpacity
@@ -288,6 +316,24 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
     marginLeft: spacing.lg + 40 + spacing.md,
+  },
+  mappingBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 3,
+  },
+  mappingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  mappingBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   infoContainer: {
     padding: spacing.lg,

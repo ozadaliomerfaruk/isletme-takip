@@ -6,27 +6,37 @@
   },
   "types": {
     "gelir": "Income",
-    "gider": "Expense"
+    "gider": "Expense",
+    "urun": "Product"
   },
   "typeLabels": {
     "incomeCategory": "Income Category",
     "expenseCategory": "Expense Category",
+    "productCategory": "Product Category",
     "subCategory": "Subcategory"
   },
   "form": {
     "categoryType": "Category Type",
     "categoryName": "Category Name",
     "categoryNamePlaceholder": "E.g., Food, Transportation, Rent...",
+    "categoryNamePlaceholderProduct": "E.g., Meat & Poultry, Dairy Products...",
     "iconAndParent": "Icon and Parent Category",
     "color": "Color",
     "exampleCategories": "Example Categories",
     "parentCategory": "Select Parent Category",
     "parentCategoryPlaceholder": "Select Parent Category",
-    "noParent": "None"
+    "noParent": "None",
+    "categoryMapping": "Category Mapping",
+    "mapToIncomeCategory": "Map to Income Category",
+    "mapToExpenseCategory": "Map to Expense Category",
+    "mappingDescription": "Used to attribute product transactions to the correct category in income/expense reports",
+    "noMapping": "No mapping",
+    "mappedTo": "Mapped to: {{name}}"
   },
   "examples": {
     "income": ["Sales", "Service", "Interest", "Rental Income", "Other Income"],
-    "expense": ["Rent", "Salary", "Utilities", "Materials", "Transportation", "Food", "Advertising", "Other Expense"]
+    "expense": ["Rent", "Salary", "Utilities", "Materials", "Transportation", "Food", "Advertising", "Other Expense"],
+    "product": ["Food", "Beverage", "Cleaning", "Packaging", "Raw Material", "Meat & Poultry", "Dairy Products"]
   },
   "messages": {
     "createSuccess": "Category added",
@@ -34,6 +44,7 @@
     "deleteSuccess": "Category deleted",
     "noIncomeCategory": "No income category",
     "noExpenseCategory": "No expense category",
+    "noProductCategory": "No product category",
     "addFirst": "Start by adding a new category",
     "infoText": "Categories are used to group your income and expense transactions.",
     "noParentCategories": "No parent categories yet",
@@ -46,5 +57,10 @@
   },
   "validation": {
     "nameRequired": "Category name is required"
+  },
+  "warnings": {
+    "unmappedProducts": "{{count}} product categories are not mapped to income/expense categories",
+    "noProductCategory": "This product has no category assigned",
+    "uncategorizedProducts": "{{count}} products have no category assigned"
   }
 }

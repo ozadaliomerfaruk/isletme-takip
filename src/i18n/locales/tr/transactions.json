@@ -227,6 +227,7 @@
     "searchToAdd": "Yukarıdan ürün arayın ve ekleyin",
     "added": "Eklendi",
     "productCount": "{{count}} ürün",
-    "stockButton": "Ürün"
+    "stockButton": "Ürün",
+    "categoryDisabledByProducts": "Ürün seçildiğinde kategori ürünlerden alınır"
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, memo } from 'react';
 import {
   View,
   StyleSheet,
@@ -31,7 +31,7 @@ const TIMING_CONFIG = {
   easing: Easing.out(Easing.cubic),
 };
 
-export function ExpandableCard({
+export const ExpandableCard = memo(function ExpandableCard({
   header,
   children,
   defaultExpanded = false,
@@ -108,7 +108,7 @@ export function ExpandableCard({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -79,6 +79,8 @@ interface CategoryPickerProps {
   placeholder?: string;
   optional?: boolean;
   error?: string;
+  disabled?: boolean;
+  disabledMessage?: string;
   onNavigateAway?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -92,6 +94,8 @@ export function CategoryPicker({
   placeholder,
   optional = true,
   error,
+  disabled = false,
+  disabledMessage,
   onNavigateAway,
   open: externalOpen,
   onOpenChange,
@@ -172,7 +176,8 @@ export function CategoryPicker({
   const getCategoryIcon = (category: FlattenedCategory, size: number = 20) => {
     const iconName = category.icon;
     const isGelir = category.type === 'gelir';
-    const defaultColor = isGelir ? colors.success : colors.error;
+    const isUrun = category.type === 'urun';
+    const defaultColor = isUrun ? colors.primary : isGelir ? colors.success : colors.error;
     const categoryColor = category.color || defaultColor;
 
     if (iconName && ICON_MAP[iconName]) {
@@ -181,6 +186,9 @@ export function CategoryPicker({
     }
 
     // Varsayılan icon - kategorinin kendi tipine göre
+    if (isUrun) {
+      return <Package size={size} color={colors.primary} />;
+    }
     return isGelir ? (
       <TrendingUp size={size} color={colors.success} />
     ) : (
@@ -190,7 +198,8 @@ export function CategoryPicker({
 
   const getCategoryBgColor = (category: FlattenedCategory) => {
     const isGelir = category.type === 'gelir';
-    const defaultColor = isGelir ? colors.success : colors.error;
+    const isUrun = category.type === 'urun';
+    const defaultColor = isUrun ? colors.primary : isGelir ? colors.success : colors.error;
     const categoryColor = category.color || defaultColor;
     return categoryColor + '20';
   };
@@ -198,15 +207,22 @@ export function CategoryPicker({
   return (
     <>
       <View style={styles.container}>
-        <Text variant="label" color="secondary" style={styles.label}>
-          {displayLabel}{optional ? ` ${t('common:labels.optionalSuffix')}` : ''}
-        </Text>
+        {displayLabel ? (
+          <Text variant="label" color="secondary" style={styles.label}>
+            {displayLabel}{optional ? ` ${t('common:labels.optionalSuffix')}` : ''}
+          </Text>
+        ) : null}
         <TouchableOpacity
-          style={[styles.trigger, error && styles.triggerError]}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.7}
+          style={[styles.trigger, error && styles.triggerError, disabled && styles.triggerDisabled]}
+          onPress={() => !disabled && setModalVisible(true)}
+          activeOpacity={disabled ? 1 : 0.7}
+          disabled={disabled}
         >
-          {selectedCategory ? (
+          {disabled && disabledMessage ? (
+            <Text variant="body" color="muted">
+              {disabledMessage}
+            </Text>
+          ) : selectedCategory ? (
             <View style={styles.selectedContent}>
               <View style={[styles.selectedIcon, { backgroundColor: getCategoryBgColor(selectedCategory) }]}>
                 {getCategoryIcon(selectedCategory, 16)}
@@ -221,7 +237,7 @@ export function CategoryPicker({
               {displayPlaceholder}
             </Text>
           )}
-          <ChevronDown size={20} color={colors.textMuted} />
+          <ChevronDown size={20} color={disabled ? colors.border : colors.textMuted} />
         </TouchableOpacity>
         {error && (
           <Text variant="caption" color="error" style={styles.errorText}>
@@ -413,6 +429,10 @@ const styles = StyleSheet.create({
   },
   triggerError: {
     borderColor: colors.error,
+  },
+  triggerDisabled: {
+    backgroundColor: colors.surfaceLighter,
+    opacity: 0.6,
   },
   selectedContent: {
     flexDirection: 'row',

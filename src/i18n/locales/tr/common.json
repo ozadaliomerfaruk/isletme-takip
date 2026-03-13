@@ -375,6 +375,47 @@
       "sheetName": "Rapor",
       "incomeFileName": "Gelir_Raporu",
       "expenseFileName": "Gider_Raporu"
+    },
+    "productExcel": {
+      "reportTitle": "Alış-Satış Raporu",
+      "productName": "ÜRÜN ADI",
+      "unit": "BİRİM",
+      "quantity": "MİKTAR",
+      "percentage": "ORAN",
+      "productBreakdown": "ÜRÜN DAĞILIMI",
+      "purchases": "ALIŞLAR",
+      "sales": "SATIŞLAR",
+      "returns": "İadeler",
+      "net": "Net",
+      "sheetName": "Alis_Satis",
+      "fileName": "Alis_Satis_Raporu"
+    },
+    "cashFlowExcel": {
+      "reportTitle": "Nakit Akışı Raporu",
+      "inflow": "NAKİT GİRİŞİ",
+      "outflow": "NAKİT ÇIKIŞI",
+      "netCashFlow": "Net Nakit Akışı",
+      "percentage": "ORAN",
+      "sheetName": "Nakit_Akisi",
+      "fileName": "Nakit_Akisi_Raporu"
+    },
+    "genelDurumExcel": {
+      "reportTitle": "Genel Durum Raporu",
+      "generalStatus": "GENEL DURUM",
+      "netValue": "NET DEĞER",
+      "accounts": "HESAPLAR",
+      "accountBalances": "HESAP BAKİYELERİ",
+      "accountName": "HESAP ADI",
+      "balance": "BAKİYE",
+      "creditCardBalances": "KREDİ KARTI BORÇLARI",
+      "clientStatus": "CARİ DURUM",
+      "personnelStatus": "PERSONEL DURUM",
+      "personnelReceivables": "PERSONEL ALACAK",
+      "personnelDebt": "PERSONEL BORÇ",
+      "netStatus": "NET DURUM",
+      "instant": "Anlık",
+      "sheetName": "Genel_Durum",
+      "fileName": "Genel_Durum_Raporu"
     }
   },
   "archive": {

@@ -12,7 +12,8 @@
     "categoryDetail": "Kategori Detayı",
     "uncategorized": "Kategorisiz",
     "personnelReport": "Personel Raporu",
-    "comparison": "Karşılaştırma"
+    "comparison": "Karşılaştırma",
+    "purchaseSales": "Alış-Satış Raporu"
   },
   "home": {
     "explore": "Raporları Keşfet",
@@ -30,7 +31,8 @@
     "cari": "Cari Rapor",
     "personel": "Personel",
     "karsilastirma": "Karşılaştır",
-    "kategoriDagilimi": "Gelir-Gider Dağılımı"
+    "kategoriDagilimi": "Gelir-Gider Dağılımı",
+    "alisSatis": "Alış-Satış"
   },
   "tabs": {
     "general": "Genel",
@@ -213,5 +215,23 @@
   },
   "labels": {
     "invoiceTotal": "Fatura toplamı"
+  },
+  "purchaseSales": {
+    "purchases": "ALIŞLAR",
+    "sales": "SATIŞLAR",
+    "totalPurchases": "Toplam Alış",
+    "totalSales": "Toplam Satış",
+    "returns": "İade",
+    "net": "Net",
+    "productBreakdown": "ÜRÜN BAZLI DAĞILIM",
+    "noPurchases": "Bu dönemde ürün alışı bulunmuyor",
+    "noSales": "Bu dönemde ürün satışı bulunmuyor",
+    "quantity": "{{count}} {{unit}}",
+    "transactionCount": "{{count}} işlem"
+  },
+  "warnings": {
+    "unmappedCategories": "{{count}} ürün kategorisi eşlenmemiş, raporlar eksik olabilir",
+    "uncategorizedProducts": "{{count}} ürüne kategori atanmamış",
+    "goToCategories": "Kategorileri Düzenle"
   }
 }

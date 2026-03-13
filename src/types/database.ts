@@ -150,6 +150,8 @@ export interface Kategori {
   icon: string | null;
   color: string | null;
   parent_id: string | null;
+  mapped_gelir_kategori_id: string | null;
+  mapped_gider_kategori_id: string | null;
   is_active: boolean;
   created_by: string | null;
   updated_by: string | null;
@@ -170,6 +172,8 @@ export interface KategoriInsert {
   icon?: string | null;
   color?: string | null;
   parent_id?: string | null;
+  mapped_gelir_kategori_id?: string | null;
+  mapped_gider_kategori_id?: string | null;
   is_active?: boolean;
 }
 
@@ -179,6 +183,8 @@ export interface KategoriUpdate {
   icon?: string | null;
   color?: string | null;
   parent_id?: string | null;
+  mapped_gelir_kategori_id?: string | null;
+  mapped_gider_kategori_id?: string | null;
   is_active?: boolean;
 }
 

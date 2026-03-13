@@ -210,6 +210,7 @@ export default function UrunDuzenlePage() {
               <CategoryPicker
                 value={kategoriId}
                 onChange={setKategoriId}
+                type="urun"
                 label={t('transactions:form.category')}
                 optional
               />

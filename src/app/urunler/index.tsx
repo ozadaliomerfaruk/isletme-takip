@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, Animated, Modal, Pressable, Platform, RefreshControl } from 'react-native';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
+import { View, StyleSheet, FlatList, ScrollView, Alert, TouchableOpacity, Animated, Modal, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown } from 'lucide-react-native';
+import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle } from 'lucide-react-native';
 import { Text, Button, Input, EmptyState, ExpandableCard, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -25,11 +25,299 @@ import { usePermissions } from '@/hooks/usePermissions';
 type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 type SortType = 'nameAZ' | 'nameZA' | 'purchaseMost' | 'purchaseLeast' | 'saleMost' | 'saleLeast';
 
+interface DonemOzet { giris: number; cikis: number }
+
+// ============================================================================
+// Memoized Product Row Components
+// ============================================================================
+
+interface ProductRowProps {
+  urun: Urun;
+  expanded: boolean;
+  onToggle: (id: string) => void;
+  onNewTransaction: (urun: Urun) => void;
+  onViewMovements: (id: string) => void;
+  onOpenActionSheet: (urun: Urun) => void;
+  urunOzet?: DonemOzet;
+  kategoriAdi?: string;
+  getBirimLabel: (birim: BirimType) => string;
+}
+
+const ProductRow = memo(function ProductRow({
+  urun, expanded, onToggle, onNewTransaction, onViewMovements, onOpenActionSheet,
+  urunOzet, kategoriAdi, getBirimLabel,
+}: ProductRowProps) {
+  const { t } = useTranslation(['products', 'common']);
+  const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
+
+  const handleToggle = useCallback(() => onToggle(urun.id), [onToggle, urun.id]);
+  const handleTransaction = useCallback(() => onNewTransaction(urun), [onNewTransaction, urun]);
+  const handleMovements = useCallback(() => onViewMovements(urun.id), [onViewMovements, urun.id]);
+  const handleActionSheet = useCallback((e: any) => {
+    e.stopPropagation();
+    onOpenActionSheet(urun);
+  }, [onOpenActionSheet, urun]);
+
+  return (
+    <View style={rowStyles.wrapper}>
+      <ExpandableCard
+        expanded={expanded}
+        onToggle={handleToggle}
+        header={
+          <View style={rowStyles.header}>
+            <View style={rowStyles.iconWrap}>
+              <Package size={18} color={colors.primary} />
+            </View>
+            <View style={rowStyles.info}>
+              <View style={rowStyles.nameRow}>
+                <Text variant="body" style={rowStyles.name} numberOfLines={1}>{urun.ad}</Text>
+                {urun.kod ? (
+                  <View style={rowStyles.codeBadge}>
+                    <Text style={rowStyles.codeBadgeText}>{urun.kod}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <View style={rowStyles.metaRow}>
+                <Text variant="caption" color="secondary">
+                  {urun.miktar} {getBirimLabel(urun.birim)}
+                </Text>
+                {urun.satis_fiyati > 0 && (
+                  <Text variant="caption" color="secondary">
+                    {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
+                  </Text>
+                )}
+                {kategoriAdi && (
+                  <View style={rowStyles.categoryChip}>
+                    <Text style={rowStyles.categoryChipText}>{kategoriAdi}</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+            <View style={rowStyles.periodSummary}>
+              {hasMovements ? (
+                <>
+                  {urunOzet.giris > 0 && (
+                    <View style={rowStyles.pillIn}>
+                      <Text style={rowStyles.pillInText}>+{urunOzet.giris}</Text>
+                    </View>
+                  )}
+                  {urunOzet.cikis > 0 && (
+                    <View style={rowStyles.pillOut}>
+                      <Text style={rowStyles.pillOutText}>-{urunOzet.cikis}</Text>
+                    </View>
+                  )}
+                </>
+              ) : null}
+            </View>
+            <TouchableOpacity
+              style={rowStyles.moreBtn}
+              onPress={handleActionSheet}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MoreVertical size={18} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        }
+      >
+        <View style={rowStyles.actions}>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<ArrowRightLeft size={16} color={colors.white} />}
+            iconPosition="left"
+            onPress={handleTransaction}
+            style={rowStyles.actionBtn}
+          >
+            {t('products:actions.newTransaction')}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<History size={16} color={colors.primary} />}
+            iconPosition="left"
+            onPress={handleMovements}
+            style={rowStyles.actionBtn}
+          >
+            {t('products:actions.viewMovements')}
+          </Button>
+        </View>
+      </ExpandableCard>
+    </View>
+  );
+});
+
+interface ArchivedProductRowProps {
+  urun: Urun;
+  expanded: boolean;
+  onToggle: (id: string) => void;
+  onViewMovements: (id: string) => void;
+  onOpenActionSheet: (urun: Urun) => void;
+  getBirimLabel: (birim: BirimType) => string;
+}
+
+const ArchivedProductRow = memo(function ArchivedProductRow({
+  urun, expanded, onToggle, onViewMovements, onOpenActionSheet, getBirimLabel,
+}: ArchivedProductRowProps) {
+  const { t } = useTranslation(['products', 'common']);
+
+  const handleToggle = useCallback(() => onToggle(urun.id), [onToggle, urun.id]);
+  const handleMovements = useCallback(() => onViewMovements(urun.id), [onViewMovements, urun.id]);
+  const handleActionSheet = useCallback((e: any) => {
+    e.stopPropagation();
+    onOpenActionSheet(urun);
+  }, [onOpenActionSheet, urun]);
+
+  return (
+    <View style={rowStyles.wrapper}>
+      <ExpandableCard
+        expanded={expanded}
+        onToggle={handleToggle}
+        header={
+          <View style={rowStyles.header}>
+            <Package size={24} color={colors.textMuted} />
+            <View style={rowStyles.info}>
+              <Text variant="body" color="secondary">{urun.ad}</Text>
+              <Text variant="caption" color="muted">
+                {urun.miktar} {getBirimLabel(urun.birim)}
+                {urun.kod && ` • ${urun.kod}`}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={rowStyles.moreBtn}
+              onPress={handleActionSheet}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <MoreVertical size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+        }
+      >
+        <View style={rowStyles.actions}>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<History size={16} color={colors.primary} />}
+            iconPosition="left"
+            onPress={handleMovements}
+            style={rowStyles.actionBtn}
+          >
+            {t('products:actions.viewMovements')}
+          </Button>
+        </View>
+      </ExpandableCard>
+    </View>
+  );
+});
+
+const rowStyles = StyleSheet.create({
+  wrapper: {
+    paddingHorizontal: spacing.lg,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  iconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  info: {
+    flex: 1,
+    gap: 2,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  codeBadge: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+  },
+  codeBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  categoryChip: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  categoryChipText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  periodSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pillIn: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  pillInText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  pillOut: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  pillOutText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  moreBtn: {
+    padding: spacing.xs,
+    marginLeft: 2,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  actionBtn: {
+    flex: 1,
+  },
+});
+
+// ============================================================================
+// Main Page Component
+// ============================================================================
+
 export default function UrunlerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
-  const { t } = useTranslation(['products', 'common', 'errors', 'reports']);
+  const { t } = useTranslation(['products', 'common', 'errors', 'reports', 'categories']);
   const { getDateRangeLabel, locale } = useDateFormat();
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -109,6 +397,12 @@ export default function UrunlerPage() {
 
   // Dönem bazlı urun hareketleri özeti
   const { data: donemUrunOzet } = useDonemUrunOzet({ startDate, endDate });
+
+  // Kategorisiz ürün sayısı
+  const uncategorizedProductCount = useMemo(
+    () => (urunler || []).filter(u => !u.kategori_id).length,
+    [urunler]
+  );
 
   // Kategori id -> ad map'i
   const kategoriMap = useMemo(() => new Map(kategoriler?.map(k => [k.id, k.name]) || []), [kategoriler]);
@@ -191,10 +485,10 @@ export default function UrunlerPage() {
   }, [sortType, t, haptics]);
 
   // ActionSheet handlers
-  const handleOpenActionSheet = (urun: Urun) => {
+  const handleOpenActionSheet = useCallback((urun: Urun) => {
     setActionSheetUrun(urun);
     setActionSheetVisible(true);
-  };
+  }, []);
 
   const handleArchive = useCallback(async () => {
     if (!actionSheetUrun) return;
@@ -379,22 +673,51 @@ export default function UrunlerPage() {
     setShowMonthYearPicker(false);
   };
 
-  const getBirimLabel = (birim: BirimType) => {
+  const getBirimLabel = useCallback((birim: BirimType) => {
     return t(`products:units.${birim}`);
-  };
+  }, [t]);
 
-  const handleToggle = (urunId: string) => {
-    setExpandedId(expandedId === urunId ? null : urunId);
-  };
+  const handleToggle = useCallback((urunId: string) => {
+    setExpandedId(prev => prev === urunId ? null : urunId);
+  }, []);
 
-  const handleNewTransaction = (urun: Urun) => {
+  const handleNewTransaction = useCallback((urun: Urun) => {
     setSelectedUrun(urun);
     setQuickUrunVisible(true);
-  };
+  }, []);
 
-  const handleViewMovements = (urunId: string) => {
+  const handleViewMovements = useCallback((urunId: string) => {
     router.push(`/urunler/${urunId}` as any);
-  };
+  }, [router]);
+
+  // FlatList renderItem for active products
+  const renderActiveItem = useCallback(({ item: urun }: ListRenderItemInfo<Urun>) => (
+    <ProductRow
+      urun={urun}
+      expanded={expandedId === urun.id}
+      onToggle={handleToggle}
+      onNewTransaction={handleNewTransaction}
+      onViewMovements={handleViewMovements}
+      onOpenActionSheet={handleOpenActionSheet}
+      urunOzet={donemUrunOzet?.[urun.id]}
+      kategoriAdi={urun.kategori_id ? kategoriMap.get(urun.kategori_id) : undefined}
+      getBirimLabel={getBirimLabel}
+    />
+  ), [expandedId, handleToggle, handleNewTransaction, handleViewMovements, handleOpenActionSheet, donemUrunOzet, kategoriMap, getBirimLabel]);
+
+  // FlatList renderItem for archived products
+  const renderArchivedItem = useCallback(({ item: urun }: ListRenderItemInfo<Urun>) => (
+    <ArchivedProductRow
+      urun={urun}
+      expanded={expandedId === urun.id}
+      onToggle={handleToggle}
+      onViewMovements={handleViewMovements}
+      onOpenActionSheet={handleOpenActionSheet}
+      getBirimLabel={getBirimLabel}
+    />
+  ), [expandedId, handleToggle, handleViewMovements, handleOpenActionSheet, getBirimLabel]);
+
+  const keyExtractor = useCallback((item: Urun) => item.id, []);
 
   if (isLoading) {
     return (
@@ -406,290 +729,180 @@ export default function UrunlerPage() {
     );
   }
 
+  // List header: search, tabs, period selector
+  const listHeaderComponent = useMemo(() => (
+    <View>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text variant="h2">{t('products:title')}</Text>
+        <View style={styles.headerButtons}>
+          {(urunler && urunler.length > 0) && (
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => {
+                haptics.light();
+                setSortSheetVisible(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <ArrowUpDown size={18} color={colors.primary} />
+            </TouchableOpacity>
+          )}
+          <PermissionGate module="urunler" action="create">
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={18} color={colors.white} />}
+              iconPosition="left"
+              onPress={() => router.push('/urunler/ekle' as any)}
+            >
+              {t('common:buttons.add')}
+            </Button>
+          </PermissionGate>
+        </View>
+      </View>
+
+      {/* Arama */}
+      {((urunler && urunler.length > 0) || archivedCount > 0) && (
+        <View style={styles.searchSection}>
+          <Input
+            placeholder={t('products:search.placeholder')}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            leftIcon={<Search size={20} color={colors.textMuted} />}
+          />
+        </View>
+      )}
+
+      {/* Aktif / Arşiv Tab */}
+      {archivedCount > 0 && (
+        <View style={styles.tabSection}>
+          <TabFilter
+            options={TAB_OPTIONS}
+            value={activeTab}
+            onChange={(v) => setActiveTab(v as 'active' | 'archived')}
+          />
+        </View>
+      )}
+
+      {/* Dönem Seçici */}
+      {activeTab === 'active' && (urunler && urunler.length > 0) && (
+        <View style={styles.periodSection}>
+          <TabFilter
+            options={PERIOD_OPTIONS}
+            value={period}
+            onChange={(value) => {
+              setPeriod(value as PeriodType);
+              setPeriodOffset(0);
+            }}
+          />
+          {period === 'custom' ? (
+            <View style={styles.customDateRow}>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowStartPicker(true)}
+              >
+                <Calendar size={16} color={colors.primary} />
+                <Text variant="caption">{t('products:period.startDate')}: {formatDateForDB(customStartDate)}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.datePickerButton}
+                onPress={() => setShowEndPicker(true)}
+              >
+                <Calendar size={16} color={colors.primary} />
+                <Text variant="caption">{t('products:period.endDate')}: {formatDateForDB(customEndDate)}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.periodNav}>
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.light();
+                  setPeriodOffset(periodOffset - 1);
+                }}
+                style={styles.periodNavButton}
+              >
+                <ChevronLeft size={20} color={colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { haptics.light(); handlePeriodLabelPress(); }}>
+                <Text variant="body" style={styles.periodLabel}>{periodLabel}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  haptics.light();
+                  setPeriodOffset(periodOffset + 1);
+                }}
+                style={styles.periodNavButton}
+                disabled={periodOffset >= 0}
+              >
+                <ChevronRight size={20} color={periodOffset >= 0 ? colors.textMuted : colors.primary} />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Kategorisiz ürün uyarısı */}
+      {activeTab === 'active' && uncategorizedProductCount > 0 && (
+        <View style={styles.warningSection}>
+          <View style={styles.warningBanner}>
+            <AlertTriangle size={16} color={colors.warning} />
+            <Text variant="caption" style={styles.warningText}>
+              {t('categories:warnings.uncategorizedProducts', { count: uncategorizedProductCount })}
+            </Text>
+          </View>
+        </View>
+      )}
+    </View>
+  ), [t, urunler, archivedCount, searchQuery, activeTab, TAB_OPTIONS, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, router, uncategorizedProductCount]);
+
+  // Empty component
+  const listEmptyComponent = useMemo(() => {
+    if (activeTab === 'active') {
+      return (
+        <View style={styles.listSection}>
+          <EmptyState
+            icon={<Package size={48} color={colors.textMuted} />}
+            title={t('products:empty.title')}
+            description={t('products:empty.description')}
+            actionLabel={t('products:addProduct')}
+            onAction={() => router.push('/urunler/ekle' as any)}
+          />
+        </View>
+      );
+    }
+    return (
+      <View style={styles.listSection}>
+        <EmptyState
+          icon={<Archive size={48} color={colors.textMuted} />}
+          title={t('products:empty.archivedTitle')}
+          description={t('products:empty.archivedDescription')}
+        />
+      </View>
+    );
+  }, [activeTab, t, router]);
+
+  // Active list data
+  const listData = activeTab === 'active' ? filteredUrunler : filteredArchivedUrunler;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scrollView}
+      <FlatList
+        data={listData}
+        keyExtractor={keyExtractor}
+        renderItem={activeTab === 'active' ? renderActiveItem : renderArchivedItem}
+        ListHeaderComponent={listHeaderComponent}
+        ListEmptyComponent={listEmptyComponent}
+        contentContainerStyle={styles.flatListContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <Text variant="h2">{t('products:title')}</Text>
-          <View style={styles.headerButtons}>
-            {(urunler && urunler.length > 0) && (
-              <TouchableOpacity
-                style={styles.sortButton}
-                onPress={() => {
-                  haptics.light();
-                  setSortSheetVisible(true);
-                }}
-                activeOpacity={0.7}
-              >
-                <ArrowUpDown size={18} color={colors.primary} />
-              </TouchableOpacity>
-            )}
-            <PermissionGate module="urunler" action="create">
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Plus size={18} color={colors.white} />}
-                iconPosition="left"
-                onPress={() => router.push('/urunler/ekle' as any)}
-              >
-                {t('common:buttons.add')}
-              </Button>
-            </PermissionGate>
-          </View>
-        </View>
-
-        {/* Arama */}
-        {((urunler && urunler.length > 0) || archivedCount > 0) && (
-          <View style={styles.searchSection}>
-            <Input
-              placeholder={t('products:search.placeholder')}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              leftIcon={<Search size={20} color={colors.textMuted} />}
-            />
-          </View>
-        )}
-
-        {/* Aktif / Arşiv Tab */}
-        {archivedCount > 0 && (
-          <View style={styles.tabSection}>
-            <TabFilter
-              options={TAB_OPTIONS}
-              value={activeTab}
-              onChange={(v) => setActiveTab(v as 'active' | 'archived')}
-            />
-          </View>
-        )}
-
-        {/* Dönem Seçici */}
-        {activeTab === 'active' && (urunler && urunler.length > 0) && (
-          <View style={styles.periodSection}>
-            <TabFilter
-              options={PERIOD_OPTIONS}
-              value={period}
-              onChange={(value) => {
-                setPeriod(value as PeriodType);
-                setPeriodOffset(0);
-              }}
-            />
-            {period === 'custom' ? (
-              <View style={styles.customDateRow}>
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowStartPicker(true)}
-                >
-                  <Calendar size={16} color={colors.primary} />
-                  <Text variant="caption">{t('products:period.startDate')}: {formatDateForDB(customStartDate)}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowEndPicker(true)}
-                >
-                  <Calendar size={16} color={colors.primary} />
-                  <Text variant="caption">{t('products:period.endDate')}: {formatDateForDB(customEndDate)}</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={styles.periodNav}>
-                <TouchableOpacity
-                  onPress={() => {
-                    haptics.light();
-                    setPeriodOffset(periodOffset - 1);
-                  }}
-                  style={styles.periodNavButton}
-                >
-                  <ChevronLeft size={20} color={colors.primary} />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => { haptics.light(); handlePeriodLabelPress(); }}>
-                  <Text variant="body" style={styles.periodLabel}>{periodLabel}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    haptics.light();
-                    setPeriodOffset(periodOffset + 1);
-                  }}
-                  style={styles.periodNavButton}
-                  disabled={periodOffset >= 0}
-                >
-                  <ChevronRight size={20} color={periodOffset >= 0 ? colors.textMuted : colors.primary} />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Liste */}
-        <View style={styles.listSection}>
-          {activeTab === 'active' ? (
-            // Aktif ürünler
-            filteredUrunler.length === 0 ? (
-              <EmptyState
-                icon={<Package size={48} color={colors.textMuted} />}
-                title={t('products:empty.title')}
-                description={t('products:empty.description')}
-                actionLabel={t('products:addProduct')}
-                onAction={() => router.push('/urunler/ekle' as any)}
-              />
-            ) : (
-              filteredUrunler.map((urun) => {
-                const urunOzet = donemUrunOzet?.[urun.id];
-                const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
-
-                return (
-                <ExpandableCard
-                  key={urun.id}
-                  expanded={expandedId === urun.id}
-                  onToggle={() => handleToggle(urun.id)}
-                  header={
-                    <View style={styles.urunHeader}>
-                      <View style={styles.urunIconWrap}>
-                        <Package size={18} color={colors.primary} />
-                      </View>
-                      <View style={styles.urunInfo}>
-                        <View style={styles.urunNameRow}>
-                          <Text variant="body" style={styles.urunName} numberOfLines={1}>{urun.ad}</Text>
-                          {urun.kod ? (
-                            <View style={styles.codeBadge}>
-                              <Text style={styles.codeBadgeText}>{urun.kod}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        <View style={styles.urunMetaRow}>
-                          <Text variant="caption" color="secondary">
-                            {urun.miktar} {getBirimLabel(urun.birim)}
-                          </Text>
-                          {urun.satis_fiyati > 0 && (
-                            <Text variant="caption" color="secondary">
-                              {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
-                            </Text>
-                          )}
-                          {urun.kategori_id && kategoriMap.get(urun.kategori_id) && (
-                            <View style={styles.categoryChip}>
-                              <Text style={styles.categoryChipText}>{kategoriMap.get(urun.kategori_id)}</Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                      {/* Dönem özeti - pill badges */}
-                      <View style={styles.periodSummary}>
-                        {hasMovements ? (
-                          <>
-                            {urunOzet.giris > 0 && (
-                              <View style={styles.pillBadgeIn}>
-                                <Text style={styles.pillBadgeInText}>+{urunOzet.giris}</Text>
-                              </View>
-                            )}
-                            {urunOzet.cikis > 0 && (
-                              <View style={styles.pillBadgeOut}>
-                                <Text style={styles.pillBadgeOutText}>-{urunOzet.cikis}</Text>
-                              </View>
-                            )}
-                          </>
-                        ) : null}
-                      </View>
-                      <TouchableOpacity
-                        style={styles.moreButton}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleOpenActionSheet(urun);
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <MoreVertical size={18} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  }
-                >
-                  {/* Expanded Content - Action Buttons */}
-                  <View style={styles.actionButtons}>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      icon={<ArrowRightLeft size={16} color={colors.white} />}
-                      iconPosition="left"
-                      onPress={() => handleNewTransaction(urun)}
-                      style={styles.actionButton}
-                    >
-                      {t('products:actions.newTransaction')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<History size={16} color={colors.primary} />}
-                      iconPosition="left"
-                      onPress={() => handleViewMovements(urun.id)}
-                      style={styles.actionButton}
-                    >
-                      {t('products:actions.viewMovements')}
-                    </Button>
-                  </View>
-                </ExpandableCard>
-                );
-              })
-            )
-          ) : (
-            // Arşivlenmiş ürünler
-            filteredArchivedUrunler.length === 0 ? (
-              <EmptyState
-                icon={<Archive size={48} color={colors.textMuted} />}
-                title={t('products:empty.archivedTitle')}
-                description={t('products:empty.archivedDescription')}
-              />
-            ) : (
-              filteredArchivedUrunler.map((urun) => (
-                <ExpandableCard
-                  key={urun.id}
-                  expanded={expandedId === urun.id}
-                  onToggle={() => handleToggle(urun.id)}
-                  header={
-                    <View style={styles.urunHeader}>
-                      <Package size={24} color={colors.textMuted} />
-                      <View style={styles.urunInfo}>
-                        <Text variant="body" color="secondary">{urun.ad}</Text>
-                        <Text variant="caption" color="muted">
-                          {urun.miktar} {getBirimLabel(urun.birim)}
-                          {urun.kod && ` • ${urun.kod}`}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.moreButton}
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          handleOpenActionSheet(urun);
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                      >
-                        <MoreVertical size={20} color={colors.textMuted} />
-                      </TouchableOpacity>
-                    </View>
-                  }
-                >
-                  {/* Archived - only view movements */}
-                  <View style={styles.actionButtons}>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      icon={<History size={16} color={colors.primary} />}
-                      iconPosition="left"
-                      onPress={() => handleViewMovements(urun.id)}
-                      style={styles.actionButton}
-                    >
-                      {t('products:actions.viewMovements')}
-                    </Button>
-                  </View>
-                </ExpandableCard>
-              ))
-            )
-          )}
-        </View>
-      </ScrollView>
+      />
 
       {/* QuickUrunBar */}
       <QuickUrunBar
@@ -1082,8 +1295,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollView: {
-    flex: 1,
+  flatListContent: {
+    paddingBottom: spacing['3xl'],
   },
   header: {
     flexDirection: 'row',
@@ -1173,100 +1386,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
   },
-  urunHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  urunIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  urunInfo: {
-    flex: 1,
-    gap: 2,
-  },
-  urunNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  urunName: {
-    fontSize: 15,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  codeBadge: {
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: borderRadius.sm,
-  },
-  codeBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  urunMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flexWrap: 'wrap',
-  },
-  categoryChip: {
-    backgroundColor: colors.background,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  categoryChipText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  moreButton: {
-    padding: spacing.xs,
-    marginLeft: 2,
-  },
-  periodSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  pillBadgeIn: {
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  pillBadgeInText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  pillBadgeOut: {
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  pillBadgeOutText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  actionButton: {
-    flex: 1,
-  },
   // Picker Modal Styles
   pickerModalOverlay: {
     flex: 1,
@@ -1347,6 +1466,27 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  // Warning Styles
+  warningSection: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning + '15',
+    borderWidth: 1,
+    borderColor: colors.warning + '40',
+    borderRadius: borderRadius.lg,
+    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  warningText: {
+    flex: 1,
+    color: colors.text,
   },
   // FAB Styles
   fab: {

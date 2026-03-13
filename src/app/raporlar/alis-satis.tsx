@@ -2,31 +2,29 @@ import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Calendar, X, Share2 } from 'lucide-react-native';
+import { Stack } from 'expo-router';
+import { ChevronLeft, ChevronRight, Calendar, X, Package, ShoppingCart, Store, Share2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, CategoryReportCard, Button } from '@/components/ui';
+import { Text, TabFilter, Card, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
-import { useCashFlowByCategory, CashFlowItem } from '@/hooks/useCashFlowByCategory';
+import { useProductReport, ProductReportItem } from '@/hooks/useProductReport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PeriodType } from '@/hooks/useIslemler';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
-import { exportCashFlowToExcel, CashFlowExcelTranslations } from '@/lib/reportExcelExport';
+import { exportProductReportToExcel, ProductExcelTranslations } from '@/lib/reportExcelExport';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 
-type FlowType = 'inflow' | 'outflow';
+type ReportDirection = 'alis' | 'satis';
 
-export default function NakitAkisiPage() {
-  const router = useRouter();
-  const { t } = useTranslation(['reports', 'common']);
+export default function AlisSatisRaporPage() {
+  const { t } = useTranslation(['reports', 'common', 'products']);
   const state = useReportRouteState();
-  const [selectedType, setSelectedType] = useState<FlowType>('outflow');
+  const [selectedDirection, setSelectedDirection] = useState<ReportDirection>('alis');
 
-  // Custom date pickers
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
@@ -41,46 +39,58 @@ export default function NakitAkisiPage() {
   const { isletme } = useAuthContext();
   const [isExporting, setIsExporting] = useState(false);
 
-  const cashFlow = useCashFlowByCategory({
+  const alisRaporu = useProductReport('alis', {
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
-    limit: 100,
   });
 
-  const activeItems = selectedType === 'inflow' ? cashFlow.allInflowItems : cashFlow.allOutflowItems;
+  const satisRaporu = useProductReport('satis', {
+    startDate: state.dateRange.startDate,
+    endDate: state.dateRange.endDate,
+  });
+
+  const activeReport = selectedDirection === 'alis' ? alisRaporu : satisRaporu;
 
   const handleExport = useCallback(async () => {
     if (!isletme) return;
     setIsExporting(true);
     try {
-      const translations: CashFlowExcelTranslations = {
-        reportTitle: t('common:export.cashFlowExcel.reportTitle'),
+      const translations: ProductExcelTranslations = {
+        reportTitle: t('common:export.productExcel.reportTitle'),
         period: t('common:export.excel.period'),
         createdAt: t('common:export.excel.createdAt'),
         business: t('common:export.excel.business'),
+        productName: t('common:export.productExcel.productName'),
+        unit: t('common:export.productExcel.unit'),
+        quantity: t('common:export.productExcel.quantity'),
         category: t('common:export.excel.category'),
         amount: t('common:export.reportExcel.amount'),
-        percentage: t('common:export.cashFlowExcel.percentage'),
-        transactionCount: t('common:export.reportExcel.transactionCount'),
+        percentage: t('common:export.productExcel.percentage'),
         total: t('common:export.reportExcel.total'),
-        inflow: t('common:export.cashFlowExcel.inflow'),
-        outflow: t('common:export.cashFlowExcel.outflow'),
-        netCashFlow: t('common:export.cashFlowExcel.netCashFlow'),
-        sheetName: t('common:export.cashFlowExcel.sheetName'),
-        fileName: t('common:export.cashFlowExcel.fileName'),
+        transactionCount: t('common:export.reportExcel.transactionCount'),
+        productBreakdown: t('common:export.productExcel.productBreakdown'),
+        purchases: t('common:export.productExcel.purchases'),
+        sales: t('common:export.productExcel.sales'),
+        returns: t('common:export.productExcel.returns'),
+        net: t('common:export.productExcel.net'),
+        sheetName: t('common:export.productExcel.sheetName'),
+        fileName: t('common:export.productExcel.fileName'),
         shareDialogTitle: t('common:export.shareDialogTitle'),
         sharingNotSupported: t('common:export.sharingNotSupported'),
       };
-      await exportCashFlowToExcel({
+      await exportProductReportToExcel({
         isletmeName: isletme.name,
         startDate: state.dateRange.startDate,
         endDate: state.dateRange.endDate,
         periodLabel: state.periodLabel,
-        inflowItems: cashFlow.allInflowItems,
-        outflowItems: cashFlow.allOutflowItems,
-        totalInflow: cashFlow.totalInflow,
-        totalOutflow: cashFlow.totalOutflow,
-        netCashFlow: cashFlow.netCashFlow,
+        purchaseItems: alisRaporu.items,
+        purchaseTotal: alisRaporu.totalAmount,
+        purchaseReturnTotal: alisRaporu.returnTotal,
+        purchaseNet: alisRaporu.netAmount,
+        saleItems: satisRaporu.items,
+        saleTotal: satisRaporu.totalAmount,
+        saleReturnTotal: satisRaporu.returnTotal,
+        saleNet: satisRaporu.netAmount,
         translations,
       });
     } catch (error) {
@@ -88,27 +98,13 @@ export default function NakitAkisiPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [isletme, cashFlow, state.dateRange, state.periodLabel, t]);
-
-  const handleCategoryPress = (item: CashFlowItem) => {
-    const type = selectedType === 'inflow' ? 'gelir' : 'gider';
-    router.push({
-      pathname: '/raporlar/kategori/[id]',
-      params: {
-        id: item.kategori?.id || 'uncategorized',
-        type,
-        startDate: state.dateRange.startDate,
-        endDate: state.dateRange.endDate,
-        source: 'cash-flow',
-      },
-    });
-  };
+  }, [isletme, alisRaporu, satisRaporu, state.dateRange, state.periodLabel, t]);
 
   return (
     <>
       <Stack.Screen
         options={{
-          title: t('reports:cashFlow.title'),
+          title: t('reports:titles.purchaseSales'),
           headerRight: () => (
             <TouchableOpacity
               onPress={handleExport}
@@ -139,7 +135,7 @@ export default function NakitAkisiPage() {
             />
           </View>
 
-          {/* Date Navigator + Inflow/Outflow Summary Tabs */}
+          {/* Date Navigator + Alış/Satış Summary Tabs */}
           <View style={styles.summaryBar}>
             {state.period === 'custom' ? (
               <View style={styles.customDateRow}>
@@ -183,85 +179,104 @@ export default function NakitAkisiPage() {
               <TouchableOpacity
                 style={[
                   styles.summaryTab,
-                  selectedType === 'inflow' && styles.summaryTabActiveInflow,
+                  selectedDirection === 'alis' && styles.summaryTabActiveAlis,
                 ]}
-                onPress={() => setSelectedType('inflow')}
+                onPress={() => setSelectedDirection('alis')}
               >
                 <Text
                   variant="caption"
                   style={[
                     styles.summaryTabLabel,
-                    selectedType === 'inflow' && styles.summaryTabLabelActiveInflow,
+                    selectedDirection === 'alis' && styles.summaryTabLabelActiveAlis,
                   ]}
                 >
-                  {t('reports:cashFlow.inflow').toUpperCase()}
+                  {t('reports:purchaseSales.purchases')}
                 </Text>
                 <Text
                   variant="body"
                   style={[
                     styles.summaryTabAmount,
-                    selectedType === 'inflow' && styles.summaryTabAmountActiveInflow,
+                    selectedDirection === 'alis' && styles.summaryTabAmountActiveAlis,
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(cashFlow.totalInflow)}
+                  {formatCurrency(alisRaporu.netAmount)}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.summaryTab,
-                  selectedType === 'outflow' && styles.summaryTabActiveOutflow,
+                  selectedDirection === 'satis' && styles.summaryTabActiveSatis,
                 ]}
-                onPress={() => setSelectedType('outflow')}
+                onPress={() => setSelectedDirection('satis')}
               >
                 <Text
                   variant="caption"
                   style={[
                     styles.summaryTabLabel,
-                    selectedType === 'outflow' && styles.summaryTabLabelActiveOutflow,
+                    selectedDirection === 'satis' && styles.summaryTabLabelActiveSatis,
                   ]}
                 >
-                  {t('reports:cashFlow.outflow').toUpperCase()}
+                  {t('reports:purchaseSales.sales')}
                 </Text>
                 <Text
                   variant="body"
                   style={[
                     styles.summaryTabAmount,
-                    selectedType === 'outflow' && styles.summaryTabAmountActiveOutflow,
+                    selectedDirection === 'satis' && styles.summaryTabAmountActiveSatis,
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(cashFlow.totalOutflow)}
+                  {formatCurrency(satisRaporu.netAmount)}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Category List */}
-          <View style={styles.categoryList}>
-            {cashFlow.isLoading ? (
+          {/* Return info */}
+          {activeReport.returnTotal > 0 && (
+            <View style={styles.returnInfo}>
+              <Text variant="caption" color="secondary">
+                {t('reports:purchaseSales.returns')}: {formatCurrency(activeReport.returnTotal)}
+              </Text>
+            </View>
+          )}
+
+          {/* Product Breakdown Label */}
+          <View style={styles.sectionHeader}>
+            <Text variant="label" color="secondary">
+              {t('reports:purchaseSales.productBreakdown')}
+            </Text>
+            <Text variant="caption" color="secondary">
+              {t('reports:counts.transaction', { count: activeReport.totalTransactions })}
+            </Text>
+          </View>
+
+          {/* Product List */}
+          <View style={styles.productList}>
+            {activeReport.isLoading ? (
               <View style={styles.loadingContainer}>
                 <SkeletonListItem />
                 <SkeletonListItem />
                 <SkeletonListItem />
               </View>
-            ) : activeItems.length === 0 ? (
+            ) : activeReport.items.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Text variant="body" color="secondary" style={styles.emptyText}>
-                  {selectedType === 'inflow'
-                    ? t('reports:cashFlow.noInflow')
-                    : t('reports:cashFlow.noOutflow')}
+                  {selectedDirection === 'alis'
+                    ? t('reports:purchaseSales.noPurchases')
+                    : t('reports:purchaseSales.noSales')}
                 </Text>
               </View>
             ) : (
-              activeItems.map((item, index) => (
-                <CategoryReportCard
-                  key={item.kategori?.id || `uncategorized-${index}`}
+              activeReport.items.map((item, index) => (
+                <ProductReportCard
+                  key={item.urunId}
                   item={item}
                   index={index}
-                  type={selectedType === 'inflow' ? 'gelir' : 'gider'}
-                  onPress={() => handleCategoryPress(item)}
+                  direction={selectedDirection}
+                  t={t}
                 />
               ))
             )}
@@ -353,6 +368,68 @@ export default function NakitAkisiPage() {
   );
 }
 
+// ---- Product Report Card ----
+
+function ProductReportCard({
+  item,
+  index,
+  direction,
+  t,
+}: {
+  item: ProductReportItem;
+  index: number;
+  direction: ReportDirection;
+  t: (key: string, opts?: any) => string;
+}) {
+  const barColor = direction === 'alis' ? colors.orange : colors.success;
+  const IconComponent = direction === 'alis' ? ShoppingCart : Store;
+
+  return (
+    <Card style={styles.productCard}>
+      <View style={styles.productRow}>
+        <View style={[styles.productIcon, { backgroundColor: barColor + '18' }]}>
+          {item.kategoriAdi ? (
+            <Package size={20} color={barColor} />
+          ) : (
+            <IconComponent size={20} color={barColor} />
+          )}
+        </View>
+        <View style={styles.productInfo}>
+          <Text variant="body" numberOfLines={1}>{item.urunAdi}</Text>
+          <View style={styles.productMeta}>
+            <Text variant="caption" color="secondary">
+              {t('reports:purchaseSales.quantity', {
+                count: item.toplamMiktar,
+                unit: t(`products:units.${item.urunBirim}`),
+              })}
+            </Text>
+            {item.kategoriAdi && (
+              <>
+                <Text variant="caption" color="muted"> · </Text>
+                <Text variant="caption" color="muted">{item.kategoriAdi}</Text>
+              </>
+            )}
+          </View>
+        </View>
+        <View style={styles.productAmount}>
+          <Text variant="body" style={{ fontWeight: '700' }}>
+            {formatCurrency(item.toplamTutar)}
+          </Text>
+          <Text variant="caption" color="secondary" style={{ textAlign: 'right' }}>
+            %{item.percentage}
+          </Text>
+        </View>
+      </View>
+      {/* Percentage bar */}
+      <View style={styles.barTrack}>
+        <View style={[styles.barFill, { width: `${Math.max(item.percentage, 2)}%`, backgroundColor: barColor }]} />
+      </View>
+    </Card>
+  );
+}
+
+// ---- Styles ----
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -396,14 +473,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  summaryTabActiveInflow: {
-    backgroundColor: colors.success + '12',
-    borderColor: colors.success,
+  summaryTabActiveAlis: {
+    backgroundColor: colors.orange + '12',
+    borderColor: colors.orange,
     borderWidth: 1.5,
   },
-  summaryTabActiveOutflow: {
-    backgroundColor: colors.error + '12',
-    borderColor: colors.error,
+  summaryTabActiveSatis: {
+    backgroundColor: colors.success + '12',
+    borderColor: colors.success,
     borderWidth: 1.5,
   },
   summaryTabLabel: {
@@ -412,11 +489,11 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     letterSpacing: 0.5,
   },
-  summaryTabLabelActiveInflow: {
-    color: colors.success,
+  summaryTabLabelActiveAlis: {
+    color: colors.orange,
   },
-  summaryTabLabelActiveOutflow: {
-    color: colors.error,
+  summaryTabLabelActiveSatis: {
+    color: colors.success,
   },
   summaryTabAmount: {
     fontSize: 14,
@@ -424,13 +501,26 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
-  summaryTabAmountActiveInflow: {
+  summaryTabAmountActiveAlis: {
+    color: colors.orange,
+  },
+  summaryTabAmountActiveSatis: {
     color: colors.success,
   },
-  summaryTabAmountActiveOutflow: {
-    color: colors.error,
+  returnInfo: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xs,
+    alignItems: 'flex-end',
   },
-  categoryList: {
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  productList: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
   },
@@ -445,9 +535,49 @@ const styles = StyleSheet.create({
   emptyText: {
     textAlign: 'center',
   },
+  // Product Card
+  productCard: {
+    marginBottom: spacing.sm,
+    padding: spacing.md,
+  },
+  productRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  productIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productInfo: {
+    flex: 1,
+  },
+  productMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  productAmount: {
+    alignItems: 'flex-end',
+  },
+  barTrack: {
+    height: 4,
+    backgroundColor: colors.surfaceLighter,
+    borderRadius: 2,
+    marginTop: spacing.sm,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: 4,
+    borderRadius: 2,
+  },
   headerBtn: {
     padding: 6,
   },
+  // Custom date pickers
   customDateRow: {
     flexDirection: 'row',
     justifyContent: 'center',

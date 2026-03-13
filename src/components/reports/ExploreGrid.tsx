@@ -7,6 +7,7 @@ import {
   Building2,
   Users,
   GitCompareArrows,
+  ShoppingCart,
 } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -22,6 +23,7 @@ const REPORT_CARDS = [
   { id: 'nakit', icon: Wallet, labelKey: 'reports:explore.nakit', route: '/nakit-akisi', color: colors.success },
   { id: 'cari', icon: Building2, labelKey: 'reports:explore.cari', route: '/raporlar/cari', color: colors.warning },
   { id: 'personel', icon: Users, labelKey: 'reports:explore.personel', route: '/raporlar/personel', color: colors.info },
+  { id: 'alis-satis', icon: ShoppingCart, labelKey: 'reports:explore.alisSatis', route: '/raporlar/alis-satis', color: colors.orange },
   { id: 'karsilastirma', icon: GitCompareArrows, labelKey: 'reports:explore.karsilastirma', route: '/raporlar/karsilastirma', color: colors.primary },
 ] as const;
 

@@ -11,8 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, Input, Button, IconPicker, ColorPicker, ParentCategoryPicker } from '@/components/ui';
+import { TrendingUp, TrendingDown, Package } from 'lucide-react-native';
+import { Text, Input, Button, IconPicker, ColorPicker, ParentCategoryPicker, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
@@ -34,6 +34,8 @@ export default function KategoriDuzenlePage() {
   const [icon, setIcon] = useState<string>(DEFAULT_CATEGORY_ICON);
   const [color, setColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
   const [parentId, setParentId] = useState<string | null>(null);
+  const [mappedGelirKategoriId, setMappedGelirKategoriId] = useState<string | null>(null);
+  const [mappedGiderKategoriId, setMappedGiderKategoriId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string }>({});
 
   useEffect(() => {
@@ -43,6 +45,8 @@ export default function KategoriDuzenlePage() {
       setIcon(kategori.icon || DEFAULT_CATEGORY_ICON);
       setColor(kategori.color || DEFAULT_CATEGORY_COLOR);
       setParentId(kategori.parent_id);
+      setMappedGelirKategoriId(kategori.mapped_gelir_kategori_id);
+      setMappedGiderKategoriId(kategori.mapped_gider_kategori_id);
     }
   }, [kategori]);
 
@@ -68,6 +72,8 @@ export default function KategoriDuzenlePage() {
         icon,
         color,
         parent_id: parentId,
+        mapped_gelir_kategori_id: type === 'urun' ? mappedGelirKategoriId : null,
+        mapped_gider_kategori_id: type === 'urun' ? mappedGiderKategoriId : null,
       });
 
       Alert.alert(t('common:status.success'), t('categories:messages.updateSuccess'), [
@@ -78,10 +84,12 @@ export default function KategoriDuzenlePage() {
     }
   };
 
-  // Tip değiştiğinde parent_id'yi sıfırla (farklı tipteki kategoriye alt kategori eklenemez)
+  // Tip değiştiğinde parent_id ve eşlemeleri sıfırla
   const handleTypeChange = (newType: KategoriType) => {
     setType(newType);
     setParentId(null);
+    setMappedGelirKategoriId(null);
+    setMappedGiderKategoriId(null);
   };
 
   if (!kategori) {
@@ -161,6 +169,31 @@ export default function KategoriDuzenlePage() {
                     {t('categories:types.gider')}
                   </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.typeCard,
+                    type === 'urun' && styles.typeCardSelected,
+                    type === 'urun' && { borderColor: colors.primary },
+                  ]}
+                  onPress={() => handleTypeChange('urun')}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.typeIcon,
+                      { backgroundColor: colors.primaryLight + '30' },
+                    ]}
+                  >
+                    <Package size={24} color={colors.primary} />
+                  </View>
+                  <Text
+                    variant="body"
+                    style={type === 'urun' && { color: colors.primary }}
+                  >
+                    {t('categories:types.urun')}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -168,7 +201,7 @@ export default function KategoriDuzenlePage() {
             <View style={styles.section}>
               <Input
                 label={t('categories:form.categoryName')}
-                placeholder={t('categories:form.categoryNamePlaceholder')}
+                placeholder={type === 'urun' ? t('categories:form.categoryNamePlaceholderProduct') : t('categories:form.categoryNamePlaceholder')}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
@@ -207,6 +240,34 @@ export default function KategoriDuzenlePage() {
                 onChange={setColor}
               />
             </View>
+
+            {/* Ürün Kategorisi Eşleme */}
+            {type === 'urun' && (
+              <View style={styles.section}>
+                <Text variant="label" style={styles.sectionTitle}>
+                  {t('categories:form.categoryMapping')}
+                </Text>
+                <Text variant="caption" color="secondary" style={styles.mappingDescription}>
+                  {t('categories:form.mappingDescription')}
+                </Text>
+                <View style={styles.mappingPickers}>
+                  <CategoryPicker
+                    value={mappedGiderKategoriId}
+                    onChange={setMappedGiderKategoriId}
+                    type="gider"
+                    label={t('categories:form.mapToExpenseCategory')}
+                    optional
+                  />
+                  <CategoryPicker
+                    value={mappedGelirKategoriId}
+                    onChange={setMappedGelirKategoriId}
+                    type="gelir"
+                    label={t('categories:form.mapToIncomeCategory')}
+                    optional
+                  />
+                </View>
+              </View>
+            )}
 
             {/* Buttons */}
             <View style={styles.buttons}>
@@ -291,6 +352,12 @@ const styles = StyleSheet.create({
   },
   pickerItem: {
     flex: 1,
+  },
+  mappingDescription: {
+    marginBottom: spacing.md,
+  },
+  mappingPickers: {
+    gap: spacing.md,
   },
   buttons: {
     flexDirection: 'row',

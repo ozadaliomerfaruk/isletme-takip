@@ -18,14 +18,16 @@
         "auth": "Authentication and Session Information:",
         "authItems": "Session and authorization data",
         "financial": "Financial Information:",
-        "financialItems": "Business account records manually entered by user",
+        "financialItems": "Business account records manually entered by user, client account information, staff information, product and inventory information",
+        "visual": "Visual Data:",
+        "visualItems": "Photos attached to transactions (receipts, invoices, etc.)",
         "technical": "Transaction and Technical Security Information:",
         "technicalItems": "Technical records created for system security and service provision"
       },
       "purposes": {
         "title": "3. Purposes of Processing Personal Data",
         "intro": "Your personal data is processed for the following purposes:",
-        "items": "Managing membership and account operations\nProviding application services\nEnabling financial recording and reporting functions\nManaging information security processes\nFulfilling legal obligations"
+        "items": "Managing membership and account operations\nProviding application services\nEnabling financial recording and reporting functions\nSending scheduled transaction reminders\nManaging multi-user access control\nManaging information security processes\nFulfilling legal obligations"
       },
       "legalBasis": {
         "title": "4. Legal Grounds",
@@ -36,7 +38,7 @@
       "transfer": {
         "title": "5. Transfer of Personal Data",
         "intro": "Your personal data may be transferred to:",
-        "items": "Authorized public institutions and organizations in cases of legal obligation\nTechnical infrastructure and cloud service providers",
+        "items": "Authorized public institutions and organizations in cases of legal obligation\nTechnical infrastructure and cloud service providers\nOther users authorized by the business owner (within the multi-user feature)",
         "outro": "in accordance with applicable data protection regulations."
       },
       "rights": {
@@ -55,59 +57,67 @@
   },
   "terms": {
     "title": "Terms of Service",
-    "lastUpdated": "Last Updated: December 22, 2025",
-    "intro": "By using the Business Tracker application, you agree to the following terms.",
+    "lastUpdated": "Last Updated: March 12, 2026",
+    "intro": "By using the Simple Business Finance application, you agree to the following terms.",
     "sections": {
       "serviceDescription": {
         "title": "1. Service Description",
-        "content": "Business Tracker is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
+        "content": "Simple Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
       },
       "usageTerms": {
         "title": "2. Usage Terms and Age Restriction",
-        "content": "You must be at least 13 years old to use this application. Use of the application by individuals under 13 is prohibited.\n\nUsers are responsible for the accuracy, currency, and legal compliance of all data entered into the application. Business Tracker cannot be held responsible for consequences arising from incorrect or incomplete data entry."
+        "content": "You must be at least 13 years old to use this application. Use of the application by individuals under 13 is prohibited.\n\nUsers are responsible for the accuracy, currency, and legal compliance of all data entered into the application. Simple Business Finance cannot be held responsible for consequences arising from incorrect or incomplete data entry."
       },
       "accountSecurity": {
         "title": "3. Account Security",
         "content": "Users are obligated to keep account information confidential and prevent unauthorized access. Users are responsible for all transactions performed through their account."
       },
+      "multiUser": {
+        "title": "4. Multi-User Access",
+        "content": "Business owners can invite other users to their business by generating invite codes. Invited users are assigned one of the following roles: owner, manager, operator, or purchaser. Each role has different access permissions.\n\nBusiness owners can restrict or revoke invited users' access at any time. Business owners are responsible for the actions of invited users on business data."
+      },
       "dataSecurity": {
-        "title": "4. Data Security",
+        "title": "5. Data Security",
         "content": "User data is stored on secure servers with reasonable technical security measures. However, it is acknowledged that data transmission over the internet is not completely risk-free."
       },
       "accountDeletion": {
-        "title": "5. Account Deletion",
-        "content": "Users can delete their account through Settings > Delete My Account menu within the application. A 7-day waiting period applies after account deletion request. Users can cancel the deletion during this period. After the waiting period, the account and all associated data are permanently deleted and cannot be recovered."
+        "title": "6. Account Deletion",
+        "content": "Users can delete their account through Settings > Delete My Account menu within the application. A 7-day waiting period applies after account deletion request. Users can cancel the deletion during this period. After the waiting period, the account and all associated data (transactions, clients, staff, products, photos included) are permanently deleted and cannot be recovered."
+      },
+      "dataExport": {
+        "title": "7. Data Export",
+        "content": "Users can export transaction data and reports in Excel (.xlsx) format from within the application. Exported files are downloaded to the user's device. Users are responsible for any sharing of exported data with third parties."
       },
       "thirdParty": {
-        "title": "6. Third-Party Services",
+        "title": "8. Third-Party Services",
         "content": "The application may use third-party services such as Apple ID and Google Account for authentication. Use of these services is subject to the respective service providers' own terms of use."
       },
       "serviceChanges": {
-        "title": "7. Service Changes",
-        "content": "Business Tracker reserves the right to change the application's service content, features, and pricing without prior notice."
+        "title": "9. Service Changes",
+        "content": "Simple Business Finance reserves the right to change the application's service content, features, and pricing without prior notice."
       },
       "intellectualProperty": {
-        "title": "8. Intellectual Property",
-        "content": "The design, software, and brand elements of Business Tracker application belong to Business Tracker. Ownership of all data entered into the application by users belongs to the users."
+        "title": "10. Intellectual Property",
+        "content": "The design, software, and brand elements of Simple Business Finance application belong to Simple Business Finance. Ownership of all data entered into the application by users belongs to the users."
       },
       "liability": {
-        "title": "9. Limitation of Liability",
-        "content": "Business Tracker cannot be held liable for indirect damages arising from use of the application. The application is provided \"as is.\""
+        "title": "11. Limitation of Liability",
+        "content": "Simple Business Finance cannot be held liable for indirect damages arising from use of the application. The application is provided \"as is.\""
       },
       "disputes": {
-        "title": "10. Dispute Resolution",
-        "content": "Any disputes arising from these terms shall be governed by applicable law, and resolved through binding arbitration or in the courts of the jurisdiction where the service provider is located."
+        "title": "12. Dispute Resolution",
+        "content": "Any disputes arising from these terms shall be governed by the laws of the Republic of Turkey, and Istanbul Courts shall have jurisdiction."
       },
       "contact": {
-        "title": "11. Contact",
+        "title": "13. Contact",
         "content": "For questions about terms of use:\nozadaliomerfaruk@gmail.com"
       }
     }
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last Updated: December 22, 2025",
-    "intro": "At Business Tracker, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
+    "lastUpdated": "Last Updated: March 12, 2026",
+    "intro": "At Simple Business Finance, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
     "sections": {
       "collectedData": {
         "title": "1. Data Collected",
@@ -118,50 +128,66 @@
         "userContent": {
           "title": "1.2 User-Entered Content",
           "intro": "The following information is entered entirely at user's discretion and manually:",
-          "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information\nDescriptions, notes, and similar content"
+          "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information (name, position, salary, leave details)\nProduct and inventory information (product name, code, price, stock quantity)\nDescriptions, notes, and similar content"
         },
         "optional": {
           "title": "1.3 Optional Information",
-          "content": "Tax number and similar fields are not mandatory and are entered optionally by users."
+          "content": "Tax number, phone number, and similar fields are not mandatory and are entered optionally by users."
+        },
+        "deviceAccess": {
+          "title": "1.4 Device Access",
+          "content": "Camera and Photo Library: Access is requested only when the user wants to attach photos (receipts, invoices, etc.) to transactions.\nFile System: Access is requested during Excel file import and export operations.\nNotifications: Push notification permission may be requested for scheduled transaction reminders."
         }
       },
       "dataUsage": {
         "title": "2. Data Usage Purposes",
         "intro": "Collected data is processed for the following purposes:",
-        "items": "Providing application functions\nAccount and session management\nCreating financial records and reports\nResolving technical issues\nFulfilling legal obligations",
+        "items": "Providing application functions\nAccount and session management\nCreating financial records and reports\nSending scheduled transaction reminders\nResolving technical issues\nFulfilling legal obligations",
         "outro": "Data is not used for advertising, marketing, or user tracking purposes."
       },
+      "multiUser": {
+        "title": "3. Multi-User Access and Data Sharing",
+        "content": "Business owners can invite other users to their business by generating invite codes.\nInvited users can access business data within the roles and permissions set by the business owner.\nUser roles (owner, manager, operator, purchaser) provide different access levels.\nBusiness owners can revoke invited users' access at any time."
+      },
       "appStore": {
-        "title": "3. Data Relationship with User (Apple App Store Perspective)",
-        "content": "Identity and account information is associated with user account.\nFinancial records, client, and staff information entered by users belong to content created within user's account, not to users themselves.\nThis data is accessible only by the relevant user."
+        "title": "4. Data Relationship with User (Apple App Store Perspective)",
+        "content": "Identity and account information is associated with user account.\nFinancial records, client, staff, and product information entered by users belong to content created within user's account, not to users themselves.\nThis data is accessible only by the relevant user and authorized team members."
       },
       "dataSecurity": {
-        "title": "4. Data Security",
+        "title": "5. Data Security",
         "intro": "The following measures are taken for personal data security:",
-        "items": "SSL/TLS encrypted data transmission\nSecure server infrastructure\nAuthorization and access control mechanisms\nTechnical measures to prevent unauthorized access"
+        "items": "SSL/TLS encrypted data transmission\nSecure server infrastructure\nRow Level Security (RLS) access controls\nAuthorization and access control mechanisms\nTechnical measures to prevent unauthorized access"
       },
       "thirdParty": {
-        "title": "5. Third-Party Service Providers",
+        "title": "6. Third-Party Service Providers",
         "intro": "The application may utilize the following service providers:",
-        "items": "Authentication services (Apple ID, Google Account)\nDatabase and authentication infrastructure (Supabase)\nCloud hosting services",
-        "outro": "These service providers can access data only for the purpose of fulfilling application functions and to a limited extent.\n\nAll third-party service providers are obligated to provide protection equal to or higher than the level specified in this Privacy Policy for user data."
+        "items": "Authentication services (Apple ID, Google Account)\nDatabase and authentication infrastructure (Supabase)\nFile storage services (Supabase Storage)\nCloud hosting services",
+        "outro": "These service providers can access data only for the purpose of fulfilling application functions and to a limited extent."
+      },
+      "dataExport": {
+        "title": "7. Data Export",
+        "content": "Users can export transaction data and reports in Excel (.xlsx) format from within the application. Exported files are downloaded to the user's device and sharing preferences are entirely up to the user. The application does not retain copies of exported files on the server."
       },
       "retention": {
-        "title": "6. Data Retention Period and Account Deletion",
-        "content": "Data is retained as long as user account is active.\nUsers can delete their account from within the application.\nA 7-day waiting period applies after account deletion request.\nAfter the waiting period, account and all associated data are automatically and permanently deleted.\nFor users signing in with Apple ID, Apple authentication tokens are also revoked during account deletion."
+        "title": "8. Data Retention Period and Account Deletion",
+        "content": "Data is retained as long as user account is active.\nUsers can delete their account from within the application.\nA 7-day waiting period applies after account deletion request.\nAfter the waiting period, account and all associated data (transactions, clients, staff, products, photos included) are automatically and permanently deleted.\nFor users signing in with Apple ID, Apple authentication tokens are also revoked during account deletion."
       },
       "children": {
-        "title": "7. Children's Privacy",
+        "title": "9. Children's Privacy",
         "content": "The application is not intended for children under 13. Personal data from children is not knowingly collected."
       },
       "userRights": {
-        "title": "8. User Rights",
+        "title": "10. User Rights",
         "intro": "Users have the following rights under applicable regulations:",
-        "items": "Right to access their data\nRight to request correction\nRight to request deletion\nRight to object to processing",
+        "items": "Right to access their data\nRight to request correction\nRight to request deletion\nRight to object to processing\nRight to data portability (via Excel export)",
         "outro": ""
       },
+      "policyChanges": {
+        "title": "11. Policy Changes",
+        "content": "This privacy policy may be updated from time to time. Users will be notified of significant changes through the application."
+      },
       "contact": {
-        "title": "9. Contact",
+        "title": "12. Contact",
         "content": "For questions about privacy policy:\nozadaliomerfaruk@gmail.com"
       }
     }

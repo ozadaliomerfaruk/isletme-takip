@@ -13,7 +13,7 @@ import { SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
-import { useIslemlerByCari } from '@/hooks/useIslemler';
+import { useAllIslemlerByCari } from '@/hooks/useIslemler';
 import type { TabContentProps } from './types';
 
 interface CariTabContentProps extends TabContentProps {
@@ -25,14 +25,14 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
   const { data: cariler } = useCariler();
   const [selectedCariId, setSelectedCariId] = useState<string | null>(initialCariId ?? null);
 
-  const { data: cariIslemler = [], isLoading: cariIslemlerLoading } = useIslemlerByCari(selectedCariId || '');
+  const { data: cariIslemler = [], isLoading: cariIslemlerLoading } = useAllIslemlerByCari(selectedCariId || '');
 
   const selectedCari = cariler?.find((c) => c.id === selectedCariId) || null;
 
   const filteredCariIslemler = useMemo(() => {
     if (!cariIslemler) return [];
     return cariIslemler.filter((islem) => {
-      const islemDate = islem.date;
+      const islemDate = islem.date.substring(0, 10);
       return islemDate >= dateRange.startDate && islemDate <= dateRange.endDate;
     });
   }, [cariIslemler, dateRange.startDate, dateRange.endDate]);

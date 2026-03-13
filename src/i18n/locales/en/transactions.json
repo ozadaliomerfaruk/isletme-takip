@@ -227,6 +227,7 @@
     "searchToAdd": "Search and add products above",
     "added": "Added",
     "productCount": "{{count}} products",
-    "stockButton": "Product"
+    "stockButton": "Product",
+    "categoryDisabledByProducts": "Category is determined by selected products"
   }
 }

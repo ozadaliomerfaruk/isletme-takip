@@ -52,6 +52,13 @@ export default function GizlilikPolitikasiPage() {
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('privacy.sections.collectedData.optional.content')}
             </Text>
+
+            <Text variant="body" style={styles.subTitle}>
+              {t('privacy.sections.collectedData.deviceAccess.title')}
+            </Text>
+            <Text variant="body" color="secondary" style={styles.paragraph}>
+              {t('privacy.sections.collectedData.deviceAccess.content').split('\n').map((item) => `• ${item}`).join('\n')}
+            </Text>
           </View>
 
           {/* Section 2: Data Usage */}
@@ -66,7 +73,17 @@ export default function GizlilikPolitikasiPage() {
             </Text>
           </View>
 
-          {/* Section 3: App Store */}
+          {/* Section 3: Multi-User Access */}
+          <View style={styles.section}>
+            <Text variant="label" style={styles.sectionTitle}>
+              {t('privacy.sections.multiUser.title')}
+            </Text>
+            <Text variant="body" color="secondary" style={styles.paragraph}>
+              {t('privacy.sections.multiUser.content').split('\n').map((item) => `• ${item}`).join('\n')}
+            </Text>
+          </View>
+
+          {/* Section 4: App Store */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
               {t('privacy.sections.appStore.title')}
@@ -99,7 +116,17 @@ export default function GizlilikPolitikasiPage() {
             </Text>
           </View>
 
-          {/* Section 6: Retention */}
+          {/* Section 7: Data Export */}
+          <View style={styles.section}>
+            <Text variant="label" style={styles.sectionTitle}>
+              {t('privacy.sections.dataExport.title')}
+            </Text>
+            <Text variant="body" color="secondary" style={styles.paragraph}>
+              {t('privacy.sections.dataExport.content')}
+            </Text>
+          </View>
+
+          {/* Section 8: Retention */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
               {t('privacy.sections.retention.title')}
@@ -131,7 +158,17 @@ export default function GizlilikPolitikasiPage() {
             </Text>
           </View>
 
-          {/* Section 9: Contact */}
+          {/* Section 11: Policy Changes */}
+          <View style={styles.section}>
+            <Text variant="label" style={styles.sectionTitle}>
+              {t('privacy.sections.policyChanges.title')}
+            </Text>
+            <Text variant="body" color="secondary" style={styles.paragraph}>
+              {t('privacy.sections.policyChanges.content')}
+            </Text>
+          </View>
+
+          {/* Section 12: Contact */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
               {t('privacy.sections.contact.title')}

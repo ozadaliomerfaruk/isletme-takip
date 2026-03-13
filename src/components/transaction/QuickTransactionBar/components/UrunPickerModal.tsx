@@ -17,6 +17,7 @@ import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
+import { useKategoriler } from '@/hooks/useKategoriler';
 import { styles as sharedStyles } from '../styles';
 import type { UrunItem } from '../types';
 import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
@@ -56,6 +57,11 @@ export function UrunPickerModal({
   const { t } = useTranslation(['transactions', 'products', 'common']);
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
+  const { data: kategoriler } = useKategoriler();
+  const kategoriNameMap = useMemo(
+    () => new Map(kategoriler?.map(k => [k.id, k.name]) || []),
+    [kategoriler]
+  );
 
   // Ekleme/düzenleme modunda olan ürün
   const [addingProduct, setAddingProduct] = useState<AddingProduct | null>(null);
@@ -69,9 +75,10 @@ export function UrunPickerModal({
     return urunler.filter(
       (u) =>
         u.ad.toLowerCase().includes(query) ||
-        (u.kod && u.kod.toLowerCase().includes(query))
+        (u.kod && u.kod.toLowerCase().includes(query)) ||
+        (u.kategori_id && kategoriNameMap.get(u.kategori_id)?.toLowerCase().includes(query))
     );
-  }, [urunler, searchQuery]);
+  }, [urunler, searchQuery, kategoriNameMap]);
 
   // Calculate totals and notify parent
   const totals = useMemo(() => calculateUrunGrandTotal(urunItems), [urunItems]);
@@ -435,11 +442,20 @@ export function UrunPickerModal({
                             </View>
                             <View style={styles.urunInfo}>
                               <Text style={styles.urunName}>{urun.ad}</Text>
-                              <Text style={styles.urunDetail}>
-                                {urun.miktar} {getBirimLabel(urun.birim)}
-                                {urun.satis_fiyati > 0 &&
-                                  ` • ${formatCurrency(urun.satis_fiyati, urun.currency)}`}
-                              </Text>
+                              <View style={styles.urunDetailRow}>
+                                <Text style={styles.urunDetail}>
+                                  {urun.miktar} {getBirimLabel(urun.birim)}
+                                  {urun.satis_fiyati > 0 &&
+                                    ` • ${formatCurrency(urun.satis_fiyati, urun.currency)}`}
+                                </Text>
+                                {urun.kategori_id && kategoriNameMap.get(urun.kategori_id) && (
+                                  <View style={styles.urunCategoryBadge}>
+                                    <Text style={styles.urunCategoryText}>
+                                      {kategoriNameMap.get(urun.kategori_id)}
+                                    </Text>
+                                  </View>
+                                )}
+                              </View>
                             </View>
                             {added ? (
                               <View style={styles.addedBadge}>
@@ -629,9 +645,28 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 2,
   },
+  urunDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
   urunDetail: {
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  urunCategoryBadge: {
+    backgroundColor: colors.background,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  urunCategoryText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   selectButton: {
     width: 36,

@@ -13,7 +13,7 @@ import { SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
-import { useIslemlerByPersonel } from '@/hooks/useIslemler';
+import { useAllIslemlerByPersonel } from '@/hooks/useIslemler';
 import type { TabContentProps } from './types';
 
 interface PersonelTabContentProps extends TabContentProps {
@@ -25,14 +25,14 @@ export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }
   const { data: personelList } = usePersonelList();
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(initialPersonelId ?? null);
 
-  const { data: personelIslemler = [], isLoading: personelIslemlerLoading } = useIslemlerByPersonel(selectedPersonelId || '');
+  const { data: personelIslemler = [], isLoading: personelIslemlerLoading } = useAllIslemlerByPersonel(selectedPersonelId || '');
 
   const selectedPersonel = personelList?.find((p) => p.id === selectedPersonelId) || null;
 
   const filteredPersonelIslemler = useMemo(() => {
     if (!personelIslemler) return [];
     return personelIslemler.filter((islem) => {
-      const islemDate = islem.date;
+      const islemDate = islem.date.substring(0, 10);
       return islemDate >= dateRange.startDate && islemDate <= dateRange.endDate;
     });
   }, [personelIslemler, dateRange.startDate, dateRange.endDate]);
@@ -41,7 +41,7 @@ export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }
   const leaveCarryOver = useMemo(() => {
     if (!personelIslemler) return 0;
     return personelIslemler
-      .filter((islem) => islem.date < dateRange.startDate)
+      .filter((islem) => islem.date.substring(0, 10) < dateRange.startDate)
       .reduce((acc, islem) => {
         if (islem.type === 'personel_izin_hakki') return acc + Number(islem.amount);
         if (islem.type === 'personel_izin_kullanimi') return acc - Number(islem.amount);

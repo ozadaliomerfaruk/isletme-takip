@@ -12,7 +12,8 @@
     "categoryDetail": "Category Detail",
     "uncategorized": "Uncategorized",
     "personnelReport": "Staff Report",
-    "comparison": "Comparison"
+    "comparison": "Comparison",
+    "purchaseSales": "Purchase-Sales Report"
   },
   "home": {
     "explore": "Explore Reports",
@@ -30,7 +31,8 @@
     "cari": "Client Report",
     "personel": "Staff",
     "karsilastirma": "Compare",
-    "kategoriDagilimi": "Income-Expense Distribution"
+    "kategoriDagilimi": "Income-Expense Distribution",
+    "alisSatis": "Purchases"
   },
   "tabs": {
     "general": "General",
@@ -213,5 +215,23 @@
   },
   "labels": {
     "invoiceTotal": "Invoice total"
+  },
+  "purchaseSales": {
+    "purchases": "PURCHASES",
+    "sales": "SALES",
+    "totalPurchases": "Total Purchases",
+    "totalSales": "Total Sales",
+    "returns": "Returns",
+    "net": "Net",
+    "productBreakdown": "PRODUCT BREAKDOWN",
+    "noPurchases": "No product purchases in this period",
+    "noSales": "No product sales in this period",
+    "quantity": "{{count}} {{unit}}",
+    "transactionCount": "{{count}} transactions"
+  },
+  "warnings": {
+    "unmappedCategories": "{{count}} product categories are not mapped, reports may be incomplete",
+    "uncategorizedProducts": "{{count}} products have no category assigned",
+    "goToCategories": "Edit Categories"
   }
 }

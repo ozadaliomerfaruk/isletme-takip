@@ -48,6 +48,8 @@ export default function KVKKPage() {
               {t('kvkk.sections.processedData.authItems')}{'\n\n'}
               <Text style={styles.bold}>{t('kvkk.sections.processedData.financial')}</Text>{'\n'}
               {t('kvkk.sections.processedData.financialItems')}{'\n\n'}
+              <Text style={styles.bold}>{t('kvkk.sections.processedData.visual')}</Text>{'\n'}
+              {t('kvkk.sections.processedData.visualItems')}{'\n\n'}
               <Text style={styles.bold}>{t('kvkk.sections.processedData.technical')}</Text>{'\n'}
               {t('kvkk.sections.processedData.technicalItems')}
             </Text>

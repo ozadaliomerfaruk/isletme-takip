@@ -573,7 +573,7 @@ export function useHierarchicalCategoryReport(
 
 // Belirli bir kategorinin işlemlerini getir
 // Ürün bazlı kategori raporlamasını destekler:
-// - Ürünlü işlemler: ürünün kategorisine göre filtrelenir
+// - Ürünlü işlemler: ürünün kategorisine göre filtrelenir (mapping dahil)
 // - Ürünsüz işlemler: islemler.kategori_id'ye göre filtrelenir
 export function useCategoryTransactions(
   kategoriId: string | null,
@@ -592,8 +592,27 @@ export function useCategoryTransactions(
     queryFn: async () => {
       if (!isletme) return [];
 
+      // 0. Mapping: Bu kategori bir gelir/gider kategorisi ise, ona eşlenmiş ürün kategorilerini bul
+      // Böylece eşlenmiş ürün kategorilerindeki ürünlerin işlemleri de dahil edilir
+      let mappedUrunKategoriIds: string[] = [];
+      if (kategoriId && kategoriId !== 'uncategorized') {
+        const mappingField = type === 'gider' ? 'mapped_gider_kategori_id' : 'mapped_gelir_kategori_id';
+        const { data: mappedKategoriler } = await supabase
+          .from('kategoriler')
+          .select('id')
+          .eq('isletme_id', isletme.id)
+          .eq('type', 'urun')
+          .eq(mappingField, kategoriId);
+
+        mappedUrunKategoriIds = (mappedKategoriler || []).map(k => k.id);
+      }
+
+      // Ürün filtresinde kullanılacak tüm kategori ID'leri (doğrudan + eşlenmiş)
+      const allUrunKategoriIds = kategoriId && kategoriId !== 'uncategorized'
+        ? [kategoriId, ...mappedUrunKategoriIds]
+        : [];
+
       // 1. Ürünsüz işlemler: islemler.kategori_id ile filtrele
-      // fetchAllPages ile 1000 satır limitini aş
       const selectStr = `
           *,
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
@@ -635,15 +654,15 @@ export function useCategoryTransactions(
         pureNoProductData = (noProductData || []).filter(i => !productIslemIds.has(i.id));
       }
 
-      // 2. Ürünlü işlemler: urun_hareketler -> urunler.kategori_id ile filtrele
+      // 2. Ürünlü işlemler: urun_hareketler -> urunler.kategori_id ile filtrele (mapping dahil)
       let productIslemIds: string[] = [];
-      if (kategoriId && kategoriId !== 'uncategorized') {
-        // Find islem_ids where any urun_hareket's urun has this kategori_id
+      if (allUrunKategoriIds.length > 0) {
+        // Find islem_ids where any urun_hareket's urun has one of the matching kategori_ids
         const { data: urunHareketler } = await supabase
           .from('urun_hareketler')
           .select('islem_id, urunler!inner(kategori_id)')
           .eq('isletme_id', isletme.id)
-          .eq('urunler.kategori_id', kategoriId)
+          .in('urunler.kategori_id', allUrunKategoriIds)
           .not('islem_id', 'is', null);
 
         productIslemIds = [...new Set((urunHareketler || []).map(h => h.islem_id).filter(Boolean))] as string[];
@@ -675,16 +694,16 @@ export function useCategoryTransactions(
       }
 
       // 3. For product-based transactions, compute the category-specific amount
-      // from urun_hareketler where urun.kategori_id matches
+      // from urun_hareketler where urun.kategori_id matches (including mapped)
       const productIslemIdList = productIslemData.map(i => i.id);
       const categoryAmountMap = new Map<string, number>();
 
-      if (productIslemIdList.length > 0 && kategoriId && kategoriId !== 'uncategorized') {
+      if (productIslemIdList.length > 0 && allUrunKategoriIds.length > 0) {
         const { data: categoryHareketler } = await supabase
           .from('urun_hareketler')
           .select('islem_id, miktar, birim_fiyat, kdv_orani, urunler!inner(kategori_id)')
           .eq('isletme_id', isletme.id)
-          .eq('urunler.kategori_id', kategoriId)
+          .in('urunler.kategori_id', allUrunKategoriIds)
           .in('islem_id', productIslemIdList);
 
         (categoryHareketler || []).forEach((h: any) => {
@@ -736,6 +755,19 @@ export function useMultiCategoryTransactions(
     queryFn: async () => {
       if (!isletme || kategoriIds.length === 0) return [];
 
+      // 0. Mapping: Eşlenmiş ürün kategorilerini bul
+      // Seçilen gelir/gider kategorilerine eşlenmiş ürün kategorileri de dahil edilir
+      const mappingField = type === 'gider' ? 'mapped_gider_kategori_id' : 'mapped_gelir_kategori_id';
+      const { data: mappedKategoriler } = await supabase
+        .from('kategoriler')
+        .select('id')
+        .eq('isletme_id', isletme.id)
+        .eq('type', 'urun')
+        .in(mappingField, kategoriIds);
+
+      const mappedUrunKategoriIds = (mappedKategoriler || []).map(k => k.id);
+      const allUrunKategoriIds = [...new Set([...kategoriIds, ...mappedUrunKategoriIds])];
+
       // 1. İslemler.kategori_id ile eşleşen (ürünsüz) işlemler
       // fetchAllPages ile 1000 satır limitini aş
       const selectStr = `
@@ -773,12 +805,12 @@ export function useMultiCategoryTransactions(
         pureDirectData = (directData || []).filter(i => !productIslemIds.has(i.id));
       }
 
-      // 2. Ürünlü işlemler: urun_hareketler -> urunler.kategori_id ile filtrele
+      // 2. Ürünlü işlemler: urun_hareketler -> urunler.kategori_id ile filtrele (mapping dahil)
       const { data: urunHareketler } = await supabase
         .from('urun_hareketler')
         .select('islem_id, miktar, birim_fiyat, kdv_orani, urunler!inner(kategori_id)')
         .eq('isletme_id', isletme.id)
-        .in('urunler.kategori_id', kategoriIds)
+        .in('urunler.kategori_id', allUrunKategoriIds)
         .not('islem_id', 'is', null);
 
       const productIslemIdSet = new Set((urunHareketler || []).map(h => h.islem_id).filter(Boolean));

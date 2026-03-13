@@ -356,6 +356,47 @@
       "sheetName": "Report",
       "incomeFileName": "Income_Report",
       "expenseFileName": "Expense_Report"
+    },
+    "productExcel": {
+      "reportTitle": "Purchase-Sales Report",
+      "productName": "PRODUCT NAME",
+      "unit": "UNIT",
+      "quantity": "QUANTITY",
+      "percentage": "RATIO",
+      "productBreakdown": "PRODUCT BREAKDOWN",
+      "purchases": "PURCHASES",
+      "sales": "SALES",
+      "returns": "Returns",
+      "net": "Net",
+      "sheetName": "Purchase_Sales",
+      "fileName": "Purchase_Sales_Report"
+    },
+    "cashFlowExcel": {
+      "reportTitle": "Cash Flow Report",
+      "inflow": "CASH INFLOW",
+      "outflow": "CASH OUTFLOW",
+      "netCashFlow": "Net Cash Flow",
+      "percentage": "RATIO",
+      "sheetName": "Cash_Flow",
+      "fileName": "Cash_Flow_Report"
+    },
+    "genelDurumExcel": {
+      "reportTitle": "Financial Overview Report",
+      "generalStatus": "GENERAL STATUS",
+      "netValue": "NET VALUE",
+      "accounts": "ACCOUNTS",
+      "accountBalances": "ACCOUNT BALANCES",
+      "accountName": "ACCOUNT NAME",
+      "balance": "BALANCE",
+      "creditCardBalances": "CREDIT CARD DEBTS",
+      "clientStatus": "CLIENT STATUS",
+      "personnelStatus": "STAFF STATUS",
+      "personnelReceivables": "STAFF RECEIVABLES",
+      "personnelDebt": "STAFF DEBT",
+      "netStatus": "NET STATUS",
+      "instant": "Instant",
+      "sheetName": "Overview",
+      "fileName": "Financial_Overview_Report"
     }
   },
   "archive": {

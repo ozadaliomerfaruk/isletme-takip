@@ -89,11 +89,13 @@ export function AmountInputSection({
       {categoryType && (
         <View style={styles.categoryWrapper}>
           <CategoryPicker
-            value={kategoriId}
+            value={urunItemCount > 0 ? null : kategoriId}
             onChange={onKategoriChange}
             type={categoryType}
             label=""
             placeholder={t('common:select.selectCategory')}
+            disabled={urunItemCount > 0}
+            disabledMessage={t('transactions:stock.categoryDisabledByProducts')}
             onNavigateAway={onNavigateAway}
             open={categoryPickerOpen}
             onOpenChange={onCategoryPickerOpenChange}

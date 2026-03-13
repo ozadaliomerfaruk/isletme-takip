@@ -18,14 +18,16 @@
         "auth": "Kimlik Doğrulama ve Oturum Bilgileri:",
         "authItems": "Oturum ve yetkilendirme bilgileri",
         "financial": "Finansal Bilgiler:",
-        "financialItems": "Kullanıcı tarafından manuel olarak girilen işletme hesap kayıtları",
+        "financialItems": "Kullanıcı tarafından manuel olarak girilen işletme hesap kayıtları, cari hesap bilgileri, personel bilgileri, ürün ve stok bilgileri",
+        "visual": "Görsel Veriler:",
+        "visualItems": "İşlemlere eklenen fotoğraflar (fiş, fatura vb.)",
         "technical": "İşlem ve Teknik Güvenlik Bilgileri:",
         "technicalItems": "Sistem güvenliği ve hizmetin sağlanması amacıyla oluşturulan teknik kayıtlar"
       },
       "purposes": {
         "title": "3. Kişisel Verilerin İşlenme Amaçları",
         "intro": "Kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:",
-        "items": "Üyelik ve hesap işlemlerinin yürütülmesi\nUygulama hizmetlerinin sunulması\nFinansal kayıt ve raporlama fonksiyonlarının sağlanması\nBilgi güvenliği süreçlerinin yürütülmesi\nYasal yükümlülüklerin yerine getirilmesi"
+        "items": "Üyelik ve hesap işlemlerinin yürütülmesi\nUygulama hizmetlerinin sunulması\nFinansal kayıt ve raporlama fonksiyonlarının sağlanması\nİleri tarihli işlem hatırlatmalarının gönderilmesi\nÇoklu kullanıcı erişim yönetiminin sağlanması\nBilgi güvenliği süreçlerinin yürütülmesi\nYasal yükümlülüklerin yerine getirilmesi"
       },
       "legalBasis": {
         "title": "4. Hukuki Sebepler",
@@ -36,7 +38,7 @@
       "transfer": {
         "title": "5. Kişisel Verilerin Aktarılması",
         "intro": "Kişisel verileriniz;",
-        "items": "Yasal zorunluluk hallerinde yetkili kamu kurum ve kuruluşlarına\nTeknik altyapı ve bulut hizmet sağlayıcılarına",
+        "items": "Yasal zorunluluk hallerinde yetkili kamu kurum ve kuruluşlarına\nTeknik altyapı ve bulut hizmet sağlayıcılarına\nİşletme sahibinin yetkilendirdiği diğer kullanıcılara (çoklu kullanıcı özelliği kapsamında)",
         "outro": "KVKK'nın 8. ve 9. maddelerine uygun olarak aktarılabilir."
       },
       "rights": {
@@ -55,12 +57,12 @@
   },
   "terms": {
     "title": "Kullanım Koşulları",
-    "lastUpdated": "Son Güncelleme: 22 Aralık 2025",
-    "intro": "İşletme Takip uygulamasını kullanarak aşağıdaki koşulları kabul etmiş sayılırsınız.",
+    "lastUpdated": "Son Güncelleme: 12 Mart 2026",
+    "intro": "İşletme Takip – Hesap Kitap uygulamasını kullanarak aşağıdaki koşulları kabul etmiş sayılırsınız.",
     "sections": {
       "serviceDescription": {
         "title": "1. Hizmet Tanımı",
-        "content": "İşletme Takip, küçük ve orta ölçekli işletmeler için geliştirilmiş bir finansal takip ve yönetim uygulamasıdır. Uygulama; gelir-gider takibi, cari hesap yönetimi, personel kayıt ve ödeme takibi ile finansal raporlama araçları sunar.\n\nUygulama, resmi muhasebe, bordro, vergi veya hukuki danışmanlık hizmeti sunmaz."
+        "content": "İşletme Takip – Hesap Kitap, küçük ve orta ölçekli işletmeler için geliştirilmiş bir finansal takip ve yönetim uygulamasıdır. Uygulama; gelir-gider takibi, cari hesap yönetimi, personel kayıt ve ödeme takibi, ürün ve stok yönetimi ile finansal raporlama araçları sunar.\n\nUygulama, resmi muhasebe, bordro, vergi veya hukuki danışmanlık hizmeti sunmaz."
       },
       "usageTerms": {
         "title": "2. Kullanım Şartları ve Yaş Sınırı",
@@ -70,44 +72,52 @@
         "title": "3. Hesap Güvenliği",
         "content": "Kullanıcı, hesap bilgilerini gizli tutmak ve yetkisiz erişimi önlemekle yükümlüdür. Hesap üzerinden gerçekleştirilen tüm işlemlerden kullanıcı sorumludur."
       },
+      "multiUser": {
+        "title": "4. Çoklu Kullanıcı Erişimi",
+        "content": "İşletme sahibi, davet kodu oluşturarak diğer kullanıcıları işletmesine ekleyebilir. Davet edilen kullanıcılara sahip, yönetici, operatör veya satın almacı rollerinden biri atanır. Her rol farklı erişim yetkilerine sahiptir.\n\nİşletme sahibi, davet ettiği kullanıcıların erişimini istediği zaman kısıtlayabilir veya kaldırabilir. Davet edilen kullanıcıların işletme verileri üzerindeki işlemlerinden işletme sahibi sorumludur."
+      },
       "dataSecurity": {
-        "title": "4. Veri Güvenliği",
+        "title": "5. Veri Güvenliği",
         "content": "Kullanıcı verileri, güvenli sunucular üzerinde ve makul teknik güvenlik önlemleri uygulanarak saklanır. Bununla birlikte, internet üzerinden gerçekleştirilen veri iletimlerinin tamamen risksiz olmadığı kabul edilir."
       },
       "accountDeletion": {
-        "title": "5. Hesap Silme",
-        "content": "Kullanıcı, hesabını uygulama içerisindeki Ayarlar > Hesabımı Sil menüsü üzerinden silebilir. Hesap silme talebi sonrasında 7 günlük bekleme süresi uygulanır. Bu süre içerisinde kullanıcı silme işlemini iptal edebilir. Bekleme süresinin sonunda hesap ve hesaba bağlı tüm veriler kalıcı olarak silinir ve geri alınamaz."
+        "title": "6. Hesap Silme",
+        "content": "Kullanıcı, hesabını uygulama içerisindeki Ayarlar > Hesabımı Sil menüsü üzerinden silebilir. Hesap silme talebi sonrasında 7 günlük bekleme süresi uygulanır. Bu süre içerisinde kullanıcı silme işlemini iptal edebilir. Bekleme süresinin sonunda hesap ve hesaba bağlı tüm veriler (işlemler, cariler, personel, ürünler, fotoğraflar dahil) kalıcı olarak silinir ve geri alınamaz."
+      },
+      "dataExport": {
+        "title": "7. Veri Dışa Aktarımı",
+        "content": "Kullanıcılar, uygulama içinden işlem verilerini ve raporları Excel (.xlsx) formatında dışa aktarabilir. Dışa aktarılan dosyalar kullanıcının cihazına indirilir. Dışa aktarılan verilerin üçüncü kişilerle paylaşılması durumunda sorumluluk kullanıcıya aittir."
       },
       "thirdParty": {
-        "title": "6. Üçüncü Taraf Hizmetler",
+        "title": "8. Üçüncü Taraf Hizmetler",
         "content": "Uygulama, kimlik doğrulama amacıyla Apple Kimliği ve Google Hesabı gibi üçüncü taraf hizmetleri kullanabilir. Bu hizmetlerin kullanımı, ilgili hizmet sağlayıcıların kendi kullanım koşullarına tabidir."
       },
       "serviceChanges": {
-        "title": "7. Hizmet Değişiklikleri",
+        "title": "9. Hizmet Değişiklikleri",
         "content": "İşletme Takip, uygulamanın hizmet içeriğini, özelliklerini ve fiyatlandırmasını önceden bildirimde bulunmaksızın değiştirme hakkını saklı tutar."
       },
       "intellectualProperty": {
-        "title": "8. Fikri Mülkiyet",
-        "content": "İşletme Takip uygulamasının tasarımı, yazılımı ve marka unsurları İşletme Takip'e aittir. Kullanıcı tarafından uygulamaya girilen tüm verilerin mülkiyeti kullanıcıya aittir."
+        "title": "10. Fikri Mülkiyet",
+        "content": "İşletme Takip – Hesap Kitap uygulamasının tasarımı, yazılımı ve marka unsurları İşletme Takip'e aittir. Kullanıcı tarafından uygulamaya girilen tüm verilerin mülkiyeti kullanıcıya aittir."
       },
       "liability": {
-        "title": "9. Sorumluluğun Sınırlandırılması",
+        "title": "11. Sorumluluğun Sınırlandırılması",
         "content": "İşletme Takip, uygulamanın kullanımından doğabilecek dolaylı zararlardan sorumlu tutulamaz. Uygulama, mevcut haliyle (\"olduğu gibi\") sunulmaktadır."
       },
       "disputes": {
-        "title": "10. Uyuşmazlıkların Çözümü",
+        "title": "12. Uyuşmazlıkların Çözümü",
         "content": "Bu kullanım koşullarından doğabilecek uyuşmazlıklarda Türkiye Cumhuriyeti hukuku uygulanır ve İstanbul Mahkemeleri yetkilidir."
       },
       "contact": {
-        "title": "11. İletişim",
+        "title": "13. İletişim",
         "content": "Kullanım koşulları ile ilgili sorularınız için:\nozadaliomerfaruk@gmail.com"
       }
     }
   },
   "privacy": {
     "title": "Gizlilik Politikası",
-    "lastUpdated": "Son Güncelleme: 22 Aralık 2025",
-    "intro": "İşletme Takip olarak gizliliğinize önem veriyoruz. Bu Gizlilik Politikası, mobil uygulamamız aracılığıyla toplanan kişisel verilerin hangi amaçlarla işlendiği, nasıl korunduğunu ve kullanıcıların haklarını açıklamaktadır.",
+    "lastUpdated": "Son Güncelleme: 12 Mart 2026",
+    "intro": "İşletme Takip – Hesap Kitap olarak gizliliğinize önem veriyoruz. Bu Gizlilik Politikası, mobil uygulamamız aracılığıyla toplanan kişisel verilerin hangi amaçlarla işlendiği, nasıl korunduğunu ve kullanıcıların haklarını açıklamaktadır.",
     "sections": {
       "collectedData": {
         "title": "1. Toplanan Veriler",
@@ -118,50 +128,66 @@
         "userContent": {
           "title": "1.2 Kullanıcı Tarafından Girilen İçerikler",
           "intro": "Aşağıdaki bilgiler tamamen kullanıcının isteğiyle ve manuel olarak girilir:",
-          "content": "Finansal kayıtlar (banka hesapları, kasa, gelir-gider kayıtları)\nCari hesap bilgileri (müşteri ve tedarikçi bilgileri)\nPersonel bilgileri\nAçıklamalar, notlar ve benzeri içerikler"
+          "content": "Finansal kayıtlar (banka hesapları, kasa, gelir-gider kayıtları)\nCari hesap bilgileri (müşteri ve tedarikçi bilgileri)\nPersonel bilgileri (ad, pozisyon, maaş, izin bilgileri)\nÜrün ve stok bilgileri (ürün adı, kodu, fiyat, stok miktarı)\nAçıklamalar, notlar ve benzeri içerikler"
         },
         "optional": {
           "title": "1.3 Opsiyonel Bilgiler",
-          "content": "Vergi numarası ve benzeri alanlar zorunlu değildir ve kullanıcı tarafından isteğe bağlı olarak girilir."
+          "content": "Vergi numarası, telefon numarası ve benzeri alanlar zorunlu değildir ve kullanıcı tarafından isteğe bağlı olarak girilir."
+        },
+        "deviceAccess": {
+          "title": "1.4 Cihaz Erişimleri",
+          "content": "Kamera ve Fotoğraf Galerisi: Yalnızca kullanıcı işlemlere fotoğraf (fiş, fatura vb.) eklemek istediğinde erişim talep edilir.\nDosya Sistemi: Excel dosyası içe aktarma ve dışa aktarma işlemleri sırasında erişim talep edilir.\nBildirimler: İleri tarihli işlem hatırlatmaları için push bildirim izni talep edilebilir."
         }
       },
       "dataUsage": {
         "title": "2. Verilerin Kullanım Amaçları",
         "intro": "Toplanan veriler aşağıdaki amaçlarla işlenir:",
-        "items": "Uygulama fonksiyonlarının sağlanması\nHesap ve oturum yönetimi\nFinansal kayıt ve raporların oluşturulması\nTeknik sorunların giderilmesi\nYasal yükümlülüklerin yerine getirilmesi",
+        "items": "Uygulama fonksiyonlarının sağlanması\nHesap ve oturum yönetimi\nFinansal kayıt ve raporların oluşturulması\nİleri tarihli işlem hatırlatmalarının gönderilmesi\nTeknik sorunların giderilmesi\nYasal yükümlülüklerin yerine getirilmesi",
         "outro": "Veriler reklam, pazarlama veya kullanıcı takibi amacıyla kullanılmaz."
       },
+      "multiUser": {
+        "title": "3. Çoklu Kullanıcı ve Veri Paylaşımı",
+        "content": "İşletme sahibi, davet kodu oluşturarak diğer kullanıcıları işletmesine ekleyebilir.\nDavet edilen kullanıcılar, işletme sahibinin belirlediği rol ve yetkiler kapsamında işletme verilerine erişebilir.\nKullanıcı rolleri (sahip, yönetici, operatör, satın almacı) farklı erişim düzeyleri sunar.\nİşletme sahibi, davet ettiği kullanıcıların erişimini istediği zaman kaldırabilir."
+      },
       "appStore": {
-        "title": "3. Verilerin Kullanıcıyla İlişkisi (Apple App Store Açısından)",
-        "content": "Kimlik ve hesap bilgileri, kullanıcı hesabı ile ilişkilidir.\nKullanıcı tarafından girilen finansal kayıtlar, cari ve personel bilgileri kullanıcının kendisine değil, kullanıcının hesabı kapsamında oluşturulan içeriklere aittir.\nBu veriler yalnızca ilgili kullanıcı tarafından erişilebilir."
+        "title": "4. Verilerin Kullanıcıyla İlişkisi (Apple App Store Açısından)",
+        "content": "Kimlik ve hesap bilgileri, kullanıcı hesabı ile ilişkilidir.\nKullanıcı tarafından girilen finansal kayıtlar, cari, personel ve ürün bilgileri kullanıcının kendisine değil, kullanıcının hesabı kapsamında oluşturulan içeriklere aittir.\nBu veriler yalnızca ilgili kullanıcı ve yetkilendirilmiş ekip üyeleri tarafından erişilebilir."
       },
       "dataSecurity": {
-        "title": "4. Veri Güvenliği",
+        "title": "5. Veri Güvenliği",
         "intro": "Kişisel verilerin güvenliği için aşağıdaki önlemler alınmaktadır:",
-        "items": "SSL/TLS ile şifrelenmiş veri iletimi\nGüvenli sunucu altyapıları\nYetkilendirme ve erişim kontrol mekanizmaları\nYetkisiz erişimi önlemeye yönelik teknik tedbirler"
+        "items": "SSL/TLS ile şifrelenmiş veri iletimi\nGüvenli sunucu altyapıları\nSatır düzeyinde erişim kontrolü (Row Level Security)\nYetkilendirme ve erişim kontrol mekanizmaları\nYetkisiz erişimi önlemeye yönelik teknik tedbirler"
       },
       "thirdParty": {
-        "title": "5. Üçüncü Taraf Hizmet Sağlayıcılar",
+        "title": "6. Üçüncü Taraf Hizmet Sağlayıcılar",
         "intro": "Uygulama aşağıdaki hizmet sağlayıcılardan faydalanabilir:",
-        "items": "Kimlik doğrulama servisleri (Apple Kimliği, Google Hesabı)\nVeritabanı ve kimlik doğrulama altyapısı (Supabase)\nBulut barındırma (hosting) hizmetleri",
-        "outro": "Bu hizmet sağlayıcılar, verilere yalnızca uygulamanın işlevlerini yerine getirebilmek amacıyla ve sınırlı ölçüde erişebilir.\n\nTüm üçüncü taraf hizmet sağlayıcılar, kullanıcı verilerine bu Gizlilik Politikası'nda belirtilen koruma düzeyine eşit veya daha yüksek düzeyde koruma sağlamakla yükümlüdür."
+        "items": "Kimlik doğrulama servisleri (Apple Kimliği, Google Hesabı)\nVeritabanı ve kimlik doğrulama altyapısı (Supabase)\nDosya depolama hizmetleri (Supabase Storage)\nBulut barındırma (hosting) hizmetleri",
+        "outro": "Bu hizmet sağlayıcılar, verilere yalnızca uygulamanın işlevlerini yerine getirebilmek amacıyla ve sınırlı ölçüde erişebilir."
+      },
+      "dataExport": {
+        "title": "7. Veri Dışa Aktarımı",
+        "content": "Kullanıcılar, uygulama içinden işlem verilerini ve raporları Excel (.xlsx) formatında dışa aktarabilir. Dışa aktarılan dosyalar kullanıcının cihazına indirilir ve paylaşım tercihi tamamen kullanıcıya aittir. Uygulama, dışa aktarılan dosyaların kopyasını sunucuda saklamaz."
       },
       "retention": {
-        "title": "6. Veri Saklama Süresi ve Hesap Silme",
-        "content": "Veriler, kullanıcı hesabı aktif olduğu sürece saklanır.\nKullanıcı, uygulama içinden hesabını silebilir.\nHesap silme talebinden sonra 7 gün bekleme süresi uygulanır.\nBekleme süresi sonunda hesap ve hesaba bağlı tüm veriler otomatik olarak kalıcı şekilde silinir.\nApple Kimliği ile giriş yapan kullanıcılar için, hesap silme işlemi sırasında Apple kimlik doğrulama token'ları da iptal edilir."
+        "title": "8. Veri Saklama Süresi ve Hesap Silme",
+        "content": "Veriler, kullanıcı hesabı aktif olduğu sürece saklanır.\nKullanıcı, uygulama içinden hesabını silebilir.\nHesap silme talebinden sonra 7 gün bekleme süresi uygulanır.\nBekleme süresi sonunda hesap ve hesaba bağlı tüm veriler (işlemler, cariler, personel, ürünler, fotoğraflar dahil) otomatik olarak kalıcı şekilde silinir.\nApple Kimliği ile giriş yapan kullanıcılar için, hesap silme işlemi sırasında Apple kimlik doğrulama token'ları da iptal edilir."
       },
       "children": {
-        "title": "7. Çocukların Gizliliği",
+        "title": "9. Çocukların Gizliliği",
         "content": "Uygulama 13 yaş altındaki çocuklara yönelik değildir. Bilerek çocuklara ait kişisel veriler toplanmaz."
       },
       "userRights": {
-        "title": "8. Kullanıcı Hakları",
+        "title": "10. Kullanıcı Hakları",
         "intro": "Kullanıcılar, yürürlükteki mevzuat kapsamında:",
-        "items": "Verilerine erişim hakkı\nDüzeltme talep etme hakkı\nSilinmesini isteme hakkı\nİşlemeye itiraz etme hakkı",
+        "items": "Verilerine erişim hakkı\nDüzeltme talep etme hakkı\nSilinmesini isteme hakkı\nİşlemeye itiraz etme hakkı\nVeri taşınabilirliği hakkı (Excel dışa aktarım yoluyla)",
         "outro": "haklarına sahiptir."
       },
+      "policyChanges": {
+        "title": "11. Politika Değişiklikleri",
+        "content": "Bu gizlilik politikası zaman zaman güncellenebilir. Önemli değişiklikler yapıldığında kullanıcılar uygulama içinden bilgilendirilir."
+      },
       "contact": {
-        "title": "9. İletişim",
+        "title": "12. İletişim",
         "content": "Gizlilik politikası ile ilgili sorular için:\nozadaliomerfaruk@gmail.com"
       }
     }

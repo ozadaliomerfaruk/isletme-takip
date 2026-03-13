@@ -11,8 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, Input, Button, Card, IconPicker, ColorPicker, ParentCategoryPicker } from '@/components/ui';
+import { TrendingUp, TrendingDown, Package } from 'lucide-react-native';
+import { Text, Input, Button, Card, IconPicker, ColorPicker, ParentCategoryPicker, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
@@ -31,11 +31,13 @@ export default function KategoriEklePage() {
   const [icon, setIcon] = useState<string>(DEFAULT_CATEGORY_ICON);
   const [color, setColor] = useState<string>(DEFAULT_CATEGORY_COLOR);
   const [parentId, setParentId] = useState<string | null>(null);
+  const [mappedGelirKategoriId, setMappedGelirKategoriId] = useState<string | null>(null);
+  const [mappedGiderKategoriId, setMappedGiderKategoriId] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ name?: string }>({});
 
   // URL'den gelen type parametresini uygula
   useEffect(() => {
-    if (initialType === 'gelir' || initialType === 'gider') {
+    if (initialType === 'gelir' || initialType === 'gider' || initialType === 'urun') {
       setType(initialType);
     }
   }, [initialType]);
@@ -61,6 +63,8 @@ export default function KategoriEklePage() {
         icon,
         color,
         parent_id: parentId,
+        mapped_gelir_kategori_id: type === 'urun' ? mappedGelirKategoriId : null,
+        mapped_gider_kategori_id: type === 'urun' ? mappedGiderKategoriId : null,
       });
 
       Alert.alert(t('common:status.success'), t('categories:messages.createSuccess'), [
@@ -71,10 +75,18 @@ export default function KategoriEklePage() {
     }
   };
 
-  // Tip değiştiğinde parent_id'yi sıfırla (farklı tipteki kategoriye alt kategori eklenemez)
+  // Tip değiştiğinde parent_id ve eşlemeleri sıfırla
   const handleTypeChange = (newType: KategoriType) => {
     setType(newType);
     setParentId(null);
+    setMappedGelirKategoriId(null);
+    setMappedGiderKategoriId(null);
+  };
+
+  const getExamplesKey = () => {
+    if (type === 'gelir') return 'categories:examples.income';
+    if (type === 'gider') return 'categories:examples.expense';
+    return 'categories:examples.product';
   };
 
   return (
@@ -144,6 +156,31 @@ export default function KategoriEklePage() {
                     {t('categories:types.gider')}
                   </Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.typeCard,
+                    type === 'urun' && styles.typeCardSelected,
+                    type === 'urun' && { borderColor: colors.primary },
+                  ]}
+                  onPress={() => handleTypeChange('urun')}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.typeIcon,
+                      { backgroundColor: colors.primaryLight + '30' },
+                    ]}
+                  >
+                    <Package size={24} color={colors.primary} />
+                  </View>
+                  <Text
+                    variant="body"
+                    style={type === 'urun' && { color: colors.primary }}
+                  >
+                    {t('categories:types.urun')}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -151,7 +188,7 @@ export default function KategoriEklePage() {
             <View style={styles.section}>
               <Input
                 label={t('categories:form.categoryName')}
-                placeholder={t('categories:form.categoryNamePlaceholder')}
+                placeholder={type === 'urun' ? t('categories:form.categoryNamePlaceholderProduct') : t('categories:form.categoryNamePlaceholder')}
                 value={name}
                 onChangeText={setName}
                 error={errors.name}
@@ -190,6 +227,34 @@ export default function KategoriEklePage() {
               />
             </View>
 
+            {/* Ürün Kategorisi Eşleme */}
+            {type === 'urun' && (
+              <View style={styles.section}>
+                <Text variant="label" style={styles.sectionTitle}>
+                  {t('categories:form.categoryMapping')}
+                </Text>
+                <Text variant="caption" color="secondary" style={styles.mappingDescription}>
+                  {t('categories:form.mappingDescription')}
+                </Text>
+                <View style={styles.mappingPickers}>
+                  <CategoryPicker
+                    value={mappedGiderKategoriId}
+                    onChange={setMappedGiderKategoriId}
+                    type="gider"
+                    label={t('categories:form.mapToExpenseCategory')}
+                    optional
+                  />
+                  <CategoryPicker
+                    value={mappedGelirKategoriId}
+                    onChange={setMappedGelirKategoriId}
+                    type="gelir"
+                    label={t('categories:form.mapToIncomeCategory')}
+                    optional
+                  />
+                </View>
+              </View>
+            )}
+
             {/* Ornek Kategoriler */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
@@ -197,9 +262,7 @@ export default function KategoriEklePage() {
               </Text>
               <Card>
                 <View style={styles.examplesGrid}>
-                  {(t(type === 'gelir'
-                    ? 'categories:examples.income'
-                    : 'categories:examples.expense', { returnObjects: true }) as string[]
+                  {(t(getExamplesKey(), { returnObjects: true }) as string[]
                   ).map((example) => (
                     <TouchableOpacity
                       key={example}
@@ -293,6 +356,12 @@ const styles = StyleSheet.create({
   },
   pickerItem: {
     flex: 1,
+  },
+  mappingDescription: {
+    marginBottom: spacing.md,
+  },
+  mappingPickers: {
+    gap: spacing.md,
   },
   examplesGrid: {
     flexDirection: 'row',

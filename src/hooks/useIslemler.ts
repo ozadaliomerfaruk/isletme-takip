@@ -505,6 +505,64 @@ export function useIslemlerByPersonel(personelId: string) {
   };
 }
 
+// Personel işlemleri - rapor için tüm işlemler (pagination yok)
+export function useAllIslemlerByPersonel(personelId: string) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: ['islemler', 'personel', 'all', personelId, isletme?.id],
+    queryFn: async () => {
+      if (!isletme || !personelId) return [];
+
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          *,
+          kategori:kategoriler(id,name),
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+        `)
+        .eq('isletme_id', isletme.id)
+        .eq('personel_id', personelId)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as IslemWithRelations[];
+    },
+    enabled: !!isletme && !!personelId,
+  });
+}
+
+// Cari işlemleri - rapor için tüm işlemler (pagination yok)
+export function useAllIslemlerByCari(cariId: string) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: ['islemler', 'cari', 'all', cariId, isletme?.id],
+    queryFn: async () => {
+      if (!isletme || !cariId) return [];
+
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          *,
+          kategori:kategoriler(id,name),
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+        `)
+        .eq('isletme_id', isletme.id)
+        .eq('cari_id', cariId)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as IslemWithRelations[];
+    },
+    enabled: !!isletme && !!cariId,
+  });
+}
+
 // İşlem güncelleme - transaction güvenliği ile
 export function useUpdateIslem() {
   const queryClient = useQueryClient();
