@@ -23,7 +23,7 @@ export default function GenelRaporPage() {
   const { currency: baseCurrency } = useSettings();
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: hesaplar } = useHesaplar();
+  const { data: hesaplar } = useHesaplar(false, false);
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
   const financialSummary = useFinancialSummary();

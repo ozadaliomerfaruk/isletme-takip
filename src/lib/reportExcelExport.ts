@@ -201,14 +201,14 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   categories.forEach((cat) => {
     ws[`A${rowIdx}`] = { v: cat.name, s: cellStyle };
     ws[`B${rowIdx}`] = { v: cat.count.toString(), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
-    ws[`C${rowIdx}`] = { v: formatCurrency(cat.total, 'TRY'), s: currencyCellStyle };
+    ws[`C${rowIdx}`] = { v: formatCurrency(cat.total), s: currencyCellStyle };
     rowIdx++;
   });
 
   // Category total row
   ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
   ws[`B${rowIdx}`] = { v: sorted.length.toString(), s: { ...totalCurrencyStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
-  ws[`C${rowIdx}`] = { v: formatCurrency(grandTotal, 'TRY'), s: totalCurrencyStyle };
+  ws[`C${rowIdx}`] = { v: formatCurrency(grandTotal), s: totalCurrencyStyle };
   rowIdx += 2;
 
   // ============ TRANSACTION LIST ============
@@ -245,7 +245,7 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
     ws[`B${rowIdx}`] = { v: '', s: categoryHeaderStyle };
     ws[`C${rowIdx}`] = { v: '', s: categoryHeaderStyle };
     ws[`D${rowIdx}`] = { v: '', s: categoryHeaderStyle };
-    ws[`E${rowIdx}`] = { v: formatCurrency(catTotal, 'TRY'), s: categoryCurrencyStyle };
+    ws[`E${rowIdx}`] = { v: formatCurrency(catTotal), s: categoryCurrencyStyle };
     rowIdx++;
 
     // Individual transactions
@@ -255,7 +255,7 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
       ws[`B${rowIdx}`] = { v: islem.description || '', s: cellStyle };
       ws[`C${rowIdx}`] = { v: islem.kategori?.name || '-', s: cellStyle };
       ws[`D${rowIdx}`] = { v: accountName, s: cellStyle };
-      ws[`E${rowIdx}`] = { v: formatCurrency(toNumber(islem.amount), 'TRY'), s: currencyCellStyle };
+      ws[`E${rowIdx}`] = { v: formatCurrency(toNumber(islem.amount)), s: currencyCellStyle };
       rowIdx++;
     });
   });
@@ -265,7 +265,7 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   ws[`B${rowIdx}`] = { v: '', s: totalRowStyle };
   ws[`C${rowIdx}`] = { v: '', s: totalRowStyle };
   ws[`D${rowIdx}`] = { v: t.total, s: totalRowStyle };
-  ws[`E${rowIdx}`] = { v: formatCurrency(grandTotal, 'TRY'), s: totalCurrencyStyle };
+  ws[`E${rowIdx}`] = { v: formatCurrency(grandTotal), s: totalCurrencyStyle };
 
   // Set worksheet range
   ws['!ref'] = `A1:E${rowIdx}`;
@@ -537,7 +537,6 @@ export async function exportCashFlowToExcel(options: CashFlowExportOptions): Pro
   let rowIdx = 8;
 
   // Summary
-  const summaryHeaderBg = '2E75B6';
   ws[`A${rowIdx}`] = { v: t.inflow, s: { ...metaLabelStyle, font: { bold: true, sz: 11, color: { rgb: '22C55E' } } } };
   ws[`B${rowIdx}`] = { v: formatCurrency(totalInflow), s: { ...metaValueStyle, font: { bold: true, sz: 11, color: { rgb: '22C55E' } } } };
   ws[`C${rowIdx}`] = { v: t.outflow, s: { ...metaLabelStyle, font: { bold: true, sz: 11, color: { rgb: 'EF4444' } } } };

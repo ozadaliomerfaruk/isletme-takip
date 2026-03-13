@@ -40,8 +40,9 @@ export const TRANSFER_TYPES: IslemType[] = ['transfer'];
  * Nakit girişi yapan işlem tipleri (hesaba para GİREN)
  * - gelir: Doğrudan gelir
  * - cari_tahsilat: Müşteriden tahsilat
+ * - personel_tahsilat: Personelden tahsilat
  */
-export const CASH_INFLOW_TYPES: IslemType[] = ['gelir', 'cari_tahsilat'];
+export const CASH_INFLOW_TYPES: IslemType[] = ['gelir', 'cari_tahsilat', 'personel_tahsilat'];
 
 /**
  * Nakit çıkışı yapan işlem tipleri (hesaptan para ÇIKAN)
