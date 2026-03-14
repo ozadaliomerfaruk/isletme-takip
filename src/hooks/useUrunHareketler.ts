@@ -705,8 +705,12 @@ export function useCreateUrunHareketWithCari() {
 
       if (rpcError) {
         // Rollback: cari balance geri al + işlemi sil
-        await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: input.cari_id, amount: -balanceChange });
-        await supabase.from('islemler').delete().eq('id', islem.id).eq('isletme_id', isletme.id);
+        try {
+          await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: input.cari_id, amount: -balanceChange });
+          await supabase.from('islemler').delete().eq('id', islem.id).eq('isletme_id', isletme.id);
+        } catch (rollbackErr) {
+          if (__DEV__) console.error('[useCreateUrunHareketWithCari] Rollback failed:', rollbackErr);
+        }
         throw rpcError;
       }
 
@@ -730,13 +734,17 @@ export function useCreateUrunHareketWithCari() {
 
       if (hareketError) {
         // Rollback: miktar geri al + cari balance geri al + işlem sil
-        await supabase.rpc('update_urun_miktar', {
-          p_urun_id: input.urun_id,
-          p_miktar_degisim: -miktarDegisim,
-          p_isletme_id: isletme.id,
-        });
-        await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: input.cari_id, amount: -balanceChange });
-        await supabase.from('islemler').delete().eq('id', islem.id).eq('isletme_id', isletme.id);
+        try {
+          await supabase.rpc('update_urun_miktar', {
+            p_urun_id: input.urun_id,
+            p_miktar_degisim: -miktarDegisim,
+            p_isletme_id: isletme.id,
+          });
+          await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: input.cari_id, amount: -balanceChange });
+          await supabase.from('islemler').delete().eq('id', islem.id).eq('isletme_id', isletme.id);
+        } catch (rollbackErr) {
+          if (__DEV__) console.error('[useCreateUrunHareketWithCari] Hareket rollback failed:', rollbackErr);
+        }
         throw hareketError;
       }
 
@@ -853,18 +861,22 @@ export function useCreateBulkUrunHareketWithCari() {
 
         if (rpcError) {
           // Rollback: önceki miktar güncellemelerini geri al + cari balance geri al + işlemi sil
-          for (const update of miktarUpdates) {
-            await supabase.rpc('update_urun_miktar', {
-              p_urun_id: update.urunId,
-              p_miktar_degisim: -update.degisim,
-              p_isletme_id: isletme.id,
-            });
+          try {
+            for (const update of miktarUpdates) {
+              await supabase.rpc('update_urun_miktar', {
+                p_urun_id: update.urunId,
+                p_miktar_degisim: -update.degisim,
+                p_isletme_id: isletme.id,
+              });
+            }
+            for (const h of createdHareketler) {
+              await supabase.from('urun_hareketler').delete().eq('id', h.id).eq('isletme_id', isletme.id);
+            }
+            await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: input.cari_id, amount: -bulkBalanceChange });
+            await supabase.from('islemler').delete().eq('id', islem.id).eq('isletme_id', isletme.id);
+          } catch (rollbackErr) {
+            if (__DEV__) console.error('[useCreateBulkUrunHareketWithCari] RPC rollback failed:', rollbackErr);
           }
-          for (const h of createdHareketler) {
-            await supabase.from('urun_hareketler').delete().eq('id', h.id).eq('isletme_id', isletme.id);
-          }
-          await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: input.cari_id, amount: -bulkBalanceChange });
-          await supabase.from('islemler').delete().eq('id', islem.id).eq('isletme_id', isletme.id);
           throw rpcError;
         }
 
@@ -890,18 +902,22 @@ export function useCreateBulkUrunHareketWithCari() {
 
         if (hareketError) {
           // Rollback: tüm miktar güncellemelerini geri al + hareketleri sil + cari balance geri al + işlemi sil
-          for (const update of miktarUpdates) {
-            await supabase.rpc('update_urun_miktar', {
-              p_urun_id: update.urunId,
-              p_miktar_degisim: -update.degisim,
-              p_isletme_id: isletme.id,
-            });
+          try {
+            for (const update of miktarUpdates) {
+              await supabase.rpc('update_urun_miktar', {
+                p_urun_id: update.urunId,
+                p_miktar_degisim: -update.degisim,
+                p_isletme_id: isletme.id,
+              });
+            }
+            for (const h of createdHareketler) {
+              await supabase.from('urun_hareketler').delete().eq('id', h.id).eq('isletme_id', isletme.id);
+            }
+            await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: input.cari_id, amount: -bulkBalanceChange });
+            await supabase.from('islemler').delete().eq('id', islem.id).eq('isletme_id', isletme.id);
+          } catch (rollbackErr) {
+            if (__DEV__) console.error('[useCreateBulkUrunHareketWithCari] Hareket rollback failed:', rollbackErr);
           }
-          for (const h of createdHareketler) {
-            await supabase.from('urun_hareketler').delete().eq('id', h.id).eq('isletme_id', isletme.id);
-          }
-          await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: input.cari_id, amount: -bulkBalanceChange });
-          await supabase.from('islemler').delete().eq('id', islem.id).eq('isletme_id', isletme.id);
           throw hareketError;
         }
 

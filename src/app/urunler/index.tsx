@@ -901,6 +901,7 @@ export default function UrunlerPage() {
         maxToRenderPerBatch={10}
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
+        extraData={{ expandedId, donemUrunOzet, activeTab }}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }

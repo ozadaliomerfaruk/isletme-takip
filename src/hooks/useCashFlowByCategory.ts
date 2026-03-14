@@ -196,7 +196,7 @@ export function useCashFlowByCategory(
       // NaN-safe number parsing - geçersiz değerler atlanır
       const rawAmount = Number(islem.amount);
       if (isNaN(rawAmount) || rawAmount === 0) {
-        console.warn(`[CashFlow] Skipping transaction ${islem.id}: invalid amount "${islem.amount}"`);
+        if (__DEV__) console.warn(`[CashFlow] Skipping transaction ${islem.id}: invalid amount "${islem.amount}"`);
         return;
       }
       const amount = rawAmount;

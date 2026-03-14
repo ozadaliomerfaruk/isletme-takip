@@ -32,7 +32,6 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
-import { getInitials } from '@/lib/utils';
 import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
 import { useArchivePersonel } from '@/hooks/useArchive';
 import type { Personel } from '@/types/database';
@@ -309,18 +308,18 @@ export default function PersonelPage() {
       return a.first_name.localeCompare(b.first_name, 'tr');
     });
 
-  // Helper fonksiyonlar - nested ternary yerine daha okunabilir
-  function getBalanceLabel(balance: number): string {
+  // Helper fonksiyonlar - useCallback ile memoize edildi (renderPersonelItem dependency)
+  const getBalanceLabel = useCallback((balance: number): string => {
     if (balance === 0) return t('staff:balance.noBalance');
     if (balance < 0) return t('staff:balance.weOwe');
     return t('staff:balance.theyOwe');
-  }
+  }, [t]);
 
-  function getBalanceColor(balance: number): 'secondary' | 'error' | 'success' {
+  const getBalanceColor = useCallback((balance: number): 'secondary' | 'error' | 'success' => {
     if (balance === 0) return 'secondary';
     if (balance < 0) return 'error';
     return 'success';
-  }
+  }, []);
 
 
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi

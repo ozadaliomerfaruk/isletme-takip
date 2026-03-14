@@ -50,8 +50,10 @@ export function useHesaplar(includePassive: boolean = false, includeArchived: bo
 }
 
 export function useHesap(id: string | undefined) {
+  const { isletme } = useAuthContext();
+
   return useQuery({
-    queryKey: ['hesap', id],
+    queryKey: ['hesap', id, isletme?.id],
     queryFn: async () => {
       if (!id) return null;
 
@@ -65,6 +67,8 @@ export function useHesap(id: string | undefined) {
       return data as Hesap;
     },
     enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 

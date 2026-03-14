@@ -47,8 +47,10 @@ export function useUrunler(includeArchived: boolean = false) {
  * Tek bir ürün getir
  */
 export function useUrun(id: string | undefined) {
+  const { isletme } = useAuthContext();
+
   return useQuery({
-    queryKey: queryKeys.urunler.detail(id || ''),
+    queryKey: [...queryKeys.urunler.detail(id || ''), isletme?.id],
     queryFn: async () => {
       if (!id) return null;
 
@@ -62,6 +64,8 @@ export function useUrun(id: string | undefined) {
       return data as Urun;
     },
     enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 

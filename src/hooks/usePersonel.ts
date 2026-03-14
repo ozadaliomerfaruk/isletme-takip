@@ -48,8 +48,10 @@ export function usePersonelList(includePassive: boolean = false, includeArchived
 }
 
 export function usePersonel(id: string | undefined) {
+  const { isletme } = useAuthContext();
+
   return useQuery({
-    queryKey: ['personel-detail', id],
+    queryKey: ['personel-detail', id, isletme?.id],
     queryFn: async () => {
       if (!id) return null;
 
@@ -63,6 +65,8 @@ export function usePersonel(id: string | undefined) {
       return data as Personel;
     },
     enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 

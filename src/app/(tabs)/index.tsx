@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Pressable, Animated, RefreshControl } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, Pressable, Animated, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -47,6 +47,8 @@ import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
+import { PermissionGate } from '@/components/PermissionGate';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function HomePage() {
   const router = useRouter();
@@ -82,13 +84,16 @@ export default function HomePage() {
   const archiveHesap = useArchiveHesap();
   const deleteHesap = useDeleteHesap();
 
+  // Permissions
+  const { canUpdate, canDelete } = usePermissions();
+
   const { isletme, cancelAccountDeletion } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
   const { showToast } = useToast();
   const haptics = useHaptics();
 
   // Gerçek veriler - pasif hesapları da dahil et
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true);
+  const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } = useHesaplar(true);
 
   // Cariler (FAB cari işlem için)
   const { data: musteriCariler } = useCariler('musteri');
@@ -106,6 +111,7 @@ export default function HomePage() {
       nakit: [],
       banka: [],
       kredi_karti: [],
+      birikim: [],
       diger: [],
     };
 
@@ -139,6 +145,7 @@ export default function HomePage() {
       nakit: 0,
       banka: 0,
       kredi_karti: 0,
+      birikim: 0,
       diger: 0,
     };
 
@@ -190,12 +197,12 @@ export default function HomePage() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refetchSummary(), refetchCashFlow()]);
+      await Promise.all([refetchHesaplar(), refetchSummary(), refetchCashFlow()]);
       haptics.success();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetchSummary, refetchCashFlow, haptics]);
+  }, [refetchHesaplar, refetchSummary, refetchCashFlow, haptics]);
 
   const totalIncome = monthSummary?.income ?? 0;
   const totalExpense = monthSummary?.expense ?? 0;
@@ -237,7 +244,7 @@ export default function HomePage() {
     setActionSheetVisible(true);
   };
 
-  const handleArchiveHesap = async () => {
+  const handleArchiveHesap = useCallback(async () => {
     if (!actionSheetHesap) return;
     try {
       await archiveHesap.mutateAsync(actionSheetHesap.id);
@@ -247,9 +254,9 @@ export default function HomePage() {
       haptics.error();
       showToast(t('common:messages.operationFailed'), 'error');
     }
-  };
+  }, [actionSheetHesap, archiveHesap, haptics, showToast, t]);
 
-  const handleDeleteHesap = () => {
+  const handleDeleteHesap = useCallback(() => {
     if (!actionSheetHesap) return;
     Alert.alert(
       t('common:confirm.deleteTitle'),
@@ -272,30 +279,39 @@ export default function HomePage() {
         },
       ]
     );
-  };
+  }, [actionSheetHesap, deleteHesap, haptics, showToast, t]);
 
-  const hesapActionSheetOptions: ActionSheetOption[] = [
-    {
-      label: t('common:buttons.edit'),
-      icon: <Edit3 size={20} color={colors.primary} />,
-      onPress: () => {
-        if (actionSheetHesap) {
-          router.push(`/hesaplar/duzenle/${actionSheetHesap.id}`);
-        }
-      },
-    },
-    {
-      label: t('common:archive.actions.archive'),
-      icon: <Archive size={20} color={colors.warning} />,
-      onPress: handleArchiveHesap,
-    },
-    {
-      label: t('common:buttons.delete'),
-      icon: <Trash2 size={20} color={colors.error} />,
-      onPress: handleDeleteHesap,
-      destructive: true,
-    },
-  ];
+  const hesapActionSheetOptions: ActionSheetOption[] = useMemo(() => {
+    const options: ActionSheetOption[] = [];
+
+    if (actionSheetHesap && canUpdate('hesaplar', actionSheetHesap.created_by ?? null)) {
+      options.push({
+        label: t('common:buttons.edit'),
+        icon: <Edit3 size={20} color={colors.primary} />,
+        onPress: () => {
+          if (actionSheetHesap) {
+            router.push(`/hesaplar/duzenle/${actionSheetHesap.id}`);
+          }
+        },
+      });
+      options.push({
+        label: t('common:archive.actions.archive'),
+        icon: <Archive size={20} color={colors.warning} />,
+        onPress: handleArchiveHesap,
+      });
+    }
+
+    if (actionSheetHesap && canDelete('hesaplar', actionSheetHesap.created_by ?? null)) {
+      options.push({
+        label: t('common:buttons.delete'),
+        icon: <Trash2 size={20} color={colors.error} />,
+        onPress: handleDeleteHesap,
+        destructive: true,
+      });
+    }
+
+    return options;
+  }, [actionSheetHesap, t, router, canUpdate, canDelete, handleArchiveHesap, handleDeleteHesap]);
 
   // FAB menü animasyonu
   const fabAnim = useRef(new Animated.Value(0)).current;
@@ -413,15 +429,17 @@ export default function HomePage() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text variant="h3">{t('accounts:titles.accounts')}</Text>
-            <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => router.push('/hesaplar/ekle')}
-            >
-              <Plus size={20} color={colors.primary} />
-              <Text variant="label" style={{ color: colors.primary }}>
-                {t('common:buttons.add')}
-              </Text>
-            </TouchableOpacity>
+            <PermissionGate module="hesaplar" action="create">
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={() => router.push('/hesaplar/ekle')}
+              >
+                <Plus size={20} color={colors.primary} />
+                <Text variant="label" style={{ color: colors.primary }}>
+                  {t('common:buttons.add')}
+                </Text>
+              </TouchableOpacity>
+            </PermissionGate>
           </View>
 
           {/* Hesap Listesi - Gruplandırılmış */}

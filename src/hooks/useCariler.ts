@@ -52,8 +52,10 @@ export function useCariler(type?: CariType, includePassive: boolean = false, inc
 }
 
 export function useCari(id: string | undefined) {
+  const { isletme } = useAuthContext();
+
   return useQuery({
-    queryKey: ['cari', id],
+    queryKey: ['cari', id, isletme?.id],
     queryFn: async () => {
       if (!id) return null;
 
@@ -67,6 +69,8 @@ export function useCari(id: string | undefined) {
       return data as Cari;
     },
     enabled: !!id,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }
 
