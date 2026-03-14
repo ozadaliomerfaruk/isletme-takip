@@ -518,11 +518,6 @@ export default function CariHareketleriPage() {
     setShowEditBar(true);
   }, []);
 
-  const handleEditIslem = useCallback((islemId: string) => {
-    setEditTransactionId(islemId);
-    setShowEditBar(true);
-  }, []);
-
   const handleCopyIslem = useCallback((islemId: string) => {
     setCopySourceId(islemId);
     setShowCopyBar(true);
@@ -551,14 +546,14 @@ export default function CariHareketleriPage() {
     );
   };
 
-  const handleUnarchive = async () => {
+  const handleUnarchive = useCallback(async () => {
     try {
       await unarchiveCari.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
-  };
+  }, [unarchiveCari, id, t]);
 
   // Header right buttons - viewer'lar icin share ve menu gizle
   const headerRightElement = useMemo(() => (

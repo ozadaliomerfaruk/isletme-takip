@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { exportUrunHareketlerToExcel, UrunExcelTranslations } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { UrunHareket, Currency } from '@/types/database';
+import { Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 
 interface UseUrunExcelExportOptions {

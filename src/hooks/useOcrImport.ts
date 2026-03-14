@@ -284,7 +284,7 @@ export function useOcrImport(sessionId: string) {
 
         const aciklama = options?.description || buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
-        const giderIslem = await createIslem.mutateAsync({
+        await createIslem.mutateAsync({
           type: 'gider',
           amount: totalAmount,
           hesap_id: options.hesapId,
@@ -319,7 +319,7 @@ export function useOcrImport(sessionId: string) {
         const islemType: IslemType = hareketTipi === 'giris' ? 'cari_tahsilat' : 'cari_odeme';
         const aciklama = buildOcrDescription(invoice.invoiceNumber, dateInfo);
 
-        const tahsilatIslem = await createIslem.mutateAsync({
+        await createIslem.mutateAsync({
           type: islemType,
           amount: totalAmount,
           cari_id: invoice.supplierMatchCariId,
@@ -352,7 +352,7 @@ export function useOcrImport(sessionId: string) {
           throw new Error(i18n.t('common:errors.amountRequired'));
         }
 
-        const borcIslemId = await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId, options?.kategoriId || null);
+        await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId, options?.kategoriId || null);
 
         setSaveProgress({ total: 1, current: 1, currentItemName: '', phase: 'done' });
         return { productCount: 0, movementCount: 0 };

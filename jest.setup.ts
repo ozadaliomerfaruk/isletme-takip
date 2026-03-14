@@ -54,8 +54,38 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
-// Mock i18next
-jest.mock('i18next', () => ({
+// Mock i18next - variable MUST be prefixed with "mock" for jest.mock() factory
+const mockI18n = {
   t: (key: string) => key,
   language: 'tr',
+  use: jest.fn().mockReturnThis(),
+  init: jest.fn().mockReturnThis(),
+  changeLanguage: jest.fn().mockResolvedValue(undefined),
+  on: jest.fn(),
+  off: jest.fn(),
+  exists: jest.fn(() => true),
+  getFixedT: jest.fn(() => (key: string) => key),
+  isInitialized: true,
+};
+jest.mock('i18next', () => ({
+  __esModule: true,
+  default: mockI18n,
+  ...mockI18n,
+}));
+
+// Mock react-i18next
+jest.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => key,
+    i18n: mockI18n,
+  }),
+  initReactI18next: { type: '3rdParty', init: jest.fn() },
+  Trans: ({ children }: { children: unknown }) => children,
+}));
+
+// Mock @/i18n module to prevent full init
+jest.mock('@/i18n', () => ({
+  __esModule: true,
+  default: mockI18n,
+  loadSavedLanguage: jest.fn().mockResolvedValue(undefined),
 }));

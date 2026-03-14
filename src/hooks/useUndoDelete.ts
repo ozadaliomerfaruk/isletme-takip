@@ -8,7 +8,7 @@ interface PendingDelete<T> {
   description: string;
 }
 
-interface UseUndoDeleteOptions<T> {
+interface UseUndoDeleteOptions {
   onCommitDelete: (id: string) => Promise<void>;
   onError?: (error: unknown) => void;
 }
@@ -29,7 +29,7 @@ interface UseUndoDeleteResult<T> {
   };
 }
 
-export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDeleteResult<T> {
+export function useUndoDelete<T>(options: UseUndoDeleteOptions): UseUndoDeleteResult<T> {
   const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -75,7 +75,7 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDelet
       pendingRef.current = null;
 
       // Commit previous delete in background
-      onCommitDeleteRef.current(prevPending.id).catch(error => {
+      onCommitDeleteRef.current(prevPending.id).catch((error: unknown) => {
         setPendingDeleteIds(prev => {
           const next = new Set(prev);
           next.delete(prevPending.id);

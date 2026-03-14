@@ -6,7 +6,6 @@ import {
   Archive,
   Wallet,
   Users,
-  UserCircle,
   Truck,
   Package,
   MoreVertical,
@@ -15,7 +14,7 @@ import {
   EyeOff,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card, SearchInput, EmptyState, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, Card, SearchInput, EmptyState, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';

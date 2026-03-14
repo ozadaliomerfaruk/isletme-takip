@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber, calculateTargetAmount } from '@/lib/currency';
+import { toNumber } from '@/lib/currency';
 import type {
   PendingIslem,
   PendingIslemInsert,

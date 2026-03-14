@@ -11,7 +11,7 @@ import {
 import { Text, Card, Avatar, Button } from '@/components/ui';
 import { UserEditSheet } from '@/components/multiUser/UserEditSheet';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { useIsletmeUsers, useIsletmeInvites, useCancelInvite } from '@/hooks/useMultiUser';
 import type { IsletmeUser } from '@/types/multiUser';
 import { useRequireOwner } from '@/hooks/usePagePermission';

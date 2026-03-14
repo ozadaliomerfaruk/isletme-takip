@@ -114,12 +114,12 @@ export default function PersonelPage() {
   ];
 
   // Action sheet handlers
-  const handleOpenActionSheet = (personel: Personel) => {
+  const handleOpenActionSheet = useCallback((personel: Personel) => {
     setActionSheetPersonel(personel);
     setActionSheetVisible(true);
-  };
+  }, []);
 
-  const handleArchive = async () => {
+  const handleArchive = useCallback(async () => {
     if (!actionSheetPersonel) return;
     try {
       await archivePersonel.mutateAsync(actionSheetPersonel.id);
@@ -129,9 +129,9 @@ export default function PersonelPage() {
       haptics.error();
       showToast(t('common:messages.operationFailed'), 'error');
     }
-  };
+  }, [actionSheetPersonel, archivePersonel, haptics, showToast, t]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (!actionSheetPersonel) return;
     const name = `${actionSheetPersonel.first_name} ${actionSheetPersonel.last_name}`;
     Alert.alert(
@@ -155,18 +155,18 @@ export default function PersonelPage() {
         },
       ]
     );
-  };
+  }, [actionSheetPersonel, deletePersonel, haptics, showToast, t]);
 
   // Multi-select handlers
-  const handleEnterSelectMode = () => {
+  const handleEnterSelectMode = useCallback(() => {
     if (actionSheetPersonel) {
       setExpandedPersonelId(null); // Collapse expanded card to prevent layout jump
       setIsSelectMode(true);
       setSelectedIds(new Set([actionSheetPersonel.id]));
     }
-  };
+  }, [actionSheetPersonel]);
 
-  const toggleSelection = (id: string) => {
+  const toggleSelection = useCallback((id: string) => {
     setSelectedIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -177,7 +177,7 @@ export default function PersonelPage() {
       return newSet;
     });
     haptics.selection();
-  };
+  }, [haptics]);
 
   const handleSelectAll = () => {
     if (filteredPersonel) {
@@ -518,7 +518,7 @@ export default function PersonelPage() {
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, payables.personel, receivables.personel, searchQuery, isLoading, personelList]);
+  ), [t, router, payables.personel, receivables.personel, baseCurrency, searchQuery, isLoading, personelList]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {

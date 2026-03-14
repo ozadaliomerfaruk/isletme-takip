@@ -2,14 +2,11 @@ import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tansta
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
-import { calculateIncomeSummary, isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } from '@/constants/islemTypes';
+import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } from '@/constants/islemTypes';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber, safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
+import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import {
-  formatDateForDB,
-  formatDateLong,
   getDateRange,
-  type PeriodType as DatePeriodType,
 } from '@/lib/date';
 import i18n from '@/i18n';
 
@@ -909,7 +906,7 @@ export function useMonthSummary(
       });
 
       if (error) {
-        if (__DEV__) console.error('[useMonthSummary] RPC error:', error.message, (error as any).code);
+        if (__DEV__) console.error('[useMonthSummary] RPC error:', error.message, (error as unknown as { code: string }).code);
         throw error;
       }
       if (__DEV__) console.log('[useMonthSummary] RPC result:', data?.length, 'rows');

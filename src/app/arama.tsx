@@ -12,9 +12,7 @@ import { useRouter } from 'expo-router';
 import {
   ArrowLeft,
   Search,
-  Wallet,
   Users,
-  Building2,
   UserCheck,
   Truck,
   Package,

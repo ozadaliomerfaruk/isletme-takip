@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Cari, CariInsert, CariUpdate, CariType } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber, calculateBalanceSummary } from '@/lib/currency';
+import { calculateBalanceSummary } from '@/lib/currency';
 import i18n from '@/i18n';
 
 export function useCariler(type?: CariType, includePassive: boolean = false, includeArchived: boolean = false) {

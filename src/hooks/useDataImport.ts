@@ -17,7 +17,6 @@ import {
   chunkArray,
 } from '@/lib/excelImport';
 import { IslemInsert, IslemType } from '@/types/database';
-import { safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 
 import i18n from '@/i18n';
 import {

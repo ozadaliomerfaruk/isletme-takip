@@ -61,7 +61,7 @@ export default function KVKKPage() {
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('kvkk.sections.purposes.intro')}{'\n\n'}
-              {t('kvkk.sections.purposes.items').split('\n').map((item, i) => `• ${item}`).join('\n')}
+              {t('kvkk.sections.purposes.items').split('\n').map((item) => `• ${item}`).join('\n')}
             </Text>
           </View>
 
@@ -71,7 +71,7 @@ export default function KVKKPage() {
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('kvkk.sections.legalBasis.intro')}{'\n\n'}
-              {t('kvkk.sections.legalBasis.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('kvkk.sections.legalBasis.items').split('\n').map((item) => `• ${item}`).join('\n')}{'\n\n'}
               {t('kvkk.sections.legalBasis.consent')}
             </Text>
           </View>
@@ -82,7 +82,7 @@ export default function KVKKPage() {
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('kvkk.sections.transfer.intro')}{'\n\n'}
-              {t('kvkk.sections.transfer.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('kvkk.sections.transfer.items').split('\n').map((item) => `• ${item}`).join('\n')}{'\n\n'}
               {t('kvkk.sections.transfer.outro')}
             </Text>
           </View>

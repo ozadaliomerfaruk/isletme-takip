@@ -104,7 +104,7 @@ export function useCreateNakitAvans() {
     mutationFn: async (data: Omit<NakitAvansInsert, 'isletme_id'> & { taksitler?: Omit<NakitAvansTaksitInsert, 'nakit_avans_id'>[] }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
-      const { taksitler, ...avansData } = data;
+      const { taksitler, ..._avansData } = data;
 
       // 1. Atomik RPC ile nakit avans oluştur (bakiye güncellemeleri dahil)
       const { data: avansId, error: rpcError } = await supabase.rpc('perform_nakit_avans', {

@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Building2, ArrowRightLeft, LogOut } from 'lucide-react-native';
+import { ChevronLeft, ArrowRightLeft, LogOut } from 'lucide-react-native';
 import { Text, Card, Input, Button, Avatar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';

@@ -20,7 +20,6 @@ import type {
   AcceptShareCodeInput,
   AcceptShareCodeResponse,
   RemoveCariLinkInput,
-  SharingPermission,
 } from '@/types/cariSharing';
 import i18n from '@/i18n';
 

@@ -171,7 +171,7 @@ function RootLayoutNav() {
         router.replace('/(tabs)');
       }
     }
-  }, [user, segments, initialized, onboardingChecked, showOnboarding, needsPasswordReset]);
+  }, [user, segments, initialized, onboardingChecked, showOnboarding, needsPasswordReset, router]);
 
   // Yukleniyor - sadece initialized ve onboardingChecked kontrol et
   // loading'i burada kontrol etmiyoruz çünkü login/logout sırasında da true oluyor

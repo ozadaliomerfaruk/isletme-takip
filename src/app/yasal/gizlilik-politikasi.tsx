@@ -35,7 +35,7 @@ export default function GizlilikPolitikasiPage() {
               {t('privacy.sections.collectedData.identity.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.collectedData.identity.content').split('\n').map((item, i) => `• ${item}`).join('\n')}
+              {t('privacy.sections.collectedData.identity.content').split('\n').map((item) => `• ${item}`).join('\n')}
             </Text>
 
             <Text variant="body" style={styles.subTitle}>
@@ -43,7 +43,7 @@ export default function GizlilikPolitikasiPage() {
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('privacy.sections.collectedData.userContent.intro')}{'\n'}
-              {t('privacy.sections.collectedData.userContent.content').split('\n').map((item, i) => `• ${item}`).join('\n')}
+              {t('privacy.sections.collectedData.userContent.content').split('\n').map((item) => `• ${item}`).join('\n')}
             </Text>
 
             <Text variant="body" style={styles.subTitle}>
@@ -68,7 +68,7 @@ export default function GizlilikPolitikasiPage() {
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('privacy.sections.dataUsage.intro')}{'\n\n'}
-              {t('privacy.sections.dataUsage.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('privacy.sections.dataUsage.items').split('\n').map((item) => `• ${item}`).join('\n')}{'\n\n'}
               {t('privacy.sections.dataUsage.outro')}
             </Text>
           </View>
@@ -89,7 +89,7 @@ export default function GizlilikPolitikasiPage() {
               {t('privacy.sections.appStore.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.appStore.content').split('\n').map((item, i) => `• ${item}`).join('\n')}
+              {t('privacy.sections.appStore.content').split('\n').map((item) => `• ${item}`).join('\n')}
             </Text>
           </View>
 
@@ -100,7 +100,7 @@ export default function GizlilikPolitikasiPage() {
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('privacy.sections.dataSecurity.intro')}{'\n\n'}
-              {t('privacy.sections.dataSecurity.items').split('\n').map((item, i) => `• ${item}`).join('\n')}
+              {t('privacy.sections.dataSecurity.items').split('\n').map((item) => `• ${item}`).join('\n')}
             </Text>
           </View>
 
@@ -111,7 +111,7 @@ export default function GizlilikPolitikasiPage() {
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('privacy.sections.thirdParty.intro')}{'\n\n'}
-              {t('privacy.sections.thirdParty.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('privacy.sections.thirdParty.items').split('\n').map((item) => `• ${item}`).join('\n')}{'\n\n'}
               {t('privacy.sections.thirdParty.outro')}
             </Text>
           </View>
@@ -132,7 +132,7 @@ export default function GizlilikPolitikasiPage() {
               {t('privacy.sections.retention.title')}
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.retention.content').split('\n').map((item, i) => `• ${item}`).join('\n')}
+              {t('privacy.sections.retention.content').split('\n').map((item) => `• ${item}`).join('\n')}
             </Text>
           </View>
 
@@ -153,7 +153,7 @@ export default function GizlilikPolitikasiPage() {
             </Text>
             <Text variant="body" color="secondary" style={styles.paragraph}>
               {t('privacy.sections.userRights.intro')}{'\n\n'}
-              {t('privacy.sections.userRights.items').split('\n').map((item, i) => `• ${item}`).join('\n')}{'\n\n'}
+              {t('privacy.sections.userRights.items').split('\n').map((item) => `• ${item}`).join('\n')}{'\n\n'}
               {t('privacy.sections.userRights.outro')}
             </Text>
           </View>

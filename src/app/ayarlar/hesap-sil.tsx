@@ -3,7 +3,7 @@ import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-n
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Trash2, AlertTriangle, Clock } from 'lucide-react-native';
+import { Trash2, AlertTriangle } from 'lucide-react-native';
 import { Text, Button, Input, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -14,7 +14,7 @@ export default function HesapSilPage() {
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
   useRequireOwner();
-  const { isletme, deleteAccount, loading } = useAuthContext();
+  const { isletme, deleteAccount } = useAuthContext();
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 

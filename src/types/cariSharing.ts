@@ -6,7 +6,7 @@
  * Viewer, paylasilan cari'yi kendi listesinde gorur.
  */
 
-import { Cari, CariType, Currency, Isletme } from '@/types/database';
+import { Cari, CariType, Isletme } from '@/types/database';
 
 // ============================================================================
 // ERISIM SEVIYESI
