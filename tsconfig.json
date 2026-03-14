@@ -7,7 +7,6 @@
       "@/*": ["src/*"],
       "@/components/*": ["src/components/*"],
       "@/hooks/*": ["src/hooks/*"],
-      "@/stores/*": ["src/stores/*"],
       "@/lib/*": ["src/lib/*"],
       "@/types/*": ["src/types/*"],
       "@/constants/*": ["src/constants/*"]
