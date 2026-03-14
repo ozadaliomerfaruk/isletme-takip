@@ -6,7 +6,8 @@
 - **SKU**: `isletmetakip`
 - **Apple ID**: `6756860637`
 - **Expo SDK**: 54
-- **Mevcut Versiyon**: 1.2.1 (build 26)
+- **Mevcut Versiyon**: 1.2.1 (build 31)
+- **Platform**: Sadece iOS (Android sonra)
 
 ## Ozet
 RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik abonelik, 7 gun Pro deneme.
@@ -19,6 +20,7 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
 | Business | 399 TL | 3.990 TL |
 
 - 7 gun ucretsiz Pro deneme (yeni kullanicilar, sadece yillik plan)
+- Reklam yok (hicbir planda)
 
 ---
 
@@ -29,20 +31,46 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
 | Gelir/gider islemleri | Var | Var | Var |
 | Cari hesap | Var | Var | Var |
 | Urun/stok | Var | Var | Var |
-| Temel rapor | Var | Var | Var |
-| Cari paylasma | Var | Var | Var |
-| **Islem limiti** | **1.000** | **Sinirsiz** | **Sinirsiz** |
+| Doviz islemleri | Var | Var | Var |
+| Gunluk ciro girisi | Var | Var | Var |
+| Vadeli/ileri tarihli islem | Var | Var | Var |
+| **Raporlar** | **Sadece ozet** | **Tumu** | **Tumu** |
+| **Cari paylasma** | **Yok** | **Var** | **Var** |
 | **Cari limiti** | **35** | **400** | **1.000** |
 | **Urun limiti** | **50** | **300** | **1.500** |
 | **Hesap (kasa/banka)** | **5** | **15** | **25** |
 | **Personel** | **10** | **200** | **500** |
+| Islem limiti | Sinirsiz | Sinirsiz | Sinirsiz |
+| Personel izinleri | Yok | Var | Var |
 | Fotograf yukleme | Yok | Var (1 GB) | Var (2 GB) |
 | Excel export | Yok | Var | Var |
-| Bildirim | Yok | Var | Var |
+| Bildirim (hatirlatmalar) | Yok | Var | Var |
 | Veri import | Yok | Var | Var |
+| Toplu islemler (personel/stok) | Yok | Var | Var |
 | Multi-user | Yok | Yok | 3 kullanici |
-| Toplu islemler | Yok | Yok | Var |
 | Yetkilendirme (RBAC) | Yok | Yok | Var |
+
+### Free Planda Olan / Olmayan Ozet
+**Free'de ACIK:**
+- Tum temel moduller (islem, cari, urun, hesap, personel)
+- Doviz islemleri (tum kurlar)
+- Gunluk ciro girisi
+- Vadeli/ileri tarihli islem olusturma (hatirlatma bildirimi almaz, Pro+ gerekli)
+- Ana sayfa ozet kartlari (bugunun gelir/gider, bakiyeler)
+
+**Free'de KAPALI:**
+- Detayli raporlar (kategori analizi, nakit akisi, karsilastirma, alis-satis raporu, cari raporu)
+- Cari paylasma (ekstre/hesap ozeti paylasma)
+- Personel izin takibi
+- Fotograf yukleme
+- Excel export
+- Bildirimler (zamanlanmis islem hatirlatmalari)
+- Veri import
+- Toplu islemler (personel toplu odeme/gider, stok toplu giris/cikis)
+
+### Plan Degeri Ozeti
+- **Pro (199 TL/ay)** = Tek kisilik esnaf/serbest meslek: "Daha fazla kayit, raporlar, export, bildirim, toplu islem istiyorum"
+- **Business (399 TL/ay)** = Ekibi olan isletme: "Ekibimle birlikte kullanmam lazim + yetkilendirme"
 
 ### Multi-User Kurali
 - **Free**: Davet yok, sadece owner
@@ -74,7 +102,6 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
   - `create_urun(p_isletme_id, ...)` - limit kontrolu icinde
   - `create_personel(p_isletme_id, ...)` - limit kontrolu icinde
   - `create_hesap(p_isletme_id, ...)` - limit kontrolu icinde
-  - `create_islem(p_isletme_id, ...)` - Free'de 1000 limit
 - Bu RPC'ler icinde `check_record_limit()` cagrilir, sonra INSERT yapilir
 - Mevcut direkt insert'ler zamanla bu RPC'lere tasinir
 - **Import/bulk operations**: Edge function/RPC icinde ayni limit kontrolu
@@ -83,8 +110,11 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
 ### Onemli Farklar
 - Tum moduller (personel, urun, cari, hesap) Free'de **ACIK** ama **LIMITLI**
 - Gating: **limit bazli** (kayit sayisi) + **ozellik bazli** (acik/kapali)
+- Islem limiti: Tum planlarda **SINIRSIZ** (kullanici verisini biriktirir, uygulamaya baglanir)
+- Raporlar: Free'de sadece ana sayfa ozet kartlari, detayli raporlar Pro+
+- Toplu islemler (personel + stok): Pro+ (onceden sadece Business idi)
 - Multi-user: Sadece Business (3 davetli, toplam 4 kisi)
-- Toplu islemler + yetkilendirme (RBAC) sadece Business
+- RBAC: Sadece Business
 - Fotograf yukleme Pro+ (storage limitli, 90 gun sonra silme)
 - Server-side enforcement: tum limitler backend'de de kontrol edilir
 
@@ -100,21 +130,23 @@ export type BillingPeriod = 'monthly' | 'yearly';
 
 // Ozellik bazli gating (acik/kapali)
 export type FeatureId =
-  | 'photo_upload'          // Pro+
-  | 'excel_export'          // Pro+
-  | 'notifications'         // Pro+
-  | 'data_import'           // Pro+
-  | 'multi_user'            // Business only (3 davetli)
-  | 'bulk_operations'       // Business
-  | 'rbac';                 // Business (yetkilendirme sistemi)
+  | 'detailed_reports'       // Pro+ (detayli raporlar)
+  | 'cari_sharing'           // Pro+ (cari paylasma)
+  | 'personnel_leaves'       // Pro+ (personel izinleri)
+  | 'photo_upload'           // Pro+
+  | 'excel_export'           // Pro+
+  | 'notifications'          // Pro+
+  | 'data_import'            // Pro+
+  | 'bulk_operations'        // Pro+ (toplu personel odeme/gider + stok giris/cikis)
+  | 'multi_user'             // Business only (3 davetli)
+  | 'rbac';                  // Business (yetkilendirme sistemi)
 
 // Kayit limiti bazli gating
 export type LimitId =
-  | 'islemler'              // 1000 / inf / inf
-  | 'cariler'               // 35 / 400 / 1000
-  | 'urunler'               // 50 / 300 / 1500
-  | 'hesaplar'              // 5 / 15 / 25
-  | 'personel';             // 10 / 200 / 500
+  | 'cariler'                // 35 / 400 / 1000
+  | 'urunler'                // 50 / 300 / 1500
+  | 'hesaplar'               // 5 / 15 / 25
+  | 'personel';              // 10 / 200 / 500
 
 export interface SubscriptionState {
   plan: PlanTier;
@@ -131,22 +163,24 @@ export interface SubscriptionState {
 ```typescript
 // Ozellik erisim: hangi plan gerekli
 export const FEATURE_REQUIREMENTS: Record<FeatureId, PlanTier> = {
+  detailed_reports: 'pro',
+  cari_sharing: 'pro',
+  personnel_leaves: 'pro',
   photo_upload: 'pro',
   excel_export: 'pro',
   notifications: 'pro',
   data_import: 'pro',
-  multi_user: 'business',      // Sadece Business: 3 davetli
-  bulk_operations: 'business',
+  bulk_operations: 'pro',
+  multi_user: 'business',       // Sadece Business: 3 davetli
   rbac: 'business',
 };
 
-// Kayit limitleri
+// Kayit limitleri (islem limiti yok - tum planlarda sinirsiz)
 export const PLAN_LIMITS: Record<PlanTier, Record<LimitId, number>> = {
-  free:     { islemler: 1000, cariler: 35,   urunler: 50,   hesaplar: 5,  personel: 10  },
-  pro:      { islemler: -1,   cariler: 400,  urunler: 300,  hesaplar: 15, personel: 200 },
-  business: { islemler: -1,   cariler: 1000, urunler: 1500, hesaplar: 25, personel: 500 },
+  free:     { cariler: 35,   urunler: 50,   hesaplar: 5,  personel: 10  },
+  pro:      { cariler: 400,  urunler: 300,  hesaplar: 15, personel: 200 },
+  business: { cariler: 1000, urunler: 1500, hesaplar: 25, personel: 500 },
 };
-// -1 = sinirsiz
 
 // Davet limiti (owner haric) - sadece Business
 export const INVITE_LIMITS: Record<PlanTier, number> = { free: 0, pro: 0, business: 3 };
@@ -260,6 +294,7 @@ RETURNS TEXT LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
 $$;
 
 -- 6. Kayit limiti kontrol fonksiyonu (whitelist + advisory lock)
+-- NOT: Islem limiti kaldirildi - tum planlarda sinirsiz
 CREATE OR REPLACE FUNCTION check_record_limit(
   p_isletme_id UUID, p_limit_id TEXT
 ) RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -275,9 +310,7 @@ BEGIN
     WHEN 'urunler'   THEN CASE v_plan WHEN 'pro' THEN 300 WHEN 'business' THEN 1500 ELSE 50 END
     WHEN 'hesaplar'  THEN CASE v_plan WHEN 'pro' THEN 15  WHEN 'business' THEN 25   ELSE 5  END
     WHEN 'personel'  THEN CASE v_plan WHEN 'pro' THEN 200 WHEN 'business' THEN 500  ELSE 10 END
-    WHEN 'islemler'  THEN CASE v_plan WHEN 'free' THEN 1000 ELSE -1 END
     ELSE RAISE EXCEPTION 'Gecersiz limit_id: %', p_limit_id; END CASE;
-  IF v_limit = -1 THEN RETURN; END IF; -- sinirsiz
   -- Whitelist count (dynamic SQL yerine explicit branch)
   IF p_limit_id = 'cariler' THEN
     SELECT COUNT(*) INTO v_count FROM cariler WHERE isletme_id = p_isletme_id;
@@ -287,8 +320,6 @@ BEGIN
     SELECT COUNT(*) INTO v_count FROM hesaplar WHERE isletme_id = p_isletme_id;
   ELSIF p_limit_id = 'personel' THEN
     SELECT COUNT(*) INTO v_count FROM personel WHERE isletme_id = p_isletme_id;
-  ELSIF p_limit_id = 'islemler' THEN
-    SELECT COUNT(*) INTO v_count FROM islemler WHERE isletme_id = p_isletme_id;
   END IF;
   IF v_count >= v_limit THEN
     RAISE EXCEPTION 'Kayit limitine ulastiniz (% icin maksimum: %)', p_limit_id, v_limit;
@@ -407,7 +438,6 @@ Yeni hook'lar (mevcut hook dosyalarina eklenecek):
 - `useHesaplarCount()` -> `src/hooks/useHesaplar.ts`
 - `usePersonelCount()` -> `src/hooks/usePersonel.ts`
 - `useUrunlerCount()` -> `src/hooks/useUrunler.ts`
-- `useIslemlerCount()` -> `src/hooks/useIslemler.ts`
 
 ---
 
@@ -467,24 +497,29 @@ BottomSheet modal:
 ### Ozellik Bazli (acik/kapali)
 | Ozellik | FeatureId | Dosya | Detay |
 |---------|-----------|-------|-------|
-| Fotograf yukleme | `photo_upload` | `src/hooks/useIslemPhoto.ts` | usePhotoField hook'unda gate (satir 195-231) |
-| Excel export | `excel_export` | `src/components/export/ExportSheet.tsx` | handleExport (satir 343) |
-| Excel export (rapor) | `excel_export` | `src/app/raporlar/gelir.tsx`, `gider.tsx` | handleExport (satir 36) |
+| Detayli raporlar | `detailed_reports` | `src/app/raporlar/*.tsx` | Rapor sayfalarinda gate (ozet haric) |
+| Cari paylasma | `cari_sharing` | Cari detay sayfasi | Paylasma butonu |
+| Personel izinleri | `personnel_leaves` | `src/app/personel/[id].tsx` | Izin bolumu |
+| Fotograf yukleme | `photo_upload` | `src/hooks/useIslemPhoto.ts` | usePhotoField hook'unda gate |
+| Excel export | `excel_export` | `src/components/export/ExportSheet.tsx` | handleExport |
+| Excel export (rapor) | `excel_export` | `src/app/raporlar/gelir.tsx`, `gider.tsx` | handleExport |
 | Veri import | `data_import` | `src/app/ayarlar/data-import/index.tsx` | Sayfa girisinde gate |
-| Multi-user | `multi_user` | `src/app/(tabs)/daha.tsx` | Coklu Kullanici bolumu (satir 216-229) |
-| Toplu islemler | `bulk_operations` | `src/app/personel/toplu-gider.tsx`, `toplu-odeme.tsx` | Sayfa girisinde gate |
-| Toplu islemler | `bulk_operations` | `src/app/urunler/toplu-giris.tsx`, `toplu-cikis.tsx` | Sayfa girisinde gate |
-| Toplu islemler FAB | `bulk_operations` | `src/app/(tabs)/personel.tsx` | FAB menu (satir 583-596) |
+| Multi-user | `multi_user` | `src/app/(tabs)/daha.tsx` | Coklu Kullanici bolumu |
+| Bildirimler | `notifications` | Bildirim ayarlari | Zamanlanmis islem hatirlatmalari |
+| Toplu personel odeme | `bulk_operations` | `src/app/personel/toplu-odeme.tsx` | Sayfa girisinde gate |
+| Toplu personel gider | `bulk_operations` | `src/app/personel/toplu-gider.tsx` | Sayfa girisinde gate |
+| Toplu stok giris | `bulk_operations` | `src/app/urunler/toplu-giris.tsx` | Sayfa girisinde gate |
+| Toplu stok cikis | `bulk_operations` | `src/app/urunler/toplu-cikis.tsx` | Sayfa girisinde gate |
+| Toplu islemler FAB | `bulk_operations` | `src/app/(tabs)/personel.tsx` | FAB menu |
 | RBAC | `rbac` | RoleSelector, PermissionEditor | Davet olustururken |
 
 ### Limit Bazli (kayit sayisi)
 | Entity | LimitId | Dosya | Detay |
 |--------|---------|-------|-------|
-| Cariler | `cariler` | `src/app/(tabs)/cariler.tsx` | Add butonu (satir 622-631) |
+| Cariler | `cariler` | `src/app/(tabs)/cariler.tsx` | Add butonu |
 | Hesaplar | `hesaplar` | `src/app/(tabs)/index.tsx` | Hesap ekleme butonu |
-| Personel | `personel` | `src/app/(tabs)/personel.tsx` | Add butonu (satir 483-492) |
+| Personel | `personel` | `src/app/(tabs)/personel.tsx` | Add butonu |
 | Urunler | `urunler` | `src/app/urunler/index.tsx` | Urun ekleme butonu |
-| Islemler | `islemler` | `src/app/(tabs)/index.tsx` | FAB islem ekleme |
 
 Her ekleme noktasinda:
 1. `use[Entity]Count()` hook ile mevcut kayit sayisini al
@@ -496,15 +531,15 @@ Her ekleme noktasinda:
 
 ## Faz 8: Mevcut Dosya Degisiklikleri
 
-| Dosya | Degisiklik | Satir |
-|-------|-----------|-------|
-| `src/app/_layout.tsx` | SubscriptionProvider ekleme (AuthProvider'dan sonra) + `ayarlar/abonelik` Stack.Screen | Provider chain |
-| `src/app/(tabs)/daha.tsx` | Abonelik menu item (Crown ikonu, satir 213'ten sonra) + PlanBadge profil kartinda + "Abonelikleri Yonet" linki | 213+ |
-| `src/hooks/useAuth.ts` | signOut'a `logoutRevenueCat()` ekleme | 601-627 (signOut fonksiyonu) |
-| `src/lib/queryKeys.ts` | `subscription` + `*Count` query key'leri ekleme | - |
-| `create_isletme_invite` RPC | Plan kontrolu + davet limiti (sadece Business: max 3) | Yeni migration |
-| `.env.example` | `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY` ekleme | - |
-| `app.json` | `react-native-purchases` plugin ekleme (expo config plugin) | - |
+| Dosya | Degisiklik |
+|-------|-----------|
+| `src/app/_layout.tsx` | SubscriptionProvider ekleme (AuthProvider'dan sonra) + `ayarlar/abonelik` Stack.Screen |
+| `src/app/(tabs)/daha.tsx` | Abonelik menu item (Crown ikonu) + PlanBadge profil kartinda + "Abonelikleri Yonet" linki |
+| `src/hooks/useAuth.ts` | signOut'a `logoutRevenueCat()` ekleme |
+| `src/lib/queryKeys.ts` | `subscription` + `*Count` query key'leri ekleme |
+| `create_isletme_invite` RPC | Plan kontrolu + davet limiti (sadece Business: max 3) |
+| `.env.example` | `EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY` ekleme |
+| `app.json` | `react-native-purchases` plugin ekleme (expo config plugin) |
 
 ---
 
@@ -528,8 +563,8 @@ Her ekleme noktasinda:
 10. Paywall sayfasi (`ayarlar/abonelik.tsx`)
 11. `_layout.tsx` entegrasyonu (provider + route)
 12. `daha.tsx` abonelik bolumu + PlanBadge
-13. Ozellik gating (photo, export, import, notifications)
-14. Limit gating (islem, cari, urun, hesap, personel ekleme formlari)
+13. Ozellik gating (raporlar, cari paylasma, personel izinleri, photo, export, import, notifications, toplu islemler)
+14. Limit gating (cari, urun, hesap, personel ekleme formlari)
 15. Multi-user davet limiti (RPC update + frontend kontrol)
 16. `useAuth.ts` logout entegrasyonu
 17. `queryKeys.ts` + `.env.example` + `app.json` guncelleme
@@ -594,18 +629,20 @@ EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY=appl_xxxxxxxxxxxx
 3. `supabase functions deploy revenuecat-webhook` ile webhook deploy
 4. **Free limit testi**: Free kullanici -> 35 cari ekleyince UpgradePrompt gosterilmeli
 5. **Limit yaklasmasi**: 28+ cari'de uyari banner'i gosterilmeli (%80)
-6. **Pro satin alma**: Sandbox'ta Pro al -> limitler genisler, export/photo acilir
-7. **Business satin alma**: Sandbox'ta Business al -> multi-user + toplu islemler acilir
-8. **Davet testi**: Free/Pro -> davet butonu yok/devre disi, Business -> max 3
-9. **Davetli plani**: Business owner davet ederse, davetli Business ozelliklerinden faydalanmali
-10. **Logout/login**: Abonelik durumu korunmali (RevenueCat SDK cache + Supabase fallback)
-11. **Restore purchases**: Cihaz degistirince veya reinstall'da calisir
-12. **Webhook testi**: RevenueCat'ten event gonder -> `user_subscriptions` tablosu guncellenmeli
-13. **Grace period**: Odeme basarisiz olursa RevenueCat `BILLING_ISSUE` event'i gelir -> status='grace_period' olarak isaretlenir, erisim devam eder. UI'da "Odeme problemi var" banner'i gosterilir. Sure hardcode edilmez, RevenueCat status'une guvenilir.
-14. **Expiration**: Abonelik bitince Free'ye dusme, mevcut veriler korunmali
-15. **Downgrade testi**: Business->Pro: davetliler pasife dusmeli. Pro->Free: mevcut kayitlar kalir, yeni ekleme engellenir.
-16. **Foto silme testi**: Abonelik bitince 90 gun sonra fotolar silinmeli (cron job)
+6. **Rapor gating testi**: Free kullanici -> detayli rapor sayfasina girince paywall yonlendirmesi
+7. **Pro satin alma**: Sandbox'ta Pro al -> limitler genisler, raporlar/export/photo/toplu islem acilir
+8. **Business satin alma**: Sandbox'ta Business al -> multi-user + RBAC acilir
+9. **Davet testi**: Free/Pro -> davet butonu yok/devre disi, Business -> max 3
+10. **Davetli plani**: Business owner davet ederse, davetli Business ozelliklerinden faydalanmali
+11. **Logout/login**: Abonelik durumu korunmali (RevenueCat SDK cache + Supabase fallback)
+12. **Restore purchases**: Cihaz degistirince veya reinstall'da calisir
+13. **Webhook testi**: RevenueCat'ten event gonder -> `user_subscriptions` tablosu guncellenmeli
+14. **Grace period**: Odeme basarisiz olursa RevenueCat `BILLING_ISSUE` event'i gelir -> status='grace_period' olarak isaretlenir, erisim devam eder. UI'da "Odeme problemi var" banner'i gosterilir. Sure hardcode edilmez, RevenueCat status'une guvenilir.
+15. **Expiration**: Abonelik bitince Free'ye dusme, mevcut veriler korunmali
+16. **Downgrade testi**: Business->Pro: davetliler pasife dusmeli. Pro->Free: mevcut kayitlar kalir, yeni ekleme engellenir.
+17. **Foto silme testi**: Abonelik bitince 90 gun sonra fotolar silinmeli (cron job)
 
 ### Performans Notu
-- Entity count (`count: 'exact'`) ve foto kota (`SUM(size_bytes)`): Kucuk/orta olcekte sorun degil
+- Entity count (`count: 'exact'`): Kucuk/orta olcekte sorun degil
+- Foto kota (`SUM(size_bytes)`): Kucuk/orta olcekte sorun degil
 - P2'de buyuk olcek icin: `isletme_stats` counter cache tablosu + `photo_bytes_used` counter
