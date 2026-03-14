@@ -22,6 +22,7 @@ import type {
   RemoveCariLinkInput,
   SharingPermission,
 } from '@/types/cariSharing';
+import i18n from '@/i18n';
 
 // ============================================================================
 // QUERIES
@@ -139,7 +140,7 @@ export function useGenerateShareCode() {
 
   return useMutation({
     mutationFn: async (input: GenerateShareCodeInput): Promise<GenerateShareCodeResponse> => {
-      if (!isletme) throw new Error('Isletme bulunamadi');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase.rpc('generate_cari_share_code', {
         p_cari_id: input.cari_id,
@@ -165,7 +166,7 @@ export function useAcceptShareCode() {
 
   return useMutation({
     mutationFn: async (input: AcceptShareCodeInput): Promise<AcceptShareCodeResponse> => {
-      if (!isletme) throw new Error('Isletme bulunamadi');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase.rpc('accept_cari_share_code', {
         p_code: input.code,
@@ -191,7 +192,7 @@ export function useRemoveCariLink() {
 
   return useMutation({
     mutationFn: async (input: RemoveCariLinkInput): Promise<void> => {
-      if (!isletme) throw new Error('Isletme bulunamadi');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase.rpc('remove_cari_link', {
         p_link_id: input.link_id,

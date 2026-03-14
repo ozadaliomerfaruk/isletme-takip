@@ -14,10 +14,12 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useIsletmeUsers, useIsletmeInvites, useCancelInvite } from '@/hooks/useMultiUser';
 import type { IsletmeUser } from '@/types/multiUser';
+import { useRequireOwner } from '@/hooks/usePagePermission';
 
 export default function KullaniciYonetimiPage() {
   const router = useRouter();
   const { t } = useTranslation(['multiUser', 'common']);
+  useRequireOwner();
   const { data: users, isLoading: usersLoading, error: usersError } = useIsletmeUsers();
   const { data: invites, isLoading: invitesLoading, error: invitesError } = useIsletmeInvites();
   const cancelInvite = useCancelInvite();

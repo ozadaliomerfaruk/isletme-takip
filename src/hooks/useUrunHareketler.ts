@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
+import i18n from '@/i18n';
 
 /**
  * Urun hareketi ile birlikte cari bilgisi
@@ -239,7 +240,7 @@ export function useCreateUrunHareket() {
 
   return useMutation({
     mutationFn: async (input: UrunHareketInsert) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 1. Önce mevcut ürün miktarını al
       const { data: urun, error: urunError } = await supabase
@@ -250,7 +251,7 @@ export function useCreateUrunHareket() {
         .single();
 
       if (urunError) throw urunError;
-      if (!urun) throw new Error('Ürün bulunamadı');
+      if (!urun) throw new Error(i18n.t('common:errors.productNotFound'));
 
       const oncekiMiktar = urun.miktar;
 
@@ -456,7 +457,7 @@ export function useUpdateUrunHareket() {
       birim_fiyat: number | null;
       hareket_tipi: UrunHareketTipi;
     }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 1. Önce mevcut hareketi al
       const { data: eskiHareket, error: eskiError } = await supabase
@@ -467,11 +468,11 @@ export function useUpdateUrunHareket() {
         .single();
 
       if (eskiError) throw eskiError;
-      if (!eskiHareket) throw new Error('Urun hareketi bulunamadı');
+      if (!eskiHareket) throw new Error(i18n.t('common:errors.movementNotFound'));
 
       // 2. İşlem bağlantılı hareketler güncellenemez
       if (eskiHareket.islem_id) {
-        throw new Error('Bu ürün hareketi bir işleme bağlı olduğu için güncellenemez');
+        throw new Error(i18n.t('common:errors.movementLinkedCannotUpdate'));
       }
 
       // 3. Eski miktar etkisini geri al
@@ -548,7 +549,7 @@ export function useDeleteUrunHareket() {
 
   return useMutation({
     mutationFn: async (hareketId: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 1. Önce hareketi al
       const { data: hareket, error: hareketError } = await supabase
@@ -559,11 +560,11 @@ export function useDeleteUrunHareket() {
         .single();
 
       if (hareketError) throw hareketError;
-      if (!hareket) throw new Error('Urun hareketi bulunamadı');
+      if (!hareket) throw new Error(i18n.t('common:errors.movementNotFound'));
 
       // 2. İşlem bağlantılı hareketler silinemez
       if (hareket.islem_id) {
-        throw new Error('Bu ürün hareketi bir işleme bağlı olduğu için silinemez');
+        throw new Error(i18n.t('common:errors.movementLinkedCannotDelete'));
       }
 
       // 3. Miktar değişimini tersine çevir
@@ -641,7 +642,7 @@ export function useCreateUrunHareketWithCari() {
 
   return useMutation({
     mutationFn: async (input: CreateUrunHareketWithCariInput) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // İşlem tipi: giris → cari_alis (tedarikçiden alım), cikis → cari_satis (müşteriye satış)
       const islemType: IslemType = input.hareket_tipi === 'giris' ? 'cari_alis' : 'cari_satis';
@@ -779,8 +780,8 @@ export function useCreateBulkUrunHareketWithCari() {
 
   return useMutation({
     mutationFn: async (input: CreateBulkUrunHareketWithCariInput) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
-      if (input.items.length === 0) throw new Error('En az bir ürün gereklidir');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (input.items.length === 0) throw new Error(i18n.t('common:errors.atLeastOneProductRequired'));
 
       const islemType: IslemType = input.hareket_tipi === 'giris' ? 'cari_alis' : 'cari_satis';
 

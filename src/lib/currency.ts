@@ -13,6 +13,7 @@
 import { getCurrentCurrency } from '@/hooks/useSettings';
 import { Currency } from '@/types/database';
 import { getCurrencySymbol, isPreciousMetal } from '@/constants/currencies';
+import i18n from '@/i18n';
 
 // ============================================================================
 // YUVARLAMA (IEEE 754 safe)
@@ -504,7 +505,7 @@ export function calculateTargetAmount(
   // Exchange rate yoksa veya geçersizse - farklı para birimleri için kur zorunlu
   if (!exchangeRate || exchangeRate <= 0) {
     throw new Error(
-      `Geçersiz döviz kuru: ${sourceCurrency} → ${targetCurrency} dönüşümü için geçerli bir kur gerekli (kur: ${exchangeRate})`
+      i18n.t('common:errors.invalidExchangeRate', { source: sourceCurrency, target: targetCurrency, rate: exchangeRate })
     );
   }
 

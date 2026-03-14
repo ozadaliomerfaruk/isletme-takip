@@ -6,6 +6,7 @@ import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber, safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import i18n from '@/i18n';
 
 export function useHesaplar(includePassive: boolean = false, includeArchived: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -73,7 +74,7 @@ export function useCreateHesap() {
 
   return useMutation({
     mutationFn: async (input: Omit<HesapInsert, 'isletme_id'>) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('hesaplar')
@@ -97,7 +98,7 @@ export function useUpdateHesap() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: HesapUpdate & { id: string }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('hesaplar')
@@ -123,7 +124,7 @@ export function useDeleteHesap() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Önce hesabın bu işletmeye ait olduğunu doğrula
       const { data: hesap, error: checkError } = await supabase
@@ -134,7 +135,7 @@ export function useDeleteHesap() {
         .single();
 
       if (checkError || !hesap) {
-        throw new Error('Hesap bulunamadı veya erişim yetkiniz yok');
+        throw new Error(i18n.t('common:errors.accountNotFound'));
       }
 
       // 0. Bu hesapla ilişkili ileri tarihli işlemleri sil
@@ -145,7 +146,7 @@ export function useDeleteHesap() {
         .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
 
       if (ileriIslemError) {
-        throw new Error(`İleri tarihli işlemler silinemedi: ${ileriIslemError.message}`);
+        throw new Error(i18n.t('common:errors.futureTransactionsDeletionFailed', { message: ileriIslemError.message }));
       }
 
       // 1. Bu hesapla ilişkili tüm işlemleri bul

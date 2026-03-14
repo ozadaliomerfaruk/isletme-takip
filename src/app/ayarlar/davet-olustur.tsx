@@ -12,6 +12,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCreateInvite, useRoleTemplates } from '@/hooks/useMultiUser';
 import type { UserRole, Permissions } from '@/types/multiUser';
+import { useRequireOwner } from '@/hooks/usePagePermission';
 
 // Boş permissions objesi (custom rol için başlangıç)
 const EMPTY_PERMISSIONS: Permissions = {
@@ -41,6 +42,7 @@ const EMPTY_PERMISSIONS: Permissions = {
 export default function DavetOlusturPage() {
   const router = useRouter();
   const { t } = useTranslation(['multiUser', 'common']);
+  useRequireOwner();
   const createInvite = useCreateInvite();
 
   const { data: roleTemplates } = useRoleTemplates();

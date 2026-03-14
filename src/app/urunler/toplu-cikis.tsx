@@ -10,6 +10,8 @@ import {
   TouchableWithoutFeedback,
   Modal,
   TextInput,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
@@ -18,7 +20,7 @@ import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Plus, Trash2, Calendar, ChevronDown, Package, Search, X, Check } from 'lucide-react-native';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -28,18 +30,27 @@ import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
 import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 import { CariLinkSection } from '@/components/urun/QuickUrunBar/CariLinkSection';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
 interface StockRow {
   id: string;
   urunId: string | null;
   miktar: string;
   birimFiyat: string;
+  kdvOrani: KdvOrani;
 }
 
 export default function TopluCikisPage() {
   const router = useRouter();
   const { t } = useTranslation(['products', 'common', 'transactions']);
+  usePagePermission({ module: 'urunler', action: 'create' });
   const { currency } = useSettings();
   const createUrunHareket = useCreateUrunHareket();
   const createBulkWithCari = useCreateBulkUrunHareketWithCari();
@@ -48,7 +59,7 @@ export default function TopluCikisPage() {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [rows, setRows] = useState<StockRow[]>([
-    { id: '1', urunId: null, miktar: '', birimFiyat: '' },
+    { id: '1', urunId: null, miktar: '', birimFiyat: '', kdvOrani: 0 },
   ]);
   const [isSaving, setIsSaving] = useState(false);
   const [productPickerVisible, setProductPickerVisible] = useState(false);
@@ -58,7 +69,6 @@ export default function TopluCikisPage() {
   // Cari link state
   const [cariLinkEnabled, setCariLinkEnabled] = useState(false);
   const [selectedCariId, setSelectedCariId] = useState<string | null>(null);
-  const [kdvOrani, setKdvOrani] = useState<KdvOrani>(0);
 
   const { data: urunler } = useUrunler();
 
@@ -85,17 +95,19 @@ export default function TopluCikisPage() {
   }, [rows]);
 
   const addRow = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const newId = Date.now().toString();
-    setRows([...rows, { id: newId, urunId: null, miktar: '', birimFiyat: '' }]);
+    setRows([...rows, { id: newId, urunId: null, miktar: '', birimFiyat: '', kdvOrani: 0 }]);
   };
 
   const removeRow = (id: string) => {
     if (rows.length > 1) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setRows(rows.filter(r => r.id !== id));
     }
   };
 
-  const updateRow = (id: string, field: keyof StockRow, value: string) => {
+  const updateRow = (id: string, field: keyof StockRow, value: string | KdvOrani) => {
     setRows(rows.map(r => r.id === id ? { ...r, [field]: value } : r));
   };
 
@@ -107,7 +119,16 @@ export default function TopluCikisPage() {
 
   const selectProduct = (urunId: string) => {
     if (activeRowId) {
-      updateRow(activeRowId, 'urunId', urunId);
+      const urun = getUrunById(urunId);
+      setRows(rows.map(r => {
+        if (r.id !== activeRowId) return r;
+        return {
+          ...r,
+          urunId,
+          kdvOrani: urun?.kdv_orani ?? 0,
+          birimFiyat: urun?.satis_fiyati ? String(urun.satis_fiyati) : r.birimFiyat,
+        };
+      }));
     }
     setProductPickerVisible(false);
     setActiveRowId(null);
@@ -119,7 +140,7 @@ export default function TopluCikisPage() {
     return rows.filter(r => r.urunId && parseCurrency(r.miktar) > 0);
   }, [rows]);
 
-  // Total amount
+  // Total amount (subtotal without KDV)
   const totalAmount = useMemo(() => {
     let total = 0;
     validRows.forEach(r => {
@@ -132,28 +153,38 @@ export default function TopluCikisPage() {
     return total;
   }, [validRows]);
 
-  // Row line total
-  const getRowTotal = (row: StockRow) => {
+  // Row line total (without KDV)
+  const getRowSubtotal = (row: StockRow) => {
     const miktar = parseCurrency(row.miktar);
     const fiyat = parseCurrency(row.birimFiyat);
     if (miktar > 0 && fiyat > 0) return miktar * fiyat;
     return 0;
   };
 
+  // Row KDV amount
+  const getRowKdv = (row: StockRow) => {
+    return getRowSubtotal(row) * (row.kdvOrani / 100);
+  };
+
   // Cari totals for display
   const cariTotals = useMemo(() => {
     if (!cariLinkEnabled || totalAmount === 0) return null;
-    const kdvAmount = totalAmount * (kdvOrani / 100);
-    const grandTotal = totalAmount + kdvAmount;
+    let totalKdv = 0;
+    validRows.forEach(r => {
+      const subtotal = getRowSubtotal(r);
+      totalKdv += subtotal * (r.kdvOrani / 100);
+    });
+    const grandTotal = totalAmount + totalKdv;
     return {
+      subtotalDisplay: formatCurrency(totalAmount),
+      kdvDisplay: totalKdv > 0 ? formatCurrency(totalKdv) : undefined,
       totalDisplay: formatCurrency(grandTotal),
-      kdvDisplay: kdvAmount > 0 ? formatCurrency(kdvAmount) : undefined,
     };
-  }, [cariLinkEnabled, totalAmount, kdvOrani]);
+  }, [cariLinkEnabled, totalAmount, validRows]);
 
   const handleSave = async () => {
     if (validRows.length === 0) {
-      Alert.alert(t('common:status.error'), t('transactions:dailyCash.noEntries'));
+      Alert.alert(t('common:status.error'), t('products:bulk.noEntries'));
       return;
     }
 
@@ -168,7 +199,7 @@ export default function TopluCikisPage() {
             urun_ad: urun?.ad || '',
             miktar: parseCurrency(row.miktar),
             birim_fiyat: parseCurrency(row.birimFiyat) || 0,
-            kdv_orani: kdvOrani,
+            kdv_orani: row.kdvOrani,
           };
         });
 
@@ -240,11 +271,10 @@ export default function TopluCikisPage() {
                 onToggle={setCariLinkEnabled}
                 selectedCariId={selectedCariId}
                 onSelectCari={setSelectedCariId}
-                kdvOrani={kdvOrani}
-                onKdvChange={setKdvOrani}
                 hareketTipi="cikis"
-                totalDisplay={cariTotals?.totalDisplay}
+                subtotalDisplay={cariTotals?.subtotalDisplay}
                 kdvDisplay={cariTotals?.kdvDisplay}
+                totalDisplay={cariTotals?.totalDisplay}
               />
             </View>
 
@@ -252,9 +282,16 @@ export default function TopluCikisPage() {
             <View style={styles.rowsContainer}>
               {rows.map((row, index) => {
                 const urun = getUrunById(row.urunId);
-                const rowTotal = getRowTotal(row);
+                const rowSubtotal = getRowSubtotal(row);
+                const rowKdv = getRowKdv(row);
                 return (
-                  <View key={row.id} style={styles.rowCard}>
+                  <View
+                    key={row.id}
+                    style={[
+                      styles.rowCard,
+                      urun && styles.rowCardFilled,
+                    ]}
+                  >
                     {/* Row header: number + delete */}
                     <View style={styles.rowHeader}>
                       <View style={styles.rowNumberBadge}>
@@ -339,11 +376,45 @@ export default function TopluCikisPage() {
                       </View>
                     </View>
 
+                    {/* Per-row KDV chips (only when cari linked) */}
+                    {cariLinkEnabled && (
+                      <View style={styles.kdvRow}>
+                        <Text style={styles.kdvLabel}>{t('common:currency.vat')}:</Text>
+                        {KDV_ORANLARI.map((rate) => (
+                          <TouchableOpacity
+                            key={rate}
+                            style={[
+                              styles.kdvChip,
+                              row.kdvOrani === rate && styles.kdvChipActive,
+                            ]}
+                            onPress={() => updateRow(row.id, 'kdvOrani', rate)}
+                          >
+                            <Text
+                              style={[
+                                styles.kdvChipText,
+                                row.kdvOrani === rate && styles.kdvChipTextActive,
+                              ]}
+                            >
+                              %{rate}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
                     {/* Row total */}
-                    {rowTotal > 0 && (
+                    {rowSubtotal > 0 && (
                       <View style={styles.rowTotalRow}>
-                        <Text style={styles.rowTotalLabel}>{t('common:total')}:</Text>
-                        <Text style={styles.rowTotalAmount}>{formatCurrency(rowTotal)}</Text>
+                        {cariLinkEnabled && rowKdv > 0 ? (
+                          <Text style={styles.rowTotalLabel}>
+                            {formatCurrency(rowSubtotal)} + {formatCurrency(rowKdv)} {t('common:currency.vat')} =
+                          </Text>
+                        ) : (
+                          <Text style={styles.rowTotalLabel}>{t('common:total')}:</Text>
+                        )}
+                        <Text style={styles.rowTotalAmount}>
+                          {formatCurrency(rowSubtotal + rowKdv)}
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -478,6 +549,16 @@ export default function TopluCikisPage() {
                           <Text style={styles.pickerItemStock}>
                             {urun.miktar} {getBirimLabel(urun.birim)}
                           </Text>
+                          {urun.satis_fiyati > 0 && (
+                            <Text style={styles.pickerItemPrice}>
+                              {formatCurrency(urun.satis_fiyati)}
+                            </Text>
+                          )}
+                          {urun.kdv_orani > 0 && (
+                            <View style={styles.kdvPill}>
+                              <Text style={styles.kdvPillText}>%{urun.kdv_orani}</Text>
+                            </View>
+                          )}
                         </View>
                       </View>
                       {isSelected && (
@@ -534,7 +615,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   // Rows
   rowsContainer: {
@@ -545,6 +626,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: 14,
     padding: 14,
+    borderLeftWidth: 3,
+    borderLeftColor: 'transparent',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  rowCardFilled: {
+    borderLeftColor: colors.error,
   },
   rowHeader: {
     flexDirection: 'row',
@@ -663,16 +754,50 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 4,
   },
+  // KDV row (per-row)
+  kdvRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  kdvLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginRight: 2,
+  },
+  kdvChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+  },
+  kdvChipActive: {
+    backgroundColor: colors.errorLight,
+  },
+  kdvChipText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textMuted,
+  },
+  kdvChipTextActive: {
+    color: colors.error,
+    fontWeight: '700',
+  },
   // Row total
   rowTotalRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
     gap: 6,
   },
   rowTotalLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
   },
   rowTotalAmount: {
@@ -841,6 +966,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 3,
+    flexWrap: 'wrap',
   },
   codePill: {
     backgroundColor: colors.background,
@@ -856,6 +982,22 @@ const styles = StyleSheet.create({
   pickerItemStock: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  pickerItemPrice: {
+    fontSize: 12,
+    color: colors.error,
+    fontWeight: '600',
+  },
+  kdvPill: {
+    backgroundColor: colors.errorLight,
+    borderRadius: 4,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  kdvPillText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.error,
   },
   checkBadge: {
     width: 24,

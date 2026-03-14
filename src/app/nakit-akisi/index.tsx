@@ -70,6 +70,7 @@ export default function NakitAkisiPage() {
         fileName: t('common:export.cashFlowExcel.fileName'),
         shareDialogTitle: t('common:export.shareDialogTitle'),
         sharingNotSupported: t('common:export.sharingNotSupported'),
+        noDataError: t('common:export.noDataToExport'),
       };
       await exportCashFlowToExcel({
         isletmeName: isletme.name,

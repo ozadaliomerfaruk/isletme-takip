@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Cari, CariInsert, CariUpdate, CariType } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber, calculateBalanceSummary } from '@/lib/currency';
+import i18n from '@/i18n';
 
 export function useCariler(type?: CariType, includePassive: boolean = false, includeArchived: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -75,7 +76,7 @@ export function useCreateCari() {
 
   return useMutation({
     mutationFn: async (input: Omit<CariInsert, 'isletme_id'>) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('cariler')
@@ -99,7 +100,7 @@ export function useUpdateCari() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: CariUpdate & { id: string }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('cariler')
@@ -125,7 +126,7 @@ export function useDeleteCari() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Önce carinin bu işletmeye ait olduğunu doğrula
       const { data: cari, error: checkError } = await supabase
@@ -136,7 +137,7 @@ export function useDeleteCari() {
         .single();
 
       if (checkError || !cari) {
-        throw new Error('Cari bulunamadı veya erişim yetkiniz yok');
+        throw new Error(i18n.t('common:errors.clientNotFound'));
       }
 
       // İlişkili ileri tarihli işlemleri sil (ownership kontrolü ile)

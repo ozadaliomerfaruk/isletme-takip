@@ -30,9 +30,9 @@ type IslemType =
   | "personel_satis"
   | "nakit_avans_taksit";
 
-// Islem tipini Turkce'ye cevir
-function getIslemTypeLabel(type: IslemType): string {
-  const labels: Record<IslemType, string> = {
+// i18n: islem tipi etiketleri
+const islemTypeLabels: Record<string, Record<IslemType, string>> = {
+  tr: {
     gelir: "Gelir",
     gider: "Gider",
     transfer: "Transfer",
@@ -47,15 +47,47 @@ function getIslemTypeLabel(type: IslemType): string {
     personel_tahsilat: "Personelden Tahsilat",
     personel_satis: "Personele Satış",
     nakit_avans_taksit: "Nakit Avans Taksiti",
-  };
-  return labels[type] || type;
+  },
+  en: {
+    gelir: "Income",
+    gider: "Expense",
+    transfer: "Transfer",
+    cari_alis: "Supplier Purchase",
+    cari_satis: "Customer Sale",
+    cari_odeme: "Supplier Payment",
+    cari_tahsilat: "Customer Collection",
+    cari_alis_iade: "Purchase Return",
+    cari_satis_iade: "Sale Return",
+    personel_gider: "Staff Expense",
+    personel_odeme: "Staff Payment",
+    personel_tahsilat: "Staff Collection",
+    personel_satis: "Staff Sale",
+    nakit_avans_taksit: "Cash Advance Installment",
+  },
+};
+
+// i18n: bildirim metinleri
+const notificationTexts: Record<string, { title: string; unknownSender: string }> = {
+  tr: { title: "Bağlantılı Cari - Yeni İşlem", unknownSender: "Bağlantılı işletme" },
+  en: { title: "Linked Client - New Transaction", unknownSender: "Linked business" },
+};
+
+function getIslemTypeLabel(type: IslemType, lang: string): string {
+  const langLabels = islemTypeLabels[lang] || islemTypeLabels["tr"];
+  return langLabels[type] || type;
 }
 
-// Para formatla
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("tr-TR", {
+function getTexts(lang: string) {
+  return notificationTexts[lang] || notificationTexts["tr"];
+}
+
+// Para formatla (dil bazli)
+function formatCurrency(amount: number, lang: string): string {
+  const locale = lang === "en" ? "en-US" : "tr-TR";
+  const currency = lang === "en" ? "USD" : "TRY";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "TRY",
+    currency,
     minimumFractionDigits: 2,
   }).format(amount);
 }
@@ -84,7 +116,7 @@ Deno.serve(async (req) => {
     // Sadece INSERT islemlerini isle, cari_id olmayan islemleri atla
     if (type !== "INSERT" || !record?.cari_id) {
       return new Response(
-        JSON.stringify({ message: "Islem gerekmiyor (INSERT degil veya cari_id yok)" }),
+        JSON.stringify({ message: "No action needed (not INSERT or no cari_id)" }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -93,7 +125,7 @@ Deno.serve(async (req) => {
     }
 
     console.log(
-      `[notify-linked-users] Yeni islem: cari_id=${record.cari_id}, type=${record.type}, amount=${record.amount}`
+      `[notify-linked-users] New transaction: cari_id=${record.cari_id}, type=${record.type}, amount=${record.amount}`
     );
 
     // v2: cari_links tablosunda cari_id ile baglantili linkleri bul
@@ -103,14 +135,14 @@ Deno.serve(async (req) => {
       .eq("cari_id", record.cari_id);
 
     if (linkError) {
-      console.error("[notify-linked-users] Link sorgu hatasi:", linkError.message);
-      throw new Error(`Link sorgu hatasi: ${linkError.message}`);
+      console.error("[notify-linked-users] Link query error:", linkError.message);
+      throw new Error(`Link query error: ${linkError.message}`);
     }
 
     if (!links || links.length === 0) {
-      console.log("[notify-linked-users] Bu cari icin baglanti bulunamadi");
+      console.log("[notify-linked-users] No links found for this cari");
       return new Response(
-        JSON.stringify({ message: "Bu cari icin baglanti bulunamadi" }),
+        JSON.stringify({ message: "No links found for this cari" }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -135,10 +167,10 @@ Deno.serve(async (req) => {
           : link.viewer_isletme_id;
 
       console.log(
-        `[notify-linked-users] Baglanti: link_id=${link.id}, alici_isletme=${recipientIsletmeId}`
+        `[notify-linked-users] Link: link_id=${link.id}, recipient_isletme=${recipientIsletmeId}`
       );
 
-      // Alici isletmenin user_id'sini bul
+      // Alici isletmenin bilgilerini bul
       const { data: recipientIsletme, error: isletmeError } = await supabaseAdmin
         .from("isletmeler")
         .select("id, user_id, name")
@@ -147,28 +179,31 @@ Deno.serve(async (req) => {
 
       if (isletmeError || !recipientIsletme) {
         console.error(
-          "[notify-linked-users] Alici isletme bulunamadi:",
+          "[notify-linked-users] Recipient isletme not found:",
           isletmeError?.message
         );
         continue;
       }
 
-      // Push token'i bul
-      const { data: pushTokenRecord, error: tokenError } = await supabaseAdmin
-        .from("push_tokens")
-        .select("user_id, token")
-        .eq("user_id", recipientIsletme.user_id)
-        .maybeSingle();
+      // Bildirim gonderilecek tum kullanicilari topla: isletme sahibi + aktif ekip uyeleri
+      const recipientUserIds: string[] = [recipientIsletme.user_id];
 
-      if (tokenError) {
-        console.error("[notify-linked-users] Token sorgu hatasi:", tokenError.message);
-      }
+      // Isletmedeki aktif ekip uyelerini bul (cariler modulune erisimi olanlar)
+      const { data: teamMembers } = await supabaseAdmin
+        .from("isletme_users")
+        .select("user_id, permissions")
+        .eq("isletme_id", recipientIsletmeId)
+        .eq("status", "active");
 
-      if (!pushTokenRecord) {
-        console.log(
-          `[notify-linked-users] Push token bulunamadi: user_id=${recipientIsletme.user_id}`
-        );
-        continue;
+      if (teamMembers) {
+        for (const member of teamMembers) {
+          // cariler modulune erisimi olan ekip uyelerini ekle
+          const hasCarilerAccess =
+            member.permissions?.modules?.cariler === true;
+          if (hasCarilerAccess && !recipientUserIds.includes(member.user_id)) {
+            recipientUserIds.push(member.user_id);
+          }
+        }
       }
 
       // Gonderen isletme adini bul
@@ -178,63 +213,88 @@ Deno.serve(async (req) => {
         .eq("id", senderIsletmeId)
         .single();
 
-      const senderName = senderIsletme?.name || "Bağlantılı işletme";
+      // Her alici kullaniciya bildirim gonder
+      for (const userId of recipientUserIds) {
+        // Push token'i bul
+        const { data: pushTokenRecord, error: tokenError } = await supabaseAdmin
+          .from("push_tokens")
+          .select("user_id, token, locale")
+          .eq("user_id", userId)
+          .maybeSingle();
 
-      // Bildirim mesajini olustur
-      const islemTypeLabel = getIslemTypeLabel(record.type as IslemType);
-      const formattedAmount = formatCurrency(record.amount);
+        if (tokenError) {
+          console.error("[notify-linked-users] Token query error:", tokenError.message);
+        }
 
-      const title = "Bağlantılı Cari - Yeni İşlem";
-      const body = `${senderName}: ${islemTypeLabel} - ${formattedAmount}${
-        record.description ? ` (${record.description})` : ""
-      }`;
+        if (!pushTokenRecord) {
+          console.log(
+            `[notify-linked-users] No push token found: user_id=${userId}`
+          );
+          continue;
+        }
 
-      // Expo Push Notification gonder
-      const message = {
-        to: pushTokenRecord.token,
-        sound: "default",
-        title,
-        body,
-        data: {
-          type: "linked_cari_transaction",
-          cari_id: record.cari_id,
-          islem_id: record.id,
-          isletme_id: recipientIsletmeId,
-        },
-        priority: "high",
-        channelId: "default",
-      };
+        // Kullanicinin dil tercihini belirle
+        const lang = pushTokenRecord.locale?.startsWith("en") ? "en" : "tr";
+        const texts = getTexts(lang);
+        const senderName = senderIsletme?.name || texts.unknownSender;
 
-      console.log(`[notify-linked-users] Push notification gonderiliyor: ${pushTokenRecord.token}`);
+        // Bildirim mesajini olustur
+        const islemTypeLabel = getIslemTypeLabel(record.type as IslemType, lang);
+        const formattedAmount = formatCurrency(record.amount, lang);
 
-      const pushResponse = await fetch("https://exp.host/--/api/v2/push/send", {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Accept-encoding": "gzip, deflate",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(message),
-      });
+        const title = texts.title;
+        const body = `${senderName}: ${islemTypeLabel} - ${formattedAmount}${
+          record.description ? ` (${record.description})` : ""
+        }`;
 
-      const pushResult = await pushResponse.json();
+        // Expo Push Notification gonder
+        const message = {
+          to: pushTokenRecord.token,
+          sound: "default",
+          title,
+          body,
+          data: {
+            type: "linked_cari_transaction",
+            cari_id: record.cari_id,
+            islem_id: record.id,
+            isletme_id: recipientIsletmeId,
+          },
+          priority: "high",
+          channelId: "default",
+        };
 
-      if (pushResult.data?.status === "error") {
-        console.error(
-          "[notify-linked-users] Push notification hatasi:",
-          pushResult.data.message
-        );
-      } else {
-        sentCount++;
+        console.log(`[notify-linked-users] Sending push notification: ${pushTokenRecord.token}`);
+
+        const pushResponse = await fetch("https://exp.host/--/api/v2/push/send", {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            "Accept-encoding": "gzip, deflate",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(message),
+        });
+
+        const pushResult = await pushResponse.json();
+
+        if (pushResult.data?.status === "error") {
+          console.error(
+            "[notify-linked-users] Push notification error:",
+            pushResult.data.message
+          );
+        } else {
+          sentCount++;
+        }
+
+        results.push({
+          recipient_user: userId,
+          recipient_isletme: recipientIsletme.name,
+          result: pushResult,
+        });
       }
-
-      results.push({
-        recipient: recipientIsletme.name,
-        result: pushResult,
-      });
     }
 
-    console.log(`[notify-linked-users] Toplam ${sentCount}/${links.length} bildirim gonderildi`);
+    console.log(`[notify-linked-users] Sent ${sentCount} notifications for ${links.length} links`);
 
     return new Response(
       JSON.stringify({
@@ -250,8 +310,8 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     const errorMessage =
-      error instanceof Error ? error.message : "Bilinmeyen hata";
-    console.error("[notify-linked-users] Hata:", errorMessage);
+      error instanceof Error ? error.message : "Unknown error";
+    console.error("[notify-linked-users] Error:", errorMessage);
 
     return new Response(
       JSON.stringify({

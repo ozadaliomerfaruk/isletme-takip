@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronDown, ArrowRight, Bell } from 'lucide-react-native';
 import { Text, Input, Button, Card, DateTimePicker, CurrencyInput, ReminderSettings } from '@/components/ui';
+import { usePagePermission } from '@/hooks/usePagePermission';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -37,6 +38,7 @@ const errorKeyMap: Record<string, string> = {
 export default function TransferPage() {
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common', 'errors']);
+  usePagePermission({ module: 'islemler', action: 'create' });
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
 

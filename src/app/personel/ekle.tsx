@@ -24,10 +24,12 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function PersonelEklePage() {
   const router = useRouter();
   const { t, i18n } = useTranslation(['staff', 'common', 'errors']);
+  usePagePermission({ module: 'personel', action: 'create' });
   const { locale, formatDateNative } = useDateFormat();
   const createPersonel = useCreatePersonel();
 

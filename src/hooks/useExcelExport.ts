@@ -91,6 +91,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
         statementFileName: t('common:export.excel.statementFileName'),
         shareDialogTitle: t('common:export.shareDialogTitle'),
         sharingNotSupported: t('common:export.sharingNotSupported'),
+        noDataError: t('common:export.noDataToExport'),
       };
 
       // Export işlemini gerçekleştiren fonksiyon

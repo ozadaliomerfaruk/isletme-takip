@@ -32,6 +32,7 @@ interface AuthContextType {
   // Multi-user methods
   switchToSharedIsletme: (isletme: Isletme, permissions: Permissions, role: UserRole) => Promise<void>;
   switchToOwnIsletme: () => void;
+  refreshPermissions: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

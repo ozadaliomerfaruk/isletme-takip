@@ -21,7 +21,9 @@
   },
   "permissions": {
     "noModuleAccess": "Bu modüle erişim yetkiniz yok",
-    "noActionAccess": "Bu işlem için yetkiniz yok"
+    "noActionAccess": "Bu işlem için yetkiniz yok",
+    "denied": "Erişim Engellendi",
+    "ownerOnly": "Bu sayfa sadece işletme sahibi tarafından kullanılabilir"
   },
   "users": {
     "title": "Kullanıcılar",

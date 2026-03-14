@@ -19,11 +19,13 @@ import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categ
 import { useCreateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriEklePage() {
   const router = useRouter();
   const { type: initialType } = useLocalSearchParams<{ type?: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
+  usePagePermission({ module: 'kategoriler', action: 'create' });
   const createKategori = useCreateKategori();
 
   const [name, setName] = useState('');

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { IslemAuditLog, AuditLogFilters } from '@/types/multiUser';
+import i18n from '@/i18n';
 
 // Silinen işlemler
 export function useDeletedIslemler(filters?: AuditLogFilters) {
@@ -10,7 +11,7 @@ export function useDeletedIslemler(filters?: AuditLogFilters) {
   return useQuery({
     queryKey: ['audit-log', 'deleted', isletme?.id, filters],
     queryFn: async () => {
-      if (!isletme) throw new Error('Isletme not available');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
       let query = supabase
         .from('islem_audit_log')
         .select('*, performer:profiles!performed_by(*)')
@@ -41,7 +42,7 @@ export function useEditedIslemler(filters?: AuditLogFilters) {
   return useQuery({
     queryKey: ['audit-log', 'edited', isletme?.id, filters],
     queryFn: async () => {
-      if (!isletme) throw new Error('Isletme not available');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
       let query = supabase
         .from('islem_audit_log')
         .select('*, performer:profiles!performed_by(*)')

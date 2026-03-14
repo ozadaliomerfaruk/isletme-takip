@@ -18,10 +18,12 @@ import { HesapType, Currency } from '@/types/database';
 import { DEFAULT_CURRENCY } from '@/constants/currencies';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function HesapEklePage() {
   const router = useRouter();
   const { t } = useTranslation(['accounts', 'common', 'errors']);
+  usePagePermission({ module: 'hesaplar', action: 'create' });
   const createHesap = useCreateHesap();
   const insets = useSafeAreaInsets();
 

@@ -11,6 +11,7 @@ import {
   NakitAvansTaksitInsert,
   NakitAvansTaksitUpdate,
 } from '@/types/database';
+import i18n from '@/i18n';
 
 /**
  * Bir kredi kartına ait nakit avansları getir
@@ -76,7 +77,7 @@ export function useNakitAvans(id: string | undefined) {
         .single();
 
       if (error) throw error;
-      if (!data) throw new Error('Nakit avans bulunamadı');
+      if (!data) throw new Error(i18n.t('common:errors.cashAdvanceNotFound'));
 
       // Normalize data
       return {
@@ -101,7 +102,7 @@ export function useCreateNakitAvans() {
 
   return useMutation({
     mutationFn: async (data: Omit<NakitAvansInsert, 'isletme_id'> & { taksitler?: Omit<NakitAvansTaksitInsert, 'nakit_avans_id'>[] }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { taksitler, ...avansData } = data;
 
@@ -120,7 +121,7 @@ export function useCreateNakitAvans() {
       });
 
       if (rpcError) throw rpcError;
-      if (!avansId) throw new Error('Nakit avans oluşturulamadı');
+      if (!avansId) throw new Error(i18n.t('common:errors.cashAdvanceCreationFailed'));
 
       // 2. Taksitler varsa ekle ve her taksit için kredi kartı ekstresine işlem yaz
       if (taksitler && taksitler.length > 0) {
@@ -154,7 +155,7 @@ export function useCreateNakitAvans() {
 
           if (islemError) {
             console.error('Taksit işlemleri eklenirken hata:', islemError);
-            throw new Error(`Taksit işlemleri oluşturulamadı: ${islemError.message}`);
+            throw new Error(i18n.t('common:errors.installmentCreationFailed', { message: islemError.message }));
           }
         }
       } else {
@@ -173,7 +174,7 @@ export function useCreateNakitAvans() {
 
         if (islemError) {
           console.error('Nakit avans işlemi eklenirken hata:', islemError);
-          throw new Error(`Nakit avans işlemi oluşturulamadı: ${islemError.message}`);
+          throw new Error(i18n.t('common:errors.cashAdvanceTransactionFailed', { message: islemError.message }));
         }
       }
 
@@ -203,7 +204,7 @@ export function useUpdateNakitAvans() {
 
   return useMutation({
     mutationFn: async ({ id, ...data }: NakitAvansUpdate & { id: string }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data: avans, error } = await supabase
         .from('nakit_avanslar')
@@ -232,7 +233,7 @@ export function useDeleteNakitAvans() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Atomik RPC ile sil - bakiye reversal dahil
       const { error } = await supabase.rpc('delete_nakit_avans_with_reversal', {
@@ -258,7 +259,7 @@ export function usePayTaksit() {
 
   return useMutation({
     mutationFn: async ({ taksitId, sourceHesapId }: { taksitId: string; sourceHesapId: string }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Atomik RPC ile taksit öde
       const { error: rpcError } = await supabase.rpc('perform_taksit_odeme', {

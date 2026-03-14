@@ -23,6 +23,7 @@ import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { cariOdemeSchema, type CariOdemeFormData } from '@/lib/schemas/paymentForm';
@@ -38,6 +39,7 @@ const errorKeyMap: Record<string, string> = {
 export default function CariOdemePage() {
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients']);
+  usePagePermission({ module: 'islemler', action: 'create' });
   const params = useLocalSearchParams<{ cari_id?: string; hesap_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();

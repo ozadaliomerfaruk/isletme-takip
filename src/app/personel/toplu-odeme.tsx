@@ -28,10 +28,12 @@ import { formatDateTimeForDB, isToday } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function TopluOdemePage() {
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'transactions', 'accounts']);
+  usePagePermission({ module: 'personel', action: 'create' });
   const createIslem = useCreateIslem();
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;

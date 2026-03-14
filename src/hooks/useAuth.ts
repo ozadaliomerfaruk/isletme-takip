@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { Isletme } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import type { Permissions, UserRole } from '@/types/multiUser';
+import i18n from '@/i18n';
 
 // Google auth session için gerekli
 WebBrowser.maybeCompleteAuthSession();
@@ -507,6 +508,35 @@ export function useAuth() {
         if (timeSinceLastRefresh > ONE_MINUTE && state.session) {
           await refreshSession();
         }
+
+        // Paylaşılan moddayken yetkileri de yenile
+        if (!state.isOwner && state.isletme && state.user) {
+          try {
+            const { data, error } = await supabase
+              .from('isletme_users')
+              .select('permissions, role, status')
+              .eq('isletme_id', state.isletme.id)
+              .eq('user_id', state.user.id)
+              .eq('status', 'active')
+              .single();
+
+            if (error || !data) {
+              // Kullanıcı artık bu işletmede aktif değil
+              setState((prev) => {
+                if (!prev.ownIsletme) return prev;
+                return { ...prev, isletme: prev.ownIsletme, isOwner: true, currentPermissions: null, currentUserRole: 'owner' };
+              });
+            } else {
+              setState((prev) => ({
+                ...prev,
+                currentPermissions: data.permissions as Permissions,
+                currentUserRole: data.role as UserRole,
+              }));
+            }
+          } catch {
+            // Sessizce hata yut
+          }
+        }
       }
 
       appState.current = nextAppState;
@@ -517,7 +547,7 @@ export function useAuth() {
     return () => {
       subscription.remove();
     };
-  }, [state.session, refreshSession]);
+  }, [state.session, state.isOwner, state.isletme, state.user, refreshSession]);
 
   // Periyodik token kontrolü - her 2 dakikada bir token süresini kontrol et
   useEffect(() => {
@@ -567,7 +597,7 @@ export function useAuth() {
 
     if (!authData.user) {
       setState((prev) => ({ ...prev, loading: false }));
-      throw new Error('Kullanıcı oluşturulamadı');
+      throw new Error(i18n.t('common:errors.userCreationFailed'));
     }
 
     // İşletme oluştur
@@ -586,7 +616,7 @@ export function useAuth() {
       }
       // Auth'u geri almak zor, bu yüzden kullanıcıya hata göster
       setState((prev) => ({ ...prev, loading: false }));
-      throw new Error('İşletme oluşturulamadı. Lütfen tekrar deneyin.');
+      throw new Error(i18n.t('common:errors.businessCreationFailed'));
     }
 
     setState((prev) => ({
@@ -658,7 +688,7 @@ export function useAuth() {
       });
 
       if (!credential.identityToken) {
-        throw new Error('Apple kimlik doğrulama başarısız');
+        throw new Error(i18n.t('common:errors.appleAuthFailed'));
       }
 
       // Supabase ile oturum aç
@@ -728,7 +758,7 @@ export function useAuth() {
   // Hesap silme isteği (7 gün sonra silinecek)
   const deleteAccount = async () => {
     if (!state.user || !state.ownIsletme) {
-      throw new Error('Kullanıcı bulunamadı');
+      throw new Error(i18n.t('common:errors.userNotFound'));
     }
 
     setState((prev) => ({ ...prev, loading: true }));
@@ -773,7 +803,7 @@ export function useAuth() {
   // Hesap silme isteğini iptal et
   const cancelAccountDeletion = async () => {
     if (!state.user || !state.ownIsletme) {
-      throw new Error('Kullanıcı bulunamadı');
+      throw new Error(i18n.t('common:errors.userNotFound'));
     }
 
     setState((prev) => ({ ...prev, loading: true }));
@@ -805,7 +835,7 @@ export function useAuth() {
   // Şifre değiştir (mevcut şifre doğrulaması yok - kullanıcı zaten giriş yapmış)
   const changePassword = async (newPassword: string) => {
     if (!state.user?.email) {
-      throw new Error('Kullanıcı bulunamadı');
+      throw new Error(i18n.t('common:errors.userNotFound'));
     }
 
     const { error: updateError } = await supabase.auth.updateUser({
@@ -858,6 +888,34 @@ export function useAuth() {
   // Paylaşılan modda mıyız?
   const isSharedMode = !state.isOwner;
 
+  // Paylaşılan moddayken yetkileri yeniden yükle
+  const refreshPermissions = useCallback(async () => {
+    if (state.isOwner || !state.user || !state.isletme) return;
+    try {
+      const { data, error } = await supabase
+        .from('isletme_users')
+        .select('permissions, role, status')
+        .eq('isletme_id', state.isletme.id)
+        .eq('user_id', state.user.id)
+        .eq('status', 'active')
+        .single();
+
+      if (error || !data) {
+        // Kullanıcı artık bu işletmede aktif değil, kendi işletmesine dön
+        switchToOwnIsletme();
+        return;
+      }
+
+      setState((prev) => ({
+        ...prev,
+        currentPermissions: data.permissions as Permissions,
+        currentUserRole: data.role as UserRole,
+      }));
+    } catch {
+      // Sessizce hata yut - bir sonraki refresh'te tekrar dener
+    }
+  }, [state.isOwner, state.user, state.isletme, switchToOwnIsletme]);
+
   return {
     ...state,
     isSharedMode,
@@ -874,5 +932,6 @@ export function useAuth() {
     clearPasswordReset,
     switchToSharedIsletme,
     switchToOwnIsletme,
+    refreshPermissions,
   };
 }

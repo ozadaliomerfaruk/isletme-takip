@@ -19,6 +19,7 @@ import {
 import { IslemInsert, IslemType } from '@/types/database';
 import { safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 
+import i18n from '@/i18n';
 import {
   ImportProgress,
   ImportResult,
@@ -71,7 +72,7 @@ export function useDataImport() {
     skipDuplicates: boolean = false,
     duplicatesMap: Map<number, import('./useDataImport.types').DuplicateInfo> = new Map()
   ): Promise<{ created: number; skipped: number; skippedTransactions: SkippedTransaction[]; errors: string[]; transactionIds: string[] }> => {
-    if (!isletme) return { created: 0, skipped: 0, skippedTransactions: [], errors: ['İşletme bulunamadı'], transactionIds: [] };
+    if (!isletme) return { created: 0, skipped: 0, skippedTransactions: [], errors: [i18n.t('common:errors.businessNotFound')], transactionIds: [] };
 
     const errors: string[] = [];
     const skippedTransactions: SkippedTransaction[] = [];
@@ -400,7 +401,7 @@ export function useDataImport() {
     preview: ImportPreview,
     accountMappings: Record<string, AccountMapping>
   ): Promise<ImportResult> => {
-    if (!isletme) return { ...EMPTY_IMPORT_RESULT, errors: ['İşletme bulunamadı'] };
+    if (!isletme) return { ...EMPTY_IMPORT_RESULT, errors: [i18n.t('common:errors.businessNotFound')] };
 
     setProgress({
       ...EMPTY_PROGRESS,
@@ -478,7 +479,7 @@ export function useDataImport() {
     if (options.dryRun) return simulateImport(preview, accountMappings);
 
     if (!isletme) {
-      const errorResult = { ...EMPTY_IMPORT_RESULT, errors: ['İşletme bulunamadı'] };
+      const errorResult = { ...EMPTY_IMPORT_RESULT, errors: [i18n.t('common:errors.businessNotFound')] };
       setResult(errorResult);
       return errorResult;
     }

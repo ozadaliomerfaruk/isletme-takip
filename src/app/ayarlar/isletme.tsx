@@ -22,10 +22,12 @@ import { useUpdateIsletme } from '@/hooks/useIsletme';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { parseDateFromDB } from '@/lib/date';
 import { useAuth } from '@/hooks/useAuth';
+import { useRequireOwner } from '@/hooks/usePagePermission';
 
 export default function IsletmeBilgileriPage() {
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
+  useRequireOwner();
   const { formatDateNative } = useDateFormat();
   const { isletme, user } = useAuthContext();
   const updateIsletme = useUpdateIsletme();

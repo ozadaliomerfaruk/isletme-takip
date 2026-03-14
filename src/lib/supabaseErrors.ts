@@ -5,6 +5,8 @@
  * Tüm Supabase hatalarını tutarlı bir şekilde işlemek için kullanılır.
  */
 
+import i18n from '@/i18n';
+
 /**
  * Supabase error kodları
  * https://postgrest.org/en/stable/errors.html
@@ -51,7 +53,7 @@ export class SupabaseError extends Error {
  */
 export function createSupabaseError(error: unknown): SupabaseError {
   if (!error) {
-    return new SupabaseError('UNKNOWN', 'Bilinmeyen bir hata oluştu');
+    return new SupabaseError('UNKNOWN', i18n.t('common:errors.unknownError'));
   }
 
   // Zaten SupabaseError ise direkt döndür
@@ -68,7 +70,7 @@ export function createSupabaseError(error: unknown): SupabaseError {
   };
 
   const code = errorObj.code || 'UNKNOWN';
-  const message = errorObj.message || 'Bir hata oluştu';
+  const message = errorObj.message || i18n.t('common:errors.genericError');
 
   return new SupabaseError(code, message, error);
 }
@@ -116,7 +118,7 @@ export function isUniqueViolationError(error: unknown): boolean {
  * Kullanıcı dostu hata mesajı döndürür
  */
 export function getErrorMessage(error: unknown): string {
-  if (!error) return 'Bilinmeyen bir hata oluştu';
+  if (!error) return i18n.t('common:errors.unknownError');
 
   const errorObj = error as { code?: string; message?: string };
   const code = errorObj.code;
@@ -124,37 +126,37 @@ export function getErrorMessage(error: unknown): string {
   // Özel mesajlar
   switch (code) {
     case SUPABASE_ERROR_CODES.NO_ROWS:
-      return 'Kayıt bulunamadı';
+      return i18n.t('common:errors.recordNotFound');
 
     case SUPABASE_ERROR_CODES.PERMISSION_DENIED:
-      return 'Bu işlem için yetkiniz bulunmuyor';
+      return i18n.t('common:errors.permissionDenied');
 
     case SUPABASE_ERROR_CODES.FOREIGN_KEY_VIOLATION:
-      return 'Bu kayıt başka kayıtlarla ilişkili olduğu için işlem yapılamıyor';
+      return i18n.t('common:errors.foreignKeyViolation');
 
     case SUPABASE_ERROR_CODES.UNIQUE_VIOLATION:
-      return 'Bu kayıt zaten mevcut';
+      return i18n.t('common:errors.uniqueViolation');
 
     case SUPABASE_ERROR_CODES.NOT_NULL_VIOLATION:
-      return 'Zorunlu alanlar boş bırakılamaz';
+      return i18n.t('common:errors.notNullViolation');
 
     case SUPABASE_ERROR_CODES.CHECK_VIOLATION:
-      return 'Girilen değerler geçersiz';
+      return i18n.t('common:errors.checkViolation');
 
     case SUPABASE_ERROR_CODES.INVALID_CREDENTIALS:
-      return 'E-posta veya şifre hatalı';
+      return i18n.t('common:errors.invalidCredentials');
 
     case SUPABASE_ERROR_CODES.EMAIL_NOT_CONFIRMED:
-      return 'E-posta adresinizi doğrulamanız gerekiyor';
+      return i18n.t('common:errors.emailNotConfirmed');
 
     case SUPABASE_ERROR_CODES.USER_NOT_FOUND:
-      return 'Kullanıcı bulunamadı';
+      return i18n.t('common:errors.userNotFound');
 
     case SUPABASE_ERROR_CODES.SESSION_EXPIRED:
-      return 'Oturum süresi doldu, lütfen tekrar giriş yapın';
+      return i18n.t('common:errors.sessionExpired');
 
     default:
-      return errorObj.message || 'Bir hata oluştu';
+      return errorObj.message || i18n.t('common:errors.genericError');
   }
 }
 

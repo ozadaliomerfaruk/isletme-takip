@@ -137,6 +137,7 @@
     "addRow": "Add Row",
     "selectProduct": "Select Product",
     "noProducts": "No products added yet",
+    "noEntries": "Enter a quantity for at least one product",
     "success": "{{count}} product movements saved",
     "selectAll": "Select All",
     "selectNone": "Select None"
@@ -149,6 +150,7 @@
     "linkedTo": "Linked to {{name}}",
     "vatRate": "VAT Rate",
     "totalWithVat": "Total: {{total}} (VAT: {{vat}})",
+    "subtotal": "Subtotal",
     "successSingle": "Product movement and client transaction saved",
     "successBulk": "{{count}} product movements and client transaction saved"
   },

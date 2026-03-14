@@ -12,6 +12,7 @@ import type {
   RoleTemplate,
 } from '@/types/multiUser';
 import type { Isletme } from '@/types/database';
+import i18n from '@/i18n';
 
 // İşletme kullanıcıları (owner ve yetkili paylaşılan kullanıcılar görebilir)
 export function useIsletmeUsers() {
@@ -43,7 +44,8 @@ export function useIsletmeInvites() {
         .from('isletme_invites')
         .select('*')
         .eq('isletme_id', isletme!.id)
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString());
       if (error) throw error;
       return data as IsletmeInvite[];
     },
@@ -164,7 +166,7 @@ export function useCancelInvite() {
 
   return useMutation({
     mutationFn: async (inviteId: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
       const { error } = await supabase
         .from('isletme_invites')
         .update({ status: 'cancelled' })

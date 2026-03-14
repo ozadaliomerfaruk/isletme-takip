@@ -12,6 +12,9 @@ import {
   ActivityIndicator,
   Text as RNText,
   Platform,
+  StyleSheet,
+  ScrollView,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +31,10 @@ import { CariLinkSection } from './CariLinkSection';
 import { toErrorMessage } from '@/lib/errors';
 import { useSettings } from '@/hooks/useSettings';
 import { getCurrencySymbol } from '@/constants/currencies';
+
 import { formatCurrency } from '@/lib/currency';
+
+const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
 type UrunType = 'giris' | 'cikis' | 'duzeltme';
 
@@ -95,6 +101,7 @@ export function QuickUrunBar({
     const kdvAmount = subtotal * (kdvOrani / 100);
     const total = subtotal + kdvAmount;
     return {
+      subtotal: formatCurrency(subtotal, currency),
       total: formatCurrency(total, currency),
       kdv: kdvAmount > 0 ? formatCurrency(kdvAmount, currency) : null,
     };
@@ -343,6 +350,10 @@ export function QuickUrunBar({
     ? keyboardHeight
     : insets.bottom + TAB_BAR_HEIGHT + 10;
 
+  // Constrain card height so it never overflows above the screen
+  const screenHeight = Dimensions.get('window').height;
+  const cardMaxHeight = screenHeight - cardBottom - insets.top - 20;
+
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
       {/* Backdrop - tap to dismiss keyboard */}
@@ -356,12 +367,13 @@ export function QuickUrunBar({
           styles.card,
           {
             bottom: cardBottom,
+            maxHeight: cardMaxHeight,
             opacity: opacity,
             transform: [{ translateY: translateY }],
           },
         ]}
       >
-        {/* Header: Urun Info + Close */}
+        {/* Header: Urun Info + Close (pinned top) */}
         <View style={styles.header}>
           <View style={styles.urunInfo}>
             <View style={styles.urunIcon}>
@@ -381,95 +393,132 @@ export function QuickUrunBar({
           </TouchableOpacity>
         </View>
 
-        {/* Date Picker Button */}
-        <TouchableOpacity
-          style={styles.dateButton}
-          onPress={() => {
-            Keyboard.dismiss();
-            setShowDatePicker(true);
-          }}
+        {/* Scrollable content area */}
+        <ScrollView
+          bounces={false}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Calendar size={18} color={colors.textSecondary} />
-          <RNText style={styles.dateText}>{formatDateMedium(tarih)}</RNText>
-        </TouchableOpacity>
+          {/* Date Picker Button */}
+          <TouchableOpacity
+            style={styles.dateButton}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowDatePicker(true);
+            }}
+          >
+            <Calendar size={18} color={colors.textSecondary} />
+            <RNText style={styles.dateText}>{formatDateMedium(tarih)}</RNText>
+          </TouchableOpacity>
 
-        {/* Amount Input Row */}
-        <View style={styles.inputRow}>
-          <View style={styles.amountInputContainer}>
-            <TextInput
-              ref={amountInputRef}
-              style={styles.amountInput}
-              value={miktar}
-              onChangeText={setMiktar}
-              placeholder={urunType === 'duzeltme'
-                ? `${t('products:stock.currentStock')}: ${urun.miktar}`
-                : t('products:stock.quantity')}
-              placeholderTextColor={colors.textMuted}
-              keyboardType="decimal-pad"
-              returnKeyType={urunType === 'duzeltme' ? 'done' : 'next'}
-              onSubmitEditing={urunType === 'duzeltme' ? handleSave : undefined}
-            />
-          </View>
-          <RNText style={styles.unitLabel}>{getBirimLabel(urun.birim)}</RNText>
-        </View>
-
-        {/* Price Input Row (hidden for adjustment) */}
-        {urunType !== 'duzeltme' && (
+          {/* Amount Input Row */}
           <View style={styles.inputRow}>
             <View style={styles.amountInputContainer}>
               <TextInput
-                style={styles.priceInput}
-                value={birimFiyat}
-                onChangeText={setBirimFiyat}
-                placeholder={`${t('products:stock.unitPrice')} (${t('common:labels.optional')})`}
+                ref={amountInputRef}
+                style={styles.amountInput}
+                value={miktar}
+                onChangeText={setMiktar}
+                placeholder={urunType === 'duzeltme'
+                  ? `${t('products:stock.currentStock')}: ${urun.miktar}`
+                  : t('products:stock.quantity')}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
-                returnKeyType="done"
-                onSubmitEditing={handleSave}
+                returnKeyType={urunType === 'duzeltme' ? 'done' : 'next'}
+                onSubmitEditing={urunType === 'duzeltme' ? handleSave : undefined}
               />
             </View>
-            <RNText style={styles.unitLabel}>{getCurrencySymbol(currency)}</RNText>
+            <RNText style={styles.unitLabel}>{getBirimLabel(urun.birim)}</RNText>
           </View>
-        )}
 
-        {/* Cari Link Section (hidden for adjustment and edit mode) */}
-        {urunType !== 'duzeltme' && !isEditMode && (
-          <CariLinkSection
-            enabled={cariLinkEnabled}
-            onToggle={(val) => {
-              setCariLinkEnabled(val);
-              if (!val) setSelectedCariId(null);
-            }}
-            selectedCariId={selectedCariId}
-            onSelectCari={setSelectedCariId}
-            kdvOrani={kdvOrani}
-            onKdvChange={setKdvOrani}
-            hareketTipi={urunType as 'giris' | 'cikis'}
-            totalDisplay={cariTotals?.total}
-            kdvDisplay={cariTotals?.kdv ?? undefined}
-          />
-        )}
-
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[
-            styles.saveButton,
-            urunType === 'giris' ? styles.saveButtonGiris : urunType === 'cikis' ? styles.saveButtonCikis : styles.saveButtonDuzeltme,
-            (!isValidAmount || isPending) && styles.saveButtonDisabled,
-          ]}
-          onPress={handleSave}
-          disabled={!isValidAmount || isPending}
-        >
-          {isPending ? (
-            <ActivityIndicator size="small" color={colors.white} />
-          ) : (
-            <RNText style={styles.saveButtonText}>
-              {isEditMode ? t('common:buttons.update') : t('common:buttons.save')}
-            </RNText>
+          {/* Price Input Row (hidden for adjustment) */}
+          {urunType !== 'duzeltme' && (
+            <View style={styles.inputRow}>
+              <View style={styles.amountInputContainer}>
+                <TextInput
+                  style={styles.priceInput}
+                  value={birimFiyat}
+                  onChangeText={setBirimFiyat}
+                  placeholder={`${t('products:stock.unitPrice')} (${t('common:labels.optional')})`}
+                  placeholderTextColor={colors.textMuted}
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
+                />
+              </View>
+              <RNText style={styles.unitLabel}>{getCurrencySymbol(currency)}</RNText>
+            </View>
           )}
-        </TouchableOpacity>
 
-        {/* Tabs: Ürün Giriş / Ürün Çıkış / Düzeltme */}
+          {/* Cari Link Section (hidden for adjustment and edit mode) */}
+          {urunType !== 'duzeltme' && !isEditMode && (
+            <>
+              <CariLinkSection
+                enabled={cariLinkEnabled}
+                onToggle={(val) => {
+                  setCariLinkEnabled(val);
+                  if (!val) setSelectedCariId(null);
+                }}
+                selectedCariId={selectedCariId}
+                onSelectCari={setSelectedCariId}
+                hareketTipi={urunType as 'giris' | 'cikis'}
+                subtotalDisplay={cariTotals?.subtotal}
+                totalDisplay={cariTotals?.total}
+                kdvDisplay={cariTotals?.kdv ?? undefined}
+              />
+              {cariLinkEnabled && (
+                <View style={kdvStyles.row}>
+                  <RNText style={kdvStyles.label}>{t('common:currency.vat')}:</RNText>
+                  {KDV_ORANLARI.map((rate) => {
+                    const isActive = kdvOrani === rate;
+                    const accentColor = urunType === 'giris' ? colors.primary : colors.error;
+                    const lightColor = urunType === 'giris' ? colors.primaryLight : colors.errorLight;
+                    return (
+                      <TouchableOpacity
+                        key={rate}
+                        style={[
+                          kdvStyles.chip,
+                          isActive && { backgroundColor: lightColor },
+                        ]}
+                        onPress={() => setKdvOrani(rate)}
+                      >
+                        <RNText
+                          style={[
+                            kdvStyles.chipText,
+                            isActive && { color: accentColor, fontWeight: '700' },
+                          ]}
+                        >
+                          %{rate}
+                        </RNText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </>
+          )}
+
+          {/* Save Button */}
+          <TouchableOpacity
+            style={[
+              styles.saveButton,
+              urunType === 'giris' ? styles.saveButtonGiris : urunType === 'cikis' ? styles.saveButtonCikis : styles.saveButtonDuzeltme,
+              (!isValidAmount || isPending) && styles.saveButtonDisabled,
+            ]}
+            onPress={handleSave}
+            disabled={!isValidAmount || isPending}
+          >
+            {isPending ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <RNText style={styles.saveButtonText}>
+                {isEditMode ? t('common:buttons.update') : t('common:buttons.save')}
+              </RNText>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+
+        {/* Tabs: Ürün Giriş / Ürün Çıkış / Düzeltme (pinned bottom) */}
         <View style={styles.tabs}>
           <TouchableOpacity
             style={[
@@ -478,7 +527,12 @@ export function QuickUrunBar({
             ]}
             onPress={() => {
               setUrunType('giris');
-              if (!isEditMode) setBirimFiyat(getPriceForType('giris'));
+              if (!isEditMode) {
+                setBirimFiyat(getPriceForType('giris'));
+                setKdvOrani((urun?.kdv_orani ?? 0) as KdvOrani);
+              }
+              setCariLinkEnabled(false);
+              setSelectedCariId(null);
             }}
             activeOpacity={0.7}
           >
@@ -498,7 +552,12 @@ export function QuickUrunBar({
             ]}
             onPress={() => {
               setUrunType('cikis');
-              if (!isEditMode) setBirimFiyat(getPriceForType('cikis'));
+              if (!isEditMode) {
+                setBirimFiyat(getPriceForType('cikis'));
+                setKdvOrani((urun?.kdv_orani ?? 0) as KdvOrani);
+              }
+              setCariLinkEnabled(false);
+              setSelectedCariId(null);
             }}
             activeOpacity={0.7}
           >
@@ -519,6 +578,8 @@ export function QuickUrunBar({
             onPress={() => {
               setUrunType('duzeltme');
               setBirimFiyat('');
+              setCariLinkEnabled(false);
+              setSelectedCariId(null);
             }}
             activeOpacity={0.7}
           >
@@ -576,3 +637,29 @@ export function QuickUrunBar({
     </Modal>
   );
 }
+
+const kdvStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+  },
+  label: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginRight: 2,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textMuted,
+  },
+});

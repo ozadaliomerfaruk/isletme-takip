@@ -11,6 +11,7 @@ import {
   getDateRange,
   type PeriodType as DatePeriodType,
 } from '@/lib/date';
+import i18n from '@/i18n';
 
 interface IslemFilters {
   type?: IslemType;
@@ -134,7 +135,7 @@ export function useCreateIslem() {
 
   return useMutation({
     mutationFn: async (input: Omit<IslemInsert, 'isletme_id'>) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('islemler')
@@ -570,7 +571,7 @@ export function useUpdateIslem() {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<IslemInsert, 'isletme_id'>> }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Önce mevcut işlemi al
       const { data: oldIslem, error: fetchError } = await supabase
@@ -581,7 +582,7 @@ export function useUpdateIslem() {
         .single();
 
       if (fetchError) throw fetchError;
-      if (!oldIslem) throw new Error('İşlem bulunamadı veya erişim yetkiniz yok');
+      if (!oldIslem) throw new Error(i18n.t('common:errors.transactionNotFound'));
 
       // 1. Önce işlemi güncelle
       const { data, error } = await supabase
@@ -635,7 +636,7 @@ export function useDeleteIslem() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Önce işlemi al (bakiye geri almak için) - ownership kontrolü ile
       const { data: islem, error: fetchError } = await supabase
@@ -646,7 +647,7 @@ export function useDeleteIslem() {
         .single();
 
       if (fetchError) throw fetchError;
-      if (!islem) throw new Error('İşlem bulunamadı veya erişim yetkiniz yok');
+      if (!islem) throw new Error(i18n.t('common:errors.transactionNotFound'));
 
       // Önce bakiyeleri geri al (silme başarısız olursa geri alınabilir)
       await reverseBalances(islem);

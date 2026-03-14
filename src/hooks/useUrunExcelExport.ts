@@ -115,6 +115,7 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
             cikis: t('products:export.movementTypes.cikis'),
             duzeltme: t('products:export.movementTypes.duzeltme'),
           },
+          noDataError: t('common:export.noDataToExport'),
         };
 
         await exportUrunHareketlerToExcel({

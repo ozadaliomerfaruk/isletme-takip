@@ -23,6 +23,7 @@ import {
   MultiInvoiceEntry,
 } from '@/types/ocrImport';
 import { UrunHareketTipi, IslemType, Hesap } from '@/types/database';
+import i18n from '@/i18n';
 
 export interface SaveImportOptions {
   hesapId?: string;
@@ -230,7 +231,7 @@ export function useOcrImport(sessionId: string) {
     hareketTipi: UrunHareketTipi,
     options?: SaveImportOptions,
   ): Promise<{ productCount: number; movementCount: number }> => {
-    if (!isletme) throw new Error('No business context');
+    if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
     setIsSaving(true);
 
@@ -268,7 +269,7 @@ export function useOcrImport(sessionId: string) {
       // ===== direct_gider: Create expense transaction =====
       if (saveMode === 'direct_gider') {
         if (!options?.hesapId) {
-          throw new Error('Hesap seçimi zorunludur');
+          throw new Error(i18n.t('common:errors.accountSelectionRequired'));
         }
 
         const totalAmount = options.editedGrandTotal
@@ -276,7 +277,7 @@ export function useOcrImport(sessionId: string) {
           ?? invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
 
         if (totalAmount <= 0) {
-          throw new Error('Tutar girilmeden kaydedilemez');
+          throw new Error(i18n.t('common:errors.amountRequired'));
         }
 
         setSaveProgress({ total: 1, current: 0, currentItemName: '', phase: 'creating_movements' });
@@ -302,7 +303,7 @@ export function useOcrImport(sessionId: string) {
       // ===== cari_odeme_tahsilat: Create cari payment/collection =====
       if (saveMode === 'cari_odeme_tahsilat') {
         if (!invoice.supplierMatchCariId) {
-          throw new Error('Cari seçimi zorunludur');
+          throw new Error(i18n.t('common:errors.clientSelectionRequired'));
         }
 
         setSaveProgress({ total: 1, current: 0, currentItemName: '', phase: 'creating_movements' });
@@ -312,7 +313,7 @@ export function useOcrImport(sessionId: string) {
           ?? invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
 
         if (totalAmount <= 0) {
-          throw new Error('Tutar girilmeden kaydedilemez');
+          throw new Error(i18n.t('common:errors.amountRequired'));
         }
 
         const islemType: IslemType = hareketTipi === 'giris' ? 'cari_tahsilat' : 'cari_odeme';
@@ -338,7 +339,7 @@ export function useOcrImport(sessionId: string) {
       // ===== cari_borc_only: Only cari transaction (no products/movements) =====
       if (saveMode === 'cari_borc_only') {
         if (!invoice.supplierMatchCariId) {
-          throw new Error('Cari seçimi zorunludur');
+          throw new Error(i18n.t('common:errors.clientSelectionRequired'));
         }
 
         setSaveProgress({ total: 1, current: 0, currentItemName: '', phase: 'creating_movements' });
@@ -348,7 +349,7 @@ export function useOcrImport(sessionId: string) {
           ?? invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
 
         if (totalAmount <= 0) {
-          throw new Error('Tutar girilmeden kaydedilemez');
+          throw new Error(i18n.t('common:errors.amountRequired'));
         }
 
         const borcIslemId = await createCariTransaction(invoice, hareketTipi, totalAmount, invoiceRef, dateInfo, options?.hesapId, options?.kategoriId || null);

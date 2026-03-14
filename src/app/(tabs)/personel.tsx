@@ -38,6 +38,7 @@ import { useArchivePersonel } from '@/hooks/useArchive';
 import type { Personel } from '@/types/database';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { PermissionGate } from '@/components/PermissionGate';
+import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export default function PersonelPage() {
@@ -462,6 +463,7 @@ export default function PersonelPage() {
   // FlatList ListHeaderComponent - header, özet ve arama
   const ListHeader = useMemo(() => (
     <>
+      <SharedIsletmeBanner />
       {/* Header */}
       <View style={styles.header}>
         <View>

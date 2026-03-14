@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Urun, UrunInsert, UrunUpdate } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
+import i18n from '@/i18n';
 
 /**
  * Tüm ürünleri getir
@@ -73,7 +74,7 @@ export function useCreateUrun() {
 
   return useMutation({
     mutationFn: async (input: UrunInsert) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('urunler')
@@ -99,7 +100,7 @@ export function useUpdateUrun() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: UrunUpdate & { id: string }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('urunler')
@@ -132,7 +133,7 @@ export function useArchiveUrun() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('urunler')
@@ -157,7 +158,7 @@ export function useUnarchiveUrun() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('urunler')
@@ -182,7 +183,7 @@ export function useDeleteUrun() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('urunler')
@@ -208,7 +209,7 @@ export function usePermanentDeleteUrun() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Önce ilişkili urun hareketlerini sil
       const { error: hareketError } = await supabase

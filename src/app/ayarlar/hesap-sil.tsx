@@ -8,10 +8,12 @@ import { Text, Button, Input, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useRequireOwner } from '@/hooks/usePagePermission';
 
 export default function HesapSilPage() {
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
+  useRequireOwner();
   const { isletme, deleteAccount, loading } = useAuthContext();
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);

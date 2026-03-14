@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Personel, PersonelInsert, PersonelUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
+import i18n from '@/i18n';
 
 export function usePersonelList(includePassive: boolean = false, includeArchived: boolean = false) {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -74,7 +75,7 @@ export function useCreatePersonel() {
 
   return useMutation({
     mutationFn: async (input: Omit<PersonelInsert, 'isletme_id'>) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('personel')
@@ -98,7 +99,7 @@ export function useUpdatePersonel() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: PersonelUpdate & { id: string }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('personel')
@@ -124,7 +125,7 @@ export function useDeletePersonel() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Önce personelin bu işletmeye ait olduğunu doğrula
       const { data: personel, error: checkError } = await supabase
@@ -135,7 +136,7 @@ export function useDeletePersonel() {
         .single();
 
       if (checkError || !personel) {
-        throw new Error('Personel bulunamadı veya erişim yetkiniz yok');
+        throw new Error(i18n.t('common:errors.staffNotFound'));
       }
 
       // İlişkili ileri tarihli işlemleri sil (ownership kontrolü ile)

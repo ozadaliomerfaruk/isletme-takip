@@ -25,12 +25,14 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function PersonelDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['staff', 'common', 'errors']);
   const { locale, formatDateNative } = useDateFormat();
+  usePagePermission({ module: 'personel', action: 'update' });
 
   const currencies = getLocalizedCurrencies(i18n.language);
 

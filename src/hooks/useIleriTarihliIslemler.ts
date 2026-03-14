@@ -12,6 +12,7 @@ import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import { cancelTransactionReminder } from '@/lib/notifications';
+import i18n from '@/i18n';
 
 // ============================================================================
 // QUERY HOOKS
@@ -237,7 +238,7 @@ export function useCreateIleriTarihliIslem() {
 
   return useMutation({
     mutationFn: async (input: Omit<IleriTarihliIslemInsert, 'isletme_id'>) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('ileri_tarihli_islemler')
@@ -273,7 +274,7 @@ export function useUpdateIleriTarihliIslem() {
       id: string;
       updates: IleriTarihliIslemUpdate;
     }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('ileri_tarihli_islemler')
@@ -301,7 +302,7 @@ export function useDeleteIleriTarihliIslem() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Önce hatırlatıcıyı iptal et
       await cancelTransactionReminder(id);
@@ -329,7 +330,7 @@ export function useCompleteIleriTarihliIslem() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 0. Hatırlatıcıyı iptal et (varsa)
       await cancelTransactionReminder(id);
@@ -349,7 +350,7 @@ export function useCompleteIleriTarihliIslem() {
         .single();
 
       if (fetchError) throw fetchError;
-      if (!ileriIslem) throw new Error('İşlem bulunamadı');
+      if (!ileriIslem) throw new Error(i18n.t('common:errors.transactionNotFound'));
 
       // 2. Para birimlerini belirle (cross-currency desteği)
       const hesapCurrency = ileriIslem.hesap?.currency || 'TRY';
@@ -395,7 +396,7 @@ export function useCompleteIleriTarihliIslem() {
         .single();
 
       if (insertError) throw insertError;
-      if (!newIslem) throw new Error('İşlem oluşturulamadı');
+      if (!newIslem) throw new Error(i18n.t('common:errors.transactionCreationFailed'));
 
       // 3. Bakiyeleri güncelle
       try {
@@ -445,7 +446,7 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
     if (__DEV__) {
       console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
     }
-    throw new Error(`Bakiye güncellenemedi: ${error.message}`);
+    throw new Error(i18n.t('common:errors.balanceUpdateFailed', { message: error.message }));
   }
 }
 

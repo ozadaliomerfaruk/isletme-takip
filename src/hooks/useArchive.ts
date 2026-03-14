@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, Cari, Personel, CariType, Urun } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import i18n from '@/i18n';
 
 // ============================================================================
 // ARŞİVLENMİŞ ÖĞELERİ GETİREN HOOKS
@@ -136,7 +137,7 @@ export function useArchiveHesap() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('hesaplar')
@@ -162,7 +163,7 @@ export function useUnarchiveHesap() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('hesaplar')
@@ -188,7 +189,7 @@ export function useArchiveCari() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('cariler')
@@ -214,7 +215,7 @@ export function useUnarchiveCari() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('cariler')
@@ -240,7 +241,7 @@ export function useArchivePersonel() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('personel')
@@ -266,7 +267,7 @@ export function useUnarchivePersonel() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('personel')
@@ -292,7 +293,7 @@ export function useUnarchiveUrun() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('urunler')

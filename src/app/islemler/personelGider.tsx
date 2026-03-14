@@ -22,6 +22,7 @@ import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { personelGiderSchema, type PersonelGiderFormData } from '@/lib/schemas/paymentForm';
@@ -35,6 +36,7 @@ const errorKeyMap: Record<string, string> = {
 export default function PersonelGiderPage() {
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'staff']);
+  usePagePermission({ module: 'islemler', action: 'create' });
   const params = useLocalSearchParams<{ personel_id?: string }>();
   const createIslem = useCreateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();

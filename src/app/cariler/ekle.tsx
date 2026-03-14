@@ -18,6 +18,7 @@ import { useCreateCari } from '@/hooks/useCariler';
 import { CariType, Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function CariEklePage() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function CariEklePage() {
     prefillTaxNumber?: string;
   }>();
   const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
+  usePagePermission({ module: 'cariler', action: 'create' });
   const createCari = useCreateCari();
 
   // Dile göre varsayılan para birimi

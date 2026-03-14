@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, KategoriInsert, KategoriUpdate, KategoriType, KategoriWithChildren } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import i18n from '@/i18n';
 
 /**
  * Düz kategori listesini hiyerarşik yapıya dönüştürür
@@ -161,7 +162,7 @@ export function useCreateKategori() {
 
   return useMutation({
     mutationFn: async (input: Omit<KategoriInsert, 'isletme_id'>) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('kategoriler')
@@ -184,7 +185,7 @@ export function useUpdateKategori() {
 
   return useMutation({
     mutationFn: async ({ id, ...input }: KategoriUpdate & { id: string }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('kategoriler')
@@ -209,7 +210,7 @@ export function useDeleteKategori() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('kategoriler')

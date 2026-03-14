@@ -32,6 +32,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { changeLanguage, getCurrentLanguage } from '@/i18n';
 import type { SupportedLanguage } from '@/i18n/types';
 import { useSettings, type CurrencyCode, type DateFormatType } from '@/hooks/useSettings';
+import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 
 interface MenuItemProps {
   icon: React.ReactNode;
@@ -141,6 +142,7 @@ export default function DahaPage() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <SharedIsletmeBanner />
         {/* Profile Card */}
         <View style={styles.profileSection}>
           <View style={styles.profileCard}>

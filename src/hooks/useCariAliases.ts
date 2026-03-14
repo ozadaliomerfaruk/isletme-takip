@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { CariAlias, CariAliasInsert } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
+import i18n from '@/i18n';
 
 /**
  * Tüm cari alias'larını getir
@@ -37,7 +38,7 @@ export function useCreateCariAlias() {
 
   return useMutation({
     mutationFn: async (input: CariAliasInsert) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Check if alias already exists
       const { data: existing } = await supabase
@@ -95,7 +96,7 @@ export function useDeleteCariAlias() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('cari_aliases')

@@ -19,11 +19,13 @@ import { useCari, useUpdateCari } from '@/hooks/useCariler';
 import { CariType, Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function CariDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
+  usePagePermission({ module: 'cariler', action: 'update' });
 
   const currencies = getLocalizedCurrencies(i18n.language);
 

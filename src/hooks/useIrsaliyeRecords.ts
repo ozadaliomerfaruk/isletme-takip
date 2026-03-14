@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { IrsaliyeRecord, IrsaliyeRecordInsert, IrsaliyeRecordUpdate } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
+import i18n from '@/i18n';
 
 /**
  * Tüm irsaliye kayıtlarını getir (opsiyonel status filtresi)
@@ -76,7 +77,7 @@ export function useCreateIrsaliyeRecord() {
 
   return useMutation({
     mutationFn: async (input: IrsaliyeRecordInsert) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('irsaliye_records')
@@ -105,7 +106,7 @@ export function useUpdateIrsaliyeRecord() {
 
   return useMutation({
     mutationFn: async ({ id, ...update }: IrsaliyeRecordUpdate & { id: string }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('irsaliye_records')
@@ -139,7 +140,7 @@ export function useLinkIrsaliyeToFatura() {
       irsaliyeId: string;
       islemId: string;
     }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('irsaliye_records')

@@ -38,6 +38,7 @@ import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { useLinkedCariler, useRemoveCariLink } from '@/hooks/useCariSharing';
 import type { SharingPermission } from '@/types/cariSharing';
+import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -600,6 +601,7 @@ export default function CarilerPage() {
   // FlatList ListHeaderComponent - header, özet, arama ve filtre
   const ListHeader = useMemo(() => (
     <>
+      <SharedIsletmeBanner />
       {/* Header */}
       <View style={styles.header}>
         <Text variant="h2">{t('clients:titles.clients')}</Text>

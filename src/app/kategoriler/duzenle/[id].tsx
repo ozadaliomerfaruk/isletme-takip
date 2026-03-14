@@ -19,11 +19,13 @@ import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categ
 import { useKategoriler, useUpdateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
+  usePagePermission({ module: 'kategoriler', action: 'update' });
   const { data: kategoriler } = useKategoriler();
   const updateKategori = useUpdateKategori();
 

@@ -136,6 +136,7 @@ export interface ExcelTranslations {
   statementFileName: string;
   shareDialogTitle: string;
   sharingNotSupported: string;
+  noDataError?: string;
 }
 
 export interface ExportOptions {
@@ -420,6 +421,10 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
     translations: t,
   } = options;
 
+  if (transactions.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
+
   // Başlangıç bakiyesi hesapla
   let openingBalance: number;
   switch (entityType) {
@@ -667,7 +672,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
 
   // Dosya adı oluştur
-  const safeEntityName = entityName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\s]/g, '').trim();
+  const safeEntityName = entityName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
   const fileName = `${safeEntityName}_${t.statementFileName}_${startDate}_${endDate}.xlsx`;
   const filePath = `${FileSystem.cacheDirectory}${fileName}`;
 
@@ -719,6 +724,7 @@ export interface UrunExcelTranslations {
   shareDialogTitle: string;
   sharingNotSupported: string;
   movementTypes: Record<string, string>;
+  noDataError?: string;
 }
 
 export interface UrunHareketExportRow {
@@ -764,6 +770,10 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
     hareketler,
     translations: t,
   } = options;
+
+  if (hareketler.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
 
   const currency = productCurrency || 'TRY';
   const formatAmount = (val: number | null) =>
@@ -917,7 +927,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
 
   const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
 
-  const safeName = productName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\s]/g, '').trim();
+  const safeName = productName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
   const fileName = `${safeName}_${t.fileName}_${startDate}_${endDate}.xlsx`;
   const filePath = `${FileSystem.cacheDirectory}${fileName}`;
 

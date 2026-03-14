@@ -21,6 +21,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, useUpdateUrun } from '@/hooks/useUrunler';
 import { BirimType, Currency, KdvOrani } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -28,6 +29,7 @@ export default function UrunDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['products', 'common', 'errors', 'navigation', 'transactions']);
+  usePagePermission({ module: 'urunler', action: 'update' });
   const { data: urun, isLoading } = useUrun(id);
   const updateUrun = useUpdateUrun();
 

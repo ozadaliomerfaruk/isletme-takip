@@ -33,11 +33,13 @@ import { IslemType } from '@/types/database';
 import { isLeaveType } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function IleriTarihliIslemDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
+  usePagePermission({ module: 'ileri_tarihli', action: 'update' });
 
   const { data: islem, isLoading: islemLoading } = useIleriTarihliIslem(id);
   const updateIslem = useUpdateIleriTarihliIslem();

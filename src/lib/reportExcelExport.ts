@@ -114,6 +114,7 @@ export interface ReportExcelTranslations {
   shareDialogTitle: string;
   sharingNotSupported: string;
   transactionTypes: Record<string, string>;
+  noDataError?: string;
 }
 
 export interface ReportExportOptions {
@@ -139,6 +140,10 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
     transactions,
     translations: t,
   } = options;
+
+  if (transactions.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
 
   // Sort transactions by date
   const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
@@ -334,7 +339,8 @@ function writeHeaderSection(
 
 async function writeAndShare(wb: XLSX.WorkBook, fileName: string, shareDialogTitle: string, sharingNotSupported: string) {
   const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-  const filePath = `${FileSystem.cacheDirectory}${fileName}`;
+  const safeFileName = fileName.replace(/\s+/g, '_');
+  const filePath = `${FileSystem.cacheDirectory}${safeFileName}`;
   await FileSystem.writeAsStringAsync(filePath, wbout, {
     encoding: FileSystem.EncodingType.Base64,
   });
@@ -376,6 +382,7 @@ export interface ProductExcelTranslations {
   fileName: string;
   shareDialogTitle: string;
   sharingNotSupported: string;
+  noDataError?: string;
 }
 
 export interface ProductExportOptions {
@@ -401,6 +408,10 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
     saleItems, saleTotal, saleReturnTotal, saleNet,
     translations: t,
   } = options;
+
+  if (purchaseItems.length === 0 && saleItems.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
 
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};
@@ -503,6 +514,7 @@ export interface CashFlowExcelTranslations {
   fileName: string;
   shareDialogTitle: string;
   sharingNotSupported: string;
+  noDataError?: string;
 }
 
 export interface CashFlowExportOptions {
@@ -525,6 +537,10 @@ export async function exportCashFlowToExcel(options: CashFlowExportOptions): Pro
     totalInflow, totalOutflow, netCashFlow,
     translations: t,
   } = options;
+
+  if (inflowItems.length === 0 && outflowItems.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
 
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};

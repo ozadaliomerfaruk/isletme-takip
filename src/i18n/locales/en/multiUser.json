@@ -21,7 +21,9 @@
   },
   "permissions": {
     "noModuleAccess": "You do not have access to this module",
-    "noActionAccess": "You do not have permission for this action"
+    "noActionAccess": "You do not have permission for this action",
+    "denied": "Access Denied",
+    "ownerOnly": "This page is only accessible to the business owner"
   },
   "users": {
     "title": "Users",

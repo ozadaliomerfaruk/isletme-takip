@@ -18,6 +18,7 @@ import { useHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { HesapType } from '@/types/database';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 // Hesap tipi için ikon ve renk
 const getHesapTypeConfig = (type: HesapType) => {
@@ -39,6 +40,7 @@ const getHesapTypeConfig = (type: HesapType) => {
 export default function HesapDuzenlePage() {
   const router = useRouter();
   const { t } = useTranslation(['accounts', 'common', 'errors']);
+  usePagePermission({ module: 'hesaplar', action: 'update' });
 
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: hesap, isLoading } = useHesap(id);

@@ -30,11 +30,13 @@ import { IslemType } from '@/types/database';
 import { isLeaveType } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB, formatDateForDB } from '@/lib/date';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
+  usePagePermission({ module: 'islemler', action: 'update' });
 
   const { data: islem, isLoading: islemLoading } = useIslem(id);
   const updateIslem = useUpdateIslem();

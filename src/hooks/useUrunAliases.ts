@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { UrunAlias, UrunAliasInsert } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
+import i18n from '@/i18n';
 
 /**
  * Tüm ürün alias'larını getir
@@ -37,7 +38,7 @@ export function useCreateUrunAlias() {
 
   return useMutation({
     mutationFn: async (input: UrunAliasInsert) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // Check if alias already exists (partial unique indexes don't work with Supabase upsert)
       const query = supabase
@@ -134,7 +135,7 @@ export function useDeleteUrunAlias() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { error } = await supabase
         .from('urun_aliases')

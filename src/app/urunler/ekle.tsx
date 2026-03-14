@@ -21,12 +21,14 @@ import { useCreateUrun } from '@/hooks/useUrunler';
 import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { BirimType, Currency, KdvOrani } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
 export default function UrunEklePage() {
   const router = useRouter();
   const { t } = useTranslation(['products', 'common', 'errors', 'transactions']);
+  usePagePermission({ module: 'urunler', action: 'create' });
   const createUrun = useCreateUrun();
   const createUrunHareket = useCreateUrunHareket();
 

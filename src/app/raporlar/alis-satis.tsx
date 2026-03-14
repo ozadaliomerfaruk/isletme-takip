@@ -77,6 +77,7 @@ export default function AlisSatisRaporPage() {
         fileName: t('common:export.productExcel.fileName'),
         shareDialogTitle: t('common:export.shareDialogTitle'),
         sharingNotSupported: t('common:export.sharingNotSupported'),
+        noDataError: t('common:export.noDataToExport'),
       };
       await exportProductReportToExcel({
         isletmeName: isletme.name,

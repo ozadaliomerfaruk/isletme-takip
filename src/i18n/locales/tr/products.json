@@ -137,6 +137,7 @@
     "addRow": "Satır Ekle",
     "selectProduct": "Ürün Seç",
     "noProducts": "Henüz ürün eklenmedi",
+    "noEntries": "En az bir ürün için miktar girin",
     "success": "{{count}} adet ürün hareketi kaydedildi",
     "selectAll": "Tümünü Seç",
     "selectNone": "Hiçbirini Seçme"
@@ -149,6 +150,7 @@
     "linkedTo": "{{name}} ile bağlantılı",
     "vatRate": "KDV Oranı",
     "totalWithVat": "Toplam: {{total}} (KDV: {{vat}})",
+    "subtotal": "Ara Toplam",
     "successSingle": "Ürün hareketi ve cari işlem kaydedildi",
     "successBulk": "{{count}} ürün hareketi ve cari işlem kaydedildi"
   },

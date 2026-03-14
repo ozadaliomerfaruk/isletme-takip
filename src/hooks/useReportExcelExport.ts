@@ -61,6 +61,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
           personel_gider: t('transactions:types.personel_gider'),
           personel_satis: t('transactions:types.personel_satis'),
         },
+        noDataError: t('common:export.noDataToExport'),
       };
 
       setIsExporting(true);

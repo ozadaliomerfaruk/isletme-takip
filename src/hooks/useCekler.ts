@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import i18n from 'i18next';
+import i18n from '@/i18n';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import {
@@ -287,7 +287,7 @@ export function useCreateCek() {
         reminderTime?: string;
       }
     ) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { scheduleReminder, reminderDaysBefore, reminderTime, ...cekData } = data;
 
@@ -364,7 +364,7 @@ export function useUpdateCek() {
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: CekUpdate }) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       const { data, error } = await supabase
         .from('cekler')
@@ -392,7 +392,7 @@ export function useCompleteCek() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 0. Hatırlatıcıyı iptal et
       await cancelTransactionReminder(id);
@@ -406,8 +406,8 @@ export function useCompleteCek() {
         .single();
 
       if (fetchError) throw fetchError;
-      if (!cek) throw new Error('Çek bulunamadı');
-      if (cek.durum !== 'beklemede') throw new Error('Bu çek zaten işlem görmüş');
+      if (!cek) throw new Error(i18n.t('common:errors.checkNotFound'));
+      if (cek.durum !== 'beklemede') throw new Error(i18n.t('common:errors.checkAlreadyProcessed'));
 
       // 2. cari_odeme işlemi oluştur (yerel saat ile timezone bilgisi dahil)
       const now = new Date();
@@ -521,7 +521,7 @@ export function useCancelCek() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 0. Hatırlatıcıyı iptal et
       await cancelTransactionReminder(id);
@@ -535,8 +535,8 @@ export function useCancelCek() {
         .single();
 
       if (fetchError) throw fetchError;
-      if (!cek) throw new Error('Çek bulunamadı');
-      if (cek.durum !== 'beklemede') throw new Error('Sadece bekleyen çekler iptal edilebilir');
+      if (!cek) throw new Error(i18n.t('common:errors.checkNotFound'));
+      if (cek.durum !== 'beklemede') throw new Error(i18n.t('common:errors.onlyPendingChecksCanBeCancelled'));
 
       // 2. Çeki iptal et
       const { error } = await supabase
@@ -562,7 +562,7 @@ export function useDeleteCek() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      if (!isletme) throw new Error('İşletme bulunamadı');
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 0. Hatırlatıcıyı iptal et
       await cancelTransactionReminder(id);
@@ -576,8 +576,8 @@ export function useDeleteCek() {
         .single();
 
       if (fetchError) throw fetchError;
-      if (!cek) throw new Error('Çek bulunamadı');
-      if (cek.durum !== 'beklemede') throw new Error('Sadece bekleyen çekler silinebilir');
+      if (!cek) throw new Error(i18n.t('common:errors.checkNotFound'));
+      if (cek.durum !== 'beklemede') throw new Error(i18n.t('common:errors.onlyPendingChecksCanBeDeleted'));
 
       // 2. Çeki sil
       const { error } = await supabase
@@ -609,6 +609,6 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
     if (__DEV__) {
       console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
     }
-    throw new Error(`Bakiye güncellenemedi: ${error.message}`);
+    throw new Error(i18n.t('common:errors.balanceUpdateFailed', { message: error.message }));
   }
 }

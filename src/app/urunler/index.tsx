@@ -21,6 +21,7 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
+import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 
 type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 type SortType = 'nameAZ' | 'nameZA' | 'purchaseMost' | 'purchaseLeast' | 'saleMost' | 'saleLeast';
@@ -722,6 +723,7 @@ export default function UrunlerPage() {
   // List header: search, tabs, period selector
   const listHeaderComponent = useMemo(() => (
     <View>
+      <SharedIsletmeBanner />
       {/* Header */}
       <View style={styles.header}>
         <Text variant="h2">{t('products:title')}</Text>

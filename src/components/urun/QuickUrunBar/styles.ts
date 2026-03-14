@@ -25,7 +25,7 @@ export const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   urunInfo: {
     flex: 1,
@@ -61,7 +61,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   amountInputContainer: {
     flex: 1,
@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     fontSize: 18,
     fontWeight: '600',
     color: colors.text,
@@ -86,7 +86,7 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     fontSize: 16,
     fontWeight: '500',
     color: colors.text,
@@ -99,8 +99,8 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
     alignSelf: 'flex-start',
   },
   dateText: {
@@ -147,10 +147,10 @@ export const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 12,
     paddingHorizontal: 20,
-    paddingVertical: 14,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   saveButtonGiris: {
     backgroundColor: colors.success,
@@ -169,6 +169,7 @@ export const styles = StyleSheet.create({
   tabs: {
     flexDirection: 'row',
     gap: 8,
+    marginTop: 8,
   },
   tab: {
     flex: 1,
