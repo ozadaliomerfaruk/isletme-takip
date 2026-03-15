@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Personel, PersonelInsert, PersonelUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
+import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
 
 export function usePersonelList(includePassive: boolean = false, includeArchived: boolean = false) {
@@ -143,25 +144,29 @@ export function useDeletePersonel() {
         throw new Error(i18n.t('common:errors.staffNotFound'));
       }
 
-      // İlişkili ileri tarihli işlemleri sil (ownership kontrolü ile)
-      const { error: scheduledError } = await supabase
-        .from('ileri_tarihli_islemler')
-        .delete()
-        .eq('personel_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (scheduledError) throw scheduledError;
-
-      // İlişkili işlemleri sil (ownership kontrolü ile)
-      const { error: islemError } = await supabase
+      // Bağlı işlem kontrolü - varsa silmeyi engelle
+      const { count: islemCount } = await supabase
         .from('islemler')
-        .delete()
+        .select('id', { count: 'exact', head: true })
         .eq('personel_id', id)
         .eq('isletme_id', isletme.id);
 
-      if (islemError) throw islemError;
+      if (islemCount && islemCount > 0) {
+        throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedTransactions', { count: islemCount }));
+      }
 
-      // Personeli sil
+      // Bağlı ileri tarihli işlem kontrolü
+      const { count: scheduledCount } = await supabase
+        .from('ileri_tarihli_islemler')
+        .select('id', { count: 'exact', head: true })
+        .eq('personel_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (scheduledCount && scheduledCount > 0) {
+        throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedScheduledTransactions', { count: scheduledCount }));
+      }
+
+      // Personeli sil (bağlı kayıt yoksa güvenle silinebilir)
       const { error } = await supabase
         .from('personel')
         .delete()

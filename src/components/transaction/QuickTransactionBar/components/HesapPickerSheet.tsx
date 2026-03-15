@@ -55,12 +55,13 @@ export function HesapPickerSheet({
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter hesaplar
+  // Filter and sort hesaplar alphabetically (A-Z)
   const filteredHesaplar = useMemo(() => {
-    const list = excludeId ? hesaplar.filter((h) => h.id !== excludeId) : hesaplar;
-    if (!searchQuery.trim()) return list;
+    const list = excludeId ? hesaplar.filter((h) => h.id !== excludeId) : [...hesaplar];
+    const sorted = list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+    if (!searchQuery.trim()) return sorted;
     const query = searchQuery.toLowerCase().trim();
-    return list.filter((h) => h.name.toLowerCase().includes(query));
+    return sorted.filter((h) => h.name.toLowerCase().includes(query));
   }, [hesaplar, searchQuery, excludeId]);
 
   const handleClose = useCallback(() => {

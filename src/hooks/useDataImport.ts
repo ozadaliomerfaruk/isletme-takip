@@ -203,7 +203,7 @@ export function useDataImport() {
           }
 
           // Personel kontrolü
-          if (['personel_gider', 'personel_odeme', 'personel_tahsilat'].includes(tx.mappedType)) {
+          if (['personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(tx.mappedType)) {
             if (!tx.personel) {
               skipped++;
               skippedTransactions.push({ transaction: tx, reason: 'Personel işlemi için PERSONEL kolonu boş', rowNumber });
@@ -596,6 +596,7 @@ export function useDataImport() {
                 if (t.type === 'personel_gider') personelTxEffect -= amt;
                 else if (t.type === 'personel_odeme') personelTxEffect += amt;
                 else if (t.type === 'personel_tahsilat') personelTxEffect -= amt;
+                else if (t.type === 'personel_satis') personelTxEffect += amt;
               });
               const personelInitialBalance = (personelData.balance || 0) - personelTxEffect;
               if (personelInitialBalance !== 0) {

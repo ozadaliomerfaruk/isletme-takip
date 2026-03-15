@@ -39,6 +39,7 @@ import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { PermissionGate } from '@/components/PermissionGate';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
+import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 
 export default function PersonelPage() {
   const router = useRouter();
@@ -149,7 +150,11 @@ export default function PersonelPage() {
               showToast(t('common:messages.deletedSuccessfully'), 'success');
             } catch (error) {
               haptics.error();
-              showToast(t('common:messages.operationFailed'), 'error');
+              if (isLinkedRecordsError(error)) {
+                Alert.alert(t('common:errors.cannotDeleteTitle'), toErrorMessage(error));
+              } else {
+                showToast(t('common:messages.operationFailed'), 'error');
+              }
             }
           },
         },
@@ -215,7 +220,11 @@ export default function PersonelPage() {
               handleCancelSelectMode();
             } catch (error) {
               haptics.error();
-              showToast(t('common:messages.operationFailed'), 'error');
+              if (isLinkedRecordsError(error)) {
+                Alert.alert(t('common:errors.cannotDeleteTitle'), toErrorMessage(error));
+              } else {
+                showToast(t('common:messages.operationFailed'), 'error');
+              }
             }
           },
         },

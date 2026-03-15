@@ -41,7 +41,7 @@ import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIsleml
 import { IslemWithRelations } from '@/types/database';
 import { LeaveQuotaCard } from '@/components/personel/LeaveQuotaCard';
 import { isLeaveType } from '@/constants/islemTypes';
-import { toErrorMessage } from '@/lib/errors';
+import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -212,6 +212,8 @@ export default function PersonelHareketleriPage() {
         totalEffect += amount;
       } else if (islem.type === 'personel_tahsilat') {
         totalEffect -= amount;
+      } else if (islem.type === 'personel_satis') {
+        totalEffect += amount;
       }
     });
 
@@ -325,7 +327,10 @@ export default function PersonelHareketleriPage() {
               await deletePersonel.mutateAsync(id!);
               router.replace('/(tabs)/personel');
             } catch (error) {
-              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:personel.deleteFailed'));
+              Alert.alert(
+                isLinkedRecordsError(error) ? t('common:errors.cannotDeleteTitle') : t('common:status.error'),
+                toErrorMessage(error),
+              );
             }
           },
         },
@@ -337,10 +342,11 @@ export default function PersonelHareketleriPage() {
     try {
       await unarchivePersonel.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
-  }, [unarchivePersonel, id, t]);
+  }, [unarchivePersonel, id, t, router]);
 
   // Header right buttons
   const HeaderRightButtons = useCallback(() => (

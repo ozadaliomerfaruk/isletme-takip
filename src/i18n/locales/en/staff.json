@@ -101,7 +101,7 @@
     "updateSuccess": "Staff member updated",
     "deleteSuccess": "Staff member removed",
     "deleteConfirm": "Are you sure you want to remove this staff member?",
-    "deleteWarning": "All expense and payment transactions for this staff member will also be deleted.",
+    "deleteWarning": "Only staff members without linked transactions can be deleted.",
     "noPersonnel": "No staff members yet",
     "addFirstPersonnel": "Get started by adding your first team member",
     "noTransactions": "No transactions for this staff member",
@@ -172,7 +172,7 @@
     "transactionTitle": "Delete Transaction",
     "transactionMessage": "Are you sure you want to delete this transaction?",
     "staffTitle": "Delete Staff",
-    "staffMessage": "Are you sure you want to delete this staff member?\n\nWarning: All expense and payment transactions for this staff member will also be deleted. This action cannot be undone."
+    "staffMessage": "Are you sure you want to delete this staff member?\n\nNote: Staff members with linked transactions or scheduled transactions cannot be deleted. You must delete the linked records first."
   },
   "validation": {
     "firstNameRequired": "First name is required"

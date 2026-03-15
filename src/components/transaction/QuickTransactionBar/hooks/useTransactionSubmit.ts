@@ -13,6 +13,7 @@ import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, 
 import type { Currency, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
+import { useToast } from '@/contexts/ToastContext';
 
 interface Hesap {
   id: string;
@@ -209,6 +210,7 @@ export function useTransactionSubmit({
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { isletme } = useAuthContext();
   const { triggerReviewIfEligible } = useReview();
+  const { showToast } = useToast();
   const createIslem = useCreateIslem();
   const updateIslem = useUpdateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -460,7 +462,7 @@ export function useTransactionSubmit({
         }
       }
 
-      if (['gelir', 'gider'].includes(type) && !kategoriId && !categorySkipped) {
+      if (['gelir', 'gider'].includes(type) && !kategoriId && !categorySkipped && urunItems.length === 0) {
         setCategoryPickerOpen(true);
         return;
       }
@@ -480,7 +482,7 @@ export function useTransactionSubmit({
           return;
         }
       }
-      if (['alis', 'satis', 'alis_iade', 'satis_iade'].includes(type) && !kategoriId && !categorySkipped) {
+      if (['alis', 'satis', 'alis_iade', 'satis_iade'].includes(type) && !kategoriId && !categorySkipped && urunItems.length === 0) {
         setCategoryPickerOpen(true);
         return;
       }
@@ -693,6 +695,14 @@ export function useTransactionSubmit({
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
+      // Show success toast
+      showToast(
+        isEditMode
+          ? t('transactions:messages.updateSuccess')
+          : t('transactions:messages.saveSuccess'),
+        'success'
+      );
+
       // Trigger review prompt for new transactions (not edits)
       if (!isEditMode) {
         // Async call, don't await - we don't want to block the UI
@@ -753,6 +763,7 @@ export function useTransactionSubmit({
     deleteIleriTarihliIslem,
     uploadPhoto,
     triggerReviewIfEligible,
+    showToast,
     onSuccess,
     handleDismiss,
     urunItems,
@@ -835,6 +846,14 @@ export function useTransactionSubmit({
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
 
+        // Show success toast
+        showToast(
+          isEditMode
+            ? t('transactions:messages.updateSuccess')
+            : t('transactions:messages.saveSuccess'),
+          'success'
+        );
+
         // Trigger review prompt for new transactions (not edits)
         if (!isEditMode) {
           triggerReviewIfEligible().catch((err) => {
@@ -874,6 +893,7 @@ export function useTransactionSubmit({
       deleteIslem,
       deleteIleriTarihliIslem,
       triggerReviewIfEligible,
+      showToast,
       setPendingExchangeData,
       onSuccess,
       handleDismiss,

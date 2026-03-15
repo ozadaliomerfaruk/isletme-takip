@@ -29,6 +29,8 @@ interface AuthContextType {
   signInWithGoogle: (idToken: string) => Promise<any>;
   isAppleSignInAvailable: boolean;
   clearPasswordReset: () => void;
+  triggerPasswordReset: () => void;
+  changePassword: (newPassword: string) => Promise<void>;
   // Multi-user methods
   switchToSharedIsletme: (isletme: Isletme, permissions: Permissions, role: UserRole) => Promise<void>;
   switchToOwnIsletme: () => void;

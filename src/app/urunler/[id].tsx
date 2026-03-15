@@ -295,6 +295,13 @@ export default function UrunDetayPage() {
                         <View style={styles.aylikPillOut}>
                           <Text style={styles.aylikPillOutText}>-{ozet.cikis}</Text>
                         </View>
+                        {ozet.duzeltme !== 0 && (
+                          <View style={styles.aylikPillDuzeltme}>
+                            <Text style={styles.aylikPillDuzeltmeText}>
+                              {ozet.duzeltme > 0 ? '+' : ''}{ozet.duzeltme}
+                            </Text>
+                          </View>
+                        )}
                       </View>
                     </View>
                     {index < Math.min(aylikOzet.length, 6) - 1 && <View style={styles.divider} />}
@@ -639,6 +646,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.error,
+  },
+  aylikPillDuzeltme: {
+    backgroundColor: '#FEF9C3',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
+  aylikPillDuzeltmeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#A16207',
   },
   hareketHeader: {
     flexDirection: 'row',

@@ -392,12 +392,11 @@ export function useAuth() {
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!isMounted) return;
 
-      // PASSWORD_RECOVERY event'ini normal giriş gibi ele al
-      // Kullanıcı şifremi unuttum akışından geldiğinde direkt uygulamaya girsin
-      // İsterse ayarlardan şifresini değiştirebilir
+      // PASSWORD_RECOVERY event'i: Kullanıcı şifremi unuttum akışından geldi
+      // needsPasswordReset'i set et ki ChangePasswordModal gösterilsin
       if (event === 'PASSWORD_RECOVERY') {
-        // Normal SIGNED_IN gibi davran, needsPasswordReset'i set etme
-        // Aşağıdaki kod bloğu işleyecek
+        setState((prev) => ({ ...prev, needsPasswordReset: true }));
+        // Aşağıdaki kod bloğu session/user güncellemesini yapacak
       }
 
       // TOKEN_REFRESHED eventinde sadece session'ı güncelle, isletme'yi tekrar çekme
@@ -659,6 +658,11 @@ export function useAuth() {
   // Şifre değiştirme bayrağını temizle
   const clearPasswordReset = useCallback(() => {
     setState((prev) => ({ ...prev, needsPasswordReset: false }));
+  }, []);
+
+  // Şifre sıfırlama bayrağını aç (deep link'ten gelen recovery akışı için)
+  const triggerPasswordReset = useCallback(() => {
+    setState((prev) => ({ ...prev, needsPasswordReset: true }));
   }, []);
 
   // İşletme bilgisini yenile
@@ -930,6 +934,7 @@ export function useAuth() {
     isAppleSignInAvailable,
     changePassword,
     clearPasswordReset,
+    triggerPasswordReset,
     switchToSharedIsletme,
     switchToOwnIsletme,
     refreshPermissions,

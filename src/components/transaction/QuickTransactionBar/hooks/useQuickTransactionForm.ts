@@ -231,7 +231,10 @@ export function useQuickTransactionForm({
   }, []);
 
   // Computed hesapId (fallback)
-  const hesapId = sourceHesapId || defaultHesapId || hesaplar?.[0]?.id;
+  // For odeme/tahsilat in normal mode, do NOT auto-select the first account
+  const hesapId = (type === 'odeme' || type === 'tahsilat') && !isCariMode && !isPersonelMode
+    ? sourceHesapId || defaultHesapId || undefined
+    : sourceHesapId || defaultHesapId || hesaplar?.[0]?.id;
 
   // Amount change handler
   const handleAmountChange = useCallback((text: string) => {
@@ -404,7 +407,7 @@ export function useQuickTransactionForm({
     defaultHesapId,
   ]);
 
-  // Reset cariId and personelId when type changes (only in normal mode, not during edit data loading)
+  // Reset cariId, personelId and sourceHesapId when type changes (only in normal mode, not during edit data loading)
   useEffect(() => {
     // Don't reset during edit mode data loading
     if (isEditMode && !editDataLoaded) return;
@@ -414,6 +417,11 @@ export function useQuickTransactionForm({
       setPersonelId(null);
       setOdemeHedefType(null);
       setTahsilatHedefType(null);
+      // Reset account selection for odeme/tahsilat so no account is pre-selected
+      if (type === 'odeme' || type === 'tahsilat') {
+        setSourceHesapId(null);
+        setHedefHesapId(null);
+      }
     }
   }, [type, isCariMode, isPersonelMode, isEditMode, editDataLoaded]);
 

@@ -42,7 +42,8 @@
     "tooManyRequests": "Çok fazla deneme yaptınız. Lütfen biraz bekleyin.",
     "tooManyAttempts": "Çok fazla giriş denemesi. Lütfen daha sonra tekrar deneyin.",
     "linkExpired": "Şifre sıfırlama bağlantısı geçersiz veya süresi dolmuş. Lütfen tekrar deneyin.",
-    "invalidOtp": "Geçersiz doğrulama kodu. Lütfen tekrar deneyin."
+    "invalidOtp": "Geçersiz doğrulama kodu. Lütfen tekrar deneyin.",
+    "samePassword": "Yeni şifreniz eski şifrenizden farklı olmalıdır"
   },
   "validation": {
     "required": "Bu alan zorunludur",

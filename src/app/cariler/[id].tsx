@@ -46,7 +46,7 @@ import { IslemWithRelations } from '@/types/database';
 import { useCariLinkStatus } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
-import { toErrorMessage } from '@/lib/errors';
+import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -538,7 +538,10 @@ export default function CariHareketleriPage() {
               await deleteCari.mutateAsync(id!);
               router.replace('/(tabs)/cariler');
             } catch (error) {
-              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:cari.deleteFailed'));
+              Alert.alert(
+                isLinkedRecordsError(error) ? t('common:errors.cannotDeleteTitle') : t('common:status.error'),
+                toErrorMessage(error),
+              );
             }
           },
         },
@@ -550,10 +553,11 @@ export default function CariHareketleriPage() {
     try {
       await unarchiveCari.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
-  }, [unarchiveCari, id, t]);
+  }, [unarchiveCari, id, t, router]);
 
   // Header right buttons - viewer'lar icin share ve menu gizle
   const headerRightElement = useMemo(() => (
@@ -924,6 +928,7 @@ export default function CariHareketleriPage() {
           visible={showCekKesSheet}
           onDismiss={() => setShowCekKesSheet(false)}
           defaultCariId={cari?.id}
+          defaultCurrency={cari?.currency}
         />
 
         {/* Export Sheet */}

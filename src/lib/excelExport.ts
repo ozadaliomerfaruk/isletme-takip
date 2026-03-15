@@ -361,6 +361,8 @@ function getPersonelDebitCredit(
       return { debit: amount, credit: null }; // Ödedik
     case 'personel_tahsilat':
       return { debit: null, credit: amount }; // Personelden alacak (avans geri ödeme)
+    case 'personel_satis':
+      return { debit: amount, credit: null }; // Personele satış (personel bize borçlandı)
     default:
       return { debit: null, credit: null };
   }

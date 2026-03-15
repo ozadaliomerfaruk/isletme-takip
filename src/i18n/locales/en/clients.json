@@ -124,7 +124,7 @@
     "updateSuccess": "Contact updated",
     "deleteSuccess": "Contact deleted",
     "deleteConfirm": "Are you sure you want to delete this contact?",
-    "deleteWarning": "All transactions for this contact will also be deleted.",
+    "deleteWarning": "Only contacts without linked transactions can be deleted.",
     "noClients": "No contacts yet",
     "addFirstClient": "Start by adding your first contact",
     "noCustomers": "No customers yet",
@@ -184,7 +184,7 @@
     "transactionTitle": "Delete Transaction",
     "transactionMessage": "Are you sure you want to delete this transaction?",
     "clientTitle": "Delete Contact",
-    "clientMessage": "Are you sure you want to delete this contact?\n\nWarning: All purchases, sales, payments and collections for this contact will also be deleted. This action cannot be undone."
+    "clientMessage": "Are you sure you want to delete this contact?\n\nNote: Contacts with linked transactions, checks or scheduled transactions cannot be deleted. You must delete the linked records first."
   },
   "balanceDirection": {
     "label": "Balance Direction",

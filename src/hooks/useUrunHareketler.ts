@@ -99,6 +99,7 @@ export interface AylikUrunOzet {
   ay: string; // YYYY-MM formatında
   giris: number;
   cikis: number;
+  duzeltme: number; // net düzeltme miktarı (pozitif veya negatif)
 }
 
 export function useAylikUrunOzet(urunId: string | undefined) {
@@ -121,25 +122,19 @@ export function useAylikUrunOzet(urunId: string | undefined) {
       if (error) throw error;
 
       // Aylara göre grupla
-      const aylikMap = new Map<string, { giris: number; cikis: number }>();
+      const aylikMap = new Map<string, { giris: number; cikis: number; duzeltme: number }>();
 
       (data as UrunHareket[]).forEach((hareket) => {
         if (!hareket.created_at) return;
         const ay = hareket.created_at.substring(0, 7); // YYYY-MM
-        const mevcut = aylikMap.get(ay) || { giris: 0, cikis: 0 };
+        const mevcut = aylikMap.get(ay) || { giris: 0, cikis: 0, duzeltme: 0 };
 
         if (hareket.hareket_tipi === 'giris') {
           mevcut.giris += Math.abs(hareket.miktar);
         } else if (hareket.hareket_tipi === 'cikis') {
           mevcut.cikis += Math.abs(hareket.miktar);
-        }
-        // duzeltme için hem giris hem cikis olabilir, miktar işaretine göre
-        else if (hareket.hareket_tipi === 'duzeltme') {
-          if (hareket.miktar > 0) {
-            mevcut.giris += hareket.miktar;
-          } else {
-            mevcut.cikis += Math.abs(hareket.miktar);
-          }
+        } else if (hareket.hareket_tipi === 'duzeltme') {
+          mevcut.duzeltme += hareket.miktar; // net düzeltme (pozitif = artış, negatif = azalış)
         }
 
         aylikMap.set(ay, mevcut);
@@ -151,6 +146,7 @@ export function useAylikUrunOzet(urunId: string | undefined) {
           ay,
           giris: degerler.giris,
           cikis: degerler.cikis,
+          duzeltme: degerler.duzeltme,
         }))
         .sort((a, b) => b.ay.localeCompare(a.ay));
 

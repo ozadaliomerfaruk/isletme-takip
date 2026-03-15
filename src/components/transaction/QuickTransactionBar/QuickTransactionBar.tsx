@@ -365,10 +365,12 @@ export function QuickTransactionBar({
   const handlePendingModalHandled = useCallback(
     (modal: 'category' | 'kredi_karti' | 'cari' | 'personel' | null) => {
       if (modal === 'category' || modal === 'kredi_karti') {
-        modals.handlePendingModalHandled(modal, form.kategoriId);
+        // When products are selected, skip category picker (products provide their own categorization)
+        const effectiveKategoriId = form.urunItems.length > 0 ? 'skip' : form.kategoriId;
+        modals.handlePendingModalHandled(modal, effectiveKategoriId);
       }
     },
-    [modals, form.kategoriId]
+    [modals, form.kategoriId, form.urunItems.length]
   );
 
   if (!visible) return null;
@@ -536,8 +538,12 @@ export function QuickTransactionBar({
             }
           }}
           categoryType={categoryType ?? null}
-          categoryPickerOpen={modals.categoryPickerOpen}
+          categoryPickerOpen={modals.categoryPickerOpen && form.urunItems.length === 0}
           onCategoryPickerOpenChange={(open) => {
+            // Prevent opening category picker when products are selected
+            if (open && form.urunItems.length > 0) {
+              return;
+            }
             modals.setCategoryPickerOpen(open);
             if (!open && !form.kategoriId) {
               modals.setCategorySkipped(true);

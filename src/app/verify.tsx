@@ -4,6 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
@@ -13,6 +14,7 @@ export default function VerifyScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { t } = useTranslation(['auth', 'common', 'errors']);
+  const { triggerPasswordReset } = useAuthContext();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -25,6 +27,7 @@ export default function VerifyScreen() {
       const url = await Linking.getInitialURL();
       let accessToken = params.access_token as string;
       let refreshToken = params.refresh_token as string;
+      let tokenType = (params.type as string) || '';
 
       // Hash'ten de kontrol et (Supabase bazen hash ile gönderir)
       if (url && !accessToken) {
@@ -34,6 +37,7 @@ export default function VerifyScreen() {
           const hashParams = new URLSearchParams(hash);
           accessToken = hashParams.get('access_token') || '';
           refreshToken = hashParams.get('refresh_token') || '';
+          if (!tokenType) tokenType = hashParams.get('type') || '';
         }
       }
 
@@ -45,10 +49,26 @@ export default function VerifyScreen() {
           const queryParams = new URLSearchParams(query);
           accessToken = queryParams.get('access_token') || '';
           refreshToken = queryParams.get('refresh_token') || '';
+          if (!tokenType) tokenType = queryParams.get('type') || '';
         }
       }
 
+      // URL'den type parametresini de al (hash veya query'de olmayabilir)
+      if (!tokenType && url) {
+        // URL'nin tamamında type=recovery ara
+        const typeMatch = url.match(/[?&#]type=([^&#]*)/);
+        if (typeMatch) tokenType = typeMatch[1];
+      }
+
       if (accessToken) {
+        // Şifre sıfırlama akışı - session'dan önce bayrağı aç
+        // setSession SIGNED_IN event'i tetikler (PASSWORD_RECOVERY değil),
+        // bu yüzden bayrağı burada açmamız gerekiyor
+        const isRecovery = tokenType === 'recovery';
+        if (isRecovery) {
+          triggerPasswordReset();
+        }
+
         // Session oluştur
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
@@ -58,6 +78,7 @@ export default function VerifyScreen() {
         if (sessionError) throw sessionError;
 
         // Başarılı - ana sayfaya yönlendir
+        // Eğer recovery ise, ChangePasswordModal _layout.tsx'te otomatik gösterilecek
         router.replace('/(tabs)');
       } else {
         throw new Error(t('errors:auth.linkExpired'));

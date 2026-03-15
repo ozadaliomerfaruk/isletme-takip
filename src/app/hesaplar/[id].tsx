@@ -311,6 +311,7 @@ export default function HesapHareketleriPage() {
     try {
       await unarchiveHesap.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
@@ -740,30 +741,32 @@ export default function HesapHareketleriPage() {
           )}
         </Card>
 
-        {/* Hızlı İşlem Butonları */}
-        <View style={styles.actionButtons}>
-          <Button
-            variant="primary"
-            size="md"
-            icon={hesap.type === 'kredi_karti' ? <CreditCard size={18} color={colors.surface} /> : <CircleDollarSign size={18} color={colors.surface} />}
-            onPress={() => openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir')}
-            style={styles.actionBtn}
-          >
-            {t('accounts:actions.addTransaction')}
-          </Button>
-          {/* Çek Kes - Sadece banka hesapları için */}
-          {hesap.type === 'banka' && (
+        {/* Hızlı İşlem Butonları - arşivlenmiş hesaplarda gizle */}
+        {!hesap.is_archived && (
+          <View style={styles.actionButtons}>
             <Button
-              variant="outline"
+              variant="primary"
               size="md"
-              icon={<FileCheck size={18} color={colors.info} />}
-              onPress={() => setShowCekKesSheet(true)}
-              style={[styles.actionBtn, { borderColor: colors.info }]}
+              icon={hesap.type === 'kredi_karti' ? <CreditCard size={18} color={colors.surface} /> : <CircleDollarSign size={18} color={colors.surface} />}
+              onPress={() => openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir')}
+              style={styles.actionBtn}
             >
-              {t('checks:create')}
+              {t('accounts:actions.addTransaction')}
             </Button>
-          )}
-        </View>
+            {/* Çek Kes - Sadece banka hesapları için */}
+            {hesap.type === 'banka' && (
+              <Button
+                variant="outline"
+                size="md"
+                icon={<FileCheck size={18} color={colors.info} />}
+                onPress={() => setShowCekKesSheet(true)}
+                style={[styles.actionBtn, { borderColor: colors.info }]}
+              >
+                {t('checks:create')}
+              </Button>
+            )}
+          </View>
+        )}
 
         {/* İleri Tarihli İşlemler */}
         <View style={styles.section}>
@@ -976,6 +979,7 @@ export default function HesapHareketleriPage() {
         visible={showCekKesSheet}
         onDismiss={() => setShowCekKesSheet(false)}
         defaultHesapId={id}
+        defaultCurrency={hesap?.currency}
       />
 
       {/* Export Sheet */}
@@ -1075,16 +1079,18 @@ export default function HesapHareketleriPage() {
         undoLabel={t('common:buttons.undo')}
       />
 
-      {/* Floating Yeni İşlem FAB */}
-      <TouchableOpacity
-        style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-        onPress={() => {
-          openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir');
-        }}
-        activeOpacity={0.8}
-      >
-        <Zap size={24} color={colors.surface} />
-      </TouchableOpacity>
+      {/* Floating Yeni İşlem FAB - arşivlenmiş hesaplarda gizle */}
+      {!hesap.is_archived && (
+        <TouchableOpacity
+          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+          onPress={() => {
+            openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir');
+          }}
+          activeOpacity={0.8}
+        >
+          <Zap size={24} color={colors.surface} />
+        </TouchableOpacity>
+      )}
     </>
   );
 }

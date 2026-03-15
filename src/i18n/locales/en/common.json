@@ -541,6 +541,11 @@
     "checkViolation": "The entered values are invalid",
     "invalidCredentials": "Invalid email or password",
     "emailNotConfirmed": "You need to verify your email address",
-    "sessionExpired": "Session expired, please sign in again"
+    "sessionExpired": "Session expired, please sign in again",
+    "hasLinkedTransactions": "You need to delete linked transactions before deleting this record. There are {{count}} linked transactions.",
+    "hasLinkedChecks": "You need to delete linked checks before deleting this record. There are {{count}} linked checks.",
+    "hasLinkedScheduledTransactions": "You need to delete linked scheduled transactions before deleting this record. There are {{count}} linked scheduled transactions.",
+    "hasLinkedRecords": "You need to delete linked records before deleting this record.",
+    "cannotDeleteTitle": "Cannot Delete"
   }
 }

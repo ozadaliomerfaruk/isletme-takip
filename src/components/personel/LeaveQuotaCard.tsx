@@ -22,8 +22,8 @@ export function LeaveQuotaCard({ hakEdilenGun, kullanilanGun, onAddLeave, onCard
   const { t } = useTranslation('staff');
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  const kalanGun = Math.max(0, hakEdilenGun - kullanilanGun);
-  const progressRatio = hakEdilenGun > 0 ? Math.min(kullanilanGun / hakEdilenGun, 1) : 0;
+  const kalanGun = hakEdilenGun - kullanilanGun;
+  const progressRatio = hakEdilenGun > 0 ? Math.min(kullanilanGun / hakEdilenGun, 1) : (kullanilanGun > 0 ? 1 : 0);
 
   useEffect(() => {
     Animated.timing(progressAnim, {

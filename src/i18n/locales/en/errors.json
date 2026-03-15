@@ -42,7 +42,8 @@
     "loginRequired": "Please log in",
     "weakPassword": "Please enter a stronger password",
     "linkExpired": "Password reset link is invalid or has expired. Please try again.",
-    "invalidOtp": "Invalid verification code. Please try again."
+    "invalidOtp": "Invalid verification code. Please try again.",
+    "samePassword": "New password must be different from your current password"
   },
   "validation": {
     "required": "This field is required",

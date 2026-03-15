@@ -24,7 +24,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { formatDateTimeForDB, isToday } from '@/lib/date';
+import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
@@ -48,6 +48,7 @@ export default function TopluOdemePage() {
   };
 
   const [date, setDate] = useState(getDefaultDate());
+  const safeDate = useMemo(() => ensureValidDate(date), [date]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [hesapId, setHesapId] = useState<string | null>(null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
@@ -196,7 +197,7 @@ export default function TopluOdemePage() {
               personel_id: personelId,
               hesap_id: hesapId,
               kategori_id: kategoriId,
-              date: formatDateTimeForDB(date),
+              date: formatDateTimeForDB(safeDate),
               description: description.trim() || (kategoriId ? null : t('staff:bulkPayment.description')),
             })
           );
@@ -266,7 +267,7 @@ export default function TopluOdemePage() {
               >
                 <Calendar size={20} color={colors.textMuted} />
                 <Text variant="body" style={styles.dateText}>
-                  {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
+                  {isToday(safeDate) ? t('common:date.today') : formatDateMedium(safeDate)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -458,20 +459,20 @@ export default function TopluOdemePage() {
                     <View style={styles.pickerSection}>
                       <Text style={styles.pickerSectionTitle}>{t('common:date.date')}</Text>
                       <DateTimePickerRN
-                        value={date}
+                        value={safeDate}
                         mode="date"
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                         onChange={(event, selectedDate) => {
                           if (Platform.OS === 'android') {
                             if (event.type === 'set' && selectedDate) {
-                              const newDate = new Date(date);
+                              const newDate = new Date(safeDate);
                               newDate.setFullYear(selectedDate.getFullYear());
                               newDate.setMonth(selectedDate.getMonth());
                               newDate.setDate(selectedDate.getDate());
                               setDate(newDate);
                             }
                           } else if (selectedDate) {
-                            const newDate = new Date(date);
+                            const newDate = new Date(safeDate);
                             newDate.setFullYear(selectedDate.getFullYear());
                             newDate.setMonth(selectedDate.getMonth());
                             newDate.setDate(selectedDate.getDate());
@@ -489,20 +490,20 @@ export default function TopluOdemePage() {
                     <View style={styles.pickerSection}>
                       <Text style={styles.pickerSectionTitle}>{t('common:date.time')}</Text>
                       <DateTimePickerRN
-                        value={date}
+                        value={safeDate}
                         mode="time"
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                         is24Hour={true}
                         onChange={(event, selectedDate) => {
                           if (Platform.OS === 'android') {
                             if (event.type === 'set' && selectedDate) {
-                              const newDate = new Date(date);
+                              const newDate = new Date(safeDate);
                               newDate.setHours(selectedDate.getHours());
                               newDate.setMinutes(selectedDate.getMinutes());
                               setDate(newDate);
                             }
                           } else if (selectedDate) {
-                            const newDate = new Date(date);
+                            const newDate = new Date(safeDate);
                             newDate.setHours(selectedDate.getHours());
                             newDate.setMinutes(selectedDate.getMinutes());
                             setDate(newDate);

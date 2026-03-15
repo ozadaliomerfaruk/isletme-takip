@@ -534,6 +534,11 @@
     "checkViolation": "Girilen değerler geçersiz",
     "invalidCredentials": "E-posta veya şifre hatalı",
     "emailNotConfirmed": "E-posta adresinizi doğrulamanız gerekiyor",
-    "sessionExpired": "Oturum süresi doldu, lütfen tekrar giriş yapın"
+    "sessionExpired": "Oturum süresi doldu, lütfen tekrar giriş yapın",
+    "hasLinkedTransactions": "Bu kaydı silmek için önce bağlı işlemleri silmeniz gerekiyor. {{count}} adet işlem bulunuyor.",
+    "hasLinkedChecks": "Bu kaydı silmek için önce bağlı çekleri silmeniz gerekiyor. {{count}} adet çek bulunuyor.",
+    "hasLinkedScheduledTransactions": "Bu kaydı silmek için önce bağlı ileri tarihli işlemleri silmeniz gerekiyor. {{count}} adet ileri tarihli işlem bulunuyor.",
+    "hasLinkedRecords": "Bu kaydı silmek için önce bağlı kayıtları silmeniz gerekiyor.",
+    "cannotDeleteTitle": "Silinemez"
   }
 }

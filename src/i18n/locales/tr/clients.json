@@ -124,7 +124,7 @@
     "updateSuccess": "Cari güncellendi",
     "deleteSuccess": "Cari silindi",
     "deleteConfirm": "Bu cariyi silmek istediğinize emin misiniz?",
-    "deleteWarning": "Bu cariye ait tüm işlemler de silinecektir.",
+    "deleteWarning": "Bağlı işlemi olmayan cariler silinebilir.",
     "noClients": "Henüz cari yok",
     "addFirstClient": "İlk carinizi ekleyerek başlayın",
     "noCustomers": "Henüz müşteri yok",
@@ -184,7 +184,7 @@
     "transactionTitle": "İşlemi Sil",
     "transactionMessage": "Bu işlemi silmek istediğinizden emin misiniz?",
     "clientTitle": "Cariyi Sil",
-    "clientMessage": "Bu cariyi silmek istediğinizden emin misiniz?\n\nDikkat: Bu cariye ait tüm alış, satış, ödeme ve tahsilat işlemleri de silinecektir. Bu işlem geri alınamaz."
+    "clientMessage": "Bu cariyi silmek istediğinizden emin misiniz?\n\nNot: Bağlı işlemi, çeki veya ileri tarihli işlemi olan cariler silinemez. Önce bağlı kayıtları silmeniz gerekir."
   },
   "balanceDirection": {
     "label": "Bakiye Yönü",

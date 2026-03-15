@@ -946,3 +946,117 @@
 - Kritik sorunlari en ust siraya alin ve oncelikle cozun
 - OCR (Foto Import) ve Nakit Avans UI'dan kaldirilmisti - backend'de hala mevcut
 - Test siralamasi: Once temel islemler (auth, hesap, islem) sonra detaylar (raporlar, export, multi-user)
+
+---
+
+## 31. DUZELTILMIS BUGLAR - TEKRAR KONTROL LISTESI
+
+> Asagidaki maddeler ilk test turundan sonra bulunan ve duzeltilen buglardir.
+> Her birini tekrar test ederek duzeltmenin dogru calistigindan emin olun.
+
+### 31.1 Auth Duzeltmeleri
+
+- [ ] **Sifre Degistirme** - Ayarlar > Isletme Bilgileri > Sifre Degistir
+  - [ ] Spinner sonsuz donmuyar, islem tamamlaniyor
+  - [ ] Ayni sifreyi girince anlamli hata mesaji cikiyor
+  - [ ] X butonu ile modal kapatilabiliyor
+  - [ ] Yeni sifre basariyla degisince bildirim geliyor
+
+- [ ] **Sifre Sifirlama (Deep Link)** - Sifremi Unuttum akisi
+  - [ ] Sifremi unuttum > email gonder > emaildeki linke tikla
+  - [ ] Uygulama aciliyor ve yeni sifre formu gorunuyor (direkt ana sayfaya gitmemeli)
+  - [ ] Yeni sifre girip kaydedince basariyla degisiyor
+  - [ ] Formu kapatinca normal sekilde devam edebiliyorum
+
+### 31.2 Hesaplar Duzeltmeleri
+
+- [ ] **Arsivlenmis Hesapta Islem Engeli**
+  - [ ] Bir hesabi arsivle
+  - [ ] Arsiv sayfasindan o hesabi ac
+  - [ ] Islem ekleme butonlari devre disi (tiklanamaz) olmali
+  - [ ] Arsivden cikar tikla > Otomatik arsiv listesine geri donmeli
+
+### 31.3 Cariler Duzeltmeleri
+
+- [ ] **Cari Silme - Bagli Kayit Kontrolu**
+  - [ ] Islemi olan bir cariyi silmeye calis > "Bagli islemleri silmeniz gerekiyor" hatasi almali
+  - [ ] Ceki olan bir cariyi silmeye calis > "Bagli cekleri silmeniz gerekiyor" hatasi almali
+  - [ ] Hicbir islemi/ceki olmayan bir cariyi sil > Normal silinmeli
+
+- [ ] **CekKesSheet Para Birimi Filtreleme**
+  - [ ] USD para birimli cariye cek kes > Sadece USD banka hesaplari gorunmeli
+  - [ ] Para birimi sembolü $ gosterilmeli (₺ degil)
+  - [ ] TRY cariye cek kes > TRY hesaplar ve ₺ sembolü gorunmeli
+  - [ ] Cari degistirince hesap listesi otomatik filtrelenmeli
+
+### 31.4 Personel Duzeltmeleri
+
+- [ ] **Personel Silme - Bagli Kayit Kontrolu**
+  - [ ] Islemi olan bir personeli silmeye calis > Hata almali
+  - [ ] Islemi olmayan personeli sil > Normal silinmeli
+
+- [ ] **Negatif Izin Bakiyesi**
+  - [ ] Bir personele hak ettigi izinden fazla izin kullanimi gir
+  - [ ] Kalan gun negatif gorunmeli (orn: -3 gun)
+  - [ ] Progress bar kirmizi olmali
+
+- [ ] **Personel Satisi - Acilis Bakiyesi**
+  - [ ] Bir personele satis islemi yap
+  - [ ] Personelin acilis bakiyesi (duzenle sayfasindan kontrol et) degismemis olmali
+  - [ ] Sadece islem listesinde yeni kayit gorunmeli
+
+### 31.5 Urunler Duzeltmeleri
+
+- [ ] **Aylik Ozet - Duzeltme Cipi (Sari)**
+  - [ ] Bir urune stok duzeltme hareketi ekle
+  - [ ] Urun detay > Aylik Ozet bolumu
+  - [ ] Yesil (+alis), kirmizi (-satis) ve sari (duzeltme) ayri cipler gorunmeli
+  - [ ] Duzeltme yoksa sari cip gorunmemeli
+
+- [ ] **Toplu Stok Giris/Cikis - Toplam Font Boyutu**
+  - [ ] Toplu stok giris sayfasina git
+  - [ ] "Toplam" etiketi okunabilir buyuklukte olmali (eskisinden buyuk)
+  - [ ] Toplu stok cikis sayfasinda da ayni sekilde
+
+### 31.6 Islem Ekleme (QuickTransactionBar) Duzeltmeleri
+
+- [ ] **DateTimePicker 1970 Bugu**
+  - [ ] Herhangi bir islem eklerken tarih seciciye tikla
+  - [ ] Bugunun tarihi gelmeli, 01.01.1970 degil
+  - [ ] Personel izin eklerken tarih seciciye tikla > 1970 degil bugunku tarih gelmeli
+
+- [ ] **Islem Sonrasi Toast Mesaji**
+  - [ ] Gelir islemi kaydet > "Isleminiz basariyla kaydedildi" toast mesaji gorunmeli
+  - [ ] Gider islemi kaydet > Ayni toast mesaji
+  - [ ] Islem duzenle ve kaydet > "Islem guncellendi" toast mesaji
+
+- [ ] **Kategori Secici Otomatik Acilma**
+  - [ ] Cari alis islemi baslat
+  - [ ] Bir urun sec (UrunPickerModal'dan)
+  - [ ] Kategori secici otomatik acilMAMALI
+  - [ ] Sadece kategori alanina tiklaninca acilmali
+
+- [ ] **Hesap On Secimi Kaldirildi + A-Z Siralama**
+  - [ ] Cari odeme islemi baslat > Hesap alani bos olmali (otomatik secili olmamali)
+  - [ ] Cari tahsilat islemi baslat > Hesap alani bos olmali
+  - [ ] Personel odeme sayfasi > Hesap alani bos olmali
+  - [ ] Hesap seciciye tikla > Hesaplar A-Z sirali gorunmeli
+
+### 31.7 Dashboard Duzeltmeleri
+
+- [ ] **FinancialDetailModal Animasyon**
+  - [ ] Dashboard'da finansal ozet kartina tikla
+  - [ ] Modal acilirken animasyon akici olmali (takilma/kasma azalmis olmali)
+  - [ ] Icerik yuklenene kadar kisa bir loading gosterilmeli
+  - [ ] Donem degistirme (aylik/haftalik vs.) duzgun calismali
+
+### 31.8 Dashboard vs Raporlar Tutarsizligi (INCELEME GEREKTIRIYOR)
+
+- [ ] **Dashboard ve Raporlar farkli toplam gosteriyor**
+  - NOT: Bu bir kod bugu degil, farkli veri kaynaklari kullaniliyor
+  - Dashboard: `get_income_expense_summary` RPC (tum islem tiplerini grupluyor)
+  - Raporlar: `get_category_report` RPC (iade islemlerini ayri hesapliyor + urun dagitim mantigi farkli)
+  - [ ] Dashboard gelir toplami not et: ___________
+  - [ ] Raporlar > Gelir-Gider > ayni donem gelir toplami not et: ___________
+  - [ ] Fark varsa: iade islemleri (cari_alis_iade / cari_satis_iade) olup olmadigini kontrol et
+  - [ ] Pasif/arsivlenmis hesap uzerinde islem olup olmadigini kontrol et

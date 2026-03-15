@@ -41,6 +41,7 @@ import type { SharingPermission } from '@/types/cariSharing';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
+import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 
 // Merged cari type: own cari + optional link metadata
 type MergedCari = Cari & {
@@ -166,7 +167,11 @@ export default function CarilerPage() {
               showToast(t('common:messages.deletedSuccessfully'), 'success');
             } catch (error) {
               haptics.error();
-              showToast(t('common:messages.operationFailed'), 'error');
+              if (isLinkedRecordsError(error)) {
+                Alert.alert(t('common:errors.cannotDeleteTitle'), toErrorMessage(error));
+              } else {
+                showToast(t('common:messages.operationFailed'), 'error');
+              }
             }
           },
         },
@@ -233,7 +238,11 @@ export default function CarilerPage() {
               handleCancelSelectMode();
             } catch (error) {
               haptics.error();
-              showToast(t('common:messages.operationFailed'), 'error');
+              if (isLinkedRecordsError(error)) {
+                Alert.alert(t('common:errors.cannotDeleteTitle'), toErrorMessage(error));
+              } else {
+                showToast(t('common:messages.operationFailed'), 'error');
+              }
             }
           },
         },

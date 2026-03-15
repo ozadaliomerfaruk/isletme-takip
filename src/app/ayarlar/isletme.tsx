@@ -21,17 +21,16 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useUpdateIsletme } from '@/hooks/useIsletme';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { parseDateFromDB } from '@/lib/date';
-import { useAuth } from '@/hooks/useAuth';
 import { useRequireOwner } from '@/hooks/usePagePermission';
+import { toErrorMessage } from '@/lib/errors';
 
 export default function IsletmeBilgileriPage() {
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
   useRequireOwner();
   const { formatDateNative } = useDateFormat();
-  const { isletme, user } = useAuthContext();
+  const { isletme, user, changePassword } = useAuthContext();
   const updateIsletme = useUpdateIsletme();
-  const { changePassword } = useAuth();
 
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -125,10 +124,13 @@ export default function IsletmeBilgileriPage() {
       Alert.alert(t('common:status.success'), t('settings:messages.passwordChanged'));
     } catch (error: unknown) {
       let errorMessage = t('errors:general.generic');
+      const errMsg = toErrorMessage(error);
 
-      // Supabase leaked password error
-      if (error instanceof Error &&
-          (error.message?.includes('weak and easy to guess') || error.message?.includes('leaked'))) {
+      // Supabase: same password as old one
+      if (errMsg?.includes('different from') || errMsg?.includes('same_password') || errMsg?.includes('same as')) {
+        errorMessage = t('errors:auth.samePassword');
+      // Supabase: leaked / weak password
+      } else if (errMsg?.includes('weak and easy to guess') || errMsg?.includes('leaked')) {
         errorMessage = t('errors:auth.leakedPassword');
       }
 

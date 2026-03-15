@@ -797,7 +797,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   rowTotalLabel: {
-    fontSize: 11,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   rowTotalAmount: {

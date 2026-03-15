@@ -36,6 +36,7 @@ import { useDeletePersonel } from '@/hooks/usePersonel';
 import { usePermanentDeleteUrun } from '@/hooks/useUrunler';
 import type { Hesap, Cari, Personel, Urun, BirimType } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
+import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 
 type TabType = 'hepsi' | 'hesaplar' | 'tedarikci' | 'musteri' | 'personel' | 'urunler';
 
@@ -123,6 +124,8 @@ export default function ArsivPage() {
       } else if (selectedItem.type === 'urunler') {
         await unarchiveUrun.mutateAsync(selectedItem.id);
       }
+      setActionSheetVisible(false);
+      setSelectedItem(null);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
@@ -153,7 +156,10 @@ export default function ArsivPage() {
               }
               Alert.alert(t('common:status.success'), t('common:messages.deletedSuccessfully'));
             } catch (error) {
-              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+              Alert.alert(
+                isLinkedRecordsError(error) ? t('common:errors.cannotDeleteTitle') : t('common:status.error'),
+                isLinkedRecordsError(error) ? toErrorMessage(error) : t('common:messages.operationFailed'),
+              );
             }
           },
         },

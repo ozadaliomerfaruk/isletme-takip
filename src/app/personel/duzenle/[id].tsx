@@ -20,7 +20,7 @@ import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, parseDateFromDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
@@ -58,7 +58,7 @@ export default function PersonelDuzenlePage() {
       setPhone(personel.phone || '');
       setPosition(personel.position || '');
       setSalary(personel.salary ? String(personel.salary) : '');
-      setStartDate(personel.start_date ? new Date(personel.start_date) : null);
+      setStartDate(personel.start_date ? parseDateFromDB(personel.start_date) : null);
       setIsActive(personel.is_active ?? true);
     }
   }, [personel]);

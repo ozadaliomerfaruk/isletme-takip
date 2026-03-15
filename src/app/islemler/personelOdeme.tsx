@@ -78,10 +78,8 @@ export default function PersonelOdemePage() {
     if (!personelId && personelList && personelList.length > 0 && !params.personel_id) {
       setValue('personelId', personelList[0].id);
     }
-    if (!hesapId && hesaplar && hesaplar.length > 0 && !params.hesap_id) {
-      setValue('hesapId', hesaplar[0].id);
-    }
-  }, [personelList, hesaplar, personelId, hesapId, params.personel_id, params.hesap_id, setValue]);
+    // Do NOT auto-select the first account - let the user choose explicitly
+  }, [personelList, personelId, params.personel_id, setValue]);
 
   const selectedPersonel = personelList?.find((p) => p.id === personelId);
   const selectedHesap = hesaplar?.find((h) => h.id === hesapId);

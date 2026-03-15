@@ -101,7 +101,7 @@
     "updateSuccess": "Personel güncellendi",
     "deleteSuccess": "Personel silindi",
     "deleteConfirm": "Bu personeli silmek istediğinize emin misiniz?",
-    "deleteWarning": "Bu personele ait tüm gider ve ödeme işlemleri de silinecektir.",
+    "deleteWarning": "Bağlı işlemi olmayan personeller silinebilir.",
     "noPersonnel": "Henüz personel yok",
     "addFirstPersonnel": "İlk personelinizi ekleyerek başlayın",
     "noTransactions": "Bu personele ait işlem yok",
@@ -172,7 +172,7 @@
     "transactionTitle": "İşlemi Sil",
     "transactionMessage": "Bu işlemi silmek istediğinizden emin misiniz?",
     "staffTitle": "Personeli Sil",
-    "staffMessage": "Bu personeli silmek istediğinizden emin misiniz?\n\nDikkat: Bu personele ait tüm gider ve ödeme işlemleri de silinecektir. Bu işlem geri alınamaz."
+    "staffMessage": "Bu personeli silmek istediğinizden emin misiniz?\n\nNot: Bağlı işlemi veya ileri tarihli işlemi olan personeller silinemez. Önce bağlı kayıtları silmeniz gerekir."
   },
   "validation": {
     "firstNameRequired": "Ad gerekli"

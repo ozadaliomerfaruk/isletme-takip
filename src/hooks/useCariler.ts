@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Cari, CariInsert, CariUpdate, CariType } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { calculateBalanceSummary } from '@/lib/currency';
+import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
 
 export function useCariler(type?: CariType, includePassive: boolean = false, includeArchived: boolean = false) {
@@ -144,25 +145,40 @@ export function useDeleteCari() {
         throw new Error(i18n.t('common:errors.clientNotFound'));
       }
 
-      // İlişkili ileri tarihli işlemleri sil (ownership kontrolü ile)
-      const { error: scheduledError } = await supabase
-        .from('ileri_tarihli_islemler')
-        .delete()
-        .eq('cari_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (scheduledError) throw scheduledError;
-
-      // İlişkili işlemleri sil (ownership kontrolü ile)
-      const { error: islemError } = await supabase
+      // Bağlı işlem kontrolü - varsa silmeyi engelle
+      const { count: islemCount } = await supabase
         .from('islemler')
-        .delete()
+        .select('id', { count: 'exact', head: true })
         .eq('cari_id', id)
         .eq('isletme_id', isletme.id);
 
-      if (islemError) throw islemError;
+      if (islemCount && islemCount > 0) {
+        throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedTransactions', { count: islemCount }));
+      }
 
-      // Cariyi sil
+      // Bağlı ileri tarihli işlem kontrolü
+      const { count: scheduledCount } = await supabase
+        .from('ileri_tarihli_islemler')
+        .select('id', { count: 'exact', head: true })
+        .eq('cari_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (scheduledCount && scheduledCount > 0) {
+        throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedScheduledTransactions', { count: scheduledCount }));
+      }
+
+      // Bağlı çek kontrolü
+      const { count: cekCount } = await supabase
+        .from('cekler')
+        .select('id', { count: 'exact', head: true })
+        .eq('cari_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (cekCount && cekCount > 0) {
+        throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedChecks', { count: cekCount }));
+      }
+
+      // Cariyi sil (bağlı kayıt yoksa güvenle silinebilir)
       const { error } = await supabase
         .from('cariler')
         .delete()

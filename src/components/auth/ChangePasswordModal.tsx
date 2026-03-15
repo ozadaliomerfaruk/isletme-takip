@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,9 +7,10 @@ import {
   Platform,
   ScrollView,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Lock, KeyRound } from 'lucide-react-native';
+import { Lock, KeyRound, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -20,9 +21,10 @@ import { toErrorMessage } from '@/lib/errors';
 interface ChangePasswordModalProps {
   visible: boolean;
   onSuccess: () => void;
+  onClose?: () => void;
 }
 
-export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalProps) {
+export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePasswordModalProps) {
   const { t } = useTranslation(['auth', 'common', 'errors']);
 
   const [password, setPassword] = useState('');
@@ -33,6 +35,19 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
     password?: string;
     passwordConfirm?: string;
   }>({});
+
+  const resetForm = useCallback(() => {
+    setPassword('');
+    setPasswordConfirm('');
+    setPasswordStrength('weak');
+    setErrors({});
+  }, []);
+
+  const handleClose = useCallback(() => {
+    if (loading) return;
+    resetForm();
+    onClose?.();
+  }, [loading, resetForm, onClose]);
 
   // Password validation
   const validatePassword = () => {
@@ -74,21 +89,20 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
           {
             text: t('common:buttons.ok'),
             onPress: () => {
-              // Reset form
-              setPassword('');
-              setPasswordConfirm('');
-              setPasswordStrength('weak');
-              setErrors({});
+              resetForm();
               onSuccess();
             },
           },
         ]
       );
     } catch (err) {
-      let errorMessage = toErrorMessage(err) || t('errors:general.generic');
+      const errMsg = toErrorMessage(err);
+      let errorMessage = errMsg || t('errors:general.generic');
 
       // Translate Supabase error messages
-      if (toErrorMessage(err)?.includes('weak and easy to guess') || toErrorMessage(err)?.includes('leaked')) {
+      if (errMsg?.includes('different from') || errMsg?.includes('same_password') || errMsg?.includes('same as')) {
+        errorMessage = t('errors:auth.samePassword');
+      } else if (errMsg?.includes('weak and easy to guess') || errMsg?.includes('leaked')) {
         errorMessage = t('errors:auth.leakedPassword');
       }
 
@@ -103,9 +117,7 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
       visible={visible}
       animationType="slide"
       presentationStyle="pageSheet"
-      onRequestClose={() => {
-        // Android back button - do nothing, user must change password
-      }}
+      onRequestClose={handleClose}
     >
       <SafeAreaView style={styles.container}>
         <KeyboardAvoidingView
@@ -117,6 +129,19 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
+            {/* Close button */}
+            {onClose && (
+              <View style={styles.closeRow}>
+                <TouchableOpacity
+                  onPress={handleClose}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  disabled={loading}
+                >
+                  <X size={24} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.iconContainer}>
@@ -172,6 +197,19 @@ export function ChangePasswordModal({ visible, onSuccess }: ChangePasswordModalP
               >
                 {t('auth:resetPassword.resetButton')}
               </Button>
+
+              {onClose && (
+                <Button
+                  variant="outline"
+                  size="lg"
+                  fullWidth
+                  disabled={loading}
+                  onPress={handleClose}
+                  style={styles.cancelButton}
+                >
+                  {t('common:buttons.cancel')}
+                </Button>
+              )}
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -192,6 +230,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: spacing.xl,
     justifyContent: 'center',
+  },
+  closeRow: {
+    alignItems: 'flex-end',
+    marginBottom: spacing.sm,
   },
   header: {
     alignItems: 'center',
@@ -215,5 +257,8 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: spacing.lg,
+  },
+  cancelButton: {
+    marginTop: spacing.sm,
   },
 });

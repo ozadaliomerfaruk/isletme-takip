@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import {
   View,
   Modal,
@@ -11,6 +11,7 @@ import DateTimePickerRN from '@react-native-community/datetimepicker';
 
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
+import { ensureValidDate } from '@/lib/date';
 import { styles } from '../styles';
 
 export interface DateTimePickerModalProps {
@@ -30,44 +31,47 @@ export function DateTimePickerModal({
 }: DateTimePickerModalProps) {
   const { t } = useTranslation(['transactions', 'common']);
 
+  // Guard against invalid/epoch dates (1970 bug)
+  const safeValue = useMemo(() => ensureValidDate(value), [value]);
+
   const handleDateChange = useCallback(
     (event: { type: string }, selectedDate?: Date) => {
       if (Platform.OS === 'android') {
         if (event.type === 'set' && selectedDate) {
-          const newDate = new Date(value);
+          const newDate = new Date(safeValue);
           newDate.setFullYear(selectedDate.getFullYear());
           newDate.setMonth(selectedDate.getMonth());
           newDate.setDate(selectedDate.getDate());
           onChange(newDate);
         }
       } else if (selectedDate) {
-        const newDate = new Date(value);
+        const newDate = new Date(safeValue);
         newDate.setFullYear(selectedDate.getFullYear());
         newDate.setMonth(selectedDate.getMonth());
         newDate.setDate(selectedDate.getDate());
         onChange(newDate);
       }
     },
-    [value, onChange]
+    [safeValue, onChange]
   );
 
   const handleTimeChange = useCallback(
     (event: { type: string }, selectedDate?: Date) => {
       if (Platform.OS === 'android') {
         if (event.type === 'set' && selectedDate) {
-          const newDate = new Date(value);
+          const newDate = new Date(safeValue);
           newDate.setHours(selectedDate.getHours());
           newDate.setMinutes(selectedDate.getMinutes());
           onChange(newDate);
         }
       } else if (selectedDate) {
-        const newDate = new Date(value);
+        const newDate = new Date(safeValue);
         newDate.setHours(selectedDate.getHours());
         newDate.setMinutes(selectedDate.getMinutes());
         onChange(newDate);
       }
     },
-    [value, onChange]
+    [safeValue, onChange]
   );
 
   if (!visible) return null;
@@ -84,7 +88,7 @@ export function DateTimePickerModal({
               <View style={styles.pickerSection}>
                 <Text style={styles.pickerSectionTitle}>{t('common:date.date')}</Text>
                 <DateTimePickerRN
-                  value={value}
+                  value={safeValue}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleDateChange}
@@ -99,7 +103,7 @@ export function DateTimePickerModal({
               <View style={styles.pickerSection}>
                 <Text style={styles.pickerSectionTitle}>{t('common:date.time')}</Text>
                 <DateTimePickerRN
-                  value={value}
+                  value={safeValue}
                   mode="time"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   is24Hour={true}

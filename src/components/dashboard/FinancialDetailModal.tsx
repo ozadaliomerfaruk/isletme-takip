@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, InteractionManager, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight } from 'lucide-react-native';
@@ -28,12 +28,21 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
   const [period, setPeriod] = useState<Exclude<PeriodType, 'custom'>>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
 
+  // Defer data rendering until open animation completes
+  const [ready, setReady] = useState(false);
+
   // Reset when modal opens
   useEffect(() => {
     if (visible) {
       setPeriod('monthly');
       setPeriodOffset(0);
+      setReady(false);
+      const handle = InteractionManager.runAfterInteractions(() => {
+        setReady(true);
+      });
+      return () => handle.cancel();
     }
+    setReady(false);
   }, [visible]);
 
   // Date range calculation
@@ -128,117 +137,125 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
           </ScrollView>
         </View>
 
-        {/* Income/Expense Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('common:dashboard.profitLoss')}</Text>
-            <AnimatedNumber
-              value={netProfit}
-              showSign
-              prefix={currencyConfig.prefix}
-              decimalSeparator={currencyConfig.decimalSeparator}
-              thousandsSeparator={currencyConfig.thousandsSeparator}
-              style={[styles.sectionValue, { color: netProfit >= 0 ? colors.success : colors.error }]}
-            />
+        {!ready ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="small" color={colors.primary} />
           </View>
-
-          {/* Progress Bar */}
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, styles.progressGreen, { width: `${incomePercent}%` }]} />
-            <View style={[styles.progressFill, styles.progressRed, { width: `${100 - incomePercent}%` }]} />
-          </View>
-
-          {/* Income & Expense Rows */}
-          <View style={styles.detailRows}>
-            <TouchableOpacity
-              style={styles.detailRow}
-              onPress={() => navigateToReport('/raporlar/gelir-gider')}
-              activeOpacity={0.6}
-            >
-              <View style={styles.detailLeft}>
-                <View style={[styles.dot, { backgroundColor: colors.success }]} />
-                <Text style={styles.detailLabel}>{t('common:dashboard.income')}</Text>
+        ) : (
+          <>
+            {/* Income/Expense Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{t('common:dashboard.profitLoss')}</Text>
+                <AnimatedNumber
+                  value={netProfit}
+                  showSign
+                  prefix={currencyConfig.prefix}
+                  decimalSeparator={currencyConfig.decimalSeparator}
+                  thousandsSeparator={currencyConfig.thousandsSeparator}
+                  style={[styles.sectionValue, { color: netProfit >= 0 ? colors.success : colors.error }]}
+                />
               </View>
-              <View style={styles.detailRight}>
-                <Text style={[styles.detailValue, { color: colors.success }]}>{formatCurrency(income)}</Text>
-                <ArrowRight size={14} color={colors.textMuted} />
-              </View>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.detailRow}
-              onPress={() => navigateToReport('/raporlar/gelir-gider')}
-              activeOpacity={0.6}
-            >
-              <View style={styles.detailLeft}>
-                <View style={[styles.dot, { backgroundColor: colors.error }]} />
-                <Text style={styles.detailLabel}>{t('common:dashboard.expense')}</Text>
+              {/* Progress Bar */}
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, styles.progressGreen, { width: `${incomePercent}%` }]} />
+                <View style={[styles.progressFill, styles.progressRed, { width: `${100 - incomePercent}%` }]} />
               </View>
-              <View style={styles.detailRight}>
-                <Text style={[styles.detailValue, { color: colors.error }]}>{formatCurrency(expense)}</Text>
-                <ArrowRight size={14} color={colors.textMuted} />
+
+              {/* Income & Expense Rows */}
+              <View style={styles.detailRows}>
+                <TouchableOpacity
+                  style={styles.detailRow}
+                  onPress={() => navigateToReport('/raporlar/gelir-gider')}
+                  activeOpacity={0.6}
+                >
+                  <View style={styles.detailLeft}>
+                    <View style={[styles.dot, { backgroundColor: colors.success }]} />
+                    <Text style={styles.detailLabel}>{t('common:dashboard.income')}</Text>
+                  </View>
+                  <View style={styles.detailRight}>
+                    <Text style={[styles.detailValue, { color: colors.success }]}>{formatCurrency(income)}</Text>
+                    <ArrowRight size={14} color={colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.detailRow}
+                  onPress={() => navigateToReport('/raporlar/gelir-gider')}
+                  activeOpacity={0.6}
+                >
+                  <View style={styles.detailLeft}>
+                    <View style={[styles.dot, { backgroundColor: colors.error }]} />
+                    <Text style={styles.detailLabel}>{t('common:dashboard.expense')}</Text>
+                  </View>
+                  <View style={styles.detailRight}>
+                    <Text style={[styles.detailValue, { color: colors.error }]}>{formatCurrency(expense)}</Text>
+                    <ArrowRight size={14} color={colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          </View>
 
-          <Text style={styles.description}>{t('common:dashboard.profitDescription')}</Text>
-        </View>
+              <Text style={styles.description}>{t('common:dashboard.profitDescription')}</Text>
+            </View>
 
-        {/* Cash Flow Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('common:dashboard.cashFlow')}</Text>
-            <AnimatedNumber
-              value={netCashFlow}
-              showSign
-              prefix={currencyConfig.prefix}
-              decimalSeparator={currencyConfig.decimalSeparator}
-              thousandsSeparator={currencyConfig.thousandsSeparator}
-              style={[styles.sectionValue, { color: netCashFlow >= 0 ? colors.success : colors.error }]}
-            />
-          </View>
-
-          {/* Progress Bar */}
-          <View style={styles.progressBar}>
-            <View style={[styles.progressFill, styles.progressGreen, { width: `${inflowPercent}%` }]} />
-            <View style={[styles.progressFill, styles.progressRed, { width: `${100 - inflowPercent}%` }]} />
-          </View>
-
-          {/* Inflow & Outflow Rows */}
-          <View style={styles.detailRows}>
-            <TouchableOpacity
-              style={styles.detailRow}
-              onPress={() => navigateToReport('/nakit-akisi')}
-              activeOpacity={0.6}
-            >
-              <View style={styles.detailLeft}>
-                <View style={[styles.dot, { backgroundColor: colors.success }]} />
-                <Text style={styles.detailLabel}>{t('common:dashboard.received')}</Text>
+            {/* Cash Flow Section */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>{t('common:dashboard.cashFlow')}</Text>
+                <AnimatedNumber
+                  value={netCashFlow}
+                  showSign
+                  prefix={currencyConfig.prefix}
+                  decimalSeparator={currencyConfig.decimalSeparator}
+                  thousandsSeparator={currencyConfig.thousandsSeparator}
+                  style={[styles.sectionValue, { color: netCashFlow >= 0 ? colors.success : colors.error }]}
+                />
               </View>
-              <View style={styles.detailRight}>
-                <Text style={[styles.detailValue, { color: colors.success }]}>{formatCurrency(totalInflow)}</Text>
-                <ArrowRight size={14} color={colors.textMuted} />
-              </View>
-            </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.detailRow}
-              onPress={() => navigateToReport('/nakit-akisi')}
-              activeOpacity={0.6}
-            >
-              <View style={styles.detailLeft}>
-                <View style={[styles.dot, { backgroundColor: colors.error }]} />
-                <Text style={styles.detailLabel}>{t('common:dashboard.paid')}</Text>
+              {/* Progress Bar */}
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, styles.progressGreen, { width: `${inflowPercent}%` }]} />
+                <View style={[styles.progressFill, styles.progressRed, { width: `${100 - inflowPercent}%` }]} />
               </View>
-              <View style={styles.detailRight}>
-                <Text style={[styles.detailValue, { color: colors.error }]}>{formatCurrency(totalOutflow)}</Text>
-                <ArrowRight size={14} color={colors.textMuted} />
-              </View>
-            </TouchableOpacity>
-          </View>
 
-          <Text style={styles.description}>{t('common:dashboard.cashFlowDescription')}</Text>
-        </View>
+              {/* Inflow & Outflow Rows */}
+              <View style={styles.detailRows}>
+                <TouchableOpacity
+                  style={styles.detailRow}
+                  onPress={() => navigateToReport('/nakit-akisi')}
+                  activeOpacity={0.6}
+                >
+                  <View style={styles.detailLeft}>
+                    <View style={[styles.dot, { backgroundColor: colors.success }]} />
+                    <Text style={styles.detailLabel}>{t('common:dashboard.received')}</Text>
+                  </View>
+                  <View style={styles.detailRight}>
+                    <Text style={[styles.detailValue, { color: colors.success }]}>{formatCurrency(totalInflow)}</Text>
+                    <ArrowRight size={14} color={colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.detailRow}
+                  onPress={() => navigateToReport('/nakit-akisi')}
+                  activeOpacity={0.6}
+                >
+                  <View style={styles.detailLeft}>
+                    <View style={[styles.dot, { backgroundColor: colors.error }]} />
+                    <Text style={styles.detailLabel}>{t('common:dashboard.paid')}</Text>
+                  </View>
+                  <View style={styles.detailRight}>
+                    <Text style={[styles.detailValue, { color: colors.error }]}>{formatCurrency(totalOutflow)}</Text>
+                    <ArrowRight size={14} color={colors.textMuted} />
+                  </View>
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.description}>{t('common:dashboard.cashFlowDescription')}</Text>
+            </View>
+          </>
+        )}
       </ScrollView>
     </BottomSheet>
   );
@@ -248,6 +265,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingHorizontal: spacing.lg,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
   },
   // Date Navigation
   dateNav: {

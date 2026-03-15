@@ -47,6 +47,7 @@ export interface CekKesSheetProps {
   onDismiss: () => void;
   defaultHesapId?: string;
   defaultCariId?: string;
+  defaultCurrency?: string;
   onSuccess?: () => void;
 }
 
@@ -55,6 +56,7 @@ export function CekKesSheet({
   onDismiss,
   defaultHesapId,
   defaultCariId,
+  defaultCurrency,
   onSuccess,
 }: CekKesSheetProps) {
   const { t } = useTranslation(['checks', 'common', 'clients', 'accounts', 'transactions']);
@@ -107,14 +109,17 @@ export function CekKesSheet({
   // Refs
   const cekNoInputRef = useRef<TextInput>(null);
 
-  // Only bank accounts for checks
+  // Determine the effective currency: selected cari's currency > defaultCurrency prop > 'TRY'
+  const selectedCari = tedarikciCariler?.find(c => c.id === cariId);
+  const effectiveCurrency = selectedCari?.currency || defaultCurrency || 'TRY';
+
+  // Only bank accounts for checks, filtered by the effective currency
   const bankaHesaplari = useMemo(() => {
-    return hesaplar?.filter(h => h.type === 'banka') || [];
-  }, [hesaplar]);
+    return hesaplar?.filter(h => h.type === 'banka' && h.currency === effectiveCurrency) || [];
+  }, [hesaplar, effectiveCurrency]);
 
   // Get selected entities
   const selectedHesap = bankaHesaplari.find(h => h.id === hesapId);
-  const selectedCari = tedarikciCariler?.find(c => c.id === cariId);
 
   // Filtered lists for search
   const filteredHesaplar = useMemo(() => {
@@ -190,6 +195,15 @@ export function CekKesSheet({
       }
     }
   }, [visible, defaultHesapId, defaultCariId, bankaHesaplari]);
+
+  // When effective currency changes (e.g. cari changed), reset hesap if it no longer matches
+  useEffect(() => {
+    if (!visible) return;
+    // If the currently selected hesap is not in the filtered list, reset to first match
+    if (hesapId && !bankaHesaplari.find(h => h.id === hesapId)) {
+      setHesapId(bankaHesaplari.length > 0 ? bankaHesaplari[0].id : null);
+    }
+  }, [visible, effectiveCurrency, bankaHesaplari, hesapId]);
 
   // Open animation
   const animateOpen = useCallback(() => {
@@ -431,7 +445,7 @@ export function CekKesSheet({
             <View style={styles.halfColumn}>
               <Text variant="caption" color="secondary">{t('checks:labels.amount')}</Text>
               <View style={styles.amountContainer}>
-                <Text style={styles.currencySymbol}>{getCurrencySymbol(selectedHesap?.currency)}</Text>
+                <Text style={styles.currencySymbol}>{getCurrencySymbol(effectiveCurrency)}</Text>
                 <TextInput
                   style={styles.amountInput}
                   value={amount}
