@@ -38,7 +38,7 @@ import { formatDateForDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
-import { useCreateCek } from '@/hooks/useCekler';
+import { useCreateCek, useUpdateCek, useCek } from '@/hooks/useCekler';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { toErrorMessage } from '@/lib/errors';
 
@@ -49,6 +49,8 @@ export interface CekKesSheetProps {
   defaultCariId?: string;
   defaultCurrency?: string;
   onSuccess?: () => void;
+  /** Edit mode: pass çek ID to edit an existing check */
+  editCekId?: string;
 }
 
 export function CekKesSheet({
@@ -58,6 +60,7 @@ export function CekKesSheet({
   defaultCariId,
   defaultCurrency,
   onSuccess,
+  editCekId,
 }: CekKesSheetProps) {
   const { t } = useTranslation(['checks', 'common', 'clients', 'accounts', 'transactions']);
   const { formatDateMedium, locale } = useDateFormat();
@@ -105,6 +108,9 @@ export function CekKesSheet({
   const { data: hesaplar } = useHesaplar();
   const { data: tedarikciCariler } = useCariler('tedarikci');
   const createCek = useCreateCek();
+  const updateCek = useUpdateCek();
+  const isEditMode = !!editCekId;
+  const { data: editCekData } = useCek(isEditMode ? editCekId : undefined);
 
   // Refs
   const cekNoInputRef = useRef<TextInput>(null);
@@ -128,12 +134,20 @@ export function CekKesSheet({
     return bankaHesaplari.filter(h => h.name.toLowerCase().includes(query));
   }, [bankaHesaplari, hesapSearchQuery]);
 
+  // Determine the selected hesap's currency for filtering cariler
+  const selectedHesapCurrency = selectedHesap?.currency || defaultCurrency || null;
+
   const filteredCariler = useMemo(() => {
     if (!tedarikciCariler) return [];
-    if (!cariSearchQuery.trim()) return tedarikciCariler;
+    let filtered = tedarikciCariler;
+    // Seçili hesabın döviz cinsine göre carileri filtrele
+    if (selectedHesapCurrency) {
+      filtered = filtered.filter(c => c.currency === selectedHesapCurrency);
+    }
+    if (!cariSearchQuery.trim()) return filtered;
     const query = cariSearchQuery.toLowerCase().trim();
-    return tedarikciCariler.filter(c => c.name.toLowerCase().includes(query));
-  }, [tedarikciCariler, cariSearchQuery]);
+    return filtered.filter(c => c.name.toLowerCase().includes(query));
+  }, [tedarikciCariler, cariSearchQuery, selectedHesapCurrency]);
 
   // Keyboard listeners
   useEffect(() => {
@@ -182,9 +196,9 @@ export function CekKesSheet({
     }
   }, [visible]);
 
-  // Set defaults when modal opens
+  // Set defaults when modal opens (create mode only)
   useEffect(() => {
-    if (visible) {
+    if (visible && !isEditMode) {
       if (defaultHesapId) {
         setHesapId(defaultHesapId);
       } else if (bankaHesaplari.length > 0) {
@@ -194,7 +208,30 @@ export function CekKesSheet({
         setCariId(defaultCariId);
       }
     }
-  }, [visible, defaultHesapId, defaultCariId, bankaHesaplari]);
+  }, [visible, defaultHesapId, defaultCariId, bankaHesaplari, isEditMode]);
+
+  // Populate form fields when editing
+  const [editDataLoaded, setEditDataLoaded] = useState(false);
+  useEffect(() => {
+    if (visible && isEditMode && editCekData && !editDataLoaded) {
+      setCekNo(editCekData.cek_no);
+      setAmount(String(editCekData.tutar));
+      setDescription(editCekData.aciklama || '');
+      setKesimTarihi(new Date(editCekData.kesim_tarihi + 'T00:00:00'));
+      setVadeTarihi(new Date(editCekData.vade_tarihi + 'T00:00:00'));
+      setKategoriId(editCekData.kategori_id);
+      setHesapId(editCekData.hesap_id);
+      setCariId(editCekData.cari_id);
+      setEditDataLoaded(true);
+    }
+  }, [visible, isEditMode, editCekData, editDataLoaded]);
+
+  // Reset editDataLoaded when modal closes
+  useEffect(() => {
+    if (!visible) {
+      setEditDataLoaded(false);
+    }
+  }, [visible]);
 
   // When effective currency changes (e.g. cari changed), reset hesap if it no longer matches
   useEffect(() => {
@@ -204,6 +241,15 @@ export function CekKesSheet({
       setHesapId(bankaHesaplari.length > 0 ? bankaHesaplari[0].id : null);
     }
   }, [visible, effectiveCurrency, bankaHesaplari, hesapId]);
+
+  // When hesap currency changes, reset cari if it no longer matches
+  useEffect(() => {
+    if (!visible || !selectedHesapCurrency || !cariId) return;
+    const currentCari = tedarikciCariler?.find(c => c.id === cariId);
+    if (currentCari && currentCari.currency !== selectedHesapCurrency) {
+      setCariId(null);
+    }
+  }, [visible, selectedHesapCurrency, cariId, tedarikciCariler]);
 
   // Open animation
   const animateOpen = useCallback(() => {
@@ -328,25 +374,39 @@ export function CekKesSheet({
     try {
       const parsedAmount = parseCurrency(amount);
 
-      await createCek.mutateAsync({
-        cek_no: cekNo.trim(),
-        tutar: parsedAmount,
-        hesap_id: hesapId,
-        cari_id: cariId,
-        kesim_tarihi: formatDateForDB(kesimTarihi),
-        vade_tarihi: formatDateForDB(vadeTarihi),
-        kategori_id: kategoriId,
-        aciklama: description.trim() || null,
-        scheduleReminder: true,
-        reminderDaysBefore: 1,
-        reminderTime: '09:00',
-      });
+      if (isEditMode && editCekId) {
+        await updateCek.mutateAsync({
+          id: editCekId,
+          updates: {
+            cek_no: cekNo.trim(),
+            tutar: parsedAmount,
+            kesim_tarihi: formatDateForDB(kesimTarihi),
+            vade_tarihi: formatDateForDB(vadeTarihi),
+            kategori_id: kategoriId,
+            aciklama: description.trim() || null,
+          },
+        });
+      } else {
+        await createCek.mutateAsync({
+          cek_no: cekNo.trim(),
+          tutar: parsedAmount,
+          hesap_id: hesapId,
+          cari_id: cariId,
+          kesim_tarihi: formatDateForDB(kesimTarihi),
+          vade_tarihi: formatDateForDB(vadeTarihi),
+          kategori_id: kategoriId,
+          aciklama: description.trim() || null,
+          scheduleReminder: true,
+          reminderDaysBefore: 1,
+          reminderTime: '09:00',
+        });
+      }
 
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
 
-      Alert.alert(t('common:status.success'), t('checks:messages.createSuccess'));
+      Alert.alert(t('common:status.success'), isEditMode ? t('checks:messages.updateSuccess') : t('checks:messages.createSuccess'));
       onSuccess?.();
       handleDismiss();
     } catch (error) {
@@ -409,7 +469,7 @@ export function CekKesSheet({
         <View style={styles.headerRow}>
           <View style={styles.titleRow}>
             <FileCheck size={20} color={colors.info} />
-            <Text variant="h3">{t('checks:createTitle')}</Text>
+            <Text variant="h3">{isEditMode ? t('checks:editTitle') : t('checks:createTitle')}</Text>
           </View>
           <TouchableOpacity
             style={styles.closeButton}
@@ -537,7 +597,7 @@ export function CekKesSheet({
           >
             <FileCheck size={18} color={colors.surface} />
             <Text style={styles.saveBtnText}>
-              {isSaving ? t('common:status.loading') : t('checks:actions.create')}
+              {isSaving ? t('common:status.loading') : isEditMode ? t('common:buttons.save') : t('checks:actions.create')}
             </Text>
           </TouchableOpacity>
         </View>

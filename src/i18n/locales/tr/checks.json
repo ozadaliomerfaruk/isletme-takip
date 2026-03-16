@@ -2,6 +2,7 @@
   "title": "Çekler",
   "create": "Çek Kes",
   "createTitle": "Yeni Çek Kes",
+  "editTitle": "Çek Düzenle",
   "list": "Çek Listesi",
   "pending": "Bekleyen Çekler",
   "sections": {
@@ -46,6 +47,7 @@
   },
   "messages": {
     "createSuccess": "Çek başarıyla oluşturuldu",
+    "updateSuccess": "Çek başarıyla güncellendi",
     "createFailed": "Çek oluşturulamadı",
     "completeSuccess": "Çek ödemesi tamamlandı",
     "completeFailed": "Çek ödemesi başarısız",

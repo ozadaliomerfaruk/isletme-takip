@@ -28,16 +28,16 @@ export function QuickInsights({ dateRange }: QuickInsightsProps) {
 
   const isLoading = summary.isLoading || categoryReport.isLoading;
 
-  const netPosition = summary.receivables.total - summary.payables.total;
+  const generalStatus = summary.generalStatus;
   const topExpenseCategory = categoryReport.items.length > 0 ? categoryReport.items[0] : null;
 
   const insights: InsightItem[] = [
     {
       id: 'net',
       label: t('reports:home.netPosition'),
-      value: `${netPosition >= 0 ? '+' : ''}${formatCurrency(netPosition)}`,
-      color: netPosition >= 0 ? colors.success : colors.error,
-      icon: netPosition >= 0 ? TrendingUp : TrendingDown,
+      value: `${generalStatus >= 0 ? '+' : ''}${formatCurrency(generalStatus)}`,
+      color: generalStatus >= 0 ? colors.success : colors.error,
+      icon: generalStatus >= 0 ? TrendingUp : TrendingDown,
     },
     {
       id: 'topExpense',

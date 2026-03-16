@@ -100,7 +100,8 @@
     "selectCurrency": "Select Currency",
     "TRY": "Turkish Lira (₺)",
     "USD": "US Dollar ($)",
-    "EUR": "Euro (€)"
+    "EUR": "Euro (€)",
+    "GBP": "British Pound (£)"
   },
   "dateFormat": {
     "title": "Date Format",

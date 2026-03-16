@@ -29,6 +29,7 @@ interface EntityTransactionListProps {
   transactions: IslemWithRelations[];
   maxItems?: number;
   onViewAll?: () => void;
+  onTransactionPress?: (transaction: IslemWithRelations) => void;
 }
 
 // İşlem tipine göre ikon ve renk
@@ -63,6 +64,7 @@ export function EntityTransactionList({
   transactions,
   maxItems = 10,
   onViewAll,
+  onTransactionPress: onTransactionPressExternal,
 }: EntityTransactionListProps) {
   const { t } = useTranslation(['reports', 'transactions', 'staff']);
   const { formatDateNative } = useDateFormat();
@@ -73,10 +75,14 @@ export function EntityTransactionList({
   const hasMore = transactions.length > maxItems;
 
   const handleTransactionPress = (transaction: IslemWithRelations) => {
-    router.push({
-      pathname: '/islemler/duzenle/[id]',
-      params: { id: transaction.id },
-    });
+    if (onTransactionPressExternal) {
+      onTransactionPressExternal(transaction);
+    } else {
+      router.push({
+        pathname: '/islemler/duzenle/[id]',
+        params: { id: transaction.id },
+      });
+    }
   };
 
   if (transactions.length === 0) {

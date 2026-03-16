@@ -390,6 +390,7 @@
       "total": "TOPLAM",
       "transactionCount": "ADET",
       "categoryBreakdown": "KATEGORİ DAĞILIMI",
+      "clientStaff": "CARİ/PERSONEL",
       "sheetName": "Rapor",
       "incomeFileName": "Gelir_Raporu",
       "expenseFileName": "Gider_Raporu"

@@ -230,6 +230,8 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'category-report',
       'cash-flow-by-category',
       'urun-hareketler',
+      'product-report',
+      'product-report-returns',
     ],
     deferred: [
       'dashboard',
@@ -379,6 +381,8 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'urun-hareketler',
       'urunler',
       'urun',
+      'product-report',
+      'product-report-returns',
     ],
     deferred: [],
   },

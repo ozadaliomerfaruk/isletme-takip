@@ -1,19 +1,26 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Stack } from 'expo-router';
-import { ChevronLeft, ChevronRight, Calendar, X, Package, ShoppingCart, Store, Share2 } from 'lucide-react-native';
+import { Stack, useRouter } from 'expo-router';
+import { Calendar, X, Package, ShoppingCart, Store, Share2, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, Card, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useProductReport, ProductReportItem } from '@/hooks/useProductReport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PeriodType } from '@/hooks/useIslemler';
+// Alış-Satış işlem tipleri (useProductReport ile uyumlu)
+const PURCHASE_TYPES = ['cari_alis'];
+const SALE_TYPES = ['cari_satis', 'personel_satis'];
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { exportProductReportToExcel, ProductExcelTranslations } from '@/lib/reportExcelExport';
+import { supabase } from '@/lib/supabase';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
+import { IslemWithRelations } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -21,9 +28,11 @@ import { spacing, borderRadius } from '@/constants/spacing';
 type ReportDirection = 'alis' | 'satis';
 
 export default function AlisSatisRaporPage() {
+  const router = useRouter();
   const { t } = useTranslation(['reports', 'common', 'products']);
   const state = useReportRouteState();
   const [selectedDirection, setSelectedDirection] = useState<ReportDirection>('alis');
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -51,6 +60,50 @@ export default function AlisSatisRaporPage() {
 
   const activeReport = selectedDirection === 'alis' ? alisRaporu : satisRaporu;
 
+  // Group items by category and sort
+  const groupedItems = useMemo(() => {
+    const items = activeReport.items;
+    if (items.length === 0) return [];
+
+    // Sort items by amount (descending)
+    const sorted = [...items].sort((a, b) => b.toplamTutar - a.toplamTutar);
+
+    // Group by category
+    const groups = new Map<string, { name: string; items: ProductReportItem[]; totalAmount: number; totalAmountKdvsiz: number; totalQuantity: number }>();
+    const UNCATEGORIZED_KEY = '__uncategorized__';
+
+    for (const item of sorted) {
+      const key = item.kategoriId || UNCATEGORIZED_KEY;
+      const name = item.kategoriAdi || t('reports:purchaseSales.uncategorized');
+      if (!groups.has(key)) {
+        groups.set(key, { name, items: [], totalAmount: 0, totalAmountKdvsiz: 0, totalQuantity: 0 });
+      }
+      const group = groups.get(key)!;
+      group.items.push(item);
+      group.totalAmount += item.toplamTutar;
+      group.totalAmountKdvsiz += item.toplamTutarKdvsiz;
+      group.totalQuantity += item.toplamMiktar;
+    }
+
+    // Sort groups by total amount (desc), uncategorized at end
+    return Array.from(groups.entries())
+      .sort(([keyA, a], [keyB, b]) => {
+        if (keyA === UNCATEGORIZED_KEY) return 1;
+        if (keyB === UNCATEGORIZED_KEY) return -1;
+        return b.totalAmount - a.totalAmount;
+      })
+      .map(([key, group]) => ({ key, ...group }));
+  }, [activeReport.items, t]);
+
+  const toggleCategory = (key: string) => {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
   const handleExport = useCallback(async () => {
     if (!isletme) return;
     setIsExporting(true);
@@ -73,16 +126,50 @@ export default function AlisSatisRaporPage() {
         sales: t('common:export.productExcel.sales'),
         returns: t('common:export.productExcel.returns'),
         net: t('common:export.productExcel.net'),
+        date: t('common:export.excel.date'),
+        description: t('common:export.excel.description'),
+        account: t('common:export.excel.accountColumn'),
+        clientStaff: t('common:export.reportExcel.clientStaff'),
         sheetName: t('common:export.productExcel.sheetName'),
         fileName: t('common:export.productExcel.fileName'),
         shareDialogTitle: t('common:export.shareDialogTitle'),
         sharingNotSupported: t('common:export.sharingNotSupported'),
         noDataError: t('common:export.noDataToExport'),
       };
+
+      // Fetch actual transactions for detailed export
+      const { startDate, endDate } = state.dateRange;
+      const endDateTime = new Date(endDate + 'T00:00:00');
+      endDateTime.setDate(endDateTime.getDate() + 1);
+      const endDateNextDay = formatDateForDB(endDateTime);
+
+      const buildQuery = (types: string[]) => () => {
+        return supabase
+          .from('islemler')
+          .select(`
+            *,
+            hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
+            hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
+            kategori:kategoriler(id,name),
+            cari:cariler(id,name,type),
+            personel:personel(id,first_name,last_name)
+          `)
+          .eq('isletme_id', isletme.id)
+          .in('type', types)
+          .gte('date', startDate)
+          .lt('date', endDateNextDay)
+          .order('date', { ascending: true });
+      };
+
+      const [purchaseTxns, saleTxns] = await Promise.all([
+        fetchAllPages<IslemWithRelations>(buildQuery(PURCHASE_TYPES)),
+        fetchAllPages<IslemWithRelations>(buildQuery(SALE_TYPES)),
+      ]);
+
       await exportProductReportToExcel({
         isletmeName: isletme.name,
-        startDate: state.dateRange.startDate,
-        endDate: state.dateRange.endDate,
+        startDate,
+        endDate,
         periodLabel: state.periodLabel,
         purchaseItems: alisRaporu.items,
         purchaseTotal: alisRaporu.totalAmount,
@@ -92,6 +179,8 @@ export default function AlisSatisRaporPage() {
         saleTotal: satisRaporu.totalAmount,
         saleReturnTotal: satisRaporu.returnTotal,
         saleNet: satisRaporu.netAmount,
+        purchaseTransactions: purchaseTxns,
+        saleTransactions: saleTxns,
         translations,
       });
     } catch (error) {
@@ -157,23 +246,12 @@ export default function AlisSatisRaporPage() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={styles.dateNav}>
-                <TouchableOpacity
-                  style={styles.navBtn}
-                  onPress={() => state.setPeriodOffset(state.periodOffset - 1)}
-                >
-                  <ChevronLeft size={18} color={colors.primary} />
-                </TouchableOpacity>
-                <Text variant="body" style={styles.dateLabel}>
-                  {state.periodLabel}
-                </Text>
-                <TouchableOpacity
-                  style={styles.navBtn}
-                  onPress={() => state.setPeriodOffset(state.periodOffset + 1)}
-                >
-                  <ChevronRight size={18} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
+              <PeriodNavigator
+                period={state.period}
+                periodOffset={state.periodOffset}
+                periodLabel={state.periodLabel}
+                setPeriodOffset={state.setPeriodOffset}
+              />
             )}
 
             <View style={styles.summaryTabs}>
@@ -235,12 +313,20 @@ export default function AlisSatisRaporPage() {
             </View>
           </View>
 
-          {/* Return info */}
-          {activeReport.returnTotal > 0 && (
+          {/* Return info + KDV info */}
+          {(activeReport.returnTotal > 0 || activeReport.totalAmountKdvsiz > 0) && (
             <View style={styles.returnInfo}>
-              <Text variant="caption" color="secondary">
-                {t('reports:purchaseSales.returns')}: {formatCurrency(activeReport.returnTotal)}
-              </Text>
+              {activeReport.totalAmountKdvsiz > 0 && activeReport.totalAmount !== activeReport.totalAmountKdvsiz && (
+                <Text variant="caption" color="secondary">
+                  {t('reports:purchaseSales.kdvExcluded')}: {formatCurrency(activeReport.totalAmountKdvsiz)}
+                  {'  '}|{'  '}{t('reports:purchaseSales.kdv')}: {formatCurrency(activeReport.totalAmount - activeReport.totalAmountKdvsiz)}
+                </Text>
+              )}
+              {activeReport.returnTotal > 0 && (
+                <Text variant="caption" color="secondary">
+                  {t('reports:purchaseSales.returns')}: {formatCurrency(activeReport.returnTotal)}
+                </Text>
+              )}
             </View>
           )}
 
@@ -254,7 +340,7 @@ export default function AlisSatisRaporPage() {
             </Text>
           </View>
 
-          {/* Product List */}
+          {/* Product List - Grouped by Category */}
           <View style={styles.productList}>
             {activeReport.isLoading ? (
               <View style={styles.loadingContainer}>
@@ -271,15 +357,45 @@ export default function AlisSatisRaporPage() {
                 </Text>
               </View>
             ) : (
-              activeReport.items.map((item, index) => (
-                <ProductReportCard
-                  key={item.urunId}
-                  item={item}
-                  index={index}
-                  direction={selectedDirection}
-                  t={t}
-                />
-              ))
+              groupedItems.map((group) => {
+                const isCollapsed = collapsedCategories.has(group.key);
+                const showCategoryHeader = groupedItems.length > 1;
+                return (
+                  <View key={group.key}>
+                    {showCategoryHeader && (
+                      <TouchableOpacity
+                        style={styles.categoryHeader}
+                        onPress={() => toggleCategory(group.key)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.categoryHeaderLeft}>
+                          {isCollapsed
+                            ? <ChevronDown size={16} color={colors.textSecondary} />
+                            : <ChevronUp size={16} color={colors.textSecondary} />}
+                          <Text variant="body" style={styles.categoryHeaderText}>
+                            {group.name}
+                          </Text>
+                          <Text variant="caption" color="secondary">
+                            ({group.items.length})
+                          </Text>
+                        </View>
+                        <Text variant="body" style={styles.categoryHeaderAmount}>
+                          {formatCurrency(group.totalAmount)}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    {!isCollapsed && group.items.map((item) => (
+                      <ProductReportCard
+                        key={item.urunId}
+                        item={item}
+                        direction={selectedDirection}
+                        t={t}
+                        onPress={() => router.push(`/urunler/${item.urunId}` as any)}
+                      />
+                    ))}
+                  </View>
+                );
+              })
             )}
           </View>
         </ScrollView>
@@ -373,20 +489,20 @@ export default function AlisSatisRaporPage() {
 
 function ProductReportCard({
   item,
-  index,
   direction,
   t,
+  onPress,
 }: {
   item: ProductReportItem;
-  index: number;
   direction: ReportDirection;
   t: (key: string, opts?: any) => string;
+  onPress?: () => void;
 }) {
   const barColor = direction === 'alis' ? colors.orange : colors.success;
   const IconComponent = direction === 'alis' ? ShoppingCart : Store;
 
   return (
-    <Card style={styles.productCard}>
+    <Card style={styles.productCard} onPress={onPress}>
       <View style={styles.productRow}>
         <View style={[styles.productIcon, { backgroundColor: barColor + '18' }]}>
           {item.kategoriAdi ? (
@@ -397,20 +513,12 @@ function ProductReportCard({
         </View>
         <View style={styles.productInfo}>
           <Text variant="body" numberOfLines={1}>{item.urunAdi}</Text>
-          <View style={styles.productMeta}>
-            <Text variant="caption" color="secondary">
-              {t('reports:purchaseSales.quantity', {
-                count: item.toplamMiktar,
-                unit: t(`products:units.${item.urunBirim}`),
-              })}
-            </Text>
-            {item.kategoriAdi && (
-              <>
-                <Text variant="caption" color="muted"> · </Text>
-                <Text variant="caption" color="muted">{item.kategoriAdi}</Text>
-              </>
-            )}
-          </View>
+          <Text variant="caption" color="secondary">
+            {t('reports:purchaseSales.quantity', {
+              count: item.toplamMiktar,
+              unit: t(`products:units.${item.urunBirim}`),
+            })}
+          </Text>
         </View>
         <View style={styles.productAmount}>
           <Text variant="body" style={{ fontWeight: '700' }}>
@@ -512,6 +620,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xs,
     alignItems: 'flex-end',
+    gap: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -520,6 +629,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  categoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.xs,
+    marginTop: spacing.sm,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.sm,
+  },
+  categoryHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  categoryHeaderText: {
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  categoryHeaderAmount: {
+    fontWeight: '700',
+    color: colors.text,
   },
   productList: {
     paddingHorizontal: spacing.lg,

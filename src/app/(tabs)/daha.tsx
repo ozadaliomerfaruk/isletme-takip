@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal } from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import {
@@ -23,16 +23,21 @@ import {
   Users,
   Share2,
   History,
+  Bell,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card, Avatar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { changeLanguage, getCurrentLanguage } from '@/i18n';
 import type { SupportedLanguage } from '@/i18n/types';
 import { useSettings, type CurrencyCode, type DateFormatType } from '@/hooks/useSettings';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const NOTIFICATIONS_ENABLED_KEY = '@defter_notifications_enabled';
 
 interface MenuItemProps {
   icon: React.ReactNode;
@@ -74,6 +79,7 @@ const languageOptions: { code: SupportedLanguage; label: string }[] = [
 
 export default function DahaPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { signOut, user, isletme, isOwner } = useAuthContext();
   const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser']);
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -104,12 +110,28 @@ export default function DahaPage() {
 
   const handleCurrencyChange = async (currencyCode: CurrencyCode) => {
     await setCurrency(currencyCode);
+    // Invalidate all queries so dashboard and other screens re-render with new currency
+    queryClient.invalidateQueries();
     setCurrencyModalVisible(false);
   };
 
   const handleDateFormatChange = async (format: DateFormatType) => {
     await setDateFormat(format);
     setDateFormatModalVisible(false);
+  };
+
+  // Notification toggle state
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY).then((val) => {
+      if (val !== null) setNotificationsEnabled(val === 'true');
+    });
+  }, []);
+
+  const handleNotificationToggle = async (value: boolean) => {
+    setNotificationsEnabled(value);
+    await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, value.toString());
   };
 
   const handleLogout = () => {
@@ -275,6 +297,26 @@ export default function DahaPage() {
               subtitle={dateFormatConfig.example}
               onPress={() => setDateFormatModalVisible(true)}
             />
+            <View style={styles.divider} />
+            <View style={styles.menuItem}>
+              <View style={styles.menuIcon}>
+                <Bell size={22} color={colors.primary} />
+              </View>
+              <View style={styles.menuContent}>
+                <Text variant="body">{t('settings:notifications.title')}</Text>
+                <Text variant="caption" color="muted">
+                  {notificationsEnabled
+                    ? t('settings:reminders.enabled')
+                    : t('settings:reminders.disabled')}
+                </Text>
+              </View>
+              <Switch
+                value={notificationsEnabled}
+                onValueChange={handleNotificationToggle}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.white}
+              />
+            </View>
           </Card>
         </View>
 

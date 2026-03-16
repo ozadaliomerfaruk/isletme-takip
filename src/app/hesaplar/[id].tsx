@@ -25,7 +25,7 @@ import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateShort, formatDateSmart } from '@/lib/date';
+import { formatDateSmart } from '@/lib/date';
 import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesap, useDeleteHesap, useUpdateHesap } from '@/hooks/useHesaplar';
@@ -284,7 +284,7 @@ export default function HesapHareketleriPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['accounts', 'common', 'errors', 'checks']);
-  const { formatDateMedium } = useDateFormat();
+  const { formatDateMedium, formatDateShort } = useDateFormat();
 
   const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByHesap(id!);

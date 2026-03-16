@@ -31,7 +31,7 @@ import {
 import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { isLeaveType } from '@/constants/islemTypes';
-import { parseDateFromDB, formatDateTimeForDB } from '@/lib/date';
+import { parseDateFromDB, formatDateForDB } from '@/lib/date';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
@@ -277,7 +277,7 @@ export default function IleriTarihliIslemDuzenlePage() {
                       </Text>
                       {selectedHesap && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Number(selectedHesap.balance))}
+                          {formatCurrency(Number(selectedHesap.balance), selectedHesap.currency)}
                         </Text>
                       )}
                     </View>
@@ -318,7 +318,7 @@ export default function IleriTarihliIslemDuzenlePage() {
                       </Text>
                       {selectedHedefHesap && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedHedefHesap.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Number(selectedHedefHesap.balance))}
+                          {formatCurrency(Number(selectedHedefHesap.balance), selectedHedefHesap.currency)}
                         </Text>
                       )}
                     </View>
@@ -361,7 +361,7 @@ export default function IleriTarihliIslemDuzenlePage() {
                       </Text>
                       {selectedCari && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Number(selectedCari.balance))}
+                          {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
                         </Text>
                       )}
                     </View>
@@ -396,7 +396,7 @@ export default function IleriTarihliIslemDuzenlePage() {
                       </Text>
                       {selectedPersonel && !isLeave && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                          {formatCurrency(Math.abs(Number(selectedPersonel.balance)), selectedPersonel.currency)}
                         </Text>
                       )}
                     </View>
@@ -405,11 +405,12 @@ export default function IleriTarihliIslemDuzenlePage() {
                 </View>
               )}
 
-              {/* Planlanan Tarih ve Saat */}
+              {/* Planlanan Tarih */}
               <DateTimePicker
                 label={t('transactions:future.dueDate')}
                 value={scheduledDate ? parseDateFromDB(scheduledDate) : new Date()}
-                onChange={(newDate) => setScheduledDate(formatDateTimeForDB(newDate))}
+                onChange={(newDate) => setScheduledDate(formatDateForDB(newDate))}
+                mode="date"
               />
 
               {/* Açıklama */}
@@ -545,7 +546,7 @@ export default function IleriTarihliIslemDuzenlePage() {
                             { color: Number(hesap.balance) >= 0 ? colors.success : colors.error },
                           ]}
                         >
-                          {formatCurrency(Number(hesap.balance))}
+                          {formatCurrency(Number(hesap.balance), hesap.currency)}
                         </Text>
                         {isSelected && (
                           <View style={[styles.checkIcon, { backgroundColor: colors.primary }]}>
@@ -643,7 +644,7 @@ export default function IleriTarihliIslemDuzenlePage() {
                             { color: Number(cari.balance) >= 0 ? colors.success : colors.error },
                           ]}
                         >
-                          {formatCurrency(Number(cari.balance))}
+                          {formatCurrency(Number(cari.balance), cari.currency)}
                         </Text>
                         {isSelected && (
                           <View style={[styles.checkIcon, { backgroundColor: colors.primary }]}>
@@ -741,7 +742,7 @@ export default function IleriTarihliIslemDuzenlePage() {
                             { color: Number(personel.balance) >= 0 ? colors.success : colors.error },
                           ]}
                         >
-                          {formatCurrency(Math.abs(Number(personel.balance)))}
+                          {formatCurrency(Math.abs(Number(personel.balance)), personel.currency)}
                         </Text>
                         {isSelected && (
                           <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>

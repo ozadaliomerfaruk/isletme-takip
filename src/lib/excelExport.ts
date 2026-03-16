@@ -719,6 +719,7 @@ export interface UrunExcelTranslations {
   description: string;
   totalIn: string;
   totalOut: string;
+  totalAdjustment: string;
   netChange: string;
   periodSummary: string;
   sheetName: string;
@@ -816,6 +817,10 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   const totalOut = sorted
     .filter(h => h.hareket_tipi === 'cikis')
     .reduce((sum, h) => sum + Math.abs(h.miktar), 0);
+  const totalAdjustment = sorted
+    .filter(h => h.hareket_tipi === 'duzeltme')
+    .reduce((sum, h) => sum + h.miktar, 0);
+  const hasAdjustments = sorted.some(h => h.hareket_tipi === 'duzeltme');
   const totalInAmount = rows
     .filter(r => r.quantity > 0)
     .reduce((sum, r) => sum + (r.total || 0), 0);
@@ -895,12 +900,26 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   ws[`J${outRow}`] = { v: formatAmount(totalOutAmount), s: summaryCurrencyStyle };
   ws[`K${outRow}`] = { v: '', s: summaryRowStyle };
 
+  // Düzeltme (only if there are adjustment rows)
+  let nextRow = outRow + 1;
+  if (hasAdjustments) {
+    const adjRow = nextRow;
+    ws[`A${adjRow}`] = { v: '', s: summaryRowStyle };
+    ws[`B${adjRow}`] = { v: '', s: summaryRowStyle };
+    ws[`C${adjRow}`] = { v: t.totalAdjustment, s: summaryRowStyle };
+    ws[`D${adjRow}`] = { v: totalAdjustment, s: summaryCurrencyStyle };
+    for (let i = 4; i <= 8; i++) ws[`${cols[i]}${adjRow}`] = { v: '', s: summaryRowStyle };
+    ws[`J${adjRow}`] = { v: '', s: summaryRowStyle };
+    ws[`K${adjRow}`] = { v: '', s: summaryRowStyle };
+    nextRow = adjRow + 1;
+  }
+
   // Net Değişim
-  const netRow = outRow + 1;
+  const netRow = nextRow;
   ws[`A${netRow}`] = { v: '', s: totalRowStyle };
   ws[`B${netRow}`] = { v: '', s: totalRowStyle };
   ws[`C${netRow}`] = { v: t.netChange, s: totalRowStyle };
-  ws[`D${netRow}`] = { v: totalIn - totalOut, s: totalCurrencyStyle };
+  ws[`D${netRow}`] = { v: totalIn - totalOut + totalAdjustment, s: totalCurrencyStyle };
   for (let i = 4; i <= 8; i++) ws[`${cols[i]}${netRow}`] = { v: '', s: totalRowStyle };
   ws[`J${netRow}`] = { v: formatAmount(totalInAmount - totalOutAmount), s: totalCurrencyStyle };
   ws[`K${netRow}`] = { v: '', s: totalRowStyle };
@@ -932,6 +951,129 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   const safeName = productName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
   const fileName = `${safeName}_${t.fileName}_${startDate}_${endDate}.xlsx`;
   const filePath = `${FileSystem.cacheDirectory}${fileName}`;
+
+  await FileSystem.writeAsStringAsync(filePath, wbout, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (isAvailable) {
+    await Sharing.shareAsync(filePath, {
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      dialogTitle: t.shareDialogTitle,
+      UTI: 'com.microsoft.excel.xlsx',
+    });
+  } else {
+    throw new Error(t.sharingNotSupported);
+  }
+}
+
+// ============================================================================
+// ÜRÜN LİSTESİ EXPORT
+// ============================================================================
+
+export interface UrunListeExcelTranslations {
+  title: string;
+  columns: {
+    name: string;
+    code: string;
+    category: string;
+    unit: string;
+    stock: string;
+    purchasePrice: string;
+    salePrice: string;
+    vatRate: string;
+  };
+  fileName: string;
+  isletmeName: string;
+  shareDialogTitle: string;
+  sharingNotSupported: string;
+  noDataError: string;
+}
+
+export interface UrunListeItem {
+  ad: string;
+  kod: string | null;
+  kategori: string | null;
+  birim: string;
+  miktar: number;
+  alis_fiyati: number;
+  satis_fiyati: number;
+  kdv_orani: number;
+  currency: string;
+}
+
+export interface UrunListeExportOptions {
+  urunler: UrunListeItem[];
+  translations: UrunListeExcelTranslations;
+}
+
+export async function exportUrunListesiToExcel(options: UrunListeExportOptions): Promise<void> {
+  const { urunler, translations: t } = options;
+
+  if (urunler.length === 0) {
+    throw new Error(t.noDataError);
+  }
+
+  const headers = [
+    t.columns.name,
+    t.columns.code,
+    t.columns.category,
+    t.columns.unit,
+    t.columns.stock,
+    t.columns.purchasePrice,
+    t.columns.salePrice,
+    t.columns.vatRate,
+  ];
+
+  const dataRows = urunler.map((u) => [
+    u.ad,
+    u.kod || '',
+    u.kategori || '',
+    u.birim,
+    u.miktar,
+    u.alis_fiyati > 0 ? formatCurrency(u.alis_fiyati, u.currency) : '',
+    u.satis_fiyati > 0 ? formatCurrency(u.satis_fiyati, u.currency) : '',
+    `%${u.kdv_orani}`,
+  ]);
+
+  const wsData = [
+    [{ v: t.title, s: titleStyle }],
+    [{ v: t.isletmeName, s: { font: { sz: 11, color: { rgb: '666666' } } } }],
+    [],
+    headers.map((h) => ({ v: h, s: headerStyle })),
+    ...dataRows.map((row) =>
+      row.map((cell) => ({
+        v: cell,
+        s: cellStyle,
+      }))
+    ),
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  ws['!cols'] = [
+    { wch: 30 },
+    { wch: 15 },
+    { wch: 20 },
+    { wch: 10 },
+    { wch: 12 },
+    { wch: 15 },
+    { wch: 15 },
+    { wch: 10 },
+  ];
+
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, t.title);
+
+  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+  const safeName = t.fileName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filePath = `${FileSystem.cacheDirectory}${safeName}.xlsx`;
 
   await FileSystem.writeAsStringAsync(filePath, wbout, {
     encoding: FileSystem.EncodingType.Base64,

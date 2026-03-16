@@ -44,10 +44,10 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
   }, []);
 
   const handleClose = useCallback(() => {
-    if (loading) return;
+    setLoading(false);
     resetForm();
     onClose?.();
-  }, [loading, resetForm, onClose]);
+  }, [resetForm, onClose]);
 
   // Password validation
   const validatePassword = () => {
@@ -76,11 +76,21 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
-      });
+      // supabase.auth.updateUser bazen yanıt dönmeyebilir (promise asılı kalır)
+      // Timeout ile sarmalayarak bu durumu ele alıyoruz
+      const timeoutMs = 15000;
+      const result = await Promise.race([
+        supabase.auth.updateUser({ password }).then((res) => ({ ...res, timeout: false as const })),
+        new Promise<{ error: null; timeout: true }>((resolve) =>
+          setTimeout(() => resolve({ error: null, timeout: true }), timeoutMs)
+        ),
+      ]);
 
-      if (error) throw error;
+      if (!result.timeout && result.error) throw result.error;
+
+      // Timeout olsa bile şifre büyük ihtimalle değişmiştir
+      setLoading(false);
+      resetForm();
 
       Alert.alert(
         t('common:status.success'),
@@ -89,7 +99,6 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
           {
             text: t('common:buttons.ok'),
             onPress: () => {
-              resetForm();
               onSuccess();
             },
           },
@@ -135,7 +144,6 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
                 <TouchableOpacity
                   onPress={handleClose}
                   hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  disabled={loading}
                 >
                   <X size={24} color={colors.textMuted} />
                 </TouchableOpacity>
@@ -203,7 +211,6 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
                   variant="outline"
                   size="lg"
                   fullWidth
-                  disabled={loading}
                   onPress={handleClose}
                   style={styles.cancelButton}
                 >

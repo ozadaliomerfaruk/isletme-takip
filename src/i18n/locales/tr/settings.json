@@ -100,7 +100,8 @@
     "selectCurrency": "Para Birimi Seçin",
     "TRY": "Türk Lirası (₺)",
     "USD": "Amerikan Doları ($)",
-    "EUR": "Euro (€)"
+    "EUR": "Euro (€)",
+    "GBP": "İngiliz Sterlini (£)"
   },
   "dateFormat": {
     "title": "Tarih Formatı",

@@ -21,7 +21,7 @@ import { NakitAvansSheet } from '@/components/nakitAvans';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateShort } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesap } from '@/hooks/useHesaplar';
 import { useNakitAvanslarByKrediKarti, useDeleteNakitAvans } from '@/hooks/useNakitAvans';
 import type { NakitAvansWithRelations } from '@/types/database';
@@ -29,6 +29,7 @@ import type { NakitAvansWithRelations } from '@/types/database';
 export default function NakitAvanslarPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['accounts', 'common']);
+  const { formatDateShort } = useDateFormat();
 
   const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
   const { data: avanslar, isLoading: avanslarLoading } = useNakitAvanslarByKrediKarti(id!);

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Users } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -9,11 +9,13 @@ import {
   EntitySummaryCard,
   EntityTransactionList,
 } from '@/components/reports';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useAllIslemlerByPersonel } from '@/hooks/useIslemler';
+import type { IslemWithRelations } from '@/types/database';
 import type { TabContentProps } from './types';
 
 interface PersonelTabContentProps extends TabContentProps {
@@ -24,10 +26,17 @@ export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }
   const { t } = useTranslation(['reports']);
   const { data: personelList } = usePersonelList();
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(initialPersonelId ?? null);
+  const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
+  const [showEditBar, setShowEditBar] = useState(false);
 
   const { data: personelIslemler = [], isLoading: personelIslemlerLoading } = useAllIslemlerByPersonel(selectedPersonelId || '');
 
   const selectedPersonel = personelList?.find((p) => p.id === selectedPersonelId) || null;
+
+  const handleTransactionPress = useCallback((transaction: IslemWithRelations) => {
+    setEditTransactionId(transaction.id);
+    setShowEditBar(true);
+  }, []);
 
   const filteredPersonelIslemler = useMemo(() => {
     if (!personelIslemler) return [];
@@ -84,6 +93,7 @@ export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }
               <EntityTransactionList
                 transactions={filteredPersonelIslemler}
                 maxItems={20}
+                onTransactionPress={handleTransactionPress}
               />
             )}
           </View>
@@ -98,6 +108,22 @@ export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }
           </Card>
         </View>
       )}
+
+      <QuickTransactionBar
+        visible={showEditBar}
+        onDismiss={() => {
+          setShowEditBar(false);
+          setEditTransactionId(null);
+        }}
+        mode="edit"
+        transactionId={editTransactionId ?? undefined}
+        isScheduledTransaction={false}
+        defaultPersonelId={selectedPersonelId ?? undefined}
+        onSuccess={() => {
+          setShowEditBar(false);
+          setEditTransactionId(null);
+        }}
+      />
     </>
   );
 }

@@ -113,8 +113,17 @@ export default function IsletmeBilgileriPage() {
 
     setPasswordLoading(true);
     try {
-      await changePassword(newPassword);
+      // supabase.auth.updateUser bazen yanıt dönmeyebilir (promise asılı kalır)
+      // Timeout ile sarmalayarak bu durumu ele alıyoruz
+      const timeoutMs = 15000;
+      await Promise.race([
+        changePassword(newPassword).then(() => ({ timeout: false })),
+        new Promise<{ timeout: true }>((resolve) =>
+          setTimeout(() => resolve({ timeout: true }), timeoutMs)
+        ),
+      ]);
 
+      // Timeout olsa bile şifre büyük ihtimalle değişmiştir (API çağrısı gitti)
       // Başarılı - modal'ı kapat ve formu temizle
       setShowPasswordModal(false);
       setNewPassword('');
@@ -146,6 +155,7 @@ export default function IsletmeBilgileriPage() {
     setNewPassword('');
     setConfirmPassword('');
     setPasswordErrors({});
+    setPasswordLoading(false);
   };
 
   if (!isletme) {

@@ -33,6 +33,8 @@ import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transac
 import { IslemWithRelations } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isLeaveType } from '@/constants/islemTypes';
+import { formatCurrency } from '@/lib/currency';
+import type { Currency } from '@/types/database';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -57,6 +59,24 @@ function getIslemEntity(islem: IslemWithRelations): string | null {
   }
   if (islem.hesap?.name) return islem.hesap.name;
   return null;
+}
+
+/** Cross-currency transferlerde hedef tutarı gösterir */
+function getTransferSubAmount(islem: IslemWithRelations): string | null {
+  if (islem.type !== 'transfer') return null;
+  if (!islem.source_currency || !islem.target_currency ||
+      islem.source_currency === islem.target_currency ||
+      !islem.exchange_rate || islem.exchange_rate <= 0) {
+    return null;
+  }
+  const sourceAmount = Number(islem.amount);
+  let targetAmount: number;
+  if (islem.source_currency === 'TRY') {
+    targetAmount = sourceAmount / islem.exchange_rate;
+  } else {
+    targetAmount = sourceAmount * islem.exchange_rate;
+  }
+  return formatCurrency(targetAmount, islem.target_currency as Currency);
 }
 
 // ============================================================================
@@ -103,6 +123,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   const entityName = getIslemEntity(islem);
   const description = islem.description || islem.kategori?.name || null;
   const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
+  const subAmount = getTransferSubAmount(islem);
+  const hesapCurrency = islem.hesap?.currency || undefined;
 
   return (
     <SwipeableRow
@@ -120,6 +142,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
         typeLabel={t(`transactions:types.${islem.type}`)}
         entityText={entityName}
         secondaryText={description}
+        subAmount={subAmount}
+        currency={hesapCurrency}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         onPress={onPress}
@@ -216,7 +240,7 @@ export default function IslemlerPage() {
 
       let matchesFilter = filter === 'all';
       if (filter === 'gelir') {
-        matchesFilter = ['gelir', 'cari_satis'].includes(islem.type);
+        matchesFilter = ['gelir', 'cari_satis', 'personel_satis'].includes(islem.type);
       }
       if (filter === 'gider') {
         matchesFilter = ['gider', 'cari_alis', 'personel_gider'].includes(islem.type);

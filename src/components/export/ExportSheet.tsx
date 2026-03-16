@@ -14,7 +14,8 @@ import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatDateShort, formatDateForDB, getDateRange, PeriodType } from '@/lib/date';
+import { formatDateForDB, getDateRange, PeriodType } from '@/lib/date';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useExcelExport } from '@/hooks/useExcelExport';
 import { EntityType } from '@/lib/excelExport';
 import { Currency } from '@/types/database';
@@ -49,6 +50,7 @@ export function ExportSheet({
   cariType,
 }: ExportSheetProps) {
   const { t } = useTranslation('common');
+  const { formatDateShort } = useDateFormat();
   const [selectedPeriod, setSelectedPeriod] = useState<string>('thisMonth');
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());

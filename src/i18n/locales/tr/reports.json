@@ -180,6 +180,7 @@
     "noChange": "Değişim yok",
     "net": "Net",
     "last6Months": "Son 6 Ay",
+    "last6Periods": "Son 6 Dönem",
     "total": "Toplam",
     "average": "Ortalama",
     "last3Months": "Son 3 Ay",
@@ -227,7 +228,14 @@
     "noPurchases": "Bu dönemde ürün alışı bulunmuyor",
     "noSales": "Bu dönemde ürün satışı bulunmuyor",
     "quantity": "{{count}} {{unit}}",
-    "transactionCount": "{{count}} işlem"
+    "transactionCount": "{{count}} işlem",
+    "uncategorized": "Kategorisiz",
+    "sortByAmount": "Tutara Göre",
+    "sortByQuantity": "Miktara Göre",
+    "kdvExcluded": "KDV Hariç",
+    "kdvIncluded": "KDV Dahil",
+    "kdv": "KDV",
+    "categoryTotal": "Kategori Toplamı"
   },
   "warnings": {
     "unmappedCategories": "{{count}} ürün kategorisi eşlenmemiş, raporlar eksik olabilir",

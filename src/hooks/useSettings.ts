@@ -16,7 +16,7 @@ const STORAGE_KEYS = {
 } as const;
 
 // Supported currencies
-export type CurrencyCode = 'TRY' | 'USD' | 'EUR';
+export type CurrencyCode = 'TRY' | 'USD' | 'EUR' | 'GBP';
 
 export interface CurrencyConfig {
   code: CurrencyCode;
@@ -28,6 +28,7 @@ export const CURRENCY_OPTIONS: CurrencyConfig[] = [
   { code: 'TRY', symbol: '₺', locale: 'tr-TR' },
   { code: 'USD', symbol: '$', locale: 'en-US' },
   { code: 'EUR', symbol: '€', locale: 'de-DE' },
+  { code: 'GBP', symbol: '£', locale: 'en-GB' },
 ];
 
 // Date format options
@@ -60,8 +61,7 @@ const COUNTRY_CURRENCY_MAP: Record<string, CurrencyCode> = {
   IE: 'EUR',
   FI: 'EUR',
   GR: 'EUR',
-  // GBP desteklenmediği için EUR
-  GB: 'EUR',
+  GB: 'GBP',
 };
 
 /**
@@ -127,7 +127,7 @@ async function initializeSettings() {
       AsyncStorage.getItem(STORAGE_KEYS.DATE_FORMAT),
     ]);
 
-    if (storedCurrency && ['TRY', 'USD', 'EUR'].includes(storedCurrency)) {
+    if (storedCurrency && ['TRY', 'USD', 'EUR', 'GBP'].includes(storedCurrency)) {
       globalCurrency = storedCurrency as CurrencyCode;
     }
     if (storedDateFormat && ['DMY', 'MDY'].includes(storedDateFormat)) {

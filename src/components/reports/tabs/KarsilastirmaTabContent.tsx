@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export function KarsilastirmaTabContent(_props: TabContentProps) {
+export function KarsilastirmaTabContent({ period, periodOffset }: TabContentProps) {
   const { t } = useTranslation(['reports']);
   const [comparisonMetric, setComparisonMetric] = useState<'income' | 'expense' | 'net'>('income');
 
@@ -110,28 +110,31 @@ export function KarsilastirmaTabContent(_props: TabContentProps) {
     { label: t('reports:comparison.net'), value: 'net' },
   ];
 
-  // 6 ay verisi
-  const month1Summary = useMonthSummary('monthly', -5);
-  const month2Summary = useMonthSummary('monthly', -4);
-  const month3Summary = useMonthSummary('monthly', -3);
-  const month4Summary = useMonthSummary('monthly', -2);
-  const month5Summary = useMonthSummary('monthly', -1);
-  const month6Summary = useMonthSummary('monthly', 0);
+  // Use props: 6 periods relative to the selected period/offset
+  const activePeriod = period || 'monthly';
+  const activeOffset = periodOffset || 0;
 
-  const getSummaryData = (summary: typeof month1Summary) => ({
+  const p1 = useMonthSummary(activePeriod, activeOffset - 5);
+  const p2 = useMonthSummary(activePeriod, activeOffset - 4);
+  const p3 = useMonthSummary(activePeriod, activeOffset - 3);
+  const p4 = useMonthSummary(activePeriod, activeOffset - 2);
+  const p5 = useMonthSummary(activePeriod, activeOffset - 1);
+  const p6 = useMonthSummary(activePeriod, activeOffset);
+
+  const getSummaryData = (summary: typeof p1) => ({
     income: summary.data?.income ?? 0,
     expense: summary.data?.expense ?? 0,
     periodLabel: summary.periodLabel,
   });
 
   const monthsData = useMemo(() => [
-    getSummaryData(month1Summary),
-    getSummaryData(month2Summary),
-    getSummaryData(month3Summary),
-    getSummaryData(month4Summary),
-    getSummaryData(month5Summary),
-    getSummaryData(month6Summary),
-  ], [month1Summary, month2Summary, month3Summary, month4Summary, month5Summary, month6Summary]);
+    getSummaryData(p1),
+    getSummaryData(p2),
+    getSummaryData(p3),
+    getSummaryData(p4),
+    getSummaryData(p5),
+    getSummaryData(p6),
+  ], [p1, p2, p3, p4, p5, p6]);
 
   // Toplam ve ortalama hesapla
   const totals = useMemo(() => {
@@ -240,7 +243,7 @@ export function KarsilastirmaTabContent(_props: TabContentProps) {
       {/* Ay Listesi */}
       <View style={styles.section}>
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          {t('reports:comparison.last6Months')}
+          {t('reports:comparison.last6Periods')}
         </Text>
         <Card style={styles.listCard}>
           {reversedMonths.map((month, index) => {

@@ -212,6 +212,29 @@ export function useDeleteKategori() {
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
+      // Bağlı işlem kontrolü: islemler tablosunda bu kategoriye ait aktif işlem var mı?
+      const { count: islemCount, error: islemError } = await supabase
+        .from('islemler')
+        .select('id', { count: 'exact', head: true })
+        .eq('kategori_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (islemError) throw islemError;
+
+      // Bağlı ileri tarihli işlem kontrolü
+      const { count: ileriCount, error: ileriError } = await supabase
+        .from('ileri_tarihli_islemler')
+        .select('id', { count: 'exact', head: true })
+        .eq('kategori_id', id)
+        .eq('isletme_id', isletme.id)
+        .eq('status', 'pending');
+
+      if (ileriError) throw ileriError;
+
+      if ((islemCount ?? 0) > 0 || (ileriCount ?? 0) > 0) {
+        throw new Error(i18n.t('errors:category.hasTransactions'));
+      }
+
       const { error } = await supabase
         .from('kategoriler')
         .update({ is_active: false })

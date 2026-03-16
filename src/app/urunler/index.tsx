@@ -4,7 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle } from 'lucide-react-native';
+import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
 import { Text, Button, Input, EmptyState, ExpandableCard, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -19,6 +19,8 @@ import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
+import { exportUrunListesiToExcel, UrunListeItem } from '@/lib/excelExport';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
@@ -377,7 +379,9 @@ export default function UrunlerPage() {
     }).start();
   }, [fabMenuVisible, fabAnim]);
 
+  const { isletme } = useAuthContext();
   const { canUpdate, canDelete } = usePermissions();
+  const [isExporting, setIsExporting] = useState(false);
   const { data: urunler, isLoading, refetch } = useUrunler();
   const { data: archivedUrunler, refetch: refetchArchived } = useArchivedUrunler();
   const deleteUrun = useDeleteUrun();
@@ -407,6 +411,50 @@ export default function UrunlerPage() {
 
   // Kategori id -> ad map'i
   const kategoriMap = useMemo(() => new Map(kategoriler?.map(k => [k.id, k.name]) || []), [kategoriler]);
+
+  // Ürün listesi export
+  const handleExportProductList = useCallback(async () => {
+    if (!urunler || urunler.length === 0 || !isletme) return;
+    setIsExporting(true);
+    try {
+      const items: UrunListeItem[] = urunler.map((u) => ({
+        ad: u.ad,
+        kod: u.kod,
+        kategori: u.kategori_id ? kategoriMap.get(u.kategori_id) || null : null,
+        birim: t(`products:units.${u.birim}`),
+        miktar: u.miktar,
+        alis_fiyati: u.alis_fiyati,
+        satis_fiyati: u.satis_fiyati,
+        kdv_orani: u.kdv_orani,
+        currency: u.currency || 'TRY',
+      }));
+      await exportUrunListesiToExcel({
+        urunler: items,
+        translations: {
+          title: t('products:export.productList.title'),
+          fileName: t('products:export.productList.fileName'),
+          isletmeName: isletme.name || '',
+          shareDialogTitle: t('products:export.productList.shareDialogTitle'),
+          sharingNotSupported: t('products:export.sharingNotSupported'),
+          noDataError: t('products:export.productList.noData'),
+          columns: {
+            name: t('products:export.productList.columns.name'),
+            code: t('products:export.productList.columns.code'),
+            category: t('products:export.productList.columns.category'),
+            unit: t('products:export.productList.columns.unit'),
+            stock: t('products:export.productList.columns.stock'),
+            purchasePrice: t('products:export.productList.columns.purchasePrice'),
+            salePrice: t('products:export.productList.columns.salePrice'),
+            vatRate: t('products:export.productList.columns.vatRate'),
+          },
+        },
+      });
+    } catch {
+      showToast(t('products:export.error'), 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [urunler, isletme, kategoriMap, t, showToast]);
 
   // Arama filtresi (ürün adı, kodu ve kategori adı)
   const filteredUrunler = useMemo(() => {
@@ -728,6 +776,19 @@ export default function UrunlerPage() {
       <View style={styles.header}>
         <Text variant="h2">{t('products:title')}</Text>
         <View style={styles.headerButtons}>
+          {(urunler && urunler.length > 0) && (
+            <TouchableOpacity
+              style={styles.sortButton}
+              onPress={() => {
+                haptics.light();
+                handleExportProductList();
+              }}
+              activeOpacity={0.7}
+              disabled={isExporting}
+            >
+              <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
+            </TouchableOpacity>
+          )}
           {(urunler && urunler.length > 0) && (
             <TouchableOpacity
               style={styles.sortButton}

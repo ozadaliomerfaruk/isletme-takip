@@ -1,11 +1,10 @@
-import { useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, AnimatedNumber } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
-import { getCurrentCurrency } from '@/hooks/useSettings';
+import useSettings from '@/hooks/useSettings';
 
 interface HeroCardProps {
   generalStatus: number;
@@ -23,16 +22,13 @@ export function HeroCard({
   onPress,
 }: HeroCardProps) {
   const { t } = useTranslation(['common']);
+  const { currencyConfig: config } = useSettings();
 
-  const currencyConfig = useMemo(() => {
-    const config = getCurrentCurrency();
-    const isEnglish = config.locale.startsWith('en') || config.locale.startsWith('de');
-    return {
-      prefix: config.symbol,
-      decimalSeparator: isEnglish ? ('.' as const) : (',' as const),
-      thousandsSeparator: isEnglish ? (',' as const) : ('.' as const),
-    };
-  }, []);
+  const currencyConfig = {
+    prefix: config.symbol,
+    decimalSeparator: (config.locale.startsWith('en') || config.locale.startsWith('de')) ? ('.' as const) : (',' as const),
+    thousandsSeparator: (config.locale.startsWith('en') || config.locale.startsWith('de')) ? (',' as const) : ('.' as const),
+  };
 
   const totalPositive = assets + receivables;
   const totalAll = totalPositive + payables;

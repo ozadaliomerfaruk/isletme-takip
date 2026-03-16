@@ -105,6 +105,7 @@ export interface ReportExcelTranslations {
   description: string;
   category: string;
   account: string;
+  clientStaff: string;
   amount: string;
   total: string;
   transactionCount: string;
@@ -169,12 +170,12 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   // Create workbook
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};
-  const cols = ['A', 'B', 'C', 'D', 'E'];
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F'];
 
   // ============ HEADER SECTION ============
   // Row 1: Title
   ws['A1'] = { v: t.reportTitle, s: titleStyle };
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } }];
 
   // Row 3: Period
   ws['A3'] = { v: `${t.period}:`, s: metaLabelStyle };
@@ -218,7 +219,7 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
 
   // ============ TRANSACTION LIST ============
   // Headers
-  const detailHeaders = [t.date, t.description, t.category, t.account, t.amount];
+  const detailHeaders = [t.date, t.description, t.category, t.account, t.clientStaff, t.amount];
   detailHeaders.forEach((header, i) => {
     ws[`${cols[i]}${rowIdx}`] = { v: header, s: headerStyle };
   });
@@ -250,17 +251,26 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
     ws[`B${rowIdx}`] = { v: '', s: categoryHeaderStyle };
     ws[`C${rowIdx}`] = { v: '', s: categoryHeaderStyle };
     ws[`D${rowIdx}`] = { v: '', s: categoryHeaderStyle };
-    ws[`E${rowIdx}`] = { v: formatCurrency(catTotal), s: categoryCurrencyStyle };
+    ws[`E${rowIdx}`] = { v: '', s: categoryHeaderStyle };
+    ws[`F${rowIdx}`] = { v: formatCurrency(catTotal), s: categoryCurrencyStyle };
     rowIdx++;
 
     // Individual transactions
     items.forEach((islem) => {
       const accountName = islem.hesap?.name || '';
+      // Cari veya Personel adı
+      let entityName = '';
+      if (islem.cari) {
+        entityName = islem.cari.name;
+      } else if (islem.personel) {
+        entityName = `${islem.personel.first_name} ${islem.personel.last_name}`.trim();
+      }
       ws[`A${rowIdx}`] = { v: formatDateShort(islem.date), s: cellStyle };
       ws[`B${rowIdx}`] = { v: islem.description || '', s: cellStyle };
       ws[`C${rowIdx}`] = { v: islem.kategori?.name || '-', s: cellStyle };
       ws[`D${rowIdx}`] = { v: accountName, s: cellStyle };
-      ws[`E${rowIdx}`] = { v: formatCurrency(toNumber(islem.amount)), s: currencyCellStyle };
+      ws[`E${rowIdx}`] = { v: entityName, s: cellStyle };
+      ws[`F${rowIdx}`] = { v: formatCurrency(toNumber(islem.amount)), s: currencyCellStyle };
       rowIdx++;
     });
   });
@@ -269,11 +279,12 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   ws[`A${rowIdx}`] = { v: '', s: totalRowStyle };
   ws[`B${rowIdx}`] = { v: '', s: totalRowStyle };
   ws[`C${rowIdx}`] = { v: '', s: totalRowStyle };
-  ws[`D${rowIdx}`] = { v: t.total, s: totalRowStyle };
-  ws[`E${rowIdx}`] = { v: formatCurrency(grandTotal), s: totalCurrencyStyle };
+  ws[`D${rowIdx}`] = { v: '', s: totalRowStyle };
+  ws[`E${rowIdx}`] = { v: t.total, s: totalRowStyle };
+  ws[`F${rowIdx}`] = { v: formatCurrency(grandTotal), s: totalCurrencyStyle };
 
   // Set worksheet range
-  ws['!ref'] = `A1:E${rowIdx}`;
+  ws['!ref'] = `A1:F${rowIdx}`;
 
   // Column widths
   ws['!cols'] = [
@@ -281,6 +292,7 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
     { wch: 30 }, // Description
     { wch: 18 }, // Category
     { wch: 18 }, // Account
+    { wch: 20 }, // Client/Staff
     { wch: 16 }, // Amount
   ];
 
@@ -378,6 +390,10 @@ export interface ProductExcelTranslations {
   sales: string;
   returns: string;
   net: string;
+  date: string;
+  description: string;
+  account: string;
+  clientStaff: string;
   sheetName: string;
   fileName: string;
   shareDialogTitle: string;
@@ -398,6 +414,8 @@ export interface ProductExportOptions {
   saleTotal: number;
   saleReturnTotal: number;
   saleNet: number;
+  purchaseTransactions?: IslemWithRelations[];
+  saleTransactions?: IslemWithRelations[];
   translations: ProductExcelTranslations;
 }
 
@@ -406,6 +424,7 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
     isletmeName, startDate, endDate, periodLabel,
     purchaseItems, purchaseTotal, purchaseReturnTotal, purchaseNet,
     saleItems, saleTotal, saleReturnTotal, saleNet,
+    purchaseTransactions, saleTransactions,
     translations: t,
   } = options;
 
@@ -415,22 +434,24 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
 
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};
-  const cols = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const maxCol = 6; // A-G (7 columns when transactions included)
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
   writeHeaderSection(ws, t.reportTitle, {
     period: t.period, periodLabel, startDate, endDate,
     createdAt: t.createdAt, business: t.business, isletmeName,
-  }, 5);
+  }, maxCol);
 
   let rowIdx = 8;
 
-  // Helper to write a product section
+  // Helper to write a product section with transactions
   const writeSection = (
     sectionTitle: string,
     items: ProductReportItem[],
     total: number,
     returnTotal: number,
     net: number,
+    transactions?: IslemWithRelations[],
   ) => {
     // Section title
     ws[`A${rowIdx}`] = { v: sectionTitle, s: { ...titleStyle, font: { ...titleStyle.font, sz: 13 } } };
@@ -445,14 +466,14 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
     ws[`F${rowIdx}`] = { v: formatCurrency(net), s: { ...businessNameStyle } };
     rowIdx += 2;
 
-    // Headers
+    // Product summary headers
     const headers = [t.productName, t.unit, t.quantity, t.category, t.amount, t.percentage];
     headers.forEach((header, i) => {
       ws[`${cols[i]}${rowIdx}`] = { v: header, s: headerStyle };
     });
     rowIdx++;
 
-    // Data rows
+    // Product summary rows
     items.forEach((item) => {
       ws[`A${rowIdx}`] = { v: item.urunAdi, s: cellStyle };
       ws[`B${rowIdx}`] = { v: item.urunBirim, s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
@@ -463,7 +484,7 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
       rowIdx++;
     });
 
-    // Total row
+    // Product total row
     ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
     ws[`B${rowIdx}`] = { v: '', s: totalRowStyle };
     ws[`C${rowIdx}`] = { v: '', s: totalRowStyle };
@@ -471,19 +492,90 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
     ws[`E${rowIdx}`] = { v: formatCurrency(total), s: totalCurrencyStyle };
     ws[`F${rowIdx}`] = { v: '', s: totalRowStyle };
     rowIdx += 2;
+
+    // Transaction detail section (if transactions provided)
+    if (transactions && transactions.length > 0) {
+      // Group transactions by category
+      const catGroups = new Map<string, IslemWithRelations[]>();
+      const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
+      sorted.forEach((islem) => {
+        const catName = islem.kategori?.name || '-';
+        const existing = catGroups.get(catName);
+        if (existing) {
+          existing.push(islem);
+        } else {
+          catGroups.set(catName, [islem]);
+        }
+      });
+
+      // Sort by total amount descending
+      const sortedGroups = Array.from(catGroups.entries()).sort((a, b) => {
+        const totalA = a[1].reduce((sum, i) => sum + toNumber(i.amount), 0);
+        const totalB = b[1].reduce((sum, i) => sum + toNumber(i.amount), 0);
+        return totalB - totalA;
+      });
+
+      // Transaction detail headers
+      const detailHeaders = [t.date, t.description, t.category, t.account, t.clientStaff, t.amount];
+      detailHeaders.forEach((header, i) => {
+        ws[`${cols[i]}${rowIdx}`] = { v: header, s: headerStyle };
+      });
+      rowIdx++;
+
+      sortedGroups.forEach(([catName, catItems]) => {
+        const catTotal = catItems.reduce((sum, i) => sum + toNumber(i.amount), 0);
+        // Category group header
+        ws[`A${rowIdx}`] = { v: catName, s: categoryHeaderStyle };
+        ws[`B${rowIdx}`] = { v: '', s: categoryHeaderStyle };
+        ws[`C${rowIdx}`] = { v: '', s: categoryHeaderStyle };
+        ws[`D${rowIdx}`] = { v: '', s: categoryHeaderStyle };
+        ws[`E${rowIdx}`] = { v: '', s: categoryHeaderStyle };
+        ws[`F${rowIdx}`] = { v: formatCurrency(catTotal), s: categoryCurrencyStyle };
+        rowIdx++;
+
+        // Individual transactions
+        catItems.forEach((islem) => {
+          const accountName = islem.hesap?.name || '';
+          let entityName = '';
+          if (islem.cari) {
+            entityName = islem.cari.name;
+          } else if (islem.personel) {
+            entityName = `${islem.personel.first_name} ${islem.personel.last_name}`.trim();
+          }
+          ws[`A${rowIdx}`] = { v: formatDateShort(islem.date), s: cellStyle };
+          ws[`B${rowIdx}`] = { v: islem.description || '', s: cellStyle };
+          ws[`C${rowIdx}`] = { v: islem.kategori?.name || '-', s: cellStyle };
+          ws[`D${rowIdx}`] = { v: accountName, s: cellStyle };
+          ws[`E${rowIdx}`] = { v: entityName, s: cellStyle };
+          ws[`F${rowIdx}`] = { v: formatCurrency(toNumber(islem.amount)), s: currencyCellStyle };
+          rowIdx++;
+        });
+      });
+
+      // Grand total row for transactions
+      const txnTotal = sorted.reduce((sum, i) => sum + toNumber(i.amount), 0);
+      ws[`A${rowIdx}`] = { v: '', s: totalRowStyle };
+      ws[`B${rowIdx}`] = { v: '', s: totalRowStyle };
+      ws[`C${rowIdx}`] = { v: '', s: totalRowStyle };
+      ws[`D${rowIdx}`] = { v: '', s: totalRowStyle };
+      ws[`E${rowIdx}`] = { v: t.total, s: totalRowStyle };
+      ws[`F${rowIdx}`] = { v: formatCurrency(txnTotal), s: totalCurrencyStyle };
+      rowIdx += 2;
+    }
   };
 
-  writeSection(t.purchases, purchaseItems, purchaseTotal, purchaseReturnTotal, purchaseNet);
-  writeSection(t.sales, saleItems, saleTotal, saleReturnTotal, saleNet);
+  writeSection(t.purchases, purchaseItems, purchaseTotal, purchaseReturnTotal, purchaseNet, purchaseTransactions);
+  writeSection(t.sales, saleItems, saleTotal, saleReturnTotal, saleNet, saleTransactions);
 
-  ws['!ref'] = `A1:F${rowIdx}`;
+  ws['!ref'] = `A1:G${rowIdx}`;
   ws['!cols'] = [
-    { wch: 24 }, // Product name
-    { wch: 10 }, // Unit
-    { wch: 10 }, // Quantity
-    { wch: 18 }, // Category
-    { wch: 16 }, // Amount
-    { wch: 10 }, // Percentage
+    { wch: 24 }, // Product name / Date
+    { wch: 14 }, // Unit / Description
+    { wch: 14 }, // Quantity / Category
+    { wch: 18 }, // Category / Account
+    { wch: 20 }, // Amount / Client-Staff
+    { wch: 16 }, // Percentage / Amount
+    { wch: 10 }, // Extra
   ];
   ws['!rows'] = [{ hpt: 24 }];
 

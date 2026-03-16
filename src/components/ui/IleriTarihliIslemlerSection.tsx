@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   CalendarClock,
@@ -23,6 +22,7 @@ import {
 } from '@/hooks/useIleriTarihliIslemler';
 import { toErrorMessage } from '@/lib/errors';
 import { usePermissions } from '@/hooks/usePermissions';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar/QuickTransactionBar';
 
 interface IleriTarihliIslemlerSectionProps {
   ileriTarihliIslemler: IleriTarihliIslemWithRelations[] | undefined;
@@ -62,8 +62,8 @@ export function IleriTarihliIslemlerSection({
   title,
 }: IleriTarihliIslemlerSectionProps) {
   const { t } = useTranslation(['transactions', 'common']);
-  const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const { canUpdate, canDelete } = usePermissions();
 
   const completeIslem = useCompleteIleriTarihliIslem();
@@ -142,10 +142,7 @@ export function IleriTarihliIslemlerSection({
   };
 
   const handleEdit = (item: IleriTarihliIslemWithRelations) => {
-    router.push({
-      pathname: '/islemler/ileri-tarihli/duzenle/[id]',
-      params: { id: item.id },
-    });
+    setEditTransactionId(item.id);
   };
 
   return (
@@ -157,6 +154,16 @@ export function IleriTarihliIslemlerSection({
           <Text style={styles.badgeText}>{ileriTarihliIslemler.length}</Text>
         </View>
       </View>
+
+      {/* QuickTransactionBar for editing */}
+      <QuickTransactionBar
+        visible={!!editTransactionId}
+        onDismiss={() => setEditTransactionId(null)}
+        mode="edit"
+        transactionId={editTransactionId ?? undefined}
+        isScheduledTransaction={true}
+        onSuccess={() => setEditTransactionId(null)}
+      />
 
       {ileriTarihliIslemler.map((item) => {
         const overdue = isOverdue(item.scheduled_date);

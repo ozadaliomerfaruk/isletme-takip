@@ -198,8 +198,8 @@ export function formatCurrency(amount: number, accountCurrency?: Currency | stri
       }).format(abs)} ${symbol}`;
     }
 
-    // USD/EUR için İngilizce format: "$1,234.56"
-    if (accountCurrency === 'USD' || accountCurrency === 'EUR') {
+    // USD/EUR/GBP için İngilizce format: "$1,234.56"
+    if (accountCurrency === 'USD' || accountCurrency === 'EUR' || accountCurrency === 'GBP') {
       return `${symbol}${new Intl.NumberFormat('en-US', {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,

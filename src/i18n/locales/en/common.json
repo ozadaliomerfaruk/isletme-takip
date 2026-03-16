@@ -397,6 +397,7 @@
       "total": "TOTAL",
       "transactionCount": "COUNT",
       "categoryBreakdown": "CATEGORY BREAKDOWN",
+      "clientStaff": "CLIENT/STAFF",
       "sheetName": "Report",
       "incomeFileName": "Income_Report",
       "expenseFileName": "Expense_Report"

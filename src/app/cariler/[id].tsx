@@ -30,7 +30,6 @@ import { ExportSheet } from '@/components/export';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
-import { formatDateShort } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
 import { useSettings } from '@/hooks/useSettings';
@@ -360,7 +359,7 @@ export default function CariHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation(['clients', 'common', 'errors', 'checks']);
-  const { formatDateSmart } = useDateFormat();
+  const { formatDateSmart, formatDateShort } = useDateFormat();
   const { currency: baseCurrency } = useSettings();
   const insets = useSafeAreaInsets();
   const { data: exchangeRatesData } = useExchangeRates();

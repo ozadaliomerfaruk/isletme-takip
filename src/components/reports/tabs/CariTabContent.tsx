@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Building2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -9,11 +9,13 @@ import {
   EntitySummaryCard,
   EntityTransactionList,
 } from '@/components/reports';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
 import { useAllIslemlerByCari } from '@/hooks/useIslemler';
+import type { IslemWithRelations } from '@/types/database';
 import type { TabContentProps } from './types';
 
 interface CariTabContentProps extends TabContentProps {
@@ -24,10 +26,17 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
   const { t } = useTranslation(['reports']);
   const { data: cariler } = useCariler();
   const [selectedCariId, setSelectedCariId] = useState<string | null>(initialCariId ?? null);
+  const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
+  const [showEditBar, setShowEditBar] = useState(false);
 
   const { data: cariIslemler = [], isLoading: cariIslemlerLoading } = useAllIslemlerByCari(selectedCariId || '');
 
   const selectedCari = cariler?.find((c) => c.id === selectedCariId) || null;
+
+  const handleTransactionPress = useCallback((transaction: IslemWithRelations) => {
+    setEditTransactionId(transaction.id);
+    setShowEditBar(true);
+  }, []);
 
   const filteredCariIslemler = useMemo(() => {
     if (!cariIslemler) return [];
@@ -71,6 +80,7 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
               <EntityTransactionList
                 transactions={filteredCariIslemler}
                 maxItems={20}
+                onTransactionPress={handleTransactionPress}
               />
             )}
           </View>
@@ -85,6 +95,23 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
           </Card>
         </View>
       )}
+
+      <QuickTransactionBar
+        visible={showEditBar}
+        onDismiss={() => {
+          setShowEditBar(false);
+          setEditTransactionId(null);
+        }}
+        mode="edit"
+        transactionId={editTransactionId ?? undefined}
+        isScheduledTransaction={false}
+        defaultCariId={selectedCariId ?? undefined}
+        defaultCariType={selectedCari?.type}
+        onSuccess={() => {
+          setShowEditBar(false);
+          setEditTransactionId(null);
+        }}
+      />
     </>
   );
 }

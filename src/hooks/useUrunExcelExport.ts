@@ -104,6 +104,7 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
           description: t('common:export.excel.description'),
           totalIn: t('products:export.totalIn'),
           totalOut: t('products:export.totalOut'),
+          totalAdjustment: t('products:export.totalAdjustment'),
           netChange: t('products:export.netChange'),
           periodSummary: t('products:export.periodSummary'),
           sheetName: t('products:export.sheetName'),

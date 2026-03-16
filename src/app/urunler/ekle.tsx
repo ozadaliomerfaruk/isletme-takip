@@ -19,6 +19,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCreateUrun } from '@/hooks/useUrunler';
 import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
+import { useSettings } from '@/hooks/useSettings';
 import { BirimType, Currency, KdvOrani } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -31,6 +32,7 @@ export default function UrunEklePage() {
   usePagePermission({ module: 'urunler', action: 'create' });
   const createUrun = useCreateUrun();
   const createUrunHareket = useCreateUrunHareket();
+  const { currency: userCurrency } = useSettings();
 
   const [ad, setAd] = useState('');
   const [kod, setKod] = useState('');
@@ -71,7 +73,7 @@ export default function UrunEklePage() {
         satis_fiyati: satisFiyati ? parseFloat(satisFiyati.replace(',', '.')) : 0,
         kategori_id: kategoriId,
         aciklama: aciklama.trim() || null,
-        currency: 'TRY' as Currency,
+        currency: userCurrency as Currency,
       });
 
       // Create initial urun movement if initial stock > 0

@@ -3,10 +3,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Share2, Calendar, X } from 'lucide-react-native';
+import { Share2, Calendar, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, CategoryReportCard, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useReportExcelExport } from '@/hooks/useReportExcelExport';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
@@ -122,23 +123,12 @@ export default function GelirGiderRaporPage() {
                 </TouchableOpacity>
               </View>
             ) : (
-              <View style={styles.dateNav}>
-                <TouchableOpacity
-                  style={styles.navBtn}
-                  onPress={() => state.setPeriodOffset(state.periodOffset - 1)}
-                >
-                  <ChevronLeft size={18} color={colors.primary} />
-                </TouchableOpacity>
-                <Text variant="body" style={styles.dateLabel}>
-                  {state.periodLabel}
-                </Text>
-                <TouchableOpacity
-                  style={styles.navBtn}
-                  onPress={() => state.setPeriodOffset(state.periodOffset + 1)}
-                >
-                  <ChevronRight size={18} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
+              <PeriodNavigator
+                period={state.period}
+                periodOffset={state.periodOffset}
+                periodLabel={state.periodLabel}
+                setPeriodOffset={state.setPeriodOffset}
+              />
             )}
 
             <View style={styles.summaryTabs}>

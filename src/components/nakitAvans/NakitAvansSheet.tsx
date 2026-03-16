@@ -35,7 +35,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, formatCurrency } from '@/lib/currency';
 import { getCurrentCurrency } from '@/hooks/useSettings';
-import { formatDateForDB, addMonths, formatDateShort } from '@/lib/date';
+import { formatDateForDB, addMonths } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateNakitAvans, useUpdateNakitAvans } from '@/hooks/useNakitAvans';
@@ -59,7 +59,7 @@ export function NakitAvansSheet({
   onSuccess,
 }: NakitAvansSheetProps) {
   const { t } = useTranslation(['accounts', 'common']);
-  const { formatDateMedium, locale } = useDateFormat();
+  const { formatDateMedium, formatDateShort, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
 

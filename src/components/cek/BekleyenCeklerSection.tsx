@@ -18,6 +18,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { CekWithRelations } from '@/types/database';
 import { useCompleteCek, useCancelCek } from '@/hooks/useCekler';
+import { CekKesSheet } from './CekKesSheet';
 import { toErrorMessage } from '@/lib/errors';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -41,6 +42,7 @@ export function BekleyenCeklerSection({
 
   const completeCek = useCompleteCek();
   const cancelCek = useCancelCek();
+  const [editCekId, setEditCekId] = useState<string | null>(null);
 
   const displayTitle = title ?? t('checks:sections.pending');
 
@@ -87,7 +89,7 @@ export function BekleyenCeklerSection({
       t('checks:actions.complete'),
       t('checks:messages.completeConfirm', {
         cekNo: cek.cek_no,
-        amount: formatCurrency(cek.tutar),
+        amount: formatCurrency(cek.tutar, cek.hesap?.currency),
       }),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
@@ -129,8 +131,7 @@ export function BekleyenCeklerSection({
   };
 
   const handleEdit = (cek: CekWithRelations) => {
-    // TODO: Düzenleme sayfasına yönlendir
-    Alert.alert(t('common:status.info'), t('checks:messages.comingSoon'));
+    setEditCekId(cek.id);
   };
 
   // Toplam bekleyen tutar
@@ -146,7 +147,7 @@ export function BekleyenCeklerSection({
         </View>
         <View style={styles.spacer} />
         <Text variant="caption" style={styles.totalAmount}>
-          {formatCurrency(toplamTutar)}
+          {formatCurrency(toplamTutar, filteredCekler[0]?.hesap?.currency)}
         </Text>
       </View>
 
@@ -191,7 +192,7 @@ export function BekleyenCeklerSection({
                       </Text>
                     </View>
                     <Text variant="body" style={styles.amount}>
-                      {formatCurrency(cek.tutar)}
+                      {formatCurrency(cek.tutar, cek.hesap?.currency)}
                     </Text>
                   </View>
                 </View>
@@ -271,6 +272,14 @@ export function BekleyenCeklerSection({
           </ExpandableCard>
         );
       })}
+
+      {/* Çek Edit Modal */}
+      <CekKesSheet
+        visible={!!editCekId}
+        onDismiss={() => setEditCekId(null)}
+        editCekId={editCekId ?? undefined}
+        onSuccess={() => setEditCekId(null)}
+      />
     </View>
   );
 }

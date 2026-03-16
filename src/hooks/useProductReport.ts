@@ -21,6 +21,7 @@ export interface ProductReportItem {
   kategoriAdi: string | null;
   toplamMiktar: number;
   toplamTutar: number;
+  toplamTutarKdvsiz: number;
   islemSayisi: number;
   percentage: number;
 }
@@ -28,6 +29,7 @@ export interface ProductReportItem {
 export interface ProductReportResult {
   items: ProductReportItem[];
   totalAmount: number;
+  totalAmountKdvsiz: number;
   returnTotal: number;
   netAmount: number;
   totalTransactions: number;
@@ -89,6 +91,7 @@ export function useProductReport(
         kategori_adi: string | null;
         toplam_miktar: number;
         toplam_tutar: number;
+        toplam_tutar_kdvsiz: number;
         islem_sayisi: number;
       }>;
     },
@@ -127,6 +130,7 @@ export function useProductReport(
       return {
         items: [],
         totalAmount: 0,
+        totalAmountKdvsiz: 0,
         returnTotal: returnData || 0,
         netAmount: -(returnData || 0),
         totalTransactions: 0,
@@ -134,6 +138,7 @@ export function useProductReport(
     }
 
     const totalAmount = mainData.reduce((sum, row) => sum + (Number(row.toplam_tutar) || 0), 0);
+    const totalAmountKdvsiz = mainData.reduce((sum, row) => sum + (Number(row.toplam_tutar_kdvsiz) || 0), 0);
     const totalTransactions = mainData.reduce((sum, row) => sum + (Number(row.islem_sayisi) || 0), 0);
     const returnTotal = returnData || 0;
 
@@ -145,6 +150,7 @@ export function useProductReport(
       kategoriAdi: row.kategori_adi,
       toplamMiktar: Number(row.toplam_miktar) || 0,
       toplamTutar: Number(row.toplam_tutar) || 0,
+      toplamTutarKdvsiz: Number(row.toplam_tutar_kdvsiz) || 0,
       islemSayisi: Number(row.islem_sayisi) || 0,
       percentage: totalAmount > 0
         ? Math.round(((Number(row.toplam_tutar) || 0) / totalAmount) * 100)
@@ -154,6 +160,7 @@ export function useProductReport(
     return {
       items,
       totalAmount,
+      totalAmountKdvsiz,
       returnTotal,
       netAmount: totalAmount - returnTotal,
       totalTransactions,

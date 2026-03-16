@@ -231,8 +231,8 @@ export function useQuickTransactionForm({
   }, []);
 
   // Computed hesapId (fallback)
-  // For odeme/tahsilat in normal mode, do NOT auto-select the first account
-  const hesapId = (type === 'odeme' || type === 'tahsilat') && !isCariMode && !isPersonelMode
+  // For odeme/tahsilat, do NOT auto-select the first account (user must manually choose)
+  const hesapId = (type === 'odeme' || type === 'tahsilat')
     ? sourceHesapId || defaultHesapId || undefined
     : sourceHesapId || defaultHesapId || hesaplar?.[0]?.id;
 

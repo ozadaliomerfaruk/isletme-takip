@@ -26,6 +26,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { getHesapIconConfig } from '@/lib/icons';
+import { normalizeTurkish } from '@/lib/turkishTextUtils';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -82,14 +83,14 @@ export default function AramaPage() {
 
   // Filter and build sections
   const sections = useMemo<Section[]>(() => {
-    const q = query.toLowerCase().trim();
+    const q = normalizeTurkish(query.trim());
     if (!q) return [];
 
     const result: Section[] = [];
 
     // Hesaplar
     const filteredHesaplar = hesaplar.filter((h) =>
-      h.name.toLowerCase().includes(q)
+      normalizeTurkish(h.name).includes(q)
     );
     if (filteredHesaplar.length > 0) {
       result.push({
@@ -100,7 +101,7 @@ export default function AramaPage() {
 
     // Müşteriler
     const filteredMusteriler = musteriCariler.filter((c) =>
-      c.name.toLowerCase().includes(q)
+      normalizeTurkish(c.name).includes(q)
     );
     if (filteredMusteriler.length > 0) {
       result.push({
@@ -111,7 +112,7 @@ export default function AramaPage() {
 
     // Tedarikçiler
     const filteredTedarikci = tedarikciCariler.filter((c) =>
-      c.name.toLowerCase().includes(q)
+      normalizeTurkish(c.name).includes(q)
     );
     if (filteredTedarikci.length > 0) {
       result.push({
@@ -122,8 +123,8 @@ export default function AramaPage() {
 
     // Personel
     const filteredPersonel = personelList.filter((p) => {
-      const fullName = `${p.first_name} ${p.last_name ?? ''}`.toLowerCase();
-      return fullName.includes(q);
+      const fullName = `${p.first_name} ${p.last_name ?? ''}`;
+      return normalizeTurkish(fullName).includes(q);
     });
     if (filteredPersonel.length > 0) {
       result.push({
@@ -134,8 +135,8 @@ export default function AramaPage() {
 
     // Ürünler
     const filteredUrunler = urunler.filter((u) =>
-      u.ad.toLowerCase().includes(q) ||
-      (u.kod && u.kod.toLowerCase().includes(q))
+      normalizeTurkish(u.ad).includes(q) ||
+      (u.kod && normalizeTurkish(u.kod).includes(q))
     );
     if (filteredUrunler.length > 0) {
       result.push({

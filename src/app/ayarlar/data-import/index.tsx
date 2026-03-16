@@ -91,11 +91,11 @@ export default function VeriIceAktarPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
-  const { t } = useTranslation('settings');
+  const { t, i18n } = useTranslation('settings');
   const queryClient = useQueryClient();
-  const { formatDateMedium } = useDateFormat();
+  const { formatDateMedium, formatDateShort } = useDateFormat();
   const { progress, result, duplicates, runImport, runDuplicateCheck, reset } = useDataImport();
-  const { lastImport, isUndoing, checkFileHash, saveImportHistory, undoLastImport } = useImportHistory();
+  const { history, lastImport, isUndoing, checkFileHash, saveImportHistory, undoLastImport } = useImportHistory();
   const createPendingIslemler = useCreatePendingIslemler();
   const { data: pendingIslemler, isLoading: loadingPending, refetch: refetchPending } = usePendingIslemler();
   const dismissPending = useDismissPendingIslem();
@@ -1235,6 +1235,35 @@ export default function VeriIceAktarPage() {
                 >
                   <Text style={{ color: colors.warning }}>{t('dataImport.buttons.undoImport')}</Text>
                 </Button>
+              </Card>
+            )}
+
+            {/* Import Geçmişi */}
+            {history.length > 0 && (
+              <Card style={styles.infoCard}>
+                <Text variant="label" style={styles.infoTitle}>
+                  {t('dataImport.history.title')}
+                </Text>
+                <View style={styles.typesList}>
+                  {history.map((item) => (
+                    <View key={item.id} style={{ paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                      <Text variant="body" style={{ fontWeight: '600', fontSize: 14 }}>
+                        {item.fileName}
+                      </Text>
+                      <Text variant="caption" color="secondary">
+                        {formatDateShort(item.importedAt)} • {item.transactionsCreated} {t('dataImport.results.transaction')}
+                        {item.accountsCreated > 0 ? ` • ${item.accountsCreated} ${t('dataImport.results.account')}` : ''}
+                        {item.clientsCreated > 0 ? ` • ${item.clientsCreated} ${t('dataImport.results.client')}` : ''}
+                        {item.categoriesCreated > 0 ? ` • ${item.categoriesCreated} ${t('dataImport.results.category')}` : ''}
+                      </Text>
+                      {item.transactionsSkipped > 0 && (
+                        <Text variant="caption" color="muted">
+                          {item.transactionsSkipped} {t('dataImport.results.skipped')}
+                        </Text>
+                      )}
+                    </View>
+                  ))}
+                </View>
               </Card>
             )}
           </View>

@@ -43,6 +43,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
         description: t('common:export.excel.description'),
         category: t('common:export.excel.category'),
         account: t('common:export.excel.accountColumn'),
+        clientStaff: t('common:export.reportExcel.clientStaff'),
         amount: t('common:export.reportExcel.amount'),
         total: t('common:export.reportExcel.total'),
         transactionCount: t('common:export.reportExcel.transactionCount'),

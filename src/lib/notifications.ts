@@ -197,6 +197,15 @@ export async function scheduleTransactionReminder(
   }
 ): Promise<string | null> {
   try {
+    // Global bildirim ayarı kontrolü
+    const notifEnabled = await AsyncStorage.getItem('@defter_notifications_enabled');
+    if (notifEnabled === 'false') {
+      if (__DEV__) {
+        console.log('Bildirimler kapalı, bildirim planlanmadı');
+      }
+      return null;
+    }
+
     // Geçmiş tarih kontrolü
     if (triggerDate < new Date()) {
       if (__DEV__) {

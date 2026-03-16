@@ -180,6 +180,7 @@
     "noChange": "No change",
     "net": "Net",
     "last6Months": "Last 6 Months",
+    "last6Periods": "Last 6 Periods",
     "total": "Total",
     "average": "Average",
     "last3Months": "Last 3 Months",
@@ -227,7 +228,14 @@
     "noPurchases": "No product purchases in this period",
     "noSales": "No product sales in this period",
     "quantity": "{{count}} {{unit}}",
-    "transactionCount": "{{count}} transactions"
+    "transactionCount": "{{count}} transactions",
+    "uncategorized": "Uncategorized",
+    "sortByAmount": "By Amount",
+    "sortByQuantity": "By Quantity",
+    "kdvExcluded": "Excl. VAT",
+    "kdvIncluded": "Incl. VAT",
+    "kdv": "VAT",
+    "categoryTotal": "Category Total"
   },
   "warnings": {
     "unmappedCategories": "{{count}} product categories are not mapped, reports may be incomplete",

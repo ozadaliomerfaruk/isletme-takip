@@ -175,6 +175,7 @@
     "total": "Total",
     "totalIn": "Total In",
     "totalOut": "Total Out",
+    "totalAdjustment": "Total Adjustment",
     "netChange": "Net Change",
     "periodSummary": "Period Summary",
     "sheetName": "Movements",
@@ -185,6 +186,22 @@
       "giris": "Stock In",
       "cikis": "Stock Out",
       "duzeltme": "Adjustment"
+    },
+    "productList": {
+      "title": "Product List",
+      "fileName": "product_list",
+      "shareDialogTitle": "Share Product List",
+      "noData": "No products to export",
+      "columns": {
+        "name": "Product Name",
+        "code": "Product Code",
+        "category": "Category",
+        "unit": "Unit",
+        "stock": "Stock",
+        "purchasePrice": "Purchase Price",
+        "salePrice": "Sale Price",
+        "vatRate": "VAT %"
+      }
     }
   },
   "movementRow": {

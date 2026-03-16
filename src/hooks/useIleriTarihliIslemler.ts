@@ -102,7 +102,11 @@ export function useIleriTarihliIslemlerByHesap(hesapId: string) {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          kategori:kategoriler(id,name)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name),
+          personel:personel(id,first_name,last_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -131,7 +135,11 @@ export function useIleriTarihliIslemlerByCari(cariId: string) {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          kategori:kategoriler(id,name)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name),
+          personel:personel(id,first_name,last_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -160,7 +168,11 @@ export function useIleriTarihliIslemlerByPersonel(personelId: string) {
         .from('ileri_tarihli_islemler')
         .select(`
           *,
-          kategori:kategoriler(id,name)
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name),
+          personel:personel(id,first_name,last_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')

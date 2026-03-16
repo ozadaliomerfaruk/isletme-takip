@@ -9,6 +9,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseDateFromDB, formatDateForDB, isSameYear, formatTime } from '@/lib/date';
 import { getCurrentDateFormat } from '@/hooks/useSettings';
+import useSettings from '@/hooks/useSettings';
 
 /**
  * Map i18n language code to locale string for native date APIs
@@ -46,8 +47,11 @@ function getLocaleFromLanguage(language: string): string {
  */
 export function useDateFormat() {
   const { t, i18n } = useTranslation('common');
+  // Subscribe to settings changes so we re-render when date format changes
+  const { dateFormat } = useSettings();
 
   // Get locale for native date APIs (toLocaleDateString, DateTimePicker, etc.)
+  // dateFormat dependency ensures locale recalculates when format changes
   const locale = getLocaleFromLanguage(i18n.language);
 
   // Get month arrays from translations
@@ -57,25 +61,35 @@ export function useDateFormat() {
   const daysShort = t('date.daysShort', { returnObjects: true }) as string[];
 
   /**
-   * Format date as "19 December 2024" (localized)
+   * Format date as "19 December 2024" or "December 19, 2024" based on date format setting
    */
   const formatDateLong = useCallback(
     (date: string | Date): string => {
       const d = typeof date === 'string' ? parseDateFromDB(date) : date;
+      const dateFormatConfig = getCurrentDateFormat();
+      if (dateFormatConfig.code === 'MDY') {
+        return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      }
       return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
     },
-    [months]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [months, dateFormat]
   );
 
   /**
-   * Format date as "19 Dec 2024" (localized)
+   * Format date as "19 Dec 2024" or "Dec 19, 2024" based on date format setting
    */
   const formatDateMedium = useCallback(
     (date: string | Date): string => {
       const d = typeof date === 'string' ? parseDateFromDB(date) : date;
+      const dateFormatConfig = getCurrentDateFormat();
+      if (dateFormatConfig.code === 'MDY') {
+        return `${monthsShort[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+      }
       return `${d.getDate()} ${monthsShort[d.getMonth()]} ${d.getFullYear()}`;
     },
-    [monthsShort]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [monthsShort, dateFormat]
   );
 
   /**
@@ -126,8 +140,8 @@ export function useDateFormat() {
 
   /**
    * Smart date format:
-   * - Same year: "19 Dec 14:30" (no year, with time)
-   * - Different year: "19 Dec 2025 14:30" (with year and time)
+   * - Same year: "19 Dec 14:30" or "Dec 19 14:30" (no year, with time)
+   * - Different year: "19 Dec 2025 14:30" or "Dec 19, 2025 14:30" (with year and time)
    */
   const formatDateSmart = useCallback(
     (date: string | Date): string => {
@@ -135,14 +149,19 @@ export function useDateFormat() {
       const day = d.getDate();
       const month = monthsShort[d.getMonth()];
       const time = formatTime(d);
+      const dateFormatConfig = getCurrentDateFormat();
+      const isMDY = dateFormatConfig.code === 'MDY';
 
       if (isSameYear(d)) {
-        return `${day} ${month} ${time}`;
+        return isMDY ? `${month} ${day} ${time}` : `${day} ${month} ${time}`;
       } else {
-        return `${day} ${month} ${d.getFullYear()} ${time}`;
+        return isMDY
+          ? `${month} ${day}, ${d.getFullYear()} ${time}`
+          : `${day} ${month} ${d.getFullYear()} ${time}`;
       }
     },
-    [monthsShort]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [monthsShort, dateFormat]
   );
 
   /**
@@ -233,14 +252,55 @@ export function useDateFormat() {
   );
 
   /**
+   * Format date as "19/12/2024" or "12/19/2024" based on user's date format setting
+   * Reactive version of lib/date.ts formatDateShort
+   */
+  const formatDateShort = useCallback(
+    (date: string | Date): string => {
+      const d = typeof date === 'string' ? parseDateFromDB(date) : date;
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      const dateFormatConfig = getCurrentDateFormat();
+
+      if (dateFormatConfig.code === 'MDY') {
+        return `${month}/${day}/${year}`;
+      }
+      return `${day}/${month}/${year}`;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dateFormat]
+  );
+
+  /**
+   * Format date and time as "19/12/2024 14:30" or "12/19/2024 14:30"
+   * Reactive version of lib/date.ts formatDateTime
+   */
+  const formatDateTime = useCallback(
+    (date: string | Date): string => {
+      const d = typeof date === 'string' ? new Date(date) : date;
+      const dateStr = formatDateShort(d);
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      return `${dateStr} ${hours}:${minutes}`;
+    },
+    [formatDateShort]
+  );
+
+  /**
    * Format date label from date string (for transactions)
    */
   const formatDateLabel = useCallback(
     (dateStr: string): string => {
       const date = new Date(dateStr + 'T00:00:00');
+      const dateFormatConfig = getCurrentDateFormat();
+      if (dateFormatConfig.code === 'MDY') {
+        return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+      }
       return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
     },
-    [months]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [months, dateFormat]
   );
 
   /**
@@ -286,6 +346,8 @@ export function useDateFormat() {
     formatMonthYear,
     formatMonth,
     formatRelativeDate,
+    formatDateShort,
+    formatDateTime,
     formatDateSmart,
     formatDateLabel,
     getDateRangeLabel,

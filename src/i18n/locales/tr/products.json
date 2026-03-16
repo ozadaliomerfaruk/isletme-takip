@@ -175,6 +175,7 @@
     "total": "Toplam",
     "totalIn": "Toplam Giriş",
     "totalOut": "Toplam Çıkış",
+    "totalAdjustment": "Toplam Düzeltme",
     "netChange": "Net Değişim",
     "periodSummary": "Dönem Özeti",
     "sheetName": "Hareketler",
@@ -185,6 +186,22 @@
       "giris": "Giriş",
       "cikis": "Çıkış",
       "duzeltme": "Düzeltme"
+    },
+    "productList": {
+      "title": "Ürün Listesi",
+      "fileName": "urun_listesi",
+      "shareDialogTitle": "Ürün Listesini Paylaş",
+      "noData": "Export edilecek ürün yok",
+      "columns": {
+        "name": "Ürün Adı",
+        "code": "Ürün Kodu",
+        "category": "Kategori",
+        "unit": "Birim",
+        "stock": "Stok",
+        "purchasePrice": "Alış Fiyatı",
+        "salePrice": "Satış Fiyatı",
+        "vatRate": "KDV %"
+      }
     }
   },
   "movementRow": {

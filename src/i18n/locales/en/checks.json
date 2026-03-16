@@ -2,6 +2,7 @@
   "title": "Checks",
   "create": "Issue Check",
   "createTitle": "Issue New Check",
+  "editTitle": "Edit Check",
   "list": "Check List",
   "pending": "Pending Checks",
   "sections": {
@@ -46,6 +47,7 @@
   },
   "messages": {
     "createSuccess": "Check created successfully",
+    "updateSuccess": "Check updated successfully",
     "createFailed": "Failed to create check",
     "completeSuccess": "Check payment completed",
     "completeFailed": "Check payment failed",

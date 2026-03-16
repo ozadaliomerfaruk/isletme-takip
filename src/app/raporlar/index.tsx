@@ -54,6 +54,7 @@ export default function RaporlarPage() {
   // Quick period picker modals
   const [showYearPicker, setShowYearPicker] = useState(false);
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
+  const [showDailyDatePicker, setShowDailyDatePicker] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   const PERIOD_OPTIONS = [
@@ -111,7 +112,37 @@ export default function RaporlarPage() {
         setShowMonthYearPicker(true);
         break;
       }
+      case 'daily':
+        setShowDailyDatePicker(true);
+        break;
     }
+  };
+
+  const handleDailyDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDailyDatePicker(false);
+      if (event.type === 'set' && selectedDate) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        selectedDate.setHours(0, 0, 0, 0);
+        const diffMs = selectedDate.getTime() - today.getTime();
+        const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+        setPeriodOffset(diffDays);
+      }
+    } else if (selectedDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      selectedDate.setHours(0, 0, 0, 0);
+      const diffMs = selectedDate.getTime() - today.getTime();
+      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+      setPeriodOffset(diffDays);
+    }
+  };
+
+  const getDailyDate = () => {
+    const d = new Date();
+    d.setDate(d.getDate() + periodOffset);
+    return d;
   };
 
   const goToYear = (year: number) => {
@@ -428,6 +459,51 @@ export default function RaporlarPage() {
           minimumDate={customStartDate}
           maximumDate={new Date()}
         />
+      )}
+
+      {/* Daily Date Picker - Android */}
+      {Platform.OS === 'android' && showDailyDatePicker && (
+        <DateTimePicker
+          value={getDailyDate()}
+          mode="date"
+          display="default"
+          onChange={handleDailyDateChange}
+          locale={locale}
+        />
+      )}
+
+      {/* Daily Date Picker - iOS */}
+      {Platform.OS === 'ios' && showDailyDatePicker && (
+        <Modal visible transparent animationType="fade">
+          <Pressable
+            style={styles.pickerModalOverlay}
+            onPress={() => setShowDailyDatePicker(false)}
+          >
+            <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.pickerModalHeader}>
+                <Text variant="h3">{t('common:date.selectDate')}</Text>
+                <TouchableOpacity onPress={() => setShowDailyDatePicker(false)}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <DateTimePicker
+                  value={getDailyDate()}
+                  mode="date"
+                  display="inline"
+                  themeVariant="light"
+                  accentColor={colors.primary}
+                  locale={locale}
+                  style={{ height: 350 }}
+                  onChange={handleDailyDateChange}
+                />
+              </View>
+              <Button variant="primary" onPress={() => setShowDailyDatePicker(false)}>
+                {t('common:buttons.ok')}
+              </Button>
+            </Pressable>
+          </Pressable>
+        </Modal>
       )}
     </SafeAreaView>
   );
