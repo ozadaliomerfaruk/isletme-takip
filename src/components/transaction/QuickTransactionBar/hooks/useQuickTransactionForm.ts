@@ -381,10 +381,12 @@ export function useQuickTransactionForm({
       else if (isCariMode && defaultCariId) {
         setCariId(defaultCariId);
         if (defaultCariType === 'tedarikci') {
-          setType('alis');
+          const validTedarikciTypes: TransactionType[] = ['alis', 'odeme', 'alis_iade'];
+          setType(validTedarikciTypes.includes(defaultType) ? defaultType : 'alis');
           setOdemeHedefType('tedarikci');
         } else {
-          setType('satis');
+          const validMusteriTypes: TransactionType[] = ['satis', 'tahsilat', 'satis_iade'];
+          setType(validMusteriTypes.includes(defaultType) ? defaultType : 'satis');
         }
       } else {
         // Normal mode

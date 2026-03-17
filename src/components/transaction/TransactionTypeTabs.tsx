@@ -31,7 +31,7 @@ export type TransactionType =
   | 'kredi_karti_odeme'
   | 'kredi_karti_ekstre';
 
-export type TransactionTabMode = 'normal' | 'tedarikci' | 'musteri' | 'personel' | 'kredi_karti';
+export type TransactionTabMode = 'normal' | 'tedarikci' | 'musteri' | 'tedarikci_viewer' | 'musteri_viewer' | 'personel' | 'kredi_karti';
 
 interface TransactionTypeTabsProps {
   value: TransactionType;
@@ -80,6 +80,12 @@ const TEDARIKCI_TABS: TransactionType[] = ['alis', 'satis', 'odeme', 'alis_iade'
 // Müşteri cari modu için sekmeler
 const MUSTERI_TABS: TransactionType[] = ['satis', 'alis', 'tahsilat', 'satis_iade'];
 
+// Tedarikçi cari viewer modu (paylaşılan cari - ödeme yok)
+const TEDARIKCI_VIEWER_TABS: TransactionType[] = ['alis', 'satis', 'alis_iade'];
+
+// Müşteri cari viewer modu (paylaşılan cari - tahsilat yok)
+const MUSTERI_VIEWER_TABS: TransactionType[] = ['satis', 'alis', 'satis_iade'];
+
 // Personel modu için sekmeler
 const PERSONEL_TABS: TransactionType[] = ['personel_gider_tab', 'personel_satis_tab', 'personel_odeme_tab', 'personel_tahsilat_tab', 'personel_izin_hakki_tab', 'personel_izin_kullanimi_tab'];
 
@@ -110,6 +116,12 @@ export function TransactionTypeTabs({ value, onChange, onTabPress, mode = 'norma
         break;
       case 'musteri':
         tabTypes = MUSTERI_TABS;
+        break;
+      case 'tedarikci_viewer':
+        tabTypes = TEDARIKCI_VIEWER_TABS;
+        break;
+      case 'musteri_viewer':
+        tabTypes = MUSTERI_VIEWER_TABS;
         break;
       case 'personel':
         tabTypes = PERSONEL_TABS;

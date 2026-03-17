@@ -16,8 +16,12 @@ import {
   X,
   Share2,
   Link,
+  Unlink,
   Package,
   BarChart3,
+  Eye,
+  ShieldCheck,
+  Info,
 } from 'lucide-react-native';
 import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -41,13 +45,15 @@ import { useIslemlerWithUrunByCari, useUrunHareketlerByIslemId } from '@/hooks/u
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
-import { IslemWithRelations } from '@/types/database';
-import { useCariLinkStatus } from '@/hooks/useCariSharing';
+import { IslemWithRelations, IslemType } from '@/types/database';
+import { useCariLinkStatus, useRemoveCariLink } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
+import { invertCariTransactionType, hasTypeMismatch, shouldInvertTransaction } from '@/lib/cariTransactionMapper';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useHaptics } from '@/hooks/useHaptics';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 // ============================================================================
@@ -56,6 +62,8 @@ import { useAuthContext } from '@/contexts/AuthContext';
 
 interface CariTransactionItemProps {
   islem: IslemWithRelations;
+  displayType?: string;
+  hideHesap?: boolean;
   onPress: (id: string) => void;
   onLongPress?: (id: string) => void;
   onPhotoPress?: (id: string) => void;
@@ -70,6 +78,7 @@ interface CariTransactionItemProps {
   currency?: string;
   canEdit?: boolean;
   currentUserId?: string;
+  otherPartyName?: string | null;
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -121,6 +130,8 @@ function getCariSubAmount(islem: IslemWithRelations): string | null {
 
 const CariTransactionItem = memo(function CariTransactionItem({
   islem,
+  displayType,
+  hideHesap,
   onPress,
   onLongPress,
   onPhotoPress,
@@ -135,20 +146,27 @@ const CariTransactionItem = memo(function CariTransactionItem({
   currency,
   canEdit = true,
   currentUserId,
+  otherPartyName,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
 
-  const labelKey = getCariHareketLabelKey(islem.type);
-  const typeLabel = labelKey ? t(labelKey) : islem.type;
+  const effectiveType = (displayType || islem.type) as IslemType;
+  const labelKey = getCariHareketLabelKey(effectiveType);
+  const typeLabel = labelKey ? t(labelKey) : effectiveType;
 
   // Ödeme/tahsilat işlemlerinde hangi hesaba yapıldığını göster (ok ile yön belirt)
-  const entityText = (islem.type === 'cari_odeme' || islem.type === 'cari_tahsilat')
-    ? islem.hesap?.name
-      ? `${islem.type === 'cari_odeme' ? '→' : '←'} ${islem.hesap.name}`
-      : null
-    : null;
-  const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
+  // hideHesap: viewer karşı tarafın hesap bilgisini görmemeli
+  const entityText = hideHesap
+    ? null
+    : (effectiveType === 'cari_odeme' || effectiveType === 'cari_tahsilat')
+      ? islem.hesap?.name
+        ? `${effectiveType === 'cari_odeme' ? '→' : '←'} ${islem.hesap.name}`
+        : null
+      : null;
+  // Linked cari: karşı tarafın işletme adını göster, yoksa multi-user creator adını göster
+  const creatorText = otherPartyName
+    || ((islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null);
 
   return (
     <SwipeableRow
@@ -160,7 +178,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
     >
       <TransactionRow
         id={islem.id}
-        type={islem.type}
+        type={effectiveType}
         amount={getCariDisplayAmount(islem)}
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
@@ -172,8 +190,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         urunCount={getUrunCountFn(islem.id)}
         currency={currency}
         subAmount={getCariSubAmount(islem)}
-        overrideColor={getEntityPerspectiveColor(islem.type)}
-        overridePrefix={getEntityPerspectivePrefix(islem.type)}
+        overrideColor={getEntityPerspectiveColor(effectiveType as any)}
+        overridePrefix={getEntityPerspectivePrefix(effectiveType as any)}
         onPress={onPress}
         onLongPress={onLongPress}
         onPhotoPress={onPhotoPress}
@@ -184,7 +202,10 @@ const CariTransactionItem = memo(function CariTransactionItem({
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
     && prev.canEdit === next.canEdit
-    && prev.currentUserId === next.currentUserId;
+    && prev.currentUserId === next.currentUserId
+    && prev.displayType === next.displayType
+    && prev.hideHesap === next.hideHesap
+    && prev.otherPartyName === next.otherPartyName;
 });
 
 // ============================================================================
@@ -366,17 +387,28 @@ export default function CariHareketleriPage() {
   const exchangeRates = exchangeRatesData?.rates;
 
   const { data: cari, isLoading: cariLoading, refetch: refetchCari } = useCari(id!);
-  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByCari(id!);
+  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByCari(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
   const { data: linkStatus } = useCariLinkStatus(id);
   const { canUpdate, canDelete } = usePermissions();
-  const { user } = useAuthContext();
+  const { user, isletme } = useAuthContext();
+  const haptics = useHaptics();
 
   // Viewer olarak baglantili mi ve izin seviyesi nedir
   const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
   const isViewerViewOnly = isViewer && linkStatus?.permission === 'view';
   const canEditTransactions = !isViewer || linkStatus?.permission === 'full';
+
+  // BUG 4: Viewer perspektifinden cari tipi (viewer_type kullan)
+  const effectiveType = isViewer && linkStatus?.link?.viewer_type
+    ? linkStatus.link.viewer_type
+    : cari?.type;
+
+  // Baglantili cari tip uyumsuzlugu: owner ve viewer farkli tip secmisse inversion gerekebilir
+  const typeMismatch = hasTypeMismatch(cari?.type, linkStatus?.link?.viewer_type);
+  // Bakiye her zaman owner perspektifinde saklanir; viewer icin negate edilir
+  const shouldInvertBalance = !!isViewer && typeMismatch;
 
   // İşlemlerin ürünlü olup olmadığını kontrol et - cari bazlı sorgu ile ilk yüklemede de hızlı
   const { hasUrun, getUrunCount } = useIslemlerWithUrunByCari(id);
@@ -384,6 +416,7 @@ export default function CariHareketleriPage() {
   const deleteCari = useDeleteCari();
   const updateCari = useUpdateCari();
   const unarchiveCari = useUnarchiveCari();
+  const removeCariLink = useRemoveCariLink();
 
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -403,7 +436,6 @@ export default function CariHareketleriPage() {
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   // Photo viewer state
   const [photoViewerIslemId, setPhotoViewerIslemId] = useState<string | null>(null);
-
   // Undo delete hook
   const {
     pendingDeleteIds,
@@ -421,31 +453,50 @@ export default function CariHareketleriPage() {
     },
   });
 
+  // Pull-to-refresh
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    haptics.medium();
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchCari(), refetchIslemler()]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchCari, refetchIslemler, haptics]);
+
   // Başlangıç bakiyesini hesapla - MEMOIZED
   // Cross-currency işlemlerde cari tarafındaki dönüştürülmüş tutarı kullanır
+  // Per-transaction inversion: karsi tarafin olusturdugu islemler ters cevrilir
   const initialBalance = useMemo(() => {
     if (!cari || !islemler) return 0;
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
       const amount = getCariDisplayAmount(islem);
-      if (islem.type === 'cari_alis') {
+      const needsInvert = shouldInvertTransaction(islem.isletme_id, isletme?.id, typeMismatch);
+      const type = needsInvert
+        ? invertCariTransactionType(islem.type as any)
+        : islem.type;
+      if (type === 'cari_alis') {
         totalEffect -= amount;
-      } else if (islem.type === 'cari_odeme') {
+      } else if (type === 'cari_odeme') {
         totalEffect += amount;
-      } else if (islem.type === 'cari_satis') {
+      } else if (type === 'cari_satis') {
         totalEffect += amount;
-      } else if (islem.type === 'cari_tahsilat') {
+      } else if (type === 'cari_tahsilat') {
         totalEffect -= amount;
-      } else if (islem.type === 'cari_alis_iade') {
+      } else if (type === 'cari_alis_iade') {
         totalEffect += amount;
-      } else if (islem.type === 'cari_satis_iade') {
+      } else if (type === 'cari_satis_iade') {
         totalEffect -= amount;
       }
     });
 
-    return toNumber(cari.balance) - totalEffect;
-  }, [cari, islemler]);
+    // Viewer perspektifinde bakiye ters cevrilerek gosterilir
+    const effectiveBalance = shouldInvertBalance ? -toNumber(cari.balance) : toNumber(cari.balance);
+    return effectiveBalance - totalEffect;
+  }, [cari, islemler, isletme?.id, typeMismatch, shouldInvertBalance]);
 
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
@@ -491,13 +542,20 @@ export default function CariHareketleriPage() {
 
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
+    const islem = (islemler || []).find(i => i.id === islemId);
+    if (!islem) return;
+
     if (hasUrun(islemId)) {
       setProductDetailIslemId(islemId);
-    } else {
-      setEditTransactionId(islemId);
-      setShowEditBar(true);
+      return;
     }
-  }, [hasUrun]);
+
+    // Karşı tarafın işlemi → düzenlenemez, bir şey yapma
+    if (islem.isletme_id !== isletme?.id) return;
+
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+  }, [hasUrun, islemler, isletme?.id]);
 
   // Fotoğraf ikonuna basıldığında fotoğraf viewer aç
   const handlePressPhoto = useCallback((islemId: string) => {
@@ -558,6 +616,30 @@ export default function CariHareketleriPage() {
     }
   }, [unarchiveCari, id, t, router]);
 
+  // BUG 3: Owner icin baglantiy kaldirma handler'i
+  const handleUnlink = useCallback(() => {
+    if (!linkStatus?.link?.id) return;
+    setShowMenu(false);
+    Alert.alert(
+      t('clients:sharing.removeLinkConfirmTitle'),
+      t('clients:sharing.removeLinkConfirmMessage'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('clients:sharing.removeLinkConfirmButton'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeCariLink.mutateAsync({ link_id: linkStatus.link!.id });
+            } catch {
+              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+            }
+          },
+        },
+      ]
+    );
+  }, [linkStatus, removeCariLink, t]);
+
   // Header right buttons - viewer'lar icin share ve menu gizle
   const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
@@ -612,15 +694,40 @@ export default function CariHareketleriPage() {
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');
 
+  // Linked cari: karşı tarafın işletme adını belirle
+  const otherPartyIsletmeName = useMemo(() => {
+    if (!linkStatus?.is_linked || !linkStatus.link) return null;
+    // A (owner) bakıyorsa → B'nin (viewer) isletme adı
+    // B (viewer) bakıyorsa → A'nın (owner) isletme adı
+    if (linkStatus.is_owner) {
+      return linkStatus.link.viewer_isletme?.name || null;
+    } else {
+      return linkStatus.link.owner_isletme?.name || null;
+    }
+  }, [linkStatus]);
+
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
     }
     const islem = item.data;
     const canEditItem = canEditTransactions && canDelete('islemler', islem.created_by ?? null);
+    // Per-transaction inversion: karsi tarafin olusturdugu islemlerin tipi ters cevrilir
+    const needsInvert = shouldInvertTransaction(islem.isletme_id, isletme?.id, typeMismatch);
+    const itemDisplayType = needsInvert
+      ? invertCariTransactionType(islem.type as any)
+      : islem.type;
+    // Karsi tarafin odeme/tahsilat hesap bilgisini gizle (farklı isletme)
+    const isOtherPartyTransaction = islem.isletme_id !== isletme?.id;
+    const isPaymentType = islem.type === 'cari_odeme' || islem.type === 'cari_tahsilat';
+    const itemHideHesap = isOtherPartyTransaction && isPaymentType;
+    // Karşı tarafın işlemi ise işletme adını göster
+    const itemOtherPartyName = isOtherPartyTransaction ? otherPartyIsletmeName : null;
     return (
       <CariTransactionItem
         islem={islem}
+        displayType={itemDisplayType}
+        hideHesap={itemHideHesap}
         onPress={handlePressIslem}
         onLongPress={handleLongPressIslem}
         onPhotoPress={handlePressPhoto}
@@ -635,16 +742,20 @@ export default function CariHareketleriPage() {
         currency={cari?.currency}
         canEdit={canEditItem}
         currentUserId={user?.id}
+        otherPartyName={itemOtherPartyName}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
   // === FlatList ListHeaderComponent ===
   const ListHeader = useMemo(() => {
     if (!cari) return null;
-    const isTedarikci = cari.type === 'tedarikci';
+    // BUG 4: Viewer perspektifinden cari tipi kullan
+    const isTedarikci = effectiveType === 'tedarikci';
+    // Viewer perspektifinde bakiye ters cevrilerek gosterilir
+    const displayBalance = shouldInvertBalance ? -Number(cari.balance) : Number(cari.balance);
 
     return (
       <View>
@@ -673,14 +784,14 @@ export default function CariHareketleriPage() {
             </View>
             <View style={styles.balanceInfo}>
               <Text variant="caption" color="secondary">
-                {Number(cari.balance) < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe')}
+                {displayBalance < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe')}
               </Text>
-              <Text variant="h2" color={Number(cari.balance) < 0 ? 'error' : 'success'}>
-                {formatCurrency(Math.abs(Number(cari.balance)), cari.currency)}
+              <Text variant="h2" color={displayBalance < 0 ? 'error' : 'success'}>
+                {formatCurrency(Math.abs(displayBalance), cari.currency)}
               </Text>
-              {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
+              {cari.currency !== baseCurrency && exchangeRates && displayBalance !== 0 && (
                 <Text variant="caption" color="secondary">
-                  ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
+                  ~{formatCurrency(convertCurrency(Math.abs(displayBalance), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
                 </Text>
               )}
             </View>
@@ -698,6 +809,36 @@ export default function CariHareketleriPage() {
           </View>
         )}
 
+        {/* Paylaşım İzin Modu Banner */}
+        {isViewer && (
+          <View style={styles.permissionBanner}>
+            {isViewerViewOnly ? (
+              <>
+                <Eye size={16} color={colors.warning} />
+                <Text variant="caption" style={{ color: colors.warning, flex: 1 }}>
+                  {t('clients:sharing.viewOnlyBanner')}
+                </Text>
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={16} color={colors.success} />
+                <Text variant="caption" style={{ color: colors.success, flex: 1 }}>
+                  {t('clients:sharing.fullAccessBanner')}
+                </Text>
+              </>
+            )}
+          </View>
+        )}
+        {/* Paylaşılan cari bilgi notu */}
+        {isViewer && (
+          <View style={styles.permissionBanner}>
+            <Info size={16} color={colors.info} />
+            <Text variant="caption" style={{ color: colors.textMuted, flex: 1 }}>
+              {t('clients:sharing.sharedCariNote')}
+            </Text>
+          </View>
+        )}
+
         {/* Arşiv Banner */}
         {cari.is_archived && (
           <View style={styles.bannerContainer}>
@@ -709,7 +850,7 @@ export default function CariHareketleriPage() {
         )}
 
         {/* Aksiyon Butonlari - Çek Kes only for tedarikci */}
-        {!cari.is_archived && !(isViewerViewOnly) && cari.type === 'tedarikci' && (
+        {!cari.is_archived && !(isViewerViewOnly) && effectiveType === 'tedarikci' && (
           <View style={styles.actionButtons}>
             <Button
               variant="outline"
@@ -730,7 +871,7 @@ export default function CariHareketleriPage() {
             isLoading={ileriTarihliLoading}
           />
 
-          {cari?.type === 'tedarikci' && (
+          {effectiveType === 'tedarikci' && (
             <BekleyenCeklerSection
               cekler={bekleyenCekler}
               isLoading={ceklerLoading}
@@ -747,7 +888,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -841,6 +982,8 @@ export default function CariHareketleriPage() {
             windowSize={7}
             removeClippedSubviews={false}
             contentContainerStyle={styles.flatListContent}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
           />
         </SwipeableProvider>
 
@@ -865,6 +1008,17 @@ export default function CariHareketleriPage() {
                 </TouchableOpacity>
               )}
 
+              {/* BUG 3: Owner icin baglanti kaldirma secenegi */}
+              {linkStatus?.is_linked && linkStatus?.is_owner && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleUnlink}
+                >
+                  <Unlink size={22} color={colors.warning} />
+                  <Text variant="body" style={{ color: colors.warning }}>{t('clients:sharing.removeLink')}</Text>
+                </TouchableOpacity>
+              )}
+
               {canDelete('cariler', cari?.created_by ?? null) && (
                 <TouchableOpacity
                   style={[styles.menuItem, styles.menuItemDanger]}
@@ -883,7 +1037,8 @@ export default function CariHareketleriPage() {
           visible={quickBarVisible}
           onDismiss={() => setQuickBarVisible(false)}
           defaultCariId={cari?.id}
-          defaultCariType={cari?.type}
+          defaultCariType={effectiveType}
+          isViewer={isViewer}
           onSuccess={() => setQuickBarVisible(false)}
         />
 
@@ -898,7 +1053,7 @@ export default function CariHareketleriPage() {
           transactionId={editTransactionId ?? undefined}
           isScheduledTransaction={false}
           defaultCariId={cari?.id}
-          defaultCariType={cari?.type}
+          defaultCariType={effectiveType}
           onSuccess={() => {
             setShowEditBar(false);
             setEditTransactionId(null);
@@ -915,7 +1070,7 @@ export default function CariHareketleriPage() {
           mode="create"
           copySourceId={copySourceId ?? undefined}
           defaultCariId={cari?.id}
-          defaultCariType={cari?.type}
+          defaultCariType={effectiveType}
           onSuccess={() => {
             setShowCopyBar(false);
             setCopySourceId(null);
@@ -937,8 +1092,10 @@ export default function CariHareketleriPage() {
           entityType="cari"
           entityId={id!}
           entityName={cari.name}
-          currentBalance={Number(cari.balance)}
-          cariType={cari.type as 'musteri' | 'tedarikci'}
+          currentBalance={shouldInvertBalance ? -Number(cari.balance) : Number(cari.balance)}
+          cariType={(effectiveType || cari.type) as 'musteri' | 'tedarikci'}
+          currentIsletmeId={isletme?.id}
+          typeMismatch={typeMismatch}
         />
 
         {/* Cari Paylaşım Kodu Modal */}
@@ -976,7 +1133,7 @@ export default function CariHareketleriPage() {
                 <BalanceDirectionSelector
                   value={balanceDirection}
                   onChange={setBalanceDirection}
-                  variant={cari?.type === 'tedarikci' ? 'supplier' : 'customer'}
+                  variant={effectiveType === 'tedarikci' ? 'supplier' : 'customer'}
                 />
               </View>
               <View style={styles.balanceInputContainer}>
@@ -1079,6 +1236,17 @@ const styles = StyleSheet.create({
   bannerContainer: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.md,
+  },
+  permissionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
   },
   summaryRow: {
     flexDirection: 'row',

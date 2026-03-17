@@ -73,6 +73,8 @@ export interface QuickTransactionBarProps {
   defaultCariType?: CariType;
   defaultPersonelId?: string;
   onSuccess?: () => void;
+  // Viewer mode: linked cari viewer (hides ödeme/tahsilat tabs)
+  isViewer?: boolean;
   // Edit mode props
   mode?: QuickTransactionMode;
   transactionId?: string;

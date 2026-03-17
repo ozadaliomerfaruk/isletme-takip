@@ -157,7 +157,7 @@ export function useFinancialSummary(): FinancialSummary {
     // Varlıklar (pozitif bakiyeli tüm hesaplar, birikim dahil)
     const accounts = hesapSummary.accounts;
 
-    // Toplam borçlar
+    // Toplam borçlar (sadece kendi cariler — paylaşılan cariler dahil DEĞİL)
     const payables: FinancialBreakdown = {
       cari: cariSummary.payables,
       personel: personelSummary.payables,
@@ -165,7 +165,7 @@ export function useFinancialSummary(): FinancialSummary {
       total: cariSummary.payables + personelSummary.payables + hesapSummary.payables,
     };
 
-    // Toplam alacaklar
+    // Toplam alacaklar (sadece kendi cariler — paylaşılan cariler dahil DEĞİL)
     const receivables: ReceivablesBreakdown = {
       cari: cariSummary.receivables,
       personel: personelSummary.receivables,

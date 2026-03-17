@@ -60,6 +60,7 @@ export function QuickTransactionBar({
   defaultCariType,
   defaultPersonelId,
   onSuccess,
+  isViewer,
   mode = 'create',
   transactionId,
   isScheduledTransaction = false,
@@ -116,8 +117,8 @@ export function QuickTransactionBar({
     ? 'personel'
     : form.isCariMode
       ? defaultCariType === 'tedarikci'
-        ? 'tedarikci'
-        : 'musteri'
+        ? (isViewer ? 'tedarikci_viewer' : 'tedarikci')
+        : (isViewer ? 'musteri_viewer' : 'musteri')
       : 'normal';
 
   // Leave usage type flag
