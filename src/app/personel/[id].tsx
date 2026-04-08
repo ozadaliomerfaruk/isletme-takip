@@ -7,6 +7,8 @@ import {
   Phone,
   Briefcase,
   CalendarDays,
+  CalendarCheck,
+  CalendarX2,
   Banknote,
   Zap,
   CircleDollarSign,
@@ -25,11 +27,15 @@ import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ExportSheet } from '@/components/export';
+import { AddNoteButton } from '@/components/notes/AddNoteButton';
+import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
+import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem, MilestoneItem } from '@/lib/transactionGrouping';
+import { useNotlarByEntity, useUpdateNot, useDeleteNot } from '@/hooks/useNotlar';
+import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
@@ -126,7 +132,8 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
-        secondaryText={islem.kategori?.name || islem.description || null}
+        secondaryText={islem.kategori?.name || null}
+        tertiaryText={islem.description || null}
         creatorText={creatorText}
         currency={currency}
         overrideColor={getEntityPerspectiveColor(islem.type)}
@@ -150,7 +157,7 @@ export default function PersonelHareketleriPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'errors']);
-  const { formatDateSmart, formatDateShort } = useDateFormat();
+  const { formatDateSmart, formatDateShort, formatDateMedium } = useDateFormat();
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
@@ -159,6 +166,7 @@ export default function PersonelHareketleriPage() {
   const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
+  const { data: entityNotes } = useNotlarByEntity('personel', id!);
   const { canUpdate, canDelete } = usePermissions();
   const { user } = useAuthContext();
   const deleteIslem = useDeleteIslem();
@@ -179,6 +187,10 @@ export default function PersonelHareketleriPage() {
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
+  // Note edit state
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const updateNot = useUpdateNot();
+  const deleteNot = useDeleteNot();
 
   const {
     pendingDeleteIds,
@@ -382,13 +394,122 @@ export default function PersonelHareketleriPage() {
   const groupedData = useMemo(() => {
     if (!islemler) return [];
     const filtered = islemler.filter(i => !pendingDeleteIds.has(i.id));
-    return preprocessTransactionsByDate(
+    const result = preprocessTransactionsByDate(
       filtered,
       t('common:date.today'),
       t('common:date.yesterday'),
       formatDateSmart,
     );
-  }, [islemler, pendingDeleteIds, t, formatDateSmart]);
+
+    // Inject milestone items (start_date, end_date) into the grouped list
+    if (personel) {
+      const milestones: MilestoneItem[] = [];
+      if (personel.start_date) {
+        milestones.push({
+          type: 'milestone',
+          key: 'milestone-start',
+          title: t('staff:milestones.startDate'),
+          date: personel.start_date,
+          color: 'success',
+        });
+      }
+      if (personel.end_date) {
+        milestones.push({
+          type: 'milestone',
+          key: 'milestone-end',
+          title: t('staff:milestones.endDate'),
+          date: personel.end_date,
+          color: 'error',
+        });
+      }
+
+      // Sort milestones descending by date (newest first) for correct insertion order
+      milestones.sort((a, b) => b.date.localeCompare(a.date));
+
+      // Insert each milestone into the correct position by date (descending order)
+      for (const ms of milestones) {
+        const msDate = ms.date.slice(0, 10); // YYYY-MM-DD
+        let inserted = false;
+
+        // Check if a date header already exists for this date
+        const existingHeaderIdx = result.findIndex(
+          item => item.type === 'header' && item.key === 'header-' + msDate
+        );
+
+        if (existingHeaderIdx >= 0) {
+          // Date group exists - insert at the end of this group
+          let insertIdx = existingHeaderIdx + 1;
+          while (insertIdx < result.length && result[insertIdx].type !== 'header') {
+            insertIdx++;
+          }
+          result.splice(insertIdx, 0, ms);
+          inserted = true;
+        } else {
+          // Find correct position for a new date group (descending order)
+          for (let i = 0; i < result.length; i++) {
+            const item = result[i];
+            if (item.type === 'header') {
+              const headerDate = item.key.replace('header-', '');
+              if (msDate > headerDate) {
+                // Milestone date is more recent - insert before this header
+                const headerTitle = formatDateMedium(ms.date);
+                result.splice(i, 0, { type: 'header', key: 'header-' + msDate, title: headerTitle }, ms);
+                inserted = true;
+                break;
+              }
+            }
+          }
+        }
+
+        if (!inserted) {
+          // Milestone is older than all items, append at end
+          const headerTitle = formatDateMedium(ms.date);
+          result.push({ type: 'header', key: 'header-' + msDate, title: headerTitle }, ms);
+        }
+      }
+    }
+
+    // Merge notes into the grouped data
+    return mergeNotesIntoGroupedData(
+      result,
+      entityNotes ?? [],
+      t('common:date.today'),
+      t('common:date.yesterday'),
+      formatDateSmart,
+    );
+  }, [islemler, pendingDeleteIds, t, formatDateSmart, formatDateMedium, personel, entityNotes]);
+
+  const editingNote = useMemo(() => {
+    if (!editingNoteId || !entityNotes) return null;
+    return entityNotes.find(n => n.id === editingNoteId) ?? null;
+  }, [editingNoteId, entityNotes]);
+
+  const handleNoteUpdate = useCallback(async (content: string) => {
+    if (!editingNoteId) return;
+    try {
+      await updateNot.mutateAsync({ id: editingNoteId, content });
+      setEditingNoteId(null);
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    }
+  }, [editingNoteId, updateNot, t]);
+
+  const handleNoteDelete = useCallback((noteId: string) => {
+    Alert.alert(
+      t('common:notes.confirmDeleteTitle'),
+      t('common:notes.confirmDelete'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try { await deleteNot.mutateAsync(noteId); } catch { /* ignore */ }
+          },
+        },
+      ]
+    );
+  }, [deleteNot, t]);
 
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');
@@ -396,6 +517,26 @@ export default function PersonelHareketleriPage() {
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
+    }
+    if (item.type === 'milestone') {
+      const MilestoneIcon = item.color === 'success' ? CalendarCheck : CalendarX2;
+      const milestoneColor = item.color === 'success' ? colors.success : colors.error;
+      return (
+        <View style={styles.milestoneRow}>
+          <View style={[styles.milestoneBar, { backgroundColor: milestoneColor }]} />
+          <MilestoneIcon size={18} color={milestoneColor} />
+          <Text style={[styles.milestoneText, { color: milestoneColor }]}>
+            {item.title}: {formatDateMedium(item.date)}
+          </Text>
+        </View>
+      );
+    }
+    if (item.type === 'note') {
+      return (
+        <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
+          <NoteRow note={item.data as any} onPress={() => setEditingNoteId(item.data.id)} />
+        </SwipeableRow>
+      );
     }
     const islem = item.data;
     const canEditItem = canDelete('islemler', islem.created_by ?? null);
@@ -414,7 +555,7 @@ export default function PersonelHareketleriPage() {
         currentUserId={user?.id}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, formatDateSmart, t, personel?.currency, deleteLabel, copyLabel, canDelete, user?.id]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, formatDateSmart, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, canDelete, user?.id]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -456,6 +597,15 @@ export default function PersonelHareketleriPage() {
                   <CalendarDays size={14} color={colors.textMuted} />
                   <Text variant="caption" color="secondary">
                     {formatDateShort(personel.start_date)}
+                    {personel.end_date ? ` → ${formatDateShort(personel.end_date)}` : ''}
+                  </Text>
+                </View>
+              )}
+              {!personel.start_date && personel.end_date && (
+                <View style={styles.infoRow}>
+                  <CalendarDays size={14} color={colors.error} />
+                  <Text variant="caption" color="error">
+                    {t('staff:form.endDate')}: {formatDateShort(personel.end_date)}
                   </Text>
                 </View>
               )}
@@ -813,15 +963,22 @@ export default function PersonelHareketleriPage() {
           </TouchableOpacity>
         </Modal>
 
-        {/* Floating Yeni İşlem FAB */}
+        {/* Floating Not Ekle + Yeni İşlem FAB */}
         {!personel.is_archived && (
-          <TouchableOpacity
-            style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-            onPress={() => setQuickBarVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Zap size={24} color={colors.surface} />
-          </TouchableOpacity>
+          <>
+            <AddNoteButton
+              entityType="personel"
+              entityId={id!}
+              style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
+            />
+            <TouchableOpacity
+              style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+              onPress={() => setQuickBarVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Zap size={24} color={colors.surface} />
+            </TouchableOpacity>
+          </>
         )}
 
         <UndoSnackbar
@@ -830,6 +987,14 @@ export default function PersonelHareketleriPage() {
           onUndo={undoDelete}
           onDismiss={dismissDelete}
           undoLabel={t('common:buttons.undo')}
+        />
+        <NoteInputModal
+          visible={!!editingNote}
+          onClose={() => setEditingNoteId(null)}
+          onSave={handleNoteUpdate}
+          initialContent={editingNote?.content ?? ''}
+          isEditing
+          loading={updateNot.isPending}
         />
       </SafeAreaView>
     </>
@@ -840,6 +1005,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  milestoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
+  },
+  milestoneBar: {
+    width: 3,
+    height: 24,
+    borderRadius: 1.5,
+  },
+  milestoneText: {
+    fontSize: 14,
+    fontWeight: fontWeight.semibold,
   },
   loadingContainer: {
     flex: 1,
@@ -895,6 +1079,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 10,
   },
   section: {
     paddingHorizontal: spacing.lg,

@@ -58,9 +58,11 @@ export default function TopluGiderPage() {
 
   const { data: personelList, isLoading } = usePersonelList();
 
-  // Aktif personel listesi
+  // Aktif personel listesi (A-Z sıralı)
   const activePersonel = useMemo(() => {
-    return personelList?.filter(p => p.is_active) || [];
+    return personelList
+      ?.filter(p => p.is_active)
+      .sort((a, b) => a.first_name.localeCompare(b.first_name, 'tr')) || [];
   }, [personelList]);
 
   // Başlangıçta tüm personeli seç ve maaşlarını doldur

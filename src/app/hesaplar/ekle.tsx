@@ -40,6 +40,7 @@ export default function HesapEklePage() {
   const [balance, setBalance] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
   const [creditLimit, setCreditLimit] = useState('');
+  const [paymentDueDay, setPaymentDueDay] = useState('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<{ name?: string }>({});
 
@@ -75,6 +76,9 @@ export default function HesapEklePage() {
         description: description.trim() || null,
         credit_limit: type === 'kredi_karti' && creditLimit
           ? parseFloat(creditLimit.replace(',', '.'))
+          : null,
+        payment_due_day: type === 'kredi_karti' && paymentDueDay
+          ? parseInt(paymentDueDay, 10)
           : null,
       });
 
@@ -181,13 +185,28 @@ export default function HesapEklePage() {
 
             {/* Kredi Limiti - sadece kredi kartı seçiliyse göster */}
             {type === 'kredi_karti' && (
-              <Input
-                label={t('accounts:form.creditLimitOptional')}
-                placeholder={t('accounts:form.creditLimitPlaceholder')}
-                keyboardType="decimal-pad"
-                value={creditLimit}
-                onChangeText={setCreditLimit}
-              />
+              <>
+                <Input
+                  label={t('accounts:form.creditLimitOptional')}
+                  placeholder={t('accounts:form.creditLimitPlaceholder')}
+                  keyboardType="decimal-pad"
+                  value={creditLimit}
+                  onChangeText={setCreditLimit}
+                />
+                <Input
+                  label={t('accounts:creditCard.paymentDueDayOptional')}
+                  placeholder={t('accounts:creditCard.paymentDueDayPlaceholder')}
+                  keyboardType="number-pad"
+                  value={paymentDueDay}
+                  onChangeText={(text) => {
+                    const num = text.replace(/[^0-9]/g, '');
+                    if (num === '' || (parseInt(num, 10) >= 1 && parseInt(num, 10) <= 31)) {
+                      setPaymentDueDay(num);
+                    }
+                  }}
+                  maxLength={2}
+                />
+              </>
             )}
 
             <Input

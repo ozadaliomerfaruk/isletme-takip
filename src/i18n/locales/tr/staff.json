@@ -24,6 +24,8 @@
     "emailPlaceholder": "E-posta adresi girin",
     "startDate": "İşe Başlama Tarihi",
     "startDateOptional": "İşe Başlama Tarihi (Opsiyonel)",
+    "endDate": "İşten Çıkış Tarihi",
+    "endDateOptional": "İşten Çıkış Tarihi (Opsiyonel)",
     "salary": "Maaş",
     "salaryOptional": "Maaş (Opsiyonel)",
     "salaryPlaceholder": "Aylık maaş tutarı",
@@ -166,7 +168,13 @@
     "dateRange": "{{start}} - {{end}}",
     "noLeaveHistory": "Henüz izin kaydı bulunmuyor",
     "dayCountLabel": "Gün Sayısı",
-    "carryOver": "Önceki dönemden devir"
+    "carryOver": "Önceki dönemden devir",
+    "remainingDays": "{{count}} gün izin",
+    "noLeave": "İzin yok"
+  },
+  "milestones": {
+    "startDate": "İşe Giriş",
+    "endDate": "İşten Çıkış"
   },
   "deleteConfirm": {
     "transactionTitle": "İşlemi Sil",

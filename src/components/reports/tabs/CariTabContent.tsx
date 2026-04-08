@@ -14,8 +14,10 @@ import { SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCariler } from '@/hooks/useCariler';
+import { useLinkedCariler } from '@/hooks/useCariSharing';
 import { useAllIslemlerByCari } from '@/hooks/useIslemler';
-import type { IslemWithRelations } from '@/types/database';
+import { toNumber } from '@/lib/currency';
+import type { IslemWithRelations, Cari } from '@/types/database';
 import type { TabContentProps } from './types';
 
 interface CariTabContentProps extends TabContentProps {
@@ -25,13 +27,32 @@ interface CariTabContentProps extends TabContentProps {
 export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTabContentProps) {
   const { t } = useTranslation(['reports']);
   const { data: cariler } = useCariler();
+  const { data: linkedCarilerData } = useLinkedCariler();
   const [selectedCariId, setSelectedCariId] = useState<string | null>(initialCariId ?? null);
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
 
+  // Linked carileri Cari formatına dönüştür ve kendi carilerle birleştir
+  const mergedCariler = useMemo(() => {
+    const own = cariler || [];
+    const linked = (linkedCarilerData || [])
+      .filter(link => link.cari)
+      .map(link => {
+        const invertBalance = link.cari!.type !== link.viewer_type;
+        return {
+          ...link.cari!,
+          type: link.viewer_type,
+          balance: invertBalance ? -toNumber(link.cari!.balance) : toNumber(link.cari!.balance),
+          isLinked: true,
+          ownerIsletmeName: link.owner_isletme?.name,
+        } as Cari & { isLinked: boolean; ownerIsletmeName?: string };
+      });
+    return [...own, ...linked];
+  }, [cariler, linkedCarilerData]);
+
   const { data: cariIslemler = [], isLoading: cariIslemlerLoading } = useAllIslemlerByCari(selectedCariId || '');
 
-  const selectedCari = cariler?.find((c) => c.id === selectedCariId) || null;
+  const selectedCari = mergedCariler.find((c) => c.id === selectedCariId) || null;
 
   const handleTransactionPress = useCallback((transaction: IslemWithRelations) => {
     setEditTransactionId(transaction.id);
@@ -51,7 +72,7 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
       <View style={styles.section}>
         <EntityPicker
           type="cari"
-          entities={cariler || []}
+          entities={mergedCariler}
           selectedId={selectedCariId}
           onSelect={setSelectedCariId}
         />

@@ -231,8 +231,8 @@ export function useQuickTransactionForm({
   }, []);
 
   // Computed hesapId (fallback)
-  // For odeme/tahsilat, do NOT auto-select the first account (user must manually choose)
-  const hesapId = (type === 'odeme' || type === 'tahsilat')
+  // For cari/personel mode or odeme/tahsilat, do NOT auto-select the first account (user must manually choose)
+  const hesapId = (isCariMode || isPersonelMode || type === 'odeme' || type === 'tahsilat')
     ? sourceHesapId || defaultHesapId || undefined
     : sourceHesapId || defaultHesapId || hesaplar?.[0]?.id;
 
@@ -414,16 +414,17 @@ export function useQuickTransactionForm({
     // Don't reset during edit mode data loading
     if (isEditMode && !editDataLoaded) return;
 
+    // Reset account selection for odeme/tahsilat so no account is pre-selected (all modes)
+    if (type === 'odeme' || type === 'tahsilat' || type === 'personel_odeme_tab' || type === 'personel_tahsilat_tab') {
+      setSourceHesapId(null);
+      setHedefHesapId(null);
+    }
+
     if (!isCariMode && !isPersonelMode) {
       setCariId(null);
       setPersonelId(null);
       setOdemeHedefType(null);
       setTahsilatHedefType(null);
-      // Reset account selection for odeme/tahsilat so no account is pre-selected
-      if (type === 'odeme' || type === 'tahsilat') {
-        setSourceHesapId(null);
-        setHedefHesapId(null);
-      }
     }
   }, [type, isCariMode, isPersonelMode, isEditMode, editDataLoaded]);
 

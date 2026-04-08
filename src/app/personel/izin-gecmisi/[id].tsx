@@ -1,20 +1,25 @@
-import { useMemo, useCallback } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { useState, useMemo, useCallback } from 'react';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, CalendarDays } from 'lucide-react-native';
+import { ArrowLeft, CalendarDays, Copy } from 'lucide-react-native';
 
 import { Text, EmptyState } from '@/components/ui';
+import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { DateSectionHeader } from '@/components/ui/TransactionRow';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { usePersonel } from '@/hooks/usePersonel';
-import { useIslemlerByPersonel } from '@/hooks/useIslemler';
+import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
 import { getTransactionColor, getTransactionPrefix, showAccentBar } from '@/lib/transactionColors';
+import { toErrorMessage } from '@/lib/errors';
 import type { IslemWithRelations } from '@/types/database';
 
 function toNumber(val: unknown): number {
@@ -36,11 +41,34 @@ function getLeaveLabel(type: string): string {
 
 export default function LeaveHistoryPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useTranslation(['staff', 'common']);
+  const { t } = useTranslation(['staff', 'common', 'errors']);
   const { formatDateMedium, formatDateSmart } = useDateFormat();
 
   const { data: personel } = usePersonel(id);
   const { data: islemler } = useIslemlerByPersonel(id!);
+  const deleteIslem = useDeleteIslem();
+
+  // Edit & Copy state
+  const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
+  const [showEditBar, setShowEditBar] = useState(false);
+  const [copySourceId, setCopySourceId] = useState<string | null>(null);
+  const [showCopyBar, setShowCopyBar] = useState(false);
+
+  // Undo delete
+  const {
+    requestDelete,
+    undoDelete,
+    dismissDelete,
+    snackbar: undoSnackbar,
+  } = useUndoDelete<IslemWithRelations>({
+    onCommitDelete: async (islemId: string) => {
+      await deleteIslem.mutateAsync(islemId);
+    },
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? toErrorMessage(error) : t('errors:transaction.deleteFailed');
+      Alert.alert(t('common:status.error'), message);
+    },
+  });
 
   // Filter to leave transactions only
   const leaveTransactions = useMemo(() => {
@@ -64,7 +92,7 @@ export default function LeaveHistoryPage() {
     );
   }, [leaveTransactions]);
 
-  const kalanGun = Math.max(0, quota.hakEdilen - quota.kullanilan);
+  const kalanGun = quota.hakEdilen - quota.kullanilan;
 
   // Group by date
   const groupedData = useMemo(() => {
@@ -76,10 +104,34 @@ export default function LeaveHistoryPage() {
     );
   }, [leaveTransactions, t, formatDateSmart]);
 
+  const handleDeleteIslem = useCallback((islemId: string) => {
+    const islem = leaveTransactions.find(i => i.id === islemId);
+    if (islem) {
+      const desc = islem.description || t(getLeaveLabel(islem.type));
+      requestDelete(islemId, islem, desc);
+    }
+  }, [leaveTransactions, requestDelete, t]);
+
+  const handleEditIslem = useCallback((islemId: string) => {
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+  }, []);
+
+  const handleCopyIslem = useCallback((islemId: string) => {
+    setCopySourceId(islemId);
+    setShowCopyBar(true);
+  }, []);
+
+  const deleteLabel = t('common:buttons.delete');
+  const copyLabel = t('common:buttons.copy');
+
   const renderItem = useCallback(
     ({ item }: { item: TransactionListItem }) => {
       if (item.type === 'header') {
         return <DateSectionHeader title={item.title} />;
+      }
+      if (item.type === 'milestone' || item.type === 'note') {
+        return null;
       }
 
       const islem = item.data;
@@ -99,49 +151,61 @@ export default function LeaveHistoryPage() {
       }
 
       return (
-        <View style={styles.txContainer}>
-          {/* Accent Bar */}
-          {hasBar ? (
-            <View style={[styles.accentBar, { backgroundColor: txColor }]} />
-          ) : (
-            <View style={styles.accentBarSpacer} />
-          )}
+        <SwipeableRow
+          onDelete={() => handleDeleteIslem(islem.id)}
+          onCopy={() => handleCopyIslem(islem.id)}
+          deleteLabel={deleteLabel}
+          copyLabel={copyLabel}
+        >
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => handleEditIslem(islem.id)}
+          >
+            <View style={styles.txContainer}>
+              {/* Accent Bar */}
+              {hasBar ? (
+                <View style={[styles.accentBar, { backgroundColor: txColor }]} />
+              ) : (
+                <View style={styles.accentBarSpacer} />
+              )}
 
-          {/* Content */}
-          <View style={styles.txContent}>
-            {/* Line 1: Type Label + Date */}
-            <View style={styles.txLine1}>
-              <Text style={[styles.txTypeText, { color: txColor }]} numberOfLines={1}>
-                {typeLabel}
-              </Text>
-              <Text style={styles.txDateText}>{formatDateSmart(islem.date)}</Text>
+              {/* Content */}
+              <View style={styles.txContent}>
+                {/* Line 1: Type Label + Date */}
+                <View style={styles.txLine1}>
+                  <Text style={[styles.txTypeText, { color: txColor }]} numberOfLines={1}>
+                    {typeLabel}
+                  </Text>
+                  <Text style={styles.txDateText}>{formatDateSmart(islem.date)}</Text>
+                </View>
+
+                {/* Date range for leave usage */}
+                {dateRangeText && (
+                  <Text style={styles.txEntityText} numberOfLines={1}>
+                    {dateRangeText}
+                  </Text>
+                )}
+
+                {/* Description */}
+                {islem.description ? (
+                  <Text style={styles.txSecondaryText} numberOfLines={1}>
+                    {islem.description}
+                  </Text>
+                ) : null}
+              </View>
+
+              {/* Amount — days instead of currency */}
+              <View style={styles.txAmountContainer}>
+                <Text style={[styles.txAmountText, { color: txColor }]}>
+                  {prefix}{amount} {t('staff:leave.days')}
+                </Text>
+              </View>
             </View>
-
-            {/* Date range for leave usage */}
-            {dateRangeText && (
-              <Text style={styles.txEntityText} numberOfLines={1}>
-                {dateRangeText}
-              </Text>
-            )}
-
-            {/* Description */}
-            {islem.description ? (
-              <Text style={styles.txSecondaryText} numberOfLines={1}>
-                {islem.description}
-              </Text>
-            ) : null}
-          </View>
-
-          {/* Amount — days instead of currency */}
-          <View style={styles.txAmountContainer}>
-            <Text style={[styles.txAmountText, { color: txColor }]}>
-              {prefix}{amount} {t('staff:leave.days')}
-            </Text>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </SwipeableRow>
       );
     },
-    [t, formatDateSmart, formatDateMedium]
+    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, deleteLabel, copyLabel]
   );
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
@@ -169,7 +233,7 @@ export default function LeaveHistoryPage() {
             <Text
               style={[
                 styles.summaryValue,
-                { color: kalanGun > 0 ? colors.success : colors.error, fontWeight: '700' },
+                { color: kalanGun >= 0 ? colors.success : colors.error, fontWeight: '700' },
               ]}
             >
               {kalanGun} {t('staff:leave.days')}
@@ -199,18 +263,61 @@ export default function LeaveHistoryPage() {
       </View>
 
       {/* Content */}
-      <FlatList
-        data={groupedData}
-        keyExtractor={keyExtractor}
-        renderItem={renderItem}
-        ListHeaderComponent={leaveTransactions.length > 0 ? ListHeader : null}
-        ListEmptyComponent={
-          <EmptyState
-            icon={<CalendarDays size={48} color={colors.textMuted} />}
-            title={t('staff:leave.noLeaveHistory')}
-          />
-        }
-        contentContainerStyle={styles.listContent}
+      <SwipeableProvider>
+        <FlatList
+          data={groupedData}
+          keyExtractor={keyExtractor}
+          renderItem={renderItem}
+          ListHeaderComponent={leaveTransactions.length > 0 ? ListHeader : null}
+          ListEmptyComponent={
+            <EmptyState
+              icon={<CalendarDays size={48} color={colors.textMuted} />}
+              title={t('staff:leave.noLeaveHistory')}
+            />
+          }
+          contentContainerStyle={styles.listContent}
+        />
+      </SwipeableProvider>
+
+      {/* Edit QuickTransactionBar */}
+      <QuickTransactionBar
+        visible={showEditBar}
+        onDismiss={() => {
+          setShowEditBar(false);
+          setEditTransactionId(null);
+        }}
+        mode="edit"
+        transactionId={editTransactionId ?? undefined}
+        isScheduledTransaction={false}
+        defaultPersonelId={id!}
+        onSuccess={() => {
+          setShowEditBar(false);
+          setEditTransactionId(null);
+        }}
+      />
+
+      {/* Copy QuickTransactionBar */}
+      <QuickTransactionBar
+        visible={showCopyBar}
+        onDismiss={() => {
+          setShowCopyBar(false);
+          setCopySourceId(null);
+        }}
+        mode="create"
+        copySourceId={copySourceId ?? undefined}
+        defaultPersonelId={id!}
+        onSuccess={() => {
+          setShowCopyBar(false);
+          setCopySourceId(null);
+        }}
+      />
+
+      <UndoSnackbar
+        visible={undoSnackbar.visible}
+        message={undoSnackbar.message}
+        onUndo={undoDelete}
+        onDismiss={dismissDelete}
+        undoLabel={t('common:buttons.undo')}
       />
     </SafeAreaView>
   );
@@ -251,7 +358,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: spacing.xl,
   },
-  // Summary card (same as before)
+  // Summary card
   summaryCard: {
     backgroundColor: colors.surface,
     marginHorizontal: spacing.md,
@@ -285,7 +392,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  // Transaction row — mirrors TransactionRow styles for consistent sizing
+  // Transaction row
   txContainer: {
     flexDirection: 'row',
     alignItems: 'center',

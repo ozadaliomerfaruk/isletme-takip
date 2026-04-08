@@ -90,7 +90,11 @@
     "usedCredit": "Kullanılan",
     "availableCredit": "Kullanılabilir",
     "noLimit": "Limit belirlenmemiş",
-    "selectSourceAccount": "Ödeme yapacağınız hesabı seçin"
+    "selectSourceAccount": "Ödeme yapacağınız hesabı seçin",
+    "paymentDueDay": "Son Ödeme Günü",
+    "paymentDueDayLabel": "Her ayın {{day}}. günü",
+    "paymentDueDayPlaceholder": "Örn: 15",
+    "paymentDueDayOptional": "Son Ödeme Günü (Opsiyonel)"
   },
   "summary": {
     "totalAssets": "Toplam Varlıklar",

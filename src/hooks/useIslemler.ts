@@ -5,6 +5,7 @@ import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/datab
 import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } from '@/constants/islemTypes';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
+import { invertCariTransactionType } from '@/lib/cariTransactionMapper';
 import {
   getDateRange,
 } from '@/lib/date';
@@ -134,6 +135,11 @@ export function useCreateIslem() {
     mutationFn: async (input: Omit<IslemInsert, 'isletme_id'>) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
+      // Linked cari kontrolü: B (viewer) işlem oluştururken, cari balance
+      // güncellemesi owner (A) perspektifinden yapılmalı
+      // DB'ye kaydedilen tip değişmez (viewer perspektifi kalır)
+      const balanceInput = await applyLinkedCariInversion(input, isletme.id);
+
       const { data, error } = await supabase
         .from('islemler')
         .insert({ ...input, isletme_id: isletme.id })
@@ -144,7 +150,7 @@ export function useCreateIslem() {
 
       // Bakiyeleri güncelle - başarısız olursa işlemi geri al
       try {
-        await updateBalances(input);
+        await updateBalances(balanceInput);
       } catch (balanceError) {
         // Bakiye güncellemesi başarısız oldu, işlemi sil
         console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
@@ -187,6 +193,55 @@ export function useCreateIslem() {
       }
     },
   });
+}
+
+// Cari işlem tipi mi kontrol et
+function isCariType(type: string): boolean {
+  return type.startsWith('cari_');
+}
+
+// Linked cari bilgisini getir - viewer mı ve type mismatch var mı?
+async function getLinkedCariInfo(cariId: string, currentIsletmeId: string): Promise<{ shouldInvert: boolean } | null> {
+  // Önce carinin hangi isletmeye ait olduğunu öğren
+  const { data: cari, error: cariError } = await supabase
+    .from('cariler')
+    .select('isletme_id, type')
+    .eq('id', cariId)
+    .single();
+
+  if (cariError || !cari) return null;
+
+  // Kendi carisi ise inversiyona gerek yok
+  if (cari.isletme_id === currentIsletmeId) return null;
+
+  // Linked cari - viewer tarafından oluşturuluyor
+  // cari_links'ten viewer_type bilgisini al
+  const { data: link, error: linkError } = await supabase
+    .from('cari_links')
+    .select('viewer_type')
+    .eq('cari_id', cariId)
+    .eq('viewer_isletme_id', currentIsletmeId)
+    .single();
+
+  if (linkError || !link) return null;
+
+  // Type mismatch varsa invert gerekli
+  const shouldInvert = cari.type !== link.viewer_type;
+  return { shouldInvert };
+}
+
+// İşlem verisini linked cari inversiyonu ile dönüştür (bakiye hesaplamaları için)
+// DB'deki tip değişmez, sadece balance update fonksiyonlarına geçilen tip invert edilir
+async function applyLinkedCariInversion<T extends { cari_id?: string | null; type: string }>(
+  input: T,
+  currentIsletmeId: string,
+): Promise<T> {
+  if (!input.cari_id || !isCariType(input.type)) return input;
+
+  const linkInfo = await getLinkedCariInfo(input.cari_id, currentIsletmeId);
+  if (!linkInfo?.shouldInvert) return input;
+
+  return { ...input, type: invertCariTransactionType(input.type as IslemType) as string };
 }
 
 // RPC çağrısı için helper fonksiyon - hata kontrolü ile
@@ -391,7 +446,6 @@ export function useIslemlerByCari(cariId: string) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
-        .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
@@ -549,7 +603,6 @@ export function useAllIslemlerByCari(cariId: string) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
-        .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
@@ -593,11 +646,14 @@ export function useUpdateIslem() {
       if (error) throw error;
 
       // 2. Güncelleme başarılı olduysa bakiyeleri güncelle
+      // Linked cari inversiyonu: viewer perspektifinden owner perspektifine çevir
       try {
+        const oldBalanceIslem = await applyLinkedCariInversion(oldIslem, isletme.id);
+        const newBalanceInput = await applyLinkedCariInversion({ ...oldIslem, ...updates }, isletme.id);
         // Eski bakiyeleri geri al
-        await reverseBalances(oldIslem);
+        await reverseBalances(oldBalanceIslem);
         // Yeni bakiyeleri uygula
-        await updateBalances({ ...oldIslem, ...updates });
+        await updateBalances(newBalanceInput);
       } catch (balanceError) {
         // Bakiye güncellemesi başarısız olursa işlemi geri al
         if (__DEV__) {
@@ -619,9 +675,21 @@ export function useUpdateIslem() {
 
       return data as Islem;
     },
-    onSuccess: () => {
+    onSuccess: (_data) => {
       // Merkezi invalidation helper kullan
       invalidateRelatedQueries(queryClient, 'islem');
+
+      // Baglantili cari varsa karsi tarafa bildirim gonder (fire & forget)
+      if (_data.cari_id) {
+        supabase.functions
+          .invoke('notify-linked-users', {
+            body: {
+              record: { ..._data, isletme_id: isletme!.id },
+              type: 'INSERT',
+            },
+          })
+          .catch((err) => console.warn('[notify-linked-users] Bildirim gonderilemedi:', err));
+      }
     },
   });
 }
@@ -646,8 +714,11 @@ export function useDeleteIslem() {
       if (fetchError) throw fetchError;
       if (!islem) throw new Error(i18n.t('common:errors.transactionNotFound'));
 
+      // Linked cari inversiyonu: viewer perspektifinden owner perspektifine çevir
+      const balanceIslem = await applyLinkedCariInversion(islem, isletme.id);
+
       // Önce bakiyeleri geri al (silme başarısız olursa geri alınabilir)
-      await reverseBalances(islem);
+      await reverseBalances(balanceIslem);
 
       // Bağlı ürün hareketlerini geri al ve sil
       const { data: urunHareketler } = await supabase
@@ -693,7 +764,7 @@ export function useDeleteIslem() {
       if (error) {
         // Silme başarısız olursa bakiyeleri geri yükle
         try {
-          await updateBalances(islem);
+          await updateBalances(balanceIslem);
         } catch (rollbackError) {
           if (__DEV__) {
             console.error('Bakiye geri yükleme hatası:', rollbackError);

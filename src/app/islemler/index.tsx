@@ -411,6 +411,9 @@ export default function IslemlerPage() {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
     }
+    if (item.type === 'milestone' || item.type === 'note') {
+      return null;
+    }
     const islem = item.data;
     const canEditItem = canDelete('islemler', islem.created_by ?? null);
     return (

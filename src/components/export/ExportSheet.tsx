@@ -29,6 +29,8 @@ interface ExportSheetProps {
   entityCurrency?: Currency | string;
   currentBalance: number;
   cariType?: 'musteri' | 'tedarikci';
+  currentIsletmeId?: string;
+  typeMismatch?: boolean;
 }
 
 type PeriodOption = {
@@ -48,6 +50,8 @@ export function ExportSheet({
   entityCurrency,
   currentBalance,
   cariType,
+  currentIsletmeId,
+  typeMismatch,
 }: ExportSheetProps) {
   const { t } = useTranslation('common');
   const { formatDateShort } = useDateFormat();
@@ -65,6 +69,8 @@ export function ExportSheet({
     entityCurrency,
     currentBalance,
     cariType,
+    currentIsletmeId,
+    typeMismatch,
   });
 
   // Dönem seçenekleri

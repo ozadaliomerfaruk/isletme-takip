@@ -10,7 +10,6 @@ import {
   Pencil,
   Trash2,
   MoreVertical,
-  FileCheck,
   X,
   Share2,
   Zap,
@@ -22,11 +21,15 @@ import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal } from '@/components/transaction';
 import { ExportSheet } from '@/components/export';
+import { AddNoteButton } from '@/components/notes/AddNoteButton';
+import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateSmart } from '@/lib/date';
-import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
+import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
+import { useNotlarByEntity, useUpdateNot, useDeleteNot } from '@/hooks/useNotlar';
+import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesap, useDeleteHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { useUnarchiveHesap } from '@/hooks/useArchive';
@@ -290,6 +293,7 @@ export default function HesapHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByHesap(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByHesap(id!);
+  const { data: entityNotes } = useNotlarByEntity('hesap', id!);
   const { canUpdate, canDelete } = usePermissions();
   const deleteIslem = useDeleteIslem();
   const deleteHesap = useDeleteHesap();
@@ -297,6 +301,10 @@ export default function HesapHareketleriPage() {
   const unarchiveHesap = useUnarchiveHesap();
   const updateIslem = useUpdateIslem();
   const deletePhoto = useDeleteIslemPhoto();
+  // Note edit state
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const updateNot = useUpdateNot();
+  const deleteNot = useDeleteNot();
   const pickImage = usePickImage();
   const takePhoto = useTakePhoto();
   const uploadPhoto = useUploadIslemPhoto();
@@ -632,13 +640,52 @@ export default function HesapHareketleriPage() {
   const groupedData = useMemo(() => {
     if (!islemler) return [];
     const filtered = islemler.filter(i => !pendingDeleteIds.has(i.id));
-    return preprocessTransactionsByDate(
+    const txnData = preprocessTransactionsByDate(
       filtered,
       t('common:date.today'),
       t('common:date.yesterday'),
       formatDateMedium,
     );
-  }, [islemler, pendingDeleteIds, t, formatDateMedium]);
+    return mergeNotesIntoGroupedData(
+      txnData,
+      entityNotes ?? [],
+      t('common:date.today'),
+      t('common:date.yesterday'),
+      formatDateMedium,
+    );
+  }, [islemler, pendingDeleteIds, t, formatDateMedium, entityNotes]);
+
+  const editingNote = useMemo(() => {
+    if (!editingNoteId || !entityNotes) return null;
+    return entityNotes.find(n => n.id === editingNoteId) ?? null;
+  }, [editingNoteId, entityNotes]);
+
+  const handleNoteUpdate = useCallback(async (content: string) => {
+    if (!editingNoteId) return;
+    try {
+      await updateNot.mutateAsync({ id: editingNoteId, content });
+      setEditingNoteId(null);
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    }
+  }, [editingNoteId, updateNot, t]);
+
+  const handleNoteDelete = useCallback((noteId: string) => {
+    Alert.alert(
+      t('common:notes.confirmDeleteTitle'),
+      t('common:notes.confirmDelete'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try { await deleteNot.mutateAsync(noteId); } catch { /* ignore */ }
+          },
+        },
+      ]
+    );
+  }, [deleteNot, t]);
 
   // Localized labels for swipe actions (stable refs)
   const deleteLabel = t('common:buttons.delete');
@@ -648,6 +695,16 @@ export default function HesapHareketleriPage() {
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
+    }
+    if (item.type === 'milestone') {
+      return null;
+    }
+    if (item.type === 'note') {
+      return (
+        <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
+          <NoteRow note={item.data as any} onPress={() => setEditingNoteId(item.data.id)} />
+        </SwipeableRow>
+      );
     }
     const islem = item.data;
     const canEditItem = canDelete('islemler', islem.created_by ?? null);
@@ -740,33 +797,6 @@ export default function HesapHareketleriPage() {
             </View>
           )}
         </Card>
-
-        {/* Hızlı İşlem Butonları - arşivlenmiş hesaplarda gizle */}
-        {!hesap.is_archived && (
-          <View style={styles.actionButtons}>
-            <Button
-              variant="primary"
-              size="md"
-              icon={hesap.type === 'kredi_karti' ? <CreditCard size={18} color={colors.surface} /> : <CircleDollarSign size={18} color={colors.surface} />}
-              onPress={() => openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir')}
-              style={styles.actionBtn}
-            >
-              {t('accounts:actions.addTransaction')}
-            </Button>
-            {/* Çek Kes - Sadece banka hesapları için */}
-            {hesap.type === 'banka' && (
-              <Button
-                variant="outline"
-                size="md"
-                icon={<FileCheck size={18} color={colors.info} />}
-                onPress={() => setShowCekKesSheet(true)}
-                style={[styles.actionBtn, { borderColor: colors.info }]}
-              >
-                {t('checks:create')}
-              </Button>
-            )}
-          </View>
-        )}
 
         {/* İleri Tarihli İşlemler */}
         <View style={styles.section}>
@@ -1079,18 +1109,33 @@ export default function HesapHareketleriPage() {
         undoLabel={t('common:buttons.undo')}
       />
 
-      {/* Floating Yeni İşlem FAB - arşivlenmiş hesaplarda gizle */}
+      {/* Floating Not Ekle + Yeni İşlem FAB - arşivlenmiş hesaplarda gizle */}
       {!hesap.is_archived && (
-        <TouchableOpacity
-          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-          onPress={() => {
-            openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir');
-          }}
-          activeOpacity={0.8}
-        >
-          <Zap size={24} color={colors.surface} />
-        </TouchableOpacity>
+        <>
+          <AddNoteButton
+            entityType="hesap"
+            entityId={id!}
+            style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
+          />
+          <TouchableOpacity
+            style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+            onPress={() => {
+              openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir');
+            }}
+            activeOpacity={0.8}
+          >
+            <Zap size={24} color={colors.surface} />
+          </TouchableOpacity>
+        </>
       )}
+      <NoteInputModal
+        visible={!!editingNote}
+        onClose={() => setEditingNoteId(null)}
+        onSave={handleNoteUpdate}
+        initialContent={editingNote?.content ?? ''}
+        isEditing
+        loading={updateNot.isPending}
+      />
     </>
   );
 }
@@ -1148,15 +1193,6 @@ const styles = StyleSheet.create({
   creditLimitValue: {
     fontWeight: '600',
     marginTop: spacing.xs,
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  actionBtn: {
-    flex: 1,
   },
   section: {
     paddingHorizontal: spacing.lg,
@@ -1296,5 +1332,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 10,
   },
 });

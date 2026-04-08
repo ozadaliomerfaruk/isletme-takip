@@ -1,0 +1,348 @@
+import { useState, useMemo, useCallback } from 'react';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import {
+  StickyNote,
+  Plus,
+  Wallet,
+  Users,
+  UserCircle,
+  Package,
+  Globe,
+  Pencil,
+} from 'lucide-react-native';
+import {
+  Text,
+  SearchInput,
+  EmptyState,
+  Card,
+  SwipeableRow,
+  SwipeableProvider,
+} from '@/components/ui';
+import { colors } from '@/constants/colors';
+import { spacing, borderRadius } from '@/constants/spacing';
+import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot } from '@/hooks/useNotlar';
+import { useHesaplar } from '@/hooks/useHesaplar';
+import { useCariler } from '@/hooks/useCariler';
+import { usePersonelList } from '@/hooks/usePersonel';
+import { useUrunler } from '@/hooks/useUrunler';
+import { useToast } from '@/contexts/ToastContext';
+import { useDateFormat } from '@/hooks/useDateFormat';
+import { NoteInputModal } from '@/components/notes/NoteInputModal';
+import type { Not, NotEntityType } from '@/types/database';
+
+const ENTITY_FILTERS: { key: NotEntityType | 'all'; icon: React.ReactNode; labelKey: string }[] = [
+  { key: 'all', icon: <Globe size={14} color={colors.text} />, labelKey: 'common:notes.allNotes' },
+  { key: 'hesap', icon: <Wallet size={14} color={colors.text} />, labelKey: 'common:notes.filterAccounts' },
+  { key: 'cari', icon: <Users size={14} color={colors.text} />, labelKey: 'common:notes.filterClients' },
+  { key: 'personel', icon: <UserCircle size={14} color={colors.text} />, labelKey: 'common:notes.filterStaff' },
+  { key: 'urun', icon: <Package size={14} color={colors.text} />, labelKey: 'common:notes.filterProducts' },
+  { key: 'genel', icon: <StickyNote size={14} color={colors.text} />, labelKey: 'common:notes.filterGeneral' },
+];
+
+function getEntityIcon(type: NotEntityType) {
+  switch (type) {
+    case 'hesap': return <Wallet size={16} color={colors.primary} />;
+    case 'cari': return <Users size={16} color={colors.info} />;
+    case 'personel': return <UserCircle size={16} color={colors.success} />;
+    case 'urun': return <Package size={16} color={colors.warning} />;
+    case 'genel': return <StickyNote size={16} color={colors.textMuted} />;
+  }
+}
+
+const ENTITY_TYPE_LABEL_KEYS: Record<NotEntityType, string> = {
+  hesap: 'common:notes.entityHesap',
+  cari: 'common:notes.entityCari',
+  personel: 'common:notes.entityPersonel',
+  urun: 'common:notes.entityUrun',
+  genel: 'common:notes.entityGenel',
+};
+
+export default function NotlarPage() {
+  const { t } = useTranslation(['common', 'navigation']);
+  const { formatDateTime } = useDateFormat();
+  const { showToast } = useToast();
+  const insets = useSafeAreaInsets();
+
+  const [filter, setFilter] = useState<NotEntityType | 'all'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingNote, setEditingNote] = useState<Not | null>(null);
+
+  const entityType = filter === 'all' ? undefined : filter;
+  const { data: notlar, isLoading } = useNotlar(entityType);
+  const createNot = useCreateNot();
+  const updateNot = useUpdateNot();
+  const deleteNot = useDeleteNot();
+
+  // Entity data for resolving names (include passive + archived)
+  const { data: hesaplar } = useHesaplar(true, true);
+  const { data: cariler } = useCariler(undefined, true, true);
+  const { data: personeller } = usePersonelList(true, true);
+  const { data: urunler } = useUrunler(true);
+
+  // Build entity_id → name map
+  const entityNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    hesaplar?.forEach(h => { map[h.id] = h.name; });
+    cariler?.forEach(c => { map[c.id] = c.name; });
+    personeller?.forEach(p => { map[p.id] = [p.first_name, p.last_name].filter(Boolean).join(' '); });
+    urunler?.forEach(u => { map[u.id] = u.ad; });
+    return map;
+  }, [hesaplar, cariler, personeller, urunler]);
+
+  const filteredNotes = useMemo(() => {
+    if (!notlar) return [];
+    if (!searchQuery.trim()) return notlar;
+    const q = searchQuery.toLowerCase();
+    return notlar.filter(n => n.content.toLowerCase().includes(q));
+  }, [notlar, searchQuery]);
+
+  const handleCreate = async (content: string) => {
+    try {
+      await createNot.mutateAsync({
+        entity_type: 'genel',
+        content,
+      });
+      setModalVisible(false);
+      showToast(t('common:notes.createSuccess'), 'success');
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    }
+  };
+
+  const handleUpdate = async (content: string) => {
+    if (!editingNote) return;
+    try {
+      await updateNot.mutateAsync({
+        id: editingNote.id,
+        content,
+      });
+      setEditingNote(null);
+      showToast(t('common:notes.updateSuccess'), 'success');
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    }
+  };
+
+  const handleDelete = useCallback((note: Not) => {
+    Alert.alert(
+      t('common:notes.confirmDeleteTitle'),
+      t('common:notes.confirmDelete'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteNot.mutateAsync(note.id);
+              showToast(t('common:notes.deleteSuccess'), 'success');
+            } catch {
+              Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+            }
+          },
+        },
+      ]
+    );
+  }, [deleteNot, showToast, t]);
+
+  const renderNote = useCallback(({ item }: { item: Not }) => {
+    const entityLabel = t(ENTITY_TYPE_LABEL_KEYS[item.entity_type]);
+    const entityName = item.entity_id ? entityNameMap[item.entity_id] : null;
+    const headerText = entityName ? `${entityLabel}: ${entityName.toUpperCase()}` : entityLabel;
+
+    return (
+      <SwipeableRow
+        onDelete={() => handleDelete(item)}
+        onAction={() => setEditingNote(item)}
+        actionLabel={t('common:buttons.edit')}
+        actionIcon={<Pencil size={18} color="#fff" />}
+      >
+        <TouchableOpacity onPress={() => setEditingNote(item)} activeOpacity={0.7}>
+          <Card style={styles.noteCard} padding="md">
+            <View style={styles.noteHeader}>
+              <View style={styles.entityLabelRow}>
+                {getEntityIcon(item.entity_type)}
+                <Text variant="caption" style={styles.entityLabel} numberOfLines={1}>
+                  {headerText}
+                </Text>
+              </View>
+              <Text variant="caption" color="muted" style={styles.noteDate}>
+                {formatDateTime(item.created_at)}
+              </Text>
+            </View>
+            <Text variant="body" style={styles.noteContent}>
+              {item.content}
+            </Text>
+          </Card>
+        </TouchableOpacity>
+      </SwipeableRow>
+    );
+  }, [formatDateTime, handleDelete, t, entityNameMap]);
+
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SwipeableProvider>
+        {/* Filters */}
+        <View style={styles.filtersContainer}>
+          <FlatList
+            horizontal
+            data={ENTITY_FILTERS}
+            keyExtractor={(item) => item.key}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersList}
+            renderItem={({ item: f }) => (
+              <TouchableOpacity
+                style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
+                onPress={() => setFilter(f.key)}
+              >
+                {f.icon}
+                <Text
+                  variant="caption"
+                  style={[styles.filterText, filter === f.key && styles.filterTextActive]}
+                >
+                  {t(f.labelKey)}
+                </Text>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+
+        {/* Search */}
+        <View style={styles.searchContainer}>
+          <SearchInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={t('common:notes.searchPlaceholder')}
+          />
+        </View>
+
+        {/* Notes List */}
+        <FlatList
+          data={filteredNotes}
+          keyExtractor={(item) => item.id}
+          renderItem={renderNote}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            !isLoading ? (
+              <EmptyState
+                icon={<StickyNote size={48} color={colors.textMuted} />}
+                title={t('common:notes.noNotes')}
+              />
+            ) : null
+          }
+        />
+
+        {/* FAB */}
+        <TouchableOpacity
+          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+          onPress={() => setModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Plus size={24} color={colors.surface} />
+        </TouchableOpacity>
+
+        {/* Create Modal */}
+        <NoteInputModal
+          visible={modalVisible}
+          onClose={() => setModalVisible(false)}
+          onSave={handleCreate}
+          loading={createNot.isPending}
+        />
+
+        {/* Edit Modal */}
+        <NoteInputModal
+          visible={!!editingNote}
+          onClose={() => setEditingNote(null)}
+          onSave={handleUpdate}
+          initialContent={editingNote?.content ?? ''}
+          isEditing
+          loading={updateNot.isPending}
+        />
+      </SwipeableProvider>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  filtersContainer: {
+    paddingVertical: spacing.sm,
+  },
+  filtersList: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  filterText: {
+    color: colors.text,
+  },
+  filterTextActive: {
+    color: colors.surface,
+  },
+  searchContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.sm,
+  },
+  listContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing['3xl'],
+  },
+  noteCard: {
+    marginBottom: spacing.sm,
+  },
+  noteHeader: {
+    flexDirection: 'column',
+    gap: 2,
+    marginBottom: spacing.xs,
+  },
+  entityLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  entityLabel: {
+    fontWeight: '700',
+    color: colors.text,
+    flex: 1,
+  },
+  noteDate: {},
+  noteContent: {
+    lineHeight: 22,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.warning,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 10,
+  },
+});

@@ -371,7 +371,6 @@ export function useIslemlerWithUrunByCari(cariId: string | undefined) {
       const { data: islemlerData, error: islemError } = await supabase
         .from('islemler')
         .select('id')
-        .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId);
 
       if (islemError) throw islemError;
@@ -382,7 +381,6 @@ export function useIslemlerWithUrunByCari(cariId: string | undefined) {
       const { data, error } = await supabase
         .from('urun_hareketler')
         .select('islem_id')
-        .eq('isletme_id', isletme.id)
         .in('islem_id', islemIds)
         .not('islem_id', 'is', null);
 

@@ -548,5 +548,31 @@
     "hasLinkedScheduledTransactions": "You need to delete linked scheduled transactions before deleting this record. There are {{count}} linked scheduled transactions.",
     "hasLinkedRecords": "You need to delete linked records before deleting this record.",
     "cannotDeleteTitle": "Cannot Delete"
+  },
+  "notes": {
+    "title": "Notes",
+    "addNote": "Add Note",
+    "editNote": "Edit Note",
+    "deleteNote": "Delete Note",
+    "notePlaceholder": "Write a note...",
+    "noNotes": "No notes yet",
+    "allNotes": "All Notes",
+    "filterAccounts": "Accounts",
+    "filterClients": "Clients",
+    "filterStaff": "Staff",
+    "filterProducts": "Products",
+    "filterGeneral": "General",
+    "searchPlaceholder": "Search notes...",
+    "confirmDelete": "Are you sure you want to delete this note?",
+    "confirmDeleteTitle": "Delete Note",
+    "createSuccess": "Note added",
+    "updateSuccess": "Note updated",
+    "deleteSuccess": "Note deleted",
+    "contentRequired": "Note content is required",
+    "entityHesap": "ACCOUNT",
+    "entityCari": "CLIENT",
+    "entityPersonel": "STAFF",
+    "entityUrun": "PRODUCT",
+    "entityGenel": "GENERAL"
   }
 }

@@ -541,5 +541,31 @@
     "hasLinkedScheduledTransactions": "Bu kaydı silmek için önce bağlı ileri tarihli işlemleri silmeniz gerekiyor. {{count}} adet ileri tarihli işlem bulunuyor.",
     "hasLinkedRecords": "Bu kaydı silmek için önce bağlı kayıtları silmeniz gerekiyor.",
     "cannotDeleteTitle": "Silinemez"
+  },
+  "notes": {
+    "title": "Notlar",
+    "addNote": "Not Ekle",
+    "editNote": "Notu Düzenle",
+    "deleteNote": "Notu Sil",
+    "notePlaceholder": "Not yaz...",
+    "noNotes": "Henüz not yok",
+    "allNotes": "Tüm Notlar",
+    "filterAccounts": "Hesaplar",
+    "filterClients": "Cariler",
+    "filterStaff": "Personel",
+    "filterProducts": "Ürünler",
+    "filterGeneral": "Genel",
+    "searchPlaceholder": "Notlarda ara...",
+    "confirmDelete": "Bu notu silmek istediğinize emin misiniz?",
+    "confirmDeleteTitle": "Notu Sil",
+    "createSuccess": "Not eklendi",
+    "updateSuccess": "Not güncellendi",
+    "deleteSuccess": "Not silindi",
+    "contentRequired": "Not içeriği gerekli",
+    "entityHesap": "HESAP",
+    "entityCari": "CARİ",
+    "entityPersonel": "PERSONEL",
+    "entityUrun": "ÜRÜN",
+    "entityGenel": "GENEL"
   }
 }

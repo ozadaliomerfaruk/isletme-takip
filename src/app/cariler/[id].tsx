@@ -31,11 +31,15 @@ import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { ExportSheet } from '@/components/export';
+import { AddNoteButton } from '@/components/notes/AddNoteButton';
+import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
+import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
+import { useNotlarByEntity, useUpdateNot, useDeleteNot } from '@/hooks/useNotlar';
+import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
@@ -183,7 +187,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
-        secondaryText={islem.description || islem.kategori?.name || null}
+        secondaryText={islem.kategori?.name || null}
+        tertiaryText={islem.description || null}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         hasUrunler={hasUrunFn(islem.id)}
@@ -390,10 +395,15 @@ export default function CariHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByCari(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
+  const { data: entityNotes } = useNotlarByEntity('cari', id!);
   const { data: linkStatus } = useCariLinkStatus(id);
   const { canUpdate, canDelete } = usePermissions();
   const { user, isletme } = useAuthContext();
   const haptics = useHaptics();
+  // Note edit state
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const updateNot = useUpdateNot();
+  const deleteNot = useDeleteNot();
 
   // Viewer olarak baglantili mi ve izin seviyesi nedir
   const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
@@ -682,13 +692,20 @@ export default function CariHareketleriPage() {
   const groupedData = useMemo(() => {
     if (!islemler) return [];
     const filtered = islemler.filter(i => !pendingDeleteIds.has(i.id));
-    return preprocessTransactionsByDate(
+    const txnData = preprocessTransactionsByDate(
       filtered,
       t('common:date.today'),
       t('common:date.yesterday'),
       formatDateSmart,
     );
-  }, [islemler, pendingDeleteIds, t, formatDateSmart]);
+    return mergeNotesIntoGroupedData(
+      txnData,
+      entityNotes ?? [],
+      t('common:date.today'),
+      t('common:date.yesterday'),
+      formatDateSmart,
+    );
+  }, [islemler, pendingDeleteIds, t, formatDateSmart, entityNotes]);
 
   // === FlatList renderItem ===
   const deleteLabel = t('common:buttons.delete');
@@ -706,9 +723,51 @@ export default function CariHareketleriPage() {
     }
   }, [linkStatus]);
 
+  const editingNote = useMemo(() => {
+    if (!editingNoteId || !entityNotes) return null;
+    return entityNotes.find(n => n.id === editingNoteId) ?? null;
+  }, [editingNoteId, entityNotes]);
+
+  const handleNoteUpdate = useCallback(async (content: string) => {
+    if (!editingNoteId) return;
+    try {
+      await updateNot.mutateAsync({ id: editingNoteId, content });
+      setEditingNoteId(null);
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    }
+  }, [editingNoteId, updateNot, t]);
+
+  const handleNoteDelete = useCallback((noteId: string) => {
+    Alert.alert(
+      t('common:notes.confirmDeleteTitle'),
+      t('common:notes.confirmDelete'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try { await deleteNot.mutateAsync(noteId); } catch { /* ignore */ }
+          },
+        },
+      ]
+    );
+  }, [deleteNot, t]);
+
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
+    }
+    if (item.type === 'milestone') {
+      return null;
+    }
+    if (item.type === 'note') {
+      return (
+        <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
+          <NoteRow note={item.data as any} onPress={() => setEditingNoteId(item.data.id)} />
+        </SwipeableRow>
+      );
     }
     const islem = item.data;
     const canEditItem = canEditTransactions && canDelete('islemler', islem.created_by ?? null);
@@ -1189,15 +1248,22 @@ export default function CariHareketleriPage() {
           onChange={undefined}
         />
 
-        {/* Floating Yeni İşlem FAB */}
+        {/* Floating Not Ekle + Yeni İşlem FAB */}
         {!cari.is_archived && !(isViewerViewOnly) && (
-          <TouchableOpacity
-            style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-            onPress={() => setQuickBarVisible(true)}
-            activeOpacity={0.8}
-          >
-            <Zap size={24} color={colors.surface} />
-          </TouchableOpacity>
+          <>
+            <AddNoteButton
+              entityType="cari"
+              entityId={id!}
+              style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
+            />
+            <TouchableOpacity
+              style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+              onPress={() => setQuickBarVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Zap size={24} color={colors.surface} />
+            </TouchableOpacity>
+          </>
         )}
 
         {/* Undo Delete Snackbar */}
@@ -1207,6 +1273,14 @@ export default function CariHareketleriPage() {
           onUndo={undoDelete}
           onDismiss={dismissDelete}
           undoLabel={t('common:buttons.undo')}
+        />
+        <NoteInputModal
+          visible={!!editingNote}
+          onClose={() => setEditingNoteId(null)}
+          onSave={handleNoteUpdate}
+          initialContent={editingNote?.content ?? ''}
+          isEditing
+          loading={updateNot.isPending}
         />
       </SafeAreaView>
     </>
@@ -1427,5 +1501,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 10,
   },
 });

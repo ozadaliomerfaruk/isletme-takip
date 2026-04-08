@@ -40,3 +40,4 @@ export { Avatar } from './Avatar';
 export { TransactionIcon } from './TransactionIcon';
 export { AnimatedNumber } from './AnimatedNumber';
 export { AnimatedListItem } from './AnimatedListItem';
+export { PersistentTabBar } from './PersistentTabBar';

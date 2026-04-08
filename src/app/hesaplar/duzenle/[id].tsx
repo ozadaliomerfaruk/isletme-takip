@@ -48,6 +48,7 @@ export default function HesapDuzenlePage() {
 
   const [name, setName] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
+  const [paymentDueDay, setPaymentDueDay] = useState('');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState<{ name?: string }>({});
@@ -56,6 +57,7 @@ export default function HesapDuzenlePage() {
     if (hesap) {
       setName(hesap.name);
       setCreditLimit(hesap.credit_limit?.toString() || '');
+      setPaymentDueDay(hesap.payment_due_day?.toString() || '');
       setDescription(hesap.description || '');
       setIsActive(hesap.is_active ?? true);
     }
@@ -82,6 +84,9 @@ export default function HesapDuzenlePage() {
         description: description.trim() || null,
         credit_limit: hesap.type === 'kredi_karti' && creditLimit
           ? parseFloat(creditLimit.replace(',', '.'))
+          : null,
+        payment_due_day: hesap.type === 'kredi_karti' && paymentDueDay
+          ? parseInt(paymentDueDay, 10)
           : null,
         is_active: isActive,
       });
@@ -151,15 +156,30 @@ export default function HesapDuzenlePage() {
                 error={errors.name}
               />
 
-              {/* Kredi Limiti - sadece kredi kartı ise göster */}
+              {/* Kredi Limiti ve Son Ödeme Günü - sadece kredi kartı ise göster */}
               {hesap.type === 'kredi_karti' && (
-                <Input
-                  label={t('accounts:form.creditLimitOptional')}
-                  placeholder={t('accounts:form.creditLimitPlaceholder')}
-                  keyboardType="decimal-pad"
-                  value={creditLimit}
-                  onChangeText={setCreditLimit}
-                />
+                <>
+                  <Input
+                    label={t('accounts:form.creditLimitOptional')}
+                    placeholder={t('accounts:form.creditLimitPlaceholder')}
+                    keyboardType="decimal-pad"
+                    value={creditLimit}
+                    onChangeText={setCreditLimit}
+                  />
+                  <Input
+                    label={t('accounts:creditCard.paymentDueDayOptional')}
+                    placeholder={t('accounts:creditCard.paymentDueDayPlaceholder')}
+                    keyboardType="number-pad"
+                    value={paymentDueDay}
+                    onChangeText={(text) => {
+                      const num = text.replace(/[^0-9]/g, '');
+                      if (num === '' || (parseInt(num, 10) >= 1 && parseInt(num, 10) <= 31)) {
+                        setPaymentDueDay(num);
+                      }
+                    }}
+                    maxLength={2}
+                  />
+                </>
               )}
 
               <Input

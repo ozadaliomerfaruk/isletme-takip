@@ -63,11 +63,13 @@
     "products": "Products",
     "addProduct": "Add Product",
     "editProduct": "Edit Product",
-    "productDetails": "Product Details"
+    "productDetails": "Product Details",
+    "notes": "Notes"
   },
   "menu": {
     "allTransactions": "All Transactions",
     "reports": "Reports",
+    "notes": "Notes",
     "businessInfo": "Business Info",
     "categories": "Categories",
     "products": "Products",

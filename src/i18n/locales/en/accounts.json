@@ -90,7 +90,11 @@
     "usedCredit": "Used",
     "availableCredit": "Available",
     "noLimit": "No limit set",
-    "selectSourceAccount": "Select payment source account"
+    "selectSourceAccount": "Select payment source account",
+    "paymentDueDay": "Payment Due Day",
+    "paymentDueDayLabel": "{{day}}th of each month",
+    "paymentDueDayPlaceholder": "e.g. 15",
+    "paymentDueDayOptional": "Payment Due Day (Optional)"
   },
   "summary": {
     "totalAssets": "Total Assets",

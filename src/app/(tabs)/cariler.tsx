@@ -36,7 +36,7 @@ import { Cari, CariType } from '@/types/database';
 import { AcceptCodeSheet } from '@/components/cariSharing/AcceptCodeSheet';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
-import { useLinkedCariler, useRemoveCariLink } from '@/hooks/useCariSharing';
+import { useLinkedCariler, useCariLinks, useRemoveCariLink } from '@/hooks/useCariSharing';
 import type { SharingPermission } from '@/types/cariSharing';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -46,6 +46,7 @@ import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 // Merged cari type: own cari + optional link metadata
 type MergedCari = Cari & {
   isLinked?: boolean;
+  isSharedByMe?: boolean;
   linkOwnerName?: string;
   linkPermission?: SharingPermission;
   linkId?: string;
@@ -57,7 +58,7 @@ export default function CarilerPage() {
   const { t } = useTranslation(['clients', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('balanceHigh');
+  const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');
   // Multi-select state
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -100,6 +101,15 @@ export default function CarilerPage() {
 
   // Linked cariler (viewer olarak baglantili carileri getir)
   const { data: linkedCariler = [] } = useLinkedCariler();
+  // BUG 1: Owner'in paylastigi carileri tespit et (tum linkler)
+  const { data: allCariLinks = [] } = useCariLinks();
+  const sharedOwnCariIds = useMemo(() => {
+    return new Set(
+      allCariLinks
+        .filter(link => link.owner_isletme_id !== undefined && link.cari_id !== undefined)
+        .map(link => link.cari_id)
+    );
+  }, [allCariLinks]);
 
   // Toast ve Haptics
   const { showToast } = useToast();
@@ -313,18 +323,6 @@ export default function CarilerPage() {
           },
         },
       ];
-      if (cari.linkPermission === 'full') {
-        options.unshift({
-          label: t('clients:details.newTransaction'),
-          icon: <Zap size={20} color={colors.primary} />,
-          onPress: () => {
-            if (actionSheetCari) {
-              setSelectedCari(actionSheetCari);
-              setQuickBarVisible(true);
-            }
-          },
-        });
-      }
       options.push({
         label: t('clients:sharing.removeLink'),
         icon: <Trash2 size={20} color={colors.error} />,
@@ -398,16 +396,25 @@ export default function CarilerPage() {
 
   // Merge own cariler + linked cariler
   const mergedCariler = useMemo((): MergedCari[] => {
-    const ownItems: MergedCari[] = (cariler ?? []).map(c => ({ ...c }));
+    const ownItems: MergedCari[] = (cariler ?? []).map(c => ({
+      ...c,
+      isSharedByMe: sharedOwnCariIds.has(c.id),
+    }));
 
     // Transform linked cariler into MergedCari items
     const linkedItems: MergedCari[] = linkedCariler
       .filter(link => link.cari) // guard
-      .map(link => ({
+      .map(link => {
+        // Bakiye owner perspektifinde saklanir. Tipler farkliysa viewer icin negate et.
+        const ownerType = link.cari!.type;
+        const viewerType = link.viewer_type;
+        const invertBalance = ownerType !== viewerType;
+        const balance = invertBalance ? -Number(link.cari!.balance) : Number(link.cari!.balance);
+        return {
         // Map linked cari data to Cari shape
         id: link.cari!.id,
         name: link.cari!.name,
-        balance: link.cari!.balance,
+        balance,
         currency: link.cari!.currency,
         type: link.viewer_type, // kabul edenin sectigi tip
         isletme_id: link.owner_isletme_id,
@@ -425,10 +432,11 @@ export default function CarilerPage() {
         linkOwnerName: link.owner_isletme?.name ?? '-',
         linkPermission: link.permission,
         linkId: link.id,
-      } as MergedCari));
+      } as MergedCari;
+      });
 
     return [...ownItems, ...linkedItems];
-  }, [cariler, linkedCariler]);
+  }, [cariler, linkedCariler, sharedOwnCariIds]);
 
   // Arama filtresi ve sıralama (aktif önce)
   const filteredCariler = mergedCariler
@@ -450,10 +458,24 @@ export default function CarilerPage() {
       }
       // Kullanıcı sıralama tercihi
       if (sortBy === 'balanceHigh') {
-        return Math.abs(toNumber(b.balance)) - Math.abs(toNumber(a.balance));
+        const aVal = toNumber(a.balance);
+        const bVal = toNumber(b.balance);
+        // Borçlarımız (negatif) önce, alacaklarımız (pozitif) sonra, sıfır en sonda
+        const aGroup = aVal < 0 ? 0 : aVal > 0 ? 1 : 2;
+        const bGroup = bVal < 0 ? 0 : bVal > 0 ? 1 : 2;
+        if (aGroup !== bGroup) return aGroup - bGroup;
+        // Aynı grup içinde mutlak değere göre büyükten küçüğe
+        return Math.abs(bVal) - Math.abs(aVal);
       }
       if (sortBy === 'balanceLow') {
-        return Math.abs(toNumber(a.balance)) - Math.abs(toNumber(b.balance));
+        const aVal = toNumber(a.balance);
+        const bVal = toNumber(b.balance);
+        // Alacaklarımız (pozitif) önce, borçlarımız (negatif) sonra, sıfır en sonda
+        const aGroup = aVal > 0 ? 0 : aVal < 0 ? 1 : 2;
+        const bGroup = bVal > 0 ? 0 : bVal < 0 ? 1 : 2;
+        if (aGroup !== bGroup) return aGroup - bGroup;
+        // Aynı grup içinde mutlak değere göre küçükten büyüğe
+        return Math.abs(aVal) - Math.abs(bVal);
       }
       // Default: alphabetical
       return a.name.localeCompare(b.name, 'tr');
@@ -526,6 +548,16 @@ export default function CarilerPage() {
                       permission={cari.linkPermission ?? 'view'}
                       variant="inline"
                     />
+                  ) : cari.isSharedByMe ? (
+                    <View style={styles.sharedByMeRow}>
+                      <Link size={12} color={colors.primary} />
+                      <Text variant="caption" color="primary">
+                        {t('clients:sharing.sharedByMe')}
+                      </Text>
+                      <Text variant="caption" color="secondary">
+                        {' • '}{cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
+                      </Text>
+                    </View>
                   ) : (
                     <Text variant="caption" color="secondary">
                       {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
@@ -578,24 +610,27 @@ export default function CarilerPage() {
             }
           >
             <View style={styles.actionButtons}>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Zap size={16} color={colors.surface} />}
-                onPress={() => {
-                  setSelectedCari(cari);
-                  setQuickBarVisible(true);
-                }}
-                style={styles.actionButton}
-              >
-                {t('common:archive.actions.makeTransaction')}
-              </Button>
+              {/* BUG 7: View-only linkli carilerde İşlem Yap butonu gizle */}
+              {!(cari.isLinked && cari.linkPermission === 'view') && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Zap size={16} color={colors.surface} />}
+                  onPress={() => {
+                    setSelectedCari(cari);
+                    setQuickBarVisible(true);
+                  }}
+                  style={styles.actionButton}
+                >
+                  {t('common:archive.actions.makeTransaction')}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
                 icon={<History size={16} color={colors.text} />}
                 onPress={() => router.push(`/cariler/${cari.id}`)}
-                style={styles.actionButton}
+                style={[styles.actionButton, cari.isLinked && cari.linkPermission === 'view' && { flex: 1 }]}
               >
                 {t('clients:actions.viewTransactions')}
               </Button>
@@ -898,6 +933,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cariNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  sharedByMeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,

@@ -141,7 +141,6 @@ export function useIleriTarihliIslemlerByCari(cariId: string) {
           cari:cariler(id,name),
           personel:personel(id,first_name,last_name)
         `)
-        .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
         .eq('cari_id', cariId)
         .order('scheduled_date', { ascending: true });

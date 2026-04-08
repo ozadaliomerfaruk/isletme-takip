@@ -71,16 +71,11 @@ export default function TopluOdemePage() {
   // Seçili hesap
   const selectedHesap = hesaplar?.find(h => h.id === hesapId);
 
-  // Aktif personel listesi (borcu olanlar önce)
+  // Aktif personel listesi (A-Z sıralı)
   const activePersonel = useMemo(() => {
     return personelList
       ?.filter(p => p.is_active)
-      .sort((a, b) => {
-        // Borcu olanlar (balance < 0) önce
-        const aDebt = toNumber(a.balance) < 0 ? Math.abs(toNumber(a.balance)) : 0;
-        const bDebt = toNumber(b.balance) < 0 ? Math.abs(toNumber(b.balance)) : 0;
-        return bDebt - aDebt;
-      }) || [];
+      .sort((a, b) => a.first_name.localeCompare(b.first_name, 'tr')) || [];
   }, [personelList]);
 
   // Varsayılan hesabı ayarla

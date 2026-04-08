@@ -188,7 +188,6 @@ export function useCeklerByCari(cariId: string) {
           hesap:hesaplar(id,name,currency),
           kategori:kategoriler(id,name)
         `)
-        .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .order('vade_tarihi', { ascending: false });
 

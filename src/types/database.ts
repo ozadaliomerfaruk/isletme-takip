@@ -106,6 +106,7 @@ export interface Hesap {
   is_archived: boolean;
   card_last_four: string | null;
   card_network: string | null;
+  payment_due_day: number | null; // Kredi kartı son ödeme günü (1-31)
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -126,6 +127,7 @@ export interface HesapInsert {
   is_archived?: boolean;
   card_last_four?: string | null;
   card_network?: string | null;
+  payment_due_day?: number | null;
 }
 
 export interface HesapUpdate {
@@ -139,6 +141,7 @@ export interface HesapUpdate {
   is_archived?: boolean;
   card_last_four?: string | null;
   card_network?: string | null;
+  payment_due_day?: number | null;
 }
 
 // Kategori
@@ -251,6 +254,7 @@ export interface Personel {
   balance: number;
   currency: Currency;
   start_date: string | null;
+  end_date: string | null; // İşten çıkış tarihi
   is_active: boolean;
   is_archived: boolean;
   created_by: string | null;
@@ -270,6 +274,7 @@ export interface PersonelInsert {
   balance?: number;
   currency?: Currency;
   start_date?: string | null;
+  end_date?: string | null;
   is_active?: boolean;
   is_archived?: boolean;
 }
@@ -283,6 +288,7 @@ export interface PersonelUpdate {
   balance?: number;
   currency?: Currency;
   start_date?: string | null;
+  end_date?: string | null;
   is_active?: boolean;
   is_archived?: boolean;
 }
@@ -847,4 +853,31 @@ export interface IrsaliyeRecordUpdate {
   belge_no?: string | null;
   items?: unknown;
   notes?: string | null;
+}
+
+// Notlar (Notes)
+export type NotEntityType = 'hesap' | 'cari' | 'personel' | 'urun' | 'genel';
+
+export interface Not {
+  id: string;
+  isletme_id: string;
+  entity_type: NotEntityType;
+  entity_id: string | null;
+  content: string;
+  created_at: string;
+  created_by: string | null;
+  updated_at: string;
+}
+
+export interface NotInsert {
+  isletme_id: string;
+  entity_type: NotEntityType;
+  entity_id?: string | null;
+  content: string;
+  created_by?: string | null;
+}
+
+export interface NotUpdate {
+  content?: string;
+  updated_at?: string;
 }

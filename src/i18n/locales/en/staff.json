@@ -24,6 +24,8 @@
     "emailPlaceholder": "Enter email address",
     "startDate": "Start Date",
     "startDateOptional": "Start Date (Optional)",
+    "endDate": "End Date",
+    "endDateOptional": "End Date (Optional)",
     "salary": "Salary",
     "salaryOptional": "Salary (Optional)",
     "salaryPlaceholder": "Monthly salary amount",
@@ -166,7 +168,13 @@
     "dateRange": "{{start}} - {{end}}",
     "noLeaveHistory": "No leave records found",
     "dayCountLabel": "Number of Days",
-    "carryOver": "Carry over from previous period"
+    "carryOver": "Carry over from previous period",
+    "remainingDays": "{{count}} days leave",
+    "noLeave": "No leave"
+  },
+  "milestones": {
+    "startDate": "Start Date",
+    "endDate": "End Date"
   },
   "deleteConfirm": {
     "transactionTitle": "Delete Transaction",

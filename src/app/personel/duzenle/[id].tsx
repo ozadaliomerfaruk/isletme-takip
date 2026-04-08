@@ -46,7 +46,9 @@ export default function PersonelDuzenlePage() {
   const [position, setPosition] = useState('');
   const [salary, setSalary] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isActive, setIsActive] = useState(true);
   const [errors, setErrors] = useState<{ firstName?: string }>({});
 
@@ -59,6 +61,7 @@ export default function PersonelDuzenlePage() {
       setPosition(personel.position || '');
       setSalary(personel.salary ? String(personel.salary) : '');
       setStartDate(personel.start_date ? parseDateFromDB(personel.start_date) : null);
+      setEndDate(personel.end_date ? parseDateFromDB(personel.end_date) : null);
       setIsActive(personel.is_active ?? true);
     }
   }, [personel]);
@@ -87,6 +90,7 @@ export default function PersonelDuzenlePage() {
         position: position.trim() || null,
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
+        end_date: endDate ? formatDateForDB(endDate) : null,
         is_active: isActive,
       });
 
@@ -281,6 +285,96 @@ export default function PersonelDuzenlePage() {
                     setShowDatePicker(false);
                     if (event.type === 'set' && date) {
                       setStartDate(date);
+                    }
+                  }}
+                  maximumDate={new Date()}
+                />
+              )}
+
+              {/* İşten Çıkış Tarihi */}
+              <View style={styles.dateField}>
+                <Text variant="label" style={styles.dateLabel}>
+                  {t('staff:form.endDateOptional')}
+                </Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowEndDatePicker(true)}
+                >
+                  <Calendar size={20} color={endDate ? colors.error : colors.textMuted} />
+                  <Text
+                    variant="body"
+                    color={endDate ? 'error' : 'secondary'}
+                    style={styles.dateText}
+                  >
+                    {endDate
+                      ? formatDateNative(endDate)
+                      : t('staff:form.selectDate')}
+                  </Text>
+                  {endDate && (
+                    <TouchableOpacity
+                      onPress={() => setEndDate(null)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <X size={18} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* iOS için End Date DateTimePicker Modal */}
+              {Platform.OS === 'ios' && showEndDatePicker && (
+                <Modal visible={showEndDatePicker} transparent animationType="slide">
+                  <Pressable
+                    style={styles.datePickerModalOverlay}
+                    onPress={() => setShowEndDatePicker(false)}
+                  >
+                    <Pressable
+                      style={styles.datePickerModalContent}
+                      onPress={(e) => e.stopPropagation()}
+                    >
+                      <View style={styles.datePickerModalHeader}>
+                        <Text variant="h3">{t('staff:form.endDate')}</Text>
+                        <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
+                          <X size={24} color={colors.text} />
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={endDate || new Date()}
+                        mode="date"
+                        display="inline"
+                        onChange={(event, date) => {
+                          if (date) {
+                            setEndDate(date);
+                          }
+                        }}
+                        maximumDate={new Date()}
+                        locale={locale}
+                        themeVariant="light"
+                        accentColor={colors.primary}
+                        style={{ height: 350 }}
+                      />
+                      <Button
+                        variant="primary"
+                        onPress={() => setShowEndDatePicker(false)}
+                        style={{ marginTop: spacing.md }}
+                      >
+                        {t('common:buttons.ok')}
+                      </Button>
+                    </Pressable>
+                  </Pressable>
+                </Modal>
+              )}
+
+              {/* Android için End Date DateTimePicker */}
+              {Platform.OS === 'android' && showEndDatePicker && (
+                <DateTimePicker
+                  value={endDate || new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={(event, date) => {
+                    setShowEndDatePicker(false);
+                    if (event.type === 'set' && date) {
+                      setEndDate(date);
                     }
                   }}
                   maximumDate={new Date()}

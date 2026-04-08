@@ -24,6 +24,7 @@ import {
   Share2,
   History,
   Bell,
+  StickyNote,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card, Avatar } from '@/components/ui';
@@ -201,6 +202,12 @@ export default function DahaPage() {
               icon={<BarChart3 size={22} color={colors.info} />}
               label={t('navigation:menu.reports')}
               onPress={() => router.push('/raporlar')}
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon={<StickyNote size={22} color={colors.warning} />}
+              label={t('navigation:menu.notes')}
+              onPress={() => router.push('/notlar' as Href)}
             />
           </Card>
         </View>

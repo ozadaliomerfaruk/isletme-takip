@@ -428,7 +428,7 @@ export default function HomePage() {
         {/* Hesaplar Bölümü */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text variant="h3">{t('accounts:titles.accounts')}</Text>
+            <Text variant="h3" style={styles.sectionTitle}>{t('accounts:titles.accounts')}</Text>
             <PermissionGate module="hesaplar" action="create">
               <TouchableOpacity
                 style={styles.addButton}
@@ -495,6 +495,11 @@ export default function HomePage() {
                                   <EyeOff size={14} color={colors.textMuted} />
                                 )}
                               </View>
+                              {hesap.type === 'kredi_karti' && hesap.payment_due_day && (
+                                <Text variant="caption" color="muted">
+                                  {t('accounts:creditCard.paymentDueDayLabel', { day: hesap.payment_due_day })}
+                                </Text>
+                              )}
                             </View>
                             <View style={styles.hesapBalance}>
                               <Text
@@ -773,6 +778,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.lg,
+  },
+  sectionTitle: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   addButton: {
     flexDirection: 'row',

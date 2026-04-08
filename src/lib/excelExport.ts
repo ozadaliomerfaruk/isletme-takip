@@ -10,6 +10,7 @@ import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
 import { formatCurrency, toNumber } from './currency';
 import { IslemWithRelations, Currency, UrunHareket } from '@/types/database';
+import { invertCariTransactionType, shouldInvertTransaction } from '@/lib/cariTransactionMapper';
 
 // ============================================================================
 // STYLE DEFINITIONS
@@ -151,6 +152,8 @@ export interface ExportOptions {
   allTransactions: IslemWithRelations[]; // Tüm işlemler (başlangıç bakiyesi hesabı için)
   currentBalance: number;
   cariType?: 'musteri' | 'tedarikci'; // Cari için
+  currentIsletmeId?: string; // Paylaşılan cari: görüntüleyenin isletme_id'si
+  typeMismatch?: boolean; // Paylaşılan cari: owner ve viewer cari tipleri farklı mı
   translations: ExcelTranslations; // Lokalizasyon için
 }
 
@@ -298,23 +301,32 @@ function getCariDebitCredit(
 
 /**
  * Cari için başlangıç bakiyesi hesapla
+ * Per-transaction inversion destekler (paylaşılan cariler için)
  */
 function calculateCariOpeningBalance(
   allTransactions: IslemWithRelations[],
   cariType: 'musteri' | 'tedarikci',
   currentBalance: number,
-  startDate: string
+  startDate: string,
+  currentIsletmeId?: string,
+  typeMismatch?: boolean
 ): number {
   let totalEffect = 0;
 
   allTransactions.forEach((islem) => {
-    const { debit, credit } = getCariDebitCredit(islem, cariType);
+    // Per-transaction inversion: karşı tarafın işlemi ise tipi çevir
+    const needsInvert = shouldInvertTransaction(
+      islem.isletme_id, currentIsletmeId, typeMismatch ?? false
+    );
+    const effectiveIslem = needsInvert
+      ? { ...islem, type: invertCariTransactionType(islem.type as any) }
+      : islem;
+
+    const { debit, credit } = getCariDebitCredit(effectiveIslem, cariType);
     if (cariType === 'tedarikci') {
-      // Tedarikçi: borç arttırır (negatif), alacak azaltır (pozitif)
       if (debit) totalEffect -= debit;
       if (credit) totalEffect += credit;
     } else {
-      // Müşteri: alacak arttırır (pozitif), borç azaltır (negatif)
       if (credit) totalEffect += credit;
       if (debit) totalEffect -= debit;
     }
@@ -328,7 +340,14 @@ function calculateCariOpeningBalance(
 
   let effectBeforeStart = 0;
   transactionsBeforeStart.forEach((islem) => {
-    const { debit, credit } = getCariDebitCredit(islem, cariType);
+    const needsInvert = shouldInvertTransaction(
+      islem.isletme_id, currentIsletmeId, typeMismatch ?? false
+    );
+    const effectiveIslem = needsInvert
+      ? { ...islem, type: invertCariTransactionType(islem.type as any) }
+      : islem;
+
+    const { debit, credit } = getCariDebitCredit(effectiveIslem, cariType);
     if (cariType === 'tedarikci') {
       if (debit) effectBeforeStart -= debit;
       if (credit) effectBeforeStart += credit;
@@ -420,6 +439,8 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
     allTransactions,
     currentBalance,
     cariType,
+    currentIsletmeId,
+    typeMismatch,
     translations: t,
   } = options;
 
@@ -443,7 +464,9 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
         allTransactions,
         cariType || 'tedarikci',
         currentBalance,
-        startDate
+        startDate,
+        currentIsletmeId,
+        typeMismatch
       );
       break;
     case 'personel':
@@ -476,14 +499,26 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   sortedTransactions.forEach((islem) => {
     let debit: number | null = null;
     let credit: number | null = null;
+    let effectiveType = islem.type;
 
     switch (entityType) {
       case 'hesap':
         ({ debit, credit } = getHesapDebitCredit(islem, entityId));
         break;
-      case 'cari':
-        ({ debit, credit } = getCariDebitCredit(islem, cariType || 'tedarikci'));
+      case 'cari': {
+        // Per-transaction inversion: karşı tarafın işlemi ise tipi çevir
+        const needsInvert = shouldInvertTransaction(
+          islem.isletme_id, currentIsletmeId, typeMismatch ?? false
+        );
+        if (needsInvert) {
+          effectiveType = invertCariTransactionType(islem.type as any);
+        }
+        ({ debit, credit } = getCariDebitCredit(
+          { ...islem, type: effectiveType } as IslemWithRelations,
+          cariType || 'tedarikci'
+        ));
         break;
+      }
       case 'personel':
         ({ debit, credit } = getPersonelDebitCredit(islem));
         break;
@@ -499,7 +534,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
 
     rows.push({
       date: formatDateShort(islem.date),
-      type: t.transactionTypes[islem.type] || islem.type,
+      type: t.transactionTypes[effectiveType] || effectiveType,
       description: islem.description || '',
       category: islem.kategori?.name || '',
       account: getAccountName(islem),

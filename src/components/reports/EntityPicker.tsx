@@ -11,16 +11,18 @@ import {
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { ChevronDown, X, Building2, Users, Check, Search } from 'lucide-react-native';
+import { ChevronDown, X, Building2, Users, Check, Search, Link } from 'lucide-react-native';
 import { Cari, Personel } from '@/types/database';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useTranslation } from 'react-i18next';
 
 type EntityType = 'cari' | 'personel';
 
+type CariWithLink = Cari & { isLinked?: boolean; ownerIsletmeName?: string };
+
 interface EntityPickerProps {
   type: EntityType;
-  entities: Cari[] | Personel[];
+  entities: CariWithLink[] | Personel[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   isLoading?: boolean;
@@ -73,6 +75,8 @@ export function EntityPicker({
   const renderItem = ({ item }: { item: Cari | Personel }) => {
     const balance = getEntityBalance(item);
     const isSelected = item.id === selectedId;
+    const isLinked = 'isLinked' in item && (item as CariWithLink).isLinked;
+    const ownerName = 'ownerIsletmeName' in item ? (item as CariWithLink).ownerIsletmeName : null;
 
     return (
       <TouchableOpacity
@@ -81,18 +85,28 @@ export function EntityPicker({
         activeOpacity={0.7}
       >
         <View style={styles.listItemIcon}>
-          <Icon size={20} color={isSelected ? colors.primary : colors.textMuted} />
+          {isLinked ? (
+            <Link size={20} color={isSelected ? colors.primary : colors.info} />
+          ) : (
+            <Icon size={20} color={isSelected ? colors.primary : colors.textMuted} />
+          )}
         </View>
         <View style={styles.listItemContent}>
           <Text variant="body" style={isSelected ? styles.selectedText : undefined}>
             {getEntityName(item)}
           </Text>
-          <Text
-            variant="caption"
-            color={balance >= 0 ? 'success' : 'error'}
-          >
-            {formatCurrency(balance, item.currency)}
-          </Text>
+          {isLinked && ownerName ? (
+            <Text variant="caption" color="secondary">
+              {ownerName}
+            </Text>
+          ) : (
+            <Text
+              variant="caption"
+              color={balance >= 0 ? 'success' : 'error'}
+            >
+              {formatCurrency(balance, item.currency)}
+            </Text>
+          )}
         </View>
         {isSelected && (
           <Check size={20} color={colors.primary} />

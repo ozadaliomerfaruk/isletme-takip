@@ -63,11 +63,13 @@
     "products": "Ürünler",
     "addProduct": "Ürün Ekle",
     "editProduct": "Ürün Düzenle",
-    "productDetails": "Ürün Detayı"
+    "productDetails": "Ürün Detayı",
+    "notes": "Notlar"
   },
   "menu": {
     "allTransactions": "Tüm İşlemler",
     "reports": "Raporlar",
+    "notes": "Notlar",
     "businessInfo": "İşletme Bilgileri",
     "categories": "Kategoriler",
     "products": "Ürünler",

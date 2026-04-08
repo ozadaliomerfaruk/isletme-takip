@@ -25,6 +25,8 @@ interface UseExcelExportOptions {
   entityCurrency?: Currency | string;
   currentBalance: number;
   cariType?: 'musteri' | 'tedarikci';
+  currentIsletmeId?: string;
+  typeMismatch?: boolean;
 }
 
 interface UseExcelExportReturn {
@@ -33,7 +35,7 @@ interface UseExcelExportReturn {
 }
 
 export function useExcelExport(options: UseExcelExportOptions): UseExcelExportReturn {
-  const { entityType, entityId, entityName, entityCurrency, currentBalance, cariType } = options;
+  const { entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch } = options;
   const { isletme } = useAuthContext();
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
@@ -116,10 +118,15 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
                 cari:cariler(id,name,type),
                 personel:personel(id,first_name,last_name)
               `)
-              .eq('isletme_id', isletme.id)
               .gte('date', startDate)
               .lt('date', endDateNextDay)
               .order('date', { ascending: true });
+
+            // Cari için isletme_id filtresi koymuyoruz çünkü paylaşılan carilerde
+            // A ve B farklı isletme_id'lere sahip — RLS yeterli
+            if (entityType !== 'cari') {
+              q = q.eq('isletme_id', isletme.id);
+            }
 
             if (entityType === 'hesap') {
               q = q.or(`hesap_id.eq.${entityId},hedef_hesap_id.eq.${entityId}`);
@@ -147,8 +154,11 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
                 cari:cariler(id,name,type),
                 personel:personel(id,first_name,last_name)
               `)
-              .eq('isletme_id', isletme.id)
               .order('date', { ascending: true });
+
+            if (entityType !== 'cari') {
+              q = q.eq('isletme_id', isletme.id);
+            }
 
             if (entityType === 'hesap') {
               q = q.or(`hesap_id.eq.${entityId},hedef_hesap_id.eq.${entityId}`);
@@ -177,6 +187,8 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
             allTransactions,
             currentBalance,
             cariType,
+            currentIsletmeId,
+            typeMismatch,
             translations,
           });
         } catch (error) {
@@ -199,9 +211,12 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
         let countQuery = supabase
           .from('islemler')
           .select('id', { count: 'exact', head: true })
-          .eq('isletme_id', isletme.id)
           .gte('date', startDate)
           .lt('date', endDateNextDay);
+
+        if (entityType !== 'cari') {
+          countQuery = countQuery.eq('isletme_id', isletme.id);
+        }
 
         if (entityType === 'hesap') {
           countQuery = countQuery.or(`hesap_id.eq.${entityId},hedef_hesap_id.eq.${entityId}`);
@@ -243,7 +258,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
         await performExport();
       }
     },
-    [entityType, entityId, entityName, entityCurrency, currentBalance, cariType, isletme, t]
+    [entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch, isletme, t]
   );
 
   return {

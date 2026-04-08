@@ -21,6 +21,7 @@ import {
   MoreVertical,
   Zap,
   History,
+  CalendarDays,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard } from '@/components/ui';
@@ -33,6 +34,7 @@ import { formatCurrency, toNumber } from '@/lib/currency';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
+import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
 import { useArchivePersonel } from '@/hooks/useArchive';
 import type { Personel } from '@/types/database';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
@@ -46,7 +48,7 @@ export default function PersonelPage() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('balanceHigh');
+  const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
@@ -76,6 +78,7 @@ export default function PersonelPage() {
 
   // Gerçek veriler - pasif personeli de dahil et
   const { data: personelList, isLoading, refetch } = usePersonelList(true);
+  const { data: leaveQuotas } = usePersonelLeaveQuotas();
   const { payables, receivables } = useFinancialSummary();
 
   // Pull-to-refresh
@@ -308,10 +311,24 @@ export default function PersonelPage() {
       }
       // Kullanıcı sıralama tercihi
       if (sortBy === 'balanceHigh') {
-        return Math.abs(toNumber(b.balance)) - Math.abs(toNumber(a.balance));
+        const aVal = toNumber(a.balance);
+        const bVal = toNumber(b.balance);
+        // Borçlarımız (negatif) önce, alacaklarımız (pozitif) sonra, sıfır en sonda
+        const aGroup = aVal < 0 ? 0 : aVal > 0 ? 1 : 2;
+        const bGroup = bVal < 0 ? 0 : bVal > 0 ? 1 : 2;
+        if (aGroup !== bGroup) return aGroup - bGroup;
+        // Aynı grup içinde mutlak değere göre büyükten küçüğe
+        return Math.abs(bVal) - Math.abs(aVal);
       }
       if (sortBy === 'balanceLow') {
-        return Math.abs(toNumber(a.balance)) - Math.abs(toNumber(b.balance));
+        const aVal = toNumber(a.balance);
+        const bVal = toNumber(b.balance);
+        // Alacaklarımız (pozitif) önce, borçlarımız (negatif) sonra, sıfır en sonda
+        const aGroup = aVal > 0 ? 0 : aVal < 0 ? 1 : 2;
+        const bGroup = bVal > 0 ? 0 : bVal < 0 ? 1 : 2;
+        if (aGroup !== bGroup) return aGroup - bGroup;
+        // Aynı grup içinde mutlak değere göre küçükten büyüğe
+        return Math.abs(aVal) - Math.abs(bVal);
       }
       // Default: alphabetical
       return a.first_name.localeCompare(b.first_name, 'tr');
@@ -406,6 +423,14 @@ export default function PersonelPage() {
                         </Text>
                       </>
                     )}
+                    {leaveQuotas?.[personel.id] && leaveQuotas[personel.id].hakEdilen > 0 && (
+                      <>
+                        <CalendarDays size={12} color={leaveQuotas[personel.id].kalan >= 0 ? colors.success : colors.error} style={{ marginLeft: spacing.sm }} />
+                        <Text variant="caption" color={leaveQuotas[personel.id].kalan >= 0 ? 'success' : 'error'}>
+                          {t('staff:leave.remainingDays', { count: leaveQuotas[personel.id].kalan })}
+                        </Text>
+                      </>
+                    )}
                   </View>
                 </View>
                 <View style={styles.personelBalance}>
@@ -466,7 +491,7 @@ export default function PersonelPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor]);
+  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor, leaveQuotas]);
 
   // FlatList ListHeaderComponent - header, özet ve arama
   const ListHeader = useMemo(() => (

@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Stack, useRouter, useSegments, Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { ReviewProvider } from '@/contexts/ReviewContext';
 import { ToastContainer } from '@/components/ui';
 import { ChangePasswordModal } from '@/components/auth';
+import { PersistentTabBar } from '@/components/ui/PersistentTabBar';
 import { colors } from '@/constants/colors';
 import {
   registerForPushNotificationsAsync,
@@ -31,10 +32,12 @@ function RootLayoutNav() {
   const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
-  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport']);
+  const { t, i18n: i18nInstance } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);
+  const insets = useSafeAreaInsets();
+  const modifiedInsets = useMemo(() => ({ ...insets, bottom: 0 }), [insets]);
 
   // Session tracking: Türkiye saatine göre günde 1 kez kayıt
   const SESSION_DATE_KEY = '@defter_last_session_date';
@@ -187,6 +190,8 @@ function RootLayoutNav() {
     <>
       <StatusBar style="dark" />
       <ToastContainer />
+      <View style={{ flex: 1 }}>
+      <SafeAreaInsetsContext.Provider value={modifiedInsets}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -247,6 +252,17 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('transactions:titles.allTransactions'),
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
+          name="notlar/index"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('navigation:screens.notes'),
             headerShadowVisible: false,
           }}
         />
@@ -784,6 +800,9 @@ function RootLayoutNav() {
           }}
         />
       </Stack>
+      </SafeAreaInsetsContext.Provider>
+      <PersistentTabBar />
+      </View>
 
       {/* Şifre değiştirme modal'ı - şifremi unuttum akışı sonrası gösterilir */}
       {/* OTP doğrulandıktan veya deep link'ten geldikten sonra kullanıcı /(tabs)'a yönlendirilir ve modal burada gösterilir */}
