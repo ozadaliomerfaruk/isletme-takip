@@ -164,7 +164,7 @@ export default function PersonelHareketleriPage() {
   const insets = useSafeAreaInsets();
 
   const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
-  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByPersonel(id!);
+  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const { data: entityNotes } = useNotlarByEntity('personel', id!);
   const { canUpdate, canDelete } = usePermissions();
@@ -207,6 +207,17 @@ export default function PersonelHareketleriPage() {
       Alert.alert(t('common:status.error'), message);
     },
   });
+
+  // Pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchPersonel(), refetchIslemler()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchPersonel, refetchIslemler]);
 
   const fullName = personel ? `${personel.first_name} ${personel.last_name}` : t('common:status.loading');
 
@@ -810,6 +821,8 @@ export default function PersonelHareketleriPage() {
             windowSize={7}
             removeClippedSubviews={false}
             contentContainerStyle={styles.flatListContent}
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
           />
         </SwipeableProvider>
 

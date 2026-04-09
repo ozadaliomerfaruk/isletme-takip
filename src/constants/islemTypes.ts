@@ -20,8 +20,9 @@ export const INCOME_TYPES: IslemType[] = ['gelir', 'cari_satis', 'personel_satis
  * - gider: Hesaptan doğrudan çıkan gider
  * - cari_alis: Tedarikçiden yapılan alış
  * - personel_gider: Personel maaş/prim gideri
+ * - nakit_avans_taksit: Nakit avans taksit ödemesi
  */
-export const EXPENSE_TYPES: IslemType[] = ['gider', 'cari_alis', 'personel_gider'];
+export const EXPENSE_TYPES: IslemType[] = ['gider', 'cari_alis', 'personel_gider', 'nakit_avans_taksit'];
 
 /**
  * Ödeme işlemleri (gelir/gider DEĞİL - sadece para transferi)
@@ -50,8 +51,9 @@ export const CASH_INFLOW_TYPES: IslemType[] = ['gelir', 'cari_tahsilat', 'person
  * - cari_odeme: Tedarikçiye ödeme
  * - personel_gider: Personel gideri
  * - personel_odeme: Personele ödeme
+ * - nakit_avans_taksit: Nakit avans taksit ödemesi
  */
-export const CASH_OUTFLOW_TYPES: IslemType[] = ['gider', 'cari_odeme', 'personel_gider', 'personel_odeme'];
+export const CASH_OUTFLOW_TYPES: IslemType[] = ['gider', 'cari_odeme', 'personel_gider', 'personel_odeme', 'nakit_avans_taksit'];
 
 /**
  * İade işlemleri (gelir/gideri AZALTIR)

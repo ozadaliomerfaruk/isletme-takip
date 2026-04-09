@@ -207,6 +207,16 @@
       "yearsAgo_plural": "{{count}} years ago"
     }
   },
+  "balanceLabels": {
+    "balanced": "Balanced",
+    "receivable": "Receivable",
+    "debt": "Debt",
+    "overpayment": "Overpayment",
+    "advance": "Advance"
+  },
+  "tax": {
+    "vat": "VAT"
+  },
   "currency": {
     "symbol": "$",
     "code": "USD",

@@ -466,6 +466,20 @@
       "emptyRows": "{{count}} empty rows skipped",
       "noDateOrType": "{{count}} rows missing date/type",
       "noEntity": "{{count}} rows missing account/contact/staff"
+    },
+    "skipReasons": {
+      "missingEntity": "Account, client or staff information missing",
+      "duplicate": "Duplicate: same transaction exists on {{date}} for {{amount}}",
+      "accountNotFound": "Account not found: \"{{name}}\"",
+      "transferMissingTarget": "TARGET ACCOUNT column is empty for transfer transaction",
+      "transferTargetNotFound": "Target account not found for transfer: \"{{name}}\"",
+      "clientTransactionMissingClient": "SUPPLIER or CUSTOMER column is empty for client transaction ({{type}})",
+      "clientNotFound": "Client not found: \"{{name}}\"",
+      "staffTransactionMissingStaff": "STAFF column is empty for staff transaction",
+      "staffNotFound": "Staff not found: \"{{name}}\"",
+      "accountBalanceAlreadySet": "Opening balance already set for this account (current: {{balance}})",
+      "clientBalanceAlreadySet": "Opening balance already set for this client (current opening balance: {{balance}})",
+      "staffBalanceAlreadySet": "Opening balance already set for this staff member (current opening balance: {{balance}})"
     }
   },
   "account": {

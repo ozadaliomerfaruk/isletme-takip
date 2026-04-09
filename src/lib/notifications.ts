@@ -35,15 +35,15 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   // Android için channel oluştur
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'Varsayılan',
+      name: 'Default',
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#0D5C4D',
     });
 
     await Notifications.setNotificationChannelAsync('scheduled-transactions', {
-      name: 'İleri Tarihli İşlemler',
-      description: 'İleri tarihli işlem hatırlatmaları',
+      name: 'Scheduled Transactions',
+      description: 'Reminders for scheduled transactions',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#F59E0B',

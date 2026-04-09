@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber } from '@/lib/currency';
+import { toNumber, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import type {
   PendingIslem,
   PendingIslemInsert,
@@ -67,6 +67,10 @@ async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isl
   const amount = toNumber(islem.amount);
   if (amount === 0) return;
 
+  const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
+  const sourceCurrency = islem.source_currency || 'TRY';
+  const targetCurrency = islem.target_currency || 'TRY';
+
   switch (islem.type) {
     case 'gelir':
       if (islem.hesap_id) {
@@ -85,7 +89,8 @@ async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isl
         await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
       }
       if (islem.hedef_hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, amount);
+        const targetAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, targetAmount);
       }
       break;
 
@@ -102,20 +107,26 @@ async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isl
       break;
 
     case 'cari_odeme':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      {
+        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 
     case 'cari_tahsilat':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      {
+        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.cari_id) {
+          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 
@@ -138,20 +149,26 @@ async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isl
       break;
 
     case 'personel_odeme':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      {
+        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+        }
       }
       break;
 
     case 'personel_tahsilat':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+      {
+        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+        if (islem.personel_id) {
+          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
+        }
+        if (islem.hesap_id) {
+          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
+        }
       }
       break;
 

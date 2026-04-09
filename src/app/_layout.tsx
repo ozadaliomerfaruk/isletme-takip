@@ -669,6 +669,17 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen
+          name="personel/izin-gecmisi/[id]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('staff:leave.leaveHistory'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Hesap Silme */}
         <Stack.Screen
           name="ayarlar/hesap-sil"

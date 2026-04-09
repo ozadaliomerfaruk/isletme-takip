@@ -567,7 +567,7 @@ export function useAuth() {
     setState((prev) => ({ ...prev, loading: true }));
 
     const { data, error } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password,
     });
 
@@ -585,8 +585,13 @@ export function useAuth() {
 
     // Kullanıcı oluştur
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
+      email: email.trim().toLowerCase(),
       password,
+      options: {
+        data: {
+          isletme_name: isletmeName,
+        },
+      },
     });
 
     if (authError) {
@@ -639,6 +644,9 @@ export function useAuth() {
       setState((prev) => ({ ...prev, loading: false }));
       throw error;
     }
+
+    // Önceki kullanıcının verilerinin sızmaması için query cache'i temizle
+    queryClient.clear();
 
     setState({
       session: null,

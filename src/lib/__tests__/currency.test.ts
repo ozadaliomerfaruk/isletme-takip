@@ -350,47 +350,47 @@ describe('isValidBalance', () => {
 // getBalanceInfo - balance label/color mapping
 // ============================================================================
 describe('getBalanceInfo', () => {
-  it('should return "Dengede" for zero balance', () => {
+  it('should return "balanced" key for zero balance', () => {
     const info = getBalanceInfo(0, 'musteri');
-    expect(info.label).toBe('Dengede');
+    expect(info.label).toBe('balanced');
     expect(info.colorType).toBe('secondary');
   });
 
-  it('should return "Alacak" for positive musteri balance', () => {
+  it('should return "receivable" key for positive musteri balance', () => {
     const info = getBalanceInfo(100, 'musteri');
-    expect(info.label).toBe('Alacak');
+    expect(info.label).toBe('receivable');
     expect(info.isPositive).toBe(true);
     expect(info.colorType).toBe('success');
   });
 
-  it('should return "Borç" for negative musteri balance', () => {
+  it('should return "debt" key for negative musteri balance', () => {
     const info = getBalanceInfo(-100, 'musteri');
-    expect(info.label).toBe('Borç');
+    expect(info.label).toBe('debt');
     expect(info.isPositive).toBe(false);
     expect(info.colorType).toBe('error');
   });
 
-  it('should return "Fazla Ödeme" for positive tedarikci balance', () => {
+  it('should return "overpayment" key for positive tedarikci balance', () => {
     const info = getBalanceInfo(100, 'tedarikci');
-    expect(info.label).toBe('Fazla Ödeme');
+    expect(info.label).toBe('overpayment');
     expect(info.isPositive).toBe(true);
   });
 
-  it('should return "Borç" for negative tedarikci balance', () => {
+  it('should return "debt" key for negative tedarikci balance', () => {
     const info = getBalanceInfo(-100, 'tedarikci');
-    expect(info.label).toBe('Borç');
+    expect(info.label).toBe('debt');
     expect(info.isPositive).toBe(false);
   });
 
-  it('should return "Avans" for positive personel balance', () => {
+  it('should return "advance" key for positive personel balance', () => {
     const info = getBalanceInfo(100, 'personel');
-    expect(info.label).toBe('Avans');
+    expect(info.label).toBe('advance');
     expect(info.isPositive).toBe(true);
   });
 
-  it('should return "Borç" for negative personel balance', () => {
+  it('should return "debt" key for negative personel balance', () => {
     const info = getBalanceInfo(-100, 'personel');
-    expect(info.label).toBe('Borç');
+    expect(info.label).toBe('debt');
     expect(info.isPositive).toBe(false);
   });
 });

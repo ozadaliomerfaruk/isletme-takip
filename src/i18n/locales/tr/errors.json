@@ -117,6 +117,9 @@
     "selectPaymentAccount": "Ödeme yapılacak hesabı seçin",
     "nameRequired": "Ad gerekli"
   },
+  "product": {
+    "notFound": "Ürün bulunamadı"
+  },
   "category": {
     "createFailed": "Kategori oluşturulamadı",
     "updateFailed": "Kategori güncellenemedi",

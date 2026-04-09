@@ -45,6 +45,7 @@
     "title": "Birim Seç",
     "search": "Birim ara..."
   },
+  "notFoundDescription": "Bu ürün mevcut değil veya silinmiş olabilir.",
   "stock": {
     "currentStock": "Mevcut Miktar",
     "stockIn": "Ürün Alımı",

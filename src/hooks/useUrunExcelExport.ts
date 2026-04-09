@@ -10,6 +10,8 @@ import { exportUrunHareketlerToExcel, UrunExcelTranslations } from '@/lib/excelE
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Currency } from '@/types/database';
+import { formatDateForDB } from '@/lib/date';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { toErrorMessage } from '@/lib/errors';
 
 interface UseUrunExcelExportOptions {
@@ -41,17 +43,22 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
       setIsExporting(true);
 
       try {
-        // Ürün hareketlerini getir
-        const { data: hareketler, error } = await supabase
-          .from('urun_hareketler')
-          .select('*')
-          .eq('isletme_id', isletme.id)
-          .eq('urun_id', urunId)
-          .gte('created_at', `${startDate}T00:00:00`)
-          .lte('created_at', `${endDate}T23:59:59`)
-          .order('created_at', { ascending: true });
+        // Bitiş tarihi için günün sonunu hesapla (yerel timezone ile)
+        const endDateTime = new Date(endDate + 'T00:00:00');
+        endDateTime.setDate(endDateTime.getDate() + 1);
+        const endDateNextDay = formatDateForDB(endDateTime);
 
-        if (error) throw error;
+        // Ürün hareketlerini getir (paginated - 1000 satır limitini aşmak için)
+        const hareketler = await fetchAllPages<any>(() =>
+          supabase
+            .from('urun_hareketler')
+            .select('*')
+            .eq('isletme_id', isletme.id)
+            .eq('urun_id', urunId)
+            .gte('created_at', startDate)
+            .lt('created_at', endDateNextDay)
+            .order('created_at', { ascending: true })
+        );
 
         // islem_id'lerle cari bilgilerini getir
         const islemIds = (hareketler || [])

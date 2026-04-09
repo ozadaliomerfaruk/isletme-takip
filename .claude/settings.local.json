@@ -117,7 +117,8 @@
       "Bash(done)",
       "Bash(while read f)",
       "Bash(do grep -l \"import.*from.*$f\" \"C:\\\\Users\\\\ozada\\\\apps\\\\isletmetakip\\\\defterappv2\\\\src\")",
-      "Bash(git ls-files:*)"
+      "Bash(git ls-files:*)",
+      "Bash(202603 \")"
     ]
   }
 }

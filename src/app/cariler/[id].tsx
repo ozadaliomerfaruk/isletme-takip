@@ -289,7 +289,7 @@ function ProductDetailModal({
                       </Text>
                       {(hareket.kdv_orani ?? 0) > 0 && (
                         <Text variant="caption" color="secondary">
-                          KDV %{hareket.kdv_orani}: {formatCurrency(kdvAmount)}
+                          {t('common:tax.vat')} %{hareket.kdv_orani}: {formatCurrency(kdvAmount)}
                         </Text>
                       )}
                       <Text variant="body" color="primary" style={productDetailStyles.itemTotal}>

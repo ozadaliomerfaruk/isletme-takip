@@ -39,7 +39,7 @@ function MatchBadge({ tier }: { tier: MatchTier }) {
 }
 
 export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct, matchedProduct, matchedKategoriName }: OcrReviewItemProps) {
-  const { t } = useTranslation(['ocrImport', 'products', 'transactions']);
+  const { t } = useTranslation(['ocrImport', 'products', 'transactions', 'common']);
   const [showRawLine, setShowRawLine] = useState(false);
 
   const [quantityText, setQuantityText] = useState(item.quantity ? item.quantity.toString().replace('.', ',') : '');
@@ -185,7 +185,7 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
         ) : null}
         {item.vatRate !== null && (
           <Text variant="caption" color="secondary">
-            KDV: %{item.vatRate}
+            {t('common:tax.vat')}: %{item.vatRate}
           </Text>
         )}
       </View>

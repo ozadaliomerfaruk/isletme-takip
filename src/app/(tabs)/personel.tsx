@@ -483,7 +483,7 @@ export default function PersonelPage() {
                 onPress={() => router.push(`/personel/${personel.id}`)}
                 style={styles.actionButton}
               >
-                {t('clients:actions.viewTransactions')}
+                {t('staff:actions.viewTransactions')}
               </Button>
             </View>
           </ExpandableCard>

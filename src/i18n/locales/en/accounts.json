@@ -107,6 +107,7 @@
     "initialBalance": "Opening Balance",
     "accountOpening": "Account opening",
     "notFoundDescription": "This account does not exist or may have been deleted.",
+    "noTransactions": "No transactions yet",
     "time": "Time:"
   },
   "transactionLabels": {

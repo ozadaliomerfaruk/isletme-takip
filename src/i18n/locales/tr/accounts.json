@@ -107,6 +107,7 @@
     "initialBalance": "Başlangıç Bakiyesi",
     "accountOpening": "Hesap açılışı",
     "notFoundDescription": "Bu hesap mevcut değil veya silinmiş olabilir.",
+    "noTransactions": "Henüz işlem yok",
     "time": "Saat:"
   },
   "transactionLabels": {

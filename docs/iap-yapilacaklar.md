@@ -42,9 +42,9 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
 | **Personel** | **10** | **200** | **500** |
 | Islem limiti | Sinirsiz | Sinirsiz | Sinirsiz |
 | Personel izinleri | Yok | Var | Var |
-| Fotograf yukleme | Yok | Var (1 GB) | Var (2 GB) |
+| Fotograf yukleme | Yok | Var (sinirsiz) | Var (sinirsiz) |
 | Excel export | Yok | Var | Var |
-| Bildirim (hatirlatmalar) | Yok | Var | Var |
+| Bildirim (hatirlatmalar) | **5 adet** | **Sinirsiz** | **Sinirsiz** |
 | Veri import | Yok | Var | Var |
 | Toplu islemler (personel/stok) | Yok | Var | Var |
 | Multi-user | Yok | Yok | 3 kullanici |
@@ -55,7 +55,8 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
 - Tum temel moduller (islem, cari, urun, hesap, personel)
 - Doviz islemleri (tum kurlar)
 - Gunluk ciro girisi
-- Vadeli/ileri tarihli islem olusturma (hatirlatma bildirimi almaz, Pro+ gerekli)
+- Vadeli/ileri tarihli islem olusturma
+- Bildirimler (zamanlanmis islem hatirlatmalari, maks 5 adet aktif hatirlatma)
 - Ana sayfa ozet kartlari (bugunun gelir/gider, bakiyeler)
 
 **Free'de KAPALI:**
@@ -64,7 +65,6 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
 - Personel izin takibi
 - Fotograf yukleme
 - Excel export
-- Bildirimler (zamanlanmis islem hatirlatmalari)
 - Veri import
 - Toplu islemler (personel toplu odeme/gider, stok toplu giris/cikis)
 
@@ -81,10 +81,7 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
 
 ### Fotograf Storage Stratejisi
 - Yukleme sirasinda sikistirma: max 1200x1200px, JPEG 75% quality (~150-300KB/foto)
-- **Kota isletme bazli** (ekip ortak havuz, owner'in plani gecerli)
-- **Pro**: 1 GB storage limiti (~3.000-6.000 foto)
-- **Business**: 2 GB storage limiti (~6.000-13.000 foto)
-- **Kota kontrolu**: `SUM(size_bytes) FROM photo_assets WHERE isletme_id = X AND deleted_at IS NULL` (P2'de counter cache)
+- **Storage limiti YOK** - Pro ve Business kullanicilar istedikleri kadar foto yukleyebilir
 - **Abonelik bitince**: `subscription_expired_at = NOW()`, `scheduled_delete_at = NOW() + 90 gun` set edilir
 - **90 gun sonra**: Cron job `scheduled_delete_at <= NOW()` olanlari storage'dan siler, `deleted_at = NOW()` set eder (row silinmez, debug icin kalir)
 - **Re-subscribe**: `subscription_expired_at = NULL, scheduled_delete_at = NULL` (henuz silinmemisse, deleted_at NULL olanlar kurtarilir)
@@ -115,7 +112,8 @@ RevenueCat ile iOS IAP entegrasyonu. 3 plan (Free/Pro/Business), aylik/yillik ab
 - Toplu islemler (personel + stok): Pro+ (onceden sadece Business idi)
 - Multi-user: Sadece Business (3 davetli, toplam 4 kisi)
 - RBAC: Sadece Business
-- Fotograf yukleme Pro+ (storage limitli, 90 gun sonra silme)
+- Bildirimler: Free'de 5 adet aktif hatirlatma, Pro+ sinirsiz
+- Fotograf yukleme Pro+ (storage limitsiz, abonelik bitince 90 gun sonra silme)
 - Server-side enforcement: tum limitler backend'de de kontrol edilir
 
 ---
@@ -168,7 +166,7 @@ export const FEATURE_REQUIREMENTS: Record<FeatureId, PlanTier> = {
   personnel_leaves: 'pro',
   photo_upload: 'pro',
   excel_export: 'pro',
-  notifications: 'pro',
+  notifications: 'free',       // Free: 5 adet limit, Pro+: sinirsiz
   data_import: 'pro',
   bulk_operations: 'pro',
   multi_user: 'business',       // Sadece Business: 3 davetli
@@ -187,11 +185,11 @@ export const INVITE_LIMITS: Record<PlanTier, number> = { free: 0, pro: 0, busine
 
 export const PLAN_HIERARCHY: Record<PlanTier, number> = { free: 0, pro: 1, business: 2 };
 
-// Foto storage limiti (byte)
-export const STORAGE_LIMIT: Record<PlanTier, number> = {
-  free: 0,
-  pro: 1 * 1024 * 1024 * 1024,     // 1 GB
-  business: 2 * 1024 * 1024 * 1024, // 2 GB
+// Bildirim limiti (Free: 5, Pro+: sinirsiz)
+export const NOTIFICATION_LIMITS: Record<PlanTier, number> = {
+  free: 5,
+  pro: Infinity,
+  business: Infinity,
 };
 
 export const INACTIVE_PHOTO_CLEANUP_DAYS = 90;

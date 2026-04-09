@@ -57,6 +57,7 @@ interface UseCategoryReportOptions {
   startDate: string;
   endDate: string;
   source?: string; // 'cash-flow' ise nakit akışı tiplerini kullan
+  percentageReferenceTotal?: number; // Yüzde hesabında payda olarak kullanılacak toplam (örn: giderlerin gelire oranı)
 }
 
 /**
@@ -77,11 +78,11 @@ export function useCategoryReport(
   options: UseCategoryReportOptions
 ): CategoryReportResult {
   const { isletme } = useAuthContext();
-  const { startDate, endDate } = options;
+  const { startDate, endDate, source } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
-  // İşlem tiplerini belirle
-  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+  // İşlem tiplerini belirle (source'a göre)
+  const islemTypes = getIslemTypes(type, source);
 
   // İade tiplerini belirle (dashboard tutarlılığı için)
   const returnTypes = type === 'gider' ? EXPENSE_RETURN_TYPES : INCOME_RETURN_TYPES;
@@ -118,7 +119,7 @@ export function useCategoryReport(
     error: islemlerError,
     refetch: refetchIslemler,
   } = useQuery({
-    queryKey: ['category-report', isletme?.id, type, startDateTime, endDateTime],
+    queryKey: ['category-report', isletme?.id, type, source, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -272,13 +273,18 @@ export function useCategoryReport(
       }
     });
 
+    // Yüzde hesabı için payda: dışarıdan verilmişse onu kullan (örn: giderlerin gelire oranı)
+    const percentageDenominator = (options.percentageReferenceTotal && options.percentageReferenceTotal > 0)
+      ? options.percentageReferenceTotal
+      : totalAmount;
+
     // Map'i array'e çevir ve sırala (büyükten küçüğe)
     const items: CategoryReportItem[] = Array.from(parentCategoryMap.values())
       .map((value) => ({
         kategori: value.kategori,
         total: value.total,
         count: value.count,
-        percentage: totalAmount > 0 ? (value.total / totalAmount) * 100 : 0,
+        percentage: percentageDenominator > 0 ? (value.total / percentageDenominator) * 100 : 0,
       }))
       .sort((a, b) => b.total - a.total);
 
@@ -288,7 +294,7 @@ export function useCategoryReport(
         kategori: null,
         total: uncategorizedAmount,
         count: uncategorizedCount,
-        percentage: totalAmount > 0 ? (uncategorizedAmount / totalAmount) * 100 : 0,
+        percentage: percentageDenominator > 0 ? (uncategorizedAmount / percentageDenominator) * 100 : 0,
       });
     }
 
@@ -301,7 +307,7 @@ export function useCategoryReport(
       uncategorizedAmount,
       uncategorizedCount,
     };
-  }, [islemler, allKategoriler, returnTotal]);
+  }, [islemler, allKategoriler, returnTotal, options.percentageReferenceTotal]);
 
   // Combine errors - prefer islemler error as it's more critical
   const combinedError = islemlerError || kategorilerError;
@@ -321,11 +327,11 @@ export function useHierarchicalCategoryReport(
   options: UseCategoryReportOptions
 ): HierarchicalCategoryReportResult {
   const { isletme } = useAuthContext();
-  const { startDate, endDate } = options;
+  const { startDate, endDate, source } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
-  // İşlem tiplerini belirle
-  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+  // İşlem tiplerini belirle (source'a göre)
+  const islemTypes = getIslemTypes(type, source);
 
   // İade tiplerini belirle (dashboard tutarlılığı için)
   const returnTypes = type === 'gider' ? EXPENSE_RETURN_TYPES : INCOME_RETURN_TYPES;
@@ -336,7 +342,7 @@ export function useHierarchicalCategoryReport(
     isLoading: islemlerLoading,
     error: islemlerError,
   } = useQuery({
-    queryKey: ['hierarchical-category-report', isletme?.id, type, startDateTime, endDateTime],
+    queryKey: ['hierarchical-category-report', isletme?.id, type, source, startDateTime, endDateTime],
     queryFn: async () => {
       if (!isletme) return [];
 

@@ -45,6 +45,7 @@
     "title": "Select Unit",
     "search": "Search units..."
   },
+  "notFoundDescription": "This product does not exist or may have been deleted.",
   "stock": {
     "currentStock": "Current Quantity",
     "stockIn": "Product Purchase",

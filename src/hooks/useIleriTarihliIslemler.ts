@@ -141,6 +141,7 @@ export function useIleriTarihliIslemlerByCari(cariId: string) {
           cari:cariler(id,name),
           personel:personel(id,first_name,last_name)
         `)
+        .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
         .eq('cari_id', cariId)
         .order('scheduled_date', { ascending: true });
@@ -398,6 +399,7 @@ export function useCompleteIleriTarihliIslem() {
         personel_id: ileriIslem.personel_id,
         source_currency: sourceCurrency,
         target_currency: targetCurrency,
+        exchange_rate: ileriIslem.exchange_rate,
       };
 
       const { data: newIslem, error: insertError } = await supabase

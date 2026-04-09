@@ -67,7 +67,7 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
 
       if (error) throw error;
 
@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     try {
       const { error } = await supabase.auth.verifyOtp({
-        email,
+        email: email.trim().toLowerCase(),
         token: otp,
         type: 'recovery',
       });
@@ -109,7 +109,7 @@ export default function ForgotPasswordPage() {
   const handleResendOtp = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
 
       if (error) throw error;
 

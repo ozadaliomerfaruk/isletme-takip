@@ -188,11 +188,18 @@ function getHesapDebitCredit(
     case 'gelir':
     case 'cari_tahsilat':
     case 'personel_tahsilat':
+    case 'cari_satis':
+    case 'cari_alis_iade':
+    case 'personel_satis':
       return { debit: null, credit: amount };
 
     case 'gider':
     case 'cari_odeme':
     case 'personel_odeme':
+    case 'nakit_avans_taksit':
+    case 'cari_alis':
+    case 'cari_satis_iade':
+    case 'personel_gider':
       return { debit: amount, credit: null };
 
     case 'transfer':

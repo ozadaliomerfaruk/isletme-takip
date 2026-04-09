@@ -116,6 +116,9 @@
     "selectPersonel": "Please select a staff member",
     "selectPaymentAccount": "Please select a payment account"
   },
+  "product": {
+    "notFound": "Product not found"
+  },
   "category": {
     "createFailed": "Could not create category",
     "updateFailed": "Could not update category",

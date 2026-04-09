@@ -46,6 +46,7 @@ export default function GelirGiderRaporPage() {
   const giderRaporu = useCategoryReport('gider', {
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
+    percentageReferenceTotal: gelirRaporu.totalAmount,
   });
 
   const activeReport = selectedType === 'gelir' ? gelirRaporu : giderRaporu;

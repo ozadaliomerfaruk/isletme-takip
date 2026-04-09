@@ -27,6 +27,7 @@ import {
   StickyNote,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import Constants from 'expo-constants';
 import { Text, Card, Avatar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
@@ -378,7 +379,7 @@ export default function DahaPage() {
         {/* Versiyon */}
         <View style={styles.versionContainer}>
           <Text variant="caption" color="muted">
-            {t('common:appName')} v1.2.0
+            {t('common:appName')} v{Constants.expoConfig?.version || '1.0.0'}
           </Text>
         </View>
       </ScrollView>

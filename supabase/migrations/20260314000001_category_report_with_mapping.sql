@@ -25,7 +25,7 @@ DECLARE
   v_is_expense BOOLEAN;
 BEGIN
   -- p_types içinde gider tipi olup olmadığını belirle
-  v_is_expense := (p_types && ARRAY['gider', 'cari_alis', 'personel_gider']::TEXT[]);
+  v_is_expense := (p_types && ARRAY['gider', 'cari_alis', 'personel_gider', 'cari_alis_iade']::TEXT[]);
 
   RETURN QUERY
 

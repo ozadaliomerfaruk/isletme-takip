@@ -5,6 +5,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, IslemType, HesapType } from '@/types/database';
 import { CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { queryKeys } from '@/lib/queryKeys';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
 
 /**
  * Supabase query sonucu için tip tanımı
@@ -129,25 +130,25 @@ export function useCashFlowByCategory(
       // Transfer işlemlerini de dahil et (kredi kartına ödeme için)
       const allTypes = [...CASH_INFLOW_TYPES, ...CASH_OUTFLOW_TYPES, 'transfer'];
 
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          id,
-          type,
-          amount,
-          kategori_id,
-          hesap_id,
-          hedef_hesap_id,
-          kategori:kategoriler(id,name),
-          hesap:hesaplar!hesap_id(id, type, is_active),
-          hedef_hesap:hesaplar!hedef_hesap_id(id, type, is_active)
-        `)
-        .eq('isletme_id', isletme.id)
-        .in('type', allTypes)
-        .gte('date', startDateTime)
-        .lte('date', endDateTime);
-
-      if (error) throw error;
+      const data = await fetchAllPages<any>(() =>
+        supabase
+          .from('islemler')
+          .select(`
+            id,
+            type,
+            amount,
+            kategori_id,
+            hesap_id,
+            hedef_hesap_id,
+            kategori:kategoriler(id,name),
+            hesap:hesaplar!hesap_id(id, type, is_active),
+            hedef_hesap:hesaplar!hedef_hesap_id(id, type, is_active)
+          `)
+          .eq('isletme_id', isletme.id)
+          .in('type', allTypes)
+          .gte('date', startDateTime)
+          .lte('date', endDateTime)
+      );
 
       // Supabase bazen array döndürüyor, normalize et
       // Pasif hesaplardaki işlemleri filtrele

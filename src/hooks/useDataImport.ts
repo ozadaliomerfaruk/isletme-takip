@@ -139,7 +139,7 @@ export function useDataImport() {
           }
           if (!tx.entityValid) {
             skipped++;
-            skippedTransactions.push({ transaction: tx, reason: tx.entityError || 'Hesap, cari veya personel bilgisi eksik', rowNumber });
+            skippedTransactions.push({ transaction: tx, reason: tx.entityError || i18n.t('settings:dataImport.skipReasons.missingEntity'), rowNumber });
             continue;
           }
 
@@ -149,7 +149,7 @@ export function useDataImport() {
             skipped++;
             skippedTransactions.push({
               transaction: tx,
-              reason: `Duplicate: ${new Date(dupInfo.existingDate).toLocaleDateString('tr-TR')} tarihinde ${dupInfo.existingAmount.toLocaleString('tr-TR')} tutarında aynı işlem mevcut`,
+              reason: i18n.t('settings:dataImport.skipReasons.duplicate', { date: new Date(dupInfo.existingDate).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US'), amount: dupInfo.existingAmount.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US') }),
               rowNumber,
             });
             continue;
@@ -165,7 +165,7 @@ export function useDataImport() {
           const isPersonelGider = tx.mappedType === 'personel_gider';
           if (!hesapId && !isCariIslemi && !isPersonelGider) {
             skipped++;
-            skippedTransactions.push({ transaction: tx, reason: `Hesap bulunamadı: "${tx.account}"`, rowNumber });
+            skippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.accountNotFound', { name: tx.account }), rowNumber });
             continue;
           }
 
@@ -173,13 +173,13 @@ export function useDataImport() {
           if (tx.mappedType === 'transfer') {
             if (!tx.karsiHesap) {
               skipped++;
-              skippedTransactions.push({ transaction: tx, reason: 'Transfer işlemi için KARŞI HESAP kolonu boş', rowNumber });
+              skippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.transferMissingTarget'), rowNumber });
               continue;
             }
             const hedefHesapId = idMaps.accounts.get(tx.karsiHesap.toLowerCase()) || null;
             if (!hedefHesapId) {
               skipped++;
-              skippedTransactions.push({ transaction: tx, reason: `Transfer için karşı hesap bulunamadı: "${tx.karsiHesap}"`, rowNumber });
+              skippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.transferTargetNotFound', { name: tx.karsiHesap }), rowNumber });
               continue;
             }
           }
@@ -190,14 +190,14 @@ export function useDataImport() {
             const hasCari = tx.tedarikci || tx.musteri;
             if (!hasCari) {
               skipped++;
-              skippedTransactions.push({ transaction: tx, reason: `Cari işlemi (${tx.mappedType}) için TEDARİKÇİ veya MÜŞTERİ kolonu boş`, rowNumber });
+              skippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.clientTransactionMissingClient', { type: tx.mappedType }), rowNumber });
               continue;
             }
             const cariName = tx.tedarikci || tx.musteri;
             const cariId = idMaps.clients.get(cariName!.toLowerCase()) || null;
             if (!cariId) {
               skipped++;
-              skippedTransactions.push({ transaction: tx, reason: `Cari bulunamadı: "${cariName}"`, rowNumber });
+              skippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.clientNotFound', { name: cariName }), rowNumber });
               continue;
             }
           }
@@ -206,13 +206,13 @@ export function useDataImport() {
           if (['personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis'].includes(tx.mappedType)) {
             if (!tx.personel) {
               skipped++;
-              skippedTransactions.push({ transaction: tx, reason: 'Personel işlemi için PERSONEL kolonu boş', rowNumber });
+              skippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.staffTransactionMissingStaff'), rowNumber });
               continue;
             }
             const personelId = idMaps.personel.get(tx.personel.toLowerCase()) || null;
             if (!personelId) {
               skipped++;
-              skippedTransactions.push({ transaction: tx, reason: `Personel bulunamadı: "${tx.personel}"`, rowNumber });
+              skippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.staffNotFound', { name: tx.personel }), rowNumber });
               continue;
             }
           }
@@ -537,7 +537,7 @@ export function useDataImport() {
             const { data: hesapData } = await supabase.from('hesaplar').select('id, balance, initial_balance').eq('id', existingId).single();
             if (hesapData) {
               if (hesapData.initial_balance && hesapData.initial_balance !== 0) {
-                balanceSkippedTransactions.push({ transaction: tx, reason: `Bu hesap için daha önce başlangıç bakiyesi işlenmiş (mevcut: ${hesapData.initial_balance})`, rowNumber });
+                balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.accountBalanceAlreadySet', { balance: hesapData.initial_balance }), rowNumber });
               } else {
                 await supabase.from('hesaplar').update({ balance: (hesapData.balance || 0) + balanceValue, initial_balance: balanceValue }).eq('id', existingId).eq('isletme_id', isletme!.id);
                 startingBalancesUpdatedCount++;
@@ -570,7 +570,7 @@ export function useDataImport() {
               });
               const cariInitialBalance = (cariData.balance || 0) - cariTxEffect;
               if (cariInitialBalance !== 0) {
-                balanceSkippedTransactions.push({ transaction: tx, reason: `Bu cari için daha önce başlangıç bakiyesi işlenmiş (mevcut başlangıç bakiyesi: ${cariInitialBalance})`, rowNumber });
+                balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.clientBalanceAlreadySet', { balance: cariInitialBalance }), rowNumber });
               } else {
                 await supabase.from('cariler').update({ balance: balanceValue + cariTxEffect }).eq('id', existingId).eq('isletme_id', isletme!.id);
                 startingBalancesUpdatedCount++;
@@ -600,7 +600,7 @@ export function useDataImport() {
               });
               const personelInitialBalance = (personelData.balance || 0) - personelTxEffect;
               if (personelInitialBalance !== 0) {
-                balanceSkippedTransactions.push({ transaction: tx, reason: `Bu personel için daha önce başlangıç bakiyesi işlenmiş (mevcut başlangıç bakiyesi: ${personelInitialBalance})`, rowNumber });
+                balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.staffBalanceAlreadySet', { balance: personelInitialBalance }), rowNumber });
               } else {
                 await supabase.from('personel').update({ balance: balanceValue + personelTxEffect }).eq('id', existingId).eq('isletme_id', isletme!.id);
                 startingBalancesUpdatedCount++;

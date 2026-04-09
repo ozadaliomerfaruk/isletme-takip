@@ -25,7 +25,7 @@ import {
   User,
   FileSpreadsheet,
 } from 'lucide-react-native';
-import { Text, Card, Button, ExpandableCard } from '@/components/ui';
+import { Text, Card, Button, ExpandableCard, EmptyState } from '@/components/ui';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { UrunExportSheet } from '@/components/export/UrunExportSheet';
 import { useToast } from '@/contexts/ToastContext';
@@ -41,7 +41,7 @@ import { toErrorMessage } from '@/lib/errors';
 export default function UrunDetayPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { t } = useTranslation(['products', 'common', 'errors', 'navigation']);
+  const { t, i18n } = useTranslation(['products', 'common', 'errors', 'navigation']);
 
   const { data: urun, isLoading: urunLoading } = useUrun(id);
   const { data: hareketler, isLoading: hareketlerLoading } = useUrunHareketler(id);
@@ -183,12 +183,24 @@ export default function UrunDetayPage() {
     );
   };
 
-  if (urunLoading || !urun) {
+  if (urunLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <Text color="secondary">{t('common:status.loading')}</Text>
         </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!urun) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <EmptyState
+          icon={<Package size={48} color={colors.textMuted} />}
+          title={t('errors:product.notFound')}
+          description={t('products:notFoundDescription')}
+        />
       </SafeAreaView>
     );
   }
@@ -320,7 +332,7 @@ export default function UrunDetayPage() {
               <Text color="secondary">{t('common:status.loading')}</Text>
             ) : hareketler && hareketler.length > 0 ? (
               <>
-                {hareketler.slice(0, 20).map((hareket) => (
+                {hareketler.map((hareket) => (
                   <ExpandableCard
                     key={hareket.id}
                     expanded={expandedHareketId === hareket.id}
@@ -351,7 +363,7 @@ export default function UrunDetayPage() {
                         <View style={styles.hareketInfo}>
                           <View style={styles.hareketTitleRow}>
                             <Text variant="body">
-                              {new Date(hareket.created_at).toLocaleDateString('tr-TR', {
+                              {new Date(hareket.created_at).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
                                 day: 'numeric',
                                 month: 'short',
                               })}
@@ -403,7 +415,7 @@ export default function UrunDetayPage() {
                             const total = subtotal + kdv;
                             return (
                               <Text variant="body" color="secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                                {formatCurrency(total)}{kdv > 0 ? ` (${formatCurrency(kdv)} KDV)` : ''}
+                                {formatCurrency(total)}{kdv > 0 ? ` (${formatCurrency(kdv)} ${t('common:tax.vat')})` : ''}
                               </Text>
                             );
                           })()}

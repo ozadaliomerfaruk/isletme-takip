@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber, safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
+import { toNumber } from '@/lib/currency';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import i18n from '@/i18n';
@@ -61,12 +61,13 @@ export function useHesap(id: string | undefined) {
         .from('hesaplar')
         .select('*')
         .eq('id', id)
+        .eq('isletme_id', isletme!.id)
         .single();
 
       if (error) throw error;
       return data as Hesap;
     },
-    enabled: !!id,
+    enabled: !!id && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -142,131 +143,29 @@ export function useDeleteHesap() {
         throw new Error(i18n.t('common:errors.accountNotFound'));
       }
 
-      // 0. Bu hesapla ilişkili ileri tarihli işlemleri sil
-      const { error: ileriIslemError } = await supabase
+      // İşlem varsa silmeyi engelle - bakiye bozulmasını önle
+      const { count: islemCount } = await supabase
+        .from('islemler')
+        .select('id', { count: 'exact', head: true })
+        .eq('isletme_id', isletme.id)
+        .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
+
+      if (islemCount && islemCount > 0) {
+        throw new Error(i18n.t('errors:accounts.hasTransactions'));
+      }
+
+      // İleri tarihli işlem varsa silmeyi engelle
+      const { count: ileriCount } = await supabase
         .from('ileri_tarihli_islemler')
-        .delete()
+        .select('id', { count: 'exact', head: true })
         .eq('isletme_id', isletme.id)
         .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
 
-      if (ileriIslemError) {
-        throw new Error(i18n.t('common:errors.futureTransactionsDeletionFailed', { message: ileriIslemError.message }));
+      if (ileriCount && ileriCount > 0) {
+        throw new Error(i18n.t('errors:accounts.hasTransactions'));
       }
 
-      // 1. Bu hesapla ilişkili tüm işlemleri bul
-      const { data: relatedIslemler } = await supabase
-        .from('islemler')
-        .select('id, type, amount, hesap_id, hedef_hesap_id, exchange_rate, source_currency, target_currency')
-        .eq('isletme_id', isletme.id)
-        .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
-
-      // 2. Etkilenecek diğer hesap ID'lerini bul
-      const affectedHesapIds = new Set<string>();
-      relatedIslemler?.forEach(islem => {
-        if (islem.hesap_id && islem.hesap_id !== id) {
-          affectedHesapIds.add(islem.hesap_id);
-        }
-        if (islem.hedef_hesap_id && islem.hedef_hesap_id !== id) {
-          affectedHesapIds.add(islem.hedef_hesap_id);
-        }
-      });
-
-      // 3. Etkilenen hesapların initial_balance'ını kaydet (NULL ise hesapla)
-      // Bu sayede işlemler silindikten sonra bile doğru initial_balance korunur
-      for (const hesapId of affectedHesapIds) {
-        const { data: affectedHesap } = await supabase
-          .from('hesaplar')
-          .select('id, balance, initial_balance')
-          .eq('id', hesapId)
-          .single();
-
-        if (affectedHesap && (affectedHesap.initial_balance === null || affectedHesap.initial_balance === undefined)) {
-          // Bu hesabın işlemlerini al ve initial_balance hesapla
-          const { data: hesapIslemleri } = await supabase
-            .from('islemler')
-            .select('type, amount, hesap_id, hedef_hesap_id, exchange_rate, source_currency, target_currency')
-            .eq('isletme_id', isletme.id)
-            .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`);
-
-          let totalEffect = 0;
-          let skippedCount = 0; // Atlanan işlem sayısı
-          hesapIslemleri?.forEach(islem => {
-            // Güvenli tutar parse etme - geçersiz değerler atlanır
-            let amount: number;
-            try {
-              amount = safeParseAmount(islem.amount, 'işlem tutarı');
-            } catch {
-              // Geçersiz tutarlı işlemleri atla (veri bütünlüğü sorunu var demek)
-              skippedCount++;
-              if (__DEV__) {
-                console.warn('Geçersiz işlem tutarı atlandı:', islem);
-              }
-              return;
-            }
-
-            // Exchange rate güvenli parse etme
-            const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
-
-            if (islem.type === 'transfer') {
-              if (islem.hedef_hesap_id === hesapId) {
-                // Cross-currency hesaplama
-                const sourceCurrency = islem.source_currency || 'TRY';
-                const targetCurrency = islem.target_currency || 'TRY';
-
-                const targetAmount = calculateTargetAmount(
-                  amount,
-                  exchangeRate,
-                  sourceCurrency,
-                  targetCurrency
-                );
-                totalEffect += targetAmount;
-              } else {
-                totalEffect -= amount;
-              }
-            } else if (islem.type === 'gelir' || islem.type === 'cari_tahsilat' || islem.type === 'personel_tahsilat') {
-              totalEffect += amount;
-            } else if (islem.type === 'gider' || islem.type === 'cari_odeme' || islem.type === 'personel_odeme') {
-              totalEffect -= amount;
-            }
-          });
-
-          const calculatedInitialBalance = toNumber(affectedHesap.balance) - totalEffect;
-
-          // Eğer işlem atlandıysa, initial_balance doğru olmayabilir - sadece log
-          if (skippedCount > 0 && __DEV__) {
-            console.warn(
-              `[useHesaplar] ${skippedCount} işlem atlandı, initial_balance yanlış olabilir:`,
-              { hesapId, calculatedInitialBalance, skippedCount }
-            );
-          }
-
-          // initial_balance'ı kaydet (atlanmış işlemler varsa bile - en iyi tahmin)
-          await supabase
-            .from('hesaplar')
-            .update({ initial_balance: calculatedInitialBalance })
-            .eq('id', hesapId)
-            .eq('isletme_id', isletme.id);
-        }
-      }
-
-      // 4. İşlemleri sil (bakiyeler otomatik geri alınacak - bu normal davranış)
-      const { error: islemError1 } = await supabase
-        .from('islemler')
-        .delete()
-        .eq('hesap_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (islemError1) throw islemError1;
-
-      const { error: islemError2 } = await supabase
-        .from('islemler')
-        .delete()
-        .eq('hedef_hesap_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (islemError2) throw islemError2;
-
-      // 5. Hesabı sil
+      // İşlem yoksa güvenle sil
       const { error } = await supabase
         .from('hesaplar')
         .delete()

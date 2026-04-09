@@ -7,6 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import i18n from '@/i18n';
 import type { Currency } from '@/types/database';
 
 interface ExchangeRatesData {
@@ -160,7 +161,7 @@ export function convertCurrency(
 export function formatRateUpdateTime(updatedAt: string): string {
   try {
     const date = new Date(updatedAt);
-    return date.toLocaleString('tr-TR', {
+    return date.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',

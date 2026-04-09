@@ -419,29 +419,29 @@ export function getBalanceInfo(
   const isZero = balance === 0;
 
   if (isZero) {
-    return { label: 'Dengede', isPositive: true, colorType: 'secondary' };
+    return { label: 'balanced', isPositive: true, colorType: 'secondary' };
   }
 
   switch (type) {
     case 'musteri':
       return isPositive
-        ? { label: 'Alacak', isPositive: true, colorType: 'success' }
-        : { label: 'Borç', isPositive: false, colorType: 'error' };
+        ? { label: 'receivable', isPositive: true, colorType: 'success' }
+        : { label: 'debt', isPositive: false, colorType: 'error' };
 
     case 'tedarikci':
       return isPositive
-        ? { label: 'Fazla Ödeme', isPositive: true, colorType: 'success' }
-        : { label: 'Borç', isPositive: false, colorType: 'error' };
+        ? { label: 'overpayment', isPositive: true, colorType: 'success' }
+        : { label: 'debt', isPositive: false, colorType: 'error' };
 
     case 'personel':
       return isPositive
-        ? { label: 'Avans', isPositive: true, colorType: 'success' }
-        : { label: 'Borç', isPositive: false, colorType: 'error' };
+        ? { label: 'advance', isPositive: true, colorType: 'success' }
+        : { label: 'debt', isPositive: false, colorType: 'error' };
 
     default:
       return isPositive
-        ? { label: 'Alacak', isPositive: true, colorType: 'success' }
-        : { label: 'Borç', isPositive: false, colorType: 'error' };
+        ? { label: 'receivable', isPositive: true, colorType: 'success' }
+        : { label: 'debt', isPositive: false, colorType: 'error' };
   }
 }
 

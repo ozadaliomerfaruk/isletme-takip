@@ -289,8 +289,8 @@ export default function HesapHareketleriPage() {
   const { t } = useTranslation(['accounts', 'common', 'errors', 'checks']);
   const { formatDateMedium, formatDateShort } = useDateFormat();
 
-  const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
-  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemlerByHesap(id!);
+  const { data: hesap, isLoading: hesapLoading, refetch: refetchHesap } = useHesap(id!);
+  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByHesap(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByHesap(id!);
   const { data: entityNotes } = useNotlarByEntity('hesap', id!);
@@ -360,6 +360,17 @@ export default function HesapHareketleriPage() {
       Alert.alert(t('common:status.error'), message);
     },
   });
+
+  // Pull-to-refresh
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchHesap(), refetchIslemler()]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchHesap, refetchIslemler]);
 
   // Debounced transaction opener to prevent race conditions
   const openTransaction = useCallback((type: TransactionType) => {
@@ -868,8 +879,14 @@ export default function HesapHareketleriPage() {
   // === FlatList ListEmptyComponent ===
   const ListEmpty = useMemo(() => {
     if (islemlerLoading) return null;
-    return null; // Boş liste için özel bir şey göstermiyoruz, başlangıç bakiyesi footer'da
-  }, [islemlerLoading]);
+    return (
+      <View style={styles.section}>
+        <EmptyState
+          title={t('accounts:details.noTransactions')}
+        />
+      </View>
+    );
+  }, [islemlerLoading, t]);
 
   if (hesapLoading) {
     return (
@@ -916,6 +933,8 @@ export default function HesapHareketleriPage() {
             windowSize={7}
             removeClippedSubviews={false}
             contentContainerStyle={styles.flatListContent}
+            refreshing={isRefreshing}
+            onRefresh={handleRefresh}
           />
         </SwipeableProvider>
       </SafeAreaView>

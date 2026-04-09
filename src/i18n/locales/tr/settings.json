@@ -465,6 +465,20 @@
       "emptyRows": "{{count}} boş satır atlandı",
       "noDateOrType": "{{count}} satır tarih/tip eksik",
       "noEntity": "{{count}} satır hesap/cari/personel eksik"
+    },
+    "skipReasons": {
+      "missingEntity": "Hesap, cari veya personel bilgisi eksik",
+      "duplicate": "Duplicate: {{date}} tarihinde {{amount}} tutarında aynı işlem mevcut",
+      "accountNotFound": "Hesap bulunamadı: \"{{name}}\"",
+      "transferMissingTarget": "Transfer işlemi için KARŞI HESAP kolonu boş",
+      "transferTargetNotFound": "Transfer için karşı hesap bulunamadı: \"{{name}}\"",
+      "clientTransactionMissingClient": "Cari işlemi ({{type}}) için TEDARİKÇİ veya MÜŞTERİ kolonu boş",
+      "clientNotFound": "Cari bulunamadı: \"{{name}}\"",
+      "staffTransactionMissingStaff": "Personel işlemi için PERSONEL kolonu boş",
+      "staffNotFound": "Personel bulunamadı: \"{{name}}\"",
+      "accountBalanceAlreadySet": "Bu hesap için daha önce başlangıç bakiyesi işlenmiş (mevcut: {{balance}})",
+      "clientBalanceAlreadySet": "Bu cari için daha önce başlangıç bakiyesi işlenmiş (mevcut başlangıç bakiyesi: {{balance}})",
+      "staffBalanceAlreadySet": "Bu personel için daha önce başlangıç bakiyesi işlenmiş (mevcut başlangıç bakiyesi: {{balance}})"
     }
   },
   "account": {

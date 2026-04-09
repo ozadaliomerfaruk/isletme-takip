@@ -423,6 +423,13 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
         await safeIncrementBalance('personel', islem.personel_id, amount);
       }
       break;
+
+    case 'nakit_avans_taksit':
+      // Nakit avans taksit ödemesi - hesap bakiyesini azalt
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
+      }
+      break;
   }
 }
 
@@ -446,6 +453,7 @@ export function useIslemlerByCari(cariId: string) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
+        .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
@@ -922,6 +930,13 @@ async function reverseBalances(islem: Islem) {
       // Personele satış geri al - personel bakiyesi azalır (alacağımız azalır)
       if (islem.personel_id) {
         await safeIncrementBalance('personel', islem.personel_id, -amount);
+      }
+      break;
+
+    case 'nakit_avans_taksit':
+      // Nakit avans taksit geri al - hesap bakiyesini artır
+      if (islem.hesap_id) {
+        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
       }
       break;
   }

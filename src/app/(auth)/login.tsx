@@ -71,6 +71,8 @@ export default function LoginPage() {
     } else if (response.type === 'error') {
       setSocialLoading(null);
       Alert.alert(t('common:status.error'), t('errors:auth.invalidCredentials'));
+    } else if (response.type === 'dismiss') {
+      setSocialLoading(null);
     }
   }, [response, signInWithGoogle, t]);
 
@@ -177,7 +179,7 @@ export default function LoginPage() {
                   <View style={styles.googleIconContainer}>
                     <Text style={styles.googleIcon}>G</Text>
                   </View>
-                  <Text style={styles.googleButtonText}>Google {t('auth:login.orContinueWith')}</Text>
+                  <Text style={styles.googleButtonText}>{t('auth:login.continueWithGoogle')}</Text>
                 </>
               )}
             </TouchableOpacity>

@@ -356,7 +356,7 @@ export function UrunPickerModal({
                         {formatCurrency(addingLineTotal.total, currency)}
                         {addingLineTotal.kdvAmount > 0 && (
                           <Text style={styles.addingTotalKdv}>
-                            {' '}({formatCurrency(addingLineTotal.kdvAmount, currency)} KDV)
+                            {' '}({formatCurrency(addingLineTotal.kdvAmount, currency)} {t('common:tax.vat')})
                           </Text>
                         )}
                       </Text>
@@ -390,7 +390,7 @@ export function UrunPickerModal({
                             <Text style={styles.addedItemName}>{item.urunAd}</Text>
                             <Text style={styles.addedItemDetail}>
                               {item.miktar} {getBirimLabel(item.birim)} × {formatCurrency(item.birimFiyat, currency)}
-                              {item.kdvOrani > 0 && ` (+%${item.kdvOrani} KDV)`}
+                              {item.kdvOrani > 0 && ` (+%${item.kdvOrani} ${t('common:tax.vat')})`}
                             </Text>
                           </View>
                           <Text style={styles.addedItemTotal}>

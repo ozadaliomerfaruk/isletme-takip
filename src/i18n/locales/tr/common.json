@@ -212,6 +212,16 @@
       "yearsAgo_plural": "{{count}} yıl önce"
     }
   },
+  "balanceLabels": {
+    "balanced": "Dengede",
+    "receivable": "Alacak",
+    "debt": "Borç",
+    "overpayment": "Fazla Ödeme",
+    "advance": "Avans"
+  },
+  "tax": {
+    "vat": "KDV"
+  },
   "currency": {
     "amount": "Tutar",
     "balance": "Bakiye",
