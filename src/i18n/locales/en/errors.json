@@ -84,6 +84,7 @@
     "deleteFailed": "Could not delete account",
     "notFound": "Account not found",
     "hasTransactions": "This account has transactions. Delete them first.",
+    "hasFutureTransactions": "This account has scheduled transactions. Delete them first.",
     "nameRequired": "Account name is required",
     "duplicateName": "An account with this name already exists",
     "selectAccount": "Please select an account",

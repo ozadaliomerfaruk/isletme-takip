@@ -162,7 +162,7 @@ export function useDeleteHesap() {
         .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
 
       if (ileriCount && ileriCount > 0) {
-        throw new Error(i18n.t('errors:accounts.hasTransactions'));
+        throw new Error(i18n.t('errors:accounts.hasFutureTransactions'));
       }
 
       // İşlem yoksa güvenle sil

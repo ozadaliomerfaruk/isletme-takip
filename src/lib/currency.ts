@@ -399,13 +399,13 @@ export function isValidBalance(value: string): boolean {
 // ============================================================================
 
 /**
- * Bakiye tipine göre label döndür
+ * Bakiye tipine göre i18n label key döndür
  *
  * @example
- * getBalanceLabel(100, 'musteri')   // { label: "Alacak", isPositive: true }
- * getBalanceLabel(-100, 'musteri')  // { label: "Borç", isPositive: false }
- * getBalanceLabel(100, 'tedarikci') // { label: "Fazla Ödeme", isPositive: true }
- * getBalanceLabel(-100, 'tedarikci') // { label: "Borç", isPositive: false }
+ * getBalanceInfo(100, 'musteri')    // { label: "receivable", isPositive: true, colorType: "success" }
+ * getBalanceInfo(-100, 'musteri')   // { label: "debt", isPositive: false, colorType: "error" }
+ * getBalanceInfo(100, 'tedarikci')  // { label: "overpayment", isPositive: true, colorType: "success" }
+ * getBalanceInfo(0, 'musteri')      // { label: "balanced", isPositive: true, colorType: "secondary" }
  */
 export function getBalanceInfo(
   balance: number,
