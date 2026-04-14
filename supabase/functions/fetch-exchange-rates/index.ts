@@ -3,6 +3,7 @@
 // Günde 1 kez cron job ile çalıştırılır
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +23,7 @@ interface MetalpriceAPIResponse {
   rates: Record<string, number>; // TRY→X format: {USD: 0.023, EUR: 0.020, XAU: 0.0003, ...}
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withFnTelemetry({ name: "fetch-exchange-rates" }, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -40,7 +41,7 @@ Deno.serve(async (req) => {
 
     const apiUrl = `https://api.metalpriceapi.com/v1/latest?api_key=${apiKey}&base=TRY&currencies=${CURRENCIES.join(",")}`;
 
-    const response = await fetch(apiUrl);
+    const response = await measuredFetch(apiUrl, undefined, "fetch-exchange-rates");
 
     if (!response.ok) {
       throw new Error(`API request failed: ${response.status} ${response.statusText}`);
@@ -153,4 +154,4 @@ Deno.serve(async (req) => {
       }
     );
   }
-});
+}));

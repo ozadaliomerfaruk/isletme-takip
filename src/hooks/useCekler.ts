@@ -51,6 +51,7 @@ export function useBekleyenCekler() {
     enabled: !!isletme,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
+    meta: { query_purpose: 'cekler:pending-list' },
   });
 
   return {
@@ -102,6 +103,7 @@ export function useCekler(filters?: {
     enabled: !!isletme,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
+    meta: { query_purpose: 'cekler:list' },
   });
 
   return {

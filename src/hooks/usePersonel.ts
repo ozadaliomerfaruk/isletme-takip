@@ -39,6 +39,7 @@ export function usePersonelList(includePassive: boolean = false, includeArchived
     enabled: !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    meta: { query_purpose: 'personel:list' },
   });
 
   // isletme henüz yükleniyorsa loading olarak göster

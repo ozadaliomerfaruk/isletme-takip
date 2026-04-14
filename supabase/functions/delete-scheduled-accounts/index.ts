@@ -2,13 +2,14 @@
 // Bu function her gün çalışarak scheduled_deletion_at tarihi geçmiş hesapları siler
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withFnTelemetry } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(async (req) => {
+Deno.serve(withFnTelemetry({ name: "delete-scheduled-accounts" }, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -142,4 +143,4 @@ Deno.serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
-});
+}));

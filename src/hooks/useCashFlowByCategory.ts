@@ -167,6 +167,7 @@ export function useCashFlowByCategory(
         });
     },
     enabled: !!isletme && !!startDate && !!endDate,
+    meta: { query_purpose: 'islemler:cashflow' },
   });
 
   // Gruplama ve hesaplama

@@ -2,6 +2,7 @@
 // Bu function her gün çalışarak scheduled_date tarihi gelmiş işlemler için bildirim gönderir
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,7 +100,7 @@ async function sendPushNotification(
   };
 
   try {
-    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+    const response = await measuredFetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
       headers: {
         Accept: "application/json",
@@ -107,7 +108,7 @@ async function sendPushNotification(
         "Content-Type": "application/json",
       },
       body: JSON.stringify(message),
-    });
+    }, "process-scheduled-transactions");
 
     const result = await response.json();
 
@@ -123,7 +124,7 @@ async function sendPushNotification(
   }
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withFnTelemetry({ name: "process-scheduled-transactions" }, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -298,4 +299,4 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
-});
+}));

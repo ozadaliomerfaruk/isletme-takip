@@ -94,6 +94,7 @@ export function useIslemler(filters?: IslemFilters) {
     enabled: !!isletme,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
+    meta: { query_purpose: 'islemler:list' },
   });
 
   // isletme henüz yükleniyorsa loading olarak göster

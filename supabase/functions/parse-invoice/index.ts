@@ -4,6 +4,7 @@
 // Security: JWT auth + per-user daily rate limiting (20/day)
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
 
 const DAILY_LIMIT = 20; // Kullanici basina gunluk fatura tarama limiti
 
@@ -972,11 +973,11 @@ async function callGemini(apiKey: string, parts: Array<Record<string, unknown>>)
       await new Promise((resolve) => setTimeout(resolve, delayMs));
     }
 
-    const geminiResponse = await fetch(geminiUrl, {
+    const geminiResponse = await measuredFetch(geminiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: requestBody,
-    });
+    }, "parse-invoice", true);
 
     if (geminiResponse.status === 429) {
       const errorText = await geminiResponse.text();
@@ -1016,7 +1017,7 @@ async function callGemini(apiKey: string, parts: Array<Record<string, unknown>>)
 // HTTP HANDLER
 // ═══════════════════════════════════════════════════════════════
 
-Deno.serve(async (req) => {
+Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -1301,4 +1302,4 @@ Deno.serve(async (req) => {
       },
     );
   }
-});
+}));

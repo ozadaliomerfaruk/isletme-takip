@@ -397,3 +397,15 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/notify-linked-users/deno.json"
 entrypoint = "./functions/notify-linked-users/index.ts"
+
+[functions.app-config]
+enabled = true
+verify_jwt = false
+import_map = "./functions/app-config/deno.json"
+entrypoint = "./functions/app-config/index.ts"
+
+[functions.telemetry-ingest]
+enabled = true
+verify_jwt = true
+import_map = "./functions/telemetry-ingest/deno.json"
+entrypoint = "./functions/telemetry-ingest/index.ts"

@@ -739,6 +739,7 @@ export function useCategoryTransactions(
       return combined;
     },
     enabled: !!isletme && !!startDate && !!endDate,
+    meta: { query_purpose: 'islemler:report-period' },
   });
 }
 

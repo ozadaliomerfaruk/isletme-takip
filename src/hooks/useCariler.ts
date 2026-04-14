@@ -43,6 +43,7 @@ export function useCariler(type?: CariType, includePassive: boolean = false, inc
     enabled: !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    meta: { query_purpose: 'cariler:list' },
   });
 
   // isletme henüz yükleniyorsa loading olarak göster
@@ -72,6 +73,7 @@ export function useCari(id: string | undefined) {
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
+    meta: { query_purpose: 'cariler:detail' },
   });
 }
 

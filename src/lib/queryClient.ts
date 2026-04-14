@@ -1,4 +1,10 @@
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, type QueryCacheNotifyEvent } from '@tanstack/react-query';
+import {
+  enqueueSample,
+  type ClientRQSample,
+  type TelemetryTriggerType,
+} from './supabaseTelemetry';
+import { getCachedRemoteConfig } from './remoteConfig';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,3 +24,99 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// Passive QueryCache subscription — tracks trigger reasons (mount / refetch / invalidation).
+// Hard rule: any throw inside the subscriber is swallowed; React Query cannot observe it.
+try {
+  const fetchStart = new Map<string, number>();
+
+  queryClient.getQueryCache().subscribe((event: QueryCacheNotifyEvent) => {
+    try {
+      const cfg = getCachedRemoteConfig();
+      if (!cfg.telemetry_enabled) return;
+
+      const query = event.query;
+      const keyHash = query.queryHash;
+      const meta = (query.meta ?? {}) as { query_purpose?: string };
+      const purpose = meta.query_purpose ?? 'unknown';
+
+      switch (event.type) {
+        case 'added': {
+          // No-op; not a trigger on its own.
+          break;
+        }
+        case 'observerAdded': {
+          const hasData = query.state.data !== undefined;
+          const sample: ClientRQSample = {
+            source: 'client',
+            kind: 'rq',
+            t: Date.now(),
+            query_key: keyHash,
+            query_purpose: purpose,
+            trigger_type: hasData ? 'observer_added' : 'mount',
+            observers: query.getObserversCount(),
+          };
+          enqueueSample(sample);
+          break;
+        }
+        case 'updated': {
+          const action = event.action as { type?: string; meta?: { reason?: string } };
+          if (action?.type === 'fetch') {
+            fetchStart.set(keyHash, Date.now());
+            const reason = action.meta?.reason;
+            let triggerType: TelemetryTriggerType = 'manual';
+            if (reason === 'refetchOnMount') triggerType = 'refetch_mount';
+            else if (reason === 'refetchOnWindowFocus') triggerType = 'refetch_focus';
+            else if (reason === 'refetchOnReconnect') triggerType = 'refetch_reconnect';
+
+            const sample: ClientRQSample = {
+              source: 'client',
+              kind: 'rq',
+              t: Date.now(),
+              query_key: keyHash,
+              query_purpose: purpose,
+              trigger_type: triggerType,
+              observers: query.getObserversCount(),
+            };
+            enqueueSample(sample);
+          } else if (action?.type === 'success' || action?.type === 'error') {
+            const t0 = fetchStart.get(keyHash);
+            if (t0 !== undefined) {
+              fetchStart.delete(keyHash);
+              const sample: ClientRQSample = {
+                source: 'client',
+                kind: 'rq',
+                t: Date.now(),
+                query_key: keyHash,
+                query_purpose: purpose,
+                trigger_type: 'manual',
+                observers: query.getObserversCount(),
+                ms: Date.now() - t0,
+                result: action.type === 'success' ? 'success' : 'error',
+              };
+              enqueueSample(sample);
+            }
+          } else if (action?.type === 'invalidate') {
+            const sample: ClientRQSample = {
+              source: 'client',
+              kind: 'rq',
+              t: Date.now(),
+              query_key: keyHash,
+              query_purpose: purpose,
+              trigger_type: 'invalidation',
+              observers: query.getObserversCount(),
+            };
+            enqueueSample(sample);
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    } catch {
+      /* swallow */
+    }
+  });
+} catch {
+  /* swallow */
+}

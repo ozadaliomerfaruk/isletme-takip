@@ -6,6 +6,7 @@
 // Payload: { record: { id, cari_id, type, amount, description, isletme_id }, type: 'INSERT' }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,7 +93,7 @@ function formatCurrency(amount: number, lang: string): string {
   }).format(amount);
 }
 
-Deno.serve(async (req) => {
+Deno.serve(withFnTelemetry({ name: "notify-linked-users" }, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -265,7 +266,7 @@ Deno.serve(async (req) => {
 
         console.log(`[notify-linked-users] Sending push notification: ${pushTokenRecord.token}`);
 
-        const pushResponse = await fetch("https://exp.host/--/api/v2/push/send", {
+        const pushResponse = await measuredFetch("https://exp.host/--/api/v2/push/send", {
           method: "POST",
           headers: {
             Accept: "application/json",
@@ -273,7 +274,7 @@ Deno.serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify(message),
-        });
+        }, "notify-linked-users");
 
         const pushResult = await pushResponse.json();
 
@@ -324,4 +325,4 @@ Deno.serve(async (req) => {
       }
     );
   }
-});
+}));
