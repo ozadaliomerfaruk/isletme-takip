@@ -403,6 +403,10 @@ export function useTransactionSubmit({
     }
 
     // Auto-open modals for missing required data
+    // Skip in edit mode — all data was already loaded from the transaction
+    if (isEditMode) {
+      // In edit mode, just proceed to save directly (no auto-open pickers)
+    } else
     // Normal Mode
     if (!isCariMode && !isPersonelMode) {
       if (type === 'transfer' && !hedefHesapId) {

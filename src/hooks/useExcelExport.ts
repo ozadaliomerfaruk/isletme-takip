@@ -64,6 +64,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
         description: t('common:export.excel.description'),
         category: t('common:export.excel.category'),
         accountColumn: t('common:export.excel.accountColumn'),
+        cariPersonelColumn: t('common:export.excel.cariPersonelColumn'),
         debit: t('common:export.excel.debit'),
         credit: t('common:export.excel.credit'),
         debitBalance: t('common:export.excel.debitBalance'),

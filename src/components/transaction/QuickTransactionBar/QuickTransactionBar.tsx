@@ -322,9 +322,14 @@ export function QuickTransactionBar({
           }
           modals.setShowPersonelPicker(true);
         } else if (nextModal === 'hesap') {
-          modals.setPendingModal('kredi_karti');
-          modals.setHesapPickerTarget('source');
-          modals.setShowHesapPicker(true);
+          if (form.sourceHesapId) {
+            // Source account already set (user came from a specific account) — skip to credit card picker
+            modals.setShowKrediKartiPicker(true);
+          } else {
+            modals.setPendingModal('kredi_karti');
+            modals.setHesapPickerTarget('source');
+            modals.setShowHesapPicker(true);
+          }
         }
       }, 250);
     },

@@ -385,6 +385,7 @@
       "description": "AÇIKLAMA",
       "category": "KATEGORİ",
       "accountColumn": "HESAP",
+      "cariPersonelColumn": "CARİ / PERSONEL",
       "debit": "BORÇ",
       "credit": "ALACAK",
       "debitBalance": "BORÇ BAKİYE",

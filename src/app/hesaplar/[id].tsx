@@ -13,6 +13,7 @@ import {
   X,
   Share2,
   Zap,
+  ChevronLeft,
 } from 'lucide-react-native';
 import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -916,6 +917,15 @@ export default function HesapHareketleriPage() {
         options={{
           headerTitle: hesap.name,
           headerRight: () => <HeaderRightButtons />,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
+              style={{ padding: 8, marginLeft: -8 }}
+              hitSlop={8}
+            >
+              <ChevronLeft size={28} color={colors.text} />
+            </TouchableOpacity>
+          ),
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>

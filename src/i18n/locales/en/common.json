@@ -392,6 +392,7 @@
       "description": "DESCRIPTION",
       "category": "CATEGORY",
       "accountColumn": "ACCOUNT",
+      "cariPersonelColumn": "CLIENT / STAFF",
       "debit": "DEBIT",
       "credit": "CREDIT",
       "debitBalance": "DEBIT BALANCE",

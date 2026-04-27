@@ -124,6 +124,7 @@ export interface ExcelTranslations {
   description: string;
   category: string;
   accountColumn: string;
+  cariPersonelColumn: string;
   debit: string;
   credit: string;
   debitBalance: string;
@@ -163,6 +164,7 @@ export interface TransactionRow {
   description: string;
   category: string;
   account: string;
+  cariName: string; // Tedarikçi/Müşteri adı
   debit: number | null; // Borç
   credit: number | null; // Alacak
   debitBalance: number | null; // Borç Bakiye
@@ -545,6 +547,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
       description: islem.description || '',
       category: islem.kategori?.name || '',
       account: getAccountName(islem),
+      cariName: islem.cari?.name || (islem.personel ? `${islem.personel.first_name} ${islem.personel.last_name}`.trim() : ''),
       debit,
       credit,
       debitBalance,
@@ -630,8 +633,8 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
 
   // ============ TABLO BAŞLIKLARI ============
   const headerRow = 8;
-  const headers = [t.date, t.transactionType, t.description, t.category, t.accountColumn, t.debit, t.credit, t.debitBalance, t.creditBalance];
-  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+  const headers = [t.date, t.transactionType, t.description, t.category, t.accountColumn, t.cariPersonelColumn, t.debit, t.credit, t.debitBalance, t.creditBalance];
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
 
   headers.forEach((header, i) => {
     ws[`${cols[i]}${headerRow}`] = { v: header, s: headerStyle };
@@ -644,10 +647,11 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ws[`C${openingRow}`] = { v: t.openingBalance, s: summaryRowStyle };
   ws[`D${openingRow}`] = { v: '', s: summaryRowStyle };
   ws[`E${openingRow}`] = { v: '', s: summaryRowStyle };
-  ws[`F${openingRow}`] = { v: '', s: summaryCurrencyStyle };
+  ws[`F${openingRow}`] = { v: '', s: summaryRowStyle };
   ws[`G${openingRow}`] = { v: '', s: summaryCurrencyStyle };
-  ws[`H${openingRow}`] = { v: formatAmount(openingDebitBalance), s: summaryCurrencyStyle };
-  ws[`I${openingRow}`] = { v: formatAmount(openingCreditBalance), s: summaryCurrencyStyle };
+  ws[`H${openingRow}`] = { v: '', s: summaryCurrencyStyle };
+  ws[`I${openingRow}`] = { v: formatAmount(openingDebitBalance), s: summaryCurrencyStyle };
+  ws[`J${openingRow}`] = { v: formatAmount(openingCreditBalance), s: summaryCurrencyStyle };
 
   // ============ İŞLEMLER ============
   const dataRowStart = 10;
@@ -658,10 +662,11 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
     ws[`C${rowNum}`] = { v: r.description, s: cellStyle };
     ws[`D${rowNum}`] = { v: r.category, s: cellStyle };
     ws[`E${rowNum}`] = { v: r.account, s: cellStyle };
-    ws[`F${rowNum}`] = { v: formatAmount(r.debit), s: currencyCellStyle };
-    ws[`G${rowNum}`] = { v: formatAmount(r.credit), s: currencyCellStyle };
-    ws[`H${rowNum}`] = { v: formatAmount(r.debitBalance), s: currencyCellStyle };
-    ws[`I${rowNum}`] = { v: formatAmount(r.creditBalance), s: currencyCellStyle };
+    ws[`F${rowNum}`] = { v: r.cariName, s: cellStyle };
+    ws[`G${rowNum}`] = { v: formatAmount(r.debit), s: currencyCellStyle };
+    ws[`H${rowNum}`] = { v: formatAmount(r.credit), s: currencyCellStyle };
+    ws[`I${rowNum}`] = { v: formatAmount(r.debitBalance), s: currencyCellStyle };
+    ws[`J${rowNum}`] = { v: formatAmount(r.creditBalance), s: currencyCellStyle };
   });
 
   // ============ DÖNEM TOPLAMI ============
@@ -671,10 +676,11 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ws[`C${totalRow}`] = { v: t.periodTotal, s: totalRowStyle };
   ws[`D${totalRow}`] = { v: '', s: totalRowStyle };
   ws[`E${totalRow}`] = { v: '', s: totalRowStyle };
-  ws[`F${totalRow}`] = { v: formatAmount(totalDebit), s: totalCurrencyStyle };
-  ws[`G${totalRow}`] = { v: formatAmount(totalCredit), s: totalCurrencyStyle };
-  ws[`H${totalRow}`] = { v: '', s: totalCurrencyStyle };
+  ws[`F${totalRow}`] = { v: '', s: totalRowStyle };
+  ws[`G${totalRow}`] = { v: formatAmount(totalDebit), s: totalCurrencyStyle };
+  ws[`H${totalRow}`] = { v: formatAmount(totalCredit), s: totalCurrencyStyle };
   ws[`I${totalRow}`] = { v: '', s: totalCurrencyStyle };
+  ws[`J${totalRow}`] = { v: '', s: totalCurrencyStyle };
 
   // ============ SON BAKİYE ============
   const closingRow = totalRow + 1;
@@ -683,13 +689,14 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ws[`C${closingRow}`] = { v: t.closingBalance, s: summaryRowStyle };
   ws[`D${closingRow}`] = { v: '', s: summaryRowStyle };
   ws[`E${closingRow}`] = { v: '', s: summaryRowStyle };
-  ws[`F${closingRow}`] = { v: '', s: summaryCurrencyStyle };
+  ws[`F${closingRow}`] = { v: '', s: summaryRowStyle };
   ws[`G${closingRow}`] = { v: '', s: summaryCurrencyStyle };
-  ws[`H${closingRow}`] = { v: formatAmount(closingDebitBalance), s: summaryCurrencyStyle };
-  ws[`I${closingRow}`] = { v: formatAmount(closingCreditBalance), s: summaryCurrencyStyle };
+  ws[`H${closingRow}`] = { v: '', s: summaryCurrencyStyle };
+  ws[`I${closingRow}`] = { v: formatAmount(closingDebitBalance), s: summaryCurrencyStyle };
+  ws[`J${closingRow}`] = { v: formatAmount(closingCreditBalance), s: summaryCurrencyStyle };
 
   // Worksheet aralığını ayarla
-  ws['!ref'] = `A1:I${closingRow}`;
+  ws['!ref'] = `A1:J${closingRow}`;
 
   // Sütun genişliklerini ayarla
   ws['!cols'] = [
@@ -698,6 +705,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
     { wch: 30 }, // Açıklama
     { wch: 15 }, // Kategori
     { wch: 15 }, // Hesap
+    { wch: 20 }, // Cari/Personel
     { wch: 14 }, // Borç
     { wch: 14 }, // Alacak
     { wch: 14 }, // Borç Bakiye

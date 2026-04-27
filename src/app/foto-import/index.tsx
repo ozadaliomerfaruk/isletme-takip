@@ -56,7 +56,7 @@ export default function FotoImportIndexPage() {
                 t('ocrImport:messages.unsavedWarning'),
                 [
                   { text: t('common:buttons.cancel'), style: 'cancel' },
-                  { text: t('common:buttons.leave'), style: 'destructive', onPress: () => router.back() },
+                  { text: t('common:buttons.leave'), style: 'destructive', onPress: () => router.canGoBack() ? router.back() : router.replace('/(tabs)') },
                 ]
               );
             }}

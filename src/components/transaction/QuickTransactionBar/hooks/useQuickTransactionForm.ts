@@ -414,10 +414,13 @@ export function useQuickTransactionForm({
     // Don't reset during edit mode data loading
     if (isEditMode && !editDataLoaded) return;
 
-    // Reset account selection for odeme/tahsilat so no account is pre-selected (all modes)
+    // Reset account selection for odeme/tahsilat — keep defaultHesapId as source if available
+    // Skip in edit mode after data is loaded — accounts were set from the transaction
     if (type === 'odeme' || type === 'tahsilat' || type === 'personel_odeme_tab' || type === 'personel_tahsilat_tab') {
-      setSourceHesapId(null);
-      setHedefHesapId(null);
+      if (!(isEditMode && editDataLoaded)) {
+        setSourceHesapId(defaultHesapId || null);
+        setHedefHesapId(null);
+      }
     }
 
     if (!isCariMode && !isPersonelMode) {
