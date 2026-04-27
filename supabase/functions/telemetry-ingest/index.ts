@@ -21,6 +21,32 @@ const corsHeaders = {
 const MAX_PAYLOAD_BYTES = 256 * 1024;
 const MAX_SAMPLES_PER_BATCH = 200;
 
+// Per-user rate limiting (in-memory, resets on cold start)
+const MAX_BATCHES_PER_MINUTE = 10;
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function isRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const bucket = rateBuckets.get(userId);
+  if (!bucket || now >= bucket.resetAt) {
+    rateBuckets.set(userId, { count: 1, resetAt: now + 60_000 });
+    return false;
+  }
+  bucket.count++;
+  return bucket.count > MAX_BATCHES_PER_MINUTE;
+}
+
+// Prevent unbounded memory growth — prune stale entries periodically
+let lastPrune = Date.now();
+function pruneIfNeeded() {
+  const now = Date.now();
+  if (now - lastPrune < 120_000) return; // every 2 min max
+  lastPrune = now;
+  for (const [key, bucket] of rateBuckets) {
+    if (now >= bucket.resetAt) rateBuckets.delete(key);
+  }
+}
+
 const ALLOWED_FIELDS = new Set<string>([
   "source", "kind", "t", "t_client", "t_server",
   "table", "op", "ms", "rows", "ok", "status",
@@ -55,6 +81,23 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Extract user ID from JWT for rate limiting (best-effort, no verification — JWT is already verified by Supabase)
+    let userId = "anon";
+    try {
+      const auth = req.headers.get("authorization") ?? "";
+      const token = auth.replace("Bearer ", "");
+      const payload = token.split(".")[1];
+      if (payload) {
+        const decoded = JSON.parse(atob(payload));
+        if (decoded.sub) userId = decoded.sub;
+      }
+    } catch { /* use "anon" */ }
+
+    pruneIfNeeded();
+    if (isRateLimited(userId)) {
+      return new Response("too many requests", { status: 429, headers: corsHeaders });
+    }
+
     const contentLength = Number(req.headers.get("content-length") ?? 0);
     if (contentLength > MAX_PAYLOAD_BYTES) {
       return new Response("payload too large", { status: 413, headers: corsHeaders });
