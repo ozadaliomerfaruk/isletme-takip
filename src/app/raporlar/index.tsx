@@ -402,7 +402,7 @@ export default function RaporlarPage() {
                 <DateTimePicker
                   value={showStartPicker ? customStartDate : customEndDate}
                   mode="date"
-                  display="inline"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
                   themeVariant="light"
                   accentColor={colors.primary}
                   locale={locale}
@@ -490,7 +490,7 @@ export default function RaporlarPage() {
                 <DateTimePicker
                   value={getDailyDate()}
                   mode="date"
-                  display="inline"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
                   themeVariant="light"
                   accentColor={colors.primary}
                   locale={locale}

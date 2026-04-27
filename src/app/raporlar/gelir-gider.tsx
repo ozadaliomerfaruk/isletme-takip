@@ -242,7 +242,7 @@ export default function GelirGiderRaporPage() {
                 <DateTimePicker
                   value={showStartPicker ? state.customStartDate : state.customEndDate}
                   mode="date"
-                  display="inline"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
                   themeVariant="light"
                   accentColor={colors.primary}
                   locale={state.locale}

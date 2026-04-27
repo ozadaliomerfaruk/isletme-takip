@@ -194,7 +194,7 @@ export function ExportSheet({
               <DateTimePickerRN
                 value={currentValue}
                 mode="date"
-                display="inline"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 onChange={(event, date) => {
                   if (date) {
                     if (type === 'start') {

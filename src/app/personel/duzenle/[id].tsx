@@ -251,7 +251,7 @@ export default function PersonelDuzenlePage() {
                       <DateTimePicker
                         value={startDate || new Date()}
                         mode="date"
-                        display="inline"
+                        display={Platform.OS === 'ios' ? 'inline' : 'default'}
                         onChange={(event, date) => {
                           if (date) {
                             setStartDate(date);
@@ -341,7 +341,7 @@ export default function PersonelDuzenlePage() {
                       <DateTimePicker
                         value={endDate || new Date()}
                         mode="date"
-                        display="inline"
+                        display={Platform.OS === 'ios' ? 'inline' : 'default'}
                         onChange={(event, date) => {
                           if (date) {
                             setEndDate(date);

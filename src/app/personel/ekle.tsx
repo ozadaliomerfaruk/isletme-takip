@@ -252,7 +252,7 @@ export default function PersonelEklePage() {
                     <DateTimePicker
                       value={startDate || new Date()}
                       mode="date"
-                      display="inline"
+                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
                       onChange={(event, date) => {
                         if (date) {
                           setStartDate(date);
@@ -342,7 +342,7 @@ export default function PersonelEklePage() {
                     <DateTimePicker
                       value={endDate || new Date()}
                       mode="date"
-                      display="inline"
+                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
                       onChange={(event, date) => {
                         if (date) {
                           setEndDate(date);

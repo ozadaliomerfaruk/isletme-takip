@@ -86,10 +86,14 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.isletmetakip.app",
-      "versionCode": 1,
+      "versionCode": 34,
       "permissions": [
         "INTERNET",
-        "VIBRATE"
+        "VIBRATE",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {

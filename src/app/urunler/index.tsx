@@ -1025,7 +1025,7 @@ export default function UrunlerPage() {
                 <DateTimePicker
                   value={showStartPicker ? customStartDate : customEndDate}
                   mode="date"
-                  display="inline"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
                   themeVariant="light"
                   accentColor={colors.primary}
                   locale={locale}
@@ -1225,7 +1225,7 @@ export default function UrunlerPage() {
                     return d;
                   })()}
                   mode="date"
-                  display="inline"
+                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
                   themeVariant="light"
                   accentColor={colors.primary}
                   locale={locale}
