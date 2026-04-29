@@ -1025,6 +1025,7 @@ export default function CariHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: cari.name,
+          headerBackVisible: false,
           headerRight: () => headerRightElement,
           headerLeft: () => (
             <TouchableOpacity

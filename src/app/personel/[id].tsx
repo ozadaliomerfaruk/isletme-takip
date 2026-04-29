@@ -804,6 +804,7 @@ export default function PersonelHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: fullName,
+          headerBackVisible: false,
           headerRight: () => <HeaderRightButtons />,
           headerLeft: () => (
             <TouchableOpacity

@@ -71,9 +71,11 @@ export default function FotoImportIndexPage() {
       return undefined;
     };
 
+    const customLeft = getHeaderLeft();
     navigation.setOptions({
       gestureEnabled: !shouldDisableGesture,
-      headerLeft: getHeaderLeft(),
+      headerBackVisible: !customLeft,
+      headerLeft: customLeft,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigation, shouldDisableGesture, inCaptureWithEntries, inListWithEntries]);

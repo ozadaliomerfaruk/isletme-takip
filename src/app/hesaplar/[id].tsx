@@ -916,6 +916,7 @@ export default function HesapHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: hesap.name,
+          headerBackVisible: false,
           headerRight: () => <HeaderRightButtons />,
           headerLeft: () => (
             <TouchableOpacity
