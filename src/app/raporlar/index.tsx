@@ -66,8 +66,8 @@ export default function RaporlarPage() {
   ];
 
   const TAB_OPTIONS = [
-    { label: t('reports:tabs.summary', { defaultValue: 'Özet' }), value: 'ozet' },
-    { label: t('reports:tabs.charts', { defaultValue: 'Grafikler' }), value: 'grafikler' },
+    { label: t('reports:tabs.summary'), value: 'ozet' },
+    { label: t('reports:tabs.charts'), value: 'grafikler' },
   ];
 
   // Widget navigation helper

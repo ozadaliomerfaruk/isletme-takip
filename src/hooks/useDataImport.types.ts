@@ -85,16 +85,16 @@ export interface ImportOptions {
 }
 
 export const DEFAULT_TRANSLATIONS: ProgressTranslations = {
-  categories: 'Kategoriler oluşturuluyor...',
-  accounts: 'Hesaplar oluşturuluyor...',
-  clients: 'Cariler oluşturuluyor...',
-  personel: 'Personeller oluşturuluyor...',
-  transactions: 'İşlemler import ediliyor...',
-  balances: 'Bakiyeler güncelleniyor...',
-  done: 'Tamamlandı!',
-  simulation: 'Simülasyon yapılıyor...',
-  starting: 'Başlatılıyor...',
-  etaRemaining: 'kaldı',
+  categories: 'Creating categories...',
+  accounts: 'Creating accounts...',
+  clients: 'Creating clients...',
+  personel: 'Creating personnel...',
+  transactions: 'Importing transactions...',
+  balances: 'Updating balances...',
+  done: 'Done!',
+  simulation: 'Running simulation...',
+  starting: 'Starting...',
+  etaRemaining: 'remaining',
 };
 
 export const EMPTY_IMPORT_RESULT: ImportResult = {

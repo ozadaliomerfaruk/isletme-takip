@@ -583,7 +583,7 @@ export default function HomePage() {
         <View style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}>
           {[
             {
-              label: t('clients:types.tedarikci', { defaultValue: 'Tedarikçi İşlemi' }),
+              label: t('clients:types.tedarikci'),
               icon: <Truck size={18} color={colors.warning} />,
               onPress: () => handleFabMenuOption(() => {
                 setCariPickerMode('supplier');
@@ -592,7 +592,7 @@ export default function HomePage() {
               index: 2,
             },
             {
-              label: t('clients:types.musteri', { defaultValue: 'Müşteri İşlemi' }),
+              label: t('clients:types.musteri'),
               icon: <UserCheck size={18} color={colors.success} />,
               onPress: () => handleFabMenuOption(() => {
                 setCariPickerMode('customer');

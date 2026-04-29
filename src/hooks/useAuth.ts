@@ -169,7 +169,7 @@ export function useAuth() {
         const createPromise = (async (): Promise<Isletme | null> => {
           try {
             const finalIsletmeName = isletmeName
-              || (userName ? `${userName}'in İşletmesi` : 'İşletmem');
+              || (userName ? `${userName}'s Business` : 'My Business');
 
             // Upsert kullan - conflict durumunda mevcut kaydı döndür
             const { data: newIsletme, error: insertError } = await supabase

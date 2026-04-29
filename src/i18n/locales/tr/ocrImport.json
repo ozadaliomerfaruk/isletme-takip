@@ -147,7 +147,9 @@
     "networkError": "İnternet bağlantısı bulunamadı. Fatura analizi için internet gereklidir.",
     "analysisError": "Fatura analiz hatası: {{message}}",
     "analysisFailed": "Fatura analizi başarısız oldu",
-    "unsavedWarning": "Kaydedilmemiş faturalar var. Çıkmak istediğinize emin misiniz?"
+    "unsavedWarning": "Kaydedilmemiş faturalar var. Çıkmak istediğinize emin misiniz?",
+    "duplicateInvoiceTitle": "Mükerrer Fatura",
+    "duplicateInvoiceMessage": "\"{{invoiceNumber}}\" numaralı fatura daha önce kaydedilmiş olabilir. Yine de kaydetmek istiyor musunuz?"
   },
   "batch": {
     "processingPhoto": "Fatura {{current}}/{{total}} işleniyor...",

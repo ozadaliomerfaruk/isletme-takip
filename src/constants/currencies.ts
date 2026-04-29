@@ -31,14 +31,6 @@ export const getCurrencySymbol = (code: Currency | string | undefined | null): s
   return currency?.symbol || code;
 };
 
-/**
- * Para birimi adını döndürür
- */
-export const getCurrencyName = (code: Currency | string | undefined | null): string => {
-  if (!code) return 'Türk Lirası';
-  const currency = CURRENCIES.find(c => c.code === code);
-  return currency?.name || code;
-};
 
 /**
  * Para birimi bilgisini döndürür

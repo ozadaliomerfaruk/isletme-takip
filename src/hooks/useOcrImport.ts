@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { Alert } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useCreateUrun, useUrunler } from '@/hooks/useUrunler';
@@ -34,6 +35,7 @@ export interface SaveImportOptions {
 }
 
 export function useOcrImport(sessionId: string) {
+  const { t } = useTranslation(['ocrImport', 'common']);
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
   const createUrun = useCreateUrun();
@@ -251,11 +253,11 @@ export function useOcrImport(sessionId: string) {
         if (isDuplicate) {
           const confirmed = await new Promise<boolean>((resolve) => {
             Alert.alert(
-              'Mükerrer Fatura',
-              `"${invoice.invoiceNumber}" numaralı fatura daha önce kaydedilmiş olabilir. Yine de kaydetmek istiyor musunuz?`,
+              t('ocrImport:messages.duplicateInvoiceTitle'),
+              t('ocrImport:messages.duplicateInvoiceMessage', { invoiceNumber: invoice.invoiceNumber }),
               [
-                { text: 'İptal', style: 'cancel', onPress: () => resolve(false) },
-                { text: 'Kaydet', onPress: () => resolve(true) },
+                { text: t('common:buttons.cancel'), style: 'cancel', onPress: () => resolve(false) },
+                { text: t('common:buttons.save'), onPress: () => resolve(true) },
               ],
             );
           });

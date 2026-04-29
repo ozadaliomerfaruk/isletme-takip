@@ -322,7 +322,7 @@ export function useImportHistory() {
     };
 
     if (!isletme || !lastImport || !lastImport.canUndo) {
-      return { ...emptyResult, error: 'Geri alınacak import bulunamadı' };
+      return { ...emptyResult, error: 'No import found to undo' };
     }
 
     setIsUndoing(true);

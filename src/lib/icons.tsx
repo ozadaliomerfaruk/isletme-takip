@@ -183,35 +183,6 @@ export function getIslemIconBg(type: IslemType): string {
   return getIslemIconConfig(type).backgroundColor;
 }
 
-/**
- * İşlem tipi için etiket döndür
- * @deprecated Çeviriler için t('transactions:types.${type}') kullanın
- */
-export function getIslemTypeLabel(type: IslemType): string {
-  console.warn('getIslemTypeLabel is deprecated. Use t("transactions:types." + type) instead.');
-  switch (type) {
-    case 'gelir':
-      return 'Gelir';
-    case 'gider':
-      return 'Gider';
-    case 'transfer':
-      return 'Transfer';
-    case 'cari_alis':
-      return 'Tedarikçi Alış';
-    case 'cari_satis':
-      return 'Müşteri Satış';
-    case 'cari_odeme':
-      return 'Tedarikçi Ödeme';
-    case 'cari_tahsilat':
-      return 'Müşteri Tahsilat';
-    case 'personel_gider':
-      return 'Personel Gider';
-    case 'personel_odeme':
-      return 'Personel Ödeme';
-    default:
-      return type;
-  }
-}
 
 // ============================================================================
 // İŞLEM TUTAR RENKLERİ
@@ -335,29 +306,6 @@ export function getCariIcon(type: CariType, size: number = 24): React.ReactNode 
   return getCariIconConfig(type, size).icon;
 }
 
-/**
- * Cari bakiye etiketi döndür
- * @deprecated Çeviriler için clients:balance namespace'ini kullanın
- */
-export function getCariBalanceLabel(type: CariType, balance: number): string {
-  console.warn('getCariBalanceLabel is deprecated. Use translations from clients:balance namespace.');
-  if (balance === 0) return 'Bakiye yok';
-  if (type === 'tedarikci') {
-    return balance < 0 ? 'Borcumuz' : 'Alacağımız';
-  } else {
-    return balance > 0 ? 'Alacağımız' : 'Borcumuz';
-  }
-}
-
-/**
- * Personel bakiye etiketi döndür
- * @deprecated Çeviriler için staff:balance namespace'ini kullanın
- */
-export function getPersonelBalanceLabel(balance: number): string {
-  console.warn('getPersonelBalanceLabel is deprecated. Use translations from staff:balance namespace.');
-  if (balance === 0) return 'Bakiye yok';
-  return balance < 0 ? 'Borcumuz' : 'Alacağımız';
-}
 
 // ============================================================================
 // PERSONEL İKONLARI

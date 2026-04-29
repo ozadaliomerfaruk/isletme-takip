@@ -160,33 +160,3 @@ export function calculateIncomeSummary<T extends { type: IslemType; amount: numb
   };
 }
 
-/**
- * İşlem tipi etiketleri (Türkçe)
- * @deprecated Çeviriler için t('transactions:types.${type}') kullanın
- */
-export const ISLEM_TYPE_LABELS: Record<IslemType, string> = {
-  gelir: 'Gelir',
-  gider: 'Gider',
-  transfer: 'Transfer',
-  cari_alis: 'Tedarikçiden Alış',
-  cari_satis: 'Müşteriye Satış',
-  cari_odeme: 'Tedarikçiye Ödeme',
-  cari_tahsilat: 'Müşteriden Tahsilat',
-  cari_alis_iade: 'Alış İade',
-  cari_satis_iade: 'Satış İade',
-  personel_gider: 'Personel Gideri',
-  personel_odeme: 'Personel Ödemesi',
-  personel_tahsilat: 'Personelden Tahsilat',
-  personel_satis: 'Personele Satış',
-  nakit_avans_taksit: 'Nakit Avans Taksit',
-  personel_izin_hakki: 'İzin Hak Edişi',
-  personel_izin_kullanimi: 'İzin Kullanımı',
-};
-
-/**
- * İşlem tipinin etiketini döndürür
- * @deprecated Çeviriler için t('transactions:types.${type}') kullanın
- */
-export function getIslemTypeLabel(type: IslemType): string {
-  return ISLEM_TYPE_LABELS[type] || type;
-}

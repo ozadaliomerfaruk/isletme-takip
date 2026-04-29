@@ -263,7 +263,7 @@ export default function GelirGiderRaporPage() {
                 />
               </View>
               <Button variant="primary" onPress={() => { setShowStartPicker(false); setShowEndPicker(false); }}>
-                {t('common:buttons.ok', { defaultValue: 'Tamam' })}
+                {t('common:buttons.ok')}
               </Button>
             </Pressable>
           </Pressable>

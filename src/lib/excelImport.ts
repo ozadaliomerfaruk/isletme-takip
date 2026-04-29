@@ -1546,10 +1546,10 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
       type: 'error',
       category: 'date_invalid',
       messageKey: 'dataImport.validation.dateInvalid',
-      message: `${errorsByCategory.date_invalid.count} işlemde geçersiz tarih`,
+      message: `${errorsByCategory.date_invalid.count} transactions with invalid date`,
       count: errorsByCategory.date_invalid.count,
       rows: errorsByCategory.date_invalid.rows.slice(0, 10),
-      suggestion: 'GG/AA/YYYY veya YYYY-MM-DD formatı kullanın',
+      suggestion: 'Use DD/MM/YYYY or YYYY-MM-DD format',
     });
   }
 
@@ -1566,10 +1566,10 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
       type: 'error',
       category: 'amount_invalid',
       messageKey: 'dataImport.validation.amountInvalid',
-      message: `${errorsByCategory.amount_invalid.count} işlemde geçersiz tutar`,
+      message: `${errorsByCategory.amount_invalid.count} transactions with invalid amount`,
       count: errorsByCategory.amount_invalid.count,
       rows: errorsByCategory.amount_invalid.rows.slice(0, 10),
-      suggestion: 'Tutar 0.01 ve üzeri olmalı',
+      suggestion: 'Amount must be 0.01 or greater',
     });
   }
 
@@ -1586,10 +1586,10 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
       type: 'error',
       category: 'type_unknown',
       messageKey: 'dataImport.validation.typeUnknown',
-      message: `${errorsByCategory.type_unknown.count} işlemde bilinmeyen tip`,
+      message: `${errorsByCategory.type_unknown.count} transactions with unknown type`,
       count: errorsByCategory.type_unknown.count,
       rows: errorsByCategory.type_unknown.rows.slice(0, 10),
-      suggestion: 'GELİR, GİDER, TRANSFER vb. standart tipler kullanın',
+      suggestion: 'Use standard types: INCOME, EXPENSE, TRANSFER, etc.',
     });
   }
 
