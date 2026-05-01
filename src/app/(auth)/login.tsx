@@ -21,10 +21,18 @@ import { spacing } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { toErrorMessage } from '@/lib/errors';
 
-// Google OAuth Client ID'leri - Supabase dashboard'dan alınacak
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
-const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
+
+let googleSigninConfigured = false;
+function getGoogleSignin() {
+  const { GoogleSignin } = require('@react-native-google-signin/google-signin');
+  if (!googleSigninConfigured) {
+    GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
+    googleSigninConfigured = true;
+  }
+  return GoogleSignin;
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -36,10 +44,12 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [socialLoading, setSocialLoading] = useState<'apple' | 'google' | null>(null);
 
-  // Google Auth Request
+  // Google Auth Request (iOS only — Android uses native GoogleSignin)
+  // Android'de androidClientId verilmezse hook crash yapıyor, webClientId'yi geçiyoruz
+  // çünkü Android'de bu hook'un sonucunu kullanmıyoruz (native GoogleSignin kullanıyoruz)
   const [request, response, promptAsync] = Google.useAuthRequest({
     iosClientId: GOOGLE_IOS_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    androidClientId: GOOGLE_WEB_CLIENT_ID,
     webClientId: GOOGLE_WEB_CLIENT_ID,
   });
 
@@ -89,7 +99,25 @@ export default function LoginPage() {
 
   const handleGooglePress = async () => {
     setSocialLoading('google');
-    await promptAsync();
+    if (Platform.OS === 'android') {
+      try {
+        const GoogleSignin = getGoogleSignin();
+        await GoogleSignin.hasPlayServices();
+        const result = await GoogleSignin.signIn();
+        const idToken = result.data?.idToken;
+        if (idToken) {
+          await signInWithGoogle(idToken);
+        } else {
+          Alert.alert(t('common:status.error'), t('errors:auth.invalidCredentials'));
+        }
+      } catch (error) {
+        Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:auth.invalidCredentials'));
+      } finally {
+        setSocialLoading(null);
+      }
+    } else {
+      await promptAsync();
+    }
   };
 
   const validate = () => {
@@ -170,7 +198,7 @@ export default function LoginPage() {
             <TouchableOpacity
               style={styles.googleButton}
               onPress={handleGooglePress}
-              disabled={socialLoading === 'google' || !request}
+              disabled={socialLoading === 'google' || (Platform.OS !== 'android' && !request)}
             >
               {socialLoading === 'google' ? (
                 <ActivityIndicator color={colors.textMuted} />

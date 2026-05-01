@@ -86,7 +86,6 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.isletmetakip.app",
-      "versionCode": 34,
       "permissions": [
         "INTERNET",
         "VIBRATE",
@@ -101,6 +100,7 @@
       "bundler": "metro"
     },
     "plugins": [
+      "./plugins/withBuildConfig",
       "expo-router",
       "expo-secure-store",
       "expo-apple-authentication",
@@ -133,7 +133,11 @@
             "minSdkVersion": 24
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      ["@react-native-google-signin/google-signin", {
+        "iosUrlScheme": "com.googleusercontent.apps.831070684290-pbth4tdbeepa1udu859cinh8cunrh6ba"
+      }]
     ],
     "experiments": {
       "typedRoutes": true
