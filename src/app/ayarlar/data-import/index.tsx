@@ -56,7 +56,7 @@ import {
   validateImportData,
   ValidationResult,
 } from '@/lib/excelImport';
-import { useDataImport, SkippedTransaction, DuplicateInfo, ProgressTranslations } from '@/hooks/useDataImport';
+import { useDataImport, SkippedTransaction, ProgressTranslations } from '@/hooks/useDataImport';
 import { useImportHistory } from '@/hooks/useImportHistory';
 import {
   useCreatePendingIslemler,
@@ -72,7 +72,7 @@ import { PendingTransactionForm } from '@/components/import';
 import { SkippedTransactionCard } from '@/components/import/SkippedTransactionCard';
 import type { PendingIslemRawData, PendingIslem } from '@/types/database';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { getLocalizedCurrencies, CURRENCIES } from '@/constants/currencies';
+import { getLocalizedCurrencies } from '@/constants/currencies';
 
 type Step = 'select' | 'preview' | 'mapping' | 'importing' | 'result';
 type ModalType = 'transactions' | 'accounts' | 'clients' | 'categories' | 'categoryTypes' | 'skipped' | null;
@@ -94,7 +94,7 @@ export default function VeriIceAktarPage() {
   const { t, i18n } = useTranslation('settings');
   const queryClient = useQueryClient();
   const { formatDateMedium, formatDateShort } = useDateFormat();
-  const { progress, result, duplicates, runImport, runDuplicateCheck, reset } = useDataImport();
+  const { progress, result, runImport, runDuplicateCheck, reset } = useDataImport();
   const { history, lastImport, isUndoing, checkFileHash, saveImportHistory, undoLastImport } = useImportHistory();
   const createPendingIslemler = useCreatePendingIslemler();
   const { data: pendingIslemler, isLoading: loadingPending, refetch: refetchPending } = usePendingIslemler();
@@ -113,7 +113,7 @@ export default function VeriIceAktarPage() {
   const [categoryMappings, setCategoryMappings] = useState<Record<string, 'gelir' | 'gider'>>({});
   const [fileName, setFileName] = useState<string>('');
   const [fileHash, setFileHash] = useState<string>('');
-  const [fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
+  const [_fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [isDryRun, setIsDryRun] = useState(false);
   const [validation, setValidation] = useState<ValidationResult | null>(null);
@@ -316,7 +316,7 @@ export default function VeriIceAktarPage() {
   };
 
   // Dosya parse işlemi
-  const proceedWithParsing = (buffer: ArrayBuffer, name: string) => {
+  const proceedWithParsing = (buffer: ArrayBuffer, _name: string) => {
     try {
       // Parse et
       const parsed = parseExcelFile(buffer);
@@ -605,14 +605,6 @@ export default function VeriIceAktarPage() {
   // Son importu geri al
   const handleUndoLastImport = () => {
     if (!lastImport) return;
-
-    // Silinecek entity'leri say
-    const totalItems =
-      lastImport.transactionIds.length +
-      (lastImport.createdCategoryIds?.length || 0) +
-      (lastImport.createdAccountIds?.length || 0) +
-      (lastImport.createdClientIds?.length || 0) +
-      (lastImport.createdPersonelIds?.length || 0);
 
     const details = [];
     if (lastImport.transactionIds.length > 0) {
@@ -913,7 +905,7 @@ export default function VeriIceAktarPage() {
                           name={item.name}
                           mapping={item}
                           onToggleType={() => toggleFromHesap(item.name)}
-                          onSubTypeChange={(subType) => setHesapSubType(item.name, subType as any)}
+                          onSubTypeChange={(subType) => setHesapSubType(item.name, subType as 'nakit' | 'banka' | 'kredi_karti' | 'birikim')}
                           onCurrencyChange={() => cycleAccountCurrency(item.name)}
                         />
                       ))}
@@ -937,7 +929,7 @@ export default function VeriIceAktarPage() {
                           mapping={item}
                           onToggleToHesap={() => toggleToHesap(item.name)}
                           onToggleEntityType={(type) => toggleEntityType(item.name, type)}
-                          onSubTypeChange={(subType) => setCariSubType(item.name, subType as any)}
+                          onSubTypeChange={(subType) => setCariSubType(item.name, subType as 'musteri' | 'tedarikci')}
                         />
                       ))}
                       {filteredClientsAndPersonel.length === 0 && (

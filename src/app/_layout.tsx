@@ -32,7 +32,7 @@ function RootLayoutNav() {
   const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
-  const { t, i18n: i18nInstance } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport']);
+  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);

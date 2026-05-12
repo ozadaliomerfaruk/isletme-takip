@@ -55,10 +55,6 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   const { canAccessModule } = usePermissions();
 
-  // Tab bar yüksekliği: base height + safe area bottom
-  const tabBarHeight = 52 + insets.bottom;
-  const tabBarPaddingBottom = 8 + insets.bottom;
-
   return (
     <Tabs
       screenOptions={{
