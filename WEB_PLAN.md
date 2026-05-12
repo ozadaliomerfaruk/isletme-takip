@@ -38,7 +38,11 @@
 | Faz 2.9: Ayarlar | ⬜ Başlanmadı | + multi-user + audit log |
 | Faz 2.10: Global arama + Onboarding | ⬜ Başlanmadı | |
 | Faz 3: Gelişmiş özellikler | ⬜ Başlanmadı | Çekler, nakit avans, OCR vs |
-| Faz 4: Cilalama + Deploy | ⬜ Başlanmadı | Responsive, SEO, Vercel |
+| Faz 4.1-4.3: Responsive + Loading + Performance | ⬜ Başlanmadı | Core Web Vitals 95+ |
+| Faz 4.4: SEO + GEO | ⬜ Başlanmadı | llms.txt, structured data, sitemap |
+| Faz 4.5: Güvenlik + Bot Koruması | ⬜ Başlanmadı | CSP, rate limit, Turnstile, honeypot |
+| Faz 4.6: Monetizasyon Altyapısı | ⬜ Başlanmadı | Plan tanımları, feature gating |
+| Faz 4.7-4.9: Deploy + Realtime + Final | ⬜ Başlanmadı | Vercel, Upstash, Cloudflare |
 
 > **Durum kodları:** ⬜ Başlanmadı | 🔄 Devam ediyor | ✅ Tamamlandı
 
@@ -269,9 +273,13 @@ NEXT_PUBLIC_SUPABASE_URL=<EXPO_PUBLIC_SUPABASE_URL ile aynı değer>
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<EXPO_PUBLIC_SUPABASE_ANON_KEY ile aynı değer>
 NEXT_PUBLIC_GOOGLE_CLIENT_ID=<EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ile aynı değer>
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=<Cloudflare Turnstile site key>
+TURNSTILE_SECRET_KEY=<Cloudflare Turnstile secret key — server-only>
+UPSTASH_REDIS_REST_URL=<Upstash Redis REST URL — rate limiting>
+UPSTASH_REDIS_REST_TOKEN=<Upstash Redis REST token — rate limiting>
 ```
 
-> **Değerleri nereden alacaksın?** `defterappv2/.env` dosyasından oku (git'te yok, lokalde var).
+> **Değerleri nereden alacaksın?** Supabase key'leri: `defterappv2/.env` dosyasından oku (git'te yok, lokalde var). Turnstile: Cloudflare Dashboard → Turnstile. Upstash: Upstash Console → Redis.
 
 ---
 
@@ -296,6 +304,8 @@ npm install @tanstack/react-query @tanstack/react-table
 npm install react-hook-form zod @hookform/resolvers
 npm install recharts lucide-react next-intl
 npm install xlsx xlsx-js-style
+npm install @upstash/ratelimit @upstash/redis
+npm install @marsidev/react-turnstile
 ```
 
 ### 0.3 Dizin Yapısı
@@ -332,7 +342,15 @@ isletmetakip-web/
 │   │   ├── currency.ts            ← Refactor edilmiş kopya
 │   │   ├── date.ts                ← Refactor edilmiş kopya
 │   │   ├── queryKeys.ts           ← Birebir kopya
-│   │   └── schemas/
+│   │   ├── schemas/
+│   │   ├── security/
+│   │   │   ├── rateLimiter.ts     ← Upstash rate limiting
+│   │   │   ├── sanitize.ts        ← Input sanitization
+│   │   │   └── turnstile.ts       ← Turnstile server-side verify
+│   │   └── subscription/
+│   │       ├── plans.ts           ← Plan tanımları (free/pro/business)
+│   │       ├── features.ts        ← Feature gating
+│   │       └── checkAccess.ts     ← Erişim kontrol fonksiyonu
 │   ├── types/                     ← Birebir kopya
 │   ├── constants/                 ← Birebir kopya
 │   ├── i18n/
@@ -1111,55 +1129,369 @@ src/components/islemler/PhotoViewer.tsx   ← Yüklenen fotoğrafı görüntüle
 ### 4.3 Performance (2 gün)
 
 - **Route-based code splitting:** Next.js App Router otomatik yapıyor
-- **Image optimization:** `next/image` ile lazy loading
+- **Image optimization:** `next/image` ile lazy loading (WebP/AVIF otomatik)
 - **Prefetching:** Sidebar linkleri için `<Link prefetch>`
 - **Query prefetching:** Dashboard'da diğer modüllerin ilk sayfasını prefetch
 - **Bundle analizi:** `@next/bundle-analyzer` ile büyük paketleri tespit
+- **Font optimizasyonu:** `next/font` ile Google Fonts (layout shift önleme)
+- **Critical CSS:** Tailwind ile otomatik tree-shaking, kullanılmayan CSS yok
+- **Edge Runtime:** Landing page ve auth callback route'ları Edge Runtime'da çalıştır (daha düşük latency)
+- **Caching stratejisi:**
+  - Static pages (landing, yasal sayfalar): ISR ile `revalidate: 3600` (1 saat)
+  - Dashboard: client-side only (no SSR), TanStack Query cache
+  - API route'lar: `Cache-Control: private, no-store` (kullanıcıya özel veri)
+- **Core Web Vitals hedefleri:** LCP < 2.5s, FID < 100ms, CLS < 0.1
+- **Lighthouse skoru hedefi:** 95+ (Performance, Accessibility, Best Practices, SEO)
 
-### 4.4 SEO (Landing Page için) (2 gün)
+### 4.4 SEO + GEO (Arama Motoru + AI Arama Optimizasyonu) (3 gün)
 
-- `generateMetadata()` ile sayfa başlıkları ve açıklamaları
-- Open Graph meta tag'leri (sosyal medya paylaşımı)
-- `robots.txt` ve `sitemap.xml`
-- Structured data (JSON-LD: SoftwareApplication schema)
-- `/(dashboard)` route'ları `noindex` (uygulama içi, SEO gereksiz)
+**Klasik SEO (Google, Bing, Yandex):**
 
-### 4.5 Deployment (3 gün)
+Landing page ve public sayfalar için tam SEO desteği:
+
+```
+src/app/(public)/
+├── layout.tsx                      ← Root metadata: title template, description, openGraph
+├── page.tsx                        ← Landing page (h1, semantic HTML, structured data)
+├── sitemap.ts                      ← Dynamic sitemap generation (next/sitemap)
+├── robots.ts                       ← Dynamic robots.txt (next/robots)
+├── opengraph-image.tsx             ← OG image generation (next/og, @vercel/og)
+└── manifest.ts                     ← Web app manifest (PWA-ready)
+```
+
+- **Metadata API:** Her public sayfa için `generateMetadata()` ile dinamik title, description, canonical URL
+- **Open Graph + Twitter Cards:** Sosyal medya paylaşımında zengin önizleme (resim, başlık, açıklama)
+- **Structured Data (JSON-LD):**
+  - `SoftwareApplication` schema (landing page): uygulama adı, kategori, rating, fiyat (Free)
+  - `Organization` schema: işletme bilgileri
+  - `FAQPage` schema: SSS sayfası (ileride eklenebilir)
+  - `BreadcrumbList` schema: navigasyon breadcrumb'ları
+- **Semantic HTML:** `<main>`, `<article>`, `<section>`, `<nav>`, `<header>`, `<footer>` tag'leri
+- **Heading hiyerarşisi:** Her sayfada tek `<h1>`, düzgün `<h2>`→`<h3>` sıralaması
+- **`robots.txt`:** `/(dashboard)/*` route'ları `Disallow` (uygulama içi sayfalar indexlenmemeli)
+- **`sitemap.xml`:** Public sayfaları otomatik listele, lastmod ile güncelleme tarihi
+- **Canonical URL'ler:** Duplicate content önleme
+- **Hreflang tag'leri:** TR/EN dil alternatifleri (ileride farklı dil URL'leri eklenirse)
+- **Image alt text'leri:** Tüm landing page görselleri için açıklayıcı alt text
+- **Page speed:** Lighthouse SEO skoru 100 hedefi
+
+**GEO — Generative Engine Optimization (AI Arama Motorları: ChatGPT, Gemini, Perplexity, Copilot):**
+
+AI arama motorlarının siteyi doğru anlayıp önerme yapabilmesi için:
+
+- **`llms.txt`** dosyası (`public/llms.txt`): Site hakkında AI'lar için özet bilgi
+  ```
+  # İşletme Takip (Defter App)
+  > Küçük işletmeler için gelir/gider takibi, cari yönetimi, personel takibi, stok yönetimi ve raporlama uygulaması.
+  
+  ## Özellikler
+  - Gelir/Gider Takibi (19 işlem tipi)
+  - Cari Yönetimi (müşteri/tedarikçi)
+  - Personel Yönetimi (maaş, izin, avans)
+  - Stok/Ürün Yönetimi
+  - Çoklu Döviz Desteği (TRY, USD, EUR, GBP, XAU, XAG)
+  - Raporlar ve Analizler
+  - Çoklu Kullanıcı ve Yetki Yönetimi
+  - Fatura/Fiş OCR Tarama
+  - iOS, Android ve Web desteği
+  
+  ## Linkler
+  - Web: [site URL]
+  - iOS: [App Store link]
+  - Android: [Play Store link]
+  ```
+- **`llms-full.txt`** (`public/llms-full.txt`): Detaylı özellik açıklamaları, kullanım senaryoları, SSS
+- **Açık, net, yapılandırılmış içerik:** AI'ların doğru parse edebilmesi için bullet list, tablo, heading kullanımı
+- **Schema.org markup zenginleştirme:** AI'lar structured data'yı tercih ediyor
+- **Doğrulanabilir iddialar:** "10.000+ kullanıcı" gibi iddialarda kaynak belirt
+- **E-E-A-T sinyalleri:** Uzmanlık, deneyim, otorite göstergeleri (About Us, iletişim bilgileri, sosyal medya linkleri)
+- **Kaynak olarak atıflanabilir içerik:** Blog/rehber sayfaları (ileride — "İşletme defteri nasıl tutulur?" gibi)
+
+**Dashboard route'ları:** `noindex, nofollow` + `X-Robots-Tag` header (kesinlikle indexlenmemeli)
+
+### 4.5 Güvenlik ve Bot Koruması (3 gün)
+
+**Bu bölüm kritiktir — web uygulaması internete açık olduğu için mobil'de olmayan saldırı vektörleri mevcuttur.**
+
+```
+src/lib/security/
+├── rateLimiter.ts                  ← Rate limiting yardımcı fonksiyonları
+├── sanitize.ts                     ← Input sanitization
+└── csrf.ts                         ← CSRF token yönetimi (gerekirse)
+
+src/middleware.ts                   ← Güvenlik header'ları + rate limit + auth
+```
+
+**4.5.1 HTTP Güvenlik Header'ları (middleware.ts'e eklenecek)**
+
+```typescript
+// Her response'a eklenecek header'lar:
+const securityHeaders = {
+  // XSS koruması
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  
+  // Content Security Policy
+  'Content-Security-Policy': [
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",  // Next.js ihtiyacı, prod'da sıkılaştır
+    "style-src 'self' 'unsafe-inline'",                  // Tailwind inline styles
+    "img-src 'self' data: blob: https://*.supabase.co",  // Supabase storage görselleri
+    "font-src 'self'",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co", // Supabase API + Realtime
+    "frame-ancestors 'none'",                             // Clickjacking koruması
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; '),
+  
+  // HTTPS zorunluluğu
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+  
+  // Permission Policy (gereksiz API'lara erişimi kapat)
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
+  
+  // Dashboard sayfaları için ek header
+  'X-Robots-Tag': 'noindex, nofollow',  // Sadece dashboard route'larına
+}
+```
+
+**4.5.2 Rate Limiting (Bot + Brute Force Koruması)**
+
+```
+npm install @upstash/ratelimit @upstash/redis
+```
+
+Upstash Redis ile serverless-uyumlu rate limiting:
+
+| Endpoint / Aksiyon | Limit | Pencere | Strateji |
+|---------------------|-------|---------|----------|
+| `/api/auth/login` (email/şifre) | 5 deneme | 15 dakika | IP bazlı, sliding window |
+| `/api/auth/register` | 3 kayıt | 1 saat | IP bazlı |
+| `/api/auth/forgot-password` | 3 istek | 1 saat | IP bazlı |
+| `/auth/callback` (OAuth) | 10 istek | 5 dakika | IP bazlı |
+| Genel API istekleri (dashboard) | 100 istek | 1 dakika | User ID bazlı |
+| Dosya upload (fotoğraf/Excel) | 10 upload | 10 dakika | User ID bazlı |
+| OCR parse isteği | 20 istek | 24 saat | User ID bazlı (mevcut limit) |
+
+Rate limit aşıldığında: `429 Too Many Requests` + `Retry-After` header
+
+**4.5.3 Bot Koruması**
+
+- **Cloudflare Turnstile (CAPTCHA alternatifi):** Ücretsiz, privacy-friendly
+  - Kayıt formunda Turnstile widget
+  - Şifre sıfırlama formunda Turnstile widget
+  - Login'de opsiyonel (3 başarısız denemeden sonra aktif)
+  ```
+  npm install @marsidev/react-turnstile
+  ```
+  - Turnstile site key: `.env.local`'e `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+  - Turnstile secret key: `.env.local`'e `TURNSTILE_SECRET_KEY`
+  - Server-side doğrulama: `POST https://challenges.cloudflare.com/turnstile/v0/siteverify`
+
+- **Honeypot alanları:** Formlar'da gizli input (bot'lar doldurur, gerçek kullanıcılar görmez)
+  ```html
+  <input type="text" name="website" style="display:none" tabIndex={-1} autoComplete="off" />
+  ```
+  Bu alan doluysa → bot olarak işaretle, isteği sessizce reddet (200 döndür ama işleme)
+
+- **User-Agent analizi:** Bilinen bot UA'larını middleware'de engelle (SEO bot'ları hariç)
+
+**4.5.4 CSRF Koruması**
+
+- Next.js App Router + Server Actions: CSRF otomatik korumalı (SameSite cookie)
+- Supabase client: cookie tabanlı auth, `@supabase/ssr` SameSite=Lax cookie kullanır
+- Ek önlem: state-changing isteklerde `Origin` header kontrolü middleware'de
+
+**4.5.5 XSS (Cross-Site Scripting) Koruması**
+
+- React varsayılan olarak JSX'te string'leri escape eder (XSS'e karşı güçlü)
+- **ASLA `dangerouslySetInnerHTML` kullanma** (plan genelinde yasak)
+- Kullanıcı input'ları (cari adı, işlem açıklaması, not): display'de otomatik escape (React)
+- URL parametreleri: `encodeURIComponent()` ile encode et
+- Supabase query parametreleri: parameterized query (RPC + .eq/.ilike) — SQL injection riski yok
+
+**4.5.6 Authentication Güvenliği**
+
+- **Supabase Auth:** bcrypt ile şifre hash'leme (server-side, otomatik)
+- **Minimum şifre:** 6 karakter (Supabase config)
+- **Session yönetimi:** HttpOnly, Secure, SameSite=Lax cookie (client JS erişemez)
+- **Token refresh:** `@supabase/ssr` middleware her istekte otomatik refresh
+- **Brute force:** Rate limiting (yukarıda) + Turnstile (3 başarısız sonrası)
+- **Account enumeration koruması:** "Email veya şifre hatalı" (hangisinin yanlış olduğunu söyleme)
+- **Scheduled deletion:** 7 gün bekleme süresi (yanlışlıkla silmeyi önle)
+- **OAuth state parametresi:** CSRF koruması (Supabase otomatik hallediyor)
+
+**4.5.7 Data Güvenliği**
+
+- **RLS (Row Level Security):** Tüm tablolarda aktif (Supabase'de zaten var)
+  - Her kullanıcı sadece kendi isletme_id'sine ait veriyi görebilir
+  - Web'de ek RLS gerekmez — aynı policy'ler geçerli
+- **Server-side validation:** Tüm form verilerini server'da tekrar doğrula (client validation bypass edilebilir)
+  - Zod schema'ları hem client hem server'da kullanılacak
+- **File upload güvenliği:**
+  - Dosya tipi kontrolü (MIME type + extension): sadece JPEG, PNG, WebP, PDF, XLSX, CSV
+  - Dosya boyut limiti: resim max 10MB, Excel max 50MB
+  - Supabase Storage policy: authenticated users only, isletme_id bazlı path
+  - Dosya adı sanitization: UUID ile yeniden adlandır (path traversal önleme)
+- **Sensitive data exposure önleme:**
+  - `.env.local` dosyası `.gitignore`'da
+  - Server-only env vars: `TURNSTILE_SECRET_KEY` (NEXT_PUBLIC_ prefix'i yok)
+  - Client'a gönderilen response'lardan gereksiz alan çıkar (password hash, internal ID gibi)
+- **SQL Injection:** Supabase client parameterized query kullanıyor, risk yok
+  - RPC çağrılarında parametreler type-safe (TypeScript + Supabase types)
+
+**4.5.8 Dependency Güvenliği**
+
+- **npm audit:** Her deployment öncesi `npm audit` çalıştır
+- **Dependabot / Renovate:** GitHub'da otomatik güvenlik güncellemesi PR'ları
+- **Lock dosyası:** `package-lock.json` commit'le (supply chain attack önleme)
+- **Kritik paketler:** Sadece güvenilir, aktif bakılan paketler kullan (shadcn/ui, @supabase/ssr, TanStack, vb.)
+
+**4.5.9 Logging ve Monitoring**
+
+- **Auth olayları:** Başarısız login, kayıt, şifre sıfırlama denemeleri logla
+- **Rate limit ihlalleri:** Hangi IP/user, hangi endpoint, kaç deneme
+- **Vercel Analytics:** Core Web Vitals + hata izleme (ücretsiz tier)
+- **Supabase logs:** Auth ve database logları Supabase Dashboard'dan izlenebilir
+- **Şüpheli aktivite:** Aynı IP'den çok fazla kayıt, farklı hesaplara login denemesi → log + alert
+
+**4.5.10 Ek Güvenlik Önlemleri**
+
+- **Vercel Firewall:** DDoS koruması (otomatik, ücretsiz tier'da da var)
+- **Edge Middleware:** Güvenlik header'ları ve rate limit kontrolü edge'de (düşük latency)
+- **Cookie güvenliği:** `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`
+- **Error handling:** Hata mesajlarında stack trace veya internal bilgi gösterme
+  - Production'da genel hata mesajı: "Bir hata oluştu. Lütfen tekrar deneyin."
+  - Detaylı hata sadece server log'larında
+- **Environment isolation:** Development, staging, production ortamları için farklı Supabase projeleri (opsiyonel, ileride)
+
+### 4.6 Monetizasyon Altyapısı (Gelecek için hazırlık) (2 gün)
+
+**Şu an ücretsiz olacak ama ileride ücretli plan eklenebilmesi için altyapı hazırlığı:**
+
+```
+src/lib/subscription/
+├── plans.ts                        ← Plan tanımları (free, pro, business)
+├── features.ts                     ← Özellik gating mantığı
+└── checkAccess.ts                  ← Kullanıcının plan'ına göre erişim kontrolü
+
+src/hooks/useSubscription.ts        ← Kullanıcının aktif planını sorgula
+src/components/shared/PaywallGate.tsx ← "Bu özellik Pro planında" overlay
+src/components/shared/UpgradePrompt.tsx ← Plan yükseltme CTA
+```
+
+**Veritabanı hazırlığı (Supabase migration - ileride):**
+```sql
+-- subscriptions tablosu (ileride eklenecek)
+CREATE TABLE subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users NOT NULL,
+  isletme_id UUID REFERENCES isletmeler NOT NULL,
+  plan TEXT NOT NULL DEFAULT 'free',  -- 'free' | 'pro' | 'business'
+  status TEXT NOT NULL DEFAULT 'active', -- 'active' | 'cancelled' | 'past_due'
+  current_period_start TIMESTAMPTZ,
+  current_period_end TIMESTAMPTZ,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+**Olası plan yapısı (henüz kesinleşmemiş, altyapı hazırlığı):**
+
+| Özellik | Free | Pro | Business |
+|---------|------|-----|----------|
+| Hesap sayısı | 3 | Sınırsız | Sınırsız |
+| Cari sayısı | 10 | Sınırsız | Sınırsız |
+| Personel sayısı | 3 | Sınırsız | Sınırsız |
+| İşlem sayısı/ay | 100 | Sınırsız | Sınırsız |
+| OCR tarama/gün | 5 | 50 | 200 |
+| Paylaşılan kullanıcı | 1 | 5 | 20 |
+| Raporlar | Temel | Detaylı | Detaylı + Export |
+| Excel import/export | ✗ | ✓ | ✓ |
+| Çek yönetimi | ✗ | ✓ | ✓ |
+| API erişimi | ✗ | ✗ | ✓ |
+
+**Ödeme altyapısı (ileride — Faz 5):**
+- **Stripe veya Iyzico:** Türkiye'de ödeme almak için Iyzico daha uygun (TL + Türk kartları)
+- **Webhook endpoint:** `/api/webhooks/payment` → subscription durumu güncelle
+- **Stripe Checkout veya Iyzico Checkout:** Hosted payment page (PCI compliance sorunu yok)
+- **Faturalandırma:** e-Fatura entegrasyonu (ileride, Paraşüt veya Logo)
+
+**Şimdilik yapılacak:**
+1. `plans.ts` dosyasında plan tanımları ve limit değerleri (kolay değiştirilebilir)
+2. `useSubscription` hook'u: şimdilik herkes "free" döndürür (DB tablosu yokken)
+3. `checkAccess(feature, userPlan)` fonksiyonu: feature gating logic
+4. `PaywallGate` component'i: limit aşıldığında "Pro'ya yükselt" mesajı (şimdilik sadece UI, ödeme yok)
+5. Entity oluşturma sırasında limit kontrolü: "Free planda max 3 hesap" (ileride aktifleştirilecek, şimdilik disabled)
+
+### 4.7 Deployment (3 gün)
 
 **Vercel deployment:**
 1. GitHub repo'yu Vercel'e bağla
-2. Environment variables ekle (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, vb.)
+2. Environment variables ekle:
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_GOOGLE_CLIENT_ID`
+   - `NEXT_PUBLIC_SITE_URL` (production domain)
+   - `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+   - `TURNSTILE_SECRET_KEY` (server-only, NEXT_PUBLIC_ yok)
+   - `UPSTASH_REDIS_REST_URL` (rate limiting için)
+   - `UPSTASH_REDIS_REST_TOKEN` (rate limiting için)
 3. Domain bağla (isletmetakip.com veya seçilen domain)
 4. Production deploy
+5. Vercel Firewall ayarlarını kontrol et (DDoS koruması aktif mi?)
 
 **Supabase güncellemeleri:**
 1. Site URL'i production domain ile güncelle
 2. Redirect URL'leri ekle: `https://domain.com/auth/callback`
 3. Google OAuth redirect URI güncelle
+4. Apple Sign-In: Services ID redirect URI güncelle
 
 **DNS ayarları:**
 1. Domain sağlayıcıda Vercel DNS'e yönlendir
 2. SSL otomatik (Vercel hallediyor)
+3. HSTS preload list'e başvur (opsiyonel, uzun vadeli)
 
-### 4.6 Supabase Realtime (opsiyonel, 2 gün)
+**Cloudflare Turnstile kurulumu:**
+1. Cloudflare Dashboard → Turnstile → Site ekle
+2. Domain'i ekle, widget mode: "Managed"
+3. Site key ve secret key'i Vercel env'e ekle
+
+**Upstash Redis kurulumu:**
+1. Upstash Console → Redis database oluştur (region: Frankfurt — Türkiye'ye yakın)
+2. REST URL ve token'ı Vercel env'e ekle
+
+### 4.8 Supabase Realtime (opsiyonel, 2 gün)
 
 - İşlem tablosundaki değişiklikleri dinle
 - Başka kullanıcı (veya mobil app) işlem eklediğinde otomatik refetch
 - `supabase.channel('islemler').on('postgres_changes', { event: '*', schema: 'public', table: 'islemler' }, () => queryClient.invalidateQueries(...))`
 
-### 4.7 Final Doğrulama
+### 4.9 Final Doğrulama
 
 ```
 ✓ Responsive: mobil, tablet, desktop'ta düzgün görünüyor mu?
 ✓ Loading: skeleton'lar ve error state'ler çalışıyor mu?
-✓ SEO: landing page Google'da düzgün indexleniyor mu?
-✓ Performance: Lighthouse skoru 90+ mı?
+✓ SEO: landing page Google'da düzgün indexleniyor mu? (Lighthouse SEO 100)
+✓ GEO: llms.txt erişilebilir mi? Structured data doğru mu?
+✓ Performance: Lighthouse skoru 95+ mı? Core Web Vitals geçiyor mu?
 ✓ Deploy: production URL çalışıyor mu?
-✓ SSL: HTTPS aktif mi?
+✓ SSL: HTTPS aktif mi? HSTS header var mı?
 ✓ Auth: production'da login/register çalışıyor mu?
+✓ Güvenlik header'ları: CSP, X-Frame-Options, HSTS doğru mu?
+✓ Rate limiting: brute force login denemesi engelleniyor mu?
+✓ Turnstile: kayıt ve şifre sıfırlama formlarında çalışıyor mu?
+✓ Bot koruması: honeypot alanları aktif mi?
+✓ File upload: sadece izin verilen dosya tipleri kabul ediliyor mu?
+✓ XSS: kullanıcı input'ları düzgün escape ediliyor mu?
 ✓ Mobil uygulama hala sorunsuz çalışıyor mu?
 ✓ Aynı kullanıcı hem mobil hem web'den giriş yapabiliyor mu?
 ✓ defterappv2/ dizininde HİÇBİR değişiklik yok mu?
+✓ npm audit: kritik güvenlik açığı yok mu?
 ```
 
 ---
@@ -1218,5 +1550,5 @@ Her faz sonunda:
 | Faz 1: Auth + Layout + Landing | 5-7 gün |
 | Faz 2: Core Modüller | 25-30 gün |
 | Faz 3: Gelişmiş Özellikler | 15-20 gün |
-| Faz 4: Cilalama + Deploy | 10-15 gün |
-| **Toplam** | **58-76 iş günü (~12-15 hafta)** |
+| Faz 4: Cilalama + Güvenlik + SEO/GEO + Deploy | 15-20 gün |
+| **Toplam** | **63-81 iş günü (~13-16 hafta)** |
