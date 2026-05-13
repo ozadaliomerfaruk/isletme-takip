@@ -135,6 +135,7 @@ export function SwipeableRow({
       rightThreshold={ACTION_WIDTH / 2}
       overshootRight={false}
       overshootFriction={8}
+      dragOffsetFromLeftEdge={80}
       dragOffsetFromRightEdge={40}
       enableTrackpadTwoFingerGesture
       renderRightActions={renderRightActions}

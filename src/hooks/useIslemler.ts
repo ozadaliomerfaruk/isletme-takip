@@ -765,11 +765,23 @@ export function useDeleteIslem() {
       }
 
       // Sonra işlemi sil - ownership kontrolü ile
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('islemler')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('id', id)
         .eq('isletme_id', isletme.id);
+
+      // RLS sessiz reject: 0 satır etkilendi ama hata dönmedi
+      if (!error && count === 0) {
+        try {
+          await updateBalances(balanceIslem);
+        } catch (rollbackError) {
+          if (__DEV__) {
+            console.error('Bakiye geri yükleme hatası:', rollbackError);
+          }
+        }
+        throw new Error(i18n.t('common:errors.permissionDenied'));
+      }
 
       if (error) {
         // Silme başarısız olursa bakiyeleri geri yükle
@@ -779,6 +791,10 @@ export function useDeleteIslem() {
           if (__DEV__) {
             console.error('Bakiye geri yükleme hatası:', rollbackError);
           }
+        }
+        // RLS policy hatası ise daha açıklayıcı mesaj ver
+        if (error.code === '42501' || error.message?.includes('policy')) {
+          throw new Error(i18n.t('common:errors.permissionDenied'));
         }
         throw error;
       }

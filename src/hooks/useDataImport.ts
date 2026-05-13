@@ -10,6 +10,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import {
   ImportPreview,
   AccountMapping,
@@ -630,11 +631,11 @@ export function useDataImport() {
         },
       }));
 
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
-      queryClient.invalidateQueries({ queryKey: ['kategoriler'] });
-      queryClient.invalidateQueries({ queryKey: ['islemler'] });
+      invalidateRelatedQueries(queryClient, 'islem');
+      invalidateRelatedQueries(queryClient, 'hesap');
+      invalidateRelatedQueries(queryClient, 'cari');
+      invalidateRelatedQueries(queryClient, 'personel');
+      invalidateRelatedQueries(queryClient, 'kategori');
 
       try {
         await Promise.all([
@@ -643,8 +644,6 @@ export function useDataImport() {
           queryClient.refetchQueries({ queryKey: ['personel'] }),
         ]);
         queryClient.refetchQueries({ queryKey: ['islemler'] });
-        queryClient.refetchQueries({ queryKey: ['month-summary'] });
-        queryClient.refetchQueries({ queryKey: ['dashboard'] });
       } catch { /* ignore refetch errors */ }
 
       const startingBalanceCount = preview.transactions.filter(tx => tx.mappedType === 'baslangic_bakiyesi').length;

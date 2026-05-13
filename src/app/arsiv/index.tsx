@@ -291,13 +291,13 @@ export default function ArsivPage() {
         >
           <View style={[styles.avatar, isPassive && styles.avatarPassive]}>
             <Text variant="caption" style={{ color: isPassive ? colors.textMuted : colors.primary }}>
-              {getInitials(`${personel.first_name} ${personel.last_name}`)}
+              {getInitials(`${personel.first_name} ${personel.last_name ?? ''}`)}
             </Text>
           </View>
           <View style={styles.itemInfo}>
             <View style={styles.itemNameRow}>
               <Text variant="body" style={isPassive && styles.textPassive}>
-                {personel.first_name} {personel.last_name}
+                {personel.first_name} {personel.last_name ?? ''}
               </Text>
               {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
             </View>
@@ -315,7 +315,7 @@ export default function ArsivPage() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.moreButton}
-          onPress={() => handleItemPress(personel.id, 'personel', `${personel.first_name} ${personel.last_name}`, personel.created_by)}
+          onPress={() => handleItemPress(personel.id, 'personel', `${personel.first_name} ${personel.last_name ?? ''}`, personel.created_by)}
         >
           <MoreVertical size={20} color={colors.textMuted} />
         </TouchableOpacity>

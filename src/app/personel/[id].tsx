@@ -220,7 +220,7 @@ export default function PersonelHareketleriPage() {
     }
   }, [refetchPersonel, refetchIslemler]);
 
-  const fullName = personel ? `${personel.first_name} ${personel.last_name}` : t('common:status.loading');
+  const fullName = personel ? `${personel.first_name} ${personel.last_name ?? ''}`.trim() : t('common:status.loading');
 
   // Memoized başlangıç bakiyesi hesaplaması
   const initialBalance = useMemo(() => {

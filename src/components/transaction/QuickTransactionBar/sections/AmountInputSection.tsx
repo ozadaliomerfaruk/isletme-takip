@@ -111,6 +111,9 @@ export function AmountInputSection({
         value={description}
         onChangeText={onDescriptionChange}
         maxLength={100}
+        multiline
+        numberOfLines={2}
+        textAlignVertical="top"
       />
 
       {/* Amount + Save */}

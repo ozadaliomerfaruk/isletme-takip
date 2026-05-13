@@ -149,6 +149,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 0,
     marginBottom: 8,
+    maxHeight: 60,
   },
   amountRow: {
     flexDirection: 'row',

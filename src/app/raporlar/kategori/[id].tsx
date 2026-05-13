@@ -230,7 +230,7 @@ export default function KategoriDetayPage() {
                 {t(`transactions:types.${item.type}`)} • {formatDateMedium(item.date)}
               </Text>
               {item.description && (item.cari || item.personel) && (
-                <Text variant="caption" color="secondary" numberOfLines={1}>
+                <Text variant="caption" color="secondary" numberOfLines={2}>
                   {item.description}
                 </Text>
               )}
@@ -248,11 +248,11 @@ export default function KategoriDetayPage() {
                 color={isGelir ? 'success' : 'error'}
                 style={styles.islemAmount}
               >
-                {isGelir ? '+' : '-'}{formatCurrency(displayAmount)}
+                {isGelir ? '+' : '-'}{formatCurrency(displayAmount, item.hesap?.currency)}
               </Text>
               {hasCategoryAmount && (
                 <Text variant="caption" color="secondary" style={styles.islemSubAmount}>
-                  {t('reports:labels.invoiceTotal')}: {formatCurrency(Number(item.amount))}
+                  {t('reports:labels.invoiceTotal')}: {formatCurrency(Number(item.amount), item.hesap?.currency)}
                 </Text>
               )}
             </View>

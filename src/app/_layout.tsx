@@ -427,6 +427,8 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.reports'),
@@ -438,6 +440,8 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.categoryDetail'),
@@ -449,6 +453,8 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.overview'),
@@ -460,6 +466,8 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.categoryDistribution'),
@@ -471,6 +479,8 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.clientReport'),
@@ -482,6 +492,8 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.personnelReport'),
@@ -493,6 +505,8 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.comparison'),
@@ -504,6 +518,8 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.purchaseSales'),

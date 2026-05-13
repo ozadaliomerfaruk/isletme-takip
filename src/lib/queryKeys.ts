@@ -226,6 +226,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'cari',
       'personel',
       'personel-detail',
+      'personel-leave-quotas',
       'month-summary',
       'category-report',
       'cash-flow-by-category',
@@ -317,6 +318,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     immediate: [
       'personel',
       'personel-detail',
+      'personel-leave-quotas',
       'islemler',
     ],
     deferred: [

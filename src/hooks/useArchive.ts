@@ -148,7 +148,7 @@ export function useArchiveHesap() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+      invalidateRelatedQueries(queryClient, 'hesap');
       queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
@@ -174,7 +174,7 @@ export function useUnarchiveHesap() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
+      invalidateRelatedQueries(queryClient, 'hesap');
       queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
@@ -200,7 +200,7 @@ export function useArchiveCari() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
+      invalidateRelatedQueries(queryClient, 'cari');
       queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
@@ -226,7 +226,7 @@ export function useUnarchiveCari() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cariler'] });
+      invalidateRelatedQueries(queryClient, 'cari');
       queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
@@ -252,7 +252,7 @@ export function useArchivePersonel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
+      invalidateRelatedQueries(queryClient, 'personel');
       queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });
@@ -278,7 +278,7 @@ export function useUnarchivePersonel() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['personel'] });
+      invalidateRelatedQueries(queryClient, 'personel');
       queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
     },
   });

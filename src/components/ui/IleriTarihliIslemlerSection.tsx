@@ -232,7 +232,7 @@ export function IleriTarihliIslemlerSection({
 
                   {/* Satır 3: Tutar */}
                   <Text style={[styles.amountText, { color: txColor }]}>
-                    {prefix}{formatCurrency(Math.abs(item.amount), item.hesap?.currency || undefined)}
+                    {prefix}{formatCurrency(Math.abs(Number(item.amount)), item.hesap?.currency || undefined)}
                   </Text>
                 </View>
               </View>

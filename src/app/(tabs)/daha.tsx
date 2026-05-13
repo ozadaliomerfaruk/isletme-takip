@@ -38,6 +38,7 @@ import type { SupportedLanguage } from '@/i18n/types';
 import { useSettings, type CurrencyCode, type DateFormatType } from '@/hooks/useSettings';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { usePermissions } from '@/hooks/usePermissions';
 
 const NOTIFICATIONS_ENABLED_KEY = '@defter_notifications_enabled';
 
@@ -84,6 +85,7 @@ export default function DahaPage() {
   const queryClient = useQueryClient();
   const { signOut, user, isletme, isOwner } = useAuthContext();
   const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser']);
+  const { canAccessModule } = usePermissions();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
   const [dateFormatModalVisible, setDateFormatModalVisible] = useState(false);
@@ -198,12 +200,16 @@ export default function DahaPage() {
               label={t('navigation:menu.allTransactions')}
               onPress={() => router.push('/islemler')}
             />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<BarChart3 size={22} color={colors.info} />}
-              label={t('navigation:menu.reports')}
-              onPress={() => router.push('/raporlar')}
-            />
+            {canAccessModule('raporlar') && (
+              <>
+                <View style={styles.divider} />
+                <MenuItem
+                  icon={<BarChart3 size={22} color={colors.info} />}
+                  label={t('navigation:menu.reports')}
+                  onPress={() => router.push('/raporlar')}
+                />
+              </>
+            )}
             <View style={styles.divider} />
             <MenuItem
               icon={<StickyNote size={22} color={colors.warning} />}
@@ -230,12 +236,16 @@ export default function DahaPage() {
               label={t('navigation:menu.categories')}
               onPress={() => router.push('/kategoriler')}
             />
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<Upload size={22} color={colors.primary} />}
-              label={t('navigation:menu.importData')}
-              onPress={() => router.push('/ayarlar/data-import' as Href)}
-            />
+            {isOwner && (
+              <>
+                <View style={styles.divider} />
+                <MenuItem
+                  icon={<Upload size={22} color={colors.primary} />}
+                  label={t('navigation:menu.importData')}
+                  onPress={() => router.push('/ayarlar/data-import' as Href)}
+                />
+              </>
+            )}
             <View style={styles.divider} />
             <MenuItem
               icon={<Archive size={22} color={colors.textSecondary} />}

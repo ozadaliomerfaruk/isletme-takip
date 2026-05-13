@@ -54,7 +54,7 @@ function getIslemEntity(islem: IslemWithRelations): string | null {
   }
   if (islem.cari?.name) return `→ ${islem.cari.name}`;
   if (islem.personel) {
-    const name = `${islem.personel.first_name} ${islem.personel.last_name}`.trim();
+    const name = `${islem.personel.first_name ?? ''} ${islem.personel.last_name ?? ''}`.trim();
     return name ? `→ ${name}` : null;
   }
   if (islem.hesap?.name) return islem.hesap.name;
@@ -502,8 +502,8 @@ export default function IslemlerPage() {
           ListEmptyComponent={ListEmpty}
           ListFooterComponent={hasNextPage ? (
             <TouchableOpacity
-              style={styles.loadMoreBtn}
-              onPress={() => fetchNextPage()}
+              style={[styles.loadMoreBtn, isFetchingNextPage && { opacity: 0.5 }]}
+              onPress={() => { if (!isFetchingNextPage) fetchNextPage(); }}
               disabled={isFetchingNextPage}
               activeOpacity={0.7}
             >
@@ -512,6 +512,8 @@ export default function IslemlerPage() {
               </Text>
             </TouchableOpacity>
           ) : null}
+          onEndReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
+          onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
           initialNumToRender={15}
           maxToRenderPerBatch={10}

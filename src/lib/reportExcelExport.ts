@@ -263,7 +263,7 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
       if (islem.cari) {
         entityName = islem.cari.name;
       } else if (islem.personel) {
-        entityName = `${islem.personel.first_name} ${islem.personel.last_name}`.trim();
+        entityName = `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim();
       }
       ws[`A${rowIdx}`] = { v: formatDateShort(islem.date), s: cellStyle };
       ws[`B${rowIdx}`] = { v: islem.description || '', s: cellStyle };
@@ -540,7 +540,7 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
           if (islem.cari) {
             entityName = islem.cari.name;
           } else if (islem.personel) {
-            entityName = `${islem.personel.first_name} ${islem.personel.last_name}`.trim();
+            entityName = `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim();
           }
           ws[`A${rowIdx}`] = { v: formatDateShort(islem.date), s: cellStyle };
           ws[`B${rowIdx}`] = { v: islem.description || '', s: cellStyle };

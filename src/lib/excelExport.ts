@@ -547,7 +547,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
       description: islem.description || '',
       category: islem.kategori?.name || '',
       account: getAccountName(islem),
-      cariName: islem.cari?.name || (islem.personel ? `${islem.personel.first_name} ${islem.personel.last_name}`.trim() : ''),
+      cariName: islem.cari?.name || (islem.personel ? `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim() : ''),
       debit,
       credit,
       debitBalance,

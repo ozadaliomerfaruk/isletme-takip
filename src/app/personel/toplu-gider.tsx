@@ -280,7 +280,7 @@ export default function TopluGiderPage() {
                     {/* Avatar */}
                     <View style={styles.avatar}>
                       <Text variant="caption" bold style={{ color: colors.primary }}>
-                        {getInitials(`${personel.first_name} ${personel.last_name}`)}
+                        {getInitials(`${personel.first_name} ${personel.last_name ?? ''}`)}
                       </Text>
                     </View>
 

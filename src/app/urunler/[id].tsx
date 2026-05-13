@@ -32,7 +32,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useUrun, useDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
+import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
 import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
@@ -46,7 +46,7 @@ export default function UrunDetayPage() {
   const { data: urun, isLoading: urunLoading } = useUrun(id);
   const { data: hareketler, isLoading: hareketlerLoading } = useUrunHareketler(id);
   const { data: aylikOzet } = useAylikUrunOzet(id);
-  const deleteUrun = useDeleteUrun();
+  const deleteUrun = usePermanentDeleteUrun();
   const archiveUrun = useArchiveUrun();
   const unarchiveUrun = useUnarchiveUrun();
   const deleteUrunHareket = useDeleteUrunHareket();

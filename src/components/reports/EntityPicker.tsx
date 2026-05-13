@@ -46,7 +46,7 @@ export function EntityPicker({
       return (entity as Cari).name;
     }
     const personel = entity as Personel;
-    return `${personel.first_name} ${personel.last_name}`;
+    return `${personel.first_name} ${personel.last_name ?? ''}`.trim();
   };
 
   const getEntityBalance = (entity: Cari | Personel): number => {

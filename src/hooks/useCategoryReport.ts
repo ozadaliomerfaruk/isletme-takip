@@ -2,9 +2,11 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Kategori, KategoriType } from '@/types/database';
+import { Kategori, KategoriType, HesapType } from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
+
+const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'birikim', 'diger'];
 
 /**
  * İşlem tiplerini kaynak ve tipe göre belirler
@@ -719,10 +721,45 @@ export function useCategoryTransactions(
         });
       }
 
-      // 4. Combine and deduplicate
+      // 4. Cash flow transfers: nakit→kredi_karti transfers counted as outflow
+      let cashFlowTransferData: any[] = [];
+      if (source === 'cash-flow' && type === 'gider') {
+        const transferData = await fetchAllPages(() => {
+          let q = supabase
+            .from('islemler')
+            .select(`
+              *,
+              hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+              hedef_hesap:hesaplar!hedef_hesap_id(id,type),
+              kategori:kategoriler(id,name),
+              cari:cariler(id,name,type),
+              personel:personel(id,first_name,last_name)
+            `)
+            .eq('isletme_id', isletme.id)
+            .eq('type', 'transfer')
+            .gte('date', startDateTime)
+            .lte('date', endDateTime)
+            .order('date', { ascending: false });
+
+          if (kategoriId === null || kategoriId === 'uncategorized') {
+            q = q.is('kategori_id', null);
+          } else {
+            q = q.eq('kategori_id', kategoriId);
+          }
+          return q;
+        });
+
+        cashFlowTransferData = (transferData || []).filter((item: any) => {
+          const hesap = Array.isArray(item.hesap) ? item.hesap[0] : item.hesap;
+          const hedefHesap = Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] : item.hedef_hesap;
+          return hesap?.type && CASH_ACCOUNT_TYPES.includes(hesap.type) && hedefHesap?.type === 'kredi_karti';
+        });
+      }
+
+      // 5. Combine and deduplicate
       const seenIds = new Set<string>();
       const combined = [];
-      for (const item of [...pureNoProductData, ...productIslemData]) {
+      for (const item of [...pureNoProductData, ...productIslemData, ...cashFlowTransferData]) {
         if (!seenIds.has(item.id)) {
           seenIds.add(item.id);
           const catAmount = categoryAmountMap.get(item.id);
@@ -846,10 +883,39 @@ export function useMultiCategoryTransactions(
         );
       }
 
-      // 3. Combine and deduplicate
+      // 3. Cash flow transfers: nakit→kredi_karti transfers counted as outflow
+      let cashFlowTransferData: any[] = [];
+      if (source === 'cash-flow' && type === 'gider') {
+        const transferData = await fetchAllPages(() =>
+          supabase
+            .from('islemler')
+            .select(`
+              *,
+              hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+              hedef_hesap:hesaplar!hedef_hesap_id(id,type),
+              kategori:kategoriler(id,name),
+              cari:cariler(id,name,type),
+              personel:personel(id,first_name,last_name)
+            `)
+            .eq('isletme_id', isletme.id)
+            .eq('type', 'transfer')
+            .in('kategori_id', kategoriIds)
+            .gte('date', startDateTime)
+            .lte('date', endDateTime)
+            .order('date', { ascending: false })
+        );
+
+        cashFlowTransferData = (transferData || []).filter((item: any) => {
+          const hesap = Array.isArray(item.hesap) ? item.hesap[0] : item.hesap;
+          const hedefHesap = Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] : item.hedef_hesap;
+          return hesap?.type && CASH_ACCOUNT_TYPES.includes(hesap.type) && hedefHesap?.type === 'kredi_karti';
+        });
+      }
+
+      // 4. Combine and deduplicate
       const seenIds = new Set<string>();
       const combined = [];
-      for (const item of [...pureDirectData, ...productIslemData]) {
+      for (const item of [...pureDirectData, ...productIslemData, ...cashFlowTransferData]) {
         if (!seenIds.has(item.id)) {
           seenIds.add(item.id);
           const catAmount = categoryAmountMap.get(item.id);

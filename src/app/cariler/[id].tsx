@@ -1025,6 +1025,8 @@ export default function CariHareketleriPage() {
       <Stack.Screen
         options={{
           headerTitle: cari.name,
+          headerTitleStyle: { fontSize: 17, fontWeight: '600' },
+          headerTitleContainerStyle: { maxWidth: '50%' },
           headerBackVisible: false,
           headerRight: () => headerRightElement,
           headerLeft: () => (

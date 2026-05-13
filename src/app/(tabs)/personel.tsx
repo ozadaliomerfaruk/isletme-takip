@@ -369,11 +369,11 @@ export default function PersonelPage() {
                   <Circle size={24} color={colors.border} />
                 )}
               </View>
-              <Avatar name={`${personel.first_name} ${personel.last_name}`} size={40} />
+              <Avatar name={`${personel.first_name} ${personel.last_name ?? ''}`} size={40} />
               <View style={styles.personelInfo}>
                 <View style={styles.personelNameRow}>
                   <Text variant="body">
-                    {personel.first_name} {personel.last_name}
+                    {personel.first_name} {personel.last_name ?? ''}
                   </Text>
                   {!personel.is_active && (
                     <EyeOff size={14} color={colors.textMuted} />
@@ -396,11 +396,11 @@ export default function PersonelPage() {
             onToggle={() => setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id)}
             header={
               <View style={styles.personelHeader}>
-                <Avatar name={`${personel.first_name} ${personel.last_name}`} size={40} />
+                <Avatar name={`${personel.first_name} ${personel.last_name ?? ''}`} size={40} />
                 <View style={styles.personelInfo}>
                   <View style={styles.personelNameRow}>
                     <Text variant="body">
-                      {personel.first_name} {personel.last_name}
+                      {personel.first_name} {personel.last_name ?? ''}
                     </Text>
                     {!personel.is_active && (
                       <EyeOff size={14} color={colors.textMuted} />
@@ -423,7 +423,7 @@ export default function PersonelPage() {
                         </Text>
                       </>
                     )}
-                    {leaveQuotas?.[personel.id] && leaveQuotas[personel.id].hakEdilen > 0 && (
+                    {leaveQuotas?.[personel.id] && (leaveQuotas[personel.id].hakEdilen > 0 || leaveQuotas[personel.id].kullanilan > 0) && (
                       <>
                         <CalendarDays size={12} color={leaveQuotas[personel.id].kalan >= 0 ? colors.success : colors.error} style={{ marginLeft: spacing.sm }} />
                         <Text variant="caption" color={leaveQuotas[personel.id].kalan >= 0 ? 'success' : 'error'}>

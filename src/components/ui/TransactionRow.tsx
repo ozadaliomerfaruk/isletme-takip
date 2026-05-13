@@ -125,7 +125,7 @@ export const TransactionRow = memo(function TransactionRow({
               </Text>
             ) : null}
             {tertiaryText && (
-              <Text style={styles.tertiaryText} numberOfLines={1}>
+              <Text style={styles.tertiaryText} numberOfLines={2}>
                 {secondaryText ? ` · ${tertiaryText}` : tertiaryText}
               </Text>
             )}
