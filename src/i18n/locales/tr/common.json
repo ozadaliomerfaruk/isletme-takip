@@ -446,6 +446,24 @@
       "instant": "Anlık",
       "sheetName": "Genel_Durum",
       "fileName": "Genel_Durum_Raporu"
+    },
+    "shareOptions": "Paylaş",
+    "pdfShare": "PDF Paylaş / Yazdır",
+    "pdfShareDesc": "WhatsApp veya email ile PDF olarak gönderin",
+    "excelShare": "Excel",
+    "excelShareDesc": "İşlem listesini Excel dosyası olarak gönderin",
+    "accountShare": "Hesap Paylaş",
+    "accountShareDesc": "Kullanıcıya erişim verin",
+    "report": "Rapor",
+    "send": "Gönder",
+    "cancel": "Vazgeç",
+    "pdf": {
+      "phone": "Telefon",
+      "date": "Tarih",
+      "time": "Saat",
+      "balance": "Son Bakiye",
+      "totalRecords": "Toplam Kayıt",
+      "page": "Sayfa"
     }
   },
   "archive": {

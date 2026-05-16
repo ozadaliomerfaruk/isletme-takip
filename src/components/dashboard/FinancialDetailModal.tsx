@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, InteractionManager, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, InteractionManager, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { usePermissions } from '@/hooks/usePermissions';
 import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight } from 'lucide-react-native';
 import { Text, AnimatedNumber } from '@/components/ui';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -21,9 +22,10 @@ interface FinancialDetailModalProps {
 }
 
 export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModalProps) {
-  const { t } = useTranslation(['common', 'reports']);
+  const { t } = useTranslation(['common', 'reports', 'multiUser']);
   const router = useRouter();
   const { getDateRangeLabel } = useDateFormat();
+  const { canAccessModule } = usePermissions();
 
   const [period, setPeriod] = useState<Exclude<PeriodType, 'custom'>>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
@@ -74,6 +76,13 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
   const canGoForward = periodOffset < 0;
 
   const navigateToReport = useCallback((pathname: string) => {
+    if (!canAccessModule('raporlar')) {
+      Alert.alert(
+        t('multiUser:permissions.denied'),
+        t('multiUser:permissions.noModuleAccess'),
+      );
+      return;
+    }
     onDismiss();
     setTimeout(() => {
       router.push({
@@ -81,7 +90,7 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
         params: { period, periodOffset: String(periodOffset), startDate, endDate },
       });
     }, 300);
-  }, [onDismiss, router, period, periodOffset, startDate, endDate]);
+  }, [canAccessModule, t, onDismiss, router, period, periodOffset, startDate, endDate]);
 
   return (
     <BottomSheet visible={visible} onDismiss={onDismiss} snapPoints={[0.72]}>

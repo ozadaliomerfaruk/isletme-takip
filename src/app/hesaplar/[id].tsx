@@ -21,7 +21,7 @@ import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal } from '@/components/transaction';
-import { ExportSheet } from '@/components/export';
+import { ExportSheet, ShareOptionsSheet, PdfExportSheet } from '@/components/export';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
@@ -255,7 +255,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
-        secondaryText={islem.description || islem.kategori?.name || null}
+        secondaryText={islem.kategori?.name || null}
+        tertiaryText={islem.description || null}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         currency={hesapCurrency}
@@ -331,6 +332,8 @@ export default function HesapHareketleriPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [showPdfExport, setShowPdfExport] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newBalanceInput, setNewBalanceInput] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
@@ -629,10 +632,10 @@ export default function HesapHareketleriPage() {
   };
 
   // Header right buttons (share + menu)
-  const HeaderRightButtons = () => (
+  const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
       <TouchableOpacity
-        onPress={() => setShowExportSheet(true)}
+        onPress={() => setShowShareOptions(true)}
         style={styles.headerBtn}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
@@ -646,7 +649,7 @@ export default function HesapHareketleriPage() {
         <MoreVertical size={24} color={colors.text} />
       </TouchableOpacity>
     </View>
-  );
+  ), []);
 
   // === DATE GROUPING ===
   const groupedData = useMemo(() => {
@@ -917,7 +920,7 @@ export default function HesapHareketleriPage() {
         options={{
           headerTitle: hesap.name,
           headerBackVisible: false,
-          headerRight: () => <HeaderRightButtons />,
+          headerRight: () => headerRightElement,
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
@@ -1040,6 +1043,26 @@ export default function HesapHareketleriPage() {
         onDismiss={() => setShowCekKesSheet(false)}
         defaultHesapId={id}
         defaultCurrency={hesap?.currency}
+      />
+
+      {/* Share Options */}
+      <ShareOptionsSheet
+        visible={showShareOptions}
+        onDismiss={() => setShowShareOptions(false)}
+        entityType="hesap"
+        onPdfPress={() => setShowPdfExport(true)}
+        onExcelPress={() => setShowExportSheet(true)}
+      />
+
+      {/* PDF Export */}
+      <PdfExportSheet
+        visible={showPdfExport}
+        onDismiss={() => setShowPdfExport(false)}
+        entityType="hesap"
+        entityId={id!}
+        entityName={hesap.name}
+        entityCurrency={hesap.currency}
+        currentBalance={Number(hesap.balance)}
       />
 
       {/* Export Sheet */}

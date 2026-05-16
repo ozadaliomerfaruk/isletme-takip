@@ -289,7 +289,10 @@ export function PendingTransactionForm({
           placeholderTextColor={colors.textMuted}
           value={form.description}
           onChangeText={form.setDescription}
-          maxLength={100}
+          maxLength={500}
+          multiline
+          numberOfLines={2}
+          textAlignVertical="top"
         />
 
         {/* Amount + Save */}

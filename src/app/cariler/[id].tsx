@@ -15,7 +15,6 @@ import {
   FileCheck,
   X,
   Share2,
-  Link,
   Unlink,
   Package,
   BarChart3,
@@ -31,7 +30,7 @@ import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
-import { ExportSheet } from '@/components/export';
+import { ExportSheet, ShareOptionsSheet, PdfExportSheet } from '@/components/export';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
@@ -433,6 +432,8 @@ export default function CariHareketleriPage() {
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [showPdfExport, setShowPdfExport] = useState(false);
   const [showShareCodeModal, setShowShareCodeModal] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
@@ -661,17 +662,8 @@ export default function CariHareketleriPage() {
       >
         <BarChart3 size={22} color={colors.text} />
       </TouchableOpacity>
-      {!isViewer && (
-        <TouchableOpacity
-          onPress={() => setShowShareCodeModal(true)}
-          style={styles.headerBtn}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Link size={22} color={linkStatus?.is_linked ? colors.primary : colors.text} />
-        </TouchableOpacity>
-      )}
       <TouchableOpacity
-        onPress={() => setShowExportSheet(true)}
+        onPress={() => setShowShareOptions(true)}
         style={styles.headerBtn}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
@@ -1024,9 +1016,11 @@ export default function CariHareketleriPage() {
     <>
       <Stack.Screen
         options={{
-          headerTitle: cari.name,
-          headerTitleStyle: { fontSize: 17, fontWeight: '600' },
-          headerTitleContainerStyle: { maxWidth: '50%' },
+          headerTitle: () => (
+            <Text numberOfLines={2} style={{ fontSize: 17, fontWeight: '600', maxWidth: 200 }}>
+              {cari.name}
+            </Text>
+          ),
           headerBackVisible: false,
           headerRight: () => headerRightElement,
           headerLeft: () => (
@@ -1155,6 +1149,31 @@ export default function CariHareketleriPage() {
           onDismiss={() => setShowCekKesSheet(false)}
           defaultCariId={cari?.id}
           defaultCurrency={cari?.currency}
+        />
+
+        {/* Share Options */}
+        <ShareOptionsSheet
+          visible={showShareOptions}
+          onDismiss={() => setShowShareOptions(false)}
+          entityType="cari"
+          onPdfPress={() => setShowPdfExport(true)}
+          onExcelPress={() => setShowExportSheet(true)}
+          onSharePress={!isViewer ? () => setShowShareCodeModal(true) : undefined}
+        />
+
+        {/* PDF Export */}
+        <PdfExportSheet
+          visible={showPdfExport}
+          onDismiss={() => setShowPdfExport(false)}
+          entityType="cari"
+          entityId={id!}
+          entityName={cari.name}
+          entityCurrency={cari.currency}
+          currentBalance={shouldInvertBalance ? -Number(cari.balance) : Number(cari.balance)}
+          cariType={(effectiveType || cari.type) as 'musteri' | 'tedarikci'}
+          currentIsletmeId={isletme?.id}
+          typeMismatch={typeMismatch}
+          phone={cari.phone}
         />
 
         {/* Export Sheet */}

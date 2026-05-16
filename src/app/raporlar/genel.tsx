@@ -15,8 +15,10 @@ import { toNumber } from '@/lib/currency';
 import { exportGenelDurumToExcel, GenelDurumExcelTranslations } from '@/lib/reportExcelExport';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function GenelRaporPage() {
+  usePagePermission({ module: 'raporlar' });
   const state = useReportRouteState();
   const { t } = useTranslation(['reports', 'common']);
   const { isletme } = useAuthContext();
@@ -106,6 +108,8 @@ export default function GenelRaporPage() {
     <>
       <Stack.Screen
         options={{
+          headerBackVisible: true,
+          gestureEnabled: true,
           headerRight: () => (
             <TouchableOpacity
               onPress={handleExport}

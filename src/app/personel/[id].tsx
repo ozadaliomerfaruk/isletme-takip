@@ -27,7 +27,7 @@ import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
-import { ExportSheet } from '@/components/export';
+import { ExportSheet, ShareOptionsSheet, PdfExportSheet } from '@/components/export';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
@@ -179,6 +179,8 @@ export default function PersonelHareketleriPage() {
   const [quickBarDefaultType, setQuickBarDefaultType] = useState<string | undefined>(undefined);
   const [showMenu, setShowMenu] = useState(false);
   const [showExportSheet, setShowExportSheet] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [showPdfExport, setShowPdfExport] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
@@ -372,7 +374,7 @@ export default function PersonelHareketleriPage() {
   }, [unarchivePersonel, id, t, router]);
 
   // Header right buttons
-  const HeaderRightButtons = useCallback(() => (
+  const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
       <TouchableOpacity
         onPress={() => router.push({ pathname: '/raporlar/personel', params: { personelId: id } })}
@@ -382,7 +384,7 @@ export default function PersonelHareketleriPage() {
         <BarChart3 size={22} color={colors.text} />
       </TouchableOpacity>
       <TouchableOpacity
-        onPress={() => setShowExportSheet(true)}
+        onPress={() => setShowShareOptions(true)}
         style={styles.headerBtn}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
@@ -805,7 +807,7 @@ export default function PersonelHareketleriPage() {
         options={{
           headerTitle: fullName,
           headerBackVisible: false,
-          headerRight: () => <HeaderRightButtons />,
+          headerRight: () => headerRightElement,
           headerLeft: () => (
             <TouchableOpacity
               onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
@@ -913,6 +915,25 @@ export default function PersonelHareketleriPage() {
             setShowCopyBar(false);
             setCopySourceId(null);
           }}
+        />
+
+        {/* Share Options */}
+        <ShareOptionsSheet
+          visible={showShareOptions}
+          onDismiss={() => setShowShareOptions(false)}
+          entityType="personel"
+          onPdfPress={() => setShowPdfExport(true)}
+          onExcelPress={() => setShowExportSheet(true)}
+        />
+
+        {/* PDF Export */}
+        <PdfExportSheet
+          visible={showPdfExport}
+          onDismiss={() => setShowPdfExport(false)}
+          entityType="personel"
+          entityId={id!}
+          entityName={fullName}
+          currentBalance={Number(personel.balance)}
         />
 
         {/* Export Sheet */}

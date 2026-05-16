@@ -24,10 +24,12 @@ import { IslemWithRelations } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 type ReportDirection = 'alis' | 'satis';
 
 export default function AlisSatisRaporPage() {
+  usePagePermission({ module: 'raporlar' });
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common', 'products']);
   const state = useReportRouteState();
@@ -195,6 +197,8 @@ export default function AlisSatisRaporPage() {
       <Stack.Screen
         options={{
           title: t('reports:titles.purchaseSales'),
+          headerBackVisible: true,
+          gestureEnabled: true,
           headerRight: () => (
             <TouchableOpacity
               onPress={handleExport}

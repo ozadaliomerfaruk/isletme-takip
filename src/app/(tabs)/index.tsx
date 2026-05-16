@@ -53,7 +53,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 export default function HomePage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff']);
+  const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff', 'multiUser']);
   const { getDateRangeLabel } = useDateFormat();
 
   const [isCancelling, setIsCancelling] = useState(false);
@@ -85,7 +85,7 @@ export default function HomePage() {
   const deleteHesap = useDeleteHesap();
 
   // Permissions
-  const { canUpdate, canDelete } = usePermissions();
+  const { canUpdate, canDelete, canAccessModule } = usePermissions();
 
   const { isletme, cancelAccountDeletion } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
@@ -414,14 +414,32 @@ export default function HomePage() {
           assets={accounts}
           receivables={receivables.total}
           payables={payables.total}
-          onHeroPress={() => router.push('/raporlar')}
+          onHeroPress={() => {
+            if (!canAccessModule('raporlar')) {
+              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
+              return;
+            }
+            router.push('/raporlar');
+          }}
           income={totalIncome}
           expense={totalExpense}
-          onIncomeExpensePress={() => setFinancialModalVisible(true)}
+          onIncomeExpensePress={() => {
+            if (!canAccessModule('raporlar')) {
+              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
+              return;
+            }
+            setFinancialModalVisible(true);
+          }}
           totalInflow={totalInflow}
           totalOutflow={totalOutflow}
           netCashFlow={netCashFlow}
-          onCashFlowPress={() => setFinancialModalVisible(true)}
+          onCashFlowPress={() => {
+            if (!canAccessModule('raporlar')) {
+              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
+              return;
+            }
+            setFinancialModalVisible(true);
+          }}
           periodBadge={currentMonthLabel}
         />
 

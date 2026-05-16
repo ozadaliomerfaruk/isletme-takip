@@ -8,8 +8,10 @@ import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { PeriodType } from '@/hooks/useIslemler';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KarsilastirmaRaporPage() {
+  usePagePermission({ module: 'raporlar' });
   const { t } = useTranslation(['reports']);
   const state = useReportRouteState();
 

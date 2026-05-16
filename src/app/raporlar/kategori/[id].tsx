@@ -33,6 +33,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
 import { IslemWithRelations, KategoriType } from '@/types/database';
 import { useTranslation } from 'react-i18next';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -68,6 +69,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 export default function KategoriDetayPage() {
+  usePagePermission({ module: 'raporlar' });
   const router = useRouter();
   const { id, type, startDate, endDate, source } = useLocalSearchParams<{
     id: string;
@@ -432,7 +434,7 @@ export default function KategoriDetayPage() {
     if (uncategorizedLoading) {
       return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
-          <Stack.Screen options={{ title: t('reports:titles.uncategorized') }} />
+          <Stack.Screen options={{ title: t('reports:titles.uncategorized'), headerBackVisible: true, gestureEnabled: true }} />
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
@@ -446,6 +448,8 @@ export default function KategoriDetayPage() {
           options={{
             title: t('reports:titles.uncategorized'),
             headerBackTitle: t('reports:titles.reports'),
+            headerBackVisible: true,
+            gestureEnabled: true,
           }}
         />
 
@@ -516,7 +520,7 @@ export default function KategoriDetayPage() {
   if (subCategoryReport.isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ title: pageTitle }} />
+        <Stack.Screen options={{ title: pageTitle, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -528,7 +532,7 @@ export default function KategoriDetayPage() {
   if (subCategoryReport.error) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ title: pageTitle }} />
+        <Stack.Screen options={{ title: pageTitle, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.errorContainer}>
           <Text variant="body" color="error">
             {t('reports:empty.dataLoadError')}
@@ -546,6 +550,8 @@ export default function KategoriDetayPage() {
           options={{
             title: pageTitle,
             headerBackTitle: t('reports:titles.reports'),
+            headerBackVisible: true,
+            gestureEnabled: true,
           }}
         />
 
@@ -618,6 +624,8 @@ export default function KategoriDetayPage() {
         options={{
           title: pageTitle,
           headerBackTitle: t('reports:titles.reports'),
+          headerBackVisible: true,
+          gestureEnabled: true,
         }}
       />
 

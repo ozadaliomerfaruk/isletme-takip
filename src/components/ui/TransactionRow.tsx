@@ -116,21 +116,18 @@ export const TransactionRow = memo(function TransactionRow({
           ) : null}
         </View>
 
-        {/* Line 3: Secondary + Tertiary info */}
-        {(secondaryText || tertiaryText) && (
-          <View style={styles.line3}>
-            {secondaryText ? (
-              <Text style={styles.secondaryText} numberOfLines={1}>
-                {secondaryText}
-              </Text>
-            ) : null}
-            {tertiaryText && (
-              <Text style={styles.tertiaryText} numberOfLines={2}>
-                {secondaryText ? ` · ${tertiaryText}` : tertiaryText}
-              </Text>
-            )}
-          </View>
-        )}
+        {/* Line 3: Secondary (category) */}
+        {secondaryText ? (
+          <Text style={styles.secondaryText} numberOfLines={1}>
+            {secondaryText}
+          </Text>
+        ) : null}
+        {/* Line 4: Tertiary (note) — no line limit */}
+        {tertiaryText ? (
+          <Text style={styles.tertiaryText}>
+            {tertiaryText}
+          </Text>
+        ) : null}
       </View>
 
       {/* Amount */}

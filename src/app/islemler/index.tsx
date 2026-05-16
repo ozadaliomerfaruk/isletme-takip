@@ -121,7 +121,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   );
 
   const entityName = getIslemEntity(islem);
-  const description = islem.description || islem.kategori?.name || null;
+  const kategoriName = islem.kategori?.name || null;
+  const noteText = islem.description || null;
   const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
   const subAmount = getTransferSubAmount(islem);
   const hesapCurrency = islem.hesap?.currency || undefined;
@@ -141,7 +142,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
         date={formatDateMedium(islem.date)}
         typeLabel={t(`transactions:types.${islem.type}`)}
         entityText={entityName}
-        secondaryText={description}
+        secondaryText={kategoriName}
+        tertiaryText={noteText}
         subAmount={subAmount}
         currency={hesapCurrency}
         creatorText={creatorText}

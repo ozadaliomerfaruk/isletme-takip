@@ -21,10 +21,12 @@ import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatDateForDB } from '@/lib/date';
 import { useTranslation } from 'react-i18next';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 type ReportTab = 'ozet' | 'grafikler';
 
 export default function RaporlarPage() {
+  usePagePermission({ module: 'raporlar' });
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
   const { locale } = useDateFormat();

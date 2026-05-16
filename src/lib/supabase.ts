@@ -41,3 +41,19 @@ export const supabase = withTelemetrySafe(
     },
   })
 );
+
+export async function checkNetworkConnectivity(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    await fetch(`${supabaseUrl}/rest/v1/`, {
+      method: 'HEAD',
+      signal: controller.signal,
+      headers: { apikey: supabaseAnonKey },
+    });
+    clearTimeout(timeout);
+    return true;
+  } catch {
+    return false;
+  }
+}

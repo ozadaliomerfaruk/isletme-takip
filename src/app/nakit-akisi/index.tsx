@@ -17,10 +17,12 @@ import { exportCashFlowToExcel, CashFlowExcelTranslations } from '@/lib/reportEx
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 type FlowType = 'inflow' | 'outflow';
 
 export default function NakitAkisiPage() {
+  usePagePermission({ module: 'raporlar' });
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
   const state = useReportRouteState();
@@ -110,6 +112,8 @@ export default function NakitAkisiPage() {
       <Stack.Screen
         options={{
           title: t('reports:cashFlow.title'),
+          headerBackVisible: true,
+          gestureEnabled: true,
           headerRight: () => (
             <TouchableOpacity
               onPress={handleExport}

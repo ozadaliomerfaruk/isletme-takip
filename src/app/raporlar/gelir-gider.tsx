@@ -16,9 +16,11 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { usePagePermission } from '@/hooks/usePagePermission';
 type ReportType = 'gelir' | 'gider';
 
 export default function GelirGiderRaporPage() {
+  usePagePermission({ module: 'raporlar' });
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
   const state = useReportRouteState();
@@ -73,6 +75,8 @@ export default function GelirGiderRaporPage() {
       <Stack.Screen
         options={{
           title: t('reports:titles.categoryDistribution'),
+          headerBackVisible: true,
+          gestureEnabled: true,
           headerRight: () => (
             <TouchableOpacity
               onPress={handleExport}

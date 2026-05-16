@@ -14,8 +14,10 @@ import { PeriodType } from '@/hooks/useIslemler';
 import { formatDateForDB } from '@/lib/date';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function CariRaporPage() {
+  usePagePermission({ module: 'raporlar' });
   const { t } = useTranslation(['reports', 'common']);
   const { cariId } = useLocalSearchParams<{ cariId?: string }>();
   const state = useReportRouteState();

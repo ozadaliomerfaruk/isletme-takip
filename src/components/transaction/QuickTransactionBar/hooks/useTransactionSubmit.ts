@@ -13,6 +13,7 @@ import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, 
 import type { Currency, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
+import { checkNetworkConnectivity } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 
 interface Hesap {
@@ -207,7 +208,7 @@ export function useTransactionSubmit({
   onSuccess,
   handleDismiss,
 }: UseTransactionSubmitOptions): UseTransactionSubmitReturn {
-  const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
+  const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts', 'errors']);
   const { isletme } = useAuthContext();
   const { triggerReviewIfEligible } = useReview();
   const { showToast } = useToast();
@@ -399,6 +400,15 @@ export function useTransactionSubmit({
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
+      return;
+    }
+
+    const isOnline = await checkNetworkConnectivity();
+    if (!isOnline) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      Alert.alert(t('errors:network.noConnection'), t('transactions:messages.saveFailedRetry'));
       return;
     }
 

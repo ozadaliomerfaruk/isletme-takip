@@ -11,7 +11,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useUrunler, useDeleteUrun, useArchiveUrun, usePermanentDeleteUrun } from '@/hooks/useUrunler';
+import { useUrunler, useArchiveUrun, usePermanentDeleteUrun } from '@/hooks/useUrunler';
 import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
 import { useToast } from '@/contexts/ToastContext';
 import { useDonemUrunOzet } from '@/hooks/useUrunHareketler';
@@ -384,7 +384,6 @@ export default function UrunlerPage() {
   const [isExporting, setIsExporting] = useState(false);
   const { data: urunler, isLoading, refetch } = useUrunler();
   const { data: archivedUrunler, refetch: refetchArchived } = useArchivedUrunler();
-  const deleteUrun = useDeleteUrun();
   const archiveUrun = useArchiveUrun();
   const permanentDeleteUrun = usePermanentDeleteUrun();
   const unarchiveUrun = useUnarchiveUrun();
@@ -563,7 +562,7 @@ export default function UrunlerPage() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteUrun.mutateAsync(actionSheetUrun.id);
+              await permanentDeleteUrun.mutateAsync(actionSheetUrun.id);
               haptics.success();
               showToast(t('common:messages.deletedSuccessfully'), 'success');
             } catch {
@@ -574,7 +573,7 @@ export default function UrunlerPage() {
         },
       ]
     );
-  }, [actionSheetUrun, deleteUrun, haptics, showToast, t]);
+  }, [actionSheetUrun, permanentDeleteUrun, haptics, showToast, t]);
 
   const handleUnarchive = useCallback(async () => {
     if (!actionSheetUrun) return;

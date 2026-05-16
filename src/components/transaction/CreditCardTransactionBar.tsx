@@ -666,7 +666,10 @@ export function CreditCardTransactionBar({
           placeholderTextColor={colors.textMuted}
           value={description}
           onChangeText={setDescription}
-          maxLength={100}
+          maxLength={500}
+          multiline
+          numberOfLines={2}
+          textAlignVertical="top"
         />
 
         {/* Amount + Save */}

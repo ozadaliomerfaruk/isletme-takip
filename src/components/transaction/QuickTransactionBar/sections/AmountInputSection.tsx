@@ -110,7 +110,7 @@ export function AmountInputSection({
         placeholderTextColor={colors.textMuted}
         value={description}
         onChangeText={onDescriptionChange}
-        maxLength={100}
+        maxLength={500}
         multiline
         numberOfLines={2}
         textAlignVertical="top"

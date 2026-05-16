@@ -59,7 +59,7 @@ const headerStyle = {
 // Normal hücre stili
 const cellStyle = {
   font: { sz: 10, color: { rgb: '333333' } },
-  alignment: { horizontal: 'left', vertical: 'center' },
+  alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
   border: thinBorder,
 };
 
@@ -180,7 +180,7 @@ export interface TransactionRow {
  * Borç = Hesaptan çıkan para (gider, ödeme, transfer out)
  * Alacak = Hesaba giren para (gelir, tahsilat, transfer in)
  */
-function getHesapDebitCredit(
+export function getHesapDebitCredit(
   islem: IslemWithRelations,
   hesapId: string
 ): { debit: number | null; credit: number | null } {
@@ -234,7 +234,7 @@ function getHesapDebitCredit(
  * Hesap için başlangıç bakiyesi hesapla
  * Seçilen tarih aralığından önceki tüm işlemlerin etkisini hesapla
  */
-function calculateHesapOpeningBalance(
+export function calculateHesapOpeningBalance(
   allTransactions: IslemWithRelations[],
   hesapId: string,
   currentBalance: number,
@@ -276,7 +276,7 @@ function calculateHesapOpeningBalance(
  * Tedarikçi: Alış = Borç (bize borçlu oldular), Ödeme = Alacak (ödedik)
  * Müşteri: Satış = Alacak (bize borçlu), Tahsilat = Borç (ödediler)
  */
-function getCariDebitCredit(
+export function getCariDebitCredit(
   islem: IslemWithRelations,
   cariType: 'musteri' | 'tedarikci'
 ): { debit: number | null; credit: number | null } {
@@ -312,7 +312,7 @@ function getCariDebitCredit(
  * Cari için başlangıç bakiyesi hesapla
  * Per-transaction inversion destekler (paylaşılan cariler için)
  */
-function calculateCariOpeningBalance(
+export function calculateCariOpeningBalance(
   allTransactions: IslemWithRelations[],
   cariType: 'musteri' | 'tedarikci',
   currentBalance: number,
@@ -377,7 +377,7 @@ function calculateCariOpeningBalance(
  * Personel için borç/alacak belirleme
  * Gider = Alacak (biz borçlandık), Ödeme = Borç (ödedik)
  */
-function getPersonelDebitCredit(
+export function getPersonelDebitCredit(
   islem: IslemWithRelations
 ): { debit: number | null; credit: number | null } {
   const amount = toNumber(islem.amount);
@@ -399,7 +399,7 @@ function getPersonelDebitCredit(
 /**
  * Personel için başlangıç bakiyesi hesapla
  */
-function calculatePersonelOpeningBalance(
+export function calculatePersonelOpeningBalance(
   allTransactions: IslemWithRelations[],
   currentBalance: number,
   startDate: string
@@ -702,7 +702,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ws['!cols'] = [
     { wch: 12 }, // Tarih
     { wch: 18 }, // İşlem Tipi
-    { wch: 30 }, // Açıklama
+    { wch: 35 }, // Açıklama
     { wch: 15 }, // Kategori
     { wch: 15 }, // Hesap
     { wch: 20 }, // Cari/Personel

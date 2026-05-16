@@ -453,6 +453,24 @@
       "instant": "Instant",
       "sheetName": "Overview",
       "fileName": "Financial_Overview_Report"
+    },
+    "shareOptions": "Share",
+    "pdfShare": "Share as PDF / Print",
+    "pdfShareDesc": "Send as PDF via WhatsApp, email or other apps",
+    "excelShare": "Excel",
+    "excelShareDesc": "Send transaction list as an Excel file",
+    "accountShare": "Share Account",
+    "accountShareDesc": "Give access to a user",
+    "report": "Report",
+    "send": "Send",
+    "cancel": "Cancel",
+    "pdf": {
+      "phone": "Phone",
+      "date": "Date",
+      "time": "Time",
+      "balance": "Balance",
+      "totalRecords": "Total Records",
+      "page": "Page"
     }
   },
   "archive": {
