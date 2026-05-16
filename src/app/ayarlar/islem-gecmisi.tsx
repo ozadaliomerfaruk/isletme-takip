@@ -30,9 +30,10 @@ export default function IslemGecmisiPage() {
   const data = activeTab === 'deleted' ? deletedIslemler : editedIslemler;
 
   const renderAuditItem = (item: IslemAuditLog) => {
-    const oldData = item.old_data as Record<string, any> | null;
-    const newData = item.new_data as Record<string, any> | null;
-    const performerName = (item as any).performer?.display_name ?? (item as any).performer?.email ?? '?';
+    const oldData = item.old_data as Record<string, unknown> | null;
+    const newData = item.new_data as Record<string, unknown> | null;
+    const performer = (item as Record<string, unknown>).performer as Record<string, string> | undefined;
+    const performerName = performer?.display_name ?? performer?.email ?? '?';
     const amount = oldData?.tutar ?? newData?.tutar;
     const aciklama = oldData?.aciklama ?? newData?.aciklama ?? '';
 

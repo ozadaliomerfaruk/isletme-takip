@@ -113,6 +113,7 @@ export default function VeriIceAktarPage() {
   const [categoryMappings, setCategoryMappings] = useState<Record<string, 'gelir' | 'gider'>>({});
   const [fileName, setFileName] = useState<string>('');
   const [fileHash, setFileHash] = useState<string>('');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [isDryRun, setIsDryRun] = useState(false);
@@ -1852,6 +1853,7 @@ export default function VeriIceAktarPage() {
 // HELPER COMPONENTS
 // ============================================================================
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function PhaseItem({ label, active, done }: { label: string; active: boolean; done: boolean }) {
   return (
     <View style={styles.phaseItem}>

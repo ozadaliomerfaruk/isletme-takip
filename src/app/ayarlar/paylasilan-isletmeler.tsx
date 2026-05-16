@@ -27,8 +27,8 @@ export default function PaylasilanIsletmelerPage() {
       await acceptInvite.mutateAsync(inviteCode.trim());
       setInviteCode('');
       Alert.alert(t('multiUser:success.inviteAccepted'));
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error?.message ?? t('common:status.error'));
+    } catch (error: unknown) {
+      Alert.alert(t('common:status.error'), (error as Error)?.message ?? t('common:status.error'));
     }
   };
 
@@ -49,7 +49,7 @@ export default function PaylasilanIsletmelerPage() {
       }
 
       await switchToSharedIsletme(item.isletme, freshData.permissions, freshData.role);
-      router.replace('/(tabs)' as any);
+      router.replace('/(tabs)' as never);
     } catch {
       Alert.alert(t('common:status.error'), t('multiUser:errors.switchFailed'));
     }

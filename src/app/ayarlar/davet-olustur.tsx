@@ -82,10 +82,10 @@ export default function DavetOlusturPage() {
         permissions,
       });
       setGeneratedCode(code);
-    } catch (error: any) {
+    } catch (error: unknown) {
       Alert.alert(
         t('common:status.error'),
-        error?.message ?? t('common:status.error'),
+        (error as Error)?.message ?? t('common:status.error'),
       );
     }
   };

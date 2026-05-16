@@ -59,7 +59,7 @@ export default function KullaniciYonetimiPage() {
         {/* Davet Butonu */}
         <View style={styles.section}>
           <Button
-            onPress={() => router.push('/ayarlar/davet-olustur' as any)}
+            onPress={() => router.push('/ayarlar/davet-olustur' as never)}
             variant="primary"
           >
             <View style={styles.inviteButtonContent}>

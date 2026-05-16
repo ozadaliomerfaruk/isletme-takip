@@ -52,6 +52,7 @@ const tabIconStyles = StyleSheet.create({
 
 export default function TabsLayout() {
   const { t } = useTranslation('navigation');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const insets = useSafeAreaInsets();
   const { canAccessModule } = usePermissions();
 
