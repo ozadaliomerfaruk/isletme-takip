@@ -10,26 +10,30 @@ import {
   UserCircle,
   Package,
   Globe,
-  Pencil,
 } from 'lucide-react-native';
 import {
   Text,
   SearchInput,
   EmptyState,
-  Card,
   SwipeableRow,
   SwipeableProvider,
 } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot } from '@/hooks/useNotlar';
+import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot, useToggleNotCompletion } from '@/hooks/useNotlar';
+import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
+import { useIsletmeUsers } from '@/hooks/useMultiUser';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
+import { NoteRow } from '@/components/notes/NoteRow';
+import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import type { Not, NotEntityType } from '@/types/database';
 
@@ -44,11 +48,11 @@ const ENTITY_FILTERS: { key: NotEntityType | 'all'; icon: React.ReactNode; label
 
 function getEntityIcon(type: NotEntityType) {
   switch (type) {
-    case 'hesap': return <Wallet size={16} color={colors.primary} />;
-    case 'cari': return <Users size={16} color={colors.info} />;
-    case 'personel': return <UserCircle size={16} color={colors.success} />;
-    case 'urun': return <Package size={16} color={colors.warning} />;
-    case 'genel': return <StickyNote size={16} color={colors.textMuted} />;
+    case 'hesap': return <Wallet size={14} color={colors.primary} />;
+    case 'cari': return <Users size={14} color={colors.info} />;
+    case 'personel': return <UserCircle size={14} color={colors.success} />;
+    case 'urun': return <Package size={14} color={colors.warning} />;
+    case 'genel': return <StickyNote size={14} color={colors.textMuted} />;
   }
 }
 
@@ -64,26 +68,31 @@ export default function NotlarPage() {
   const { t } = useTranslation(['common', 'navigation']);
   const { formatDateTime } = useDateFormat();
   const { showToast } = useToast();
+  const { isletme } = useAuthContext();
   const insets = useSafeAreaInsets();
 
   const [filter, setFilter] = useState<NotEntityType | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<Not | null>(null);
+  const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
 
   const entityType = filter === 'all' ? undefined : filter;
   const { data: notlar, isLoading } = useNotlar(entityType);
   const createNot = useCreateNot();
   const updateNot = useUpdateNot();
   const deleteNot = useDeleteNot();
+  const toggleCompletion = useToggleNotCompletion();
+  const uploadNotePhoto = useUploadNotePhoto();
 
-  // Entity data for resolving names (include passive + archived)
+  // Entity data for resolving names
   const { data: hesaplar } = useHesaplar(true, true);
   const { data: cariler } = useCariler(undefined, true, true);
   const { data: personeller } = usePersonelList(true, true);
   const { data: urunler } = useUrunler(true);
+  const { data: isletmeUsers } = useIsletmeUsers();
 
-  // Build entity_id → name map
+  // Build entity_id → name maps
   const entityNameMap = useMemo(() => {
     const map: Record<string, string> = {};
     hesaplar?.forEach(h => { map[h.id] = h.name; });
@@ -92,6 +101,28 @@ export default function NotlarPage() {
     urunler?.forEach(u => { map[u.id] = u.ad; });
     return map;
   }, [hesaplar, cariler, personeller, urunler]);
+
+  const userNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    isletmeUsers?.forEach(u => {
+      map[u.user_id] = u.profile?.display_name ?? u.profile?.email ?? u.user_id;
+    });
+    return map;
+  }, [isletmeUsers]);
+
+  const cariNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    cariler?.forEach(c => { map[c.id] = c.name; });
+    return map;
+  }, [cariler]);
+
+  const personelNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    personeller?.forEach(p => {
+      map[p.id] = [p.first_name, p.last_name].filter(Boolean).join(' ');
+    });
+    return map;
+  }, [personeller]);
 
   const filteredNotes = useMemo(() => {
     if (!notlar) return [];
@@ -102,7 +133,7 @@ export default function NotlarPage() {
 
   const handleCreate = async (data: NoteFormData) => {
     try {
-      await createNot.mutateAsync({
+      const result = await createNot.mutateAsync({
         entity_type: 'genel',
         content: data.content,
         is_completed: data.is_completed,
@@ -111,6 +142,29 @@ export default function NotlarPage() {
         assigned_to_cari: data.assigned_to_cari,
         assigned_to_personel: data.assigned_to_personel,
       });
+
+      if (data.photo_uri && isletme) {
+        try {
+          const photoPath = await uploadNotePhoto.mutateAsync({
+            uri: data.photo_uri,
+            isletmeId: isletme.id,
+            noteId: result.id,
+          });
+          const { supabase } = await import('@/lib/supabase');
+          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', result.id);
+        } catch { /* photo upload failed but note was created */ }
+      }
+
+      if (data.reminder_date) {
+        await scheduleNoteReminder(
+          result.id,
+          t('common:notes.reminderNotification'),
+          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+          new Date(data.reminder_date),
+          { type: 'note_reminder', note_id: result.id, entity_type: 'genel' },
+        );
+      }
+
       setModalVisible(false);
       showToast(t('common:notes.createSuccess'), 'success');
     } catch {
@@ -131,6 +185,35 @@ export default function NotlarPage() {
         assigned_to_cari: data.assigned_to_cari,
         assigned_to_personel: data.assigned_to_personel,
       });
+
+      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
+        try {
+          const photoPath = await uploadNotePhoto.mutateAsync({
+            uri: data.photo_uri,
+            isletmeId: isletme.id,
+            noteId: editingNote.id,
+          });
+          const { supabase } = await import('@/lib/supabase');
+          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNote.id);
+        } catch { /* ignore */ }
+      } else if (!data.photo_uri && editingNote.photo_path) {
+        const { supabase } = await import('@/lib/supabase');
+        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
+        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNote.id);
+      }
+
+      if (data.reminder_date) {
+        await scheduleNoteReminder(
+          editingNote.id,
+          t('common:notes.reminderNotification'),
+          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+          new Date(data.reminder_date),
+          { type: 'note_reminder', note_id: editingNote.id, entity_type: editingNote.entity_type, entity_id: editingNote.entity_id ?? undefined },
+        );
+      } else {
+        await cancelNoteReminder(editingNote.id);
+      }
+
       setEditingNote(null);
       showToast(t('common:notes.updateSuccess'), 'success');
     } catch {
@@ -160,39 +243,45 @@ export default function NotlarPage() {
     );
   }, [deleteNot, showToast, t]);
 
+  const handleToggleComplete = useCallback((noteId: string, completed: boolean) => {
+    toggleCompletion.mutate({ id: noteId, is_completed: completed });
+  }, [toggleCompletion]);
+
   const renderNote = useCallback(({ item }: { item: Not }) => {
     const entityLabel = t(ENTITY_TYPE_LABEL_KEYS[item.entity_type]);
     const entityName = item.entity_id ? entityNameMap[item.entity_id] : null;
-    const headerText = entityName ? `${entityLabel}: ${entityName.toUpperCase()}` : entityLabel;
 
     return (
       <SwipeableRow
         onDelete={() => handleDelete(item)}
-        onAction={() => setEditingNote(item)}
-        actionLabel={t('common:buttons.edit')}
-        actionIcon={<Pencil size={18} color="#fff" />}
+        deleteLabel={t('common:buttons.delete')}
       >
-        <TouchableOpacity onPress={() => setEditingNote(item)} activeOpacity={0.7}>
-          <Card style={styles.noteCard} padding="md">
-            <View style={styles.noteHeader}>
-              <View style={styles.entityLabelRow}>
-                {getEntityIcon(item.entity_type)}
-                <Text variant="caption" style={styles.entityLabel} numberOfLines={1}>
-                  {headerText}
-                </Text>
-              </View>
-              <Text variant="caption" color="muted" style={styles.noteDate}>
-                {formatDateTime(item.created_at)}
-              </Text>
-            </View>
-            <Text variant="body" style={styles.noteContent}>
-              {item.content}
+        <View style={styles.noteWrapper}>
+          {/* Entity label */}
+          <View style={styles.entityRow}>
+            {getEntityIcon(item.entity_type)}
+            <Text variant="caption" style={styles.entityText} numberOfLines={1}>
+              {entityName ? `${entityLabel} · ${entityName}` : entityLabel}
             </Text>
-          </Card>
-        </TouchableOpacity>
+            <Text variant="caption" color="muted" style={styles.dateLabel}>
+              {formatDateTime(item.created_at)}
+            </Text>
+          </View>
+
+          {/* Note card */}
+          <NoteRow
+            note={item}
+            onPress={() => setEditingNote(item)}
+            onToggleComplete={handleToggleComplete}
+            onPhotoPress={setViewPhotoPath}
+            assignedUserName={item.assigned_to_user ? userNameMap[item.assigned_to_user] : null}
+            assignedCariName={item.assigned_to_cari ? cariNameMap[item.assigned_to_cari] : null}
+            assignedPersonelName={item.assigned_to_personel ? personelNameMap[item.assigned_to_personel] : null}
+          />
+        </View>
       </SwipeableRow>
     );
-  }, [formatDateTime, handleDelete, t, entityNameMap]);
+  }, [formatDateTime, handleDelete, handleToggleComplete, t, entityNameMap, userNameMap, cariNameMap, personelNameMap]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -237,6 +326,7 @@ export default function NotlarPage() {
           keyExtractor={(item) => item.id}
           renderItem={renderNote}
           contentContainerStyle={styles.listContent}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
           ListEmptyComponent={
             !isLoading ? (
               <EmptyState
@@ -261,7 +351,7 @@ export default function NotlarPage() {
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSave={handleCreate}
-          loading={createNot.isPending}
+          loading={createNot.isPending || uploadNotePhoto.isPending}
           entityType="genel"
           entityId=""
         />
@@ -285,6 +375,13 @@ export default function NotlarPage() {
           entityType={editingNote?.entity_type ?? 'genel'}
           entityId={editingNote?.entity_id ?? ''}
           existingPhotoPath={editingNote?.photo_path}
+        />
+
+        {/* Photo Viewer */}
+        <PhotoViewerModal
+          visible={!!viewPhotoPath}
+          photoPath={viewPhotoPath}
+          onClose={() => setViewPhotoPath(null)}
         />
       </SwipeableProvider>
     </SafeAreaView>
@@ -332,27 +429,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
   },
-  noteCard: {
-    marginBottom: spacing.sm,
+  noteWrapper: {
+    gap: 4,
   },
-  noteHeader: {
-    flexDirection: 'column',
-    gap: 2,
-    marginBottom: spacing.xs,
-  },
-  entityLabelRow: {
+  entityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 4,
+    paddingHorizontal: spacing.xs,
+    marginBottom: 2,
   },
-  entityLabel: {
-    fontWeight: '700',
-    color: colors.text,
+  entityText: {
     flex: 1,
+    fontWeight: '600',
+    fontSize: 11,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
   },
-  noteDate: {},
-  noteContent: {
-    lineHeight: 22,
+  dateLabel: {
+    fontSize: 10,
+  },
+  separator: {
+    height: spacing.md,
   },
   fab: {
     position: 'absolute',

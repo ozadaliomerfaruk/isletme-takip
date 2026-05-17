@@ -48,7 +48,7 @@
 
 | #   | Durum | Baslik                                               | Aciklama                                                                                                |
 | --- | ----- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| F1  | [ ]   | **Notlar sistemi gelistirme**                        | Hatirlatici tarihi, fotograf ekleme, tamamlandi isaretleme, kisileri notlara/yapilacaklara atama.       |
+| F1  | [x]   | **Notlar sistemi gelistirme**                        | TAMAMLANDI: Migration (is_completed, completed_at, reminder_date, photo_path, assigned_to_user/cari/personel). NoteInputModal toolbar (foto/hatirlatici/atama/tamamla). NoteRow checkbox + badge row. useNotePhoto hook, scheduleNoteReminder, useToggleNotCompletion. 3 detay sayfasi + notlar/index guncellendi. |
 | F2  | [ ]   | **Cekle tahsilat**                                   | Cek ile tahsilat islemi yapilabilmeli.                                                                  |
 | F3  | [x]   | **PDF ile disa aktarma**                             | ShareOptionsSheet + PdfExportSheet eklendi. Tüm detay sayfalarında (cari/hesap/personel) PDF/Excel/paylaş seçenekleri. |
 | F4  | [ ]   | **Logo ekleme ve sektor bilgisi**                    | Firma logo yukleme, dropdown ile sektor bilgisi, paylasilan PDF'lere otomatik logo basma.               |

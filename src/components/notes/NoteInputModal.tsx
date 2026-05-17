@@ -22,6 +22,10 @@ import {
   CheckCircle2,
   Clock,
   Trash2,
+  User,
+  Users,
+  UserCircle,
+  Check,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Text, Button } from '@/components/ui';
@@ -31,6 +35,7 @@ import { useNotePhotoField } from '@/hooks/useNotePhoto';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
+import { EntityPickerModal, EntityPickerItem } from '@/components/import/EntityPickerModal';
 import type { NotEntityType } from '@/types/database';
 
 export interface NoteFormData {
@@ -66,7 +71,7 @@ export function NoteInputModal({
   entityId: _entityId,
   existingPhotoPath,
 }: NoteInputModalProps) {
-  const { t } = useTranslation(['common']);
+  const { t, i18n } = useTranslation(['common']);
   const inputRef = useRef<TextInput>(null);
 
   const [content, setContent] = useState('');
@@ -77,8 +82,8 @@ export function NoteInputModal({
   const [assignedPersonel, setAssignedPersonel] = useState<string | null>(null);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showAssignPicker, setShowAssignPicker] = useState(false);
-  const [assignTab, setAssignTab] = useState<'users' | 'cari' | 'personel'>('users');
+  const [assignPickerType, setAssignPickerType] = useState<'user' | 'cari' | 'personel' | null>(null);
+  const [assignSearch, setAssignSearch] = useState('');
 
   const { localPhotoUri, setLocalPhotoUri, handlePickImage, handleTakePhoto, clearPhoto } =
     useNotePhotoField();
@@ -152,6 +157,57 @@ export function NoteInputModal({
     setReminderDate(null);
   };
 
+  // Assignment picker data
+  const userItems: EntityPickerItem[] = (isletmeUsers ?? []).map(u => ({
+    id: u.user_id,
+    label: u.profile?.display_name ?? u.profile?.email ?? u.user_id,
+  }));
+
+  const cariItems: EntityPickerItem[] = (cariler ?? []).map(c => ({
+    id: c.id,
+    label: c.name,
+  }));
+
+  const personelItems: EntityPickerItem[] = (personelList ?? []).map(p => ({
+    id: p.id,
+    label: [p.first_name, p.last_name].filter(Boolean).join(' '),
+  }));
+
+  const getFilteredItems = () => {
+    let items: EntityPickerItem[] = [];
+    if (assignPickerType === 'user') items = userItems;
+    else if (assignPickerType === 'cari') items = cariItems;
+    else if (assignPickerType === 'personel') items = personelItems;
+
+    if (!assignSearch.trim()) return items;
+    const q = assignSearch.toLowerCase();
+    return items.filter(i => i.label.toLowerCase().includes(q));
+  };
+
+  const handleAssignSelect = (id: string) => {
+    if (assignPickerType === 'user') {
+      setAssignedUser(assignedUser === id ? null : id);
+    } else if (assignPickerType === 'cari') {
+      setAssignedCari(assignedCari === id ? null : id);
+    } else if (assignPickerType === 'personel') {
+      setAssignedPersonel(assignedPersonel === id ? null : id);
+    }
+    setAssignPickerType(null);
+    setAssignSearch('');
+  };
+
+  const getAssignPickerTitle = () => {
+    if (assignPickerType === 'user') return t('common:notes.users');
+    if (assignPickerType === 'cari') return t('common:notes.entityCari');
+    return t('common:notes.entityPersonel');
+  };
+
+  const getAssignPickerSelectedId = () => {
+    if (assignPickerType === 'user') return assignedUser;
+    if (assignPickerType === 'cari') return assignedCari;
+    return assignedPersonel;
+  };
+
   const getUserName = (userId: string) => {
     const user = isletmeUsers?.find((u) => u.user_id === userId);
     return user?.profile?.display_name ?? user?.profile?.email ?? '?';
@@ -169,7 +225,7 @@ export function NoteInputModal({
   };
 
   const formatReminderDate = (date: Date) => {
-    return date.toLocaleDateString(undefined, {
+    return date.toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
@@ -178,8 +234,10 @@ export function NoteInputModal({
     });
   };
 
+  const hasAnyAssignment = assignedUser || assignedCari || assignedPersonel;
+
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="slide">
       <KeyboardAvoidingView
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -196,8 +254,12 @@ export function NoteInputModal({
             </Pressable>
           </View>
 
-          {/* Text Input */}
-          <ScrollView style={styles.inputScroll} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            style={styles.scrollBody}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Text Input */}
             <TextInput
               ref={inputRef}
               style={styles.input}
@@ -207,14 +269,105 @@ export function NoteInputModal({
               value={content}
               onChangeText={setContent}
               textAlignVertical="top"
-              scrollEnabled={false}
             />
+
+            {/* Photo Preview */}
+            {localPhotoUri && (
+              <View style={styles.photoRow}>
+                <Image source={{ uri: localPhotoUri }} style={styles.photoThumb} />
+                <TouchableOpacity style={styles.photoRemoveBtn} onPress={clearPhoto}>
+                  <Trash2 size={14} color={colors.error} />
+                  <Text variant="caption" style={{ color: colors.error }}>
+                    {t('common:notes.removePhoto')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Reminder Badge */}
+            {reminderDate && (
+              <View style={styles.infoRow}>
+                <View style={styles.infoBadge}>
+                  <Clock size={14} color={colors.warning} />
+                  <Text variant="body" style={styles.infoBadgeText}>
+                    {formatReminderDate(reminderDate)}
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={removeReminder} hitSlop={8}>
+                  <X size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Assignment Badges */}
+            {hasAnyAssignment && (
+              <View style={styles.assignBadgesRow}>
+                {assignedUser && (
+                  <View style={styles.assignBadge}>
+                    <User size={12} color={colors.info} />
+                    <Text variant="caption" style={styles.assignBadgeText}>
+                      {getUserName(assignedUser)}
+                    </Text>
+                    <TouchableOpacity onPress={() => setAssignedUser(null)} hitSlop={6}>
+                      <X size={12} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {assignedCari && (
+                  <View style={styles.assignBadge}>
+                    <Users size={12} color={colors.info} />
+                    <Text variant="caption" style={styles.assignBadgeText}>
+                      {getCariName(assignedCari)}
+                    </Text>
+                    <TouchableOpacity onPress={() => setAssignedCari(null)} hitSlop={6}>
+                      <X size={12} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {assignedPersonel && (
+                  <View style={styles.assignBadge}>
+                    <UserCircle size={12} color={colors.success} />
+                    <Text variant="caption" style={styles.assignBadgeText}>
+                      {getPersonelName(assignedPersonel)}
+                    </Text>
+                    <TouchableOpacity onPress={() => setAssignedPersonel(null)} hitSlop={6}>
+                      <X size={12} color={colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Date Picker (inline) */}
+            {showDatePicker && (
+              <View style={styles.datePickerContainer}>
+                <DateTimePicker
+                  value={reminderDate ?? new Date()}
+                  mode="datetime"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                  themeVariant="light"
+                  locale={i18n.language === 'tr' ? 'tr' : 'en'}
+                />
+                {Platform.OS === 'ios' && (
+                  <View style={styles.datePickerActions}>
+                    <Button variant="outline" size="sm" onPress={() => setShowDatePicker(false)}>
+                      {t('common:buttons.cancel')}
+                    </Button>
+                    <Button variant="primary" size="sm" onPress={confirmDateIOS}>
+                      {t('common:buttons.ok')}
+                    </Button>
+                  </View>
+                )}
+              </View>
+            )}
           </ScrollView>
 
           {/* Toolbar */}
           <View style={styles.toolbar}>
             <TouchableOpacity
-              style={styles.toolbarBtn}
+              style={[styles.toolbarBtn, localPhotoUri && styles.toolbarBtnActive]}
               onPress={handlePhotoAction}
               activeOpacity={0.7}
             >
@@ -222,206 +375,56 @@ export function NoteInputModal({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.toolbarBtn}
-              onPress={() => setShowDatePicker(true)}
+              style={[styles.toolbarBtn, reminderDate && styles.toolbarBtnActive]}
+              onPress={() => setShowDatePicker(!showDatePicker)}
               activeOpacity={0.7}
             >
               <Bell size={20} color={reminderDate ? colors.warning : colors.textMuted} />
             </TouchableOpacity>
 
+            {/* Assign buttons — individual for each type */}
             <TouchableOpacity
-              style={styles.toolbarBtn}
-              onPress={() => setShowAssignPicker(!showAssignPicker)}
+              style={[styles.toolbarBtn, assignedUser && styles.toolbarBtnActive]}
+              onPress={() => { setAssignPickerType('user'); setAssignSearch(''); }}
               activeOpacity={0.7}
             >
-              <UserPlus
-                size={20}
-                color={
-                  assignedUser || assignedCari || assignedPersonel
-                    ? colors.info
-                    : colors.textMuted
-                }
-              />
+              <User size={20} color={assignedUser ? colors.info : colors.textMuted} />
             </TouchableOpacity>
 
+            {(entityType === 'cari' || entityType === 'genel') && (
+              <TouchableOpacity
+                style={[styles.toolbarBtn, assignedCari && styles.toolbarBtnActive]}
+                onPress={() => { setAssignPickerType('cari'); setAssignSearch(''); }}
+                activeOpacity={0.7}
+              >
+                <Users size={20} color={assignedCari ? colors.info : colors.textMuted} />
+              </TouchableOpacity>
+            )}
+
+            {(entityType === 'personel' || entityType === 'genel') && (
+              <TouchableOpacity
+                style={[styles.toolbarBtn, assignedPersonel && styles.toolbarBtnActive]}
+                onPress={() => { setAssignPickerType('personel'); setAssignSearch(''); }}
+                activeOpacity={0.7}
+              >
+                <UserCircle size={20} color={assignedPersonel ? colors.success : colors.textMuted} />
+              </TouchableOpacity>
+            )}
+
+            <View style={styles.toolbarSpacer} />
+
             <TouchableOpacity
-              style={styles.toolbarBtn}
+              style={[styles.toolbarBtn, isCompleted && styles.toolbarBtnComplete]}
               onPress={() => setIsCompleted(!isCompleted)}
               activeOpacity={0.7}
             >
               <CheckCircle2
                 size={20}
-                color={isCompleted ? colors.success : colors.textMuted}
+                color={isCompleted ? '#fff' : colors.textMuted}
                 fill={isCompleted ? colors.success : 'transparent'}
               />
             </TouchableOpacity>
           </View>
-
-          {/* Photo Preview */}
-          {localPhotoUri && (
-            <View style={styles.photoRow}>
-              <Image
-                source={{ uri: localPhotoUri }}
-                style={styles.photoThumb}
-              />
-              <TouchableOpacity onPress={clearPhoto}>
-                <Trash2 size={16} color={colors.error} />
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Badges */}
-          <View style={styles.badgeRow}>
-            {reminderDate && (
-              <TouchableOpacity style={styles.badge} onPress={() => setShowDatePicker(true)} onLongPress={removeReminder}>
-                <Clock size={12} color={colors.warning} />
-                <Text variant="caption" style={styles.badgeText}>
-                  {formatReminderDate(reminderDate)}
-                </Text>
-              </TouchableOpacity>
-            )}
-            {assignedUser && (
-              <View style={styles.badge}>
-                <Text variant="caption" style={styles.badgeText}>
-                  {getUserName(assignedUser)}
-                </Text>
-                <TouchableOpacity onPress={() => setAssignedUser(null)}>
-                  <X size={10} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-            )}
-            {assignedCari && (
-              <View style={styles.badge}>
-                <Text variant="caption" style={styles.badgeText}>
-                  {getCariName(assignedCari)}
-                </Text>
-                <TouchableOpacity onPress={() => setAssignedCari(null)}>
-                  <X size={10} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-            )}
-            {assignedPersonel && (
-              <View style={styles.badge}>
-                <Text variant="caption" style={styles.badgeText}>
-                  {getPersonelName(assignedPersonel)}
-                </Text>
-                <TouchableOpacity onPress={() => setAssignedPersonel(null)}>
-                  <X size={10} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-
-          {/* Assignment Picker */}
-          {showAssignPicker && (
-            <View style={styles.assignContainer}>
-              <View style={styles.assignTabs}>
-                <TouchableOpacity
-                  style={[styles.assignTab, assignTab === 'users' && styles.assignTabActive]}
-                  onPress={() => setAssignTab('users')}
-                >
-                  <Text variant="caption" color={assignTab === 'users' ? 'primary' : 'muted'}>
-                    {t('common:notes.users')}
-                  </Text>
-                </TouchableOpacity>
-                {(entityType === 'cari' || entityType === 'genel') && (
-                  <TouchableOpacity
-                    style={[styles.assignTab, assignTab === 'cari' && styles.assignTabActive]}
-                    onPress={() => setAssignTab('cari')}
-                  >
-                    <Text variant="caption" color={assignTab === 'cari' ? 'primary' : 'muted'}>
-                      {t('common:notes.entityCari')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-                {(entityType === 'personel' || entityType === 'genel') && (
-                  <TouchableOpacity
-                    style={[styles.assignTab, assignTab === 'personel' && styles.assignTabActive]}
-                    onPress={() => setAssignTab('personel')}
-                  >
-                    <Text variant="caption" color={assignTab === 'personel' ? 'primary' : 'muted'}>
-                      {t('common:notes.entityPersonel')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-              <ScrollView style={styles.assignList} nestedScrollEnabled>
-                {assignTab === 'users' &&
-                  isletmeUsers?.map((u) => (
-                    <TouchableOpacity
-                      key={u.user_id}
-                      style={[
-                        styles.assignItem,
-                        assignedUser === u.user_id && styles.assignItemActive,
-                      ]}
-                      onPress={() =>
-                        setAssignedUser(assignedUser === u.user_id ? null : u.user_id)
-                      }
-                    >
-                      <Text variant="body" numberOfLines={1}>
-                        {u.profile?.display_name ?? u.profile?.email ?? u.user_id}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                {assignTab === 'cari' &&
-                  cariler?.map((c) => (
-                    <TouchableOpacity
-                      key={c.id}
-                      style={[
-                        styles.assignItem,
-                        assignedCari === c.id && styles.assignItemActive,
-                      ]}
-                      onPress={() => setAssignedCari(assignedCari === c.id ? null : c.id)}
-                    >
-                      <Text variant="body" numberOfLines={1}>
-                        {c.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                {assignTab === 'personel' &&
-                  personelList?.map((p) => (
-                    <TouchableOpacity
-                      key={p.id}
-                      style={[
-                        styles.assignItem,
-                        assignedPersonel === p.id && styles.assignItemActive,
-                      ]}
-                      onPress={() =>
-                        setAssignedPersonel(assignedPersonel === p.id ? null : p.id)
-                      }
-                    >
-                      <Text variant="body" numberOfLines={1}>
-                        {p.last_name ? `${p.first_name} ${p.last_name}` : p.first_name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-              </ScrollView>
-            </View>
-          )}
-
-          {/* Date Picker */}
-          {showDatePicker && (
-            <View style={styles.datePickerContainer}>
-              <DateTimePicker
-                value={reminderDate ?? new Date()}
-                mode="datetime"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={handleDateChange}
-                minimumDate={new Date()}
-                themeVariant="light"
-              />
-              {Platform.OS === 'ios' && (
-                <View style={styles.datePickerActions}>
-                  <Button variant="outline" size="sm" onPress={() => setShowDatePicker(false)}>
-                    {t('common:buttons.cancel')}
-                  </Button>
-                  <Button variant="primary" size="sm" onPress={confirmDateIOS}>
-                    {t('common:buttons.ok')}
-                  </Button>
-                </View>
-              )}
-            </View>
-          )}
 
           {/* Footer */}
           <View style={styles.footer}>
@@ -441,6 +444,26 @@ export function NoteInputModal({
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Assignment Picker Modal */}
+      <EntityPickerModal
+        visible={!!assignPickerType}
+        title={getAssignPickerTitle()}
+        items={getFilteredItems()}
+        selectedId={getAssignPickerSelectedId()}
+        onSelect={handleAssignSelect}
+        onClose={() => { setAssignPickerType(null); setAssignSearch(''); }}
+        searchValue={assignSearch}
+        onSearchChange={setAssignSearch}
+        renderIcon={(_item, isSelected) => (
+          <View style={[styles.assignIcon, isSelected && styles.assignIconSelected]}>
+            {assignPickerType === 'user' && <User size={16} color={isSelected ? colors.primary : colors.textMuted} />}
+            {assignPickerType === 'cari' && <Users size={16} color={isSelected ? colors.primary : colors.textMuted} />}
+            {assignPickerType === 'personel' && <UserCircle size={16} color={isSelected ? colors.primary : colors.textMuted} />}
+          </View>
+        )}
+        selectedColor={colors.primary}
+      />
     </Modal>
   );
 }
@@ -452,20 +475,21 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0,0,0,0.3)',
   },
   container: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.lg,
-    borderTopRightRadius: borderRadius.lg,
-    padding: spacing.lg,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 8,
-    maxHeight: '85%',
   },
   header: {
     flexDirection: 'row',
@@ -473,8 +497,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  inputScroll: {
-    maxHeight: 150,
+  scrollBody: {
+    maxHeight: 350,
   },
   input: {
     backgroundColor: colors.background,
@@ -485,89 +509,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.text,
     minHeight: 100,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  toolbarBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    maxHeight: 160,
   },
   photoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+    gap: spacing.md,
+    marginTop: spacing.md,
+    padding: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.md,
   },
   photoThumb: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.sm,
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.md,
   },
-  badgeRow: {
+  photoRemoveBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colors.warningLight,
+    borderRadius: borderRadius.md,
+  },
+  infoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  infoBadgeText: {
+    fontSize: 14,
+    color: colors.text,
+  },
+  assignBadgesRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
     marginTop: spacing.sm,
   },
-  badge: {
+  assignBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  badgeText: {
-    fontSize: 11,
-  },
-  assignContainer: {
-    marginTop: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    maxHeight: 180,
-  },
-  assignTabs: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  assignTab: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-  },
-  assignTabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: colors.primary,
-  },
-  assignList: {
-    maxHeight: 130,
-  },
-  assignItem: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
-  },
-  assignItemActive: {
     backgroundColor: colors.primaryLight,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  assignBadgeText: {
+    fontSize: 12,
+    color: colors.text,
+    maxWidth: 100,
   },
   datePickerContainer: {
-    marginTop: spacing.sm,
+    marginTop: spacing.md,
     backgroundColor: colors.background,
     borderRadius: borderRadius.md,
     padding: spacing.sm,
@@ -578,12 +580,48 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
+  toolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    marginTop: spacing.sm,
+  },
+  toolbarBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toolbarBtnActive: {
+    backgroundColor: colors.primaryLight,
+  },
+  toolbarBtnComplete: {
+    backgroundColor: colors.success,
+  },
+  toolbarSpacer: {
+    flex: 1,
+  },
   footer: {
     flexDirection: 'row',
     gap: spacing.md,
-    marginTop: spacing.lg,
   },
   button: {
     flex: 1,
+  },
+  assignIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  assignIconSelected: {
+    backgroundColor: colors.primaryLight,
   },
 });
