@@ -38,7 +38,6 @@ export default function FotoImportReviewPage() {
     selectedHesap,
     enteredTotal,
     totalMismatch,
-    entries,
     saveMode,
     setSaveMode,
     selectedIndex,
@@ -78,7 +77,6 @@ export default function FotoImportReviewPage() {
     hesapSearch,
     setHesapSearch,
     filteredHesaplar,
-    giderKategoriler,
     handleSelectGiderKategori,
     handleEditGrandTotal,
     saveUrunAlias,
@@ -245,7 +243,7 @@ export default function FotoImportReviewPage() {
                         const prefillParams: Record<string, string> = { prefillType: 'tedarikci' };
                         if (selectedInvoice?.supplierName) prefillParams.prefillName = selectedInvoice.supplierName;
                         if (selectedInvoice?.supplierTaxNumber) prefillParams.prefillTaxNumber = selectedInvoice.supplierTaxNumber;
-                        router.push({ pathname: '/cariler/ekle', params: prefillParams } as any);
+                        router.push({ pathname: '/cariler/ekle', params: prefillParams } as never);
                       }}
                     >
                       <Text variant="body" color="success" style={styles.selectCariButtonText}>
@@ -804,7 +802,7 @@ export default function FotoImportReviewPage() {
                     prefillParams.prefillTaxNumber = selectedInvoice.supplierTaxNumber;
                   }
                   prefillParams.prefillType = 'tedarikci';
-                  router.push({ pathname: '/cariler/ekle', params: prefillParams } as any);
+                  router.push({ pathname: '/cariler/ekle', params: prefillParams } as never);
                 }}
               >
                 <View style={[styles.pickerIcon, { backgroundColor: colors.successLight }]}>

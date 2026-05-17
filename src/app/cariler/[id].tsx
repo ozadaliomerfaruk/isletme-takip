@@ -49,7 +49,7 @@ import { useIslemlerWithUrunByCari, useUrunHareketlerByIslemId } from '@/hooks/u
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
-import { IslemWithRelations, IslemType } from '@/types/database';
+import { IslemWithRelations, IslemType, Not } from '@/types/database';
 import { useCariLinkStatus, useRemoveCariLink } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
@@ -195,8 +195,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         urunCount={getUrunCountFn(islem.id)}
         currency={currency}
         subAmount={getCariSubAmount(islem)}
-        overrideColor={getEntityPerspectiveColor(effectiveType as any)}
-        overridePrefix={getEntityPerspectivePrefix(effectiveType as any)}
+        overrideColor={getEntityPerspectiveColor(effectiveType as 'musteri' | 'tedarikci')}
+        overridePrefix={getEntityPerspectivePrefix(effectiveType as 'musteri' | 'tedarikci')}
         onPress={onPress}
         onLongPress={onLongPress}
         onPhotoPress={onPhotoPress}
@@ -488,7 +488,7 @@ export default function CariHareketleriPage() {
       const amount = getCariDisplayAmount(islem);
       const needsInvert = shouldInvertTransaction(islem.isletme_id, isletme?.id, typeMismatch);
       const type = needsInvert
-        ? invertCariTransactionType(islem.type as any)
+        ? invertCariTransactionType(islem.type as IslemType)
         : islem.type;
       if (type === 'cari_alis') {
         totalEffect -= amount;
@@ -679,7 +679,7 @@ export default function CariHareketleriPage() {
         </TouchableOpacity>
       )}
     </View>
-  ), [isViewer, linkStatus?.is_linked, id]);
+  ), [isViewer, id, router]);
 
   // === DATE GROUPING ===
   const groupedData = useMemo(() => {
@@ -758,7 +758,7 @@ export default function CariHareketleriPage() {
     if (item.type === 'note') {
       return (
         <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
-          <NoteRow note={item.data as any} onPress={() => setEditingNoteId(item.data.id)} />
+          <NoteRow note={item.data as Not} onPress={() => setEditingNoteId(item.data.id)} />
         </SwipeableRow>
       );
     }
@@ -767,7 +767,7 @@ export default function CariHareketleriPage() {
     // Per-transaction inversion: karsi tarafin olusturdugu islemlerin tipi ters cevrilir
     const needsInvert = shouldInvertTransaction(islem.isletme_id, isletme?.id, typeMismatch);
     const itemDisplayType = needsInvert
-      ? invertCariTransactionType(islem.type as any)
+      ? invertCariTransactionType(islem.type as IslemType)
       : islem.type;
     // Karsi tarafin odeme/tahsilat hesap bilgisini gizle (farklı isletme)
     const isOtherPartyTransaction = islem.isletme_id !== isletme?.id;
@@ -797,7 +797,7 @@ export default function CariHareketleriPage() {
         otherPartyName={itemOtherPartyName}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -988,7 +988,7 @@ export default function CariHareketleriPage() {
         </Card>
       </View>
     );
-  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isViewer, hasNextPage, fetchNextPage, isFetchingNextPage]);
+  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isViewer, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
 
   if (cariLoading) {
     return (
