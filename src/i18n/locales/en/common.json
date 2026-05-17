@@ -602,6 +602,24 @@
     "entityCari": "CLIENT",
     "entityPersonel": "STAFF",
     "entityUrun": "PRODUCT",
-    "entityGenel": "GENERAL"
+    "entityGenel": "GENERAL",
+    "completed": "Completed",
+    "markComplete": "Mark Complete",
+    "markIncomplete": "Mark Incomplete",
+    "reminder": "Reminder",
+    "setReminder": "Set Reminder",
+    "removeReminder": "Remove Reminder",
+    "reminderSet": "Reminder set",
+    "reminderRemoved": "Reminder removed",
+    "addPhoto": "Add Photo",
+    "removePhoto": "Remove Photo",
+    "takePhoto": "Take Photo",
+    "pickFromGallery": "Pick from Gallery",
+    "assignPerson": "Assign Person",
+    "assignedTo": "Assigned to",
+    "users": "Users",
+    "overdue": "Overdue",
+    "reminderNotification": "Note Reminder",
+    "reminderBody": "Time for note: \"{{content}}\""
   }
 }

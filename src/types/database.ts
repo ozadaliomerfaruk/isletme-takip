@@ -864,6 +864,13 @@ export interface Not {
   entity_type: NotEntityType;
   entity_id: string | null;
   content: string;
+  is_completed: boolean;
+  completed_at: string | null;
+  reminder_date: string | null;
+  photo_path: string | null;
+  assigned_to_user: string | null;
+  assigned_to_cari: string | null;
+  assigned_to_personel: string | null;
   created_at: string;
   created_by: string | null;
   updated_at: string;
@@ -875,9 +882,22 @@ export interface NotInsert {
   entity_id?: string | null;
   content: string;
   created_by?: string | null;
+  is_completed?: boolean;
+  reminder_date?: string | null;
+  photo_path?: string | null;
+  assigned_to_user?: string | null;
+  assigned_to_cari?: string | null;
+  assigned_to_personel?: string | null;
 }
 
 export interface NotUpdate {
   content?: string;
   updated_at?: string;
+  is_completed?: boolean;
+  completed_at?: string | null;
+  reminder_date?: string | null;
+  photo_path?: string | null;
+  assigned_to_user?: string | null;
+  assigned_to_cari?: string | null;
+  assigned_to_personel?: string | null;
 }

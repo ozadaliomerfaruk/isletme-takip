@@ -29,8 +29,11 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency } from '@/lib/currency';
 import { formatDateSmart } from '@/lib/date';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
-import { useNotlarByEntity, useUpdateNot, useDeleteNot } from '@/hooks/useNotlar';
+import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion } from '@/hooks/useNotlar';
+import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
+import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
+import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesap, useDeleteHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { useUnarchiveHesap } from '@/hooks/useArchive';
@@ -42,7 +45,7 @@ import { useCeklerByHesap } from '@/hooks/useCekler';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useSettings } from '@/hooks/useSettings';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
-import { IslemWithRelations, Currency, IslemType } from '@/types/database';
+import { IslemWithRelations, Currency, IslemType, Not } from '@/types/database';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
@@ -307,6 +310,8 @@ export default function HesapHareketleriPage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const updateNot = useUpdateNot();
   const deleteNot = useDeleteNot();
+  const toggleNotCompletion = useToggleNotCompletion();
+  const uploadNotePhoto = useUploadNotePhoto();
   const pickImage = usePickImage();
   const takePhoto = useTakePhoto();
   const uploadPhoto = useUploadIslemPhoto();
@@ -675,17 +680,56 @@ export default function HesapHareketleriPage() {
     return entityNotes.find(n => n.id === editingNoteId) ?? null;
   }, [editingNoteId, entityNotes]);
 
-  const handleNoteUpdate = useCallback(async (content: string) => {
-    if (!editingNoteId) return;
+  const handleNoteUpdate = useCallback(async (data: NoteFormData) => {
+    if (!editingNoteId || !editingNote) return;
     try {
-      await updateNot.mutateAsync({ id: editingNoteId, content });
+      await updateNot.mutateAsync({
+        id: editingNoteId,
+        content: data.content,
+        is_completed: data.is_completed,
+        completed_at: data.is_completed ? new Date().toISOString() : null,
+        reminder_date: data.reminder_date,
+        assigned_to_user: data.assigned_to_user,
+        assigned_to_cari: data.assigned_to_cari,
+        assigned_to_personel: data.assigned_to_personel,
+      });
+
+      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
+        try {
+          const photoPath = await uploadNotePhoto.mutateAsync({
+            uri: data.photo_uri,
+            isletmeId: isletme.id,
+            noteId: editingNoteId,
+          });
+          const { supabase } = await import('@/lib/supabase');
+          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
+        } catch { /* ignore */ }
+      } else if (!data.photo_uri && editingNote.photo_path) {
+        const { supabase } = await import('@/lib/supabase');
+        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
+        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
+      }
+
+      if (data.reminder_date) {
+        await scheduleNoteReminder(
+          editingNoteId,
+          t('common:notes.reminderNotification'),
+          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+          new Date(data.reminder_date),
+          { type: 'note_reminder', note_id: editingNoteId, entity_type: 'hesap', entity_id: id },
+        );
+      } else {
+        await cancelNoteReminder(editingNoteId);
+      }
+
       setEditingNoteId(null);
     } catch {
       Alert.alert(t('common:status.error'), t('common:errors.genericError'));
     }
-  }, [editingNoteId, updateNot, t]);
+  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t]);
 
   const handleNoteDelete = useCallback((noteId: string) => {
+    const note = entityNotes?.find(n => n.id === noteId);
     Alert.alert(
       t('common:notes.confirmDeleteTitle'),
       t('common:notes.confirmDelete'),
@@ -695,12 +739,16 @@ export default function HesapHareketleriPage() {
           text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
-            try { await deleteNot.mutateAsync(noteId); } catch { /* ignore */ }
+            try { await deleteNot.mutateAsync({ id: noteId, photo_path: note?.photo_path }); } catch { /* ignore */ }
           },
         },
       ]
     );
-  }, [deleteNot, t]);
+  }, [deleteNot, entityNotes, t]);
+
+  const handleToggleNoteCompletion = useCallback((noteId: string, completed: boolean) => {
+    toggleNotCompletion.mutate({ id: noteId, is_completed: completed });
+  }, [toggleNotCompletion]);
 
   // Localized labels for swipe actions (stable refs)
   const deleteLabel = t('common:buttons.delete');
@@ -715,9 +763,14 @@ export default function HesapHareketleriPage() {
       return null;
     }
     if (item.type === 'note') {
+      const noteData = item.data as Not;
       return (
         <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
-          <NoteRow note={item.data as any} onPress={() => setEditingNoteId(item.data.id)} />
+          <NoteRow
+            note={noteData}
+            onPress={() => setEditingNoteId(item.data.id)}
+            onToggleComplete={handleToggleNoteCompletion}
+          />
         </SwipeableRow>
       );
     }
@@ -739,7 +792,7 @@ export default function HesapHareketleriPage() {
         currentUserId={user?.id}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canDelete, user?.id]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, t, deleteLabel, copyLabel, canDelete, user?.id]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -1185,9 +1238,20 @@ export default function HesapHareketleriPage() {
         visible={!!editingNote}
         onClose={() => setEditingNoteId(null)}
         onSave={handleNoteUpdate}
-        initialContent={editingNote?.content ?? ''}
+        initialData={editingNote ? {
+          content: editingNote.content,
+          is_completed: editingNote.is_completed,
+          reminder_date: editingNote.reminder_date,
+          photo_uri: editingNote.photo_path,
+          assigned_to_user: editingNote.assigned_to_user,
+          assigned_to_cari: editingNote.assigned_to_cari,
+          assigned_to_personel: editingNote.assigned_to_personel,
+        } : undefined}
         isEditing
         loading={updateNot.isPending}
+        entityType="hesap"
+        entityId={id!}
+        existingPhotoPath={editingNote?.photo_path}
       />
     </>
   );

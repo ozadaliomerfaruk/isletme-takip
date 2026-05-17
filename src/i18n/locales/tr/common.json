@@ -595,6 +595,24 @@
     "entityCari": "CARİ",
     "entityPersonel": "PERSONEL",
     "entityUrun": "ÜRÜN",
-    "entityGenel": "GENEL"
+    "entityGenel": "GENEL",
+    "completed": "Tamamlandı",
+    "markComplete": "Tamamla",
+    "markIncomplete": "Tamamlanmadı",
+    "reminder": "Hatırlatıcı",
+    "setReminder": "Hatırlatıcı Ekle",
+    "removeReminder": "Hatırlatıcıyı Kaldır",
+    "reminderSet": "Hatırlatıcı ayarlandı",
+    "reminderRemoved": "Hatırlatıcı kaldırıldı",
+    "addPhoto": "Fotoğraf Ekle",
+    "removePhoto": "Fotoğrafı Kaldır",
+    "takePhoto": "Fotoğraf Çek",
+    "pickFromGallery": "Galeriden Seç",
+    "assignPerson": "Kişi Ata",
+    "assignedTo": "Atanan",
+    "users": "Kullanıcılar",
+    "overdue": "Gecikmiş",
+    "reminderNotification": "Not Hatırlatıcı",
+    "reminderBody": "\"{{content}}\" notunun zamanı geldi"
   }
 }

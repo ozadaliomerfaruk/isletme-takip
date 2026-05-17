@@ -3,10 +3,13 @@ import { StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { StickyNote } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
 import { useCreateNot } from '@/hooks/useNotlar';
+import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { scheduleNoteReminder } from '@/lib/notifications';
 import { NoteInputModal } from './NoteInputModal';
+import type { NoteFormData } from './NoteInputModal';
 import type { NotEntityType } from '@/types/database';
 
 interface AddNoteButtonProps {
@@ -19,15 +22,52 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
   const { t } = useTranslation(['common']);
   const [modalVisible, setModalVisible] = useState(false);
   const createNot = useCreateNot();
+  const uploadPhoto = useUploadNotePhoto();
+  const { isletme } = useAuthContext();
   const { showToast } = useToast();
 
-  const handleSave = async (content: string) => {
+  const handleSave = async (data: NoteFormData) => {
     try {
-      await createNot.mutateAsync({
+      const noteData: Parameters<typeof createNot.mutateAsync>[0] = {
         entity_type: entityType,
         entity_id: entityId,
-        content,
-      });
+        content: data.content,
+        is_completed: data.is_completed,
+        reminder_date: data.reminder_date,
+        assigned_to_user: data.assigned_to_user,
+        assigned_to_cari: data.assigned_to_cari,
+        assigned_to_personel: data.assigned_to_personel,
+      };
+
+      const result = await createNot.mutateAsync(noteData);
+
+      if (data.photo_uri && isletme) {
+        try {
+          const photoPath = await uploadPhoto.mutateAsync({
+            uri: data.photo_uri,
+            isletmeId: isletme.id,
+            noteId: result.id,
+          });
+          const { supabase } = await import('@/lib/supabase');
+          await supabase
+            .from('notlar')
+            .update({ photo_path: photoPath })
+            .eq('id', result.id);
+        } catch {
+          // photo upload failed but note was created
+        }
+      }
+
+      if (data.reminder_date) {
+        await scheduleNoteReminder(
+          result.id,
+          t('common:notes.reminderNotification'),
+          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+          new Date(data.reminder_date),
+          { type: 'note_reminder', note_id: result.id, entity_type: entityType, entity_id: entityId },
+        );
+      }
+
       setModalVisible(false);
       showToast(t('common:notes.createSuccess'), 'success');
     } catch {
@@ -49,7 +89,9 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSave={handleSave}
-        loading={createNot.isPending}
+        loading={createNot.isPending || uploadPhoto.isPending}
+        entityType={entityType}
+        entityId={entityId}
       />
     </>
   );

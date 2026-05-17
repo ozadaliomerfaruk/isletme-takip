@@ -30,6 +30,7 @@ import { useUrunler } from '@/hooks/useUrunler';
 import { useToast } from '@/contexts/ToastContext';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
+import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import type { Not, NotEntityType } from '@/types/database';
 
 const ENTITY_FILTERS: { key: NotEntityType | 'all'; icon: React.ReactNode; labelKey: string }[] = [
@@ -99,11 +100,16 @@ export default function NotlarPage() {
     return notlar.filter(n => n.content.toLowerCase().includes(q));
   }, [notlar, searchQuery]);
 
-  const handleCreate = async (content: string) => {
+  const handleCreate = async (data: NoteFormData) => {
     try {
       await createNot.mutateAsync({
         entity_type: 'genel',
-        content,
+        content: data.content,
+        is_completed: data.is_completed,
+        reminder_date: data.reminder_date,
+        assigned_to_user: data.assigned_to_user,
+        assigned_to_cari: data.assigned_to_cari,
+        assigned_to_personel: data.assigned_to_personel,
       });
       setModalVisible(false);
       showToast(t('common:notes.createSuccess'), 'success');
@@ -112,12 +118,18 @@ export default function NotlarPage() {
     }
   };
 
-  const handleUpdate = async (content: string) => {
+  const handleUpdate = async (data: NoteFormData) => {
     if (!editingNote) return;
     try {
       await updateNot.mutateAsync({
         id: editingNote.id,
-        content,
+        content: data.content,
+        is_completed: data.is_completed,
+        completed_at: data.is_completed ? new Date().toISOString() : null,
+        reminder_date: data.reminder_date,
+        assigned_to_user: data.assigned_to_user,
+        assigned_to_cari: data.assigned_to_cari,
+        assigned_to_personel: data.assigned_to_personel,
       });
       setEditingNote(null);
       showToast(t('common:notes.updateSuccess'), 'success');
@@ -137,7 +149,7 @@ export default function NotlarPage() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteNot.mutateAsync(note.id);
+              await deleteNot.mutateAsync({ id: note.id, photo_path: note.photo_path });
               showToast(t('common:notes.deleteSuccess'), 'success');
             } catch {
               Alert.alert(t('common:status.error'), t('common:errors.genericError'));
@@ -250,6 +262,8 @@ export default function NotlarPage() {
           onClose={() => setModalVisible(false)}
           onSave={handleCreate}
           loading={createNot.isPending}
+          entityType="genel"
+          entityId=""
         />
 
         {/* Edit Modal */}
@@ -257,9 +271,20 @@ export default function NotlarPage() {
           visible={!!editingNote}
           onClose={() => setEditingNote(null)}
           onSave={handleUpdate}
-          initialContent={editingNote?.content ?? ''}
+          initialData={editingNote ? {
+            content: editingNote.content,
+            is_completed: editingNote.is_completed,
+            reminder_date: editingNote.reminder_date,
+            photo_uri: editingNote.photo_path,
+            assigned_to_user: editingNote.assigned_to_user,
+            assigned_to_cari: editingNote.assigned_to_cari,
+            assigned_to_personel: editingNote.assigned_to_personel,
+          } : undefined}
           isEditing
           loading={updateNot.isPending}
+          entityType={editingNote?.entity_type ?? 'genel'}
+          entityId={editingNote?.entity_id ?? ''}
+          existingPhotoPath={editingNote?.photo_path}
         />
       </SwipeableProvider>
     </SafeAreaView>

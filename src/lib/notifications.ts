@@ -270,6 +270,68 @@ export async function cancelTransactionReminder(transactionId: string): Promise<
   }
 }
 
+// Not (note) için local notification planla
+const NOTE_REMINDER_STORAGE_KEY = 'note_reminder_';
+
+export async function scheduleNoteReminder(
+  noteId: string,
+  title: string,
+  body: string,
+  triggerDate: Date,
+  data: {
+    type: 'note_reminder';
+    note_id: string;
+    entity_type: string;
+    entity_id?: string | null;
+  }
+): Promise<string | null> {
+  try {
+    const notifEnabled = await AsyncStorage.getItem('@defter_notifications_enabled');
+    if (notifEnabled === 'false') return null;
+
+    if (triggerDate < new Date()) return null;
+
+    await cancelNoteReminder(noteId);
+
+    const notificationId = await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data,
+        sound: 'default',
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: triggerDate,
+        channelId: 'scheduled-transactions',
+      },
+    });
+
+    await AsyncStorage.setItem(
+      `${NOTE_REMINDER_STORAGE_KEY}${noteId}`,
+      notificationId
+    );
+
+    return notificationId;
+  } catch {
+    return null;
+  }
+}
+
+export async function cancelNoteReminder(noteId: string): Promise<void> {
+  try {
+    const storageKey = `${NOTE_REMINDER_STORAGE_KEY}${noteId}`;
+    const notificationId = await AsyncStorage.getItem(storageKey);
+
+    if (notificationId) {
+      await Notifications.cancelScheduledNotificationAsync(notificationId);
+      await AsyncStorage.removeItem(storageKey);
+    }
+  } catch {
+    // silently ignore
+  }
+}
+
 // Hatırlatma tarihini hesapla
 export function calculateReminderDate(
   scheduledDate: string,

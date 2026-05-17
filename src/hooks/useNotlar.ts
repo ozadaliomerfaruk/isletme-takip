@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { cancelNoteReminder } from '@/lib/notifications';
 import type { Not, NotInsert, NotUpdate, NotEntityType } from '@/types/database';
 
 const NOTLAR_QUERY_KEY = 'notlar';
@@ -100,19 +101,52 @@ export function useUpdateNot() {
 }
 
 /**
- * Not sil
+ * Not sil — also cleans up photo from storage and cancels reminder
  */
 export function useDeleteNot() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (note: { id: string; photo_path?: string | null }) => {
+      if (note.photo_path) {
+        await supabase.storage.from('islem-photos').remove([note.photo_path]);
+      }
+      await cancelNoteReminder(note.id);
+
       const { error } = await supabase
         .from('notlar')
         .delete()
-        .eq('id', id);
+        .eq('id', note.id);
 
       if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [NOTLAR_QUERY_KEY] });
+    },
+  });
+}
+
+/**
+ * Toggle not completion state
+ */
+export function useToggleNotCompletion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, is_completed }: { id: string; is_completed: boolean }) => {
+      const { data, error } = await supabase
+        .from('notlar')
+        .update({
+          is_completed,
+          completed_at: is_completed ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data as Not;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [NOTLAR_QUERY_KEY] });

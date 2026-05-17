@@ -38,7 +38,10 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
-import { useNotlarByEntity, useUpdateNot, useDeleteNot } from '@/hooks/useNotlar';
+import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion } from '@/hooks/useNotlar';
+import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
+import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
+import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
@@ -404,6 +407,8 @@ export default function CariHareketleriPage() {
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const updateNot = useUpdateNot();
   const deleteNot = useDeleteNot();
+  const toggleNotCompletion = useToggleNotCompletion();
+  const uploadNotePhoto = useUploadNotePhoto();
 
   // Viewer olarak baglantili mi ve izin seviyesi nedir
   const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
@@ -721,17 +726,56 @@ export default function CariHareketleriPage() {
     return entityNotes.find(n => n.id === editingNoteId) ?? null;
   }, [editingNoteId, entityNotes]);
 
-  const handleNoteUpdate = useCallback(async (content: string) => {
-    if (!editingNoteId) return;
+  const handleNoteUpdate = useCallback(async (data: NoteFormData) => {
+    if (!editingNoteId || !editingNote) return;
     try {
-      await updateNot.mutateAsync({ id: editingNoteId, content });
+      await updateNot.mutateAsync({
+        id: editingNoteId,
+        content: data.content,
+        is_completed: data.is_completed,
+        completed_at: data.is_completed ? new Date().toISOString() : null,
+        reminder_date: data.reminder_date,
+        assigned_to_user: data.assigned_to_user,
+        assigned_to_cari: data.assigned_to_cari,
+        assigned_to_personel: data.assigned_to_personel,
+      });
+
+      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
+        try {
+          const photoPath = await uploadNotePhoto.mutateAsync({
+            uri: data.photo_uri,
+            isletmeId: isletme.id,
+            noteId: editingNoteId,
+          });
+          const { supabase } = await import('@/lib/supabase');
+          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
+        } catch { /* ignore photo error */ }
+      } else if (!data.photo_uri && editingNote.photo_path) {
+        const { supabase } = await import('@/lib/supabase');
+        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
+        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
+      }
+
+      if (data.reminder_date) {
+        await scheduleNoteReminder(
+          editingNoteId,
+          t('common:notes.reminderNotification'),
+          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+          new Date(data.reminder_date),
+          { type: 'note_reminder', note_id: editingNoteId, entity_type: 'cari', entity_id: id },
+        );
+      } else {
+        await cancelNoteReminder(editingNoteId);
+      }
+
       setEditingNoteId(null);
     } catch {
       Alert.alert(t('common:status.error'), t('common:errors.genericError'));
     }
-  }, [editingNoteId, updateNot, t]);
+  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t]);
 
   const handleNoteDelete = useCallback((noteId: string) => {
+    const note = entityNotes?.find(n => n.id === noteId);
     Alert.alert(
       t('common:notes.confirmDeleteTitle'),
       t('common:notes.confirmDelete'),
@@ -741,12 +785,16 @@ export default function CariHareketleriPage() {
           text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
-            try { await deleteNot.mutateAsync(noteId); } catch { /* ignore */ }
+            try { await deleteNot.mutateAsync({ id: noteId, photo_path: note?.photo_path }); } catch { /* ignore */ }
           },
         },
       ]
     );
-  }, [deleteNot, t]);
+  }, [deleteNot, entityNotes, t]);
+
+  const handleToggleNoteCompletion = useCallback((noteId: string, completed: boolean) => {
+    toggleNotCompletion.mutate({ id: noteId, is_completed: completed });
+  }, [toggleNotCompletion]);
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
@@ -756,9 +804,14 @@ export default function CariHareketleriPage() {
       return null;
     }
     if (item.type === 'note') {
+      const noteData = item.data as Not;
       return (
         <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
-          <NoteRow note={item.data as Not} onPress={() => setEditingNoteId(item.data.id)} />
+          <NoteRow
+            note={noteData}
+            onPress={() => setEditingNoteId(item.data.id)}
+            onToggleComplete={handleToggleNoteCompletion}
+          />
         </SwipeableRow>
       );
     }
@@ -797,7 +850,7 @@ export default function CariHareketleriPage() {
         otherPartyName={itemOtherPartyName}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -1173,7 +1226,7 @@ export default function CariHareketleriPage() {
           cariType={(effectiveType || cari.type) as 'musteri' | 'tedarikci'}
           currentIsletmeId={isletme?.id}
           typeMismatch={typeMismatch}
-          phone={cari.phone}
+          phone={cari.phone ?? undefined}
         />
 
         {/* Export Sheet */}
@@ -1310,9 +1363,20 @@ export default function CariHareketleriPage() {
           visible={!!editingNote}
           onClose={() => setEditingNoteId(null)}
           onSave={handleNoteUpdate}
-          initialContent={editingNote?.content ?? ''}
+          initialData={editingNote ? {
+            content: editingNote.content,
+            is_completed: editingNote.is_completed,
+            reminder_date: editingNote.reminder_date,
+            photo_uri: editingNote.photo_path,
+            assigned_to_user: editingNote.assigned_to_user,
+            assigned_to_cari: editingNote.assigned_to_cari,
+            assigned_to_personel: editingNote.assigned_to_personel,
+          } : undefined}
           isEditing
           loading={updateNot.isPending}
+          entityType="cari"
+          entityId={id!}
+          existingPhotoPath={editingNote?.photo_path}
         />
       </SafeAreaView>
     </>
