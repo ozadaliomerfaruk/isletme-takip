@@ -18,19 +18,18 @@ import {
   X,
   Camera,
   Bell,
-  UserPlus,
   CheckCircle2,
   Clock,
   Trash2,
   User,
   Users,
   UserCircle,
-  Check,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { supabase } from '@/lib/supabase';
 import { useNotePhotoField } from '@/hooks/useNotePhoto';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { useCariler } from '@/hooks/useCariler';
@@ -58,6 +57,7 @@ interface NoteInputModalProps {
   entityType: NotEntityType;
   entityId: string;
   existingPhotoPath?: string | null;
+  hideUserAssignment?: boolean;
 }
 
 export function NoteInputModal({
@@ -70,6 +70,7 @@ export function NoteInputModal({
   entityType,
   entityId: _entityId,
   existingPhotoPath,
+  hideUserAssignment,
 }: NoteInputModalProps) {
   const { t, i18n } = useTranslation(['common']);
   const inputRef = useRef<TextInput>(null);
@@ -100,10 +101,17 @@ export function NoteInputModal({
       setAssignedUser(initialData?.assigned_to_user ?? null);
       setAssignedCari(initialData?.assigned_to_cari ?? null);
       setAssignedPersonel(initialData?.assigned_to_personel ?? null);
-      if (initialData?.photo_uri) {
-        setLocalPhotoUri(initialData.photo_uri);
-      } else if (existingPhotoPath) {
-        setLocalPhotoUri(existingPhotoPath);
+
+      const photoPath = existingPhotoPath || initialData?.photo_uri;
+      if (photoPath && !photoPath.startsWith('file://') && !photoPath.startsWith('http')) {
+        supabase.storage
+          .from('islem-photos')
+          .createSignedUrl(photoPath, 3600)
+          .then(({ data }) => {
+            if (data?.signedUrl) setLocalPhotoUri(data.signedUrl);
+          });
+      } else if (photoPath) {
+        setLocalPhotoUri(photoPath);
       } else {
         clearPhoto();
       }
@@ -114,11 +122,14 @@ export function NoteInputModal({
   const handleSave = () => {
     const trimmed = content.trim();
     if (!trimmed) return;
+    const isExistingPhoto = localPhotoUri && !localPhotoUri.startsWith('file://');
     onSave({
       content: trimmed,
       is_completed: isCompleted,
       reminder_date: reminderDate?.toISOString() ?? null,
-      photo_uri: localPhotoUri,
+      photo_uri: localPhotoUri
+        ? isExistingPhoto ? (existingPhotoPath ?? localPhotoUri) : localPhotoUri
+        : null,
       assigned_to_user: assignedUser,
       assigned_to_cari: assignedCari,
       assigned_to_personel: assignedPersonel,
@@ -134,8 +145,16 @@ export function NoteInputModal({
 
   const handlePhotoAction = () => {
     Alert.alert(t('common:notes.addPhoto'), undefined, [
-      { text: t('common:notes.takePhoto'), onPress: () => handleTakePhoto().catch(() => {}) },
-      { text: t('common:notes.pickFromGallery'), onPress: () => handlePickImage().catch(() => {}) },
+      { text: t('common:notes.takePhoto'), onPress: () => handleTakePhoto().catch((e) => {
+        if (e?.message !== 'CAMERA_PERMISSION_DENIED') {
+          Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+        }
+      }) },
+      { text: t('common:notes.pickFromGallery'), onPress: () => handlePickImage().catch((e) => {
+        if (e?.message !== 'PERMISSION_DENIED') {
+          Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+        }
+      }) },
       { text: t('common:buttons.cancel'), style: 'cancel' },
     ]);
   };
@@ -143,9 +162,9 @@ export function NoteInputModal({
   const handleDateChange = (_: unknown, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
-    }
-    if (selectedDate) {
-      setReminderDate(selectedDate);
+      if (selectedDate) setReminderDate(selectedDate);
+    } else {
+      if (selectedDate) setReminderDate(selectedDate);
     }
   };
 
@@ -338,30 +357,6 @@ export function NoteInputModal({
               </View>
             )}
 
-            {/* Date Picker (inline) */}
-            {showDatePicker && (
-              <View style={styles.datePickerContainer}>
-                <DateTimePicker
-                  value={reminderDate ?? new Date()}
-                  mode="datetime"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                  themeVariant="light"
-                  locale={i18n.language === 'tr' ? 'tr' : 'en'}
-                />
-                {Platform.OS === 'ios' && (
-                  <View style={styles.datePickerActions}>
-                    <Button variant="outline" size="sm" onPress={() => setShowDatePicker(false)}>
-                      {t('common:buttons.cancel')}
-                    </Button>
-                    <Button variant="primary" size="sm" onPress={confirmDateIOS}>
-                      {t('common:buttons.ok')}
-                    </Button>
-                  </View>
-                )}
-              </View>
-            )}
           </ScrollView>
 
           {/* Toolbar */}
@@ -382,46 +377,44 @@ export function NoteInputModal({
               <Bell size={20} color={reminderDate ? colors.warning : colors.textMuted} />
             </TouchableOpacity>
 
-            {/* Assign buttons — individual for each type */}
+            {/* Assign buttons — individual for each type (hide user if single-user) */}
+            {!(hideUserAssignment ?? (isletmeUsers && isletmeUsers.length <= 1)) && (
+              <TouchableOpacity
+                style={[styles.toolbarBtn, assignedUser && styles.toolbarBtnActive]}
+                onPress={() => { setAssignPickerType('user'); setAssignSearch(''); }}
+                activeOpacity={0.7}
+              >
+                <User size={20} color={assignedUser ? colors.info : colors.textMuted} />
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              style={[styles.toolbarBtn, assignedUser && styles.toolbarBtnActive]}
-              onPress={() => { setAssignPickerType('user'); setAssignSearch(''); }}
+              style={[styles.toolbarBtn, assignedCari && styles.toolbarBtnActive]}
+              onPress={() => { setAssignPickerType('cari'); setAssignSearch(''); }}
               activeOpacity={0.7}
             >
-              <User size={20} color={assignedUser ? colors.info : colors.textMuted} />
+              <Users size={20} color={assignedCari ? colors.info : colors.textMuted} />
             </TouchableOpacity>
 
-            {(entityType === 'cari' || entityType === 'genel') && (
-              <TouchableOpacity
-                style={[styles.toolbarBtn, assignedCari && styles.toolbarBtnActive]}
-                onPress={() => { setAssignPickerType('cari'); setAssignSearch(''); }}
-                activeOpacity={0.7}
-              >
-                <Users size={20} color={assignedCari ? colors.info : colors.textMuted} />
-              </TouchableOpacity>
-            )}
-
-            {(entityType === 'personel' || entityType === 'genel') && (
-              <TouchableOpacity
-                style={[styles.toolbarBtn, assignedPersonel && styles.toolbarBtnActive]}
-                onPress={() => { setAssignPickerType('personel'); setAssignSearch(''); }}
-                activeOpacity={0.7}
-              >
-                <UserCircle size={20} color={assignedPersonel ? colors.success : colors.textMuted} />
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={[styles.toolbarBtn, assignedPersonel && styles.toolbarBtnActive]}
+              onPress={() => { setAssignPickerType('personel'); setAssignSearch(''); }}
+              activeOpacity={0.7}
+            >
+              <UserCircle size={20} color={assignedPersonel ? colors.success : colors.textMuted} />
+            </TouchableOpacity>
 
             <View style={styles.toolbarSpacer} />
 
             <TouchableOpacity
-              style={[styles.toolbarBtn, isCompleted && styles.toolbarBtnComplete]}
+              style={[styles.toolbarBtn, isCompleted && styles.toolbarBtnTask]}
               onPress={() => setIsCompleted(!isCompleted)}
               activeOpacity={0.7}
             >
               <CheckCircle2
                 size={20}
                 color={isCompleted ? '#fff' : colors.textMuted}
-                fill={isCompleted ? colors.success : 'transparent'}
+                fill={isCompleted ? colors.orange : 'transparent'}
               />
             </TouchableOpacity>
           </View>
@@ -464,6 +457,34 @@ export function NoteInputModal({
         )}
         selectedColor={colors.primary}
       />
+
+      {/* DatePicker Modal — separate native modal on top */}
+      <Modal visible={showDatePicker} transparent animationType="fade">
+        <Pressable style={styles.datePickerOverlay} onPress={() => setShowDatePicker(false)}>
+          <View style={styles.datePickerModal} onStartShouldSetResponder={() => true}>
+            <Text variant="h3" style={styles.datePickerTitle}>
+              {t('common:notes.setReminder')}
+            </Text>
+            <DateTimePicker
+              value={reminderDate ?? new Date()}
+              mode="datetime"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={handleDateChange}
+              minimumDate={new Date()}
+              themeVariant="light"
+              locale={i18n.language === 'tr' ? 'tr' : 'en'}
+            />
+            <View style={styles.datePickerActions}>
+              <Button variant="outline" size="md" onPress={() => setShowDatePicker(false)} style={styles.datePickerBtn}>
+                {t('common:buttons.cancel')}
+              </Button>
+              <Button variant="primary" size="md" onPress={confirmDateIOS} style={styles.datePickerBtn}>
+                {t('common:buttons.ok')}
+              </Button>
+            </View>
+          </View>
+        </Pressable>
+      </Modal>
     </Modal>
   );
 }
@@ -568,17 +589,35 @@ const styles = StyleSheet.create({
     color: colors.text,
     maxWidth: 100,
   },
-  datePickerContainer: {
-    marginTop: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.md,
-    padding: spacing.sm,
+  datePickerOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  datePickerModal: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    width: '85%',
+    maxWidth: 360,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  datePickerTitle: {
+    textAlign: 'center',
+    marginBottom: spacing.md,
   },
   datePickerActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  datePickerBtn: {
+    flex: 1,
   },
   toolbar: {
     flexDirection: 'row',
@@ -600,8 +639,8 @@ const styles = StyleSheet.create({
   toolbarBtnActive: {
     backgroundColor: colors.primaryLight,
   },
-  toolbarBtnComplete: {
-    backgroundColor: colors.success,
+  toolbarBtnTask: {
+    backgroundColor: colors.orange,
   },
   toolbarSpacer: {
     flex: 1,

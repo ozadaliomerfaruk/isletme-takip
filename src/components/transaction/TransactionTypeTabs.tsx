@@ -31,7 +31,7 @@ export type TransactionType =
   | 'kredi_karti_odeme'
   | 'kredi_karti_ekstre';
 
-export type TransactionTabMode = 'normal' | 'tedarikci' | 'musteri' | 'tedarikci_viewer' | 'musteri_viewer' | 'personel' | 'kredi_karti';
+export type TransactionTabMode = 'normal' | 'tedarikci' | 'musteri' | 'tedarikci_viewer' | 'musteri_viewer' | 'personel' | 'personel_izin' | 'kredi_karti';
 
 interface TransactionTypeTabsProps {
   value: TransactionType;
@@ -89,6 +89,9 @@ const MUSTERI_VIEWER_TABS: TransactionType[] = ['satis', 'alis', 'satis_iade'];
 // Personel modu için sekmeler
 const PERSONEL_TABS: TransactionType[] = ['personel_gider_tab', 'personel_satis_tab', 'personel_odeme_tab', 'personel_tahsilat_tab', 'personel_izin_hakki_tab', 'personel_izin_kullanimi_tab'];
 
+// Personel izin modu (sadece izin hakki + kullanimi)
+const PERSONEL_IZIN_TABS: TransactionType[] = ['personel_izin_hakki_tab', 'personel_izin_kullanimi_tab'];
+
 // Kredi kartı modu için sekmeler
 const KREDI_KARTI_TABS: TransactionType[] = ['kredi_karti_gider', 'kredi_karti_odeme', 'kredi_karti_ekstre'];
 
@@ -125,6 +128,9 @@ export function TransactionTypeTabs({ value, onChange, onTabPress, mode = 'norma
         break;
       case 'personel':
         tabTypes = PERSONEL_TABS;
+        break;
+      case 'personel_izin':
+        tabTypes = PERSONEL_IZIN_TABS;
         break;
       case 'kredi_karti':
         tabTypes = KREDI_KARTI_TABS;

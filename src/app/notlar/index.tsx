@@ -10,6 +10,7 @@ import {
   UserCircle,
   Package,
   Globe,
+  CheckCircle2,
 } from 'lucide-react-native';
 import {
   Text,
@@ -20,7 +21,7 @@ import {
 } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot, useToggleNotCompletion } from '@/hooks/useNotlar';
+import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -37,8 +38,11 @@ import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import type { Not, NotEntityType } from '@/types/database';
 
-const ENTITY_FILTERS: { key: NotEntityType | 'all'; icon: React.ReactNode; labelKey: string }[] = [
+type FilterKey = NotEntityType | 'all' | 'tasks';
+
+const ENTITY_FILTERS: { key: FilterKey; icon: React.ReactNode; labelKey: string }[] = [
   { key: 'all', icon: <Globe size={14} color={colors.text} />, labelKey: 'common:notes.allNotes' },
+  { key: 'tasks', icon: <CheckCircle2 size={14} color={colors.text} />, labelKey: 'common:notes.filterTasks' },
   { key: 'hesap', icon: <Wallet size={14} color={colors.text} />, labelKey: 'common:notes.filterAccounts' },
   { key: 'cari', icon: <Users size={14} color={colors.text} />, labelKey: 'common:notes.filterClients' },
   { key: 'personel', icon: <UserCircle size={14} color={colors.text} />, labelKey: 'common:notes.filterStaff' },
@@ -51,6 +55,7 @@ function getEntityIcon(type: NotEntityType) {
     case 'hesap': return <Wallet size={14} color={colors.primary} />;
     case 'cari': return <Users size={14} color={colors.info} />;
     case 'personel': return <UserCircle size={14} color={colors.success} />;
+    case 'personel_izin': return <UserCircle size={14} color={colors.success} />;
     case 'urun': return <Package size={14} color={colors.warning} />;
     case 'genel': return <StickyNote size={14} color={colors.textMuted} />;
   }
@@ -60,6 +65,7 @@ const ENTITY_TYPE_LABEL_KEYS: Record<NotEntityType, string> = {
   hesap: 'common:notes.entityHesap',
   cari: 'common:notes.entityCari',
   personel: 'common:notes.entityPersonel',
+  personel_izin: 'common:notes.entityPersonelIzin',
   urun: 'common:notes.entityUrun',
   genel: 'common:notes.entityGenel',
 };
@@ -71,19 +77,21 @@ export default function NotlarPage() {
   const { isletme } = useAuthContext();
   const insets = useSafeAreaInsets();
 
-  const [filter, setFilter] = useState<NotEntityType | 'all'>('all');
+  const [filter, setFilter] = useState<FilterKey>('all');
+  const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'done'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<Not | null>(null);
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
 
-  const entityType = filter === 'all' ? undefined : filter;
+  const entityType = (filter === 'all' || filter === 'tasks') ? undefined : filter;
   const { data: notlar, isLoading } = useNotlar(entityType);
   const createNot = useCreateNot();
   const updateNot = useUpdateNot();
   const deleteNot = useDeleteNot();
   const toggleCompletion = useToggleNotCompletion();
   const uploadNotePhoto = useUploadNotePhoto();
+  const invalidateNotlar = useInvalidateNotlar();
 
   // Entity data for resolving names
   const { data: hesaplar } = useHesaplar(true, true);
@@ -126,10 +134,21 @@ export default function NotlarPage() {
 
   const filteredNotes = useMemo(() => {
     if (!notlar) return [];
-    if (!searchQuery.trim()) return notlar;
-    const q = searchQuery.toLowerCase();
-    return notlar.filter(n => n.content.toLowerCase().includes(q));
-  }, [notlar, searchQuery]);
+    let result = notlar;
+    if (filter === 'tasks') {
+      result = result.filter(n => n.is_completed);
+      if (taskFilter === 'pending') {
+        result = result.filter(n => !n.completed_at);
+      } else if (taskFilter === 'done') {
+        result = result.filter(n => !!n.completed_at);
+      }
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(n => n.content.toLowerCase().includes(q));
+    }
+    return result;
+  }, [notlar, searchQuery, filter, taskFilter]);
 
   const handleCreate = async (data: NoteFormData) => {
     try {
@@ -152,6 +171,7 @@ export default function NotlarPage() {
           });
           const { supabase } = await import('@/lib/supabase');
           await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', result.id);
+          invalidateNotlar();
         } catch { /* photo upload failed but note was created */ }
       }
 
@@ -179,7 +199,6 @@ export default function NotlarPage() {
         id: editingNote.id,
         content: data.content,
         is_completed: data.is_completed,
-        completed_at: data.is_completed ? new Date().toISOString() : null,
         reminder_date: data.reminder_date,
         assigned_to_user: data.assigned_to_user,
         assigned_to_cari: data.assigned_to_cari,
@@ -188,6 +207,10 @@ export default function NotlarPage() {
 
       if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
         try {
+          if (editingNote.photo_path) {
+            const { supabase: sb } = await import('@/lib/supabase');
+            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
+          }
           const photoPath = await uploadNotePhoto.mutateAsync({
             uri: data.photo_uri,
             isletmeId: isletme.id,
@@ -195,11 +218,13 @@ export default function NotlarPage() {
           });
           const { supabase } = await import('@/lib/supabase');
           await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNote.id);
+          invalidateNotlar();
         } catch { /* ignore */ }
       } else if (!data.photo_uri && editingNote.photo_path) {
         const { supabase } = await import('@/lib/supabase');
         await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
         await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNote.id);
+        invalidateNotlar();
       }
 
       if (data.reminder_date) {
@@ -243,9 +268,15 @@ export default function NotlarPage() {
     );
   }, [deleteNot, showToast, t]);
 
-  const handleToggleComplete = useCallback((noteId: string, completed: boolean) => {
-    toggleCompletion.mutate({ id: noteId, is_completed: completed });
+  const markAsTask = useMarkAsTask();
+
+  const handleToggleComplete = useCallback((noteId: string, done: boolean) => {
+    toggleCompletion.mutate({ id: noteId, done });
   }, [toggleCompletion]);
+
+  const handleMarkAsTask = useCallback((noteId: string) => {
+    markAsTask.mutate(noteId);
+  }, [markAsTask]);
 
   const renderNote = useCallback(({ item }: { item: Not }) => {
     const entityLabel = t(ENTITY_TYPE_LABEL_KEYS[item.entity_type]);
@@ -271,8 +302,9 @@ export default function NotlarPage() {
           {/* Note card */}
           <NoteRow
             note={item}
-            onPress={() => setEditingNote(item)}
+            onEdit={() => setEditingNote(item)}
             onToggleComplete={handleToggleComplete}
+            onMarkAsTask={handleMarkAsTask}
             onPhotoPress={setViewPhotoPath}
             assignedUserName={item.assigned_to_user ? userNameMap[item.assigned_to_user] : null}
             assignedCariName={item.assigned_to_cari ? cariNameMap[item.assigned_to_cari] : null}
@@ -281,7 +313,7 @@ export default function NotlarPage() {
         </View>
       </SwipeableRow>
     );
-  }, [formatDateTime, handleDelete, handleToggleComplete, t, entityNameMap, userNameMap, cariNameMap, personelNameMap]);
+  }, [formatDateTime, handleDelete, handleToggleComplete, handleMarkAsTask, t, entityNameMap, userNameMap, cariNameMap, personelNameMap]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -311,6 +343,28 @@ export default function NotlarPage() {
           />
         </View>
 
+        {/* Task sub-filters */}
+        {filter === 'tasks' && (
+          <View style={styles.taskFiltersRow}>
+            {(['all', 'pending', 'done'] as const).map((key) => (
+              <TouchableOpacity
+                key={key}
+                style={[styles.taskFilterChip, taskFilter === key && styles.taskFilterChipActive]}
+                onPress={() => setTaskFilter(key)}
+              >
+                <Text
+                  variant="caption"
+                  style={[styles.taskFilterText, taskFilter === key && styles.taskFilterTextActive]}
+                >
+                  {key === 'all' ? t('common:notes.allNotes')
+                    : key === 'pending' ? t('common:notes.taskPending')
+                    : t('common:notes.taskDone')}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Search */}
         <View style={styles.searchContainer}>
           <SearchInput
@@ -330,8 +384,10 @@ export default function NotlarPage() {
           ListEmptyComponent={
             !isLoading ? (
               <EmptyState
-                icon={<StickyNote size={48} color={colors.textMuted} />}
-                title={t('common:notes.noNotes')}
+                icon={filter === 'tasks'
+                  ? <CheckCircle2 size={48} color={colors.textMuted} />
+                  : <StickyNote size={48} color={colors.textMuted} />}
+                title={filter === 'tasks' ? t('common:notes.noTasks') : t('common:notes.noNotes')}
               />
             ) : null
           }
@@ -420,6 +476,32 @@ const styles = StyleSheet.create({
   },
   filterTextActive: {
     color: colors.surface,
+  },
+  taskFiltersRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.xs,
+    paddingBottom: spacing.sm,
+  },
+  taskFilterChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  taskFilterChipActive: {
+    backgroundColor: colors.orange,
+    borderColor: colors.orange,
+  },
+  taskFilterText: {
+    color: colors.text,
+    fontSize: 12,
+  },
+  taskFilterTextActive: {
+    color: colors.surface,
+    fontWeight: '600',
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,

@@ -41,7 +41,8 @@
     "less": "Daha Az",
     "seeAll": "Tümünü Gör",
     "goBack": "Geri Dön",
-    "tryAgain": "Tekrar Dene"
+    "tryAgain": "Tekrar Dene",
+    "share": "Paylaş"
   },
   "status": {
     "loading": "Yükleniyor...",
@@ -594,6 +595,7 @@
     "entityHesap": "HESAP",
     "entityCari": "CARİ",
     "entityPersonel": "PERSONEL",
+    "entityPersonelIzin": "İZİN",
     "entityUrun": "ÜRÜN",
     "entityGenel": "GENEL",
     "completed": "Tamamlandı",
@@ -613,6 +615,13 @@
     "users": "Kullanıcılar",
     "overdue": "Gecikmiş",
     "reminderNotification": "Not Hatırlatıcı",
-    "reminderBody": "\"{{content}}\" notunun zamanı geldi"
+    "reminderBody": "\"{{content}}\" notunun zamanı geldi",
+    "taskLabel": "TAMAMLANACAK GÖREV",
+    "markAsTask": "Görev Yap",
+    "filterTasks": "Görevler",
+    "noTasks": "Henüz görev yok",
+    "taskPending": "Bekleyen",
+    "taskDone": "Tamamlanan",
+    "sourceLeave": "İzin Sayfası"
   }
 }

@@ -41,7 +41,8 @@
     "undo": "Undo",
     "send": "Send",
     "refresh": "Refresh",
-    "seeMore": "See More"
+    "seeMore": "See More",
+    "share": "Share"
   },
   "status": {
     "loading": "Loading...",
@@ -601,6 +602,7 @@
     "entityHesap": "ACCOUNT",
     "entityCari": "CLIENT",
     "entityPersonel": "STAFF",
+    "entityPersonelIzin": "LEAVE",
     "entityUrun": "PRODUCT",
     "entityGenel": "GENERAL",
     "completed": "Completed",
@@ -620,6 +622,13 @@
     "users": "Users",
     "overdue": "Overdue",
     "reminderNotification": "Note Reminder",
-    "reminderBody": "Time for note: \"{{content}}\""
+    "reminderBody": "Time for note: \"{{content}}\"",
+    "taskLabel": "TASK",
+    "markAsTask": "Make Task",
+    "filterTasks": "Tasks",
+    "noTasks": "No tasks yet",
+    "taskPending": "Pending",
+    "taskDone": "Completed",
+    "sourceLeave": "Leave Page"
   }
 }

@@ -70,34 +70,44 @@ export function useNotePhotoField() {
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
 
   const handlePickImage = useCallback(async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) throw new Error('PERMISSION_DENIED');
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) throw new Error('PERMISSION_DENIED');
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-      allowsEditing: false,
-    });
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsEditing: false,
+      });
 
-    if (result.canceled) return null;
-    const uri = result.assets[0].uri;
-    setLocalPhotoUri(uri);
-    return uri;
+      if (result.canceled) return null;
+      const uri = result.assets[0].uri;
+      setLocalPhotoUri(uri);
+      return uri;
+    } catch (e) {
+      console.warn('[NotePhoto] pickImage error:', e);
+      throw e;
+    }
   }, []);
 
   const handleTakePhoto = useCallback(async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) throw new Error('CAMERA_PERMISSION_DENIED');
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) throw new Error('CAMERA_PERMISSION_DENIED');
 
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 1,
-      allowsEditing: false,
-    });
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 0.8,
+        allowsEditing: false,
+      });
 
-    if (result.canceled) return null;
-    const uri = result.assets[0].uri;
-    setLocalPhotoUri(uri);
-    return uri;
+      if (result.canceled) return null;
+      const uri = result.assets[0].uri;
+      setLocalPhotoUri(uri);
+      return uri;
+    } catch (e) {
+      console.warn('[NotePhoto] takePhoto error:', e);
+      throw e;
+    }
   }, []);
 
   const clearPhoto = useCallback(() => {

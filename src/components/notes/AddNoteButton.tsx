@@ -3,7 +3,7 @@ import { StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { StickyNote } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '@/constants/colors';
-import { useCreateNot } from '@/hooks/useNotlar';
+import { useCreateNot, useInvalidateNotlar } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -23,6 +23,7 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
   const [modalVisible, setModalVisible] = useState(false);
   const createNot = useCreateNot();
   const uploadPhoto = useUploadNotePhoto();
+  const invalidateNotlar = useInvalidateNotlar();
   const { isletme } = useAuthContext();
   const { showToast } = useToast();
 
@@ -53,6 +54,7 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
             .from('notlar')
             .update({ photo_path: photoPath })
             .eq('id', result.id);
+          invalidateNotlar();
         } catch {
           // photo upload failed but note was created
         }

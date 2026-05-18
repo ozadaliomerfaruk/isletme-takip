@@ -856,7 +856,7 @@ export interface IrsaliyeRecordUpdate {
 }
 
 // Notlar (Notes)
-export type NotEntityType = 'hesap' | 'cari' | 'personel' | 'urun' | 'genel';
+export type NotEntityType = 'hesap' | 'cari' | 'personel' | 'personel_izin' | 'urun' | 'genel';
 
 export interface Not {
   id: string;

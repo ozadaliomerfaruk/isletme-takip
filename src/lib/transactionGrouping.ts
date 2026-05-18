@@ -65,8 +65,7 @@ export function preprocessTransactionsByDate(
 
 /**
  * Merges notes into an already-grouped transaction list by date (descending).
- * Notes are inserted at the end of the matching date group.
- * If no matching date group exists, a new header is created.
+ * All items within a date group are sorted chronologically (newest first).
  */
 export function mergeNotesIntoGroupedData(
   groupedData: TransactionListItem[],
@@ -77,69 +76,71 @@ export function mergeNotesIntoGroupedData(
 ): TransactionListItem[] {
   if (!notes.length) return groupedData;
 
-  const result = [...groupedData];
   const now = new Date();
   const todayStr = toLocalDateString(now);
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = toLocalDateString(yesterday);
 
-  for (const note of notes) {
-    const noteDateStr = toLocalDateString(new Date(note.created_at));
-    const noteItem: NoteListItem = { type: 'note', key: `note-${note.id}`, data: note };
+  type Sortable = { dateKey: string; timestamp: number; item: TransactionListItem };
+  const items: Sortable[] = [];
 
-    // Find the date group header for this note
-    let headerIdx = -1;
-    for (let i = 0; i < result.length; i++) {
-      if (result[i].type === 'header' && result[i].key === 'header-' + noteDateStr) {
-        headerIdx = i;
-        break;
-      }
+  for (const entry of groupedData) {
+    if (entry.type === 'header') continue;
+    if (entry.type === 'transaction') {
+      items.push({
+        dateKey: toLocalDateString(new Date(entry.data.date)),
+        timestamp: new Date(entry.data.created_at).getTime(),
+        item: entry,
+      });
+    } else if (entry.type === 'note') {
+      items.push({
+        dateKey: toLocalDateString(new Date(entry.data.created_at)),
+        timestamp: new Date(entry.data.created_at).getTime(),
+        item: entry,
+      });
+    } else if (entry.type === 'milestone') {
+      items.push({
+        dateKey: toLocalDateString(new Date(entry.date)),
+        timestamp: new Date(entry.date).getTime(),
+        item: entry,
+      });
     }
+  }
 
-    if (headerIdx >= 0) {
-      // Find correct chronological position within the date group (descending order)
-      let insertIdx = headerIdx + 1;
-      while (insertIdx < result.length && result[insertIdx].type !== 'header') {
-        const curr = result[insertIdx];
-        if (curr.type === 'transaction') {
-          if (curr.data.date < note.created_at) break; // note is newer, insert before this item
-        }
-        insertIdx++;
-      }
-      result.splice(insertIdx, 0, noteItem);
-    } else {
-      // Need to create a new date group - find correct position (descending date order)
+  for (const note of notes) {
+    items.push({
+      dateKey: toLocalDateString(new Date(note.created_at)),
+      timestamp: new Date(note.created_at).getTime(),
+      item: { type: 'note', key: `note-${note.id}`, data: note },
+    });
+  }
+
+  items.sort((a, b) => {
+    if (a.dateKey !== b.dateKey) return a.dateKey > b.dateKey ? -1 : 1;
+    return b.timestamp - a.timestamp;
+  });
+
+  const result: TransactionListItem[] = [];
+  let currentDateKey = '';
+
+  for (const { dateKey, item } of items) {
+    if (dateKey !== currentDateKey) {
+      currentDateKey = dateKey;
       let title: string;
-      if (noteDateStr === todayStr) {
+      if (dateKey === todayStr) {
         title = todayLabel;
-      } else if (noteDateStr === yesterdayStr) {
+      } else if (dateKey === yesterdayStr) {
         title = yesterdayLabel;
       } else {
-        title = formatDate(note.created_at);
+        const ts = item.type === 'transaction' ? item.data.date
+          : item.type === 'note' ? item.data.created_at
+          : (item as MilestoneItem).date;
+        title = formatDate(ts);
       }
-
-      let inserted = false;
-      for (let i = 0; i < result.length; i++) {
-        if (result[i].type === 'header') {
-          const existingDateStr = result[i].key.replace('header-', '');
-          if (noteDateStr > existingDateStr) {
-            result.splice(i, 0,
-              { type: 'header', key: 'header-' + noteDateStr, title },
-              noteItem,
-            );
-            inserted = true;
-            break;
-          }
-        }
-      }
-      if (!inserted) {
-        result.push(
-          { type: 'header', key: 'header-' + noteDateStr, title },
-          noteItem,
-        );
-      }
+      result.push({ type: 'header', key: 'header-' + dateKey, title });
     }
+    result.push(item);
   }
 
   return result;

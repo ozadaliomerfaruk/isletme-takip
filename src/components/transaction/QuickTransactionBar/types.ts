@@ -81,6 +81,8 @@ export interface QuickTransactionBarProps {
   isScheduledTransaction?: boolean;
   // Copy mode: load data from this transaction but create as new
   copySourceId?: string;
+  // Override auto-detected tab mode (e.g. 'personel_izin' for leave-only tabs)
+  tabModeOverride?: TransactionTabMode;
 }
 
 // Exchange rate data for cross-currency transactions

@@ -65,6 +65,7 @@ export function QuickTransactionBar({
   transactionId,
   isScheduledTransaction = false,
   copySourceId,
+  tabModeOverride,
 }: QuickTransactionBarProps) {
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
@@ -113,13 +114,15 @@ export function QuickTransactionBar({
   });
 
   // Tab mode
-  const tabMode: TransactionTabMode = form.isPersonelMode
-    ? 'personel'
-    : form.isCariMode
-      ? defaultCariType === 'tedarikci'
-        ? (isViewer ? 'tedarikci_viewer' : 'tedarikci')
-        : (isViewer ? 'musteri_viewer' : 'musteri')
-      : 'normal';
+  const tabMode: TransactionTabMode = tabModeOverride
+    ? tabModeOverride
+    : form.isPersonelMode
+      ? 'personel'
+      : form.isCariMode
+        ? defaultCariType === 'tedarikci'
+          ? (isViewer ? 'tedarikci_viewer' : 'tedarikci')
+          : (isViewer ? 'musteri_viewer' : 'musteri')
+        : 'normal';
 
   // Leave usage type flag
   const isLeaveUsageType = form.type === 'personel_izin_kullanimi_tab';

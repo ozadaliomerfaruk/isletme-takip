@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Modal,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -24,10 +24,12 @@ import {
   Building2,
   User,
   FileSpreadsheet,
+  ChevronLeft,
 } from 'lucide-react-native';
 import { Text, Card, Button, ExpandableCard, EmptyState } from '@/components/ui';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { UrunExportSheet } from '@/components/export/UrunExportSheet';
+import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { colors } from '@/constants/colors';
@@ -52,6 +54,7 @@ export default function UrunDetayPage() {
   const deleteUrunHareket = useDeleteUrunHareket();
   const { showToast } = useToast();
   const haptics = useHaptics();
+  const insets = useSafeAreaInsets();
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [quickUrunVisible, setQuickUrunVisible] = useState(false);
@@ -209,8 +212,21 @@ export default function UrunDetayPage() {
     <>
       <Stack.Screen
         options={{
-          title: urun.ad,
-          headerBackTitle: t('navigation:back.back'),
+          headerTitle: () => (
+            <Text numberOfLines={1} style={{ fontSize: 17, fontWeight: '600', maxWidth: 200 }}>
+              {urun.ad}
+            </Text>
+          ),
+          headerBackVisible: false,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
+              style={{ padding: 8, marginLeft: -8 }}
+              hitSlop={8}
+            >
+              <ChevronLeft size={28} color={colors.text} />
+            </TouchableOpacity>
+          ),
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <TouchableOpacity onPress={() => setExportSheetVisible(true)}>
@@ -537,6 +553,15 @@ export default function UrunDetayPage() {
           editHareketId={editHareketId}
           editInitialValues={editInitialValues}
         />
+
+        {/* Not Ekle FAB */}
+        {!urun.is_archived && (
+          <AddNoteButton
+            entityType="urun"
+            entityId={id!}
+            style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom }}
+          />
+        )}
 
         {/* Export Sheet */}
         <UrunExportSheet

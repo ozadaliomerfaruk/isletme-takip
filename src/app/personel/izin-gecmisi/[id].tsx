@@ -1,26 +1,34 @@
 import { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, CalendarDays, Copy } from 'lucide-react-native';
+import { ArrowLeft, CalendarDays, Copy, Plus } from 'lucide-react-native';
 
 import { Text, EmptyState } from '@/components/ui';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { DateSectionHeader } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { usePersonel } from '@/hooks/usePersonel';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
+import { useNotlarByEntity, useDeleteNot, useUpdateNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
+import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
+import { NoteRow } from '@/components/notes/NoteRow';
+import { NoteInputModal } from '@/components/notes/NoteInputModal';
+import type { NoteFormData } from '@/components/notes/NoteInputModal';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
-import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
+import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
 import { getTransactionColor, getTransactionPrefix, showAccentBar } from '@/lib/transactionColors';
 import { toErrorMessage } from '@/lib/errors';
-import type { IslemWithRelations } from '@/types/database';
+import type { IslemWithRelations, Not } from '@/types/database';
 
 function toNumber(val: unknown): number {
   if (typeof val === 'number') return val;
@@ -43,16 +51,29 @@ export default function LeaveHistoryPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['staff', 'common', 'errors']);
   const { formatDateMedium, formatDateSmart } = useDateFormat();
+  const insets = useSafeAreaInsets();
 
+  const { isletme } = useAuthContext();
   const { data: personel } = usePersonel(id);
   const { data: islemler } = useIslemlerByPersonel(id!);
+  const { data: entityNotes } = useNotlarByEntity('personel_izin', id!);
   const deleteIslem = useDeleteIslem();
+  const deleteNot = useDeleteNot();
+  const updateNot = useUpdateNot();
+  const toggleNotCompletion = useToggleNotCompletion();
+  const markAsTask = useMarkAsTask();
+  const uploadNotePhoto = useUploadNotePhoto();
+  const invalidateNotlar = useInvalidateNotlar();
+
+  // New leave transaction state
+  const [showNewLeaveBar, setShowNewLeaveBar] = useState(false);
 
   // Edit & Copy state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
   // Undo delete
   const {
@@ -94,15 +115,22 @@ export default function LeaveHistoryPage() {
 
   const kalanGun = quota.hakEdilen - quota.kullanilan;
 
-  // Group by date
+  // Group by date and merge notes
   const groupedData = useMemo(() => {
-    return preprocessTransactionsByDate(
+    const txData = preprocessTransactionsByDate(
       leaveTransactions,
       t('common:date.today'),
       t('common:date.yesterday'),
       formatDateSmart,
     );
-  }, [leaveTransactions, t, formatDateSmart]);
+    return mergeNotesIntoGroupedData(
+      txData,
+      entityNotes ?? [],
+      t('common:date.today'),
+      t('common:date.yesterday'),
+      formatDateSmart,
+    );
+  }, [leaveTransactions, t, formatDateSmart, entityNotes]);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = leaveTransactions.find(i => i.id === islemId);
@@ -122,6 +150,88 @@ export default function LeaveHistoryPage() {
     setShowCopyBar(true);
   }, []);
 
+  const handleNoteDelete = useCallback((noteId: string) => {
+    const note = entityNotes?.find(n => n.id === noteId);
+    Alert.alert(
+      t('common:notes.confirmDeleteTitle'),
+      t('common:notes.confirmDelete'),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('common:buttons.delete'),
+          style: 'destructive',
+          onPress: () => deleteNot.mutate({ id: noteId, photo_path: note?.photo_path }),
+        },
+      ],
+    );
+  }, [deleteNot, entityNotes, t]);
+
+  const handleToggleNoteCompletion = useCallback((noteId: string, done: boolean) => {
+    toggleNotCompletion.mutate({ id: noteId, done });
+  }, [toggleNotCompletion]);
+
+  const handleMarkAsTask = useCallback((noteId: string) => {
+    markAsTask.mutate(noteId);
+  }, [markAsTask]);
+
+  const editingNote = useMemo(() => {
+    if (!editingNoteId || !entityNotes) return null;
+    return entityNotes.find(n => n.id === editingNoteId) ?? null;
+  }, [editingNoteId, entityNotes]);
+
+  const handleNoteUpdate = useCallback(async (data: NoteFormData) => {
+    if (!editingNoteId || !editingNote) return;
+    try {
+      await updateNot.mutateAsync({
+        id: editingNoteId,
+        content: data.content,
+        is_completed: data.is_completed,
+        reminder_date: data.reminder_date,
+        assigned_to_user: data.assigned_to_user,
+        assigned_to_cari: data.assigned_to_cari,
+        assigned_to_personel: data.assigned_to_personel,
+      });
+
+      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
+        try {
+          if (editingNote.photo_path) {
+            const { supabase } = await import('@/lib/supabase');
+            await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
+          }
+          const photoPath = await uploadNotePhoto.mutateAsync({
+            uri: data.photo_uri,
+            isletmeId: isletme.id,
+            noteId: editingNoteId,
+          });
+          const { supabase } = await import('@/lib/supabase');
+          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
+          invalidateNotlar();
+        } catch { /* ignore */ }
+      } else if (!data.photo_uri && editingNote.photo_path) {
+        const { supabase } = await import('@/lib/supabase');
+        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
+        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
+        invalidateNotlar();
+      }
+
+      if (data.reminder_date) {
+        await scheduleNoteReminder(
+          editingNoteId,
+          t('common:notes.reminderNotification'),
+          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+          new Date(data.reminder_date),
+          { type: 'note_reminder', note_id: editingNoteId, entity_type: 'personel_izin', entity_id: id },
+        );
+      } else {
+        await cancelNoteReminder(editingNoteId);
+      }
+
+      setEditingNoteId(null);
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    }
+  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t, invalidateNotlar]);
+
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');
 
@@ -130,8 +240,21 @@ export default function LeaveHistoryPage() {
       if (item.type === 'header') {
         return <DateSectionHeader title={item.title} />;
       }
-      if (item.type === 'milestone' || item.type === 'note') {
+      if (item.type === 'milestone') {
         return null;
+      }
+      if (item.type === 'note') {
+        const noteData = item.data as Not;
+        return (
+          <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
+            <NoteRow
+              note={noteData}
+              onEdit={() => setEditingNoteId(item.data.id)}
+              onToggleComplete={handleToggleNoteCompletion}
+              onMarkAsTask={handleMarkAsTask}
+            />
+          </SwipeableRow>
+        );
       }
 
       const islem = item.data;
@@ -205,7 +328,7 @@ export default function LeaveHistoryPage() {
         </SwipeableRow>
       );
     },
-    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, deleteLabel, copyLabel]
+    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, deleteLabel, copyLabel]
   );
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
@@ -290,6 +413,7 @@ export default function LeaveHistoryPage() {
         transactionId={editTransactionId ?? undefined}
         isScheduledTransaction={false}
         defaultPersonelId={id!}
+        tabModeOverride="personel_izin"
         onSuccess={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
@@ -306,11 +430,35 @@ export default function LeaveHistoryPage() {
         mode="create"
         copySourceId={copySourceId ?? undefined}
         defaultPersonelId={id!}
+        tabModeOverride="personel_izin"
         onSuccess={() => {
           setShowCopyBar(false);
           setCopySourceId(null);
         }}
       />
+
+      {/* New Leave QuickTransactionBar */}
+      <QuickTransactionBar
+        visible={showNewLeaveBar}
+        onDismiss={() => setShowNewLeaveBar(false)}
+        mode="create"
+        defaultType="personel_izin_hakki_tab"
+        defaultPersonelId={id!}
+        tabModeOverride="personel_izin"
+        onSuccess={() => setShowNewLeaveBar(false)}
+      />
+
+      {/* FABs */}
+      <View style={[styles.fabContainer, { bottom: insets.bottom + 16 }]}>
+        <AddNoteButton entityType="personel_izin" entityId={id!} />
+        <TouchableOpacity
+          style={styles.fab}
+          activeOpacity={0.8}
+          onPress={() => setShowNewLeaveBar(true)}
+        >
+          <Plus size={24} color="#fff" />
+        </TouchableOpacity>
+      </View>
 
       <UndoSnackbar
         visible={undoSnackbar.visible}
@@ -318,6 +466,26 @@ export default function LeaveHistoryPage() {
         onUndo={undoDelete}
         onDismiss={dismissDelete}
         undoLabel={t('common:buttons.undo')}
+      />
+
+      <NoteInputModal
+        visible={!!editingNote}
+        onClose={() => setEditingNoteId(null)}
+        onSave={handleNoteUpdate}
+        initialData={editingNote ? {
+          content: editingNote.content,
+          is_completed: editingNote.is_completed,
+          reminder_date: editingNote.reminder_date,
+          photo_uri: editingNote.photo_path,
+          assigned_to_user: editingNote.assigned_to_user,
+          assigned_to_cari: editingNote.assigned_to_cari,
+          assigned_to_personel: editingNote.assigned_to_personel,
+        } : undefined}
+        isEditing
+        loading={updateNot.isPending}
+        entityType="personel_izin"
+        entityId={id!}
+        existingPhotoPath={editingNote?.photo_path}
       />
     </SafeAreaView>
   );
@@ -449,5 +617,25 @@ const styles = StyleSheet.create({
   txAmountText: {
     fontSize: 20,
     fontWeight: fontWeight.bold,
+  },
+  fabContainer: {
+    position: 'absolute',
+    right: spacing.lg,
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  fab: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
 });

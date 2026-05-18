@@ -30,12 +30,11 @@ export default function IslemGecmisiPage() {
   const data = activeTab === 'deleted' ? deletedIslemler : editedIslemler;
 
   const renderAuditItem = (item: IslemAuditLog) => {
-    const oldData = item.old_data as Record<string, unknown> | null;
-    const newData = item.new_data as Record<string, unknown> | null;
-    const performer = (item as Record<string, unknown>).performer as Record<string, string> | undefined;
-    const performerName = performer?.display_name ?? performer?.email ?? '?';
-    const amount = oldData?.tutar ?? newData?.tutar;
-    const aciklama = oldData?.aciklama ?? newData?.aciklama ?? '';
+    const oldData = item.old_data;
+    const newData = item.new_data;
+    const performerName = item.performer?.display_name ?? item.performer?.email ?? '?';
+    const amount = (oldData?.tutar ?? newData?.tutar) as number | undefined;
+    const aciklama = String(oldData?.aciklama ?? newData?.aciklama ?? '');
 
     return (
       <View key={item.id} style={styles.auditItem}>
@@ -49,9 +48,9 @@ export default function IslemGecmisiPage() {
           </View>
           <View style={styles.auditInfo}>
             <Text variant="body" numberOfLines={1}>{aciklama || '-'}</Text>
-            {amount && (
+            {amount != null && (
               <Text variant="label" style={{ color: colors.text }}>
-                {formatCurrency(amount, currency)}
+                {formatCurrency(Number(amount), currency)}
               </Text>
             )}
           </View>
@@ -66,14 +65,14 @@ export default function IslemGecmisiPage() {
             {formatDateNative(parseDateFromDB(item.created_at))}
           </Text>
         </View>
-        {item.action === 'update' && oldData?.tutar && newData?.tutar && oldData.tutar !== newData.tutar && (
+        {item.action === 'update' && oldData?.tutar != null && newData?.tutar != null && oldData.tutar !== newData.tutar && (
           <View style={styles.changeRow}>
             <Text variant="caption" color="muted">
-              {t('multiUser:auditLog.originalAmount')}: {formatCurrency(oldData.tutar, currency)}
+              {t('multiUser:auditLog.originalAmount')}: {formatCurrency(Number(oldData.tutar), currency)}
             </Text>
             <Text variant="caption" color="muted">→</Text>
             <Text variant="caption" color="muted">
-              {t('multiUser:auditLog.newAmount')}: {formatCurrency(newData.tutar, currency)}
+              {t('multiUser:auditLog.newAmount')}: {formatCurrency(Number(newData.tutar), currency)}
             </Text>
           </View>
         )}

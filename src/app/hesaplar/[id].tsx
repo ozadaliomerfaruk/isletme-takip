@@ -29,7 +29,7 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency } from '@/lib/currency';
 import { formatDateSmart } from '@/lib/date';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
-import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion } from '@/hooks/useNotlar';
+import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -311,7 +311,9 @@ export default function HesapHareketleriPage() {
   const updateNot = useUpdateNot();
   const deleteNot = useDeleteNot();
   const toggleNotCompletion = useToggleNotCompletion();
+  const markAsTask = useMarkAsTask();
   const uploadNotePhoto = useUploadNotePhoto();
+  const invalidateNotlar = useInvalidateNotlar();
   const pickImage = usePickImage();
   const takePhoto = useTakePhoto();
   const uploadPhoto = useUploadIslemPhoto();
@@ -351,6 +353,7 @@ export default function HesapHareketleriPage() {
   // Photo viewer state
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
   const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
+  const [notePhotoPath, setNotePhotoPath] = useState<string | null>(null);
   const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
   const isOpeningRef = useRef(false);
 
@@ -687,7 +690,6 @@ export default function HesapHareketleriPage() {
         id: editingNoteId,
         content: data.content,
         is_completed: data.is_completed,
-        completed_at: data.is_completed ? new Date().toISOString() : null,
         reminder_date: data.reminder_date,
         assigned_to_user: data.assigned_to_user,
         assigned_to_cari: data.assigned_to_cari,
@@ -696,6 +698,10 @@ export default function HesapHareketleriPage() {
 
       if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
         try {
+          if (editingNote.photo_path) {
+            const { supabase: sb } = await import('@/lib/supabase');
+            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
+          }
           const photoPath = await uploadNotePhoto.mutateAsync({
             uri: data.photo_uri,
             isletmeId: isletme.id,
@@ -703,11 +709,13 @@ export default function HesapHareketleriPage() {
           });
           const { supabase } = await import('@/lib/supabase');
           await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
+          invalidateNotlar();
         } catch { /* ignore */ }
       } else if (!data.photo_uri && editingNote.photo_path) {
         const { supabase } = await import('@/lib/supabase');
         await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
         await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
+        invalidateNotlar();
       }
 
       if (data.reminder_date) {
@@ -746,9 +754,13 @@ export default function HesapHareketleriPage() {
     );
   }, [deleteNot, entityNotes, t]);
 
-  const handleToggleNoteCompletion = useCallback((noteId: string, completed: boolean) => {
-    toggleNotCompletion.mutate({ id: noteId, is_completed: completed });
+  const handleToggleNoteCompletion = useCallback((noteId: string, done: boolean) => {
+    toggleNotCompletion.mutate({ id: noteId, done });
   }, [toggleNotCompletion]);
+
+  const handleMarkAsTask = useCallback((noteId: string) => {
+    markAsTask.mutate(noteId);
+  }, [markAsTask]);
 
   // Localized labels for swipe actions (stable refs)
   const deleteLabel = t('common:buttons.delete');
@@ -768,8 +780,10 @@ export default function HesapHareketleriPage() {
         <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
           <NoteRow
             note={noteData}
-            onPress={() => setEditingNoteId(item.data.id)}
+            onEdit={() => setEditingNoteId(item.data.id)}
             onToggleComplete={handleToggleNoteCompletion}
+            onMarkAsTask={handleMarkAsTask}
+            onPhotoPress={setNotePhotoPath}
           />
         </SwipeableRow>
       );
@@ -792,7 +806,7 @@ export default function HesapHareketleriPage() {
         currentUserId={user?.id}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, t, deleteLabel, copyLabel, canDelete, user?.id]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, canDelete, user?.id]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -1252,6 +1266,11 @@ export default function HesapHareketleriPage() {
         entityType="hesap"
         entityId={id!}
         existingPhotoPath={editingNote?.photo_path}
+      />
+      <PhotoViewerModal
+        visible={!!notePhotoPath}
+        photoPath={notePhotoPath}
+        onClose={() => setNotePhotoPath(null)}
       />
     </>
   );

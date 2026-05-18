@@ -38,7 +38,7 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
-import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion } from '@/hooks/useNotlar';
+import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import type { NoteFormData } from '@/components/notes/NoteInputModal';
@@ -198,8 +198,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         urunCount={getUrunCountFn(islem.id)}
         currency={currency}
         subAmount={getCariSubAmount(islem)}
-        overrideColor={getEntityPerspectiveColor(effectiveType as 'musteri' | 'tedarikci')}
-        overridePrefix={getEntityPerspectivePrefix(effectiveType as 'musteri' | 'tedarikci')}
+        overrideColor={getEntityPerspectiveColor(effectiveType)}
+        overridePrefix={getEntityPerspectivePrefix(effectiveType)}
         onPress={onPress}
         onLongPress={onLongPress}
         onPhotoPress={onPhotoPress}
@@ -408,7 +408,9 @@ export default function CariHareketleriPage() {
   const updateNot = useUpdateNot();
   const deleteNot = useDeleteNot();
   const toggleNotCompletion = useToggleNotCompletion();
+  const markAsTask = useMarkAsTask();
   const uploadNotePhoto = useUploadNotePhoto();
+  const invalidateNotlar = useInvalidateNotlar();
 
   // Viewer olarak baglantili mi ve izin seviyesi nedir
   const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
@@ -453,6 +455,7 @@ export default function CariHareketleriPage() {
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   // Photo viewer state
   const [photoViewerIslemId, setPhotoViewerIslemId] = useState<string | null>(null);
+  const [notePhotoPath, setNotePhotoPath] = useState<string | null>(null);
   // Undo delete hook
   const {
     pendingDeleteIds,
@@ -733,7 +736,6 @@ export default function CariHareketleriPage() {
         id: editingNoteId,
         content: data.content,
         is_completed: data.is_completed,
-        completed_at: data.is_completed ? new Date().toISOString() : null,
         reminder_date: data.reminder_date,
         assigned_to_user: data.assigned_to_user,
         assigned_to_cari: data.assigned_to_cari,
@@ -742,6 +744,10 @@ export default function CariHareketleriPage() {
 
       if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
         try {
+          if (editingNote.photo_path) {
+            const { supabase: sb } = await import('@/lib/supabase');
+            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
+          }
           const photoPath = await uploadNotePhoto.mutateAsync({
             uri: data.photo_uri,
             isletmeId: isletme.id,
@@ -749,11 +755,13 @@ export default function CariHareketleriPage() {
           });
           const { supabase } = await import('@/lib/supabase');
           await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
+          invalidateNotlar();
         } catch { /* ignore photo error */ }
       } else if (!data.photo_uri && editingNote.photo_path) {
         const { supabase } = await import('@/lib/supabase');
         await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
         await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
+        invalidateNotlar();
       }
 
       if (data.reminder_date) {
@@ -792,9 +800,13 @@ export default function CariHareketleriPage() {
     );
   }, [deleteNot, entityNotes, t]);
 
-  const handleToggleNoteCompletion = useCallback((noteId: string, completed: boolean) => {
-    toggleNotCompletion.mutate({ id: noteId, is_completed: completed });
+  const handleToggleNoteCompletion = useCallback((noteId: string, done: boolean) => {
+    toggleNotCompletion.mutate({ id: noteId, done });
   }, [toggleNotCompletion]);
+
+  const handleMarkAsTask = useCallback((noteId: string) => {
+    markAsTask.mutate(noteId);
+  }, [markAsTask]);
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
@@ -809,8 +821,10 @@ export default function CariHareketleriPage() {
         <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
           <NoteRow
             note={noteData}
-            onPress={() => setEditingNoteId(item.data.id)}
+            onEdit={() => setEditingNoteId(item.data.id)}
             onToggleComplete={handleToggleNoteCompletion}
+            onMarkAsTask={handleMarkAsTask}
+            onPhotoPress={setNotePhotoPath}
           />
         </SwipeableRow>
       );
@@ -850,7 +864,7 @@ export default function CariHareketleriPage() {
         otherPartyName={itemOtherPartyName}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -1331,6 +1345,13 @@ export default function CariHareketleriPage() {
           onClose={() => setPhotoViewerIslemId(null)}
           onDelete={undefined}
           onChange={undefined}
+        />
+
+        {/* Not fotoğraf görüntüleyici */}
+        <PhotoViewerModal
+          visible={!!notePhotoPath}
+          photoPath={notePhotoPath}
+          onClose={() => setNotePhotoPath(null)}
         />
 
         {/* Floating Not Ekle + Yeni İşlem FAB */}
