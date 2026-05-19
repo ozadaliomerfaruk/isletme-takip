@@ -94,7 +94,9 @@
     "paymentDueDay": "Son Ödeme Günü",
     "paymentDueDayLabel": "Her ayın {{day}}. günü",
     "paymentDueDayPlaceholder": "Örn: 15",
-    "paymentDueDayOptional": "Son Ödeme Günü (Opsiyonel)"
+    "paymentDueDayOptional": "Son Ödeme Günü (Opsiyonel)",
+    "paymentDueDayToday": "bugün",
+    "paymentDueDayTomorrow": "yarın"
   },
   "summary": {
     "totalAssets": "Toplam Varlıklar",

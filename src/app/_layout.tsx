@@ -11,8 +11,10 @@ import { queryClient } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ReviewProvider } from '@/contexts/ReviewContext';
-import { ToastContainer } from '@/components/ui';
+import { ToastContainer, Text } from '@/components/ui';
 import { ChangePasswordModal } from '@/components/auth';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { WifiOff } from 'lucide-react-native';
 import { PersistentTabBar } from '@/components/ui/PersistentTabBar';
 import { colors } from '@/constants/colors';
 import {
@@ -32,12 +34,13 @@ function RootLayoutNav() {
   const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
   const segments = useSegments();
   const router = useRouter();
-  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport']);
+  const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport', 'errors']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const pushTokenRegistered = useRef(false);
   const insets = useSafeAreaInsets();
   const modifiedInsets = useMemo(() => ({ ...insets, bottom: 0 }), [insets]);
+  const isOffline = useNetworkStatus();
 
   // Session tracking: Türkiye saatine göre günde 1 kez kayıt
   const SESSION_DATE_KEY = '@defter_last_session_date';
@@ -190,6 +193,12 @@ function RootLayoutNav() {
     <>
       <StatusBar style="dark" />
       <ToastContainer />
+      {isOffline && (
+        <View style={[layoutStyles.offlineBanner, { paddingTop: insets.top }]}>
+          <WifiOff size={14} color={colors.white} />
+          <Text style={layoutStyles.offlineText}>{t('errors:network.noConnection')}</Text>
+        </View>
+      )}
       <View style={{ flex: 1 }}>
       <SafeAreaInsetsContext.Provider value={modifiedInsets}>
       <Stack
@@ -866,5 +875,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
+  },
+});
+
+const layoutStyles = StyleSheet.create({
+  offlineBanner: {
+    backgroundColor: colors.error,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 6,
+    gap: 6,
+  },
+  offlineText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

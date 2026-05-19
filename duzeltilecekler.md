@@ -66,13 +66,13 @@
 | #   | Durum | Baslik                                            | Aciklama                                                                                                                                                       |
 | --- | ----- | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | U1  | [ ]   | **Islem hareket satirlari kompaktlastirilmali**   | Satirlar cok yer kapliyor, yazilar bold yapilmali, bosluklar azaltilmali. Tarih/kategori/not/tutar goz hemen okuyabilmeli.                                     |
-| U2  | [ ]   | **Cek Kes butonunu tasi**                         | Cari detayda ustteki buyuk buton kaldirilip sag alttaki FAB alanina (not ikonu yanina) kucuk ikon olarak tasinmali.                                            |
-| U3  | [ ]   | **Review us butonu**                              | App Store/Play Store yorum tesvik butonu eklenmeli.                                                                                                            |
+| U2  | [x]   | **Cek Kes butonunu tasi**                         | DUZELTILDI: Cari detayda ustteki buyuk buton kaldirildi, sag alttaki FAB alanina kucuk ikon (info renk, 44px) olarak tasinidi. Not ve islem FAB'lari ile birlikte dikey sirali. |
+| U3  | [x]   | **Review us butonu**                              | DUZELTILDI: "Daha" menusune "Uygulamayi Degerlendir" butonu eklendi (Star ikonu, warning renk). `expo-store-review` ile native review prompt aciliyor. |
 | U4  | [ ]   | **Kaydolma ekranini bastan tasarla**              | Signup ekrani yeniden tasarlanacak.                                                                                                                            |
-| U5  | [ ]   | **Kredi karti son gun gostergesi**                | Son odeme gunu bugun/yarinsa parantez icinde "(bugun)"/"(yarin)" eklenmeli.                                                                                    |
-| U6  | [ ]   | **Internet yok uyarisi**                          | Baglanti yokken acik uyari gosterilmeli, bos ekran yerine.                                                                                                     |
-| U7  | [ ]   | **QuickTransactionBar not alani karakter siniri** | Not alanindaki karakter siniri kaldirilmali — kullanicilar uzun notlar da yazabilmeli. `maxHeight` arttirilabilir veya scroll ile uzun icerik desteklenebilir. |
-| U8  | [ ]   | **Islem listesi not gosterimi iyilestirmesi**     | B9 ile iliskili. Uzun notlar hala yeterince gorunmuyor. numberOfLines arttirilmali veya genisletilebilir (expandable) not alani eklenmeli.                     |
+| U5  | [x]   | **Kredi karti son gun gostergesi**                | DUZELTILDI: Hesap detay sayfasinda kredi karti son odeme gunu gosteriliyor. Bugun veya yarinsa parantez icinde "(bugun)"/"(yarin)" warning rengiyle vurgulaniyor. |
+| U6  | [x]   | **Internet yok uyarisi**                          | DUZELTILDI: Global offline banner eklendi. `useNetworkStatus` hook'u 15 saniyede bir ve app foreground'a geldiginde baglanti kontrol ediyor. Baglanti yoksa kirmizi banner gosteriliyor. |
+| U7  | [x]   | **QuickTransactionBar not alani karakter siniri** | DUZELTILDI: B8 ile birlikte cozuldu. TextInput'a `multiline`, `numberOfLines={2}`, `maxHeight: 60` eklendi. maxLength=500 ile makul sinir korunuyor. |
+| U8  | [x]   | **Islem listesi not gosterimi iyilestirmesi**     | DUZELTILDI: B9 ile birlikte cozuldu. `TransactionRow.tsx`'de `numberOfLines` siniri tamamen kaldirildi, notlar artik tam gorunuyor. Kategori ve not ayri satirlara alindi. |
 
 ---
 

@@ -94,7 +94,9 @@
     "paymentDueDay": "Payment Due Day",
     "paymentDueDayLabel": "{{day}}th of each month",
     "paymentDueDayPlaceholder": "e.g. 15",
-    "paymentDueDayOptional": "Payment Due Day (Optional)"
+    "paymentDueDayOptional": "Payment Due Day (Optional)",
+    "paymentDueDayToday": "today",
+    "paymentDueDayTomorrow": "tomorrow"
   },
   "summary": {
     "totalAssets": "Total Assets",

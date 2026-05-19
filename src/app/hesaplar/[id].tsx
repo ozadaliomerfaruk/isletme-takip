@@ -319,7 +319,7 @@ export default function HesapHareketleriPage() {
   const exchangeRates = exchangeRatesData?.rates;
   const { currency: baseCurrency } = useSettings();
 
-  const handleUnarchive = async () => {
+  const handleUnarchive = useCallback(async () => {
     try {
       await unarchiveHesap.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
@@ -327,7 +327,7 @@ export default function HesapHareketleriPage() {
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
-  };
+  }, [unarchiveHesap, id, t, router]);
 
   const [showTransactionBar, setShowTransactionBar] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
@@ -362,6 +362,23 @@ export default function HesapHareketleriPage() {
       Alert.alert(t('common:status.error'), message);
     },
   });
+
+  const paymentDueDayInfo = useMemo(() => {
+    if (hesap?.type !== 'kredi_karti' || !hesap.payment_due_day) return null;
+    const today = new Date();
+    const currentDay = today.getDate();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    const tomorrowDay = tomorrow.getDate();
+    const isToday = currentDay === hesap.payment_due_day;
+    const isTomorrow = tomorrowDay === hesap.payment_due_day;
+    const hint = isToday
+      ? ` (${t('accounts:creditCard.paymentDueDayToday')})`
+      : isTomorrow
+        ? ` (${t('accounts:creditCard.paymentDueDayTomorrow')})`
+        : '';
+    return { day: hesap.payment_due_day, isToday, isTomorrow, hint };
+  }, [hesap?.type, hesap?.payment_due_day, t]);
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -731,6 +748,15 @@ export default function HesapHareketleriPage() {
               </View>
             </View>
           )}
+          {/* Kredi Kartı Son Ödeme Günü */}
+          {paymentDueDayInfo && (
+            <View style={styles.paymentDueDayRow}>
+              <Text variant="caption" color="secondary">{t('accounts:creditCard.paymentDueDay')}</Text>
+              <Text variant="body" style={[styles.creditLimitValue, (paymentDueDayInfo.isToday || paymentDueDayInfo.isTomorrow) && { color: colors.warning }]}>
+                {t('accounts:creditCard.paymentDueDayLabel', { day: paymentDueDayInfo.day })}{paymentDueDayInfo.hint}
+              </Text>
+            </View>
+          )}
         </Card>
 
         {/* İleri Tarihli İşlemler */}
@@ -760,7 +786,7 @@ export default function HesapHareketleriPage() {
         </View>
       </View>
     );
-  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, openTransaction, handleUnarchive, unarchiveHesap.isPending]);
+  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleUnarchive, unarchiveHesap.isPending, paymentDueDayInfo]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -1062,6 +1088,13 @@ const styles = StyleSheet.create({
   creditLimitValue: {
     fontWeight: '600',
     marginTop: spacing.xs,
+  },
+  paymentDueDayRow: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    alignItems: 'center',
   },
   section: {
     paddingHorizontal: spacing.lg,

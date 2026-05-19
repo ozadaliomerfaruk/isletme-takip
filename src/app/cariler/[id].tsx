@@ -888,21 +888,6 @@ export default function CariHareketleriPage() {
           </View>
         )}
 
-        {/* Aksiyon Butonlari - Çek Kes only for tedarikci */}
-        {!cari.is_archived && !(isViewerViewOnly) && effectiveType === 'tedarikci' && (
-          <View style={styles.actionButtons}>
-            <Button
-              variant="outline"
-              size="md"
-              icon={<FileCheck size={18} color={colors.info} />}
-              onPress={() => setShowCekKesSheet(true)}
-              style={[styles.actionBtn, { borderColor: colors.info }]}
-            >
-              {t('checks:create')}
-            </Button>
-          </View>
-        )}
-
         {/* İleri Tarihli İşlemler ve Hareketler */}
         <View style={styles.section}>
           <IleriTarihliIslemlerSection
@@ -1164,9 +1149,18 @@ export default function CariHareketleriPage() {
           onClose={() => setNotePhotoPath(null)}
         />
 
-        {/* Floating Not Ekle + Yeni İşlem FAB */}
+        {/* Floating FAB'lar: Çek Kes + Not Ekle + Yeni İşlem */}
         {!cari.is_archived && !(isViewerViewOnly) && (
           <>
+            {effectiveType === 'tedarikci' && (
+              <TouchableOpacity
+                style={[styles.fab, styles.fabSmall, { bottom: spacing.lg + insets.bottom + 140 }]}
+                onPress={() => setShowCekKesSheet(true)}
+                activeOpacity={0.8}
+              >
+                <FileCheck size={20} color={colors.surface} />
+              </TouchableOpacity>
+            )}
             <AddNoteButton
               entityType="cari"
               entityId={id!}
@@ -1273,15 +1267,6 @@ const styles = StyleSheet.create({
   balanceInfo: {
     alignItems: 'flex-end',
   },
-  actionButtons: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  actionBtn: {
-    flex: 1,
-  },
   section: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
@@ -1355,5 +1340,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 10,
+  },
+  fabSmall: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.info,
   },
 });

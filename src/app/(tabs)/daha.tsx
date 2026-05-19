@@ -25,6 +25,7 @@ import {
   History,
   Bell,
   StickyNote,
+  Star,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
@@ -39,6 +40,7 @@ import { useSettings, type CurrencyCode, type DateFormatType } from '@/hooks/use
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePermissions } from '@/hooks/usePermissions';
+import * as StoreReview from 'expo-store-review';
 
 const NOTIFICATIONS_ENABLED_KEY = '@defter_notifications_enabled';
 
@@ -335,6 +337,22 @@ export default function DahaPage() {
                 thumbColor={colors.white}
               />
             </View>
+          </Card>
+        </View>
+
+        {/* Değerlendir */}
+        <View style={styles.section}>
+          <Card padding="none">
+            <MenuItem
+              icon={<Star size={22} color={colors.warning} />}
+              label={t('settings:actions.rateApp')}
+              onPress={async () => {
+                const isAvailable = await StoreReview.isAvailableAsync();
+                if (isAvailable) {
+                  await StoreReview.requestReview();
+                }
+              }}
+            />
           </Card>
         </View>
 
