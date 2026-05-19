@@ -2,13 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { cancelNoteReminder } from '@/lib/notifications';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import type { Not, NotInsert, NotUpdate, NotEntityType } from '@/types/database';
-
-const NOTLAR_QUERY_KEY = 'notlar';
 
 export function useInvalidateNotlar() {
   const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: [NOTLAR_QUERY_KEY] });
+  return () => invalidateRelatedQueries(queryClient, 'not');
 }
 
 /**
@@ -18,7 +17,7 @@ export function useNotlar(entityType?: NotEntityType, entityId?: string) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: [NOTLAR_QUERY_KEY, isletme?.id, entityType, entityId],
+    queryKey: queryKeys.notlar.list(isletme?.id ?? '', entityType, entityId),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -57,7 +56,7 @@ export function useNotlarByEntity(entityType: NotEntityType, entityId: string) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: [NOTLAR_QUERY_KEY, 'byEntity', isletme?.id, entityType, entityId],
+    queryKey: queryKeys.notlar.byEntity(isletme?.id ?? '', entityType, entityId),
     queryFn: async () => {
       if (!isletme || !entityId) return [];
 
@@ -137,7 +136,7 @@ export function useCreateNot() {
       return data as Not;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [NOTLAR_QUERY_KEY] });
+      invalidateRelatedQueries(queryClient, 'not');
     },
   });
 }
@@ -161,7 +160,7 @@ export function useUpdateNot() {
       return data as Not;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [NOTLAR_QUERY_KEY] });
+      invalidateRelatedQueries(queryClient, 'not');
     },
   });
 }
@@ -187,7 +186,7 @@ export function useDeleteNot() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [NOTLAR_QUERY_KEY] });
+      invalidateRelatedQueries(queryClient, 'not');
     },
   });
 }
@@ -215,7 +214,7 @@ export function useToggleNotCompletion() {
       return data as Not;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [NOTLAR_QUERY_KEY] });
+      invalidateRelatedQueries(queryClient, 'not');
     },
   });
 }
@@ -243,7 +242,7 @@ export function useMarkAsTask() {
       return data as Not;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [NOTLAR_QUERY_KEY] });
+      invalidateRelatedQueries(queryClient, 'not');
     },
   });
 }

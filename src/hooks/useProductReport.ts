@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
 
 // Alış işlem tipleri
 const PURCHASE_TYPES = ['cari_alis'];
@@ -35,6 +36,7 @@ export interface ProductReportResult {
   totalTransactions: number;
   isLoading: boolean;
   isFetching: boolean;
+  refetch: () => Promise<unknown>;
   error: Error | null;
 }
 
@@ -66,8 +68,9 @@ export function useProductReport(
     isLoading: mainLoading,
     isFetching: mainFetching,
     error: mainError,
+    refetch: refetchMain,
   } = useQuery({
-    queryKey: ['product-report', isletme?.id, direction, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.productReport(isletme?.id ?? '', direction, startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -103,7 +106,7 @@ export function useProductReport(
     data: returnData,
     isLoading: returnLoading,
   } = useQuery({
-    queryKey: ['product-report-returns', isletme?.id, direction, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.productReportReturns(isletme?.id ?? '', direction, startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme) return 0;
 
@@ -171,6 +174,7 @@ export function useProductReport(
     ...result,
     isLoading: mainLoading || returnLoading,
     isFetching: mainFetching,
+    refetch: refetchMain,
     error: mainError,
   };
 }

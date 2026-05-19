@@ -60,7 +60,7 @@ export default function VerifyScreen() {
         if (typeMatch) tokenType = typeMatch[1];
       }
 
-      if (accessToken) {
+      if (accessToken && refreshToken) {
         // Şifre sıfırlama akışı - session'dan önce bayrağı aç
         // setSession SIGNED_IN event'i tetikler (PASSWORD_RECOVERY değil),
         // bu yüzden bayrağı burada açmamız gerekiyor
@@ -72,7 +72,7 @@ export default function VerifyScreen() {
         // Session oluştur
         const { error: sessionError } = await supabase.auth.setSession({
           access_token: accessToken,
-          refresh_token: refreshToken || '',
+          refresh_token: refreshToken,
         });
 
         if (sessionError) throw sessionError;

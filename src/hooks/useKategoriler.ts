@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, KategoriInsert, KategoriUpdate, KategoriType, KategoriWithChildren } from '@/types/database';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import i18n from '@/i18n';
 
 /**
@@ -67,7 +67,7 @@ export function useKategoriler(type?: KategoriType) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: ['kategoriler', isletme?.id, type],
+    queryKey: queryKeys.kategoriler.list(isletme?.id ?? '', type),
     queryFn: async () => {
       if (!isletme) return [];
 

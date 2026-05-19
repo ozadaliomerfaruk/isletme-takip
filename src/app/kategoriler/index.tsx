@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +28,9 @@ import {
   Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
 } from 'lucide-react-native';
 import { Text, Card, TabFilter, EmptyState, Button } from '@/components/ui';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useKategoriler, useKategorilerHierarchical, useDeleteKategori, FlattenedCategory } from '@/hooks/useKategoriler';
@@ -78,36 +81,45 @@ export default function KategorilerPage() {
     { label: t('categories:types.urun'), value: 'urun' },
   ];
 
-  const { flatList, isLoading } = useKategorilerHierarchical(selectedType);
+  const { flatList, isLoading, refetch } = useKategorilerHierarchical(selectedType);
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const { data: allKategoriler } = useKategoriler();
   const deleteKategori = useDeleteKategori();
+  const {
+    pendingDeleteIds,
+    requestDelete,
+    undoDelete,
+    dismissDelete,
+    snackbar: undoSnackbar,
+  } = useUndoDelete<FlattenedCategory>({
+    onCommitDelete: async (id: string) => {
+      await deleteKategori.mutateAsync(id);
+    },
+    onError: (error) => {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:category.deleteFailed'));
+    },
+  });
 
   // Kategori id -> name map (eşleme badge'leri için)
   const kategoriNameMap = new Map(allKategoriler?.map(k => [k.id, k.name]) || []);
 
-  const handleDelete = (id: string, name: string, hasChildren: boolean) => {
-    const message = hasChildren
-      ? t('categories:deleteConfirm.messageWithChildren', { name })
-      : t('categories:deleteConfirm.messageSimple', { name });
-
-    Alert.alert(
-      t('categories:deleteConfirm.title'),
-      message,
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteKategori.mutateAsync(id);
-            } catch (error) {
-              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:category.deleteFailed'));
-            }
+  const handleDelete = (item: FlattenedCategory) => {
+    if (item.hasChildren) {
+      Alert.alert(
+        t('categories:deleteConfirm.title'),
+        t('categories:deleteConfirm.messageWithChildren', { name: item.name }),
+        [
+          { text: t('common:buttons.cancel'), style: 'cancel' },
+          {
+            text: t('common:buttons.delete'),
+            style: 'destructive',
+            onPress: () => requestDelete(item.id, item, item.name),
           },
-        },
-      ]
-    );
+        ]
+      );
+    } else {
+      requestDelete(item.id, item, item.name);
+    }
   };
 
   const getCategoryIcon = (kategori: FlattenedCategory) => {
@@ -137,7 +149,13 @@ export default function KategorilerPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+          }
+        >
           {/* Tip Filtresi */}
           <View style={styles.filterContainer}>
             <TabFilter
@@ -165,7 +183,7 @@ export default function KategorilerPage() {
               <View style={styles.loadingContainer}>
                 <Text color="secondary">{t('common:status.loading')}</Text>
               </View>
-            ) : !flatList || flatList.length === 0 ? (
+            ) : !flatList || flatList.filter(k => !pendingDeleteIds.has(k.id)).length === 0 ? (
               <EmptyState
                 icon={<Tag size={48} color={colors.textMuted} />}
                 title={selectedType === 'gelir' ? t('categories:messages.noIncomeCategory') : selectedType === 'gider' ? t('categories:messages.noExpenseCategory') : t('categories:messages.noProductCategory')}
@@ -175,7 +193,7 @@ export default function KategorilerPage() {
               />
             ) : (
               <Card padding="none">
-                {flatList.map((kategori, index) => (
+                {flatList.filter(k => !pendingDeleteIds.has(k.id)).map((kategori, index) => (
                   <View key={kategori.id}>
                     {index > 0 && <View style={[styles.divider, { marginLeft: spacing.lg + 40 + spacing.md + (kategori.level * 24) }]} />}
                     <View style={[styles.kategoriItem, { paddingLeft: spacing.lg + (kategori.level * 24) }]}>
@@ -234,7 +252,7 @@ export default function KategorilerPage() {
                         </TouchableOpacity>
                         <TouchableOpacity
                           style={styles.actionButton}
-                          onPress={() => handleDelete(kategori.id, kategori.name, kategori.hasChildren)}
+                          onPress={() => handleDelete(kategori)}
                         >
                           <Trash2 size={18} color={colors.error} />
                         </TouchableOpacity>
@@ -253,6 +271,12 @@ export default function KategorilerPage() {
             </Text>
           </View>
         </ScrollView>
+      <UndoSnackbar
+        visible={undoSnackbar.visible}
+        message={undoSnackbar.message}
+        onUndo={undoDelete}
+        onDismiss={dismissDelete}
+      />
     </SafeAreaView>
   );
 }

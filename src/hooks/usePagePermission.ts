@@ -36,6 +36,9 @@ export function usePagePermission({
     let allowed = canAccessModule(module);
 
     if (allowed && action) {
+      if ((action === 'update' || action === 'delete') && createdBy === undefined) {
+        return;
+      }
       switch (action) {
         case 'create':
           allowed = canCreate(module);

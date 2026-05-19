@@ -234,7 +234,7 @@ export function GenelTabContent(_props: TabContentProps) {
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
           {t('reports:sections.clientStatus')}
         </Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/cariler')}>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/(tabs)/cariler')}>
           <Card>
             <View style={styles.accountHeader}>
               <Building2 size={20} color={colors.warning} />
@@ -278,7 +278,7 @@ export function GenelTabContent(_props: TabContentProps) {
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
           {t('reports:sections.personnelStatus')}
         </Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/personel')}>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/(tabs)/personel')}>
           <Card>
             <View style={styles.accountHeader}>
               <Users size={20} color={colors.info} />

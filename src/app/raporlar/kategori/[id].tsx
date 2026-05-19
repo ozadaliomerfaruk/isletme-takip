@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import {
@@ -23,6 +23,7 @@ import {
   FileSignature, Scale, ChartLine,
   Monitor, Smartphone, Laptop, Printer, HardDrive, Camera, Tv, Headphones, Cog,
   Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
+  Share2,
 } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -34,6 +35,9 @@ import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransact
 import { IslemWithRelations, KategoriType } from '@/types/database';
 import { useTranslation } from 'react-i18next';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { exportCategoryDetail } from '@/lib/pageExports';
+import { useQueryClient } from '@tanstack/react-query';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -80,6 +84,7 @@ export default function KategoriDetayPage() {
   }>();
   const { t } = useTranslation(['reports', 'common', 'errors', 'transactions']);
   const { formatDateMedium } = useDateFormat();
+  const { isletme } = useAuthContext();
 
   const isUncategorized = id === 'uncategorized';
   const kategoriId = isUncategorized ? null : id;
@@ -108,6 +113,17 @@ export default function KategoriDetayPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Pull-to-refresh
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.invalidateQueries();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
 
   // Handle edit transaction
   const handleEditTransaction = useCallback((transactionId: string) => {
@@ -173,6 +189,8 @@ export default function KategoriDetayPage() {
   // Tümü seçili mi kontrolü
   const allSubCategoriesSelected = effectiveSelectedSubCategories.size === subCategoryReport.subCategories.length;
 
+  const [isExporting, setIsExporting] = useState(false);
+
   // Filtrelenmiş toplam (kategori-spesifik tutarları kullan)
   const filteredTotal = filteredIslemler?.reduce((acc, islem: any) => {
     const amount = islem._categoryAmount !== undefined ? islem._categoryAmount : Number(islem.amount);
@@ -182,6 +200,47 @@ export default function KategoriDetayPage() {
 
   // Sayfa başlığı
   const pageTitle = isUncategorized ? t('reports:titles.uncategorized') : (subCategoryReport.parentKategori?.name || t('reports:titles.categoryDetail'));
+
+  const handleExport = useCallback(async () => {
+    if (!isletme || !startDate || !endDate) return;
+    setIsExporting(true);
+    try {
+      const subCats = subCategoryReport.subCategories.map(sc => ({
+        name: sc.kategori.name,
+        amount: sc.total,
+        percentage: sc.percentage,
+        transactionCount: sc.count,
+      }));
+      await exportCategoryDetail({
+        categoryName: pageTitle,
+        categoryType: type!,
+        isletmeName: isletme.name,
+        startDate: startDate!,
+        endDate: endDate!,
+        subCategories: subCats,
+        totalAmount: subCategoryReport.totalAmount,
+        t: {
+          title: `${pageTitle} - ${type === 'gelir' ? t('reports:titles.incomeAnalysis') : t('reports:titles.expenseAnalysis')}`,
+          business: t('common:export.excel.business'),
+          category: t('common:export.excel.category'),
+          period: t('common:export.excel.period'),
+          createdAt: t('common:export.excel.createdAt'),
+          subCategory: t('reports:category.title'),
+          amount: t('reports:category.amount'),
+          percentage: t('reports:category.percentage'),
+          transactionCount: t('reports:category.transactionCount'),
+          total: t('common:export.reportExcel.total'),
+          sheetName: pageTitle,
+          fileName: pageTitle,
+          dialogTitle: pageTitle,
+        },
+      });
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    } finally {
+      setIsExporting(false);
+    }
+  }, [isletme, startDate, endDate, subCategoryReport, pageTitle, type, t]);
 
   // Tarih aralığını formatla
   const formatDateRange = () => {
@@ -626,6 +685,16 @@ export default function KategoriDetayPage() {
           headerBackTitle: t('reports:titles.reports'),
           headerBackVisible: true,
           gestureEnabled: true,
+          headerRight: () =>
+            !isUncategorized && subCategoryReport.subCategories.length > 0 ? (
+              <TouchableOpacity onPress={handleExport} disabled={isExporting} style={{ padding: 6 }}>
+                {isExporting ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <Share2 size={22} color={colors.text} />
+                )}
+              </TouchableOpacity>
+            ) : null,
         }}
       />
 
@@ -637,6 +706,7 @@ export default function KategoriDetayPage() {
         ListEmptyComponent={EmptyState}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
         ListFooterComponent={islemlerLoading ? (
           <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />
         ) : null}

@@ -10,7 +10,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
-  ArrowLeft,
   Search,
   Users,
   UserCheck,
@@ -19,6 +18,8 @@ import {
   Archive,
   FileText,
 } from 'lucide-react-native';
+import { ArrowLeft } from 'lucide-react-native';
+import { BackButton } from '@/components/ui/BackButton';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
@@ -323,9 +324,7 @@ export default function AramaPage() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Search Bar */}
       <View style={styles.searchBar}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={styles.backBtn}>
-          <ArrowLeft size={24} color={colors.text} />
-        </TouchableOpacity>
+        <BackButton icon={ArrowLeft} style={styles.backBtn} />
         <View style={styles.searchInputContainer}>
           <Search size={18} color={colors.textMuted} />
           <TextInput

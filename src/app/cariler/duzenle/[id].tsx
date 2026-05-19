@@ -25,11 +25,10 @@ export default function CariDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
-  usePagePermission({ module: 'cariler', action: 'update' });
-
   const currencies = getLocalizedCurrencies(i18n.language);
 
   const { data: cari, isLoading } = useCari(id);
+  usePagePermission({ module: 'cariler', action: 'update', createdBy: cari?.created_by });
   const updateCari = useUpdateCari();
 
   const [name, setName] = useState('');
@@ -71,7 +70,6 @@ export default function CariDuzenlePage() {
       await updateCari.mutateAsync({
         id,
         name: name.trim(),
-        currency,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
@@ -136,39 +134,28 @@ export default function CariDuzenlePage() {
               </View>
             </View>
 
-            {/* Para Birimi Seçimi */}
+            {/* Para Birimi (düzenlemede salt okunur) */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
                 {t('clients:form.currency')}
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.currencyGrid}
-              >
-                {currencies.map((curr) => (
+              <View style={styles.currencyGrid}>
+                {currencies.filter((curr) => curr.code === currency).map((curr) => (
                   <Card
                     key={curr.code}
-                    variant={currency === curr.code ? 'elevated' : 'outlined'}
+                    variant="elevated"
                     padding="sm"
-                    onPress={() => setCurrency(curr.code as Currency)}
-                    style={[
-                      styles.currencyCard,
-                      currency === curr.code && styles.currencyCardActive,
-                    ]}
+                    style={[styles.currencyCard, styles.currencyCardActive]}
                   >
                     <Text
                       variant="body"
-                      style={{
-                        color: currency === curr.code ? colors.primary : colors.text,
-                        fontWeight: currency === curr.code ? '600' : '400',
-                      }}
+                      style={{ color: colors.primary, fontWeight: '600' }}
                     >
                       {curr.symbol} {curr.code}
                     </Text>
                   </Card>
                 ))}
-              </ScrollView>
+              </View>
             </View>
 
             {/* Form */}

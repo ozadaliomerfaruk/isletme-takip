@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
-import { ChevronLeft, Copy, Check } from 'lucide-react-native';
+import { Copy, Check } from 'lucide-react-native';
+import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Input, Button } from '@/components/ui';
 import { RoleSelector } from '@/components/multiUser/RoleSelector';
 import { PermissionEditor } from '@/components/multiUser/PermissionEditor';
@@ -101,9 +102,7 @@ export default function DavetOlusturPage() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
-        </TouchableOpacity>
+        <BackButton />
         <View style={styles.headerCenter}>
           <Text variant="h3">{t('multiUser:invites.title')}</Text>
           <Text variant="caption" color="muted">{t('multiUser:invites.subtitle')}</Text>
@@ -215,12 +214,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerCenter: {
     flex: 1,

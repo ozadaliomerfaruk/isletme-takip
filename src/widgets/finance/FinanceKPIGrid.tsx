@@ -6,7 +6,6 @@
  * Clean, big numbers, no sparklines
  */
 
-import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';

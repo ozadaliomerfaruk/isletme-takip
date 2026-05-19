@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
@@ -220,6 +220,7 @@ export function useTransactionSubmit({
   const deleteIleriTarihliIslem = useDeleteIleriTarihliIslem();
   const uploadPhoto = useUploadIslemPhoto();
   const createUrunHareket = useCreateUrunHareket();
+  const isSavingRef = useRef(false);
 
   // Helper: Get urun movement type based on transaction type
   const getUrunHareketTipi = useCallback((txnType: TransactionType): UrunHareketTipi | null => {
@@ -396,6 +397,8 @@ export function useTransactionSubmit({
 
   // Handle save
   const handleSave = useCallback(async () => {
+    if (isSavingRef.current) return;
+
     if (!isValidAmount(amount)) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -589,6 +592,7 @@ export function useTransactionSubmit({
     }
 
     // Submit transaction
+    isSavingRef.current = true;
     setIsSaving(true);
 
     if (Platform.OS !== 'web') {
@@ -640,19 +644,19 @@ export function useTransactionSubmit({
             }
           }
         } else if (!isScheduledTransaction && isScheduled) {
-          // Was regular, now scheduled → delete regular + create scheduled
-          await deleteIslem.mutateAsync(transactionId);
+          // Was regular, now scheduled → create scheduled first, then delete regular
           await createIleriTarihliIslem.mutateAsync({
             ...stripScheduledUnsupportedFields(transactionData),
             scheduled_date: formatDateForDB(safeDate),
           });
+          await deleteIslem.mutateAsync(transactionId);
         } else {
-          // Was scheduled, now regular → delete scheduled + create regular
-          await deleteIleriTarihliIslem.mutateAsync(transactionId);
+          // Was scheduled, now regular → create regular first, then delete scheduled
           await createIslem.mutateAsync({
             ...transactionData,
             date: formatDateTimeForDB(safeDate),
           });
+          await deleteIleriTarihliIslem.mutateAsync(transactionId);
         }
       }
       // Create mode - create new transaction
@@ -726,11 +730,13 @@ export function useTransactionSubmit({
       }
 
       onSuccess?.();
+      isSavingRef.current = false;
       handleDismiss();
     } catch (error) {
       if (__DEV__) {
         console.error('Transaction error:', error);
       }
+      isSavingRef.current = false;
       setIsSaving(false);
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -788,9 +794,10 @@ export function useTransactionSubmit({
   // Handle exchange rate confirmation
   const handleExchangeRateConfirm = useCallback(
     async (exchangeRate: number, _targetAmount: number) => {
-      if (!pendingExchangeData) return;
+      if (!pendingExchangeData || isSavingRef.current) return;
 
       setShowExchangeRateBar(false);
+      isSavingRef.current = true;
       setIsSaving(true);
 
       if (Platform.OS !== 'web') {
@@ -877,11 +884,13 @@ export function useTransactionSubmit({
 
         setPendingExchangeData(null);
         onSuccess?.();
+        isSavingRef.current = false;
         handleDismiss();
       } catch (error) {
         if (__DEV__) {
           console.error('Transaction error:', error);
         }
+        isSavingRef.current = false;
         setIsSaving(false);
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

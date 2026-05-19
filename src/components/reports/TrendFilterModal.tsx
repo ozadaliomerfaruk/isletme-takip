@@ -138,7 +138,7 @@ export function TrendFilterModal({
   // Get item balance (if applicable)
   function getItemBalance(item: any, type: TrendFilterType): number | null {
     if (type === 'hesap' || type === 'cari' || type === 'personel') {
-      return toNumber((item as any).balance);
+      return toNumber(item.balance);
     }
     return null;
   }

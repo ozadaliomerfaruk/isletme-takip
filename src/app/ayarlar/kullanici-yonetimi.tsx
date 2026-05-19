@@ -5,9 +5,9 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   UserPlus,
-  ChevronLeft,
   ChevronRight,
 } from 'lucide-react-native';
+import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Avatar, Button } from '@/components/ui';
 import { UserEditSheet } from '@/components/multiUser/UserEditSheet';
 import { colors } from '@/constants/colors';
@@ -45,9 +45,7 @@ export default function KullaniciYonetimiPage() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
-        </TouchableOpacity>
+        <BackButton />
         <View style={styles.headerCenter}>
           <Text variant="h3">{t('multiUser:users.title')}</Text>
           <Text variant="caption" color="muted">{t('multiUser:users.subtitle')}</Text>
@@ -190,12 +188,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerCenter: {
     flex: 1,

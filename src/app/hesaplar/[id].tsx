@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput, ListRenderItemInfo } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, ListRenderItemInfo } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
@@ -10,18 +10,18 @@ import {
   Pencil,
   Trash2,
   MoreVertical,
-  X,
   Share2,
   Zap,
-  ChevronLeft,
 } from 'lucide-react-native';
-import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
+import { BackButton } from '@/components/ui/BackButton';
+import { Text, Card, Button, EmptyState, ArchivedBanner } from '@/components/ui';
+import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
+import { DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal } from '@/components/transaction';
-import { ExportSheet, ShareOptionsSheet, PdfExportSheet } from '@/components/export';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
@@ -29,11 +29,9 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency } from '@/lib/currency';
 import { formatDateSmart } from '@/lib/date';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
-import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
-import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
-import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
+import { useNotlarByEntity } from '@/hooks/useNotlar';
+import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
-import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesap, useDeleteHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { useUnarchiveHesap } from '@/hooks/useArchive';
@@ -306,18 +304,15 @@ export default function HesapHareketleriPage() {
   const unarchiveHesap = useUnarchiveHesap();
   const updateIslem = useUpdateIslem();
   const deletePhoto = useDeleteIslemPhoto();
-  // Note edit state
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const updateNot = useUpdateNot();
-  const deleteNot = useDeleteNot();
-  const toggleNotCompletion = useToggleNotCompletion();
-  const markAsTask = useMarkAsTask();
-  const uploadNotePhoto = useUploadNotePhoto();
-  const invalidateNotlar = useInvalidateNotlar();
   const pickImage = usePickImage();
   const takePhoto = useTakePhoto();
   const uploadPhoto = useUploadIslemPhoto();
   const { isletme, user } = useAuthContext();
+  const {
+    editingNoteId, setEditingNoteId, editingNote,
+    handleNoteUpdate, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask,
+    isUpdatingNote,
+  } = useDetailNoteHandlers({ entityType: 'hesap', entityId: id!, entityNotes, isletmeId: isletme?.id });
 
   // Döviz kurları ve kullanıcı para birimi
   const { data: exchangeRatesData } = useExchangeRates();
@@ -338,12 +333,7 @@ export default function HesapHareketleriPage() {
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
-  const [showExportSheet, setShowExportSheet] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
-  const [showPdfExport, setShowPdfExport] = useState(false);
-  const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
-  const [newBalanceInput, setNewBalanceInput] = useState('');
-  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
@@ -448,50 +438,6 @@ export default function HesapHareketleriPage() {
   const initialBalance = hesap?.initial_balance !== undefined && hesap?.initial_balance !== null
     ? Number(hesap.initial_balance)
     : calculatedInitialBalance;
-
-  // Bakiye düzenleme modal'ını aç
-  const handleOpenEditBalance = useCallback(() => {
-    const currentBalance = Number(hesap?.balance) || 0;
-    // Mevcut yönü belirle: pozitif = debt (varlık), negatif = credit (borç)
-    setBalanceDirection(currentBalance >= 0 ? 'debt' : 'credit');
-    setNewBalanceInput(String(Math.abs(currentBalance)));
-    setEditBalanceModalVisible(true);
-  }, [hesap?.balance]);
-
-  // Bakiye kaydet
-  const handleSaveBalance = async () => {
-    const absoluteBalance = parseFloat(newBalanceInput.replace(',', '.'));
-    if (isNaN(absoluteBalance)) {
-      Alert.alert(t('common:status.error'), t('accounts:messages.invalidBalance'));
-      return;
-    }
-    // Yöne göre işareti uygula: debt = pozitif (varlık), credit = negatif (borç)
-    const newBalance = balanceDirection === 'debt' ? absoluteBalance : -absoluteBalance;
-
-    Alert.alert(
-      t('accounts:balance.editBalance'),
-      t('accounts:balance.confirmChange', {
-        oldBalance: formatCurrency(Number(hesap?.balance) || 0, hesap?.currency),
-        newBalance: formatCurrency(newBalance, hesap?.currency),
-      }),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.save'),
-          onPress: async () => {
-            try {
-              await updateHesap.mutateAsync({ id: id!, balance: newBalance });
-              setEditBalanceModalVisible(false);
-              Alert.alert(t('common:status.success'), t('accounts:messages.balanceUpdated'));
-            } catch (error: unknown) {
-              const message = error instanceof Error ? toErrorMessage(error) : t('common:messages.operationFailed');
-              Alert.alert(t('common:status.error'), message);
-            }
-          },
-        },
-      ]
-    );
-  };
 
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
@@ -678,90 +624,6 @@ export default function HesapHareketleriPage() {
     );
   }, [islemler, pendingDeleteIds, t, formatDateMedium, entityNotes]);
 
-  const editingNote = useMemo(() => {
-    if (!editingNoteId || !entityNotes) return null;
-    return entityNotes.find(n => n.id === editingNoteId) ?? null;
-  }, [editingNoteId, entityNotes]);
-
-  const handleNoteUpdate = useCallback(async (data: NoteFormData) => {
-    if (!editingNoteId || !editingNote) return;
-    try {
-      await updateNot.mutateAsync({
-        id: editingNoteId,
-        content: data.content,
-        is_completed: data.is_completed,
-        reminder_date: data.reminder_date,
-        assigned_to_user: data.assigned_to_user,
-        assigned_to_cari: data.assigned_to_cari,
-        assigned_to_personel: data.assigned_to_personel,
-      });
-
-      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
-        try {
-          if (editingNote.photo_path) {
-            const { supabase: sb } = await import('@/lib/supabase');
-            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
-          }
-          const photoPath = await uploadNotePhoto.mutateAsync({
-            uri: data.photo_uri,
-            isletmeId: isletme.id,
-            noteId: editingNoteId,
-          });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
-          invalidateNotlar();
-        } catch { /* ignore */ }
-      } else if (!data.photo_uri && editingNote.photo_path) {
-        const { supabase } = await import('@/lib/supabase');
-        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
-        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
-        invalidateNotlar();
-      }
-
-      if (data.reminder_date) {
-        await scheduleNoteReminder(
-          editingNoteId,
-          t('common:notes.reminderNotification'),
-          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
-          new Date(data.reminder_date),
-          { type: 'note_reminder', note_id: editingNoteId, entity_type: 'hesap', entity_id: id },
-        );
-      } else {
-        await cancelNoteReminder(editingNoteId);
-      }
-
-      setEditingNoteId(null);
-    } catch {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
-    }
-  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t]);
-
-  const handleNoteDelete = useCallback((noteId: string) => {
-    const note = entityNotes?.find(n => n.id === noteId);
-    Alert.alert(
-      t('common:notes.confirmDeleteTitle'),
-      t('common:notes.confirmDelete'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try { await deleteNot.mutateAsync({ id: noteId, photo_path: note?.photo_path }); } catch { /* ignore */ }
-          },
-        },
-      ]
-    );
-  }, [deleteNot, entityNotes, t]);
-
-  const handleToggleNoteCompletion = useCallback((noteId: string, done: boolean) => {
-    toggleNotCompletion.mutate({ id: noteId, done });
-  }, [toggleNotCompletion]);
-
-  const handleMarkAsTask = useCallback((noteId: string) => {
-    markAsTask.mutate(noteId);
-  }, [markAsTask]);
-
   // Localized labels for swipe actions (stable refs)
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');
@@ -835,18 +697,9 @@ export default function HesapHareketleriPage() {
               <Text variant="caption" color="secondary">
                 {hesap.type === 'kredi_karti' ? t('accounts:creditCard.currentDebt') : t('accounts:balance.currentBalance')}
               </Text>
-              <View style={styles.balanceRow}>
-                <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
-                  {formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}
-                </Text>
-                <TouchableOpacity
-                  onPress={handleOpenEditBalance}
-                  style={styles.editBalanceBtn}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Pencil size={16} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
+              <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
+                {formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}
+              </Text>
               {/* Farklı para birimindeyse base currency karşılığını göster */}
               {hesap.currency !== baseCurrency && exchangeRates && (
                 <Text variant="body" color="secondary">
@@ -907,7 +760,7 @@ export default function HesapHareketleriPage() {
         </View>
       </View>
     );
-  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleOpenEditBalance, openTransaction, handleUnarchive, unarchiveHesap.isPending]);
+  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, openTransaction, handleUnarchive, unarchiveHesap.isPending]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -988,15 +841,7 @@ export default function HesapHareketleriPage() {
           headerTitle: hesap.name,
           headerBackVisible: false,
           headerRight: () => headerRightElement,
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
-              style={{ padding: 8, marginLeft: -8 }}
-              hitSlop={8}
-            >
-              <ChevronLeft size={28} color={colors.text} />
-            </TouchableOpacity>
-          ),
+          headerLeft: () => <BackButton size={28} />,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -1020,41 +865,14 @@ export default function HesapHareketleriPage() {
         </SwipeableProvider>
       </SafeAreaView>
 
-      {/* 3 Nokta Menüsü */}
-      <Modal visible={showMenu} transparent animationType="fade">
-        <TouchableOpacity
-          style={styles.menuBackdrop}
-          activeOpacity={1}
-          onPress={() => setShowMenu(false)}
-        >
-          <View style={styles.menuContainer}>
-            {/* Düzenle */}
-            {canUpdate('hesaplar', hesap?.created_by ?? null) && (
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setShowMenu(false);
-                  router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } });
-                }}
-              >
-                <Pencil size={20} color={colors.text} />
-                <Text variant="body">{t('common:buttons.edit')}</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Sil */}
-            {canDelete('hesaplar', hesap?.created_by ?? null) && (
-              <TouchableOpacity
-                style={[styles.menuItem, styles.menuItemDanger]}
-                onPress={handleDeleteHesap}
-              >
-                <Trash2 size={20} color={colors.error} />
-                <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      <DetailActionMenu
+        visible={showMenu}
+        onClose={() => setShowMenu(false)}
+        actions={[
+          { icon: Pencil, label: t('common:buttons.edit'), visible: canUpdate('hesaplar', hesap?.created_by ?? null), onPress: () => { setShowMenu(false); router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } }); } },
+          { icon: Trash2, label: t('common:buttons.delete'), visible: canDelete('hesaplar', hesap?.created_by ?? null), danger: true, onPress: handleDeleteHesap },
+        ]}
+      />
 
       {/* Quick Transaction Bar - kredi kartı için özel bar */}
       {hesap.type === 'kredi_karti' ? (
@@ -1112,100 +930,15 @@ export default function HesapHareketleriPage() {
         defaultCurrency={hesap?.currency}
       />
 
-      {/* Share Options */}
-      <ShareOptionsSheet
+      <DetailExportSection
         visible={showShareOptions}
         onDismiss={() => setShowShareOptions(false)}
         entityType="hesap"
-        onPdfPress={() => setShowPdfExport(true)}
-        onExcelPress={() => setShowExportSheet(true)}
-      />
-
-      {/* PDF Export */}
-      <PdfExportSheet
-        visible={showPdfExport}
-        onDismiss={() => setShowPdfExport(false)}
-        entityType="hesap"
         entityId={id!}
         entityName={hesap.name}
         entityCurrency={hesap.currency}
         currentBalance={Number(hesap.balance)}
       />
-
-      {/* Export Sheet */}
-      <ExportSheet
-        visible={showExportSheet}
-        onDismiss={() => setShowExportSheet(false)}
-        entityType="hesap"
-        entityId={id!}
-        entityName={hesap.name}
-        entityCurrency={hesap.currency}
-        currentBalance={Number(hesap.balance)}
-      />
-
-      {/* Bakiye Düzenleme Modal */}
-      <Modal
-        visible={editBalanceModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setEditBalanceModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.balanceModalOverlay}
-          activeOpacity={1}
-          onPress={() => setEditBalanceModalVisible(false)}
-        >
-          <View style={styles.balanceModalContent} onStartShouldSetResponder={() => true}>
-            <View style={styles.balanceModalHeader}>
-              <Text variant="h3">{t('accounts:balance.editBalance')}</Text>
-              <TouchableOpacity onPress={() => setEditBalanceModalVisible(false)}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <Text variant="caption" color="secondary" style={{ marginBottom: spacing.sm }}>
-              {t('accounts:balance.currentBalance')}: {formatCurrency(Number(hesap?.balance) || 0, hesap?.currency)}
-            </Text>
-
-            <View style={{ marginBottom: spacing.md }}>
-              <Text variant="label" style={{ marginBottom: spacing.xs }}>{t('accounts:balanceDirection.label')}</Text>
-              <BalanceDirectionSelector
-                value={balanceDirection}
-                onChange={setBalanceDirection}
-                variant="account"
-              />
-            </View>
-
-            <TextInput
-              style={styles.balanceInput}
-              value={newBalanceInput}
-              onChangeText={setNewBalanceInput}
-              keyboardType="decimal-pad"
-              placeholder={t('accounts:balance.newBalance')}
-              placeholderTextColor={colors.textMuted}
-              autoFocus
-            />
-
-            <View style={styles.balanceModalButtons}>
-              <Button
-                variant="outline"
-                onPress={() => setEditBalanceModalVisible(false)}
-                style={{ flex: 1 }}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                onPress={handleSaveBalance}
-                style={{ flex: 1 }}
-                loading={updateHesap.isPending}
-              >
-                {t('common:buttons.save')}
-              </Button>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
       {/* Photo Viewer Modal */}
       <PhotoViewerModal
@@ -1262,7 +995,7 @@ export default function HesapHareketleriPage() {
           assigned_to_personel: editingNote.assigned_to_personel,
         } : undefined}
         isEditing
-        loading={updateNot.isPending}
+        loading={isUpdatingNote}
         entityType="hesap"
         entityId={id!}
         existingPhotoPath={editingNote?.photo_path}
@@ -1365,49 +1098,6 @@ const styles = StyleSheet.create({
   headerBtn: {
     padding: spacing.xs,
   },
-  // Menu styles
-  menuBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 60,
-    paddingRight: spacing.md,
-  },
-  menuContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xs,
-    minWidth: 180,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  menuItemDanger: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.xs,
-    paddingTop: spacing.md + spacing.xs,
-  },
-  // Balance editing styles
-  balanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  editBalanceBtn: {
-    padding: spacing.xs,
-  },
   loadMoreBtn: {
     alignItems: 'center',
     paddingVertical: spacing.md,
@@ -1421,38 +1111,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
-  },
-  balanceModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  balanceModalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 400,
-  },
-  balanceModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  balanceInput: {
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: 18,
-    color: colors.text,
-    marginBottom: spacing.lg,
-  },
-  balanceModalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
   },
   fab: {
     position: 'absolute',

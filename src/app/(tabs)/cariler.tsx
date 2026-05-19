@@ -18,6 +18,7 @@ import {
   Link,
   ArrowUpDown,
   MoreVertical,
+  Share2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard } from '@/components/ui';
@@ -42,6 +43,7 @@ import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
+import { DetailExportSection } from '@/components/detail';
 
 // Merged cari type: own cari + optional link metadata
 type MergedCari = Cari & {
@@ -92,7 +94,10 @@ export default function CarilerPage() {
   const [acceptCodeVisible, setAcceptCodeVisible] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [shareModalCari, setShareModalCari] = useState<{ id: string; name: string } | null>(null);
-  const pendingShareRef = useRef<{ id: string; name: string } | null>(null);
+  const pendingExportRef = useRef<Cari | null>(null);
+  // Export section state
+  const [exportSectionVisible, setExportSectionVisible] = useState(false);
+  const [exportCari, setExportCari] = useState<Cari | null>(null);
 
   // Mutations
   const archiveCari = useArchiveCari();
@@ -356,11 +361,11 @@ export default function CarilerPage() {
     }
 
     options.push({
-      label: t('clients:sharing.shareTitle'),
-      icon: <Link size={20} color={colors.primary} />,
+      label: t('common:buttons.share'),
+      icon: <Share2 size={20} color={colors.primary} />,
       onPress: () => {
         if (actionSheetCari) {
-          pendingShareRef.current = { id: actionSheetCari.id, name: actionSheetCari.name };
+          pendingExportRef.current = actionSheetCari;
         }
       },
     });
@@ -771,13 +776,12 @@ export default function CarilerPage() {
         onClose={() => {
           setActionSheetVisible(false);
           setActionSheetCari(null);
-          // ActionSheet tamamen kapandiktan sonra pending share modal'i ac
-          if (pendingShareRef.current) {
-            const cariData = pendingShareRef.current;
-            pendingShareRef.current = null;
+          if (pendingExportRef.current) {
+            const cariData = pendingExportRef.current;
+            pendingExportRef.current = null;
             requestAnimationFrame(() => {
-              setShareModalCari(cariData);
-              setShareModalVisible(true);
+              setExportCari(cariData);
+              setExportSectionVisible(true);
             });
           }
         }}
@@ -800,6 +804,31 @@ export default function CarilerPage() {
         visible={acceptCodeVisible}
         onDismiss={() => setAcceptCodeVisible(false)}
       />
+
+      {/* Export/Share Section */}
+      {exportCari && (
+        <DetailExportSection
+          visible={exportSectionVisible}
+          onDismiss={() => {
+            setExportSectionVisible(false);
+            setExportCari(null);
+          }}
+          entityType="cari"
+          entityId={exportCari.id}
+          entityName={exportCari.name}
+          entityCurrency={exportCari.currency}
+          currentBalance={Number(exportCari.balance)}
+          cariType={exportCari.type as 'musteri' | 'tedarikci'}
+          phone={exportCari.phone ?? undefined}
+          onSharePress={() => {
+            setExportSectionVisible(false);
+            requestAnimationFrame(() => {
+              setShareModalCari({ id: exportCari.id, name: exportCari.name });
+              setShareModalVisible(true);
+            });
+          }}
+        />
+      )}
 
       {/* Share Code Modal */}
       {shareModalCari && (

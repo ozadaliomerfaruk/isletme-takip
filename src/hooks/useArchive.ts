@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, Cari, Personel, CariType, Urun } from '@/types/database';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import i18n from '@/i18n';
 
 // ============================================================================
@@ -16,7 +16,7 @@ export function useArchivedHesaplar() {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['hesaplar', 'archived', isletme?.id],
+    queryKey: queryKeys.hesaplar.archived(isletme?.id ?? ''),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -44,7 +44,7 @@ export function useArchivedCariler(type?: CariType) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['cariler', 'archived', isletme?.id, type],
+    queryKey: queryKeys.cariler.archived(isletme?.id ?? '', type),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -77,7 +77,7 @@ export function useArchivedPersonel() {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['personel', 'archived', isletme?.id],
+    queryKey: queryKeys.personel.archived(isletme?.id ?? ''),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -104,7 +104,7 @@ export function useArchivedUrunler() {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['urunler', 'archived', isletme?.id],
+    queryKey: queryKeys.urunler.archived(isletme?.id ?? ''),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -149,7 +149,7 @@ export function useArchiveHesap() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'hesap');
-      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.archive.all() });
     },
   });
 }
@@ -175,7 +175,7 @@ export function useUnarchiveHesap() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'hesap');
-      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.archive.all() });
     },
   });
 }
@@ -201,7 +201,7 @@ export function useArchiveCari() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'cari');
-      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.archive.all() });
     },
   });
 }
@@ -227,7 +227,7 @@ export function useUnarchiveCari() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'cari');
-      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.archive.all() });
     },
   });
 }
@@ -253,7 +253,7 @@ export function useArchivePersonel() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'personel');
-      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.archive.all() });
     },
   });
 }
@@ -279,7 +279,7 @@ export function useUnarchivePersonel() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'personel');
-      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.archive.all() });
     },
   });
 }
@@ -305,7 +305,7 @@ export function useUnarchiveUrun() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'urun');
-      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.archive.all() });
     },
   });
 }
@@ -321,7 +321,7 @@ export function useArchiveCounts() {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['archive', 'counts', isletme?.id],
+    queryKey: queryKeys.archive.counts(isletme?.id ?? ''),
     queryFn: async () => {
       if (!isletme) return { hesaplar: 0, tedarikci: 0, musteri: 0, personel: 0, urunler: 0 };
 

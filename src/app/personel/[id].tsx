@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -16,18 +16,19 @@ import {
   Trash2,
   UserCircle,
   MoreVertical,
-  X,
   Share2,
   BarChart3,
-  ChevronLeft,
 } from 'lucide-react-native';
-import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
+import { BackButton } from '@/components/ui/BackButton';
+import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
+import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
+import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
-import { ExportSheet, ShareOptionsSheet, PdfExportSheet } from '@/components/export';
+import type { TransactionType } from '@/components/transaction/TransactionTypeTabs';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
@@ -36,11 +37,9 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem, MilestoneItem } from '@/lib/transactionGrouping';
-import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
-import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
-import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
+import { useNotlarByEntity } from '@/hooks/useNotlar';
+import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
-import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
@@ -180,11 +179,9 @@ export default function PersonelHareketleriPage() {
   const unarchivePersonel = useUnarchivePersonel();
 
   const [quickBarVisible, setQuickBarVisible] = useState(false);
-  const [quickBarDefaultType, setQuickBarDefaultType] = useState<string | undefined>(undefined);
+  const [quickBarDefaultType, setQuickBarDefaultType] = useState<TransactionType | undefined>(undefined);
   const [showMenu, setShowMenu] = useState(false);
-  const [showExportSheet, setShowExportSheet] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
-  const [showPdfExport, setShowPdfExport] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
@@ -194,15 +191,12 @@ export default function PersonelHareketleriPage() {
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
-  // Note edit state
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [notePhotoPath, setNotePhotoPath] = useState<string | null>(null);
-  const updateNot = useUpdateNot();
-  const deleteNot = useDeleteNot();
-  const toggleNotCompletion = useToggleNotCompletion();
-  const markAsTask = useMarkAsTask();
-  const uploadNotePhoto = useUploadNotePhoto();
-  const invalidateNotlar = useInvalidateNotlar();
+  const {
+    editingNoteId, setEditingNoteId, editingNote,
+    handleNoteUpdate, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask,
+    isUpdatingNote,
+  } = useDetailNoteHandlers({ entityType: 'personel', entityId: id!, entityNotes, isletmeId: isletme?.id });
 
   const {
     pendingDeleteIds,
@@ -502,90 +496,6 @@ export default function PersonelHareketleriPage() {
     );
   }, [islemler, pendingDeleteIds, t, formatDateSmart, formatDateMedium, personel, entityNotes]);
 
-  const editingNote = useMemo(() => {
-    if (!editingNoteId || !entityNotes) return null;
-    return entityNotes.find(n => n.id === editingNoteId) ?? null;
-  }, [editingNoteId, entityNotes]);
-
-  const handleNoteUpdate = useCallback(async (data: NoteFormData) => {
-    if (!editingNoteId || !editingNote) return;
-    try {
-      await updateNot.mutateAsync({
-        id: editingNoteId,
-        content: data.content,
-        is_completed: data.is_completed,
-        reminder_date: data.reminder_date,
-        assigned_to_user: data.assigned_to_user,
-        assigned_to_cari: data.assigned_to_cari,
-        assigned_to_personel: data.assigned_to_personel,
-      });
-
-      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
-        try {
-          if (editingNote.photo_path) {
-            const { supabase: sb } = await import('@/lib/supabase');
-            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
-          }
-          const photoPath = await uploadNotePhoto.mutateAsync({
-            uri: data.photo_uri,
-            isletmeId: isletme.id,
-            noteId: editingNoteId,
-          });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
-          invalidateNotlar();
-        } catch { /* ignore */ }
-      } else if (!data.photo_uri && editingNote.photo_path) {
-        const { supabase } = await import('@/lib/supabase');
-        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
-        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
-        invalidateNotlar();
-      }
-
-      if (data.reminder_date) {
-        await scheduleNoteReminder(
-          editingNoteId,
-          t('common:notes.reminderNotification'),
-          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
-          new Date(data.reminder_date),
-          { type: 'note_reminder', note_id: editingNoteId, entity_type: 'personel', entity_id: id },
-        );
-      } else {
-        await cancelNoteReminder(editingNoteId);
-      }
-
-      setEditingNoteId(null);
-    } catch {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
-    }
-  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t]);
-
-  const handleNoteDelete = useCallback((noteId: string) => {
-    const note = entityNotes?.find(n => n.id === noteId);
-    Alert.alert(
-      t('common:notes.confirmDeleteTitle'),
-      t('common:notes.confirmDelete'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try { await deleteNot.mutateAsync({ id: noteId, photo_path: note?.photo_path }); } catch { /* ignore */ }
-          },
-        },
-      ]
-    );
-  }, [deleteNot, entityNotes, t]);
-
-  const handleToggleNoteCompletion = useCallback((noteId: string, done: boolean) => {
-    toggleNotCompletion.mutate({ id: noteId, done });
-  }, [toggleNotCompletion]);
-
-  const handleMarkAsTask = useCallback((noteId: string) => {
-    markAsTask.mutate(noteId);
-  }, [markAsTask]);
-
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');
 
@@ -786,23 +696,14 @@ export default function PersonelHareketleriPage() {
                 {t('staff:details.personelRecord')} • {formatDateShort(personel.created_at)}
               </Text>
             </View>
-            <View style={styles.initialBalanceRow}>
-              <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                {formatCurrency(initialBalance, personel?.currency)}
-              </Text>
-              <TouchableOpacity
-                onPress={handleOpenEditBalance}
-                style={styles.editBalanceBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Pencil size={16} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
+            <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
+              {formatCurrency(initialBalance, personel?.currency)}
+            </Text>
           </View>
         </Card>
       </View>
     );
-  }, [personel, initialBalance, handleOpenEditBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage]);
+  }, [personel, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage]);
 
   // ============================================================================
   // FlatList Empty component
@@ -876,15 +777,7 @@ export default function PersonelHareketleriPage() {
           headerTitle: fullName,
           headerBackVisible: false,
           headerRight: () => headerRightElement,
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
-              style={{ padding: 8, marginLeft: -8 }}
-              hitSlop={8}
-            >
-              <ChevronLeft size={28} color={colors.text} />
-            </TouchableOpacity>
-          ),
+          headerLeft: () => <BackButton size={28} />,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -907,47 +800,20 @@ export default function PersonelHareketleriPage() {
           />
         </SwipeableProvider>
 
-        {/* 3 Nokta Menüsü */}
-        <Modal visible={showMenu} transparent animationType="fade">
-          <TouchableOpacity
-            style={styles.menuBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowMenu(false)}
-          >
-            <View style={styles.menuContainer}>
-              {/* Düzenle */}
-              {canUpdate('personel', personel?.created_by ?? null) && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    router.push({ pathname: '/personel/duzenle/[id]', params: { id: id } });
-                  }}
-                >
-                  <Pencil size={20} color={colors.text} />
-                  <Text variant="body">{t('common:buttons.edit')}</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Sil */}
-              {canDelete('personel', personel?.created_by ?? null) && (
-                <TouchableOpacity
-                  style={[styles.menuItem, styles.menuItemDanger]}
-                  onPress={handleDeletePersonel}
-                >
-                  <Trash2 size={20} color={colors.error} />
-                  <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </TouchableOpacity>
-        </Modal>
+        <DetailActionMenu
+          visible={showMenu}
+          onClose={() => setShowMenu(false)}
+          actions={[
+            { icon: Pencil, label: t('common:buttons.edit'), visible: canUpdate('personel', personel?.created_by ?? null), onPress: () => { setShowMenu(false); router.push({ pathname: '/personel/duzenle/[id]', params: { id: id } }); } },
+            { icon: Trash2, label: t('common:buttons.delete'), visible: canDelete('personel', personel?.created_by ?? null), danger: true, onPress: handleDeletePersonel },
+          ]}
+        />
 
         {/* Quick Transaction Bar - Create Mode */}
         <QuickTransactionBar
           visible={quickBarVisible}
           onDismiss={() => { setQuickBarVisible(false); setQuickBarDefaultType(undefined); }}
-          defaultType={quickBarDefaultType as any}
+          defaultType={quickBarDefaultType}
           defaultPersonelId={personel?.id}
           onSuccess={() => { setQuickBarVisible(false); setQuickBarDefaultType(undefined); }}
         />
@@ -985,96 +851,32 @@ export default function PersonelHareketleriPage() {
           }}
         />
 
-        {/* Share Options */}
-        <ShareOptionsSheet
+        <DetailExportSection
           visible={showShareOptions}
           onDismiss={() => setShowShareOptions(false)}
           entityType="personel"
-          onPdfPress={() => setShowPdfExport(true)}
-          onExcelPress={() => setShowExportSheet(true)}
-        />
-
-        {/* PDF Export */}
-        <PdfExportSheet
-          visible={showPdfExport}
-          onDismiss={() => setShowPdfExport(false)}
-          entityType="personel"
           entityId={id!}
           entityName={fullName}
           currentBalance={Number(personel.balance)}
         />
 
-        {/* Export Sheet */}
-        <ExportSheet
-          visible={showExportSheet}
-          onDismiss={() => setShowExportSheet(false)}
-          entityType="personel"
-          entityId={id!}
-          entityName={fullName}
-          currentBalance={Number(personel.balance)}
-        />
-
-        {/* Başlangıç Bakiyesi Düzenleme Modal */}
-        <Modal
+        <BalanceEditorModal
           visible={editBalanceModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setEditBalanceModalVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.balanceModalOverlay}
-            activeOpacity={1}
-            onPress={() => setEditBalanceModalVisible(false)}
-          >
-            <View style={styles.balanceModalContent} onStartShouldSetResponder={() => true}>
-              <View style={styles.balanceModalHeader}>
-                <Text variant="h3">{t('staff:balance.editTitle')}</Text>
-                <TouchableOpacity onPress={() => setEditBalanceModalVisible(false)}>
-                  <X size={24} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-              <Text variant="caption" color="secondary" style={styles.balanceWarning}>
-                {t('staff:balance.editWarning')}
-              </Text>
-              <View style={styles.balanceInputContainer}>
-                <Text variant="label" style={{ marginBottom: spacing.xs }}>{t('staff:form.balanceDirection.label')}</Text>
-                <BalanceDirectionSelector
-                  value={balanceDirection}
-                  onChange={setBalanceDirection}
-                  variant="staff"
-                />
-              </View>
-              <View style={styles.balanceInputContainer}>
-                <Text variant="label">{t('staff:balance.newInitialBalance')}</Text>
-                <TextInput
-                  style={styles.balanceInput}
-                  value={newInitialBalance}
-                  onChangeText={setNewInitialBalance}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.textMuted}
-                />
-              </View>
-              <View style={styles.balanceModalButtons}>
-                <Button
-                  variant="secondary"
-                  onPress={() => setEditBalanceModalVisible(false)}
-                  style={{ flex: 1 }}
-                >
-                  {t('common:buttons.cancel')}
-                </Button>
-                <Button
-                  variant="primary"
-                  onPress={handleSaveInitialBalance}
-                  loading={updatePersonel.isPending}
-                  style={{ flex: 1 }}
-                >
-                  {t('common:buttons.save')}
-                </Button>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </Modal>
+          onDismiss={() => setEditBalanceModalVisible(false)}
+          title={t('staff:balance.editTitle')}
+          warning={t('staff:balance.editWarning')}
+          directionLabel={t('staff:form.balanceDirection.label')}
+          directionVariant="staff"
+          balanceDirection={balanceDirection}
+          onDirectionChange={setBalanceDirection}
+          inputLabel={t('staff:balance.newInitialBalance')}
+          inputValue={newInitialBalance}
+          onInputChange={setNewInitialBalance}
+          onSave={handleSaveInitialBalance}
+          isSaving={updatePersonel.isPending}
+          cancelLabel={t('common:buttons.cancel')}
+          saveLabel={t('common:buttons.save')}
+        />
 
         {/* Floating Not Ekle + Yeni İşlem FAB */}
         {!personel.is_archived && (
@@ -1115,7 +917,7 @@ export default function PersonelHareketleriPage() {
             assigned_to_personel: editingNote.assigned_to_personel,
           } : undefined}
           isEditing
-          loading={updateNot.isPending}
+          loading={isUpdatingNote}
           entityType="personel"
           entityId={id!}
           existingPhotoPath={editingNote?.photo_path}
@@ -1245,40 +1047,6 @@ const styles = StyleSheet.create({
   headerBtn: {
     padding: spacing.xs,
   },
-  // Menu styles
-  menuBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 60,
-    paddingRight: spacing.md,
-  },
-  menuContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xs,
-    minWidth: 180,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  menuItemDanger: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.xs,
-    paddingTop: spacing.md + spacing.xs,
-  },
   // Initial balance edit styles
   initialBalanceRow: {
     flexDirection: 'row',
@@ -1301,45 +1069,5 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
-  },
-  balanceModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  balanceModalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 320,
-  },
-  balanceModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  balanceWarning: {
-    marginBottom: spacing.lg,
-  },
-  balanceInputContainer: {
-    marginBottom: spacing.lg,
-    gap: spacing.xs,
-  },
-  balanceInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: 16,
-    color: colors.text,
-  },
-  balanceModalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
   },
 });

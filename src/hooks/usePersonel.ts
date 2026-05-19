@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Personel, PersonelInsert, PersonelUpdate } from '@/types/database';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
 import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
@@ -11,7 +11,7 @@ export function usePersonelList(includePassive: boolean = false, includeArchived
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: ['personel', isletme?.id, includePassive, includeArchived],
+    queryKey: queryKeys.personel.list(isletme?.id ?? '', includePassive, includeArchived),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -53,7 +53,7 @@ export function usePersonel(id: string | undefined) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['personel-detail', id, isletme?.id],
+    queryKey: queryKeys.personel.detail(id ?? '', isletme?.id ?? ''),
     queryFn: async () => {
       if (!id) return null;
 

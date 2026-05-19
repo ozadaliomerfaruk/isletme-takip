@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Cari, CariInsert, CariUpdate, CariType } from '@/types/database';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { calculateBalanceSummary } from '@/lib/currency';
 import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
@@ -11,7 +11,7 @@ export function useCariler(type?: CariType, includePassive: boolean = false, inc
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: ['cariler', isletme?.id, type, includePassive, includeArchived],
+    queryKey: queryKeys.cariler.list(isletme?.id ?? '', type, includePassive, includeArchived),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -57,7 +57,7 @@ export function useCari(id: string | undefined) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['cari', id, isletme?.id],
+    queryKey: queryKeys.cariler.detail(id ?? '', isletme?.id ?? ''),
     queryFn: async () => {
       if (!id) return null;
 

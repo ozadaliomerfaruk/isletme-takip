@@ -3,7 +3,7 @@ import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Platform, Alert 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft } from 'lucide-react-native';
+import { BackButton } from '@/components/ui/BackButton';
 import { Text } from '@/components/ui';
 import {
   OcrCaptureStep,
@@ -36,20 +36,15 @@ export default function FotoImportIndexPage() {
       if (inCaptureWithEntries) {
         // Return to invoice-list instead of leaving
         const CaptureBackButton = () => (
-          <TouchableOpacity
-            onPress={() => ctx.setStep('invoice-list')}
-            style={{ padding: 8, marginLeft: Platform.OS === 'ios' ? -8 : 0 }}
-            hitSlop={8}
-          >
-            <ChevronLeft size={28} color={colors.text} />
-          </TouchableOpacity>
+          <BackButton size={28} onPress={() => ctx.setStep('invoice-list')} />
         );
         return CaptureBackButton;
       }
       if (inListWithEntries) {
         // Confirm before losing unsaved entries
         const ListBackButton = () => (
-          <TouchableOpacity
+          <BackButton
+            size={28}
             onPress={() => {
               Alert.alert(
                 t('common:status.warning'),
@@ -60,11 +55,7 @@ export default function FotoImportIndexPage() {
                 ]
               );
             }}
-            style={{ padding: 8, marginLeft: Platform.OS === 'ios' ? -8 : 0 }}
-            hitSlop={8}
-          >
-            <ChevronLeft size={28} color={colors.text} />
-          </TouchableOpacity>
+          />
         );
         return ListBackButton;
       }

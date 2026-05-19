@@ -47,6 +47,12 @@ function getEntityText(item: IleriTarihliIslemWithRelations): string | null {
   return null;
 }
 
+function getTransactionCurrency(item: IleriTarihliIslemWithRelations): string | undefined {
+  if (item.type.startsWith('cari_')) return item.cari?.currency;
+  if (item.type.startsWith('personel_')) return item.personel?.currency;
+  return item.hesap?.currency;
+}
+
 // Cari/personel işlemlerinde hesap adını göster
 function getAccountText(item: IleriTarihliIslemWithRelations): string | null {
   if (item.type === 'transfer') return null;
@@ -101,7 +107,7 @@ export function IleriTarihliIslemlerSection({
   const handleComplete = (item: IleriTarihliIslemWithRelations) => {
     Alert.alert(
       t('transactions:scheduled.execute'),
-      t('transactions:scheduled.executeConfirm', { amount: formatCurrency(item.amount, item.hesap?.currency), type: t(`transactions:types.${item.type}`).toLowerCase() }),
+      t('transactions:scheduled.executeConfirm', { amount: formatCurrency(item.amount, getTransactionCurrency(item)), type: t(`transactions:types.${item.type}`).toLowerCase() }),
       [
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
@@ -232,7 +238,7 @@ export function IleriTarihliIslemlerSection({
 
                   {/* Satır 3: Tutar */}
                   <Text style={[styles.amountText, { color: txColor }]}>
-                    {prefix}{formatCurrency(Math.abs(Number(item.amount)), item.hesap?.currency || undefined)}
+                    {prefix}{formatCurrency(Math.abs(Number(item.amount)), getTransactionCurrency(item))}
                   </Text>
                 </View>
               </View>

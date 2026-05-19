@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,6 +19,7 @@ import {
   SwipeableRow,
   SwipeableProvider,
 } from '@/components/ui';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
@@ -30,6 +31,8 @@ import { useUrunler } from '@/hooks/useUrunler';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -85,10 +88,26 @@ export default function NotlarPage() {
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
 
   const entityType = (filter === 'all' || filter === 'tasks') ? undefined : filter;
-  const { data: notlar, isLoading } = useNotlar(entityType);
+  const { data: notlar, isLoading, refetch } = useNotlar(entityType);
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const createNot = useCreateNot();
   const updateNot = useUpdateNot();
   const deleteNot = useDeleteNot();
+  const {
+    pendingDeleteIds,
+    requestDelete,
+    undoDelete,
+    dismissDelete,
+    snackbar: undoSnackbar,
+  } = useUndoDelete<Not>({
+    onCommitDelete: async (id: string) => {
+      const note = notlar?.find(n => n.id === id);
+      await deleteNot.mutateAsync({ id, photo_path: note?.photo_path });
+    },
+    onError: () => {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    },
+  });
   const toggleCompletion = useToggleNotCompletion();
   const uploadNotePhoto = useUploadNotePhoto();
   const invalidateNotlar = useInvalidateNotlar();
@@ -134,7 +153,7 @@ export default function NotlarPage() {
 
   const filteredNotes = useMemo(() => {
     if (!notlar) return [];
-    let result = notlar;
+    let result = notlar.filter(n => !pendingDeleteIds.has(n.id));
     if (filter === 'tasks') {
       result = result.filter(n => n.is_completed);
       if (taskFilter === 'pending') {
@@ -148,7 +167,7 @@ export default function NotlarPage() {
       result = result.filter(n => n.content.toLowerCase().includes(q));
     }
     return result;
-  }, [notlar, searchQuery, filter, taskFilter]);
+  }, [notlar, searchQuery, filter, taskFilter, pendingDeleteIds]);
 
   const handleCreate = async (data: NoteFormData) => {
     try {
@@ -247,26 +266,11 @@ export default function NotlarPage() {
   };
 
   const handleDelete = useCallback((note: Not) => {
-    Alert.alert(
-      t('common:notes.confirmDeleteTitle'),
-      t('common:notes.confirmDelete'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteNot.mutateAsync({ id: note.id, photo_path: note.photo_path });
-              showToast(t('common:notes.deleteSuccess'), 'success');
-            } catch {
-              Alert.alert(t('common:status.error'), t('common:errors.genericError'));
-            }
-          },
-        },
-      ]
-    );
-  }, [deleteNot, showToast, t]);
+    const description = note.content.length > 30
+      ? note.content.substring(0, 30) + '...'
+      : note.content;
+    requestDelete(note.id, note, description);
+  }, [requestDelete]);
 
   const markAsTask = useMarkAsTask();
 
@@ -381,6 +385,9 @@ export default function NotlarPage() {
           renderItem={renderNote}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+          }
           ListEmptyComponent={
             !isLoading ? (
               <EmptyState
@@ -438,6 +445,14 @@ export default function NotlarPage() {
           visible={!!viewPhotoPath}
           photoPath={viewPhotoPath}
           onClose={() => setViewPhotoPath(null)}
+        />
+
+        {/* Undo Delete Snackbar */}
+        <UndoSnackbar
+          visible={undoSnackbar.visible}
+          message={undoSnackbar.message}
+          onUndo={undoDelete}
+          onDismiss={dismissDelete}
         />
       </SwipeableProvider>
     </SafeAreaView>

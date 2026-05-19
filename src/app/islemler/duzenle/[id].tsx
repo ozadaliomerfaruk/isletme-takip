@@ -31,14 +31,15 @@ import { isLeaveType } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB, formatDateForDB } from '@/lib/date';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
-  usePagePermission({ module: 'islemler', action: 'update' });
-
   const { data: islem, isLoading: islemLoading } = useIslem(id);
+  usePagePermission({ module: 'islemler', action: 'update', createdBy: islem?.created_by });
+  const { canDelete } = usePermissions();
   const updateIslem = useUpdateIslem();
   const deleteIslem = useDeleteIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -504,17 +505,19 @@ export default function IslemDuzenlePage() {
             </View>
 
             {/* Delete Button */}
-            <View style={styles.deleteSection}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={handleDelete}
-                loading={deleteIslem.isPending}
-                style={styles.deleteButton}
-              >
-                <Text color="error">{t('common:buttons.delete')}</Text>
-              </Button>
-            </View>
+            {canDelete('islemler', islem?.created_by ?? null) && (
+              <View style={styles.deleteSection}>
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onPress={handleDelete}
+                  loading={deleteIslem.isPending}
+                  style={styles.deleteButton}
+                >
+                  <Text color="error">{t('common:buttons.delete')}</Text>
+                </Button>
+              </View>
+            )}
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

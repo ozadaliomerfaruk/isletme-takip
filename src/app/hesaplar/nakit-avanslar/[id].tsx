@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Platform, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   Banknote,
@@ -13,17 +13,23 @@ import {
   CreditCard,
   Pencil,
   Trash2,
+  Share2,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
 import { Text, Card, Button, EmptyState } from '@/components/ui';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { NakitAvansSheet } from '@/components/nakitAvans';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesap } from '@/hooks/useHesaplar';
 import { useNakitAvanslarByKrediKarti, useDeleteNakitAvans } from '@/hooks/useNakitAvans';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { exportNakitAvanslar } from '@/lib/pageExports';
 import type { NakitAvansWithRelations } from '@/types/database';
 
 export default function NakitAvanslarPage() {
@@ -31,19 +37,27 @@ export default function NakitAvanslarPage() {
   const { t } = useTranslation(['accounts', 'common']);
   const { formatDateShort } = useDateFormat();
 
-  const { data: hesap, isLoading: hesapLoading } = useHesap(id!);
-  const { data: avanslar, isLoading: avanslarLoading } = useNakitAvanslarByKrediKarti(id!);
+  const { isletme } = useAuthContext();
+  const { data: hesap, isLoading: hesapLoading, refetch: refetchHesap } = useHesap(id!);
+  const { data: avanslar, isLoading: avanslarLoading, refetch: refetchAvanslar } = useNakitAvanslarByKrediKarti(id!);
+
+  const { refreshing, onRefresh } = usePullToRefresh(refetchHesap, refetchAvanslar);
   const deleteNakitAvans = useDeleteNakitAvans();
 
+  const [isExporting, setIsExporting] = useState(false);
   const [showNakitAvansSheet, setShowNakitAvansSheet] = useState(false);
   const [editingAvans, setEditingAvans] = useState<NakitAvansWithRelations | null>(null);
+
+  const { pendingDeleteIds, requestDelete, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<NakitAvansWithRelations>({
+    onCommitDelete: (avansId) => deleteNakitAvans.mutateAsync(avansId),
+  });
 
   // Track completed avanslar for "Tebrikler" message
   const prevCompletedIdsRef = useRef<Set<string>>(new Set());
 
   // Filter active and completed avanslar
-  const activeAvanslar = avanslar?.filter((a) => a.status === 'active') || [];
-  const completedAvanslar = avanslar?.filter((a) => a.status === 'completed') || [];
+  const activeAvanslar = avanslar?.filter((a) => a.status === 'active' && !pendingDeleteIds.has(a.id)) || [];
+  const completedAvanslar = avanslar?.filter((a) => a.status === 'completed' && !pendingDeleteIds.has(a.id)) || [];
 
   // Show "Tebrikler" message when an avans becomes completed
   useEffect(() => {
@@ -70,36 +84,55 @@ export default function NakitAvanslarPage() {
     prevCompletedIdsRef.current = currentCompletedIds;
   }, [avanslar, t]);
 
+  const handleExport = useCallback(async () => {
+    if (!hesap || !isletme || !avanslar || avanslar.length === 0) return;
+    setIsExporting(true);
+    try {
+      await exportNakitAvanslar({
+        hesapName: hesap.name,
+        isletmeName: isletme.name,
+        avanslar: avanslar.filter(a => !pendingDeleteIds.has(a.id)),
+        t: {
+          title: t('accounts:nakitAvans.title'),
+          business: t('common:export.excel.business'),
+          creditCard: t('accounts:creditCard.title'),
+          createdAt: t('common:export.excel.createdAt'),
+          amount: t('accounts:nakitAvans.amount'),
+          repayment: t('accounts:nakitAvans.repaymentAmount'),
+          targetAccount: t('accounts:nakitAvans.targetAccount'),
+          date: t('common:export.excel.date'),
+          status: t('accounts:nakitAvans.installment'),
+          installments: t('accounts:nakitAvans.installment'),
+          description: t('common:export.excel.description'),
+          active: t('accounts:nakitAvans.status.active'),
+          completed: t('accounts:nakitAvans.status.completed'),
+          total: t('common:export.reportExcel.total'),
+          sheetName: t('accounts:nakitAvans.title'),
+          fileName: t('accounts:nakitAvans.title'),
+          dialogTitle: t('accounts:nakitAvans.title'),
+          installmentDetail: t('accounts:nakitAvans.installmentPayment'),
+          no: '#',
+          paymentDate: t('accounts:nakitAvans.installmentDate'),
+          paid: t('accounts:nakitAvans.taksitStatus.paid'),
+          pending: t('accounts:nakitAvans.taksitStatus.pending'),
+          overdue: t('accounts:nakitAvans.taksitStatus.overdue'),
+        },
+      });
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    } finally {
+      setIsExporting(false);
+    }
+  }, [hesap, isletme, avanslar, pendingDeleteIds, t]);
+
   const handleEditAvans = (avans: NakitAvansWithRelations) => {
     setEditingAvans(avans);
     setShowNakitAvansSheet(true);
   };
 
   const handleDeleteAvans = (avans: NakitAvansWithRelations) => {
-    Alert.alert(
-      t('common:buttons.delete'),
-      t('accounts:nakitAvans.messages.deleteConfirm'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteNakitAvans.mutateAsync(avans.id);
-              if (Platform.OS !== 'web') {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              }
-            } catch (error) {
-              if (__DEV__) {
-                console.error('Delete avans error:', error);
-              }
-              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
-            }
-          },
-        },
-      ]
-    );
+    const desc = formatCurrency(avans.tutar);
+    requestDelete(avans.id, avans, desc);
   };
 
   const isLoading = hesapLoading || avanslarLoading;
@@ -128,11 +161,33 @@ export default function NakitAvanslarPage() {
 
   return (
     <>
+      <Stack.Screen
+        options={{
+          headerRight: () =>
+            avanslar && avanslar.length > 0 ? (
+              <TouchableOpacity onPress={handleExport} disabled={isExporting} style={{ padding: 6 }}>
+                {isExporting ? (
+                  <ActivityIndicator size="small" color={colors.text} />
+                ) : (
+                  <Share2 size={22} color={colors.text} />
+                )}
+              </TouchableOpacity>
+            ) : null,
+        }}
+      />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
         >
           {/* Kredi Kartı Bilgisi */}
           <Card style={styles.creditCardInfo}>
@@ -358,6 +413,12 @@ export default function NakitAvanslarPage() {
           setShowNakitAvansSheet(false);
           setEditingAvans(null);
         }}
+      />
+      <UndoSnackbar
+        visible={undoSnackbar.visible}
+        message={undoSnackbar.message}
+        onUndo={undoDelete}
+        onDismiss={dismissDelete}
       />
     </>
   );

@@ -3,7 +3,8 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ArrowRightLeft, LogOut } from 'lucide-react-native';
+import { ArrowRightLeft, LogOut } from 'lucide-react-native';
+import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Input, Button, Avatar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -80,9 +81,7 @@ export default function PaylasilanIsletmelerPage() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
-        </TouchableOpacity>
+        <BackButton />
         <View style={styles.headerCenter}>
           <Text variant="h3">{t('multiUser:shared.title')}</Text>
           <Text variant="caption" color="muted">{t('multiUser:shared.subtitle')}</Text>
@@ -183,12 +182,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerCenter: {
     flex: 1,

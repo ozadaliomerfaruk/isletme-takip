@@ -114,15 +114,12 @@ export function calculateBalanceChanges(islem: IslemInsert): Map<string, number>
     }
     case 'personel_satis':
       if (islem.personel_id) addChange('personel', islem.personel_id, amount);
-      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, amount);
       break;
     case 'cari_alis_iade':
       if (islem.cari_id) addChange('cariler', islem.cari_id, amount);
-      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, amount);
       break;
     case 'cari_satis_iade':
       if (islem.cari_id) addChange('cariler', islem.cari_id, -amount);
-      if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);
       break;
     case 'nakit_avans_taksit':
       if (islem.hesap_id) addChange('hesaplar', islem.hesap_id, -amount);

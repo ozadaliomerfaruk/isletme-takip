@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
 import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } from '@/constants/islemTypes';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
 import { invertCariTransactionType } from '@/lib/cariTransactionMapper';
 import {
@@ -27,7 +27,7 @@ export function useIslemler(filters?: IslemFilters) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useInfiniteQuery({
-    queryKey: ['islemler', isletme?.id, filters],
+    queryKey: queryKeys.islemler.list(isletme?.id ?? '', filters),
     queryFn: async ({ pageParam = 0 }) => {
       if (!isletme) return [];
 
@@ -110,7 +110,7 @@ export function useIslem(id: string | undefined) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['islem', id],
+    queryKey: queryKeys.islemler.detail(id ?? ''),
     queryFn: async () => {
       if (!id || !isletme) return null;
 
@@ -439,7 +439,7 @@ export function useIslemlerByCari(cariId: string) {
   const { isletme } = useAuthContext();
 
   const result = useInfiniteQuery({
-    queryKey: ['islemler', 'cari', cariId, isletme?.id],
+    queryKey: queryKeys.islemler.byCari(cariId, isletme?.id ?? ''),
     queryFn: async ({ pageParam = 0 }) => {
       if (!isletme || !cariId) return [];
 
@@ -482,7 +482,7 @@ export function useIslemlerByHesap(hesapId: string) {
   const { isletme } = useAuthContext();
 
   const result = useInfiniteQuery({
-    queryKey: ['islemler', 'hesap', hesapId, isletme?.id],
+    queryKey: queryKeys.islemler.byHesap(hesapId, isletme?.id ?? ''),
     queryFn: async ({ pageParam = 0 }) => {
       if (!isletme || !hesapId) return [];
 
@@ -528,7 +528,7 @@ export function useIslemlerByPersonel(personelId: string) {
   const { isletme } = useAuthContext();
 
   const result = useInfiniteQuery({
-    queryKey: ['islemler', 'personel', personelId, isletme?.id],
+    queryKey: queryKeys.islemler.byPersonel(personelId, isletme?.id ?? ''),
     queryFn: async ({ pageParam = 0 }) => {
       if (!isletme || !personelId) return [];
 
@@ -571,7 +571,7 @@ export function useAllIslemlerByPersonel(personelId: string) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['islemler', 'personel', 'all', personelId, isletme?.id],
+    queryKey: queryKeys.islemler.allByPersonel(personelId, isletme?.id ?? ''),
     queryFn: async () => {
       if (!isletme || !personelId) return [];
 
@@ -600,7 +600,7 @@ export function useAllIslemlerByCari(cariId: string) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['islemler', 'cari', 'all', cariId, isletme?.id],
+    queryKey: queryKeys.islemler.allByCari(cariId, isletme?.id ?? ''),
     queryFn: async () => {
       if (!isletme || !cariId) return [];
 
@@ -997,7 +997,7 @@ export function useMonthSummary(
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   const query = useQuery({
-    queryKey: ['month-summary', isletme?.id, period, offset, startDate, endDate],
+    queryKey: queryKeys.reports.monthSummary(isletme?.id ?? '', period, offset, startDate, endDate),
     queryFn: async () => {
       if (!isletme) return { income: 0, expense: 0 };
 
@@ -1053,7 +1053,7 @@ export function useSearchIslemler(searchQuery: string) {
   const q = searchQuery.trim();
 
   return useQuery({
-    queryKey: ['islemler-search', isletme?.id, q],
+    queryKey: queryKeys.islemler.search(isletme?.id ?? '', q),
     queryFn: async () => {
       if (!isletme || !q) return [];
 

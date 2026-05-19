@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
 
 interface LeaveQuota {
   hakEdilen: number;
@@ -18,7 +19,7 @@ export function usePersonelLeaveQuotas() {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['personel-leave-quotas', isletme?.id],
+    queryKey: queryKeys.personelLeaveQuotas.list(isletme?.id ?? ''),
     queryFn: async (): Promise<LeaveQuotaMap> => {
       if (!isletme) return {};
 

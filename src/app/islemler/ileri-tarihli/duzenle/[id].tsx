@@ -39,9 +39,8 @@ export default function IleriTarihliIslemDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
-  usePagePermission({ module: 'ileri_tarihli', action: 'update' });
-
   const { data: islem, isLoading: islemLoading } = useIleriTarihliIslem(id);
+  usePagePermission({ module: 'ileri_tarihli', action: 'update', createdBy: islem?.created_by });
   const updateIslem = useUpdateIleriTarihliIslem();
   const deleteIslem = useDeleteIleriTarihliIslem();
 

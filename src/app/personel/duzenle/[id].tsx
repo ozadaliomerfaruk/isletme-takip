@@ -32,11 +32,10 @@ export default function PersonelDuzenlePage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['staff', 'common', 'errors']);
   const { locale, formatDateNative } = useDateFormat();
-  usePagePermission({ module: 'personel', action: 'update' });
-
   const currencies = getLocalizedCurrencies(i18n.language);
 
   const { data: personel, isLoading } = usePersonelById(id);
+  usePagePermission({ module: 'personel', action: 'update', createdBy: personel?.created_by });
   const updatePersonel = useUpdatePersonel();
 
   const [firstName, setFirstName] = useState('');
@@ -85,7 +84,6 @@ export default function PersonelDuzenlePage() {
         id,
         first_name: firstName.trim(),
         last_name: lastName.trim() || '',
-        currency,
         phone: phone.trim() || null,
         position: position.trim() || null,
         salary: salary ? parseFloat(salary.replace(',', '.')) : null,
@@ -134,39 +132,28 @@ export default function PersonelDuzenlePage() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Para Birimi Seçimi */}
+            {/* Para Birimi (düzenlemede salt okunur) */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
                 {t('staff:form.currency')}
               </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.currencyGrid}
-              >
-                {currencies.map((curr) => (
+              <View style={styles.currencyGrid}>
+                {currencies.filter((curr) => curr.code === currency).map((curr) => (
                   <Card
                     key={curr.code}
-                    variant={currency === curr.code ? 'elevated' : 'outlined'}
+                    variant="elevated"
                     padding="sm"
-                    onPress={() => setCurrency(curr.code as Currency)}
-                    style={[
-                      styles.currencyCard,
-                      currency === curr.code && styles.currencyCardActive,
-                    ]}
+                    style={[styles.currencyCard, styles.currencyCardActive]}
                   >
                     <Text
                       variant="body"
-                      style={{
-                        color: currency === curr.code ? colors.primary : colors.text,
-                        fontWeight: currency === curr.code ? '600' : '400',
-                      }}
+                      style={{ color: colors.primary, fontWeight: '600' }}
                     >
                       {curr.symbol} {curr.code}
                     </Text>
                   </Card>
                 ))}
-              </ScrollView>
+              </View>
             </View>
 
             {/* Form */}

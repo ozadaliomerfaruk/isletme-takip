@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
 import { useCallback } from 'react';
 
 const DAILY_LIMIT = 20;
@@ -10,7 +11,7 @@ export function useRemainingUsage() {
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ['remaining-usage', user?.id],
+    queryKey: queryKeys.remainingUsage.detail(user?.id ?? ''),
     queryFn: async (): Promise<number> => {
       if (!user) return DAILY_LIMIT;
 
@@ -32,7 +33,7 @@ export function useRemainingUsage() {
   });
 
   const invalidate = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['remaining-usage', user?.id] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.remainingUsage.detail(user?.id ?? '') });
   }, [queryClient, user?.id]);
 
   return {

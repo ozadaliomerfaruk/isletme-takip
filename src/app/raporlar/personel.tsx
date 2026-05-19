@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Modal, Pressable, Platform } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Modal, Pressable, Platform, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useLocalSearchParams } from 'expo-router';
 import { Calendar, X } from 'lucide-react-native';
@@ -15,15 +15,26 @@ import { formatDateForDB } from '@/lib/date';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function PersonelRaporPage() {
   usePagePermission({ module: 'raporlar' });
   const { t } = useTranslation(['reports', 'common']);
   const { personelId } = useLocalSearchParams<{ personelId?: string }>();
   const state = useReportRouteState();
+  const queryClient = useQueryClient();
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.invalidateQueries();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient]);
 
   const PERIOD_OPTIONS = [
     { label: t('reports:period.yearly'), value: 'yearly' },
@@ -36,7 +47,10 @@ export default function PersonelRaporPage() {
   return (
     <>
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        >
           <View style={styles.periodFilter}>
             <TabFilter
               options={PERIOD_OPTIONS}

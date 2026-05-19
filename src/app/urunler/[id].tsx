@@ -6,6 +6,7 @@ import {
   Alert,
   TouchableOpacity,
   Modal,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
@@ -24,14 +25,17 @@ import {
   Building2,
   User,
   FileSpreadsheet,
-  ChevronLeft,
 } from 'lucide-react-native';
+import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, ExpandableCard, EmptyState } from '@/components/ui';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { UrunExportSheet } from '@/components/export/UrunExportSheet';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
@@ -39,15 +43,17 @@ import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketW
 import { BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 import { toErrorMessage } from '@/lib/errors';
+import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function UrunDetayPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['products', 'common', 'errors', 'navigation']);
 
-  const { data: urun, isLoading: urunLoading } = useUrun(id);
-  const { data: hareketler, isLoading: hareketlerLoading } = useUrunHareketler(id);
-  const { data: aylikOzet } = useAylikUrunOzet(id);
+  usePagePermission({ module: 'urunler' });
+  const { data: urun, isLoading: urunLoading, refetch: refetchUrun } = useUrun(id);
+  const { data: hareketler, isLoading: hareketlerLoading, refetch: refetchHareketler } = useUrunHareketler(id);
+  const { data: aylikOzet, refetch: refetchOzet } = useAylikUrunOzet(id);
   const deleteUrun = usePermanentDeleteUrun();
   const archiveUrun = useArchiveUrun();
   const unarchiveUrun = useUnarchiveUrun();
@@ -63,6 +69,11 @@ export default function UrunDetayPage() {
 
   // Expanded hareket state
   const [expandedHareketId, setExpandedHareketId] = useState<string | null>(null);
+  const { refreshing, onRefresh } = usePullToRefresh(refetchUrun, refetchHareketler, refetchOzet);
+
+  const { pendingDeleteIds, requestDelete: requestDeleteHareket, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<UrunHareketWithCari>({
+    onCommitDelete: async (hareketId) => { await deleteUrunHareket.mutateAsync(hareketId); },
+  });
 
   // Edit mode state
   const [editMode, setEditMode] = useState(false);
@@ -162,28 +173,9 @@ export default function UrunDetayPage() {
 
   // Urun hareketi silme (doğrudan girişler için)
   const handleDeleteHareket = (hareket: UrunHareketWithCari) => {
-    Alert.alert(
-      t('common:confirm.deleteTitle'),
-      t('products:stock.deleteMovementConfirm'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteUrunHareket.mutateAsync(hareket.id);
-              haptics.success();
-              showToast(t('common:messages.deletedSuccessfully'), 'success');
-              setExpandedHareketId(null);
-            } catch (error) {
-              haptics.error();
-              showToast(toErrorMessage(error) || t('common:messages.operationFailed'), 'error');
-            }
-          },
-        },
-      ]
-    );
+    setExpandedHareketId(null);
+    const desc = `${hareket.hareket_tipi === 'giris' ? '↑' : '↓'} ${hareket.miktar}`;
+    requestDeleteHareket(hareket.id, hareket, desc);
   };
 
   if (urunLoading) {
@@ -218,15 +210,7 @@ export default function UrunDetayPage() {
             </Text>
           ),
           headerBackVisible: false,
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
-              style={{ padding: 8, marginLeft: -8 }}
-              hitSlop={8}
-            >
-              <ChevronLeft size={28} color={colors.text} />
-            </TouchableOpacity>
-          ),
+          headerLeft: () => <BackButton size={28} />,
           headerRight: () => (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <TouchableOpacity onPress={() => setExportSheetVisible(true)}>
@@ -240,7 +224,7 @@ export default function UrunDetayPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}>
           {/* Urun Karti */}
           <View style={styles.section}>
             <Card>
@@ -346,9 +330,9 @@ export default function UrunDetayPage() {
             </Text>
             {hareketlerLoading ? (
               <Text color="secondary">{t('common:status.loading')}</Text>
-            ) : hareketler && hareketler.length > 0 ? (
+            ) : hareketler && hareketler.filter(h => !pendingDeleteIds.has(h.id)).length > 0 ? (
               <>
-                {hareketler.map((hareket) => (
+                {hareketler.filter(h => !pendingDeleteIds.has(h.id)).map((hareket) => (
                   <ExpandableCard
                     key={hareket.id}
                     expanded={expandedHareketId === hareket.id}
@@ -572,6 +556,12 @@ export default function UrunDetayPage() {
           productUnit={getBirimLabel(urun.birim)}
           productCurrency={urun.currency}
           urunId={urun.id}
+        />
+        <UndoSnackbar
+          visible={undoSnackbar.visible}
+          message={undoSnackbar.message}
+          onUndo={undoDelete}
+          onDismiss={dismissDelete}
         />
       </SafeAreaView>
     </>

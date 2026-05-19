@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -37,6 +37,7 @@ import { usePermanentDeleteUrun } from '@/hooks/useUrunler';
 import type { Hesap, Cari, Personel, Urun, BirimType } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 type TabType = 'hepsi' | 'hesaplar' | 'tedarikci' | 'musteri' | 'personel' | 'urunler';
 
@@ -53,11 +54,12 @@ export default function ArsivPage() {
   const { data: counts } = useArchiveCounts();
 
   // Data queries
-  const { data: hesaplar, isLoading: hesaplarLoading } = useArchivedHesaplar();
-  const { data: tedarikciler, isLoading: tedarikciLoading } = useArchivedCariler('tedarikci');
-  const { data: musteriler, isLoading: musteriLoading } = useArchivedCariler('musteri');
-  const { data: personelList, isLoading: personelLoading } = useArchivedPersonel();
-  const { data: urunler, isLoading: urunlerLoading } = useArchivedUrunler();
+  const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } = useArchivedHesaplar();
+  const { data: tedarikciler, isLoading: tedarikciLoading, refetch: refetchTedarikciler } = useArchivedCariler('tedarikci');
+  const { data: musteriler, isLoading: musteriLoading, refetch: refetchMusteriler } = useArchivedCariler('musteri');
+  const { data: personelList, isLoading: personelLoading, refetch: refetchPersonel } = useArchivedPersonel();
+  const { data: urunler, isLoading: urunlerLoading, refetch: refetchUrunler } = useArchivedUrunler();
+  const { refreshing, onRefresh } = usePullToRefresh(refetchHesaplar, refetchTedarikciler, refetchMusteriler, refetchPersonel, refetchUrunler);
 
   // Mutations
   const unarchiveHesap = useUnarchiveHesap();
@@ -422,7 +424,13 @@ export default function ArsivPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
+      >
         {/* Search */}
         <View style={styles.searchContainer}>
           <SearchInput

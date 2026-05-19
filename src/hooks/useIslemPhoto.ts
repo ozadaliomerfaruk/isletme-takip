@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '@/lib/supabase';
+import { queryKeys } from '@/lib/queryKeys';
 import { processImageForUpload, readImageAsBase64 } from '@/lib/imageUtils';
 
 const BUCKET_NAME = 'islem-photos';
@@ -162,7 +163,7 @@ export function useDeleteIslemPhoto() {
     },
     onSuccess: () => {
       // Invalidate islemler queries to refresh data
-      queryClient.invalidateQueries({ queryKey: ['islemler'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.islemler.all() });
     },
   });
 }

@@ -10,7 +10,7 @@ import { useState, useCallback, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import {
   ImportPreview,
   AccountMapping,
@@ -639,11 +639,11 @@ export function useDataImport() {
 
       try {
         await Promise.all([
-          queryClient.refetchQueries({ queryKey: ['hesaplar'] }),
-          queryClient.refetchQueries({ queryKey: ['cariler'] }),
-          queryClient.refetchQueries({ queryKey: ['personel'] }),
+          queryClient.refetchQueries({ queryKey: queryKeys.hesaplar.all() }),
+          queryClient.refetchQueries({ queryKey: queryKeys.cariler.all() }),
+          queryClient.refetchQueries({ queryKey: queryKeys.personel.all() }),
         ]);
-        queryClient.refetchQueries({ queryKey: ['islemler'] });
+        queryClient.refetchQueries({ queryKey: queryKeys.islemler.all() });
       } catch { /* ignore refetch errors */ }
 
       const startingBalanceCount = preview.transactions.filter(tx => tx.mappedType === 'baslangic_bakiyesi').length;

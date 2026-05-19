@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Trash2, Pencil } from 'lucide-react-native';
+import { Trash2, Pencil } from 'lucide-react-native';
+import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -17,7 +17,6 @@ import type { IslemAuditLog } from '@/types/multiUser';
 type TabType = 'deleted' | 'edited';
 
 export default function IslemGecmisiPage() {
-  const router = useRouter();
   const { t } = useTranslation(['multiUser', 'common']);
   const { formatDateNative } = useDateFormat();
   const { currency } = useSettings();
@@ -84,9 +83,7 @@ export default function IslemGecmisiPage() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')} style={styles.backButton}>
-          <ChevronLeft size={24} color={colors.text} />
-        </TouchableOpacity>
+        <BackButton />
         <View style={styles.headerCenter}>
           <Text variant="h3">{t('multiUser:auditLog.title')}</Text>
           <Text variant="caption" color="muted">{t('multiUser:auditLog.subtitle')}</Text>
@@ -158,12 +155,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerCenter: {
     flex: 1,

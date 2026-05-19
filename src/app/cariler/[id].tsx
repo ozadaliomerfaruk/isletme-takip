@@ -1,5 +1,5 @@
-import { useState, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, TextInput, ScrollView, Dimensions } from 'react-native';
+import { useState, useCallback, useMemo, useEffect, memo } from 'react';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, ScrollView, Dimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -21,16 +21,17 @@ import {
   Eye,
   ShieldCheck,
   Info,
-  ChevronLeft,
 } from 'lucide-react-native';
-import { Text, Card, Button, EmptyState, IleriTarihliIslemlerSection, ArchivedBanner, BalanceDirectionSelector, BalanceDirection } from '@/components/ui';
+import { BackButton } from '@/components/ui/BackButton';
+import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
+import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
+import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
-import { ExportSheet, ShareOptionsSheet, PdfExportSheet } from '@/components/export';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
@@ -38,10 +39,8 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
-import { useNotlarByEntity, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
-import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
-import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
-import type { NoteFormData } from '@/components/notes/NoteInputModal';
+import { useNotlarByEntity } from '@/hooks/useNotlar';
+import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
@@ -385,7 +384,7 @@ const productDetailStyles = StyleSheet.create({
 // ============================================================================
 
 export default function CariHareketleriPage() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const { t } = useTranslation(['clients', 'common', 'errors', 'checks']);
   const { formatDateSmart, formatDateShort } = useDateFormat();
@@ -403,14 +402,11 @@ export default function CariHareketleriPage() {
   const { canUpdate, canDelete } = usePermissions();
   const { user, isletme } = useAuthContext();
   const haptics = useHaptics();
-  // Note edit state
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const updateNot = useUpdateNot();
-  const deleteNot = useDeleteNot();
-  const toggleNotCompletion = useToggleNotCompletion();
-  const markAsTask = useMarkAsTask();
-  const uploadNotePhoto = useUploadNotePhoto();
-  const invalidateNotlar = useInvalidateNotlar();
+  const {
+    editingNoteId, setEditingNoteId, editingNote,
+    handleNoteUpdate, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask,
+    isUpdatingNote,
+  } = useDetailNoteHandlers({ entityType: 'cari', entityId: id!, entityNotes, isletmeId: isletme?.id });
 
   // Viewer olarak baglantili mi ve izin seviyesi nedir
   const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
@@ -438,9 +434,7 @@ export default function CariHareketleriPage() {
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showCekKesSheet, setShowCekKesSheet] = useState(false);
-  const [showExportSheet, setShowExportSheet] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
-  const [showPdfExport, setShowPdfExport] = useState(false);
   const [showShareCodeModal, setShowShareCodeModal] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
   const [newInitialBalance, setNewInitialBalance] = useState('');
@@ -484,6 +478,16 @@ export default function CariHareketleriPage() {
       setRefreshing(false);
     }
   }, [refetchCari, refetchIslemler, haptics]);
+
+  // Ürün detay sayfasından gelen expandIslemId parametresini işle
+  const [expandHandled, setExpandHandled] = useState(false);
+  useEffect(() => {
+    if (expandIslemId && !expandHandled && islemler && islemler.length > 0) {
+      setEditTransactionId(expandIslemId);
+      setShowEditBar(true);
+      setExpandHandled(true);
+    }
+  }, [expandIslemId, expandHandled, islemler]);
 
   // Başlangıç bakiyesini hesapla - MEMOIZED
   // Cross-currency işlemlerde cari tarafındaki dönüştürülmüş tutarı kullanır
@@ -724,90 +728,6 @@ export default function CariHareketleriPage() {
     }
   }, [linkStatus]);
 
-  const editingNote = useMemo(() => {
-    if (!editingNoteId || !entityNotes) return null;
-    return entityNotes.find(n => n.id === editingNoteId) ?? null;
-  }, [editingNoteId, entityNotes]);
-
-  const handleNoteUpdate = useCallback(async (data: NoteFormData) => {
-    if (!editingNoteId || !editingNote) return;
-    try {
-      await updateNot.mutateAsync({
-        id: editingNoteId,
-        content: data.content,
-        is_completed: data.is_completed,
-        reminder_date: data.reminder_date,
-        assigned_to_user: data.assigned_to_user,
-        assigned_to_cari: data.assigned_to_cari,
-        assigned_to_personel: data.assigned_to_personel,
-      });
-
-      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
-        try {
-          if (editingNote.photo_path) {
-            const { supabase: sb } = await import('@/lib/supabase');
-            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
-          }
-          const photoPath = await uploadNotePhoto.mutateAsync({
-            uri: data.photo_uri,
-            isletmeId: isletme.id,
-            noteId: editingNoteId,
-          });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
-          invalidateNotlar();
-        } catch { /* ignore photo error */ }
-      } else if (!data.photo_uri && editingNote.photo_path) {
-        const { supabase } = await import('@/lib/supabase');
-        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
-        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
-        invalidateNotlar();
-      }
-
-      if (data.reminder_date) {
-        await scheduleNoteReminder(
-          editingNoteId,
-          t('common:notes.reminderNotification'),
-          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
-          new Date(data.reminder_date),
-          { type: 'note_reminder', note_id: editingNoteId, entity_type: 'cari', entity_id: id },
-        );
-      } else {
-        await cancelNoteReminder(editingNoteId);
-      }
-
-      setEditingNoteId(null);
-    } catch {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
-    }
-  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t]);
-
-  const handleNoteDelete = useCallback((noteId: string) => {
-    const note = entityNotes?.find(n => n.id === noteId);
-    Alert.alert(
-      t('common:notes.confirmDeleteTitle'),
-      t('common:notes.confirmDelete'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try { await deleteNot.mutateAsync({ id: noteId, photo_path: note?.photo_path }); } catch { /* ignore */ }
-          },
-        },
-      ]
-    );
-  }, [deleteNot, entityNotes, t]);
-
-  const handleToggleNoteCompletion = useCallback((noteId: string, done: boolean) => {
-    toggleNotCompletion.mutate({ id: noteId, done });
-  }, [toggleNotCompletion]);
-
-  const handleMarkAsTask = useCallback((noteId: string) => {
-    markAsTask.mutate(noteId);
-  }, [markAsTask]);
-
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
@@ -1041,7 +961,7 @@ export default function CariHareketleriPage() {
               <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
                 {formatCurrency(initialBalance, cari.currency)}
               </Text>
-              {!isViewer && (
+              {!isViewer && (!islemler || islemler.length === 0) && (
                 <TouchableOpacity
                   onPress={handleOpenEditBalance}
                   style={styles.editBalanceBtn}
@@ -1055,7 +975,7 @@ export default function CariHareketleriPage() {
         </Card>
       </View>
     );
-  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isViewer, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
+  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isViewer, islemler, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
 
   if (cariLoading) {
     return (
@@ -1090,15 +1010,7 @@ export default function CariHareketleriPage() {
           ),
           headerBackVisible: false,
           headerRight: () => headerRightElement,
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}
-              style={{ padding: 8, marginLeft: -8 }}
-              hitSlop={8}
-            >
-              <ChevronLeft size={28} color={colors.text} />
-            </TouchableOpacity>
-          ),
+          headerLeft: () => <BackButton size={28} />,
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -1120,50 +1032,15 @@ export default function CariHareketleriPage() {
           />
         </SwipeableProvider>
 
-        {/* 3 Nokta Menüsü */}
-        <Modal visible={showMenu} transparent animationType="fade">
-          <TouchableOpacity
-            style={styles.menuBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowMenu(false)}
-          >
-            <View style={styles.menuContainer}>
-              {canUpdate('cariler', cari?.created_by ?? null) && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setShowMenu(false);
-                    router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } });
-                  }}
-                >
-                  <Pencil size={22} color={colors.text} />
-                  <Text variant="body">{t('common:buttons.edit')}</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* BUG 3: Owner icin baglanti kaldirma secenegi */}
-              {linkStatus?.is_linked && linkStatus?.is_owner && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={handleUnlink}
-                >
-                  <Unlink size={22} color={colors.warning} />
-                  <Text variant="body" style={{ color: colors.warning }}>{t('clients:sharing.removeLink')}</Text>
-                </TouchableOpacity>
-              )}
-
-              {canDelete('cariler', cari?.created_by ?? null) && (
-                <TouchableOpacity
-                  style={[styles.menuItem, styles.menuItemDanger]}
-                  onPress={handleDeleteCari}
-                >
-                  <Trash2 size={22} color={colors.error} />
-                  <Text variant="body" color="error">{t('common:buttons.delete')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </TouchableOpacity>
-        </Modal>
+        <DetailActionMenu
+          visible={showMenu}
+          onClose={() => setShowMenu(false)}
+          actions={[
+            { icon: Pencil, label: t('common:buttons.edit'), visible: canUpdate('cariler', cari?.created_by ?? null), onPress: () => { setShowMenu(false); router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } }); } },
+            { icon: Unlink, label: t('clients:sharing.removeLink'), visible: !!(linkStatus?.is_linked && linkStatus?.is_owner), iconColor: colors.warning, onPress: handleUnlink },
+            { icon: Trash2, label: t('common:buttons.delete'), visible: canDelete('cariler', cari?.created_by ?? null), danger: true, onPress: handleDeleteCari },
+          ]}
+        />
 
         {/* Quick Transaction Bar - Create Mode */}
         <QuickTransactionBar
@@ -1218,20 +1095,9 @@ export default function CariHareketleriPage() {
           defaultCurrency={cari?.currency}
         />
 
-        {/* Share Options */}
-        <ShareOptionsSheet
+        <DetailExportSection
           visible={showShareOptions}
           onDismiss={() => setShowShareOptions(false)}
-          entityType="cari"
-          onPdfPress={() => setShowPdfExport(true)}
-          onExcelPress={() => setShowExportSheet(true)}
-          onSharePress={!isViewer ? () => setShowShareCodeModal(true) : undefined}
-        />
-
-        {/* PDF Export */}
-        <PdfExportSheet
-          visible={showPdfExport}
-          onDismiss={() => setShowPdfExport(false)}
           entityType="cari"
           entityId={id!}
           entityName={cari.name}
@@ -1241,19 +1107,7 @@ export default function CariHareketleriPage() {
           currentIsletmeId={isletme?.id}
           typeMismatch={typeMismatch}
           phone={cari.phone ?? undefined}
-        />
-
-        {/* Export Sheet */}
-        <ExportSheet
-          visible={showExportSheet}
-          onDismiss={() => setShowExportSheet(false)}
-          entityType="cari"
-          entityId={id!}
-          entityName={cari.name}
-          currentBalance={shouldInvertBalance ? -Number(cari.balance) : Number(cari.balance)}
-          cariType={(effectiveType || cari.type) as 'musteri' | 'tedarikci'}
-          currentIsletmeId={isletme?.id}
-          typeMismatch={typeMismatch}
+          onSharePress={!isViewer ? () => setShowShareCodeModal(true) : undefined}
         />
 
         {/* Cari Paylaşım Kodu Modal */}
@@ -1264,67 +1118,23 @@ export default function CariHareketleriPage() {
           cariName={cari.name}
         />
 
-        {/* Başlangıç Bakiyesi Düzenleme Modal */}
-        <Modal
+        <BalanceEditorModal
           visible={editBalanceModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setEditBalanceModalVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.balanceModalOverlay}
-            activeOpacity={1}
-            onPress={() => setEditBalanceModalVisible(false)}
-          >
-            <View style={styles.balanceModalContent} onStartShouldSetResponder={() => true}>
-              <View style={styles.balanceModalHeader}>
-                <Text variant="h3">{t('clients:balance.editTitle')}</Text>
-                <TouchableOpacity onPress={() => setEditBalanceModalVisible(false)}>
-                  <X size={24} color={colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-              <Text variant="caption" color="secondary" style={styles.balanceWarning}>
-                {t('clients:balance.editWarning')}
-              </Text>
-              <View style={styles.balanceInputContainer}>
-                <Text variant="label" style={{ marginBottom: spacing.xs }}>{t('clients:balanceDirection.label')}</Text>
-                <BalanceDirectionSelector
-                  value={balanceDirection}
-                  onChange={setBalanceDirection}
-                  variant={effectiveType === 'tedarikci' ? 'supplier' : 'customer'}
-                />
-              </View>
-              <View style={styles.balanceInputContainer}>
-                <Text variant="label">{t('clients:balance.newInitialBalance')}</Text>
-                <TextInput
-                  style={styles.balanceInput}
-                  value={newInitialBalance}
-                  onChangeText={setNewInitialBalance}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.textMuted}
-                />
-              </View>
-              <View style={styles.balanceModalButtons}>
-                <Button
-                  variant="secondary"
-                  onPress={() => setEditBalanceModalVisible(false)}
-                  style={{ flex: 1 }}
-                >
-                  {t('common:buttons.cancel')}
-                </Button>
-                <Button
-                  variant="primary"
-                  onPress={handleSaveInitialBalance}
-                  loading={updateCari.isPending}
-                  style={{ flex: 1 }}
-                >
-                  {t('common:buttons.save')}
-                </Button>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </Modal>
+          onDismiss={() => setEditBalanceModalVisible(false)}
+          title={t('clients:balance.editTitle')}
+          warning={t('clients:balance.editWarning')}
+          directionLabel={t('clients:balanceDirection.label')}
+          directionVariant={effectiveType === 'tedarikci' ? 'supplier' : 'customer'}
+          balanceDirection={balanceDirection}
+          onDirectionChange={setBalanceDirection}
+          inputLabel={t('clients:balance.newInitialBalance')}
+          inputValue={newInitialBalance}
+          onInputChange={setNewInitialBalance}
+          onSave={handleSaveInitialBalance}
+          isSaving={updateCari.isPending}
+          cancelLabel={t('common:buttons.cancel')}
+          saveLabel={t('common:buttons.save')}
+        />
 
         {/* Ürün Detay Modal */}
         <ProductDetailModal
@@ -1394,7 +1204,7 @@ export default function CariHareketleriPage() {
             assigned_to_personel: editingNote.assigned_to_personel,
           } : undefined}
           isEditing
-          loading={updateNot.isPending}
+          loading={isUpdatingNote}
           entityType="cari"
           entityId={id!}
           existingPhotoPath={editingNote?.photo_path}
@@ -1507,40 +1317,6 @@ const styles = StyleSheet.create({
   headerBtn: {
     padding: spacing.xs,
   },
-  // Menu styles
-  menuBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 60,
-    paddingRight: spacing.md,
-  },
-  menuContainer: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.xs,
-    minWidth: 180,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-  },
-  menuItemDanger: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.xs,
-    paddingTop: spacing.md + spacing.xs,
-  },
   // Initial balance edit styles
   initialBalanceRow: {
     flexDirection: 'row',
@@ -1563,46 +1339,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
-  },
-  balanceModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-  },
-  balanceModalContent: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    width: '100%',
-    maxWidth: 320,
-  },
-  balanceModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  balanceWarning: {
-    marginBottom: spacing.lg,
-  },
-  balanceInputContainer: {
-    marginBottom: spacing.lg,
-    gap: spacing.xs,
-  },
-  balanceInput: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    fontSize: 16,
-    color: colors.text,
-  },
-  balanceModalButtons: {
-    flexDirection: 'row',
-    gap: spacing.md,
   },
   fab: {
     position: 'absolute',

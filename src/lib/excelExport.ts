@@ -272,9 +272,9 @@ export function calculateHesapOpeningBalance(
 // ============================================================================
 
 /**
- * Cari için borç/alacak belirleme
- * Tedarikçi: Alış = Borç (bize borçlu oldular), Ödeme = Alacak (ödedik)
- * Müşteri: Satış = Alacak (bize borçlu), Tahsilat = Borç (ödediler)
+ * Cari için borç/alacak belirleme (standart muhasebe kuralları)
+ * Müşteri (Alıcı hesabı): Satış = Borç (alacağımız arttı), Tahsilat = Alacak (alacağımız azaldı)
+ * Tedarikçi (Satıcı hesabı): Alış = Alacak (borcumuz arttı), Ödeme = Borç (borcumuzu ödedik)
  */
 export function getCariDebitCredit(
   islem: IslemWithRelations,
@@ -285,11 +285,11 @@ export function getCariDebitCredit(
   if (cariType === 'tedarikci') {
     switch (islem.type) {
       case 'cari_alis':
-        return { debit: amount, credit: null }; // Borcumuz arttı
+        return { debit: null, credit: amount }; // Borcumuz arttı → ALACAK
       case 'cari_odeme':
-        return { debit: null, credit: amount }; // Borcumuzu ödedik
+        return { debit: amount, credit: null }; // Borcumuzu ödedik → BORÇ
       case 'cari_alis_iade':
-        return { debit: null, credit: amount }; // Borcumuz azaldı
+        return { debit: amount, credit: null }; // Borcumuz azaldı → BORÇ
       default:
         return { debit: null, credit: null };
     }
@@ -297,11 +297,11 @@ export function getCariDebitCredit(
     // Müşteri
     switch (islem.type) {
       case 'cari_satis':
-        return { debit: null, credit: amount }; // Alacağımız arttı
+        return { debit: amount, credit: null }; // Alacağımız arttı → BORÇ
       case 'cari_tahsilat':
-        return { debit: amount, credit: null }; // Alacağımızı tahsil ettik
+        return { debit: null, credit: amount }; // Alacağımızı tahsil ettik → ALACAK
       case 'cari_satis_iade':
-        return { debit: amount, credit: null }; // Alacağımız azaldı
+        return { debit: null, credit: amount }; // Alacağımız azaldı → ALACAK
       default:
         return { debit: null, credit: null };
     }
@@ -328,17 +328,14 @@ export function calculateCariOpeningBalance(
       islem.isletme_id, currentIsletmeId, typeMismatch ?? false
     );
     const effectiveIslem = needsInvert
-      ? { ...islem, type: invertCariTransactionType(islem.type as any) }
+      ? { ...islem, type: invertCariTransactionType(islem.type) }
       : islem;
 
     const { debit, credit } = getCariDebitCredit(effectiveIslem, cariType);
-    if (cariType === 'tedarikci') {
-      if (debit) totalEffect -= debit;
-      if (credit) totalEffect += credit;
-    } else {
-      if (credit) totalEffect += credit;
-      if (debit) totalEffect -= debit;
-    }
+    // DB konvansiyonu: pozitif = bize borçlu (BORÇ), negatif = biz borçluyuz (ALACAK)
+    // Tüm cari tipleri aynı formül: debit arttırır, credit azaltır
+    if (debit) totalEffect += debit;
+    if (credit) totalEffect -= credit;
   });
 
   const initialBalance = currentBalance - totalEffect;
@@ -353,17 +350,12 @@ export function calculateCariOpeningBalance(
       islem.isletme_id, currentIsletmeId, typeMismatch ?? false
     );
     const effectiveIslem = needsInvert
-      ? { ...islem, type: invertCariTransactionType(islem.type as any) }
+      ? { ...islem, type: invertCariTransactionType(islem.type) }
       : islem;
 
     const { debit, credit } = getCariDebitCredit(effectiveIslem, cariType);
-    if (cariType === 'tedarikci') {
-      if (debit) effectBeforeStart -= debit;
-      if (credit) effectBeforeStart += credit;
-    } else {
-      if (credit) effectBeforeStart += credit;
-      if (debit) effectBeforeStart -= debit;
-    }
+    if (debit) effectBeforeStart += debit;
+    if (credit) effectBeforeStart -= credit;
   });
 
   return initialBalance + effectBeforeStart;
@@ -520,7 +512,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
           islem.isletme_id, currentIsletmeId, typeMismatch ?? false
         );
         if (needsInvert) {
-          effectiveType = invertCariTransactionType(islem.type as any);
+          effectiveType = invertCariTransactionType(islem.type);
         }
         ({ debit, credit } = getCariDebitCredit(
           { ...islem, type: effectiveType } as IslemWithRelations,
@@ -534,12 +526,28 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
     }
 
     // Running balance güncelle
-    if (credit) runningBalance += credit;
-    if (debit) runningBalance -= debit;
+    // Borç bakiyeli: cari + personel (DB'de pozitif = bize borçlu)
+    // Alacak bakiyeli: hesap (DB'de pozitif = varlık)
+    const isDebitNormal = entityType === 'cari' || entityType === 'personel';
+    if (isDebitNormal) {
+      if (debit) runningBalance += debit;
+      if (credit) runningBalance -= credit;
+    } else {
+      if (credit) runningBalance += credit;
+      if (debit) runningBalance -= debit;
+    }
 
     // Borç/Alacak bakiye hesapla
-    const debitBalance = runningBalance < 0 ? Math.abs(runningBalance) : null;
-    const creditBalance = runningBalance >= 0 ? runningBalance : null;
+    let debitBalance: number | null;
+    let creditBalance: number | null;
+    if (isDebitNormal) {
+      // Pozitif bakiye = BORÇ (karşı taraf bize borçlu)
+      debitBalance = runningBalance > 0 ? runningBalance : null;
+      creditBalance = runningBalance < 0 ? Math.abs(runningBalance) : null;
+    } else {
+      debitBalance = runningBalance < 0 ? Math.abs(runningBalance) : null;
+      creditBalance = runningBalance >= 0 ? runningBalance : null;
+    }
 
     rows.push({
       date: formatDateShort(islem.date),
@@ -559,8 +567,13 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   const totalDebit = rows.reduce((sum, r) => sum + (r.debit || 0), 0);
   const totalCredit = rows.reduce((sum, r) => sum + (r.credit || 0), 0);
   const closingBalance = runningBalance;
-  const closingDebitBalance = closingBalance < 0 ? Math.abs(closingBalance) : null;
-  const closingCreditBalance = closingBalance >= 0 ? closingBalance : null;
+  const isDebitNormalEntity = entityType === 'cari' || entityType === 'personel';
+  const closingDebitBalance = isDebitNormalEntity
+    ? (closingBalance > 0 ? closingBalance : null)
+    : (closingBalance < 0 ? Math.abs(closingBalance) : null);
+  const closingCreditBalance = isDebitNormalEntity
+    ? (closingBalance < 0 ? Math.abs(closingBalance) : null)
+    : (closingBalance >= 0 ? closingBalance : null);
 
   // Excel verisi oluştur
   const currency = entityCurrency || 'TRY';
@@ -568,8 +581,12 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
     val !== null ? formatCurrency(val, currency) : '';
 
   // Başlangıç bakiyesi için borç/alacak bakiye
-  const openingDebitBalance = openingBalance < 0 ? Math.abs(openingBalance) : null;
-  const openingCreditBalance = openingBalance >= 0 ? openingBalance : null;
+  const openingDebitBalance = isDebitNormalEntity
+    ? (openingBalance > 0 ? openingBalance : null)
+    : (openingBalance < 0 ? Math.abs(openingBalance) : null);
+  const openingCreditBalance = isDebitNormalEntity
+    ? (openingBalance < 0 ? Math.abs(openingBalance) : null)
+    : (openingBalance >= 0 ? openingBalance : null);
 
   // Entity tipi label ve başlık
   let entityTypeLabel: string;

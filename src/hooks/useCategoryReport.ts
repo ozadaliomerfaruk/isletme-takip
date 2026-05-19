@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
 import { Kategori, KategoriType, HesapType } from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
@@ -95,7 +96,7 @@ export function useCategoryReport(
     isLoading: kategorilerLoading,
     error: kategorilerError,
   } = useQuery({
-    queryKey: ['all-kategoriler', isletme?.id, type],
+    queryKey: queryKeys.reports.allKategoriler(isletme?.id ?? '', type),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -121,7 +122,7 @@ export function useCategoryReport(
     error: islemlerError,
     refetch: refetchIslemler,
   } = useQuery({
-    queryKey: ['category-report', isletme?.id, type, source, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.categoryReport(isletme?.id ?? '', type, source ?? '', startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -133,7 +134,7 @@ export function useCategoryReport(
       });
 
       if (error) {
-        if (__DEV__) console.error('[useCategoryReport] RPC error:', error.message, (error as any).code);
+        if (__DEV__) console.error('[useCategoryReport] RPC error:', error.message, error.code);
         throw error;
       }
       if (__DEV__) console.log('[useCategoryReport]', type, 'RPC result:', data?.length, 'rows');
@@ -157,7 +158,7 @@ export function useCategoryReport(
     data: returnTotal,
     isLoading: returnLoading,
   } = useQuery({
-    queryKey: ['category-report-returns', isletme?.id, type, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.categoryReportReturns(isletme?.id ?? '', type, startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme || returnTypes.length === 0) return 0;
 
@@ -344,7 +345,7 @@ export function useHierarchicalCategoryReport(
     isLoading: islemlerLoading,
     error: islemlerError,
   } = useQuery({
-    queryKey: ['hierarchical-category-report', isletme?.id, type, source, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.hierarchicalCategoryReport(isletme?.id ?? '', type, source ?? '', startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -356,7 +357,7 @@ export function useHierarchicalCategoryReport(
       });
 
       if (error) {
-        if (__DEV__) console.error('[useHierarchicalCategoryReport] RPC error:', error.message, (error as any).code);
+        if (__DEV__) console.error('[useHierarchicalCategoryReport] RPC error:', error.message, error.code);
         throw error;
       }
       if (__DEV__) console.log('[useHierarchicalCategoryReport]', type, 'RPC result:', data?.length, 'rows');
@@ -379,7 +380,7 @@ export function useHierarchicalCategoryReport(
     data: returnTotal,
     isLoading: returnLoading,
   } = useQuery({
-    queryKey: ['hierarchical-category-report-returns', isletme?.id, type, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.hierarchicalCategoryReportReturns(isletme?.id ?? '', type, startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme || returnTypes.length === 0) return 0;
 
@@ -596,7 +597,7 @@ export function useCategoryTransactions(
   const islemTypes = getIslemTypes(type, source);
 
   return useQuery({
-    queryKey: ['category-transactions', isletme?.id, kategoriId, type, source, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.categoryTransactions(isletme?.id ?? '', kategoriId ?? '', type, source ?? '', startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -795,7 +796,7 @@ export function useMultiCategoryTransactions(
   const islemTypes = getIslemTypes(type, source);
 
   return useQuery({
-    queryKey: ['multi-category-transactions', isletme?.id, kategoriIds.sort().join(','), type, source, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.multiCategoryTransactions(isletme?.id ?? '', kategoriIds.sort().join(','), type, source ?? '', startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme || kategoriIds.length === 0) return [];
 
@@ -970,7 +971,7 @@ export function useSubCategoryReport(
     isLoading: kategorilerLoading,
     error: kategorilerError,
   } = useQuery({
-    queryKey: ['sub-categories', isletme?.id, parentKategoriId, type],
+    queryKey: queryKeys.reports.subCategories(isletme?.id ?? '', parentKategoriId ?? '', type),
     queryFn: async () => {
       if (!isletme || !parentKategoriId) return { parent: null, children: [] };
 
@@ -1017,7 +1018,7 @@ export function useSubCategoryReport(
     isLoading: rpcLoading,
     error: rpcError,
   } = useQuery({
-    queryKey: ['sub-category-report-rpc', isletme?.id, allKategoriIds.sort().join(','), type, source, startDateTime, endDateTime],
+    queryKey: queryKeys.reports.subCategoryReportRpc(isletme?.id ?? '', allKategoriIds.sort().join(','), type, source ?? '', startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme || allKategoriIds.length === 0) return [];
 

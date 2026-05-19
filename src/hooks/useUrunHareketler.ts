@@ -319,7 +319,7 @@ export function useIslemlerWithUrun(islemIds: string[]) {
   const stableKey = islemIds.length > 0 ? islemIds.slice().sort().join(',') : '';
 
   const result = useQuery({
-    queryKey: ['urun-hareketler', 'islemler-with-urun', stableKey, isletme?.id || ''],
+    queryKey: queryKeys.urunHareketler.islemlerWithUrun(stableKey, isletme?.id || ''),
     queryFn: async () => {
       if (!isletme || islemIds.length === 0) return new Map<string, number>();
 
@@ -363,7 +363,7 @@ export function useIslemlerWithUrunByCari(cariId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
-    queryKey: ['urun-hareketler', 'islemler-with-urun-by-cari', cariId || '', isletme?.id || ''],
+    queryKey: queryKeys.urunHareketler.islemlerWithUrunByCari(cariId || '', isletme?.id || ''),
     queryFn: async () => {
       if (!isletme || !cariId) return new Map<string, number>();
 

@@ -1,9 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, CalendarDays, Copy, Plus } from 'lucide-react-native';
+import { ArrowLeft, CalendarDays, Copy, Plus, Share2 } from 'lucide-react-native';
+import { BackButton } from '@/components/ui/BackButton';
 
 import { Text, EmptyState } from '@/components/ui';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
@@ -25,9 +26,11 @@ import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
 import { getTransactionColor, getTransactionPrefix, showAccentBar } from '@/lib/transactionColors';
 import { toErrorMessage } from '@/lib/errors';
+import { exportLeaveHistory } from '@/lib/pageExports';
 import type { IslemWithRelations, Not } from '@/types/database';
 
 function toNumber(val: unknown): number {
@@ -54,9 +57,11 @@ export default function LeaveHistoryPage() {
   const insets = useSafeAreaInsets();
 
   const { isletme } = useAuthContext();
-  const { data: personel } = usePersonel(id);
-  const { data: islemler } = useIslemlerByPersonel(id!);
-  const { data: entityNotes } = useNotlarByEntity('personel_izin', id!);
+  const { data: personel, refetch: refetchPersonel } = usePersonel(id);
+  const { data: islemler, refetch: refetchIslemler } = useIslemlerByPersonel(id!);
+  const { data: entityNotes, refetch: refetchNotes } = useNotlarByEntity('personel_izin', id!);
+
+  const { refreshing, onRefresh } = usePullToRefresh(refetchPersonel, refetchIslemler, refetchNotes);
   const deleteIslem = useDeleteIslem();
   const deleteNot = useDeleteNot();
   const updateNot = useUpdateNot();
@@ -114,6 +119,53 @@ export default function LeaveHistoryPage() {
   }, [leaveTransactions]);
 
   const kalanGun = quota.hakEdilen - quota.kullanilan;
+
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = useCallback(async () => {
+    if (!personel || !isletme || leaveTransactions.length === 0) return;
+    setIsExporting(true);
+    try {
+      await exportLeaveHistory({
+        personelName: `${personel.first_name} ${personel.last_name || ''}`.trim(),
+        isletmeName: isletme.name,
+        transactions: leaveTransactions.map(tx => ({
+          date: tx.date,
+          type: tx.type,
+          amount: toNumber(tx.amount),
+          description: tx.description,
+          date_end: (tx as { date_end?: string | null }).date_end,
+        })),
+        quota,
+        t: {
+          title: t('staff:leave.leaveHistory'),
+          business: t('common:export.excel.business'),
+          staff: t('common:export.excel.staff'),
+          createdAt: t('common:export.excel.createdAt'),
+          date: t('common:export.excel.date'),
+          dateRange: t('staff:leave.startDate') + ' - ' + t('staff:leave.endDate'),
+          type: t('common:export.excel.transactionType'),
+          days: t('staff:leave.days'),
+          description: t('common:export.excel.description'),
+          entitled: t('staff:leave.entitled'),
+          used: t('staff:leave.used'),
+          remaining: t('staff:leave.remaining'),
+          summary: t('staff:leave.leaveStatus'),
+          sheetName: t('staff:leave.leaveHistory'),
+          fileName: t('staff:leave.leaveHistory'),
+          dialogTitle: t('staff:leave.leaveHistory'),
+          typeLabels: {
+            personel_izin_hakki: t('staff:transactionLabels.izinHakki'),
+            personel_izin_kullanimi: t('staff:transactionLabels.izinKullanimi'),
+          },
+        },
+      });
+    } catch {
+      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    } finally {
+      setIsExporting(false);
+    }
+  }, [personel, isletme, leaveTransactions, quota, t]);
 
   // Group by date and merge notes
   const groupedData = useMemo(() => {
@@ -372,9 +424,7 @@ export default function LeaveHistoryPage() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.canGoBack() ? router.back() : router.replace('/(tabs)')}>
-          <ArrowLeft size={24} color={colors.text} />
-        </TouchableOpacity>
+        <BackButton icon={ArrowLeft} style={styles.backButton} />
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>{t('staff:leave.leaveHistory')}</Text>
           {personel && (
@@ -383,6 +433,11 @@ export default function LeaveHistoryPage() {
             </Text>
           )}
         </View>
+        {leaveTransactions.length > 0 && (
+          <TouchableOpacity style={styles.backButton} onPress={handleExport} disabled={isExporting}>
+            <Share2 size={20} color={isExporting ? colors.textMuted : colors.text} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Content */}
@@ -399,6 +454,14 @@ export default function LeaveHistoryPage() {
             />
           }
           contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
         />
       </SwipeableProvider>
 

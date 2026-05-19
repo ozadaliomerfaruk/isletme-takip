@@ -1,23 +1,26 @@
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, ScrollView, Alert, TouchableOpacity, Animated, Modal, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+﻿import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, ArrowRightLeft, History, X, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, MoreVertical, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
-import { Text, Button, Input, EmptyState, ExpandableCard, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
+import { Text, Button, Input, EmptyState, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
+import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
+import { styles } from '@/components/urunlerPage/styles';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { useUrunler, useArchiveUrun, usePermanentDeleteUrun } from '@/hooks/useUrunler';
 import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
 import { useToast } from '@/contexts/ToastContext';
+import { useUndoDelete } from '@/hooks/useUndoDelete';
+import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { useDonemUrunOzet } from '@/hooks/useUrunHareketler';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
-import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { exportUrunListesiToExcel, UrunListeItem } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -27,294 +30,6 @@ import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 
 type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 type SortType = 'nameAZ' | 'nameZA' | 'purchaseMost' | 'purchaseLeast' | 'saleMost' | 'saleLeast';
-
-interface DonemOzet { giris: number; cikis: number }
-
-// ============================================================================
-// Memoized Product Row Components
-// ============================================================================
-
-interface ProductRowProps {
-  urun: Urun;
-  expanded: boolean;
-  onToggle: (id: string) => void;
-  onNewTransaction: (urun: Urun) => void;
-  onViewMovements: (id: string) => void;
-  onOpenActionSheet: (urun: Urun) => void;
-  urunOzet?: DonemOzet;
-  kategoriAdi?: string;
-  getBirimLabel: (birim: BirimType) => string;
-}
-
-const ProductRow = memo(function ProductRow({
-  urun, expanded, onToggle, onNewTransaction, onViewMovements, onOpenActionSheet,
-  urunOzet, kategoriAdi, getBirimLabel,
-}: ProductRowProps) {
-  const { t } = useTranslation(['products', 'common']);
-  const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
-
-  const handleToggle = useCallback(() => onToggle(urun.id), [onToggle, urun.id]);
-  const handleTransaction = useCallback(() => onNewTransaction(urun), [onNewTransaction, urun]);
-  const handleMovements = useCallback(() => onViewMovements(urun.id), [onViewMovements, urun.id]);
-  const handleActionSheet = useCallback((e: any) => {
-    e.stopPropagation();
-    onOpenActionSheet(urun);
-  }, [onOpenActionSheet, urun]);
-
-  return (
-    <View style={rowStyles.wrapper}>
-      <ExpandableCard
-        expanded={expanded}
-        onToggle={handleToggle}
-        header={
-          <View style={rowStyles.header}>
-            <View style={rowStyles.iconWrap}>
-              <Package size={18} color={colors.primary} />
-            </View>
-            <View style={rowStyles.info}>
-              <View style={rowStyles.nameRow}>
-                <Text variant="body" style={rowStyles.name} numberOfLines={1}>{urun.ad}</Text>
-                {urun.kod ? (
-                  <View style={rowStyles.codeBadge}>
-                    <Text style={rowStyles.codeBadgeText}>{urun.kod}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <View style={rowStyles.metaRow}>
-                <Text variant="caption" color="secondary">
-                  {urun.miktar} {getBirimLabel(urun.birim)}
-                </Text>
-                {urun.satis_fiyati > 0 && (
-                  <Text variant="caption" color="secondary">
-                    {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
-                  </Text>
-                )}
-                {kategoriAdi && (
-                  <View style={rowStyles.categoryChip}>
-                    <Text style={rowStyles.categoryChipText}>{kategoriAdi}</Text>
-                  </View>
-                )}
-              </View>
-            </View>
-            <View style={rowStyles.periodSummary}>
-              {hasMovements ? (
-                <>
-                  {urunOzet.giris > 0 && (
-                    <View style={rowStyles.pillIn}>
-                      <Text style={rowStyles.pillInText}>+{urunOzet.giris}</Text>
-                    </View>
-                  )}
-                  {urunOzet.cikis > 0 && (
-                    <View style={rowStyles.pillOut}>
-                      <Text style={rowStyles.pillOutText}>-{urunOzet.cikis}</Text>
-                    </View>
-                  )}
-                </>
-              ) : null}
-            </View>
-            <TouchableOpacity
-              style={rowStyles.moreBtn}
-              onPress={handleActionSheet}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MoreVertical size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        }
-      >
-        <View style={rowStyles.actions}>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<ArrowRightLeft size={16} color={colors.white} />}
-            iconPosition="left"
-            onPress={handleTransaction}
-            style={rowStyles.actionBtn}
-          >
-            {t('products:actions.newTransaction')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<History size={16} color={colors.primary} />}
-            iconPosition="left"
-            onPress={handleMovements}
-            style={rowStyles.actionBtn}
-          >
-            {t('products:actions.viewMovements')}
-          </Button>
-        </View>
-      </ExpandableCard>
-    </View>
-  );
-});
-
-interface ArchivedProductRowProps {
-  urun: Urun;
-  expanded: boolean;
-  onToggle: (id: string) => void;
-  onViewMovements: (id: string) => void;
-  onOpenActionSheet: (urun: Urun) => void;
-  getBirimLabel: (birim: BirimType) => string;
-}
-
-const ArchivedProductRow = memo(function ArchivedProductRow({
-  urun, expanded, onToggle, onViewMovements, onOpenActionSheet, getBirimLabel,
-}: ArchivedProductRowProps) {
-  const { t } = useTranslation(['products', 'common']);
-
-  const handleToggle = useCallback(() => onToggle(urun.id), [onToggle, urun.id]);
-  const handleMovements = useCallback(() => onViewMovements(urun.id), [onViewMovements, urun.id]);
-  const handleActionSheet = useCallback((e: any) => {
-    e.stopPropagation();
-    onOpenActionSheet(urun);
-  }, [onOpenActionSheet, urun]);
-
-  return (
-    <View style={rowStyles.wrapper}>
-      <ExpandableCard
-        expanded={expanded}
-        onToggle={handleToggle}
-        header={
-          <View style={rowStyles.header}>
-            <Package size={24} color={colors.textMuted} />
-            <View style={rowStyles.info}>
-              <Text variant="body" color="secondary">{urun.ad}</Text>
-              <Text variant="caption" color="muted">
-                {urun.miktar} {getBirimLabel(urun.birim)}
-                {urun.kod && ` • ${urun.kod}`}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={rowStyles.moreBtn}
-              onPress={handleActionSheet}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <MoreVertical size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        }
-      >
-        <View style={rowStyles.actions}>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={<History size={16} color={colors.primary} />}
-            iconPosition="left"
-            onPress={handleMovements}
-            style={rowStyles.actionBtn}
-          >
-            {t('products:actions.viewMovements')}
-          </Button>
-        </View>
-      </ExpandableCard>
-    </View>
-  );
-});
-
-const rowStyles = StyleSheet.create({
-  wrapper: {
-    paddingHorizontal: spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  iconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  name: {
-    fontSize: 15,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  codeBadge: {
-    backgroundColor: colors.primaryLight,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: borderRadius.sm,
-  },
-  codeBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flexWrap: 'wrap',
-  },
-  categoryChip: {
-    backgroundColor: colors.background,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  categoryChipText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  periodSummary: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  pillIn: {
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  pillInText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  pillOut: {
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  pillOutText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  moreBtn: {
-    padding: spacing.xs,
-    marginLeft: 2,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  actionBtn: {
-    flex: 1,
-  },
-});
-
-// ============================================================================
-// Main Page Component
-// ============================================================================
 
 export default function UrunlerPage() {
   const router = useRouter();
@@ -331,27 +46,27 @@ export default function UrunlerPage() {
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
 
-  // ActionSheet için state
+  // ActionSheet iÃ§in state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [actionSheetUrun, setActionSheetUrun] = useState<Urun | null>(null);
 
-  // Dönem seçici state'leri
+  // DÃ¶nem seÃ§ici state'leri
   const [period, setPeriod] = useState<PeriodType>('monthly');
   const [periodOffset, setPeriodOffset] = useState(0);
 
-  // Özel tarih aralığı state'leri
+  // Ã–zel tarih aralÄ±ÄŸÄ± state'leri
   const [customStartDate, setCustomStartDate] = useState<Date>(new Date());
   const [customEndDate, setCustomEndDate] = useState<Date>(new Date());
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
 
-  // Hızlı dönem seçimi için state'ler
+  // HÄ±zlÄ± dÃ¶nem seÃ§imi iÃ§in state'ler
   const [showYearPicker, setShowYearPicker] = useState(false);
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
   const [showDayPicker, setShowDayPicker] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  // Dönem seçici seçenekleri
+  // DÃ¶nem seÃ§ici seÃ§enekleri
   const PERIOD_OPTIONS = [
     { label: t('products:period.yearly'), value: 'yearly' },
     { label: t('products:period.monthly'), value: 'monthly' },
@@ -360,7 +75,7 @@ export default function UrunlerPage() {
     { label: t('products:period.custom'), value: 'custom' },
   ];
 
-  // Dönem tarih aralığını hesapla
+  // DÃ¶nem tarih aralÄ±ÄŸÄ±nÄ± hesapla
   const customRange = period === 'custom' ? {
     startDate: formatDateForDB(customStartDate),
     endDate: formatDateForDB(customEndDate),
@@ -399,10 +114,14 @@ export default function UrunlerPage() {
   const { data: kategoriler } = useKategoriler();
   const { showToast } = useToast();
 
-  // Dönem bazlı urun hareketleri özeti
+  // DÃ¶nem bazlÄ± urun hareketleri Ã¶zeti
   const { data: donemUrunOzet } = useDonemUrunOzet({ startDate, endDate });
 
-  // Kategorisiz ürün sayısı
+  // Kategorisiz Ã¼rÃ¼n sayÄ±sÄ±
+  const { pendingDeleteIds, requestDelete, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<Urun>({
+    onCommitDelete: (id) => permanentDeleteUrun.mutateAsync(id),
+  });
+
   const uncategorizedProductCount = useMemo(
     () => (urunler || []).filter(u => !u.kategori_id).length,
     [urunler]
@@ -411,7 +130,7 @@ export default function UrunlerPage() {
   // Kategori id -> ad map'i
   const kategoriMap = useMemo(() => new Map(kategoriler?.map(k => [k.id, k.name]) || []), [kategoriler]);
 
-  // Ürün listesi export
+  // ÃœrÃ¼n listesi export
   const handleExportProductList = useCallback(async () => {
     if (!urunler || urunler.length === 0 || !isletme) return;
     setIsExporting(true);
@@ -455,9 +174,10 @@ export default function UrunlerPage() {
     }
   }, [urunler, isletme, kategoriMap, t, showToast]);
 
-  // Arama filtresi (ürün adı, kodu ve kategori adı)
+  // Arama filtresi (Ã¼rÃ¼n adÄ±, kodu ve kategori adÄ±)
   const filteredUrunler = useMemo(() => {
     const filtered = urunler?.filter((urun) => {
+      if (pendingDeleteIds.has(urun.id)) return false;
       const query = searchQuery.toLowerCase();
       const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
       return (
@@ -467,7 +187,7 @@ export default function UrunlerPage() {
       );
     }) || [];
 
-    // Sıralama
+    // SÄ±ralama
     return [...filtered].sort((a, b) => {
       const ozetA = donemUrunOzet?.[a.id];
       const ozetB = donemUrunOzet?.[b.id];
@@ -488,9 +208,9 @@ export default function UrunlerPage() {
           return 0;
       }
     });
-  }, [urunler, searchQuery, kategoriMap, sortType, donemUrunOzet]);
+  }, [urunler, searchQuery, kategoriMap, sortType, donemUrunOzet, pendingDeleteIds]);
 
-  // Arşivlenmiş ürünler filtresi
+  // ArÅŸivlenmiÅŸ Ã¼rÃ¼nler filtresi
   const filteredArchivedUrunler = useMemo(() => {
     if (!archivedUrunler) return [];
     if (!searchQuery) return archivedUrunler;
@@ -507,13 +227,13 @@ export default function UrunlerPage() {
 
   const archivedCount = archivedUrunler?.length ?? 0;
 
-  // Tab seçenekleri
+  // Tab seÃ§enekleri
   const TAB_OPTIONS = useMemo(() => [
     { label: t('products:tabs.active'), value: 'active' },
     { label: archivedCount > 0 ? `${t('products:tabs.archived')} (${archivedCount})` : t('products:tabs.archived'), value: 'archived' },
   ], [t, archivedCount]);
 
-  // Sıralama seçenekleri
+  // SÄ±ralama seÃ§enekleri
   const sortOptions: ActionSheetOption[] = useMemo(() => {
     const options: { key: SortType; label: string }[] = [
       { key: 'nameAZ', label: t('products:sort.nameAZ') },
@@ -524,7 +244,7 @@ export default function UrunlerPage() {
       { key: 'saleLeast', label: t('products:sort.saleLeast') },
     ];
     return options.map(opt => ({
-      label: opt.key === sortType ? `✓  ${opt.label}` : `    ${opt.label}`,
+      label: opt.key === sortType ? `âœ“  ${opt.label}` : `    ${opt.label}`,
       onPress: () => {
         setSortType(opt.key);
         haptics.light();
@@ -552,28 +272,9 @@ export default function UrunlerPage() {
 
   const handleDelete = useCallback(() => {
     if (!actionSheetUrun) return;
-    Alert.alert(
-      t('common:confirm.deleteTitle'),
-      t('common:confirm.deleteMessage', { item: actionSheetUrun.ad }),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await permanentDeleteUrun.mutateAsync(actionSheetUrun.id);
-              haptics.success();
-              showToast(t('common:messages.deletedSuccessfully'), 'success');
-            } catch {
-              haptics.error();
-              showToast(t('common:messages.operationFailed'), 'error');
-            }
-          },
-        },
-      ]
-    );
-  }, [actionSheetUrun, permanentDeleteUrun, haptics, showToast, t]);
+    setActionSheetVisible(false);
+    requestDelete(actionSheetUrun.id, actionSheetUrun, actionSheetUrun.ad);
+  }, [actionSheetUrun, requestDelete]);
 
   const handleUnarchive = useCallback(async () => {
     if (!actionSheetUrun) return;
@@ -614,7 +315,7 @@ export default function UrunlerPage() {
 
   const actionSheetOptions: ActionSheetOption[] = useMemo(() => {
     if (activeTab === 'archived') {
-      // Arşiv modunda: Arşivden çıkar + Kalıcı sil
+      // ArÅŸiv modunda: ArÅŸivden Ã§Ä±kar + KalÄ±cÄ± sil
       const options: ActionSheetOption[] = [];
       if (actionSheetUrun && canUpdate('urunler', actionSheetUrun.created_by ?? null)) {
         options.push({
@@ -634,7 +335,7 @@ export default function UrunlerPage() {
       return options;
     }
 
-    // Aktif modunda: Düzenle + Arşivle + Sil
+    // Aktif modunda: DÃ¼zenle + ArÅŸivle + Sil
     const options: ActionSheetOption[] = [];
 
     if (actionSheetUrun && canUpdate('urunler', actionSheetUrun.created_by ?? null)) {
@@ -667,7 +368,7 @@ export default function UrunlerPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionSheetUrun, t, router, activeTab, handleArchive, handleDelete, handleUnarchive, handlePermanentDelete, canUpdate, canDelete]);
 
-  // Hızlı dönem seçimi fonksiyonları
+  // HÄ±zlÄ± dÃ¶nem seÃ§imi fonksiyonlarÄ±
   const handlePeriodLabelPress = () => {
     switch (period) {
       case 'yearly':
@@ -826,7 +527,7 @@ export default function UrunlerPage() {
         </View>
       )}
 
-      {/* Aktif / Arşiv Tab */}
+      {/* Aktif / ArÅŸiv Tab */}
       {archivedCount > 0 && (
         <View style={styles.tabSection}>
           <TabFilter
@@ -837,7 +538,7 @@ export default function UrunlerPage() {
         </View>
       )}
 
-      {/* Dönem Seçici */}
+      {/* DÃ¶nem SeÃ§ici */}
       {activeTab === 'active' && (urunler && urunler.length > 0) && (
         <View style={styles.periodSection}>
           <TabFilter
@@ -894,7 +595,7 @@ export default function UrunlerPage() {
         </View>
       )}
 
-      {/* Kategorisiz ürün uyarısı */}
+      {/* Kategorisiz Ã¼rÃ¼n uyarÄ±sÄ± */}
       {activeTab === 'active' && uncategorizedProductCount > 0 && (
         <View style={styles.warningSection}>
           <View style={styles.warningBanner}>
@@ -998,262 +699,40 @@ export default function UrunlerPage() {
         cancelLabel={t('common:buttons.cancel')}
       />
 
-      {/* Date Pickers for Custom Period - iOS */}
-      {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (
-        <Modal visible={showStartPicker || showEndPicker} transparent animationType="slide">
-          <Pressable
-            style={styles.datePickerOverlay}
-            onPress={() => {
-              setShowStartPicker(false);
-              setShowEndPicker(false);
-            }}
-          >
-            <Pressable style={styles.datePickerModal} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.datePickerHeader}>
-                <Text variant="h3">
-                  {showStartPicker ? t('products:period.startDate') : t('products:period.endDate')}
-                </Text>
-                <TouchableOpacity onPress={() => {
-                  setShowStartPicker(false);
-                  setShowEndPicker(false);
-                }}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <View style={styles.datePickerWrapper}>
-                <DateTimePicker
-                  value={showStartPicker ? customStartDate : customEndDate}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  themeVariant="light"
-                  accentColor={colors.primary}
-                  locale={locale}
-                  style={{ height: 350 }}
-                  onChange={(_, date) => {
-                    if (date) {
-                      if (showStartPicker) {
-                        setCustomStartDate(date);
-                        if (date > customEndDate) {
-                          setCustomEndDate(date);
-                        }
-                      } else {
-                        setCustomEndDate(date);
-                      }
-                    }
-                  }}
-                  minimumDate={showEndPicker ? customStartDate : undefined}
-                  maximumDate={new Date()}
-                />
-              </View>
-              <Button variant="primary" onPress={() => {
-                setShowStartPicker(false);
-                setShowEndPicker(false);
-              }}>
-                {t('common:buttons.ok')}
-              </Button>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
-
-      {/* Date Pickers for Custom Period - Android */}
-      {Platform.OS === 'android' && showStartPicker && (
-        <DateTimePicker
-          value={customStartDate}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowStartPicker(false);
-            if (event.type === 'set' && date) {
-              setCustomStartDate(date);
-              if (date > customEndDate) {
-                setCustomEndDate(date);
-              }
-            }
-          }}
-          maximumDate={new Date()}
-        />
-      )}
-      {Platform.OS === 'android' && showEndPicker && (
-        <DateTimePicker
-          value={customEndDate}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowEndPicker(false);
-            if (event.type === 'set' && date) {
-              setCustomEndDate(date);
-            }
-          }}
-          minimumDate={customStartDate}
-          maximumDate={new Date()}
-        />
-      )}
-
-      {/* Yıl Picker Modal */}
-      <Modal
-        visible={showYearPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowYearPicker(false)}
-      >
-        <Pressable
-          style={styles.pickerModalOverlay}
-          onPress={() => setShowYearPicker(false)}
-        >
-          <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.pickerModalHeader}>
-              <Text variant="h3">{t('reports:period.selectYear')}</Text>
-              <TouchableOpacity onPress={() => setShowYearPicker(false)}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.yearGrid}>
-              {Array.from({ length: 12 }, (_, i) => 2020 + i).map((year) => {
-                const isSelected = year === new Date().getFullYear() + periodOffset;
-                return (
-                  <TouchableOpacity
-                    key={year}
-                    style={[styles.yearGridCell, isSelected && styles.yearGridCellActive]}
-                    onPress={() => goToYear(year)}
-                  >
-                    <Text
-                      variant="body"
-                      style={isSelected ? styles.yearGridTextActive : undefined}
-                    >
-                      {year}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Ay + Yıl Picker Modal */}
-      <Modal
-        visible={showMonthYearPicker}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowMonthYearPicker(false)}
-      >
-        <Pressable
-          style={styles.pickerModalOverlay}
-          onPress={() => setShowMonthYearPicker(false)}
-        >
-          <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.pickerModalHeader}>
-              <Text variant="h3">{t('reports:period.selectMonthYear')}</Text>
-              <TouchableOpacity onPress={() => setShowMonthYearPicker(false)}>
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Yıl seçici */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.yearScrollView}
-              contentContainerStyle={styles.yearScrollContent}
-            >
-              {Array.from({ length: 12 }, (_, i) => 2020 + i).map((year) => (
-                <TouchableOpacity
-                  key={year}
-                  style={[
-                    styles.yearChip,
-                    selectedYear === year && styles.yearChipActive,
-                  ]}
-                  onPress={() => setSelectedYear(year)}
-                >
-                  <Text
-                    variant="body"
-                    style={selectedYear === year ? styles.yearChipTextActive : styles.yearChipText}
-                  >
-                    {year}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {/* Ay grid */}
-            <View style={styles.monthGrid}>
-              {((() => { const m = t('common:date.monthsShort', { returnObjects: true }); return Array.isArray(m) ? m : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; })() as string[]).map((monthName, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.monthCell}
-                  onPress={() => {
-                    if (period === 'weekly') {
-                      goToWeekOfMonth(selectedYear, index);
-                    } else {
-                      goToMonth(selectedYear, index);
-                    }
-                  }}
-                >
-                  <Text variant="body">{monthName}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Günlük DatePicker Modal (iOS) */}
-      {Platform.OS === 'ios' && showDayPicker && (
-        <Modal
-          visible={showDayPicker}
-          transparent
-          animationType="slide"
-        >
-          <Pressable
-            style={styles.pickerModalOverlay}
-            onPress={() => setShowDayPicker(false)}
-          >
-            <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.pickerModalHeader}>
-                <Text variant="h3">{t('products:period.daily')}</Text>
-                <TouchableOpacity onPress={() => setShowDayPicker(false)}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <View style={{ alignItems: 'center' }}>
-                <DateTimePicker
-                  value={(() => {
-                    const now = new Date();
-                    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + periodOffset);
-                    return d;
-                  })()}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  themeVariant="light"
-                  accentColor={colors.primary}
-                  locale={locale}
-                  style={{ height: 350 }}
-                  onChange={(_, date) => { if (date) goToDay(date); }}
-                  maximumDate={new Date()}
-                />
-              </View>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
-
-      {/* Günlük DatePicker (Android) */}
-      {Platform.OS === 'android' && showDayPicker && (
-        <DateTimePicker
-          value={(() => {
-            const now = new Date();
-            return new Date(now.getFullYear(), now.getMonth(), now.getDate() + periodOffset);
-          })()}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowDayPicker(false);
-            if (event.type === 'set' && date) goToDay(date);
-          }}
-          maximumDate={new Date()}
-        />
-      )}
+      <ProductPeriodPickers
+        period={period}
+        periodOffset={periodOffset}
+        selectedYear={selectedYear}
+        setSelectedYear={setSelectedYear}
+        showYearPicker={showYearPicker}
+        setShowYearPicker={setShowYearPicker}
+        showMonthYearPicker={showMonthYearPicker}
+        setShowMonthYearPicker={setShowMonthYearPicker}
+        showDayPicker={showDayPicker}
+        setShowDayPicker={setShowDayPicker}
+        showStartPicker={showStartPicker}
+        setShowStartPicker={setShowStartPicker}
+        showEndPicker={showEndPicker}
+        setShowEndPicker={setShowEndPicker}
+        customStartDate={customStartDate}
+        setCustomStartDate={setCustomStartDate}
+        customEndDate={customEndDate}
+        setCustomEndDate={setCustomEndDate}
+        goToYear={goToYear}
+        goToMonth={goToMonth}
+        goToDay={goToDay}
+        goToWeekOfMonth={goToWeekOfMonth}
+        locale={locale}
+        t={{
+          selectYear: t('reports:period.selectYear'),
+          selectMonthYear: t('reports:period.selectMonthYear'),
+          daily: t('products:period.daily'),
+          startDate: t('products:period.startDate'),
+          endDate: t('products:period.endDate'),
+          ok: t('common:buttons.ok'),
+          monthsShort: (() => { const m = t('common:date.monthsShort', { returnObjects: true }); return Array.isArray(m) ? m : ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; })() as string[],
+        }}
+      />
 
       {/* FAB Backdrop */}
       {activeTab === 'active' && fabMenuVisible && (
@@ -1344,262 +823,12 @@ export default function UrunlerPage() {
           </Animated.View>
         </TouchableOpacity>
       )}
+      <UndoSnackbar
+        visible={undoSnackbar.visible}
+        message={undoSnackbar.message}
+        onUndo={undoDelete}
+        onDismiss={dismissDelete}
+      />
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  flatListContent: {
-    paddingBottom: spacing['3xl'],
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  sortButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  searchSection: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  tabSection: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  periodSection: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  periodNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
-  },
-  periodNavButton: {
-    padding: spacing.sm,
-  },
-  periodLabel: {
-    fontWeight: '600',
-    minWidth: 120,
-    textAlign: 'center',
-  },
-  customDateRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
-  },
-  datePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  datePickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  datePickerModal: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  datePickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  datePickerWrapper: {
-    alignItems: 'center',
-  },
-  listSection: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'],
-  },
-  // Picker Modal Styles
-  pickerModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  pickerModalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
-    padding: spacing.lg,
-    paddingBottom: spacing['2xl'],
-  },
-  pickerModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  yearGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  yearGridCell: {
-    width: '23%',
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  yearGridCellActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  yearGridTextActive: {
-    color: colors.surface,
-    fontWeight: '600',
-  },
-  yearScrollView: {
-    marginBottom: spacing.lg,
-  },
-  yearScrollContent: {
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xs,
-  },
-  yearChip: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  yearChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  yearChipText: {
-    color: colors.text,
-  },
-  yearChipTextActive: {
-    color: colors.surface,
-    fontWeight: '600',
-  },
-  monthGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  monthCell: {
-    width: '31%',
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  // Warning Styles
-  warningSection: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  warningBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.warning + '15',
-    borderWidth: 1,
-    borderColor: colors.warning + '40',
-    borderRadius: borderRadius.lg,
-    padding: spacing.sm,
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-  },
-  warningText: {
-    flex: 1,
-    color: colors.text,
-  },
-  // FAB Styles
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    zIndex: 10,
-  },
-  fabMenuContainer: {
-    position: 'absolute',
-    right: spacing.lg,
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-    zIndex: 9,
-  },
-  fabMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-    gap: spacing.sm,
-  },
-  fabMenuIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabMenuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
-});

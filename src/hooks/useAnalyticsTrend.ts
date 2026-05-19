@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
 import { getDateRange } from '@/lib/date';
 import { calculateIncomeSummary, isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
@@ -90,7 +91,7 @@ export function useAnalyticsTrend(
   }, [t]);
 
   const trendQuery = useQuery({
-    queryKey: ['analytics-trend', isletme?.id, period, filter?.type || null, filter?.id || null, dateRange?.startDate, dateRange?.endDate],
+    queryKey: queryKeys.analytics.trend(isletme?.id ?? '', period, filter?.type || null, filter?.id || null, dateRange?.startDate, dateRange?.endDate),
     queryFn: async () => {
       if (!isletme) return null;
 

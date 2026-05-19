@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
 import { Calendar, X, Package, ShoppingCart, Store, Share2, ChevronDown, ChevronUp } from 'lucide-react-native';
@@ -25,6 +25,7 @@ import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 type ReportDirection = 'alis' | 'satis';
 
@@ -61,6 +62,8 @@ export default function AlisSatisRaporPage() {
   });
 
   const activeReport = selectedDirection === 'alis' ? alisRaporu : satisRaporu;
+
+  const { refreshing, onRefresh } = usePullToRefresh(alisRaporu.refetch, satisRaporu.refetch);
 
   // Group items by category and sort
   const groupedItems = useMemo(() => {
@@ -216,7 +219,17 @@ export default function AlisSatisRaporPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
             <TabFilter

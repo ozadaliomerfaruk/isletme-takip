@@ -8,6 +8,7 @@
 import { useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/queryKeys';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
@@ -142,9 +143,9 @@ export function usePendingFormSave() {
 
         await dismissPending.mutateAsync(pendingIslem.id);
 
-        if (hesapId) queryClient.invalidateQueries({ queryKey: ['hesaplar'] });
-        if (cariId) queryClient.invalidateQueries({ queryKey: ['cariler'] });
-        if (personelId) queryClient.invalidateQueries({ queryKey: ['personel'] });
+        if (hesapId) queryClient.invalidateQueries({ queryKey: queryKeys.hesaplar.all() });
+        if (cariId) queryClient.invalidateQueries({ queryKey: queryKeys.cariler.all() });
+        if (personelId) queryClient.invalidateQueries({ queryKey: queryKeys.personel.all() });
 
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

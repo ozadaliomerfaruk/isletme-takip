@@ -25,11 +25,11 @@ export default function KategoriDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
-  usePagePermission({ module: 'kategoriler', action: 'update' });
   const { data: kategoriler } = useKategoriler();
   const updateKategori = useUpdateKategori();
 
   const kategori = kategoriler?.find((k) => k.id === id);
+  usePagePermission({ module: 'kategoriler', action: 'update', createdBy: kategori?.created_by });
 
   const [name, setName] = useState('');
   const [type, setType] = useState<KategoriType>('gelir');

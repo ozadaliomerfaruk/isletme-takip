@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
 import { Share2, Calendar, X } from 'lucide-react-native';
@@ -17,6 +17,7 @@ import { formatDateForDB } from '@/lib/date';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 type ReportType = 'gelir' | 'gider';
 
 export default function GelirGiderRaporPage() {
@@ -52,6 +53,8 @@ export default function GelirGiderRaporPage() {
   });
 
   const activeReport = selectedType === 'gelir' ? gelirRaporu : giderRaporu;
+
+  const { refreshing, onRefresh } = usePullToRefresh(gelirRaporu.refetch, giderRaporu.refetch);
 
   const handleCategoryPress = (kategoriId: string | null) => {
     const id = kategoriId || 'uncategorized';
@@ -94,7 +97,17 @@ export default function GelirGiderRaporPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
             <TabFilter

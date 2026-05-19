@@ -120,10 +120,6 @@ export function useUpdateUrun() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'urun');
-      // Kategori değiştiğinde raporlar da güncellensin
-      // (Raporlar artık urunler.kategori_id'yi doğrudan kullanıyor)
-      queryClient.invalidateQueries({ queryKey: ['category-report'] });
-      queryClient.invalidateQueries({ queryKey: ['hierarchical-category-report'] });
     },
   });
 }
@@ -235,8 +231,6 @@ export function usePermanentDeleteUrun() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'urun');
-      queryClient.invalidateQueries({ queryKey: ['archive', 'counts'] });
-      queryClient.invalidateQueries({ queryKey: ['urun_hareketleri'] });
     },
   });
 }

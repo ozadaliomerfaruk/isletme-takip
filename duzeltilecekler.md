@@ -172,4 +172,54 @@ Mevcut sistem asiri detayli: 13 modul × 5 aksiyon (create, update_own, update_a
 
 ---
 
-> Son guncelleme: 2026-05-18
+## Kod Incelemesi Bulgulari (2026-05-18)
+
+> 4 paralel ajan ile tum kod tabani taranarak tespit edildi.
+> Pratik = gercek kullanicilari etkiler, Teorik = ozel kosullar/kasitli manipulasyon gerektirir
+
+### Pratik Bulgular (DUZELTILECEK)
+
+| #    | Durum | Baslik                                              | Aciklama                                                                                                                                                                                                                   |
+| ---- | ----- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CR1  | [x]   | **PDF export cariName bos gorunuyor**               | `pdfExport.ts:127-129` — Operator precedence hatasi: `cari?.name \|\| islem.personel ? ...` seklinde yazilmis, `\|\|` ternary'den once calisiyor. Cari islemlerinde musteri adi yerine bos string yaziyor. Her PDF export'u etkiler. |
+| CR2  | [x]   | **Cift tiklama duplike islem olusturur**             | `useTransactionSubmit.ts:592` — `isSaving` state-based (async), hizli iki tiklama arasinda React henuz state guncellememis olabilir. `useRef` guard gerekli. |
+| CR3  | [x]   | **Arama sonuclari islem sonrasi guncellenmiyor**     | `queryKeys.ts:294-319` — `invalidationMap.islem.immediate`'de `'islemler-search'` eksik. Islem olusturup arama yapinca eski sonuclar gelir. |
+| CR4  | [x]   | **Save butonu kalici disabled kalabiliyor**           | `useQuickTransactionForm.ts:178-179` — Network hatasi + modal kapat/ac → `isSaving` reset olmuyor. Kullanici Save'e basamiyor, modali kapatip acmak gerekiyor ama o da cozmuyor. |
+| CR5  | [ ]   | **Nakit avans silmede kaynak hesap restore eksik**     | `perform_taksit_odeme` islem kaydi olusturmuyor, `delete_nakit_avans_with_reversal` ise `islemler`'den fuzzy match ile ariyor. Sonuc: `v_islem IS NULL` → kaynak hesaba para geri eklenmez. Nadir senaryo (avans silme) ama bakiye tutarsizligi yaratir. Cozum: `perform_taksit_odeme`'ye islem kaydi eklenmesi veya taksit tablosuna `source_hesap_id` FK eklenmesi gerekir. |
+| CR6  | [x]   | **Edit sayfasindan yetkisiz silme (multi-user)**     | `islemler/duzenle/[id].tsx:207-229` — Delete butonu `canDelete` kontrolu yapmiyor. Update-only shared user islem silebilir. |
+| CR7  | [x]   | **Ileri tarihli → normal donusum: veri kaybi riski** | `useTransactionSubmit.ts:643-656` — Once delete, sonra create. Create basarisiz olursa eski kayit kaybolur. Siralamayi tersine cevirmek lazim. |
+| CR8  | [ ]   | **Notlar RLS modul kontrolu eksik (multi-user)**     | `migrations/.../notlar_table.sql:40-54` — Shared user tum notlari okuyup yazabiliyor, modul permisyonu kontrol edilmiyor. Pratikte UI zaten modul kontrolu yapiyor (sayfa erisimi engelli), ama dogrudan API ile erisilebilir. Defense-in-depth icin entity_type→modul mapping'i RLS'e eklenebilir ama karmasik. |
+| CR9  | [x]   | **usePagePermission createdBy gecilmiyor**            | Tum `duzenle/[id].tsx` dosyalari — `can_update_own` kullanicisi kendi kaydini duzenleyemiyor, cunku `createdBy` parametresi hook'a verilmiyor. |
+
+### Dusuk Oncelikli / Yari-Pratik
+
+| #     | Durum | Baslik                                              | Aciklama                                                                                                                                                              |
+| ----- | ----- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CR10  | [ ]   | **Import partial batch slice hatasi**                | `useDataImport.ts:324` — RLS rejected row ortadan duserse yanlis islemler icin bakiye guncellenir. Dusuk olasilik ama gerceklesirse bakiye bozulur. |
+| CR11  | [ ]   | **useUpdateIslem non-atomic balance**                | `useIslemler.ts:659-684` — Client-side 3 adimli balance guncelleme. Network hatasi ortasinda kalirsa bakiye tutarsiz olur. Ideal cozum: tek RPC. |
+| CR12  | [ ]   | **Undo import urun stoku geri almaz**                | `useImportHistory.ts:361-373` — Import undo islemleri siler ama urun_hareketler ve stok miktarlari kalir. Import + urun takibi birlikte kullananlar icin. |
+| CR13  | [ ]   | **Import hash device-local**                         | `useImportHistory.ts:242-266` — AsyncStorage'da. Ikinci cihazdan ayni dosya → duplike islemler. |
+| CR14  | [ ]   | **signInWithApple race condition**                   | `useAuth.ts:690-742` — Manuel fetchOrCreateIsletme + onAuthStateChange ayni anda calisiyor. Dedup ref cogunlukla yakalir ama garantili degil. |
+
+### Teorik (Simdilik Bekleyebilir)
+
+| #     | Baslik                                                | Aciklama                                                                                                                                               |
+| ----- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| CR15  | **undo_import_batch ownership yok**                   | SECURITY DEFINER, UUID[] aliyor, isletme_id kontrolu yok. Ama UUID'ler tahmin edilemez (v4) ve sadece app uzerinden cagrilir. |
+| CR16  | **perform_taksit_odeme hesap ownership yok**           | Ayni pattern — UUID bilgisi + dogrudan API cagrisi gerektirir. |
+| CR17  | **id! non-null assertion detay sayfalarda**            | Expo Router normalde array dondurmez, deep link edge case. |
+| CR18  | **verify.tsx recovery flag timing**                    | Expired recovery link + spesifik zamanlama gerektirir. |
+| CR19  | **ileri_tarihli modul permission gap**                 | Multi-user'da `ileri_tarihli` modulu acik, `islemler` kapali → delete calisir. Cok spesifik senaryo. |
+
+### Bakiye Butunlugu Bulgulari (DUZELTILDI)
+
+| #     | Durum | Baslik                                                    | Aciklama                                                                                                                                                                                                                                                                                                         |
+| ----- | ----- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BAL1  | [x]   | **Import bakiye hatasi: iade/personel_satis hesap etkisi** | `useImportBalance.ts:115-126` — `calculateBalanceChanges` fonksiyonu `cari_alis_iade`, `cari_satis_iade`, `personel_satis` tipleri icin yanlis olarak hesap bakiyesini de degistiriyordu. Normal CRUD yolunda (`useIslemler.ts` updateBalances) bu tipler hesap bakiyesini degistirmez. Import ile eklenen bu tiplerdeki islemler hesap bakiyesini bozuyordu. Fix: Hesap satirlari kaldirildi. |
+| BAL2  | [x]   | **Hesaplar bakiye duzenleme kaldirildi**                    | `hesaplar/[id].tsx` — Mevcut bakiye otomatik hesaplanan bir deger, manuel duzenlemesine izin verilmemeliydi. BalanceEditorModal, handler fonksiyonlari, state'ler ve Pencil butonu tamamen kaldirildi. Cari ve personelde ise islem yapildiktan sonra baslangic bakiyesi duzenleme butonu gizlendi (sadece hic islem yokken duzenlenebilir). |
+| BAL3  | [x]   | **PDF/Excel cari ekstre borc/alacak kolonlari ters**        | `excelExport.ts` ve `pdfExport.ts` — `getCariDebitCredit` fonksiyonu musteri ve tedarikci icin borc/alacak kolonlarini standart muhasebe kurallarinin tersine atiyordu. Musteri: satis ALACAK'ta gosteriliyordu (dogru: BORC), tahsilat BORC'ta (dogru: ALACAK). Tedarikci: alis BORC'ta (dogru: ALACAK), odeme ALACAK'ta (dogru: BORC). Running balance, opening/closing balance gosterimi ve debitBalance/creditBalance hesaplamalari da duzeltildi. |
+| BAL4  | [x]   | **PDF/Excel personel ekstre running balance yanlis**         | `excelExport.ts` — Personel running balance hesap/tedarikci ile ayni formulu kullaniyordu (`credit +=, debit -=`) ama personel borc bakiyeli bir hesap (pozitif = personel bize borclu). Dogru formul: `debit +=, credit -=`. Ayrica bakiye gosterimi de duzeltildi: pozitif personel bakiyesi artik BORC kolonunda gosteriliyor (onceden ALACAK'taydı). pdfExport.ts'de de ayni duzeltmeler yapildi. |
+| BAL5  | [x]   | **Tedarikci ekstre: yanlis baslangic bakiyesi + isDebitNormal**  | `excelExport.ts` ve `pdfExport.ts` — `isDebitNormal` kosulu sadece musteri cariyi kapsiyordu (`cariType === 'musteri'`), tedarikci haric kaliyordu. DB'de tum cariler ayni konvansiyonu kullanir (pozitif = bize borclu). Running balance, debitBalance/creditBalance, opening/closing balance gosterimi icin `isDebitNormal` kosulu `entityType === 'cari' \|\| entityType === 'personel'` olarak duzeltildi. Excel'deki closing/opening balance satirlari da ayni branching eklendi. |
+| BAL6  | [x]   | **Ileri tarihli islemler doviz gosterimi hardcoded TRY**     | `IleriTarihliIslemlerSection.tsx` — Tum islem tipleri icin `item.hesap?.currency` kullaniliyordu. Cari islemleri icin `item.cari?.currency`, personel islemleri icin `item.personel?.currency` kullanilmasi gerekiyordu. `getTransactionCurrency` helper fonksiyonu eklendi, tutar gosterimi ve onay dialogi duzeltildi. |
+
+> Son guncelleme: 2026-05-19

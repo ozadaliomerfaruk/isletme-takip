@@ -29,8 +29,8 @@ export default function UrunDuzenlePage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['products', 'common', 'errors', 'navigation', 'transactions']);
-  usePagePermission({ module: 'urunler', action: 'update' });
   const { data: urun, isLoading } = useUrun(id);
+  usePagePermission({ module: 'urunler', action: 'update', createdBy: urun?.created_by });
   const updateUrun = useUpdateUrun();
 
   const [ad, setAd] = useState('');

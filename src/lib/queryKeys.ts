@@ -24,7 +24,7 @@ export const queryKeys = {
   // İşlemler
   islemler: {
     all: () => ['islemler'] as const,
-    list: (isletmeId: string, filters?: Record<string, unknown>) =>
+    list: (isletmeId: string, filters?: object) =>
       ['islemler', isletmeId, filters] as const,
     detail: (id: string) => ['islem', id] as const,
     byCari: (cariId: string, isletmeId: string) =>
@@ -33,33 +33,45 @@ export const queryKeys = {
       ['islemler', 'hesap', hesapId, isletmeId] as const,
     byPersonel: (personelId: string, isletmeId: string) =>
       ['islemler', 'personel', personelId, isletmeId] as const,
+    allByCari: (cariId: string, isletmeId: string) =>
+      ['islemler', 'cari', 'all', cariId, isletmeId] as const,
+    allByPersonel: (personelId: string, isletmeId: string) =>
+      ['islemler', 'personel', 'all', personelId, isletmeId] as const,
+    search: (isletmeId: string, query: string) =>
+      ['islemler-search', isletmeId, query] as const,
   },
 
   // Hesaplar
   hesaplar: {
     all: () => ['hesaplar'] as const,
-    list: (isletmeId: string) => ['hesaplar', isletmeId] as const,
-    detail: (id: string) => ['hesap', id] as const,
+    list: (isletmeId: string, includePassive?: boolean, includeArchived?: boolean) =>
+      ['hesaplar', isletmeId, includePassive, includeArchived] as const,
+    detail: (id: string, isletmeId?: string) => ['hesap', id, isletmeId] as const,
+    archived: (isletmeId: string) => ['hesaplar', 'archived', isletmeId] as const,
   },
 
   // Cariler
   cariler: {
     all: () => ['cariler'] as const,
-    list: (isletmeId: string, type?: string) => ['cariler', isletmeId, type] as const,
-    detail: (id: string) => ['cari', id] as const,
+    list: (isletmeId: string, type?: string, includePassive?: boolean, includeArchived?: boolean) =>
+      ['cariler', isletmeId, type, includePassive, includeArchived] as const,
+    detail: (id: string, isletmeId?: string) => ['cari', id, isletmeId] as const,
+    archived: (isletmeId: string, type?: string) => ['cariler', 'archived', isletmeId, type] as const,
   },
 
   // Personel
   personel: {
     all: () => ['personel'] as const,
-    list: (isletmeId: string) => ['personel', isletmeId] as const,
-    detail: (id: string) => ['personel-detail', id] as const,
+    list: (isletmeId: string, includePassive?: boolean, includeArchived?: boolean) =>
+      ['personel', isletmeId, includePassive, includeArchived] as const,
+    detail: (id: string, isletmeId?: string) => ['personel-detail', id, isletmeId] as const,
+    archived: (isletmeId: string) => ['personel', 'archived', isletmeId] as const,
   },
 
   // Kategoriler
   kategoriler: {
     all: () => ['kategoriler'] as const,
-    list: (isletmeId: string) => ['kategoriler', isletmeId] as const,
+    list: (isletmeId: string, type?: string) => ['kategoriler', isletmeId, type] as const,
     detail: (id: string) => ['kategori', id] as const,
   },
 
@@ -67,12 +79,30 @@ export const queryKeys = {
   reports: {
     monthSummary: (isletmeId: string, period: string, offset: number, startDate: string, endDate: string) =>
       ['month-summary', isletmeId, period, offset, startDate, endDate] as const,
-    categoryReport: (isletmeId: string, type: string, startDate: string, endDate: string) =>
-      ['category-report', isletmeId, type, startDate, endDate] as const,
-    categoryTransactions: (isletmeId: string, kategoriId: string, type: string, startDate: string, endDate: string) =>
-      ['category-transactions', isletmeId, kategoriId, type, startDate, endDate] as const,
+    allKategoriler: (isletmeId: string, type: string) =>
+      ['all-kategoriler', isletmeId, type] as const,
+    categoryReport: (isletmeId: string, type: string, source: string, startDate: string, endDate: string) =>
+      ['category-report', isletmeId, type, source, startDate, endDate] as const,
+    categoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
+      ['category-report-returns', isletmeId, type, startDate, endDate] as const,
+    hierarchicalCategoryReport: (isletmeId: string, type: string, source: string, startDate: string, endDate: string) =>
+      ['hierarchical-category-report', isletmeId, type, source, startDate, endDate] as const,
+    hierarchicalCategoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
+      ['hierarchical-category-report-returns', isletmeId, type, startDate, endDate] as const,
+    categoryTransactions: (isletmeId: string, kategoriId: string, type: string, source: string, startDate: string, endDate: string) =>
+      ['category-transactions', isletmeId, kategoriId, type, source, startDate, endDate] as const,
+    multiCategoryTransactions: (isletmeId: string, kategoriIds: string, type: string, source: string, startDate: string, endDate: string) =>
+      ['multi-category-transactions', isletmeId, kategoriIds, type, source, startDate, endDate] as const,
+    subCategories: (isletmeId: string, parentKategoriId: string, type: string) =>
+      ['sub-categories', isletmeId, parentKategoriId, type] as const,
+    subCategoryReportRpc: (isletmeId: string, kategoriIds: string, type: string, source: string, startDate: string, endDate: string) =>
+      ['sub-category-report-rpc', isletmeId, kategoriIds, type, source, startDate, endDate] as const,
     cashFlowByCategory: (isletmeId: string, startDate: string, endDate: string) =>
       ['cash-flow-by-category', isletmeId, startDate, endDate] as const,
+    productReport: (isletmeId: string, direction: string, startDate: string, endDate: string) =>
+      ['product-report', isletmeId, direction, startDate, endDate] as const,
+    productReportReturns: (isletmeId: string, direction: string, startDate: string, endDate: string) =>
+      ['product-report-returns', isletmeId, direction, startDate, endDate] as const,
   },
 
   // Dashboard
@@ -83,10 +113,10 @@ export const queryKeys = {
   // Analytics
   analytics: {
     all: () => ['analytics'] as const,
-    periods: (isletmeId: string, period: string) =>
-      ['analytics-periods', isletmeId, period] as const,
-    trend: (isletmeId: string, period: string) =>
-      ['analytics-trend', isletmeId, period] as const,
+    periods: (isletmeId: string, period: string, baseCurrency?: string, startDate?: string, endDate?: string) =>
+      ['analytics-periods', isletmeId, period, baseCurrency, startDate, endDate] as const,
+    trend: (isletmeId: string, period: string, filterType?: string | null, filterId?: string | null, startDate?: string, endDate?: string) =>
+      ['analytics-trend', isletmeId, period, filterType, filterId, startDate, endDate] as const,
   },
 
   // İleri Tarihli İşlemler
@@ -134,6 +164,7 @@ export const queryKeys = {
     all: () => ['urunler'] as const,
     list: (isletmeId: string) => ['urunler', isletmeId] as const,
     detail: (id: string) => ['urun', id] as const,
+    archived: (isletmeId: string) => ['urunler', 'archived', isletmeId] as const,
   },
 
   // Urun Hareketler
@@ -147,6 +178,10 @@ export const queryKeys = {
       ['urun-hareketler', 'aylik-ozet', urunId, isletmeId] as const,
     donemOzet: (isletmeId: string, startDate: string, endDate: string) =>
       ['urun-hareketler', 'donem-ozet', isletmeId, startDate, endDate] as const,
+    islemlerWithUrun: (stableKey: string, isletmeId: string) =>
+      ['urun-hareketler', 'islemler-with-urun', stableKey, isletmeId] as const,
+    islemlerWithUrunByCari: (cariId: string, isletmeId: string) =>
+      ['urun-hareketler', 'islemler-with-urun-by-cari', cariId, isletmeId] as const,
   },
 
   // Ürün Alias'ları
@@ -192,6 +227,47 @@ export const queryKeys = {
     all: () => ['profiles'] as const,
     detail: (userId: string) => ['profile', userId] as const,
   },
+
+  // Notlar
+  notlar: {
+    all: () => ['notlar'] as const,
+    list: (isletmeId: string, entityType?: string, entityId?: string) =>
+      ['notlar', isletmeId, entityType, entityId] as const,
+    byEntity: (isletmeId: string, entityType: string, entityId: string) =>
+      ['notlar', 'byEntity', isletmeId, entityType, entityId] as const,
+  },
+
+  // Arşiv
+  archive: {
+    all: () => ['archive'] as const,
+    counts: (isletmeId: string) => ['archive', 'counts', isletmeId] as const,
+  },
+
+  // Döviz Kurları
+  exchangeRates: {
+    all: () => ['exchange-rates'] as const,
+  },
+
+  // Personel İzin Kotaları
+  personelLeaveQuotas: {
+    all: () => ['personel-leave-quotas'] as const,
+    list: (isletmeId: string) => ['personel-leave-quotas', isletmeId] as const,
+  },
+
+  // Kalan Kullanım
+  remainingUsage: {
+    all: () => ['remaining-usage'] as const,
+    detail: (userId: string) => ['remaining-usage', userId] as const,
+  },
+
+  // Denetim Günlüğü
+  auditLog: {
+    all: () => ['audit-log'] as const,
+    deleted: (isletmeId: string, filters?: object) =>
+      ['audit-log', 'deleted', isletmeId, filters] as const,
+    edited: (isletmeId: string, filters?: object) =>
+      ['audit-log', 'edited', isletmeId, filters] as const,
+  },
 } as const;
 
 // ============================================================================
@@ -219,6 +295,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
   islem: {
     immediate: [
       'islemler',
+      'islemler-search',
       'islem',
       'hesaplar',
       'hesap',
@@ -373,8 +450,12 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'urunler',
       'urun',
       'urun-hareketler',
+      'archive',
     ],
-    deferred: [],
+    deferred: [
+      'category-report',
+      'hierarchical-category-report',
+    ],
   },
 
   // Urun hareket değişikliği
@@ -385,6 +466,14 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'urun',
       'product-report',
       'product-report-returns',
+    ],
+    deferred: [],
+  },
+
+  // Not değişikliği
+  not: {
+    immediate: [
+      'notlar',
     ],
     deferred: [],
   },
@@ -435,6 +524,16 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     deferred: [
       'profile',
     ],
+  },
+
+  // Personel izin kotası değişikliği
+  personelLeaveQuota: {
+    immediate: [
+      'personel-leave-quotas',
+      'personel',
+      'personel-detail',
+    ],
+    deferred: [],
   },
 } as const;
 
@@ -550,6 +649,16 @@ export const createInvalidators = (queryClient: QueryClient) => ({
    * Ürün mutation'ları için
    */
   onUrunMutation: () => invalidateRelatedQueries(queryClient, 'urun'),
+
+  /**
+   * Not mutation'ları için
+   */
+  onNotMutation: () => invalidateRelatedQueries(queryClient, 'not'),
+
+  /**
+   * Personel izin kotası mutation'ları için
+   */
+  onPersonelLeaveQuotaMutation: () => invalidateRelatedQueries(queryClient, 'personelLeaveQuota'),
 
   /**
    * Urun hareket mutation'ları için

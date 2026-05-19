@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { queryKeys } from '@/lib/queryKeys';
 import { useFinancialSummary } from './useFinancialSummary';
 import { useHesaplar } from './useHesaplar';
 import { useCariler } from './useCariler';
@@ -54,7 +55,7 @@ export function useAnalyticsSummary(
 
   // Fetch current + previous period data via RPC (no 1000-row limit)
   const periodsQuery = useQuery({
-    queryKey: ['analytics-periods', isletme?.id, period, baseCurrency, dateRange?.startDate, dateRange?.endDate],
+    queryKey: queryKeys.analytics.periods(isletme?.id ?? '', period, baseCurrency, dateRange?.startDate, dateRange?.endDate),
     queryFn: async () => {
       if (!isletme) return null;
 

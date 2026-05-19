@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Stack } from 'expo-router';
 import { Share2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import { exportGenelDurumToExcel, GenelDurumExcelTranslations } from '@/lib/repo
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 export default function GenelRaporPage() {
   usePagePermission({ module: 'raporlar' });
@@ -25,10 +26,12 @@ export default function GenelRaporPage() {
   const { currency: baseCurrency } = useSettings();
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: hesaplar } = useHesaplar(false, false);
-  const { data: exchangeRatesData } = useExchangeRates();
+  const { data: hesaplar, refetch: refetchHesaplar } = useHesaplar(false, false);
+  const { data: exchangeRatesData, refetch: refetchRates } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
   const financialSummary = useFinancialSummary();
+
+  const { refreshing, onRefresh } = usePullToRefresh(refetchHesaplar, refetchRates);
 
   const normalHesaplar = hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
   const krediKartiHesaplar = hesaplar?.filter(h => h.type === 'kredi_karti') || [];
@@ -127,7 +130,17 @@ export default function GenelRaporPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
           <GenelTabContent
             dateRange={state.dateRange}
             period={state.period}

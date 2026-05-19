@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
@@ -12,7 +12,7 @@ export function useHesaplar(includePassive: boolean = false, includeArchived: bo
   const { isletme, isletmeLoading } = useAuthContext();
 
   const query = useQuery({
-    queryKey: ['hesaplar', isletme?.id, includePassive, includeArchived],
+    queryKey: queryKeys.hesaplar.list(isletme?.id ?? '', includePassive, includeArchived),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -54,7 +54,7 @@ export function useHesap(id: string | undefined) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['hesap', id, isletme?.id],
+    queryKey: queryKeys.hesaplar.detail(id ?? '', isletme?.id ?? ''),
     queryFn: async () => {
       if (!id) return null;
 

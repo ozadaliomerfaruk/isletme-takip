@@ -6,8 +6,6 @@ import { withTelemetrySafe } from './supabaseTelemetry';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
-// Web için localStorage, native için AsyncStorage kullan
-// SecureStore 2KB limitini aşıyor, AsyncStorage kullanıyoruz
 const SupabaseStorageAdapter = {
   getItem: async (key: string): Promise<string | null> => {
     if (Platform.OS === 'web') {

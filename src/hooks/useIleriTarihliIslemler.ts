@@ -36,8 +36,8 @@ export function useIleriTarihliIslemler() {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name),
-          personel:personel(id,first_name,last_name)
+          cari:cariler(id,name,currency),
+          personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -73,8 +73,8 @@ export function useIleriTarihliIslem(id: string | undefined) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name),
-          personel:personel(id,first_name,last_name)
+          cari:cariler(id,name,currency),
+          personel:personel(id,first_name,last_name,currency)
         `)
         .eq('id', id)
         .eq('isletme_id', isletme.id)
@@ -105,8 +105,8 @@ export function useIleriTarihliIslemlerByHesap(hesapId: string) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name),
-          personel:personel(id,first_name,last_name)
+          cari:cariler(id,name,currency),
+          personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -138,8 +138,8 @@ export function useIleriTarihliIslemlerByCari(cariId: string) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name),
-          personel:personel(id,first_name,last_name)
+          cari:cariler(id,name,currency),
+          personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -171,8 +171,8 @@ export function useIleriTarihliIslemlerByPersonel(personelId: string) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name),
-          personel:personel(id,first_name,last_name)
+          cari:cariler(id,name,currency),
+          personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
         .eq('status', 'pending')
@@ -217,8 +217,8 @@ export function useTodayIleriTarihliIslemler() {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name),
-          personel:personel(id,first_name,last_name)
+          cari:cariler(id,name,currency),
+          personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
         .eq('scheduled_date', today)

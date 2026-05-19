@@ -11,7 +11,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import type {
   CariLinkWithDetails,
   CariLinkStatus,
@@ -34,7 +34,7 @@ export function useCariLinks() {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['cari-links', isletme?.id],
+    queryKey: queryKeys.cariSharing.list(isletme?.id ?? ''),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -64,7 +64,7 @@ export function useLinkedCariler() {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['linked-cariler', isletme?.id],
+    queryKey: queryKeys.cariSharing.linkedCariler(isletme?.id ?? ''),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -92,7 +92,7 @@ export function useCariLinkStatus(cariId: string | undefined) {
   const { isletme } = useAuthContext();
 
   return useQuery({
-    queryKey: ['cari-link-status', isletme?.id, cariId],
+    queryKey: queryKeys.cariSharing.status(isletme?.id ?? '', cariId ?? ''),
     queryFn: async (): Promise<CariLinkStatus> => {
       if (!isletme || !cariId) {
         return { is_linked: false, link: null, permission: null, is_owner: false };

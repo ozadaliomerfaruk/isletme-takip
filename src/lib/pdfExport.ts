@@ -88,7 +88,7 @@ export function prepareStatementData(options: PdfExportOptions): PdfStatementDat
     } else if (entityType === 'cari' && cariType) {
       const needsInvert = shouldInvertTransaction(islem.isletme_id, currentIsletmeId, typeMismatch ?? false);
       if (needsInvert) {
-        effectiveIslem = { ...islem, type: invertCariTransactionType(islem.type as any) };
+        effectiveIslem = { ...islem, type: invertCariTransactionType(islem.type) };
       }
       debitCredit = getCariDebitCredit(effectiveIslem, cariType);
     } else {
@@ -97,20 +97,15 @@ export function prepareStatementData(options: PdfExportOptions): PdfStatementDat
 
     const { debit, credit } = debitCredit;
 
-    if (entityType === 'hesap') {
+    // Borç bakiyeli: cari + personel (DB'de pozitif = bize borçlu)
+    // Alacak bakiyeli: hesap (DB'de pozitif = varlık)
+    const isDebitNormal = entityType === 'cari' || entityType === 'personel';
+    if (isDebitNormal) {
+      if (debit) runningBalance += debit;
+      if (credit) runningBalance -= credit;
+    } else {
       if (credit) runningBalance += credit;
       if (debit) runningBalance -= debit;
-    } else if (entityType === 'cari') {
-      if (cariType === 'tedarikci') {
-        if (debit) runningBalance -= debit;
-        if (credit) runningBalance += credit;
-      } else {
-        if (credit) runningBalance += credit;
-        if (debit) runningBalance -= debit;
-      }
-    } else {
-      if (credit) runningBalance -= credit;
-      if (debit) runningBalance += debit;
     }
 
     if (debit) totalDebit += debit;
@@ -124,13 +119,18 @@ export function prepareStatementData(options: PdfExportOptions): PdfStatementDat
       description: islem.description || '',
       category: islem.kategori?.name || '',
       account: islem.hesap?.name || '',
-      cariName: islem.cari?.name || islem.personel
-        ? `${islem.personel?.first_name || ''} ${islem.personel?.last_name || ''}`.trim()
-        : '',
+      cariName: islem.cari?.name ||
+        (islem.personel
+          ? `${islem.personel?.first_name || ''} ${islem.personel?.last_name || ''}`.trim()
+          : ''),
       debit,
       credit,
-      debitBalance: runningBalance < 0 ? Math.abs(runningBalance) : null,
-      creditBalance: runningBalance >= 0 ? runningBalance : null,
+      debitBalance: isDebitNormal
+        ? (runningBalance > 0 ? runningBalance : null)
+        : (runningBalance < 0 ? Math.abs(runningBalance) : null),
+      creditBalance: isDebitNormal
+        ? (runningBalance < 0 ? Math.abs(runningBalance) : null)
+        : (runningBalance >= 0 ? runningBalance : null),
     });
   });
 
@@ -143,7 +143,7 @@ function fmt(amount: number | null, currency?: Currency | string): string {
 }
 
 export function generatePdfHtml(options: PdfExportOptions): string {
-  const { entityName, isletmeName, startDate, endDate, entityCurrency, phone, translations } = options;
+  const { entityType, entityName, isletmeName, startDate, endDate, entityCurrency, cariType, phone, translations } = options;
   const data = prepareStatementData(options);
   const now = new Date();
   const dateStr = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -151,10 +151,24 @@ export function generatePdfHtml(options: PdfExportOptions): string {
   const startFmt = formatDateShort(startDate);
   const endFmt = formatDateShort(endDate);
 
-  const openingDebit = data.openingBalance < 0 ? fmt(Math.abs(data.openingBalance), entityCurrency) : '';
-  const openingCredit = data.openingBalance >= 0 ? fmt(data.openingBalance, entityCurrency) : '';
-  const closingDebit = data.closingBalance < 0 ? fmt(Math.abs(data.closingBalance), entityCurrency) : '';
-  const closingCredit = data.closingBalance >= 0 ? fmt(data.closingBalance, entityCurrency) : '';
+  // Borç bakiyeli: cari + personel (DB'de pozitif = bize borçlu → BORÇ kolonu)
+  // Alacak bakiyeli: hesap (DB'de pozitif = varlık → ALACAK kolonu)
+  const isDebitNormal = entityType === 'cari' || entityType === 'personel';
+  let openingDebit: string;
+  let openingCredit: string;
+  let closingDebit: string;
+  let closingCredit: string;
+  if (isDebitNormal) {
+    openingDebit = data.openingBalance > 0 ? fmt(data.openingBalance, entityCurrency) : '';
+    openingCredit = data.openingBalance < 0 ? fmt(Math.abs(data.openingBalance), entityCurrency) : '';
+    closingDebit = data.closingBalance > 0 ? fmt(data.closingBalance, entityCurrency) : '';
+    closingCredit = data.closingBalance < 0 ? fmt(Math.abs(data.closingBalance), entityCurrency) : '';
+  } else {
+    openingDebit = data.openingBalance < 0 ? fmt(Math.abs(data.openingBalance), entityCurrency) : '';
+    openingCredit = data.openingBalance >= 0 ? fmt(data.openingBalance, entityCurrency) : '';
+    closingDebit = data.closingBalance < 0 ? fmt(Math.abs(data.closingBalance), entityCurrency) : '';
+    closingCredit = data.closingBalance >= 0 ? fmt(data.closingBalance, entityCurrency) : '';
+  }
 
   const transactionRows = data.rows.map((row) => `
     <tr>

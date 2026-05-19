@@ -274,6 +274,7 @@ export function useQuickTransactionForm({
   // Reset state when modal closes - only depends on visible (matches original behavior)
   useEffect(() => {
     if (!visible) {
+      setIsSaving(false);
       const timer = setTimeout(() => {
         resetFormRef.current();
       }, 300);

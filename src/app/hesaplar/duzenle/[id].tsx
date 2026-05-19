@@ -40,10 +40,9 @@ const getHesapTypeConfig = (type: HesapType) => {
 export default function HesapDuzenlePage() {
   const router = useRouter();
   const { t } = useTranslation(['accounts', 'common', 'errors']);
-  usePagePermission({ module: 'hesaplar', action: 'update' });
-
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: hesap, isLoading } = useHesap(id);
+  usePagePermission({ module: 'hesaplar', action: 'update', createdBy: hesap?.created_by });
   const updateHesap = useUpdateHesap();
 
   const [name, setName] = useState('');
