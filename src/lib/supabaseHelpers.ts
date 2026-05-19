@@ -20,9 +20,8 @@ const FETCH_PAGE_SIZE = 500;
  *   supabase.from('islemler').select('*').eq('isletme_id', id).order('date')
  * );
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fetchAllPages<T>(
-  queryFactory: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }> },
+  queryFactory: () => { range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }> },
 ): Promise<T[]> {
   let allData: T[] = [];
   let page = 0;

@@ -40,7 +40,7 @@ export function useNakitAvanslarByKrediKarti(krediKartiId: string | undefined) {
       if (error) throw error;
 
       // Normalize data
-      return (data || []).map((item: any) => ({
+      return (data || []).map((item) => ({
         ...item,
         kredi_karti: Array.isArray(item.kredi_karti) ? item.kredi_karti[0] || null : item.kredi_karti,
         hedef_hesap: Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] || null : item.hedef_hesap,

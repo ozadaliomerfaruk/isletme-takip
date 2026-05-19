@@ -82,8 +82,8 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
         permissions,
       });
       onClose();
-    } catch (error: any) {
-      Alert.alert(t('common:status.error'), error?.message ?? t('common:status.error'));
+    } catch (error) {
+      Alert.alert(t('common:status.error'), error instanceof Error ? error.message : t('common:status.error'));
     }
   };
 

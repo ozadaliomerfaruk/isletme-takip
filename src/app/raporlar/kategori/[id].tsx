@@ -192,8 +192,10 @@ export default function KategoriDetayPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   // Filtrelenmiş toplam (kategori-spesifik tutarları kullan)
-  const filteredTotal = filteredIslemler?.reduce((acc, islem: any) => {
-    const amount = islem._categoryAmount !== undefined ? islem._categoryAmount : Number(islem.amount);
+  const filteredTotal = filteredIslemler?.reduce((acc, islem) => {
+    const amount = (islem as { _categoryAmount?: number })._categoryAmount !== undefined
+      ? (islem as { _categoryAmount: number })._categoryAmount
+      : Number(islem.amount);
     return acc + amount;
   }, 0) ?? 0;
   const filteredCount = filteredIslemler?.length ?? 0;

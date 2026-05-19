@@ -101,8 +101,7 @@ export function ReviewProvider({ children }: ReviewProviderProps) {
   const triggerReviewIfEligible = useCallback(async () => {
     try {
       // Get transaction count from cache
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const cachedData = queryClient.getQueryData<any[]>(['islemler', isletme?.id, undefined]);
+      const cachedData = queryClient.getQueryData<unknown[]>(['islemler', isletme?.id, undefined]);
       const transactionCount = cachedData?.length ?? 0;
 
       console.log('[ReviewProvider] Checking eligibility, transaction count:', transactionCount);

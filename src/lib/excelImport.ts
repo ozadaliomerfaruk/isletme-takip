@@ -529,7 +529,7 @@ interface ColumnIndices {
   birim: number;
 }
 
-function findColumnIndices(headerRow: any[]): ColumnIndices | null {
+function findColumnIndices(headerRow: (string | number | boolean | Date | null | undefined)[]): ColumnIndices | null {
   const indices: Partial<ColumnIndices> = {};
 
   // Debug: Header satırını logla
@@ -641,7 +641,8 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
   const workbook = XLSX.read(fileBuffer, { type: 'array' });
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
-  const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+  type CellValue = string | number | boolean | Date | null | undefined;
+  const rawData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as CellValue[][];
 
   const errors: string[] = [];
   const transactions: ParsedTransaction[] = [];
@@ -952,10 +953,10 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         if (!karsiHesapTransactionTypes.has(karsiHesap)) {
           karsiHesapTransactionTypes.set(karsiHesap, new Set());
         }
-        karsiHesapTransactionTypes.get(karsiHesap)!.add(type);
+        if (type) karsiHesapTransactionTypes.get(karsiHesap)!.add(type);
       }
       if (category) uniqueCategories.add(category);
-      transactionTypes[type] = (transactionTypes[type] || 0) + 1;
+      if (type) transactionTypes[type] = (transactionTypes[type] || 0) + 1;
 
       // Tarih geçersizse de işlemi ekle (önizlemede gösterilecek, import'ta atlanacak)
       // timestamp kolonu için YYYY-MM-DDTHH:MM:SS formatı kullan (saat bilgisi korunur)

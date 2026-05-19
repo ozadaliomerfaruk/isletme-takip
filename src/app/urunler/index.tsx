@@ -1,7 +1,7 @@
 ﻿import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
 import { Text, Button, Input, EmptyState, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
@@ -344,7 +344,7 @@ export default function UrunlerPage() {
         icon: <Edit3 size={20} color={colors.primary} />,
         onPress: () => {
           if (actionSheetUrun) {
-            router.push(`/urunler/duzenle/${actionSheetUrun.id}` as any);
+            router.push(`/urunler/duzenle/${actionSheetUrun.id}` as Href);
           }
         },
       });
@@ -436,7 +436,7 @@ export default function UrunlerPage() {
   }, []);
 
   const handleViewMovements = useCallback((urunId: string) => {
-    router.push(`/urunler/${urunId}` as any);
+    router.push(`/urunler/${urunId}` as Href);
   }, [router]);
 
   // FlatList renderItem for active products
@@ -507,7 +507,7 @@ export default function UrunlerPage() {
               size="sm"
               icon={<Plus size={18} color={colors.white} />}
               iconPosition="left"
-              onPress={() => router.push('/urunler/ekle' as any)}
+              onPress={() => router.push('/urunler/ekle' as Href)}
             >
               {t('common:buttons.add')}
             </Button>
@@ -619,7 +619,7 @@ export default function UrunlerPage() {
             title={t('products:empty.title')}
             description={t('products:empty.description')}
             actionLabel={t('products:addProduct')}
-            onAction={() => router.push('/urunler/ekle' as any)}
+            onAction={() => router.push('/urunler/ekle' as Href)}
           />
         </View>
       );
@@ -756,7 +756,7 @@ export default function UrunlerPage() {
               onPress: () => {
                 haptics.light();
                 setFabMenuVisible(false);
-                router.push('/urunler/toplu-giris' as any);
+                router.push('/urunler/toplu-giris' as Href);
               },
               index: 1,
             },
@@ -766,7 +766,7 @@ export default function UrunlerPage() {
               onPress: () => {
                 haptics.light();
                 setFabMenuVisible(false);
-                router.push('/urunler/toplu-cikis' as any);
+                router.push('/urunler/toplu-cikis' as Href);
               },
               index: 0,
             },

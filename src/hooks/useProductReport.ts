@@ -122,7 +122,7 @@ export function useProductReport(
         return 0;
       }
 
-      return (data || []).reduce((sum: number, row: any) =>
+      return (data || []).reduce((sum: number, row: { toplam_tutar?: number | string }) =>
         sum + (Number(row.toplam_tutar) || 0), 0);
     },
     enabled: !!isletme && !!startDate && !!endDate,

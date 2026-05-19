@@ -8,7 +8,7 @@ jest.mock('@/hooks/useSettings', () => ({
 }));
 
 jest.mock('i18next', () => ({
-  t: (key: string, opts?: any) => {
+  t: (key: string, opts?: Record<string, unknown>) => {
     if (opts?.returnObjects) return undefined;
     return key;
   },

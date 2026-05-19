@@ -145,8 +145,7 @@ function needsHesapForType(type: TransactionType): boolean {
   ].includes(type);
 }
 
-// Helper: Strip fields not supported by ileri_tarihli_islemler table
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- works with dynamic transaction data object
 function stripScheduledUnsupportedFields(data: any): any {
   const { source_currency, target_currency, exchange_rate, photo_path, date_end, ...rest } = data;
   return rest;
@@ -270,7 +269,7 @@ export function useTransactionSubmit({
       const apiType = mapTypeToApiType(type, odemeHedefType);
       const needsHesap = needsHesapInData(type);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamically built per transaction type, consumed by typed mutateAsync calls
       const data: any = {
         type: apiType,
         amount: parsedAmount,

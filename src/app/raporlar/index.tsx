@@ -8,9 +8,9 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import { ChevronLeft, ChevronRight, X, Calendar } from 'lucide-react-native';
 import { Text, TabFilter, Button } from '@/components/ui';
 import { FinanceKPIGrid, TrendChartWidget, CategoryDonutWidget } from '@/widgets/finance';
@@ -75,8 +75,7 @@ export default function RaporlarPage() {
   // Widget navigation helper
   const handleNavigate = useCallback((route: string, params?: Record<string, string>) => {
     router.push({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pathname: route as any,
+      pathname: route,
       params: {
         period: widgetPeriod,
         periodOffset: String(periodOffset),
@@ -84,20 +83,19 @@ export default function RaporlarPage() {
         endDate: dateRange.endDate,
         ...params,
       },
-    });
+    } as Href);
   }, [router, widgetPeriod, periodOffset, dateRange]);
 
   const handleExplorePress = useCallback((route: string) => {
     router.push({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      pathname: route as any,
+      pathname: route,
       params: {
         period: widgetPeriod,
         periodOffset: String(periodOffset),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       },
-    });
+    } as Href);
   }, [router, widgetPeriod, periodOffset, dateRange]);
 
   // Quick period selection
@@ -120,7 +118,7 @@ export default function RaporlarPage() {
     }
   };
 
-  const handleDailyDateChange = (event: any, selectedDate?: Date) => {
+  const handleDailyDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowDailyDatePicker(false);
       if (event.type === 'set' && selectedDate) {

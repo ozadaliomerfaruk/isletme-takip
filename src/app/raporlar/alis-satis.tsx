@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useRouter, Href } from 'expo-router';
 import { Calendar, X, Package, ShoppingCart, Store, Share2, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, Card, Button } from '@/components/ui';
@@ -407,7 +407,7 @@ export default function AlisSatisRaporPage() {
                         item={item}
                         direction={selectedDirection}
                         t={t}
-                        onPress={() => router.push(`/urunler/${item.urunId}` as any)}
+                        onPress={() => router.push(`/urunler/${item.urunId}` as Href)}
                       />
                     ))}
                   </View>
@@ -512,7 +512,7 @@ function ProductReportCard({
 }: {
   item: ProductReportItem;
   direction: ReportDirection;
-  t: (key: string, opts?: any) => string;
+  t: (key: string, opts?: Record<string, unknown>) => string;
   onPress?: () => void;
 }) {
   const barColor = direction === 'alis' ? colors.orange : colors.success;

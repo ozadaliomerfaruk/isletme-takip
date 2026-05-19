@@ -9,7 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   Package,
@@ -489,7 +489,7 @@ export default function UrunDetayPage() {
                 style={styles.menuItem}
                 onPress={() => {
                   setMenuVisible(false);
-                  router.push(`/urunler/duzenle/${id}` as any);
+                  router.push(`/urunler/duzenle/${id}` as Href);
                 }}
               >
                 <Pencil size={20} color={colors.text} />

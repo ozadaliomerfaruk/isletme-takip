@@ -175,7 +175,7 @@ export function useCategoryReport(
       }
 
       // Sum all return amounts
-      const total = (data || []).reduce((sum: number, row: any) =>
+      const total = (data || []).reduce((sum: number, row: { total_amount?: number | string }) =>
         sum + (Number(row.total_amount) || 0), 0);
       if (__DEV__) console.log('[useCategoryReport]', type, 'returns total:', total);
       return total;
@@ -396,7 +396,7 @@ export function useHierarchicalCategoryReport(
         return 0;
       }
 
-      return (data || []).reduce((sum: number, row: any) =>
+      return (data || []).reduce((sum: number, row: { total_amount?: number | string }) =>
         sum + (Number(row.total_amount) || 0), 0);
     },
     enabled: !!isletme && !!startDate && !!endDate && returnTypes.length > 0,
@@ -715,7 +715,7 @@ export function useCategoryTransactions(
           .in('urunler.kategori_id', allUrunKategoriIds)
           .in('islem_id', productIslemIdList);
 
-        (categoryHareketler || []).forEach((h: any) => {
+        (categoryHareketler || []).forEach((h: { islem_id: string; miktar: number; birim_fiyat: number | null; kdv_orani: number | null }) => {
           const amount = Math.abs(h.miktar) * (h.birim_fiyat || 0) * (1 + (h.kdv_orani || 0) / 100);
           const prev = categoryAmountMap.get(h.islem_id) || 0;
           categoryAmountMap.set(h.islem_id, prev + amount);
@@ -723,7 +723,7 @@ export function useCategoryTransactions(
       }
 
       // 4. Cash flow transfers: nakit→kredi_karti transfers counted as outflow
-      let cashFlowTransferData: any[] = [];
+      let cashFlowTransferData: typeof pureNoProductData = [];
       if (source === 'cash-flow' && type === 'gider') {
         const transferData = await fetchAllPages(() => {
           let q = supabase
@@ -750,7 +750,7 @@ export function useCategoryTransactions(
           return q;
         });
 
-        cashFlowTransferData = (transferData || []).filter((item: any) => {
+        cashFlowTransferData = (transferData || []).filter((item) => {
           const hesap = Array.isArray(item.hesap) ? item.hesap[0] : item.hesap;
           const hedefHesap = Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] : item.hedef_hesap;
           return hesap?.type && CASH_ACCOUNT_TYPES.includes(hesap.type) && hedefHesap?.type === 'kredi_karti';
@@ -862,7 +862,7 @@ export function useMultiCategoryTransactions(
 
       // Calculate category-specific amounts
       const categoryAmountMap = new Map<string, number>();
-      (urunHareketler || []).forEach((h: any) => {
+      (urunHareketler || []).forEach((h: { islem_id: string; miktar: number; birim_fiyat: number | null; kdv_orani: number | null }) => {
         const amount = Math.abs(h.miktar) * (h.birim_fiyat || 0) * (1 + (h.kdv_orani || 0) / 100);
         const prev = categoryAmountMap.get(h.islem_id) || 0;
         categoryAmountMap.set(h.islem_id, prev + amount);
@@ -885,7 +885,7 @@ export function useMultiCategoryTransactions(
       }
 
       // 3. Cash flow transfers: nakit→kredi_karti transfers counted as outflow
-      let cashFlowTransferData: any[] = [];
+      let cashFlowTransferData: typeof directData = [];
       if (source === 'cash-flow' && type === 'gider') {
         const transferData = await fetchAllPages(() =>
           supabase
@@ -906,7 +906,7 @@ export function useMultiCategoryTransactions(
             .order('date', { ascending: false })
         );
 
-        cashFlowTransferData = (transferData || []).filter((item: any) => {
+        cashFlowTransferData = (transferData || []).filter((item) => {
           const hesap = Array.isArray(item.hesap) ? item.hesap[0] : item.hesap;
           const hedefHesap = Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] : item.hedef_hesap;
           return hesap?.type && CASH_ACCOUNT_TYPES.includes(hesap.type) && hedefHesap?.type === 'kredi_karti';

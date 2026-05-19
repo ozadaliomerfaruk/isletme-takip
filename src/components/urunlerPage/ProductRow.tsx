@@ -1,5 +1,5 @@
 import { useCallback, memo } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, GestureResponderEvent } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Package, ArrowRightLeft, History, MoreVertical } from 'lucide-react-native';
 import { Text, Button, ExpandableCard } from '@/components/ui';
@@ -32,7 +32,7 @@ export const ProductRow = memo(function ProductRow({
   const handleToggle = useCallback(() => onToggle(urun.id), [onToggle, urun.id]);
   const handleTransaction = useCallback(() => onNewTransaction(urun), [onNewTransaction, urun]);
   const handleMovements = useCallback(() => onViewMovements(urun.id), [onViewMovements, urun.id]);
-  const handleActionSheet = useCallback((e: any) => {
+  const handleActionSheet = useCallback((e: GestureResponderEvent) => {
     e.stopPropagation();
     onOpenActionSheet(urun);
   }, [onOpenActionSheet, urun]);
@@ -141,7 +141,7 @@ export const ArchivedProductRow = memo(function ArchivedProductRow({
 
   const handleToggle = useCallback(() => onToggle(urun.id), [onToggle, urun.id]);
   const handleMovements = useCallback(() => onViewMovements(urun.id), [onViewMovements, urun.id]);
-  const handleActionSheet = useCallback((e: any) => {
+  const handleActionSheet = useCallback((e: GestureResponderEvent) => {
     e.stopPropagation();
     onOpenActionSheet(urun);
   }, [onOpenActionSheet, urun]);

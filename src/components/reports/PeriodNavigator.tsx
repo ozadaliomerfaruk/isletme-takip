@@ -9,7 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react-native';
-import DateTimePickerRN from '@react-native-community/datetimepicker';
+import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -46,7 +46,7 @@ export function PeriodNavigator({
     return d;
   };
 
-  const handleDateChange = (event: any, selectedDate?: Date) => {
+  const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
       if (event.type === 'set' && selectedDate) {

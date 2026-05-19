@@ -291,8 +291,8 @@ export function AcceptCodeSheet({ visible, onDismiss }: AcceptCodeSheetProps) {
   );
 }
 
-function getErrorMessage(error: any, t: any): string {
-  const msg = error?.message ?? '';
+function getErrorMessage(error: unknown, t: (key: string) => string): string {
+  const msg = (error instanceof Error ? error.message : String(error)) || '';
   if (msg.includes('Gecersiz veya suresi dolmus')) {
     return t('clients:sharing.invalidCode');
   }

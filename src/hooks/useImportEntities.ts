@@ -21,7 +21,9 @@ import {
 } from '@/types/database';
 import { ProgressTranslations } from './useDataImport.types';
 
-type SetProgressFn = (updater: (p: any) => any) => void;
+import { ImportProgress } from './useDataImport.types';
+
+type SetProgressFn = (updater: (p: ImportProgress) => ImportProgress) => void;
 
 /**
  * Mevcut entity'leri Supabase'den çeken hook'lar
@@ -165,7 +167,7 @@ export function useImportCategories() {
       return { map: resultMap, createdIds: [], reactivatedIds: categoriesToReactivate };
     }
 
-    setProgress((p: any) => ({
+    setProgress((p) => ({
       ...p,
       phase: 'categories',
       message: translationsRef.current.categories,
@@ -225,7 +227,7 @@ export function useImportAccounts() {
 
     if (newAccounts.length === 0) return { map: resultMap, createdIds: [] };
 
-    setProgress((p: any) => ({
+    setProgress((p) => ({
       ...p,
       phase: 'accounts',
       message: translationsRef.current.accounts,
@@ -283,7 +285,7 @@ export function useImportClients() {
 
     if (newClients.length === 0) return { map: resultMap, createdIds: [] };
 
-    setProgress((p: any) => ({
+    setProgress((p) => ({
       ...p,
       phase: 'clients',
       message: translationsRef.current.clients,
@@ -348,7 +350,7 @@ export function useImportPersonel() {
 
     if (newPersonel.length === 0) return { map: resultMap, createdIds: [] };
 
-    setProgress((p: any) => ({
+    setProgress((p) => ({
       ...p,
       phase: 'personel',
       message: translationsRef.current.personel,

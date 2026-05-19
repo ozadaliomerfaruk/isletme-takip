@@ -45,7 +45,7 @@ import { Text, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import type { PendingIslem } from '@/types/database';
+import type { PendingIslem, IslemType } from '@/types/database';
 
 import { ISLEM_TYPES, getTypeColor, getTypeLabel } from './PendingTransactionForm.types';
 import { usePendingFormState } from './usePendingFormState';
@@ -508,7 +508,7 @@ function NotDetectedBadge({ t }: { t: (key: string) => string }) {
 interface TypePickerModalProps {
   type: string;
   isCustomerVariantSelected: boolean;
-  onSelect: (value: any, isCustomerVar: boolean) => void;
+  onSelect: (value: IslemType | 'baslangic_bakiyesi', isCustomerVar: boolean) => void;
   onClose: () => void;
   windowHeight: number;
   bottomInset: number;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, ScrollView, InteractionManager, ActivityIndicator, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { usePermissions } from '@/hooks/usePermissions';
 import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight } from 'lucide-react-native';
@@ -86,9 +86,9 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
     onDismiss();
     setTimeout(() => {
       router.push({
-        pathname: pathname as any,
+        pathname: pathname,
         params: { period, periodOffset: String(periodOffset), startDate, endDate },
-      });
+      } as Href);
     }, 300);
   }, [canAccessModule, t, onDismiss, router, period, periodOffset, startDate, endDate]);
 

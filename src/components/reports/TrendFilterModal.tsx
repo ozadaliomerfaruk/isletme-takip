@@ -43,6 +43,8 @@ interface TrendFilterModalProps {
   onApply: (filter: TrendFilter | null) => void;
 }
 
+type FilterableEntity = Hesap | Cari | Personel | Kategori;
+
 type FilterTypeOption = {
   value: TrendFilterType;
   label: string;
@@ -111,14 +113,14 @@ export function TrendFilterModal({
     if (!searchQuery.trim()) return items;
 
     const query = searchQuery.toLowerCase().trim();
-    return items.filter((item: any) => {
+    return items.filter((item: FilterableEntity) => {
       const name = getItemName(item, filterType);
       return name.toLowerCase().includes(query);
     });
   }, [items, searchQuery, filterType]);
 
   // Get item name based on type
-  function getItemName(item: any, type: TrendFilterType): string {
+  function getItemName(item: FilterableEntity, type: TrendFilterType): string {
     switch (type) {
       case 'hesap':
         return (item as Hesap).name;
@@ -136,9 +138,9 @@ export function TrendFilterModal({
   }
 
   // Get item balance (if applicable)
-  function getItemBalance(item: any, type: TrendFilterType): number | null {
+  function getItemBalance(item: FilterableEntity, type: TrendFilterType): number | null {
     if (type === 'hesap' || type === 'cari' || type === 'personel') {
-      return toNumber(item.balance);
+      return toNumber((item as Hesap | Cari | Personel).balance);
     }
     return null;
   }
@@ -158,7 +160,7 @@ export function TrendFilterModal({
   }
 
   // Handle item selection
-  const handleSelect = (item: any) => {
+  const handleSelect = (item: FilterableEntity) => {
     const name = getItemName(item, filterType);
     setSelectedId(item.id);
     setSelectedLabel(name);
@@ -198,7 +200,7 @@ export function TrendFilterModal({
 
   const Icon = getFilterIcon(filterType);
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item }: { item: FilterableEntity }) => {
     const name = getItemName(item, filterType);
     const balance = getItemBalance(item, filterType);
     const isSelected = item.id === selectedId;
@@ -282,7 +284,7 @@ export function TrendFilterModal({
           {/* List */}
           <FlatList
             data={filteredItems}
-            keyExtractor={(item: any) => item.id}
+            keyExtractor={(item) => item.id}
             renderItem={renderItem}
             contentContainerStyle={styles.listContainer}
             showsVerticalScrollIndicator={false}
