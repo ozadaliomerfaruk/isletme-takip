@@ -1,5 +1,9 @@
 {
   "appName": "Small Business Finance",
+  "total": "Total",
+  "fields": {
+    "optional": "Optional"
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",

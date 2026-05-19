@@ -9,6 +9,10 @@
     "customers": "Customers",
     "suppliers": "Suppliers"
   },
+  "tabs": {
+    "customers": "Customers",
+    "suppliers": "Suppliers"
+  },
   "types": {
     "tedarikci": "Supplier",
     "musteri": "Customer"

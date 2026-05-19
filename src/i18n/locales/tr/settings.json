@@ -248,6 +248,7 @@
         "bankAccount": "Banka",
         "cash": "Nakit",
         "usdAccount": "USD Hesap",
+        "eurAccount": "EUR Hesap",
         "sales": "SATIŞ",
         "purchase": "ALIŞ",
         "officeExpenses": "OFİS",

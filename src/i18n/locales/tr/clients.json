@@ -9,6 +9,10 @@
     "customers": "Müşteriler",
     "suppliers": "Tedarikçiler"
   },
+  "tabs": {
+    "customers": "Müşteriler",
+    "suppliers": "Tedarikçiler"
+  },
   "types": {
     "tedarikci": "Tedarikçi",
     "musteri": "Müşteri"

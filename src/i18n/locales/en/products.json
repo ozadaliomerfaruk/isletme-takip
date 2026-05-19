@@ -47,6 +47,7 @@
   },
   "notFoundDescription": "This product does not exist or may have been deleted.",
   "stock": {
+    "productName": "Product Name",
     "currentStock": "Current Quantity",
     "stockIn": "Product Purchase",
     "stockOut": "Product Sale",

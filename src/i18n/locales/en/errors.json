@@ -50,6 +50,7 @@
     "minLength": "Must be at least {{min}} characters",
     "maxLength": "Must be at most {{max}} characters",
     "invalidFormat": "Invalid format",
+    "invalidEmail": "Please enter a valid email address",
     "invalidNumber": "Please enter a valid number",
     "invalidDate": "Please enter a valid date",
     "positiveNumber": "Please enter a positive number",

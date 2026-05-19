@@ -47,6 +47,7 @@
   },
   "notFoundDescription": "Bu ürün mevcut değil veya silinmiş olabilir.",
   "stock": {
+    "productName": "Ürün Adı",
     "currentStock": "Mevcut Miktar",
     "stockIn": "Ürün Alımı",
     "stockOut": "Ürün Satışı",

@@ -1,5 +1,9 @@
 {
   "appName": "İşletme Takip",
+  "total": "Toplam",
+  "fields": {
+    "optional": "İsteğe Bağlı"
+  },
   "buttons": {
     "save": "Kaydet",
     "cancel": "İptal",
@@ -152,6 +156,8 @@
     "dateRange": "Tarih Aralığı",
     "date": "Tarih",
     "time": "Saat",
+    "dateTime": "Tarih ve Saat",
+    "dueDate": "Son Ödeme Tarihi",
     "selectDate": "Tarih Seç",
     "selectTime": "Saat Seç",
     "months": [
@@ -224,6 +230,9 @@
     "vat": "KDV"
   },
   "currency": {
+    "symbol": "₺",
+    "code": "TRY",
+    "format": "{{amount}} ₺",
     "amount": "Tutar",
     "balance": "Bakiye",
     "total": "Toplam",
@@ -239,7 +248,9 @@
   "labels": {
     "name": "Ad",
     "title": "Başlık",
+    "amount": "Tutar",
     "total": "Toplam",
+    "balance": "Bakiye",
     "description": "Açıklama",
     "note": "Not",
     "notes": "Notlar",
