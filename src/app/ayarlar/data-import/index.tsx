@@ -14,7 +14,6 @@ import * as Sharing from 'expo-sharing';
 import * as Crypto from 'expo-crypto';
 import * as XLSX from 'xlsx';
 import { Text } from '@/components/ui';
-import { colors } from '@/constants/colors';
 import {
   parseExcelFile,
   autoClassifyAccounts,
@@ -71,7 +70,6 @@ export default function VeriIceAktarPage() {
   const [categoryMappings, setCategoryMappings] = useState<Record<string, 'gelir' | 'gider'>>({});
   const [fileName, setFileName] = useState<string>('');
   const [fileHash, setFileHash] = useState<string>('');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_fileBuffer, setFileBuffer] = useState<ArrayBuffer | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [isDryRun, setIsDryRun] = useState(false);

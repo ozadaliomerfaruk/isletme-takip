@@ -388,7 +388,6 @@ export default function CarilerPage() {
     }
 
     return options;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionSheetCari, t, router, handleEnterSelectMode, handleArchive, handleDelete, handleRemoveLink, canUpdate, canDelete]);
 
   const actionSheetOptions = useMemo(() => {
@@ -396,7 +395,6 @@ export default function CarilerPage() {
     // Check if actionSheetCari is a linked cari
     const mergedItem = mergedCariler?.find(c => c.id === actionSheetCari.id);
     return getActionSheetOptions(mergedItem ?? (actionSheetCari as MergedCari));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionSheetCari, getActionSheetOptions]);
 
   // Merge own cariler + linked cariler
@@ -711,7 +709,6 @@ export default function CarilerPage() {
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [t, router, payables.cari, receivables.cari, searchQuery, filterOptions, filter, isLoading, baseCurrency]);
 
   // FlatList ListEmptyComponent
