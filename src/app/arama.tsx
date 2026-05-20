@@ -44,6 +44,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { formatCurrency } from '@/lib/currency';
 import { normalizeTurkish } from '@/lib/turkishTextUtils';
+import { isLeaveType } from '@/constants/islemTypes';
 
 const RECENT_SEARCHES_KEY = 'recent_searches';
 const MAX_RECENT_SEARCHES = 5;
@@ -112,7 +113,7 @@ function getHesapIcon(type: string) {
 
 export default function AramaPage() {
   const router = useRouter();
-  const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products', 'transactions']);
+    const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products', 'transactions']);
   const { formatDateNative, locale } = useDateFormat();
   const haptics = useHaptics();
   const searchInputRef = useRef<TextInput>(null);
@@ -473,6 +474,12 @@ export default function AramaPage() {
       return { text, color: colors.textSecondary };
     }
     if (item.type === 'islem') {
+      if (isLeaveType(item.data.type)) {
+        return {
+          text: t('staff:leave.dayCount', { count: item.data.amount }),
+          color: colors.textSecondary,
+        };
+      }
       const isIncome = item.data.type === 'gelir';
       return {
         text: formatCurrency(item.data.amount, item.data.source_currency || 'TRY'),
@@ -484,7 +491,7 @@ export default function AramaPage() {
       text: formatCurrency(Math.abs(balance), item.data.currency),
       color: balance >= 0 ? colors.success : colors.error,
     };
-  }, []);
+  }, [t]);
 
   const getSubtitle = useCallback((item: SearchResultItem): string | null => {
     switch (item.type) {
@@ -963,13 +970,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    gap: 6,
+    paddingVertical: spacing.xs,
+    gap: spacing.xs,
   },
   chip: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs + 1,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.background,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -979,8 +986,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   chipText: {
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 13,
     color: colors.textMuted,
   },
   chipTextActive: {
