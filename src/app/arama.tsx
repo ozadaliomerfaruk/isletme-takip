@@ -635,7 +635,7 @@ export default function AramaPage() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.chipBar}
       >
-        {allEntityTypes.map(({ key, label, icon: Icon, color }) => {
+        {allEntityTypes.map(({ key, label }) => {
           const active = enabledTypes.has(key);
           return (
             <TouchableOpacity
@@ -644,7 +644,6 @@ export default function AramaPage() {
               activeOpacity={0.7}
               onPress={() => toggleEntityType(key)}
             >
-              <Icon size={14} color={active ? colors.primary : colors.textMuted} />
               <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
             </TouchableOpacity>
           );
@@ -890,20 +889,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   chipBar: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
-    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    gap: 6,
   },
   chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: spacing.xs + 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: borderRadius.full,
     backgroundColor: colors.background,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
   chipActive: {
@@ -911,8 +906,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   chipText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 11,
     color: colors.textMuted,
   },
   chipTextActive: {
