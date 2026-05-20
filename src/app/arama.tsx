@@ -810,7 +810,7 @@ export default function AramaPage() {
           renderSectionFooter={renderSectionFooter}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="on-drag"
+          keyboardDismissMode="none"
           stickySectionHeadersEnabled={false}
         />
       )}
