@@ -31,8 +31,9 @@ import {
   Calendar,
   StickyNote,
   CheckCircle2,
+  ArrowLeft,
+  Clock,
 } from 'lucide-react-native';
-import { ArrowLeft, Clock } from 'lucide-react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BackButton } from '@/components/ui/BackButton';
 import { useTranslation } from 'react-i18next';
@@ -44,7 +45,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { formatCurrency } from '@/lib/currency';
 import { normalizeTurkish } from '@/lib/turkishTextUtils';
-import { isLeaveType } from '@/constants/islemTypes';
+import { isLeaveType, isIncomeType } from '@/constants/islemTypes';
 
 const RECENT_SEARCHES_KEY = 'recent_searches';
 const MAX_RECENT_SEARCHES = 5;
@@ -465,11 +466,11 @@ export default function AramaPage() {
       case 'urun':
         return item.data.ad;
       case 'islem':
-        return item.data.description || '';
+        return item.data.description || t(`transactions:types.${item.data.type}`);
       case 'not':
         return item.data.content;
     }
-  }, []);
+  }, [t]);
 
   const isArchived = useCallback((item: SearchResultItem) => {
     return 'is_archived' in item.data && item.data.is_archived === true;
@@ -492,7 +493,7 @@ export default function AramaPage() {
           color: colors.textSecondary,
         };
       }
-      const isIncome = item.data.type === 'gelir';
+      const isIncome = isIncomeType(item.data.type);
       return {
         text: formatCurrency(item.data.amount, item.data.source_currency || 'TRY'),
         color: isIncome ? colors.success : colors.error,
@@ -1027,9 +1028,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-  },
-  filterField: {
-    flex: 1,
   },
   filterFieldWithClear: {
     flex: 1,
