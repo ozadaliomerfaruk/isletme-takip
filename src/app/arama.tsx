@@ -130,13 +130,25 @@ export default function AramaPage() {
   const [tempDate, setTempDate] = useState(new Date());
   const [enabledTypes, setEnabledTypes] = useState<Set<string>>(new Set(['hesap', 'cari', 'personel', 'urun', 'not', 'islem']));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queryRef = useRef(query);
+  queryRef.current = query;
 
   useEffect(() => {
     const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
     AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((val) => {
       if (val) setRecentSearches(JSON.parse(val));
     });
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      const q = queryRef.current.trim();
+      if (q.length >= 2) {
+        AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((raw) => {
+          const prev: string[] = raw ? JSON.parse(raw) : [];
+          const next = [q, ...prev.filter(s => s !== q)].slice(0, MAX_RECENT_SEARCHES);
+          AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+        });
+      }
+    };
   }, []);
 
   const saveRecentSearch = useCallback(async (term: string) => {
