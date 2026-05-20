@@ -630,25 +630,27 @@ export default function AramaPage() {
       </View>
 
       {/* Entity Type Chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipBar}
-      >
-        {allEntityTypes.map(({ key, label }) => {
-          const active = enabledTypes.has(key);
-          return (
-            <TouchableOpacity
-              key={key}
-              style={[styles.chip, active && styles.chipActive]}
-              activeOpacity={0.7}
-              onPress={() => toggleEntityType(key)}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <View style={styles.chipBarWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipBar}
+        >
+          {allEntityTypes.map(({ key, label }) => {
+            const active = enabledTypes.has(key);
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.chip, active && styles.chipActive]}
+                activeOpacity={0.7}
+                onPress={() => toggleEntityType(key)}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {/* Filter Bar */}
       {showFilters && (
@@ -888,15 +890,21 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: colors.primary,
   },
+  chipBarWrapper: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
   chipBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
+    paddingVertical: 6,
     gap: 6,
   },
   chip: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
+    paddingVertical: 2,
+    borderRadius: 10,
     backgroundColor: colors.background,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
@@ -907,6 +915,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 11,
+    lineHeight: 16,
     color: colors.textMuted,
   },
   chipTextActive: {
