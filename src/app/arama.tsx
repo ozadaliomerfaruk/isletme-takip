@@ -120,7 +120,7 @@ export default function AramaPage() {
   const [dateTo, setDateTo] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | null>(null);
   const [tempDate, setTempDate] = useState(new Date());
-  const [enabledTypes, setEnabledTypes] = useState<Set<string>>(new Set(['hesap', 'musteri', 'tedarikci', 'personel', 'urun', 'not', 'islem']));
+  const [enabledTypes, setEnabledTypes] = useState<Set<string>>(new Set(['hesap', 'cari', 'personel', 'urun', 'not', 'islem']));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -219,13 +219,12 @@ export default function AramaPage() {
   const isSearching = query !== debouncedQuery || islemFetching;
 
   const allEntityTypes = useMemo(() => [
-    { key: 'hesap', label: t('common:labels.account'), icon: Wallet, color: colors.success },
-    { key: 'musteri', label: t('clients:tabs.customers'), icon: Users, color: colors.primary },
-    { key: 'tedarikci', label: t('clients:tabs.suppliers'), icon: Truck, color: colors.orange },
-    { key: 'personel', label: t('common:labels.staff'), icon: UserCheck, color: colors.success },
-    { key: 'urun', label: t('products:title'), icon: Package, color: colors.info },
-    { key: 'not', label: t('common:notes.title'), icon: StickyNote, color: colors.primary },
-    { key: 'islem', label: t('common:labels.transactions'), icon: FileText, color: colors.warning },
+    { key: 'hesap', label: t('common:labels.account') },
+    { key: 'cari', label: t('clients:titles.clients') },
+    { key: 'personel', label: t('common:labels.staff') },
+    { key: 'urun', label: t('products:title') },
+    { key: 'not', label: t('common:notes.title') },
+    { key: 'islem', label: t('common:labels.transactions') },
   ] as const, [t]);
 
   const toggleEntityType = useCallback((key: string) => {
@@ -249,8 +248,8 @@ export default function AramaPage() {
     const result: FullSection[] = [];
     const nameMatches = (name: string) => !q || normalizeTurkish(name).includes(q);
 
-    const pushSection = (sectionType: SearchResultItem['type'], title: string, items: SearchResultItem[]) => {
-      if (items.length === 0 || !enabledTypes.has(sectionType)) return;
+    const pushSection = (sectionType: SearchResultItem['type'], title: string, items: SearchResultItem[], filterKey?: string) => {
+      if (items.length === 0 || !enabledTypes.has(filterKey ?? sectionType)) return;
       const isExpanded = expandedSections.has(sectionType);
       result.push({
         title, sectionType, allData: items,
@@ -266,12 +265,14 @@ export default function AramaPage() {
 
     pushSection('musteri', t('clients:tabs.customers'),
       musteriCariler.filter((c) => nameMatches(c.name) && (!hasAmountFilter || amountInRange(Number(c.balance))) && dateInRange(c.created_at))
-        .map((c) => ({ type: 'musteri' as const, data: c }))
+        .map((c) => ({ type: 'musteri' as const, data: c })),
+      'cari'
     );
 
     pushSection('tedarikci', t('clients:tabs.suppliers'),
       tedarikciCariler.filter((c) => nameMatches(c.name) && (!hasAmountFilter || amountInRange(Number(c.balance))) && dateInRange(c.created_at))
-        .map((c) => ({ type: 'tedarikci' as const, data: c }))
+        .map((c) => ({ type: 'tedarikci' as const, data: c })),
+      'cari'
     );
 
     pushSection('personel', t('common:labels.staff'),
@@ -288,10 +289,12 @@ export default function AramaPage() {
       ).map((u) => ({ type: 'urun' as const, data: u }))
     );
 
-    pushSection('not', t('common:notes.title'),
-      notlar.filter((n) => nameMatches(n.content) && dateInRange(n.created_at))
-        .map((n) => ({ type: 'not' as const, data: n }))
-    );
+    if (q || hasDateFilter) {
+      pushSection('not', t('common:notes.title'),
+        notlar.filter((n) => nameMatches(n.content) && dateInRange(n.created_at))
+          .map((n) => ({ type: 'not' as const, data: n }))
+      );
+    }
 
     if (enabledTypes.has('islem') && islemResults.length > 0) {
       const allData = islemResults.map((i) => ({ type: 'islem' as const, data: i }));
@@ -481,6 +484,7 @@ export default function AramaPage() {
       case 'islem': {
         const typeLabel = t(`transactions:types.${item.data.type}`);
         const parts: string[] = [typeLabel];
+        if (item.data.date) parts.push(formatDateNative(new Date(item.data.date)));
         if (item.data.hesap?.name) parts.push(item.data.hesap.name);
         if (item.data.cari?.name) parts.push(item.data.cari.name);
         if (item.data.personel) {
@@ -490,7 +494,7 @@ export default function AramaPage() {
         return parts.join(' · ');
       }
     }
-  }, [t]);
+  }, [t, formatDateNative]);
 
   const renderItem = useCallback(
     ({ item, index, section }: { item: SearchResultItem; index: number; section: FullSection }) => {
@@ -584,7 +588,7 @@ export default function AramaPage() {
     setMaxAmount('');
     setDateFrom(null);
     setDateTo(null);
-    setEnabledTypes(new Set(['hesap', 'musteri', 'tedarikci', 'personel', 'urun', 'not', 'islem']));
+    setEnabledTypes(new Set(['hesap', 'cari', 'personel', 'urun', 'not', 'islem']));
   }, []);
 
   const hasActiveAdvancedFilters = hasAmountFilter || hasDateFilter || hasEntityFilter;
@@ -806,6 +810,7 @@ export default function AramaPage() {
           renderSectionFooter={renderSectionFooter}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           stickySectionHeadersEnabled={false}
         />
       )}
@@ -1046,7 +1051,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   listContent: {
-    paddingBottom: spacing.xl,
+    paddingBottom: 320,
   },
   sectionHeader: {
     paddingHorizontal: spacing.lg,
