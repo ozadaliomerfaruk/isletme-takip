@@ -177,21 +177,8 @@ export function useCreateIslem() {
 
       return data as Islem;
     },
-    onSuccess: (_data, variables) => {
-      // Merkezi invalidation helper kullan
+    onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'islem');
-
-      // Baglantili cari varsa karsi tarafa bildirim gonder (fire & forget)
-      if (variables.cari_id) {
-        supabase.functions
-          .invoke('notify-linked-users', {
-            body: {
-              record: { ..._data, isletme_id: isletme!.id },
-              type: 'INSERT',
-            },
-          })
-          .catch((err) => console.warn('[notify-linked-users] Bildirim gonderilemedi:', err));
-      }
     },
   });
 }
@@ -685,21 +672,8 @@ export function useUpdateIslem() {
 
       return data as Islem;
     },
-    onSuccess: (_data) => {
-      // Merkezi invalidation helper kullan
+    onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'islem');
-
-      // Baglantili cari varsa karsi tarafa bildirim gonder (fire & forget)
-      if (_data.cari_id) {
-        supabase.functions
-          .invoke('notify-linked-users', {
-            body: {
-              record: { ..._data, isletme_id: isletme!.id },
-              type: 'INSERT',
-            },
-          })
-          .catch((err) => console.warn('[notify-linked-users] Bildirim gonderilemedi:', err));
-      }
     },
   });
 }

@@ -345,7 +345,7 @@ export default function DahaPage() {
           <Card padding="none">
             <MenuItem
               icon={<Star size={22} color={colors.warning} />}
-              label={t('settings:actions.rateApp')}
+              label={t('settings:about.rateApp')}
               onPress={async () => {
                 const isAvailable = await StoreReview.isAvailableAsync();
                 if (isAvailable) {

@@ -18,16 +18,16 @@
         "auth": "Kimlik Doğrulama ve Oturum Bilgileri:",
         "authItems": "Oturum ve yetkilendirme bilgileri",
         "financial": "Finansal Bilgiler:",
-        "financialItems": "Kullanıcı tarafından manuel olarak girilen işletme hesap kayıtları, cari hesap bilgileri, personel bilgileri, ürün ve stok bilgileri",
+        "financialItems": "Kullanıcı tarafından manuel olarak girilen işletme hesap kayıtları, cari hesap bilgileri, personel bilgileri, ürün ve stok bilgileri, çek ve senet bilgileri, döviz kuru bilgileri",
         "visual": "Görsel Veriler:",
-        "visualItems": "İşlemlere eklenen fotoğraflar (fiş, fatura vb.)",
+        "visualItems": "İşlemlere ve notlara eklenen fotoğraflar (fiş, fatura vb.)",
         "technical": "İşlem ve Teknik Güvenlik Bilgileri:",
         "technicalItems": "Sistem güvenliği ve hizmetin sağlanması amacıyla oluşturulan teknik kayıtlar"
       },
       "purposes": {
         "title": "3. Kişisel Verilerin İşlenme Amaçları",
         "intro": "Kişisel verileriniz aşağıdaki amaçlarla işlenmektedir:",
-        "items": "Üyelik ve hesap işlemlerinin yürütülmesi\nUygulama hizmetlerinin sunulması\nFinansal kayıt ve raporlama fonksiyonlarının sağlanması\nİleri tarihli işlem hatırlatmalarının gönderilmesi\nÇoklu kullanıcı erişim yönetiminin sağlanması\nBilgi güvenliği süreçlerinin yürütülmesi\nYasal yükümlülüklerin yerine getirilmesi"
+        "items": "Üyelik ve hesap işlemlerinin yürütülmesi\nUygulama hizmetlerinin sunulması\nFinansal kayıt ve raporlama fonksiyonlarının sağlanması\nİleri tarihli işlem hatırlatmalarının gönderilmesi\nNot ve görev hatırlatıcılarının gönderilmesi\nÇoklu kullanıcı erişim yönetiminin sağlanması\nBilgi güvenliği süreçlerinin yürütülmesi\nYasal yükümlülüklerin yerine getirilmesi"
       },
       "legalBasis": {
         "title": "4. Hukuki Sebepler",
@@ -57,12 +57,12 @@
   },
   "terms": {
     "title": "Kullanım Koşulları",
-    "lastUpdated": "Son Güncelleme: 12 Mart 2026",
+    "lastUpdated": "Son Güncelleme: 21 Mayıs 2026",
     "intro": "İşletme Takip – Hesap Kitap uygulamasını kullanarak aşağıdaki koşulları kabul etmiş sayılırsınız.",
     "sections": {
       "serviceDescription": {
         "title": "1. Hizmet Tanımı",
-        "content": "İşletme Takip – Hesap Kitap, küçük ve orta ölçekli işletmeler için geliştirilmiş bir finansal takip ve yönetim uygulamasıdır. Uygulama; gelir-gider takibi, cari hesap yönetimi, personel kayıt ve ödeme takibi, ürün ve stok yönetimi ile finansal raporlama araçları sunar.\n\nUygulama, resmi muhasebe, bordro, vergi veya hukuki danışmanlık hizmeti sunmaz."
+        "content": "İşletme Takip – Hesap Kitap, küçük ve orta ölçekli işletmeler için geliştirilmiş bir finansal takip ve yönetim uygulamasıdır. Uygulama; gelir-gider takibi, cari hesap yönetimi, personel kayıt ve ödeme takibi, ürün ve stok yönetimi, çek ve senet takibi, not ve görev yönetimi ile finansal raporlama araçları sunar.\n\nUygulama, resmi muhasebe, bordro, vergi veya hukuki danışmanlık hizmeti sunmaz."
       },
       "usageTerms": {
         "title": "2. Kullanım Şartları ve Yaş Sınırı",
@@ -86,7 +86,7 @@
       },
       "dataExport": {
         "title": "7. Veri Dışa Aktarımı",
-        "content": "Kullanıcılar, uygulama içinden işlem verilerini ve raporları Excel (.xlsx) formatında dışa aktarabilir. Dışa aktarılan dosyalar kullanıcının cihazına indirilir. Dışa aktarılan verilerin üçüncü kişilerle paylaşılması durumunda sorumluluk kullanıcıya aittir."
+        "content": "Kullanıcılar, uygulama içinden işlem verilerini ve raporları Excel (.xlsx) ve PDF formatlarında dışa aktarabilir. Dışa aktarılan dosyalar kullanıcının cihazına indirilir. Dışa aktarılan verilerin üçüncü kişilerle paylaşılması durumunda sorumluluk kullanıcıya aittir."
       },
       "thirdParty": {
         "title": "8. Üçüncü Taraf Hizmetler",
@@ -116,7 +116,7 @@
   },
   "privacy": {
     "title": "Gizlilik Politikası",
-    "lastUpdated": "Son Güncelleme: 12 Mart 2026",
+    "lastUpdated": "Son Güncelleme: 21 Mayıs 2026",
     "intro": "İşletme Takip – Hesap Kitap olarak gizliliğinize önem veriyoruz. Bu Gizlilik Politikası, mobil uygulamamız aracılığıyla toplanan kişisel verilerin hangi amaçlarla işlendiği, nasıl korunduğunu ve kullanıcıların haklarını açıklamaktadır.",
     "sections": {
       "collectedData": {
@@ -128,7 +128,7 @@
         "userContent": {
           "title": "1.2 Kullanıcı Tarafından Girilen İçerikler",
           "intro": "Aşağıdaki bilgiler tamamen kullanıcının isteğiyle ve manuel olarak girilir:",
-          "content": "Finansal kayıtlar (banka hesapları, kasa, gelir-gider kayıtları)\nCari hesap bilgileri (müşteri ve tedarikçi bilgileri)\nPersonel bilgileri (ad, pozisyon, maaş, izin bilgileri)\nÜrün ve stok bilgileri (ürün adı, kodu, fiyat, stok miktarı)\nAçıklamalar, notlar ve benzeri içerikler"
+          "content": "Finansal kayıtlar (banka hesapları, kasa, gelir-gider kayıtları)\nCari hesap bilgileri (müşteri ve tedarikçi bilgileri)\nPersonel bilgileri (ad, pozisyon, maaş, izin bilgileri)\nÜrün ve stok bilgileri (ürün adı, kodu, fiyat, stok miktarı)\nÇek ve senet bilgileri\nNot ve görev içerikleri (hatırlatıcılar, fotoğraflar, atamalar dahil)\nAçıklamalar ve benzeri içerikler"
         },
         "optional": {
           "title": "1.3 Opsiyonel Bilgiler",
@@ -136,13 +136,13 @@
         },
         "deviceAccess": {
           "title": "1.4 Cihaz Erişimleri",
-          "content": "Kamera ve Fotoğraf Galerisi: Yalnızca kullanıcı işlemlere fotoğraf (fiş, fatura vb.) eklemek istediğinde erişim talep edilir.\nDosya Sistemi: Excel dosyası içe aktarma ve dışa aktarma işlemleri sırasında erişim talep edilir.\nBildirimler: İleri tarihli işlem hatırlatmaları için push bildirim izni talep edilebilir."
+          "content": "Kamera ve Fotoğraf Galerisi: Yalnızca kullanıcı işlemlere veya notlara fotoğraf (fiş, fatura vb.) eklemek istediğinde erişim talep edilir.\nDosya Sistemi: Excel dosyası içe aktarma ve dışa aktarma işlemleri sırasında erişim talep edilir.\nBildirimler: İleri tarihli işlem ve not hatırlatmaları için push bildirim izni talep edilebilir."
         }
       },
       "dataUsage": {
         "title": "2. Verilerin Kullanım Amaçları",
         "intro": "Toplanan veriler aşağıdaki amaçlarla işlenir:",
-        "items": "Uygulama fonksiyonlarının sağlanması\nHesap ve oturum yönetimi\nFinansal kayıt ve raporların oluşturulması\nİleri tarihli işlem hatırlatmalarının gönderilmesi\nTeknik sorunların giderilmesi\nYasal yükümlülüklerin yerine getirilmesi",
+        "items": "Uygulama fonksiyonlarının sağlanması\nHesap ve oturum yönetimi\nFinansal kayıt ve raporların oluşturulması\nİleri tarihli işlem hatırlatmalarının gönderilmesi\nNot ve görev hatırlatıcılarının gönderilmesi\nTeknik sorunların giderilmesi\nYasal yükümlülüklerin yerine getirilmesi",
         "outro": "Veriler reklam, pazarlama veya kullanıcı takibi amacıyla kullanılmaz."
       },
       "multiUser": {
@@ -166,7 +166,7 @@
       },
       "dataExport": {
         "title": "7. Veri Dışa Aktarımı",
-        "content": "Kullanıcılar, uygulama içinden işlem verilerini ve raporları Excel (.xlsx) formatında dışa aktarabilir. Dışa aktarılan dosyalar kullanıcının cihazına indirilir ve paylaşım tercihi tamamen kullanıcıya aittir. Uygulama, dışa aktarılan dosyaların kopyasını sunucuda saklamaz."
+        "content": "Kullanıcılar, uygulama içinden işlem verilerini ve raporları Excel (.xlsx) ve PDF formatlarında dışa aktarabilir. Dışa aktarılan dosyalar kullanıcının cihazına indirilir ve paylaşım tercihi tamamen kullanıcıya aittir. Uygulama, dışa aktarılan dosyaların kopyasını sunucuda saklamaz."
       },
       "retention": {
         "title": "8. Veri Saklama Süresi ve Hesap Silme",

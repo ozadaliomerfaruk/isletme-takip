@@ -93,6 +93,11 @@ function formatCurrency(amount: number, lang: string): string {
   }).format(amount);
 }
 
+// Dedup: eski app versiyonu (client) + yeni DB trigger aynı anda çağırabilir.
+// Aynı islem ID'si 30sn içinde tekrar gelirse atla.
+const recentIds = new Map<string, number>();
+const DEDUP_TTL_MS = 30_000;
+
 Deno.serve(withFnTelemetry({ name: "notify-linked-users" }, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
@@ -123,6 +128,26 @@ Deno.serve(withFnTelemetry({ name: "notify-linked-users" }, async (req) => {
           status: 200,
         }
       );
+    }
+
+    // Dedup: aynı islem için tekrar çağrıldıysa atla
+    const now = Date.now();
+    if (record.id && recentIds.has(record.id)) {
+      const lastSeen = recentIds.get(record.id)!;
+      if (now - lastSeen < DEDUP_TTL_MS) {
+        console.log(`[notify-linked-users] Dedup: skipping duplicate for islem ${record.id}`);
+        return new Response(
+          JSON.stringify({ message: "Duplicate skipped" }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
+        );
+      }
+    }
+    if (record.id) {
+      recentIds.set(record.id, now);
+      // Eski kayıtları temizle
+      for (const [id, ts] of recentIds) {
+        if (now - ts > DEDUP_TTL_MS) recentIds.delete(id);
+      }
     }
 
     console.log(

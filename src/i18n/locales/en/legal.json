@@ -18,16 +18,16 @@
         "auth": "Authentication and Session Information:",
         "authItems": "Session and authorization data",
         "financial": "Financial Information:",
-        "financialItems": "Business account records manually entered by user, client account information, staff information, product and inventory information",
+        "financialItems": "Business account records manually entered by user, client account information, staff information, product and inventory information, cheque and promissory note information, exchange rate information",
         "visual": "Visual Data:",
-        "visualItems": "Photos attached to transactions (receipts, invoices, etc.)",
+        "visualItems": "Photos attached to transactions and notes (receipts, invoices, etc.)",
         "technical": "Transaction and Technical Security Information:",
         "technicalItems": "Technical records created for system security and service provision"
       },
       "purposes": {
         "title": "3. Purposes of Processing Personal Data",
         "intro": "Your personal data is processed for the following purposes:",
-        "items": "Managing membership and account operations\nProviding application services\nEnabling financial recording and reporting functions\nSending scheduled transaction reminders\nManaging multi-user access control\nManaging information security processes\nFulfilling legal obligations"
+        "items": "Managing membership and account operations\nProviding application services\nEnabling financial recording and reporting functions\nSending scheduled transaction reminders\nSending note and task reminders\nManaging multi-user access control\nManaging information security processes\nFulfilling legal obligations"
       },
       "legalBasis": {
         "title": "4. Legal Grounds",
@@ -57,12 +57,12 @@
   },
   "terms": {
     "title": "Terms of Service",
-    "lastUpdated": "Last Updated: March 12, 2026",
+    "lastUpdated": "Last Updated: May 21, 2026",
     "intro": "By using the Simple Business Finance application, you agree to the following terms.",
     "sections": {
       "serviceDescription": {
         "title": "1. Service Description",
-        "content": "Simple Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
+        "content": "Simple Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, cheque and promissory note tracking, notes and task management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
       },
       "usageTerms": {
         "title": "2. Usage Terms and Age Restriction",
@@ -86,7 +86,7 @@
       },
       "dataExport": {
         "title": "7. Data Export",
-        "content": "Users can export transaction data and reports in Excel (.xlsx) format from within the application. Exported files are downloaded to the user's device. Users are responsible for any sharing of exported data with third parties."
+        "content": "Users can export transaction data and reports in Excel (.xlsx) and PDF formats from within the application. Exported files are downloaded to the user's device. Users are responsible for any sharing of exported data with third parties."
       },
       "thirdParty": {
         "title": "8. Third-Party Services",
@@ -116,7 +116,7 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last Updated: March 12, 2026",
+    "lastUpdated": "Last Updated: May 21, 2026",
     "intro": "At Simple Business Finance, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
     "sections": {
       "collectedData": {
@@ -128,7 +128,7 @@
         "userContent": {
           "title": "1.2 User-Entered Content",
           "intro": "The following information is entered entirely at user's discretion and manually:",
-          "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information (name, position, salary, leave details)\nProduct and inventory information (product name, code, price, stock quantity)\nDescriptions, notes, and similar content"
+          "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information (name, position, salary, leave details)\nProduct and inventory information (product name, code, price, stock quantity)\nCheque and promissory note information\nNotes and task content (including reminders, photos, and assignments)\nDescriptions and similar content"
         },
         "optional": {
           "title": "1.3 Optional Information",
@@ -136,13 +136,13 @@
         },
         "deviceAccess": {
           "title": "1.4 Device Access",
-          "content": "Camera and Photo Library: Access is requested only when the user wants to attach photos (receipts, invoices, etc.) to transactions.\nFile System: Access is requested during Excel file import and export operations.\nNotifications: Push notification permission may be requested for scheduled transaction reminders."
+          "content": "Camera and Photo Library: Access is requested only when the user wants to attach photos (receipts, invoices, etc.) to transactions or notes.\nFile System: Access is requested during Excel file import and export operations.\nNotifications: Push notification permission may be requested for scheduled transaction and note reminders."
         }
       },
       "dataUsage": {
         "title": "2. Data Usage Purposes",
         "intro": "Collected data is processed for the following purposes:",
-        "items": "Providing application functions\nAccount and session management\nCreating financial records and reports\nSending scheduled transaction reminders\nResolving technical issues\nFulfilling legal obligations",
+        "items": "Providing application functions\nAccount and session management\nCreating financial records and reports\nSending scheduled transaction reminders\nSending note and task reminders\nResolving technical issues\nFulfilling legal obligations",
         "outro": "Data is not used for advertising, marketing, or user tracking purposes."
       },
       "multiUser": {
@@ -166,7 +166,7 @@
       },
       "dataExport": {
         "title": "7. Data Export",
-        "content": "Users can export transaction data and reports in Excel (.xlsx) format from within the application. Exported files are downloaded to the user's device and sharing preferences are entirely up to the user. The application does not retain copies of exported files on the server."
+        "content": "Users can export transaction data and reports in Excel (.xlsx) and PDF formats from within the application. Exported files are downloaded to the user's device and sharing preferences are entirely up to the user. The application does not retain copies of exported files on the server."
       },
       "retention": {
         "title": "8. Data Retention Period and Account Deletion",
