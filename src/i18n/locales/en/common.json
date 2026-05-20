@@ -98,7 +98,9 @@
     "dateRange": "Date Range",
     "startDate": "Start",
     "endDate": "End",
-    "clearFilters": "Clear Filters"
+    "clearFilters": "Clear Filters",
+    "noResultsWithFilters": "Try broadening your filters or using a different term",
+    "clearRecentSearches": "Clear"
   },
   "select": {
     "selectOption": "Select an option",

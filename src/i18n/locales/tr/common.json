@@ -105,7 +105,9 @@
     "dateRange": "Tarih Aralığı",
     "startDate": "Başlangıç",
     "endDate": "Bitiş",
-    "clearFilters": "Filtreleri Temizle"
+    "clearFilters": "Filtreleri Temizle",
+    "noResultsWithFilters": "Filtrelerinizi genişletin veya farklı bir terim deneyin",
+    "clearRecentSearches": "Temizle"
   },
   "select": {
     "selectCategory": "Kategori seç",

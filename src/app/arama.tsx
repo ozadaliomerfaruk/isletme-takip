@@ -32,7 +32,8 @@ import {
   StickyNote,
   CheckCircle2,
 } from 'lucide-react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Clock } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BackButton } from '@/components/ui/BackButton';
 import { useTranslation } from 'react-i18next';
 
@@ -40,8 +41,12 @@ import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useHaptics } from '@/hooks/useHaptics';
 import { formatCurrency } from '@/lib/currency';
 import { normalizeTurkish } from '@/lib/turkishTextUtils';
+
+const RECENT_SEARCHES_KEY = 'recent_searches';
+const MAX_RECENT_SEARCHES = 5;
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -109,9 +114,11 @@ export default function AramaPage() {
   const router = useRouter();
   const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products', 'transactions']);
   const { formatDateNative, locale } = useDateFormat();
+  const haptics = useHaptics();
   const searchInputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [showFilters, setShowFilters] = useState(false);
   const [minAmount, setMinAmount] = useState('');
@@ -125,7 +132,25 @@ export default function AramaPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
+    AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((val) => {
+      if (val) setRecentSearches(JSON.parse(val));
+    });
     return () => clearTimeout(timer);
+  }, []);
+
+  const saveRecentSearch = useCallback((term: string) => {
+    const trimmed = term.trim();
+    if (trimmed.length < 2) return;
+    setRecentSearches(prev => {
+      const next = [trimmed, ...prev.filter(s => s !== trimmed)].slice(0, MAX_RECENT_SEARCHES);
+      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearRecentSearches = useCallback(() => {
+    setRecentSearches([]);
+    AsyncStorage.removeItem(RECENT_SEARCHES_KEY);
   }, []);
 
   useEffect(() => {
@@ -300,7 +325,7 @@ export default function AramaPage() {
       const allData = islemResults.map((i) => ({ type: 'islem' as const, data: i }));
       const isExpanded = expandedSections.has('islem');
       result.push({
-        title: t('transactions:titles.transactionNotes'),
+        title: t('common:labels.transactions'),
         sectionType: 'islem',
         allData,
         data: isExpanded ? allData : allData.slice(0, MAX_ITEMS_PER_SECTION),
@@ -318,7 +343,9 @@ export default function AramaPage() {
 
   const handleItemPress = useCallback(
     (item: SearchResultItem) => {
+      haptics.selection();
       Keyboard.dismiss();
+      if (query.trim().length >= 2) saveRecentSearch(query);
       switch (item.type) {
         case 'hesap':
           router.push(`/hesaplar/${item.data.id}` as Href);
@@ -349,7 +376,7 @@ export default function AramaPage() {
           break;
       }
     },
-    [router]
+    [router, haptics, query, saveRecentSearch]
   );
 
   const toggleSection = useCallback((sectionType: string) => {
@@ -823,17 +850,50 @@ export default function AramaPage() {
           </View>
           <Text style={styles.emptyTitle}>{t('common:search.globalSearch')}</Text>
           <Text style={styles.emptyHint}>{t('common:search.searchHint')}</Text>
+          {recentSearches.length > 0 && (
+            <View style={styles.recentSection}>
+              <View style={styles.recentHeader}>
+                <Text style={styles.recentTitle}>{t('common:search.recentSearches')}</Text>
+                <TouchableOpacity onPress={clearRecentSearches} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={styles.recentClearText}>{t('common:search.clearRecentSearches')}</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.recentChips}>
+                {recentSearches.map((term) => (
+                  <TouchableOpacity
+                    key={term}
+                    style={styles.recentChip}
+                    activeOpacity={0.7}
+                    onPress={() => { haptics.selection(); setQuery(term); }}
+                  >
+                    <Clock size={12} color={colors.textMuted} />
+                    <Text style={styles.recentChipText}>{term}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
       )}
 
       {/* Empty state - no results */}
-      {hasAnyFilter && totalResults === 0 && (
+      {hasAnyFilter && totalResults === 0 && !isSearching && (
         <View style={styles.emptyState}>
           <View style={[styles.emptyIconContainer, { backgroundColor: colors.errorLight }]}>
             <Search size={32} color={colors.error} />
           </View>
           <Text style={styles.emptyTitle}>{t('common:search.noResults')}</Text>
-          <Text style={styles.emptyHint}>{t('common:search.tryDifferent')}</Text>
+          <Text style={styles.emptyHint}>
+            {hasActiveAdvancedFilters
+              ? t('common:search.noResultsWithFilters')
+              : t('common:search.tryDifferent')}
+          </Text>
+          {hasActiveAdvancedFilters && (
+            <TouchableOpacity style={styles.clearFiltersInlineBtn} onPress={handleClearFilters}>
+              <X size={14} color={colors.primary} />
+              <Text style={styles.clearFiltersInlineText}>{t('common:search.clearFilters')}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </SafeAreaView>
@@ -1192,5 +1252,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     textAlign: 'center',
+  },
+  recentSection: {
+    marginTop: spacing.lg,
+    width: '100%',
+  },
+  recentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  recentTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  recentClearText: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  recentChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  recentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  recentChipText: {
+    fontSize: 13,
+    color: colors.text,
+  },
+  clearFiltersInlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryLight,
+  },
+  clearFiltersInlineText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });
