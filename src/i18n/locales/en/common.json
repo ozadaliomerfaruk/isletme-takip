@@ -87,7 +87,18 @@
     "tryDifferent": "Try a different search term",
     "clearSearch": "Clear Search",
     "searchIcons": "Search icons...",
-    "searchCategories": "Search categories..."
+    "searchCategories": "Search categories...",
+    "resultCount": "{{count}} results found",
+    "showAll": "Show All ({{count}})",
+    "searchHint": "Search by name, note, or product code",
+    "recentSearches": "Recent Searches",
+    "minAmount": "Min Amount",
+    "maxAmount": "Max Amount",
+    "amountRange": "Amount Range",
+    "dateRange": "Date Range",
+    "startDate": "Start",
+    "endDate": "End",
+    "clearFilters": "Clear Filters"
   },
   "select": {
     "selectOption": "Select an option",

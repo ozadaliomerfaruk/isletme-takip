@@ -1082,3 +1082,67 @@ export function useSearchIslemler(searchQuery: string) {
     enabled: !!isletme && q.length >= 2,
   });
 }
+
+interface IslemFilterSearchParams {
+  searchQuery?: string;
+  minAmount?: number | null;
+  maxAmount?: number | null;
+  dateFrom?: string | null;
+  dateTo?: string | null;
+}
+
+export function useFilteredIslemler(params: IslemFilterSearchParams) {
+  const { isletme } = useAuthContext();
+  const q = params.searchQuery?.trim() || '';
+  const hasTextQuery = q.length >= 2;
+  const hasAmountFilter = params.minAmount != null || params.maxAmount != null;
+  const hasDateFilter = !!params.dateFrom || !!params.dateTo;
+  const hasAnyFilter = hasTextQuery || hasAmountFilter || hasDateFilter;
+
+  return useQuery({
+    queryKey: ['islemler', 'filtered', isletme?.id ?? '', q, params.minAmount, params.maxAmount, params.dateFrom, params.dateTo],
+    queryFn: async () => {
+      if (!isletme) return [];
+
+      let queryBuilder = supabase
+        .from('islemler')
+        .select(`
+          *,
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name,type),
+          personel:personel(id,first_name,last_name),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+        `)
+        .eq('isletme_id', isletme.id);
+
+      if (hasTextQuery) {
+        const sanitized = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+        queryBuilder = queryBuilder.ilike('description', `%${sanitized}%`);
+      }
+
+      if (params.minAmount != null) {
+        queryBuilder = queryBuilder.gte('amount', params.minAmount);
+      }
+      if (params.maxAmount != null) {
+        queryBuilder = queryBuilder.lte('amount', params.maxAmount);
+      }
+
+      if (params.dateFrom) {
+        queryBuilder = queryBuilder.gte('date', params.dateFrom);
+      }
+      if (params.dateTo) {
+        queryBuilder = queryBuilder.lte('date', `${params.dateTo}T23:59:59`);
+      }
+
+      const { data, error } = await queryBuilder
+        .order('date', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data as IslemWithRelations[];
+    },
+    enabled: !!isletme && hasAnyFilter,
+  });
+}

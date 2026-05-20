@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, memo } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -158,7 +158,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
 // ============================================================================
 
 export default function PersonelHareketleriPage() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'errors']);
   const { formatDateSmart, formatDateShort, formatDateMedium } = useDateFormat();
@@ -213,6 +213,16 @@ export default function PersonelHareketleriPage() {
       Alert.alert(t('common:status.error'), message);
     },
   });
+
+  // Handle expandIslemId from search navigation
+  const [expandHandled, setExpandHandled] = useState(false);
+  useEffect(() => {
+    if (expandIslemId && !expandHandled && islemler && islemler.length > 0) {
+      setEditTransactionId(expandIslemId);
+      setShowEditBar(true);
+      setExpandHandled(true);
+    }
+  }, [expandIslemId, expandHandled, islemler]);
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);

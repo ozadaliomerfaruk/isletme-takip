@@ -94,7 +94,18 @@
     "searching": "Aranıyor...",
     "tryDifferent": "Farklı bir arama terimi deneyin",
     "searchIcons": "İkon ara...",
-    "searchCategories": "Kategori ara..."
+    "searchCategories": "Kategori ara...",
+    "resultCount": "{{count}} sonuç bulundu",
+    "showAll": "Tümünü Gör ({{count}})",
+    "searchHint": "İsim, not veya ürün kodu ile arayın",
+    "recentSearches": "Son Aramalar",
+    "minAmount": "Min Tutar",
+    "maxAmount": "Maks Tutar",
+    "amountRange": "Tutar Aralığı",
+    "dateRange": "Tarih Aralığı",
+    "startDate": "Başlangıç",
+    "endDate": "Bitiş",
+    "clearFilters": "Filtreleri Temizle"
   },
   "select": {
     "selectCategory": "Kategori seç",

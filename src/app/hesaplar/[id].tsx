@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo, memo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect, memo } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, ListRenderItemInfo } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -286,7 +286,7 @@ export default function HesapHareketleriPage() {
   if (__DEV__) {
     console.log('=== HESAP DETAY SAYFASI YUKLENDI ===');
   }
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['accounts', 'common', 'errors', 'checks']);
@@ -379,6 +379,16 @@ export default function HesapHareketleriPage() {
         : '';
     return { day: hesap.payment_due_day, isToday, isTomorrow, hint };
   }, [hesap?.type, hesap?.payment_due_day, t]);
+
+  // Handle expandIslemId from search navigation
+  const [expandHandled, setExpandHandled] = useState(false);
+  useEffect(() => {
+    if (expandIslemId && !expandHandled && islemler && islemler.length > 0) {
+      setEditTransactionId(expandIslemId);
+      setShowEditBar(true);
+      setExpandHandled(true);
+    }
+  }, [expandIslemId, expandHandled, islemler]);
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
