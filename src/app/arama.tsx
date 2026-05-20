@@ -8,6 +8,8 @@ import {
   Keyboard,
   Platform,
   Modal,
+  ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
@@ -118,6 +120,7 @@ export default function AramaPage() {
   const [dateTo, setDateTo] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | null>(null);
   const [tempDate, setTempDate] = useState(new Date());
+  const [enabledTypes, setEnabledTypes] = useState<Set<string>>(new Set(['hesap', 'musteri', 'tedarikci', 'personel', 'urun', 'not', 'islem']));
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -160,7 +163,7 @@ export default function AramaPage() {
   const hasAmountFilter = parsedMin !== null || parsedMax !== null;
   const hasDateFilter = dateFrom !== null || dateTo !== null;
 
-  const { data: islemResults = [] } = useFilteredIslemler({
+  const { data: islemResults = [], isFetching: islemFetching } = useFilteredIslemler({
     searchQuery: debouncedQuery,
     minAmount: parsedMin,
     maxAmount: parsedMax,
@@ -213,6 +216,32 @@ export default function AramaPage() {
     setShowDatePicker(null);
   }, []);
 
+  const isSearching = query !== debouncedQuery || islemFetching;
+
+  const allEntityTypes = useMemo(() => [
+    { key: 'hesap', label: t('common:labels.account'), icon: Wallet, color: colors.success },
+    { key: 'musteri', label: t('clients:tabs.customers'), icon: Users, color: colors.primary },
+    { key: 'tedarikci', label: t('clients:tabs.suppliers'), icon: Truck, color: colors.orange },
+    { key: 'personel', label: t('common:labels.staff'), icon: UserCheck, color: colors.success },
+    { key: 'urun', label: t('products:title'), icon: Package, color: colors.info },
+    { key: 'not', label: t('common:notes.title'), icon: StickyNote, color: colors.primary },
+    { key: 'islem', label: t('common:labels.transactions'), icon: FileText, color: colors.warning },
+  ] as const, [t]);
+
+  const toggleEntityType = useCallback((key: string) => {
+    setEnabledTypes(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        if (next.size > 1) next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  }, []);
+
+  const allTypesEnabled = enabledTypes.size === allEntityTypes.length;
+
   const sections = useMemo<FullSection[]>(() => {
     const q = normalizeTurkish(query.trim());
     if (!q && !hasAmountFilter && !hasDateFilter) return [];
@@ -220,99 +249,51 @@ export default function AramaPage() {
     const result: FullSection[] = [];
     const nameMatches = (name: string) => !q || normalizeTurkish(name).includes(q);
 
-    const filteredHesaplar = hesaplar.filter((h) =>
-      nameMatches(h.name) && (!hasAmountFilter || amountInRange(Number(h.balance))) && dateInRange(h.created_at)
+    const pushSection = (sectionType: SearchResultItem['type'], title: string, items: SearchResultItem[]) => {
+      if (items.length === 0 || !enabledTypes.has(sectionType)) return;
+      const isExpanded = expandedSections.has(sectionType);
+      result.push({
+        title, sectionType, allData: items,
+        data: isExpanded ? items : items.slice(0, MAX_ITEMS_PER_SECTION),
+        totalCount: items.length,
+      });
+    };
+
+    pushSection('hesap', t('common:labels.account'),
+      hesaplar.filter((h) => nameMatches(h.name) && (!hasAmountFilter || amountInRange(Number(h.balance))) && dateInRange(h.created_at))
+        .map((h) => ({ type: 'hesap' as const, data: h }))
     );
-    if (filteredHesaplar.length > 0) {
-      const allData = filteredHesaplar.map((h) => ({ type: 'hesap' as const, data: h }));
-      const isExpanded = expandedSections.has('hesap');
-      result.push({
-        title: t('common:labels.account'),
-        sectionType: 'hesap',
-        allData,
-        data: isExpanded ? allData : allData.slice(0, MAX_ITEMS_PER_SECTION),
-        totalCount: allData.length,
-      });
-    }
 
-    const filteredMusteriler = musteriCariler.filter((c) =>
-      nameMatches(c.name) && (!hasAmountFilter || amountInRange(Number(c.balance))) && dateInRange(c.created_at)
+    pushSection('musteri', t('clients:tabs.customers'),
+      musteriCariler.filter((c) => nameMatches(c.name) && (!hasAmountFilter || amountInRange(Number(c.balance))) && dateInRange(c.created_at))
+        .map((c) => ({ type: 'musteri' as const, data: c }))
     );
-    if (filteredMusteriler.length > 0) {
-      const allData = filteredMusteriler.map((c) => ({ type: 'musteri' as const, data: c }));
-      const isExpanded = expandedSections.has('musteri');
-      result.push({
-        title: t('clients:tabs.customers'),
-        sectionType: 'musteri',
-        allData,
-        data: isExpanded ? allData : allData.slice(0, MAX_ITEMS_PER_SECTION),
-        totalCount: allData.length,
-      });
-    }
 
-    const filteredTedarikci = tedarikciCariler.filter((c) =>
-      nameMatches(c.name) && (!hasAmountFilter || amountInRange(Number(c.balance))) && dateInRange(c.created_at)
+    pushSection('tedarikci', t('clients:tabs.suppliers'),
+      tedarikciCariler.filter((c) => nameMatches(c.name) && (!hasAmountFilter || amountInRange(Number(c.balance))) && dateInRange(c.created_at))
+        .map((c) => ({ type: 'tedarikci' as const, data: c }))
     );
-    if (filteredTedarikci.length > 0) {
-      const allData = filteredTedarikci.map((c) => ({ type: 'tedarikci' as const, data: c }));
-      const isExpanded = expandedSections.has('tedarikci');
-      result.push({
-        title: t('clients:tabs.suppliers'),
-        sectionType: 'tedarikci',
-        allData,
-        data: isExpanded ? allData : allData.slice(0, MAX_ITEMS_PER_SECTION),
-        totalCount: allData.length,
-      });
-    }
 
-    const filteredPersonel = personelList.filter((p) => {
-      const fullName = `${p.first_name} ${p.last_name ?? ''}`;
-      return nameMatches(fullName) && (!hasAmountFilter || amountInRange(Number(p.balance))) && dateInRange(p.created_at);
-    });
-    if (filteredPersonel.length > 0) {
-      const allData = filteredPersonel.map((p) => ({ type: 'personel' as const, data: p }));
-      const isExpanded = expandedSections.has('personel');
-      result.push({
-        title: t('common:labels.staff'),
-        sectionType: 'personel',
-        allData,
-        data: isExpanded ? allData : allData.slice(0, MAX_ITEMS_PER_SECTION),
-        totalCount: allData.length,
-      });
-    }
-
-    const filteredUrunler = urunler.filter((u) =>
-      (nameMatches(u.ad) || (u.kod && (!q || normalizeTurkish(u.kod).includes(q)))) &&
-      (!hasAmountFilter || amountInRange(u.satis_fiyati)) && dateInRange(u.created_at)
+    pushSection('personel', t('common:labels.staff'),
+      personelList.filter((p) => {
+        const fullName = `${p.first_name} ${p.last_name ?? ''}`;
+        return nameMatches(fullName) && (!hasAmountFilter || amountInRange(Number(p.balance))) && dateInRange(p.created_at);
+      }).map((p) => ({ type: 'personel' as const, data: p }))
     );
-    if (filteredUrunler.length > 0) {
-      const allData = filteredUrunler.map((u) => ({ type: 'urun' as const, data: u }));
-      const isExpanded = expandedSections.has('urun');
-      result.push({
-        title: t('products:title'),
-        sectionType: 'urun',
-        allData,
-        data: isExpanded ? allData : allData.slice(0, MAX_ITEMS_PER_SECTION),
-        totalCount: allData.length,
-      });
-    }
 
-    const filteredNotlar = notlar.filter((n) =>
-      nameMatches(n.content) && dateInRange(n.created_at)
+    pushSection('urun', t('products:title'),
+      urunler.filter((u) =>
+        (nameMatches(u.ad) || (u.kod && (!q || normalizeTurkish(u.kod).includes(q)))) &&
+        (!hasAmountFilter || amountInRange(u.satis_fiyati)) && dateInRange(u.created_at)
+      ).map((u) => ({ type: 'urun' as const, data: u }))
     );
-    if (filteredNotlar.length > 0) {
-      const allData = filteredNotlar.map((n) => ({ type: 'not' as const, data: n }));
-      const isExpanded = expandedSections.has('not');
-      result.push({
-        title: t('common:notes.title'),
-        sectionType: 'not',
-        allData,
-        data: isExpanded ? allData : allData.slice(0, MAX_ITEMS_PER_SECTION),
-        totalCount: allData.length,
-      });
-    }
 
-    if (islemResults.length > 0) {
+    pushSection('not', t('common:notes.title'),
+      notlar.filter((n) => nameMatches(n.content) && dateInRange(n.created_at))
+        .map((n) => ({ type: 'not' as const, data: n }))
+    );
+
+    if (enabledTypes.has('islem') && islemResults.length > 0) {
       const allData = islemResults.map((i) => ({ type: 'islem' as const, data: i }));
       const isExpanded = expandedSections.has('islem');
       result.push({
@@ -325,7 +306,7 @@ export default function AramaPage() {
     }
 
     return result;
-  }, [query, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, notlar, islemResults, t, expandedSections, hasAmountFilter, amountInRange, hasDateFilter, dateInRange]);
+  }, [query, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, notlar, islemResults, t, expandedSections, enabledTypes, hasAmountFilter, amountInRange, hasDateFilter, dateInRange]);
 
   const totalResults = useMemo(
     () => sections.reduce((sum, s) => sum + s.totalCount, 0),
@@ -595,6 +576,7 @@ export default function AramaPage() {
   );
 
   const hasQuery = query.trim().length > 0;
+  const hasEntityFilter = !allTypesEnabled;
   const hasAnyFilter = hasQuery || hasAmountFilter || hasDateFilter;
 
   const handleClearFilters = useCallback(() => {
@@ -602,7 +584,10 @@ export default function AramaPage() {
     setMaxAmount('');
     setDateFrom(null);
     setDateTo(null);
+    setEnabledTypes(new Set(['hesap', 'musteri', 'tedarikci', 'personel', 'urun', 'not', 'islem']));
   }, []);
+
+  const hasActiveAdvancedFilters = hasAmountFilter || hasDateFilter || hasEntityFilter;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -621,7 +606,10 @@ export default function AramaPage() {
             autoCorrect={false}
             returnKeyType="search"
           />
-          {query.length > 0 && (
+          {isSearching && (
+            <ActivityIndicator size="small" color={colors.primary} style={{ marginRight: 4 }} />
+          )}
+          {query.length > 0 && !isSearching && (
             <TouchableOpacity
               onPress={() => setQuery('')}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -636,10 +624,32 @@ export default function AramaPage() {
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={styles.filterToggle}
         >
-          <SlidersHorizontal size={20} color={showFilters || hasAmountFilter || hasDateFilter ? colors.primary : colors.textMuted} />
-          {(hasAmountFilter || hasDateFilter) && <View style={styles.filterActiveDot} />}
+          <SlidersHorizontal size={20} color={showFilters || hasActiveAdvancedFilters ? colors.primary : colors.textMuted} />
+          {hasActiveAdvancedFilters && <View style={styles.filterActiveDot} />}
         </TouchableOpacity>
       </View>
+
+      {/* Entity Type Chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipBar}
+      >
+        {allEntityTypes.map(({ key, label, icon: Icon, color }) => {
+          const active = enabledTypes.has(key);
+          return (
+            <TouchableOpacity
+              key={key}
+              style={[styles.chip, active && styles.chipActive]}
+              activeOpacity={0.7}
+              onPress={() => toggleEntityType(key)}
+            >
+              <Icon size={14} color={active ? colors.primary : colors.textMuted} />
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       {/* Filter Bar */}
       {showFilters && (
@@ -727,7 +737,7 @@ export default function AramaPage() {
           </View>
 
           {/* Clear all filters */}
-          {(hasAmountFilter || hasDateFilter) && (
+          {hasActiveAdvancedFilters && (
             <TouchableOpacity onPress={handleClearFilters} style={styles.clearAllFiltersBtn}>
               <X size={14} color={colors.error} />
               <Text style={styles.clearAllFiltersText}>{t('common:search.clearFilters')}</Text>
@@ -878,6 +888,36 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.primary,
+  },
+  chipBar: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+    backgroundColor: colors.surface,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: spacing.xs + 1,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chipActive: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textMuted,
+  },
+  chipTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   filterBar: {
     backgroundColor: colors.surface,

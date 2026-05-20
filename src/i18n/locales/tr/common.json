@@ -285,7 +285,8 @@
     "select": "Seç",
     "account": "Hesap",
     "client": "Cari",
-    "staff": "Personel"
+    "staff": "Personel",
+    "transactions": "İşlemler"
   },
   "placeholders": {
     "enterName": "Ad girin",

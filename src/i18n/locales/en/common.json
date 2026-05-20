@@ -276,6 +276,7 @@
     "account": "Account",
     "client": "Client",
     "staff": "Staff",
+    "transactions": "Transactions",
     "title": "Title",
     "none": "None",
     "select": "Select"
