@@ -139,14 +139,14 @@ export default function AramaPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const saveRecentSearch = useCallback((term: string) => {
+  const saveRecentSearch = useCallback(async (term: string) => {
     const trimmed = term.trim();
     if (trimmed.length < 2) return;
-    setRecentSearches(prev => {
-      const next = [trimmed, ...prev.filter(s => s !== trimmed)].slice(0, MAX_RECENT_SEARCHES);
-      AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
-      return next;
-    });
+    const raw = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
+    const prev: string[] = raw ? JSON.parse(raw) : [];
+    const next = [trimmed, ...prev.filter(s => s !== trimmed)].slice(0, MAX_RECENT_SEARCHES);
+    await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+    setRecentSearches(next);
   }, []);
 
   const clearRecentSearches = useCallback(() => {
@@ -343,10 +343,10 @@ export default function AramaPage() {
   );
 
   const handleItemPress = useCallback(
-    (item: SearchResultItem) => {
+    async (item: SearchResultItem) => {
       haptics.selection();
       Keyboard.dismiss();
-      if (query.trim().length >= 2) saveRecentSearch(query);
+      if (query.trim().length >= 2) await saveRecentSearch(query);
       switch (item.type) {
         case 'hesap':
           router.push(`/hesaplar/${item.data.id}` as Href);
