@@ -859,12 +859,7 @@ export default function AramaPage() {
           <Text style={styles.emptyHint}>{t('common:search.searchHint')}</Text>
           {recentSearches.length > 0 && (
             <View style={styles.recentSection}>
-              <View style={styles.recentHeader}>
-                <Text style={styles.recentTitle}>{t('common:search.recentSearches')}</Text>
-                <TouchableOpacity onPress={clearRecentSearches} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                  <Text style={styles.recentClearText}>{t('common:search.clearRecentSearches')}</Text>
-                </TouchableOpacity>
-              </View>
+              <Text style={styles.recentTitle}>{t('common:search.recentSearches')}</Text>
               <View style={styles.recentChips}>
                 {recentSearches.map((term) => (
                   <TouchableOpacity
@@ -873,10 +868,18 @@ export default function AramaPage() {
                     activeOpacity={0.7}
                     onPress={() => { haptics.selection(); setQuery(term); }}
                   >
-                    <Clock size={12} color={colors.textMuted} />
+                    <Clock size={14} color={colors.textMuted} />
                     <Text style={styles.recentChipText}>{term}</Text>
                   </TouchableOpacity>
                 ))}
+                <TouchableOpacity
+                  style={[styles.recentChip, styles.recentClearChip]}
+                  activeOpacity={0.7}
+                  onPress={clearRecentSearches}
+                >
+                  <X size={14} color={colors.error} />
+                  <Text style={styles.recentClearChipText}>{t('common:search.clearRecentSearches')}</Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -1263,40 +1266,40 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
     width: '100%',
   },
-  recentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
   recentTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
-  },
-  recentClearText: {
-    fontSize: 12,
-    color: colors.textMuted,
+    marginBottom: spacing.sm,
   },
   recentChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.xs,
+    gap: spacing.xs + 2,
   },
   recentChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: borderRadius.full,
+    gap: 5,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.surface,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
   recentChipText: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.text,
+  },
+  recentClearChip: {
+    backgroundColor: colors.errorLight,
+    borderColor: colors.error,
+  },
+  recentClearChipText: {
+    fontSize: 14,
+    color: colors.error,
+    fontWeight: '500',
   },
   clearFiltersInlineBtn: {
     flexDirection: 'row',
