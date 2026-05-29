@@ -608,11 +608,55 @@ export function useDeleteUrunHareket() {
 }
 
 /**
+ * Bir ürünlü işlem düzenlenirken stok hareketlerini ATOMİK yeniden uygula.
+ *
+ * Tek bir SECURITY DEFINER RPC (reapply_urun_hareketler_for_islem) çağırır: eski
+ * hareketleri geri al + sil ve güncel satırları yeniden oluştur — hepsi tek
+ * transaction'da. Herhangi bir adım hata verirse tüm değişiklikler geri sarılır,
+ * yani stok ASLA yarım/tutarsız kalmaz. items boşsa yalnızca geri alma yapılır.
+ */
+export function useReapplyUrunHareketlerForIslem() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async (input: {
+      islemId: string;
+      items: Array<{
+        urun_id: string;
+        hareket_tipi: UrunHareketTipi;
+        miktar: number;
+        birim_fiyat: number | null;
+        kdv_orani: number | null;
+        aciklama?: string | null;
+      }>;
+    }) => {
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+
+      const { error } = await supabase.rpc('reapply_urun_hareketler_for_islem', {
+        p_isletme_id: isletme.id,
+        p_islem_id: input.islemId,
+        p_items: input.items,
+      });
+
+      if (error) throw error;
+      return { success: true };
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'urunHareket');
+    },
+  });
+}
+
+/**
  * Bir işleme bağlı TÜM ürün hareketlerini geri al (stok etkisini ters çevir) ve sil.
  *
  * İşlem düzenlenirken stoğu yeniden uygulamak için kullanılır: önce bununla eski
  * hareketleri geri al, sonra createUrunHareket ile güncel satırları yeniden oluştur.
  * Mantık useDeleteIslem içindeki ürün-hareketi geri alma akışının birebir aynısıdır.
+ *
+ * NOT: Atomik garanti için useReapplyUrunHareketlerForIslem tercih edilmelidir;
+ * bu fonksiyon yedek/uyumluluk için tutulmaktadır.
  */
 export function useReverseAndDeleteUrunHareketlerForIslem() {
   const queryClient = useQueryClient();

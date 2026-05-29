@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useCreateIslem, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem, useDeleteIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
-import { useCreateUrunHareket, useReverseAndDeleteUrunHareketlerForIslem } from '@/hooks/useUrunHareketler';
+import { useCreateUrunHareket, useReapplyUrunHareketlerForIslem } from '@/hooks/useUrunHareketler';
 import { parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
@@ -219,7 +219,7 @@ export function useTransactionSubmit({
   const deleteIleriTarihliIslem = useDeleteIleriTarihliIslem();
   const uploadPhoto = useUploadIslemPhoto();
   const createUrunHareket = useCreateUrunHareket();
-  const reverseUrunHareketler = useReverseAndDeleteUrunHareketlerForIslem();
+  const reapplyUrunHareketler = useReapplyUrunHareketlerForIslem();
   const isSavingRef = useRef(false);
 
   // Helper: Get urun movement type based on transaction type
@@ -644,18 +644,30 @@ export function useTransactionSubmit({
             }
           }
           // #6: Ürün-bağlı işlemde stoğu da yeniden uygula. updateIslem yalnızca
-          // bakiyeyi düzeltir; ürün hareketleri ayrıca eski hâli geri alınıp güncel
-          // urunItems'tan yeniden oluşturulmalı, yoksa stok ve ürün raporu islem.amount
-          // ile tutarsız kalır (kullanıcının fark ettiği sorun). Aynı islem id korunur;
-          // yalnızca urun_hareketler yenilenir. createUrunHareketler boşsa no-op'tur,
-          // böylece ürünleri kaldırılmış bir işlemde stok doğru şekilde geri alınır.
-          if (getUrunHareketTipi(type)) {
-            try {
-              await reverseUrunHareketler.mutateAsync(transactionId);
-              await createUrunHareketler(type, description.trim(), transactionId);
-            } catch (urunError) {
-              console.error('[UrunHareket] Edit reapply error:', urunError);
-              Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
+          // bakiyeyi düzeltir; ürün hareketleri eski hâli geri alınıp güncel urunItems'tan
+          // yeniden oluşturulmalı, yoksa stok ve ürün raporu islem.amount ile tutarsız
+          // kalır. Aynı islem id korunur. ATOMİK: tek RPC içinde geri-al+sil+yeniden-oluştur;
+          // hata olursa tümü geri sarılır -> stok asla yarım kalmaz. items boşsa (ürünler
+          // kaldırılmışsa) yalnızca geri alma yapılır.
+          {
+            const hareketTipi = getUrunHareketTipi(type);
+            if (hareketTipi) {
+              try {
+                await reapplyUrunHareketler.mutateAsync({
+                  islemId: transactionId,
+                  items: urunItems.map((item) => ({
+                    urun_id: item.urunId,
+                    hareket_tipi: hareketTipi,
+                    miktar: item.miktar,
+                    birim_fiyat: item.birimFiyat,
+                    kdv_orani: item.kdvOrani,
+                    aciklama: description.trim() || null,
+                  })),
+                });
+              } catch (urunError) {
+                console.error('[UrunHareket] Edit reapply error:', urunError);
+                Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
+              }
             }
           }
         } else if (!isScheduledTransaction && isScheduled) {
@@ -803,7 +815,7 @@ export function useTransactionSubmit({
     handleDismiss,
     urunItems,
     createUrunHareketler,
-    reverseUrunHareketler,
+    reapplyUrunHareketler,
     getUrunHareketTipi,
     description,
   ]);
