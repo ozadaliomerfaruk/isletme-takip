@@ -6,6 +6,8 @@ import { Kategori, IslemType, HesapType } from '@/types/database';
 import { CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { queryKeys } from '@/lib/queryKeys';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
+import { useSettings } from './useSettings';
+import { useExchangeRates, convertCurrency } from './useExchangeRates';
 
 /**
  * Supabase query sonucu için tip tanımı
@@ -19,8 +21,8 @@ interface CashFlowQueryItem {
   hesap_id: string | null;
   hedef_hesap_id: string | null;
   kategori: Kategori | Kategori[] | null;
-  hesap: { id: string; type: HesapType; is_active: boolean } | { id: string; type: HesapType; is_active: boolean }[] | null;
-  hedef_hesap: { id: string; type: HesapType; is_active: boolean } | { id: string; type: HesapType; is_active: boolean }[] | null;
+  hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | { id: string; type: HesapType; is_active: boolean; currency: string | null }[] | null;
+  hedef_hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | { id: string; type: HesapType; is_active: boolean; currency: string | null }[] | null;
 }
 
 /**
@@ -34,8 +36,8 @@ interface NormalizedCashFlowItem {
   hesap_id: string | null;
   hedef_hesap_id: string | null;
   kategori: Kategori | null;
-  hesap: { id: string; type: HesapType; is_active: boolean } | null;
-  hedef_hesap: { id: string; type: HesapType; is_active: boolean } | null;
+  hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | null;
+  hedef_hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | null;
 }
 
 /**
@@ -111,6 +113,9 @@ export function useCashFlowByCategory(
 ): CashFlowByCategoryResult {
   const { isletme } = useAuthContext();
   const { startDate, endDate, limit = 10 } = options;
+  const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const rates = exchangeRatesData?.rates;
 
   // Tarih aralığını normalize et (gün sonuna kadar dahil etmek için)
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
@@ -141,8 +146,8 @@ export function useCashFlowByCategory(
             hesap_id,
             hedef_hesap_id,
             kategori:kategoriler(id,name),
-            hesap:hesaplar!hesap_id(id, type, is_active),
-            hedef_hesap:hesaplar!hedef_hesap_id(id, type, is_active)
+            hesap:hesaplar!hesap_id(id, type, is_active, currency),
+            hedef_hesap:hesaplar!hedef_hesap_id(id, type, is_active, currency)
           `)
           .eq('isletme_id', isletme.id)
           .in('type', allTypes)
@@ -201,7 +206,20 @@ export function useCashFlowByCategory(
         if (__DEV__) console.warn(`[CashFlow] Skipping transaction ${islem.id}: invalid amount "${islem.amount}"`);
         return;
       }
-      const amount = rawAmount;
+
+      // Tutarı ana para birimine çevir. Nakit akışında tutar, paranın girip çıktığı
+      // hesabın (islem.hesap) para birimindedir. Kur bulunamazsa işlemi atla — yanlış
+      // büyüklükte toplama eklemektense hariç tut (gelir/gider raporlarıyla tutarlı).
+      const hesapCurrency = islem.hesap?.currency || baseCurrency;
+      let amount = rawAmount;
+      if (hesapCurrency !== baseCurrency) {
+        const converted = convertCurrency(rawAmount, hesapCurrency, baseCurrency, rates);
+        if (converted === null) {
+          if (__DEV__) console.warn(`[CashFlow] Skipping ${islem.id}: kur bulunamadı (${hesapCurrency})`);
+          return;
+        }
+        amount = converted;
+      }
 
       const hesapType = islem.hesap?.type as HesapType | undefined;
       const hedefHesapType = islem.hedef_hesap?.type as HesapType | undefined;
@@ -400,7 +418,7 @@ export function useCashFlowByCategory(
       allCreditCardSpendingItems,
       totalCreditCardSpending: roundedTotalCreditCardSpending,
     };
-  }, [islemler, limit]);
+  }, [islemler, limit, baseCurrency, rates]);
 
   return {
     ...result,

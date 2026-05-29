@@ -14,6 +14,8 @@ import { queryKeys } from '@/lib/queryKeys';
 import { getDateRange } from '@/lib/date';
 import { calculateIncomeSummary, isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
+import { useSettings } from './useSettings';
+import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import type {
   AnalyticsTrend,
   AnalyticsPeriod,
@@ -80,6 +82,10 @@ export function useAnalyticsTrend(
 ): AnalyticsTrend {
   const { isletme } = useAuthContext();
   const { t } = useTranslation('common');
+  const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const rates = exchangeRatesData?.rates;
+  const ratesVersion = exchangeRatesData?.updated_at ?? null;
 
   // Get localized short month names
   const monthsShort = useMemo(() => {
@@ -91,7 +97,13 @@ export function useAnalyticsTrend(
   }, [t]);
 
   const trendQuery = useQuery({
-    queryKey: queryKeys.analytics.trend(isletme?.id ?? '', period, filter?.type || null, filter?.id || null, dateRange?.startDate, dateRange?.endDate),
+    // baseCurrency + ratesVersion eklendi: filtreli yol kuru istemcide uyguladığından,
+    // kurlar yüklendiğinde/güncellendiğinde trend yeniden hesaplanmalı.
+    queryKey: [
+      ...queryKeys.analytics.trend(isletme?.id ?? '', period, filter?.type || null, filter?.id || null, dateRange?.startDate, dateRange?.endDate),
+      baseCurrency,
+      ratesVersion,
+    ],
     queryFn: async () => {
       if (!isletme) return null;
 
@@ -171,10 +183,28 @@ export function useAnalyticsTrend(
         const oldestStart = periods[0].startDate;
         const newestEnd = periods[periods.length - 1].endDate;
 
-        const data = await fetchAllPages<{ type: string; amount: number; date: string }>(() => {
+        type TrendRow = {
+          type: string; amount: number; date: string;
+          hesap: { currency: string | null } | { currency: string | null }[] | null;
+          cari: { currency: string | null } | { currency: string | null }[] | null;
+          personel: { currency: string | null } | { currency: string | null }[] | null;
+        };
+        const firstCcy = (v: TrendRow['hesap']): string | null =>
+          Array.isArray(v) ? (v[0]?.currency ?? null) : (v?.currency ?? null);
+        // İşlemin para birimini A1 ile aynı kuralla çöz (tutar hangi bakiye bacağındaysa o)
+        // ve ana para birimine çevir. Kur yoksa ham tutar (mevcut davranış; nadir).
+        const toBaseAmount = (row: TrendRow): number => {
+          const amt = Number(row.amount) || 0;
+          const ccy = firstCcy(row.hesap) || firstCcy(row.cari) || firstCcy(row.personel) || baseCurrency;
+          if (ccy === baseCurrency) return amt;
+          const conv = convertCurrency(amt, ccy, baseCurrency, rates);
+          return conv ?? amt;
+        };
+
+        const data = await fetchAllPages<TrendRow>(() => {
           let q = supabase
             .from('islemler')
-            .select('type, amount, date')
+            .select('type, amount, date, hesap:hesaplar!hesap_id(currency), cari:cariler(currency), personel:personel(currency)')
             .eq('isletme_id', isletme.id)
             .gte('date', `${oldestStart}T00:00:00`)
             .lte('date', `${newestEnd}T23:59:59`);
@@ -204,7 +234,7 @@ export function useAnalyticsTrend(
           });
 
           const summary = calculateIncomeSummary(
-            periodTransactions as Array<{ type: IslemType; amount: number }>
+            periodTransactions.map((tx) => ({ type: tx.type as IslemType, amount: toBaseAmount(tx) }))
           );
 
           return {
