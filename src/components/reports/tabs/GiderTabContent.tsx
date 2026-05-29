@@ -87,6 +87,15 @@ export function GiderTabContent({ dateRange }: TabContentProps) {
             />
           ))
         )}
+
+        {/* İadeler satırı: kategori kartları brüt, başlık net olduğundan farkı burada
+            gösterip kırılım ile başlığı mutabık kılar (#5) */}
+        {!giderRaporu.isLoading && giderRaporu.returnTotal > 0 && (
+          <View style={styles.returnsRow}>
+            <Text variant="body" color="secondary">{t('reports:sections.returns')}</Text>
+            <Text variant="body" color="error">-{formatCurrency(giderRaporu.returnTotal)}</Text>
+          </View>
+        )}
       </View>
     </>
   );
@@ -127,5 +136,13 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     padding: spacing.xl,
+  },
+  returnsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
   },
 });

@@ -75,7 +75,8 @@
     "categoryDistribution": "CATEGORY DISTRIBUTION",
     "categoryFilter": "CATEGORY FILTER",
     "selectedTransactions": "SELECTED TRANSACTIONS",
-    "transactions": "TRANSACTIONS"
+    "transactions": "TRANSACTIONS",
+    "returns": "Returns"
   },
   "counts": {
     "account": "{{count}} Accounts",

@@ -75,7 +75,8 @@
     "categoryDistribution": "KATEGORİ DAĞILIMI",
     "categoryFilter": "KATEGORİ FİLTRESİ",
     "selectedTransactions": "SEÇİLEN İŞLEMLER",
-    "transactions": "İŞLEMLER"
+    "transactions": "İŞLEMLER",
+    "returns": "İadeler"
   },
   "counts": {
     "account": "{{count}} Hesap",

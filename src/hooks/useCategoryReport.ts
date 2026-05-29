@@ -37,7 +37,8 @@ export interface HierarchicalCategoryReportItem extends CategoryReportItem {
 
 export interface CategoryReportResult {
   items: CategoryReportItem[];
-  totalAmount: number;
+  totalAmount: number;        // İade SONRASI (net) toplam — başlıkta gösterilen
+  returnTotal: number;        // Dönemdeki iade toplamı (ayrı "İadeler" satırı için)
   uncategorizedAmount: number;
   uncategorizedCount: number;
   isLoading: boolean;
@@ -189,7 +190,8 @@ export function useCategoryReport(
     if (!islemler || islemler.length === 0) {
       return {
         items: [],
-        totalAmount: 0,
+        totalAmount: -(returnTotal || 0),
+        returnTotal: returnTotal || 0,
         uncategorizedAmount: 0,
         uncategorizedCount: 0,
       };
@@ -276,10 +278,14 @@ export function useCategoryReport(
       }
     });
 
-    // Yüzde hesabı için payda: dışarıdan verilmişse onu kullan (örn: giderlerin gelire oranı)
+    // İade tutarını toplam tutardan çıkar (dashboard ile tutarlılık) — başlıkta gösterilen net toplam
+    const adjustedTotalAmount = totalAmount - (returnTotal || 0);
+
+    // Yüzde hesabı için payda: dışarıdan verilmişse onu kullan (örn: giderlerin gelire oranı);
+    // yoksa İADE SONRASI (net) toplamı kullan ki yüzdeler gösterilen başlıkla tutarlı olsun (#9).
     const percentageDenominator = (options.percentageReferenceTotal && options.percentageReferenceTotal > 0)
       ? options.percentageReferenceTotal
-      : totalAmount;
+      : adjustedTotalAmount;
 
     // Map'i array'e çevir ve sırala (büyükten küçüğe)
     const items: CategoryReportItem[] = Array.from(parentCategoryMap.values())
@@ -301,12 +307,10 @@ export function useCategoryReport(
       });
     }
 
-    // İade tutarını toplam tutardan çıkar (dashboard ile tutarlılık)
-    const adjustedTotalAmount = totalAmount - (returnTotal || 0);
-
     return {
       items,
       totalAmount: adjustedTotalAmount,
+      returnTotal: returnTotal || 0,
       uncategorizedAmount,
       uncategorizedCount,
     };
