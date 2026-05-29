@@ -16,13 +16,17 @@ import { IslemType } from '@/types/database';
 export const INCOME_TYPES: IslemType[] = ['gelir', 'cari_satis', 'personel_satis'];
 
 /**
- * Gider olarak sayılan işlem tipleri
+ * Gider olarak sayılan işlem tipleri (P&L / kar-zarar)
  * - gider: Hesaptan doğrudan çıkan gider
  * - cari_alis: Tedarikçiden yapılan alış
  * - personel_gider: Personel maaş/prim gideri
- * - nakit_avans_taksit: Nakit avans taksit ödemesi
+ *
+ * NOT: nakit_avans_taksit BİLEREK dahil DEĞİL. O bir kredi kartı nakit avansının
+ * geri ödeme bacağıdır (finansman/borç ödemesi), işletme gideri değildir; avans
+ * çekilirken zaten gider tahakkuku yapılmaz. Gider sayılırsa net kâr olduğundan
+ * düşük görünür. Yalnızca CASH_OUTFLOW_TYPES içinde kalır (gerçek nakit çıkışı).
  */
-export const EXPENSE_TYPES: IslemType[] = ['gider', 'cari_alis', 'personel_gider', 'nakit_avans_taksit'];
+export const EXPENSE_TYPES: IslemType[] = ['gider', 'cari_alis', 'personel_gider'];
 
 /**
  * Ödeme işlemleri (gelir/gider DEĞİL - sadece para transferi)

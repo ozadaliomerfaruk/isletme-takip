@@ -35,6 +35,10 @@ export interface FinancialSummary {
   // Genel Durum = (Hesaplar + Alacaklar) - Borçlar
   generalStatus: number;
 
+  // Döviz kuru bulunamadığı için bazı bakiyeler hariç tutulduysa true.
+  // UI bu durumda "kurlar yüklenemedi, döviz bakiyeleri hariç" uyarısı gösterebilir.
+  conversionIncomplete: boolean;
+
   isLoading: boolean;
 }
 
@@ -70,6 +74,22 @@ export function useFinancialSummary(): FinancialSummary {
   const exchangeRates = exchangeRatesData?.rates;
 
   const summary = useMemo(() => {
+    // Döviz kuru bulunamadığında bakiyeyi sessizce 1:1 (yanlış) eklemek yerine,
+    // o bakiyeyi HARİÇ tutar ve conversionIncomplete bayrağını set ederiz; böylece
+    // UI bir uyarı gösterebilir. (Kurlar her gün güncellendiğinden bu yol nadiren
+    // çalışır; kur mevcutken davranış birebir aynıdır.)
+    let conversionIncomplete = false;
+    const toBase = (bal: number, currency: string): number | null => {
+      if (bal === 0) return 0;
+      if (currency === baseCurrency) return bal;
+      const converted = convertCurrency(bal, currency, baseCurrency, exchangeRates);
+      if (converted === null) {
+        conversionIncomplete = true;
+        return null;
+      }
+      return converted;
+    };
+
     // Hesap hesaplaması (hesaplar ve borçlar)
     // Tüm para birimlerini ana para birimine çevirip topla
     // Birikim hesapları sadece pozitif bakiyelerde varlık olarak sayılır
@@ -80,15 +100,8 @@ export function useFinancialSummary(): FinancialSummary {
         const balance = toNumber(hesap.balance);
 
         // Para birimini ana para birimine çevir
-        let convertedBalance: number;
-        if (accountCurrency === baseCurrency) {
-          convertedBalance = balance;
-        } else {
-          // Döviz kuru ile çevir, bulunamazsa orijinal bakiyeyi kullan
-          const converted = convertCurrency(balance, accountCurrency, baseCurrency, exchangeRates);
-          // Fallback: Döviz kuru yoksa orijinal bakiyeyi kullan (veri kaybı olmasın)
-          convertedBalance = converted ?? balance;
-        }
+        const convertedBalance = toBase(balance, accountCurrency);
+        if (convertedBalance === null) return acc; // kur yok -> hariç tut + bayrak
 
         if (convertedBalance > 0) {
           // Pozitif bakiye = hesap varlığı (birikim dahil)
@@ -108,13 +121,8 @@ export function useFinancialSummary(): FinancialSummary {
         const cariCurrency = cari.currency || baseCurrency;
         const balance = toNumber(cari.balance);
 
-        let convertedBalance: number;
-        if (cariCurrency === baseCurrency) {
-          convertedBalance = balance;
-        } else {
-          const converted = convertCurrency(balance, cariCurrency, baseCurrency, exchangeRates);
-          convertedBalance = converted ?? balance;
-        }
+        const convertedBalance = toBase(balance, cariCurrency);
+        if (convertedBalance === null) return acc; // kur yok -> hariç tut + bayrak
 
         if (convertedBalance > 0) {
           // Pozitif bakiye = müşteriden alacak
@@ -134,13 +142,8 @@ export function useFinancialSummary(): FinancialSummary {
         const personelCurrency = personel.currency || baseCurrency;
         const balance = toNumber(personel.balance);
 
-        let convertedBalance: number;
-        if (personelCurrency === baseCurrency) {
-          convertedBalance = balance;
-        } else {
-          const converted = convertCurrency(balance, personelCurrency, baseCurrency, exchangeRates);
-          convertedBalance = converted ?? balance;
-        }
+        const convertedBalance = toBase(balance, personelCurrency);
+        if (convertedBalance === null) return acc; // kur yok -> hariç tut + bayrak
 
         if (convertedBalance > 0) {
           // Pozitif bakiye = personelden alacak (avans vs.)
@@ -184,6 +187,7 @@ export function useFinancialSummary(): FinancialSummary {
       receivables,
       netPosition,
       generalStatus,
+      conversionIncomplete,
     };
   }, [hesaplar, cariler, personelList, baseCurrency, exchangeRates]);
 
