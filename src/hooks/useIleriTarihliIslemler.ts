@@ -19,7 +19,10 @@ import i18n from '@/i18n';
 // ============================================================================
 
 /**
- * Tüm ileri tarihli işlemleri getir (pending olanlar)
+ * Tüm ileri tarihli işlemleri getir (henüz tamamlanmamış olanlar: pending + notified).
+ * 'notified' = hatırlatma bildirimi gönderilmiş ama kullanıcı henüz tamamlamamış.
+ * Bunları da listeye dahil ediyoruz ki bildirim sonrası (özellikle vadesi geçmiş)
+ * işlemler sessizce kaybolmasın; aksi halde kullanıcı onları bir daha göremezdi.
  */
 export function useIleriTarihliIslemler() {
   const { isletme, isletmeLoading } = useAuthContext();
@@ -40,7 +43,7 @@ export function useIleriTarihliIslemler() {
           personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'notified'])
         .order('scheduled_date', { ascending: true });
 
       if (error) throw error;
@@ -109,7 +112,7 @@ export function useIleriTarihliIslemlerByHesap(hesapId: string) {
           personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'notified'])
         .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`)
         .order('scheduled_date', { ascending: true });
 
@@ -142,7 +145,7 @@ export function useIleriTarihliIslemlerByCari(cariId: string) {
           personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'notified'])
         .eq('cari_id', cariId)
         .order('scheduled_date', { ascending: true });
 
@@ -175,7 +178,7 @@ export function useIleriTarihliIslemlerByPersonel(personelId: string) {
           personel:personel(id,first_name,last_name,currency)
         `)
         .eq('isletme_id', isletme.id)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'notified'])
         .eq('personel_id', personelId)
         .order('scheduled_date', { ascending: true });
 
@@ -341,7 +344,7 @@ export function useCompleteIleriTarihliIslem() {
   const { isletme } = useAuthContext();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (id: string): Promise<IslemInsert | null> => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 0. Hatırlatıcıyı iptal et (varsa)
@@ -363,6 +366,28 @@ export function useCompleteIleriTarihliIslem() {
 
       if (fetchError) throw fetchError;
       if (!ileriIslem) throw new Error(i18n.t('common:errors.transactionNotFound'));
+
+      // 1b. ATOMİK "CLAIM": satırı yalnızca hâlâ tamamlanmamışken (pending/notified)
+      // 'completed' yap. Bu koşullu UPDATE Postgres'te atomiktir; aynı satır için
+      // yarışan iki tetikleme (çift dokunma, iki cihaz, çevrimdışı retry) olursa
+      // SADECE biri satırı kaplar (claimed.length === 1), diğeri 0 satır günceller
+      // ve aşağıdaki insert/bakiye adımlarına HİÇ ulaşamaz. Böylece çift kayıt ve
+      // çift sayılan bakiye engellenir.
+      const previousStatus = ileriIslem.status;
+      const { data: claimed, error: claimError } = await supabase
+        .from('ileri_tarihli_islemler')
+        .update({ status: 'completed' })
+        .eq('id', id)
+        .eq('isletme_id', isletme.id)
+        .in('status', ['pending', 'notified'])
+        .select('id');
+
+      if (claimError) throw claimError;
+      if (!claimed || claimed.length === 0) {
+        // Satır başka bir aksiyon tarafından zaten tamamlanmış (veya silinmiş).
+        // Kullanıcı açısından işlem zaten kaydedilmiş demektir -> sessiz başarı.
+        return null;
+      }
 
       // 2. Para birimlerini belirle (cross-currency desteği)
       const hesapCurrency = ileriIslem.hesap?.currency || 'TRY';
@@ -400,6 +425,10 @@ export function useCompleteIleriTarihliIslem() {
         source_currency: sourceCurrency,
         target_currency: targetCurrency,
         exchange_rate: ileriIslem.exchange_rate,
+        // Çift kayıt koruması: bu islem'i kaynak ileri tarihli satıra bağla.
+        // DB'deki partial UNIQUE index, aynı kaynaktan ikinci bir islem
+        // oluşturulmasını imkânsız kılar.
+        source_ileri_id: id,
       };
 
       const { data: newIslem, error: insertError } = await supabase
@@ -408,33 +437,35 @@ export function useCompleteIleriTarihliIslem() {
         .select()
         .single();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        // Rollback: claim'i geri al (satırı eski durumuna döndür) ki kullanıcı
+        // tekrar deneyebilsin. (UNIQUE ihlali = zaten kaydedilmiş demektir.)
+        await supabase
+          .from('ileri_tarihli_islemler')
+          .update({ status: previousStatus })
+          .eq('id', id)
+          .eq('isletme_id', isletme.id);
+        throw insertError;
+      }
       if (!newIslem) throw new Error(i18n.t('common:errors.transactionCreationFailed'));
 
-      // 3. Bakiyeleri güncelle
+      // 4. Bakiyeleri güncelle
       try {
         await updateBalancesForIslem(islemData);
       } catch (balanceError) {
-        // Rollback: oluşturulan işlemi sil
+        // Rollback: oluşturulan işlemi sil ve claim'i geri al
         await supabase.from('islemler').delete().eq('id', newIslem.id);
+        await supabase
+          .from('ileri_tarihli_islemler')
+          .update({ status: previousStatus })
+          .eq('id', id)
+          .eq('isletme_id', isletme.id);
         throw balanceError;
       }
 
-      // 4. İleri tarihli işlemi completed olarak işaretle
-      const { error: updateError } = await supabase
-        .from('ileri_tarihli_islemler')
-        .update({ status: 'completed' })
-        .eq('id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (updateError) {
-        // Rollback: oluşturulan işlemi sil
-        await supabase.from('islemler').delete().eq('id', newIslem.id);
-        await reverseBalancesForIslem(islemData);
-        throw updateError;
-      }
-
-      return newIslem;
+      // Not: Satır 1b'de atomik olarak 'completed' yapıldığı için ayrı bir
+      // status güncelleme adımına gerek yoktur.
+      return islemData;
     },
     onSuccess: () => {
       // Hem ileri tarihli işlemler hem de normal işlemler invalidate et
@@ -586,125 +617,7 @@ async function updateBalancesForIslem(islem: IslemInsert) {
   }
 }
 
-async function reverseBalancesForIslem(islem: IslemInsert) {
-  const amount = safeParseAmount(islem.amount, 'işlem tutarı');
-  const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
-  const sourceCurrency = islem.source_currency || 'TRY';
-  const targetCurrency = islem.target_currency || 'TRY';
-
-  switch (islem.type) {
-    case 'gelir':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
-      break;
-
-    case 'gider':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-      }
-      break;
-
-    case 'transfer':
-      {
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-        if (islem.hedef_hesap_id) {
-          const targetAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-          await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, -targetAmount);
-        }
-      }
-      break;
-
-    case 'cari_alis':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      break;
-
-    case 'cari_satis':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      break;
-
-    case 'cari_odeme':
-      {
-        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        if (islem.cari_id) {
-          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-      }
-      break;
-
-    case 'cari_tahsilat':
-      {
-        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        if (islem.cari_id) {
-          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-        }
-      }
-      break;
-
-    case 'personel_gider':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
-      break;
-
-    case 'personel_odeme':
-      {
-        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        if (islem.personel_id) {
-          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-      }
-      break;
-
-    case 'cari_alis_iade':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      break;
-
-    case 'cari_satis_iade':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      break;
-
-    case 'personel_tahsilat':
-      {
-        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        if (islem.personel_id) {
-          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-        }
-      }
-      break;
-
-    case 'personel_satis':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
-      break;
-
-    case 'nakit_avans_taksit':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-      }
-      break;
-  }
-}
+// Not: reverseBalancesForIslem kaldırıldı — eski tamamlama akışında, son status
+// güncellemesi başarısız olursa bakiyeleri geri almak için kullanılıyordu. Yeni
+// akışta status atomik "claim" ile en başta ayarlandığından (1b), bakiyeler
+// uygulandıktan SONRA başarısız olabilecek bir adım kalmadı; bu yüzden gerek yok.

@@ -314,6 +314,8 @@ export interface Islem {
   photo_path: string | null;       // Storage path for receipt/document photo
   // İzin tarih aralığı
   date_end: string | null;         // İzin kullanımında bitiş tarihi (YYYY-MM-DD)
+  // İleri tarihli işlem kaynağı (çift kayıt koruması)
+  source_ileri_id: string | null;  // Bu işlem bir ileri tarihli işlemden oluştuysa kaynak satırın id'si
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -340,6 +342,8 @@ export interface IslemInsert {
   photo_path?: string | null;
   // İzin tarih aralığı
   date_end?: string | null;
+  // İleri tarihli işlem kaynağı (çift kayıt koruması)
+  source_ileri_id?: string | null;
 }
 
 export interface IslemUpdate {
@@ -383,7 +387,9 @@ export interface DashboardSummary {
 }
 
 // İleri Tarihli İşlem
-export type IleriTarihliIslemStatus = 'pending' | 'completed' | 'cancelled';
+// 'notified': edge function (process-scheduled-transactions) hatırlatma bildirimi
+// gönderdikten sonra atadığı durum. Kullanıcı henüz tamamlamamıştır.
+export type IleriTarihliIslemStatus = 'pending' | 'notified' | 'completed' | 'cancelled';
 
 export interface IleriTarihliIslem {
   id: string;

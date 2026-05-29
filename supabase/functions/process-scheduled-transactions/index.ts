@@ -143,16 +143,27 @@ Deno.serve(withFnTelemetry({ name: "process-scheduled-transactions" }, async (re
       }
     );
 
-    // Bugünün tarihini al (UTC)
-    const today = new Date().toISOString().split("T")[0];
+    // Bugünün tarihini al.
+    // ÖNEMLİ: Uygulama scheduled_date'i cihazın YEREL takvim tarihinden üretir
+    // (date.ts -> formatDateForDB). UTC kullanırsak Türkiye'de (UTC+3) akşam
+    // saatlerinde tarih bir gün geride kalır ve işlem yanlış günde tetiklenir.
+    // Bu yüzden ana pazar olan Europe/Istanbul saat diliminde "bugün"ü hesaplıyoruz.
+    // en-CA locale'i YYYY-MM-DD formatı verir.
+    const today = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Istanbul",
+    }).format(new Date());
 
     console.log(`İleri tarihli işlemler kontrol ediliyor: ${today}`);
 
-    // scheduled_date'i bugün olan ve status'u pending olan işlemleri bul
+    // scheduled_date'i bugün VEYA GEÇMİŞ olan ve status'u pending olan işlemleri bul.
+    // '<= today' (eşitlik yerine): cron bir gün çalışmazsa, fonksiyon hata verirse
+    // ya da kayıt geçmiş tarihli oluşturulduysa, o kalemler bir sonraki çalıştırmada
+    // yakalanır (kendi kendini onarır). Bildirim sonrası status 'notified' olduğundan
+    // ana sorgu onları tekrar seçmez -> tek seferlik bildirim, spam yok.
     const { data: islemler, error: fetchError } = await supabaseAdmin
       .from("ileri_tarihli_islemler")
       .select("*")
-      .eq("scheduled_date", today)
+      .lte("scheduled_date", today)
       .eq("status", "pending");
 
     if (fetchError) {
@@ -244,10 +255,12 @@ Deno.serve(withFnTelemetry({ name: "process-scheduled-transactions" }, async (re
         });
 
         if (success) {
-          // Status'u notified yap
+          // Status'u notified yap + notified_at zaman damgasını yaz.
+          // (notified_at kolonu şemada vardı ama yazılmıyordu; ileride tekrar
+          // bildirim throttle'ı / kayıt için gereklidir.)
           await supabaseAdmin
             .from("ileri_tarihli_islemler")
-            .update({ status: "notified" })
+            .update({ status: "notified", notified_at: new Date().toISOString() })
             .eq("id", ileriIslem.id);
 
           results.push({

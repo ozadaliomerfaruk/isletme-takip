@@ -573,7 +573,11 @@ export function useDataImport() {
               if (cariInitialBalance !== 0) {
                 balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.clientBalanceAlreadySet', { balance: cariInitialBalance }), rowNumber });
               } else {
-                await supabase.from('cariler').update({ balance: balanceValue + cariTxEffect }).eq('id', existingId).eq('isletme_id', isletme!.id);
+                // Atomik delta uygula: bu dalda mevcut bakiye === cariTxEffect olduğundan
+                // hedef (balanceValue + cariTxEffect) için uygulanacak delta tam olarak
+                // balanceValue'dur. Mutlak SET yerine increment_balance RPC'si kullanarak
+                // eşzamanlı bir yazımın sessizce ezilmesini (race) önlüyoruz.
+                await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: existingId, amount: balanceValue });
                 startingBalancesUpdatedCount++;
               }
             }
@@ -603,7 +607,10 @@ export function useDataImport() {
               if (personelInitialBalance !== 0) {
                 balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.staffBalanceAlreadySet', { balance: personelInitialBalance }), rowNumber });
               } else {
-                await supabase.from('personel').update({ balance: balanceValue + personelTxEffect }).eq('id', existingId).eq('isletme_id', isletme!.id);
+                // Atomik delta uygula (cari ile aynı mantık): bu dalda mevcut bakiye ===
+                // personelTxEffect olduğundan uygulanacak delta tam olarak balanceValue'dur.
+                // increment_balance RPC'si ile race koşulunda para kaybını önlüyoruz.
+                await supabase.rpc('increment_balance', { table_name: 'personel', row_id: existingId, amount: balanceValue });
                 startingBalancesUpdatedCount++;
               }
             }
