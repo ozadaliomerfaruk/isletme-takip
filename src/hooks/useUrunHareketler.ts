@@ -608,6 +608,65 @@ export function useDeleteUrunHareket() {
 }
 
 /**
+ * Bir işleme bağlı TÜM ürün hareketlerini geri al (stok etkisini ters çevir) ve sil.
+ *
+ * İşlem düzenlenirken stoğu yeniden uygulamak için kullanılır: önce bununla eski
+ * hareketleri geri al, sonra createUrunHareket ile güncel satırları yeniden oluştur.
+ * Mantık useDeleteIslem içindeki ürün-hareketi geri alma akışının birebir aynısıdır.
+ */
+export function useReverseAndDeleteUrunHareketlerForIslem() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async (islemId: string) => {
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+
+      const { data: hareketler, error: fetchError } = await supabase
+        .from('urun_hareketler')
+        .select('*')
+        .eq('islem_id', islemId)
+        .eq('isletme_id', isletme.id);
+
+      if (fetchError) throw fetchError;
+      if (!hareketler || hareketler.length === 0) return { reversed: 0 };
+
+      // Her hareketin stok etkisini ters çevir
+      for (const hareket of hareketler) {
+        let miktarDegisim: number;
+        if (hareket.hareket_tipi === 'giris') {
+          miktarDegisim = -Math.abs(hareket.miktar); // girişi geri al
+        } else if (hareket.hareket_tipi === 'cikis') {
+          miktarDegisim = Math.abs(hareket.miktar); // çıkışı geri al
+        } else {
+          miktarDegisim = -hareket.miktar;
+        }
+
+        const { error: rpcError } = await supabase.rpc('update_urun_miktar', {
+          p_urun_id: hareket.urun_id,
+          p_miktar_degisim: miktarDegisim,
+          p_isletme_id: isletme.id,
+        });
+        if (rpcError) throw rpcError;
+      }
+
+      // Hareket satırlarını sil
+      const { error: deleteError } = await supabase
+        .from('urun_hareketler')
+        .delete()
+        .eq('islem_id', islemId)
+        .eq('isletme_id', isletme.id);
+
+      if (deleteError) throw deleteError;
+      return { reversed: hareketler.length };
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'urunHareket');
+    },
+  });
+}
+
+/**
  * Input for creating a product movement with cari linkage
  */
 export interface CreateUrunHareketWithCariInput {

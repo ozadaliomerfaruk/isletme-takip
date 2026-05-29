@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useCreateIslem, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem, useDeleteIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
-import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
+import { useCreateUrunHareket, useReverseAndDeleteUrunHareketlerForIslem } from '@/hooks/useUrunHareketler';
 import { parseCurrency, isValidAmount } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
@@ -219,6 +219,7 @@ export function useTransactionSubmit({
   const deleteIleriTarihliIslem = useDeleteIleriTarihliIslem();
   const uploadPhoto = useUploadIslemPhoto();
   const createUrunHareket = useCreateUrunHareket();
+  const reverseUrunHareketler = useReverseAndDeleteUrunHareketlerForIslem();
   const isSavingRef = useRef(false);
 
   // Helper: Get urun movement type based on transaction type
@@ -642,6 +643,21 @@ export function useTransactionSubmit({
               Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
             }
           }
+          // #6: Ürün-bağlı işlemde stoğu da yeniden uygula. updateIslem yalnızca
+          // bakiyeyi düzeltir; ürün hareketleri ayrıca eski hâli geri alınıp güncel
+          // urunItems'tan yeniden oluşturulmalı, yoksa stok ve ürün raporu islem.amount
+          // ile tutarsız kalır (kullanıcının fark ettiği sorun). Aynı islem id korunur;
+          // yalnızca urun_hareketler yenilenir. createUrunHareketler boşsa no-op'tur,
+          // böylece ürünleri kaldırılmış bir işlemde stok doğru şekilde geri alınır.
+          if (getUrunHareketTipi(type)) {
+            try {
+              await reverseUrunHareketler.mutateAsync(transactionId);
+              await createUrunHareketler(type, description.trim(), transactionId);
+            } catch (urunError) {
+              console.error('[UrunHareket] Edit reapply error:', urunError);
+              Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
+            }
+          }
         } else if (!isScheduledTransaction && isScheduled) {
           // Was regular, now scheduled → create scheduled first, then delete regular
           await createIleriTarihliIslem.mutateAsync({
@@ -787,6 +803,8 @@ export function useTransactionSubmit({
     handleDismiss,
     urunItems,
     createUrunHareketler,
+    reverseUrunHareketler,
+    getUrunHareketTipi,
     description,
   ]);
 
