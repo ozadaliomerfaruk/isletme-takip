@@ -599,8 +599,15 @@ export function ensureValidDate(date: Date | null | undefined): Date {
     return new Date();
   }
 
-  // 1970 öncesi veya çok eski tarihler kontrolü (1900'den önce)
-  // Bu genellikle hatalı tarih parse'ından kaynaklanır
+  // Unix epoch sentinel'i (new Date(0) / new Date(null)) = 1970 "yapışan tarih"
+  // hatasının kaynağı. Bu tam-epoch değeri geçerli bir kullanıcı tarihi değildir;
+  // bugüne düşür. (Not: 1900 floor'u KORUNUYOR ki 'Tüm Zamanlar' raporundaki eski
+  // yıllar — ör. 1926 — bozulmasın; yalnızca tam epoch elenir.)
+  if (date.getTime() === 0) {
+    return new Date();
+  }
+
+  // 1900 öncesi veya çok ileri tarihler kontrolü (hatalı parse genellikle)
   const year = date.getFullYear();
   if (year < 1900 || year > 2100) {
     return new Date();
