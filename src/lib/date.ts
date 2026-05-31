@@ -137,15 +137,17 @@ export function formatDateForDB(date: Date): string {
  * formatDateTimeForDB(new Date()) // "2024-12-31T06:30:00-05:00"
  */
 export function formatDateTimeForDB(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const seconds = String(date.getSeconds()).padStart(2, '0');
+  // Geçersiz tarih korumasi (formatDateForDB ile aynı gerekçe): NaN sızıntısını önle
+  const safe = ensureValidDate(date);
+  const year = safe.getFullYear();
+  const month = String(safe.getMonth() + 1).padStart(2, '0');
+  const day = String(safe.getDate()).padStart(2, '0');
+  const hours = String(safe.getHours()).padStart(2, '0');
+  const minutes = String(safe.getMinutes()).padStart(2, '0');
+  const seconds = String(safe.getSeconds()).padStart(2, '0');
 
   // Timezone offset (dakika cinsinden, örn: UTC+3 = -180, UTC-5 = 300)
-  const tzOffset = date.getTimezoneOffset();
+  const tzOffset = safe.getTimezoneOffset();
   const tzSign = tzOffset <= 0 ? '+' : '-';
   const tzHours = String(Math.floor(Math.abs(tzOffset) / 60)).padStart(2, '0');
   const tzMins = String(Math.abs(tzOffset) % 60).padStart(2, '0');

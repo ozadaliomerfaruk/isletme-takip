@@ -777,6 +777,10 @@ export function useTransactionSubmit({
       }
       Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
     }
+    } finally {
+      // Erken dönüşlerde (validation/picker/cross-currency) ve kayıt bitince kilidi bırak.
+      submitInFlightRef.current = false;
+    }
   }, [
     amount,
     isCariMode,
