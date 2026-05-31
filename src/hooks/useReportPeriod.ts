@@ -50,22 +50,27 @@ async function initializeState() {
       if (typeof parsed.periodOffset === 'number') {
         globalOffset = parsed.periodOffset;
       }
-      // Geçmişte 'NaN-NaN-NaN' gibi bozuk bir değer kalıcılaşmış olabilir; doğrula.
-      // Geçersizse güvenli varsayılanı koru ve bozuk kaydı onarmak için yeniden yaz.
+      // Geçmişte 'NaN-NaN-NaN' veya '1970-01-01' gibi bozuk bir değer kalıcılaşmış
+      // olabilir (yapışan 1970 hatası). Bunlar tespit edilince güvenli varsayılanı
+      // koru ve bozuk kaydı yeniden yazarak ONAR — böylece zaten etkilenmiş kullanıcı
+      // güncelleme sonrası kendiliğinden düzelir. Rapor için 1971 öncesi geçerli özel
+      // tarih yoktur, bu yüzden year<1971 bozuk kabul edilir.
+      const isBadStored = (s: string): boolean => {
+        const d = new Date(s + 'T00:00:00');
+        return isNaN(d.getTime()) || d.getFullYear() < 1971;
+      };
       if (parsed.customStartDate) {
-        const d = new Date(parsed.customStartDate + 'T00:00:00');
-        if (!isNaN(d.getTime())) {
-          globalCustomStart = ensureValidDate(d);
-        } else {
+        if (isBadStored(parsed.customStartDate)) {
           needsRepair = true;
+        } else {
+          globalCustomStart = ensureValidDate(new Date(parsed.customStartDate + 'T00:00:00'));
         }
       }
       if (parsed.customEndDate) {
-        const d = new Date(parsed.customEndDate + 'T00:00:00');
-        if (!isNaN(d.getTime())) {
-          globalCustomEnd = ensureValidDate(d);
-        } else {
+        if (isBadStored(parsed.customEndDate)) {
           needsRepair = true;
+        } else {
+          globalCustomEnd = ensureValidDate(new Date(parsed.customEndDate + 'T00:00:00'));
         }
       }
     }
