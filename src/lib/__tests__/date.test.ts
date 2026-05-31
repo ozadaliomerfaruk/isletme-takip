@@ -136,6 +136,20 @@ describe('formatDateForDB', () => {
   it('should handle Dec 31 correctly', () => {
     expect(formatDateForDB(new Date(2025, 11, 31))).toBe('2025-12-31');
   });
+
+  // 1970 "yapışan tarih" regresyon korumasi: geçersiz tarih ASLA 'NaN-NaN-NaN'
+  // üretmemeli (aksi halde AsyncStorage'a yazılıp tüm datepickerlara yayılıyordu).
+  it('geçersiz tarih için NaN-NaN-NaN üretmez (bugüne düşer)', () => {
+    const result = formatDateForDB(new Date('not-a-date'));
+    expect(result).not.toContain('NaN');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('epoch (1970) tarihi bugüne düşer', () => {
+    const result = formatDateForDB(new Date(0));
+    expect(result.startsWith('1970')).toBe(false);
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
 });
 
 // ============================================================================
@@ -147,6 +161,12 @@ describe('formatDateTimeForDB', () => {
     // Pattern: YYYY-MM-DDTHH:MM:SS±HH:MM
     expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
     expect(result).toContain('2026-06-15T14:30:45');
+  });
+
+  it('geçersiz tarih için NaN üretmez (bugüne düşer)', () => {
+    const result = formatDateTimeForDB(new Date('invalid'));
+    expect(result).not.toContain('NaN');
+    expect(result).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
   });
 });
 
