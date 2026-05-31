@@ -110,9 +110,13 @@ function getDaysShort(): string[] {
  * formatDateForDB(new Date()) // "2024-12-31"
  */
 export function formatDateForDB(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  // Geçersiz/epoch/aşırı tarih korumasi: aksi halde getFullYear()=NaN -> "NaN-NaN-NaN"
+  // string'i üretilir, kalıcı duruma (AsyncStorage) veya DB'ye sızar ve geri okununca
+  // 1970/Invalid Date olarak görünür ("yapışan 1970" hatasının kökü).
+  const safe = ensureValidDate(date);
+  const year = safe.getFullYear();
+  const month = String(safe.getMonth() + 1).padStart(2, '0');
+  const day = String(safe.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 

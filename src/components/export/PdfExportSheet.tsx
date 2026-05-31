@@ -7,7 +7,7 @@ import { SlidersHorizontal, Calendar } from 'lucide-react-native';
 import { Text } from '@/components/ui/Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { getDateRange, PeriodType, formatDateForDB } from '@/lib/date';
+import { getDateRange, PeriodType, formatDateForDB, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatCurrency } from '@/lib/currency';
 import { usePdfExport } from '@/hooks/usePdfExport';
@@ -124,23 +124,25 @@ export function PdfExportSheet({
       setShowStartPicker(false);
       setShowEndPicker(false);
       if (date) {
+        const safe = ensureValidDate(date);
         if (activePicker === 'start') {
-          setCustomStartDate(date);
+          setCustomStartDate(safe);
         } else {
-          setCustomEndDate(date);
+          setCustomEndDate(safe);
         }
         setSelectedPeriod('custom');
       }
     } else {
-      if (date) setTempDate(date);
+      if (date) setTempDate(ensureValidDate(date));
     }
   }, [activePicker]);
 
   const confirmDate = useCallback(() => {
+    const safe = ensureValidDate(tempDate);
     if (activePicker === 'start') {
-      setCustomStartDate(tempDate);
+      setCustomStartDate(safe);
     } else {
-      setCustomEndDate(tempDate);
+      setCustomEndDate(safe);
     }
     setSelectedPeriod('custom');
     setShowStartPicker(false);
@@ -216,12 +218,13 @@ export function PdfExportSheet({
               <View style={styles.customDateRow}>
                 <TouchableOpacity style={styles.dateButton} onPress={openStartPicker}>
                   <Calendar size={14} color={colors.primary} />
-                  <Text style={styles.dateButtonText}>{formatDateShort(customStartDate.toISOString())}</Text>
+                  {/* ensureValidDate + Date geç: geçersizde .toISOString() RangeError atar ve 1970 gösterir */}
+                  <Text style={styles.dateButtonText}>{formatDateShort(ensureValidDate(customStartDate))}</Text>
                 </TouchableOpacity>
                 <Text style={styles.dateSeparator}>—</Text>
                 <TouchableOpacity style={styles.dateButton} onPress={openEndPicker}>
                   <Calendar size={14} color={colors.primary} />
-                  <Text style={styles.dateButtonText}>{formatDateShort(customEndDate.toISOString())}</Text>
+                  <Text style={styles.dateButtonText}>{formatDateShort(ensureValidDate(customEndDate))}</Text>
                 </TouchableOpacity>
               </View>
             )}

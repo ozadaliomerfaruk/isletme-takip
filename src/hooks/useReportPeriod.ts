@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDateFormat } from './useDateFormat';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, ensureValidDate } from '@/lib/date';
 import type { AnalyticsPeriod, DateRange } from '@/types/analytics';
 
 export type ReportPeriod = AnalyticsPeriod | 'custom';
@@ -41,6 +41,7 @@ async function initializeState() {
 
   try {
     const stored = await AsyncStorage.getItem(STORAGE_KEY);
+    let needsRepair = false;
     if (stored) {
       const parsed: PersistedState = JSON.parse(stored);
       if (['daily', 'weekly', 'monthly', 'yearly', 'custom'].includes(parsed.period)) {
@@ -49,14 +50,30 @@ async function initializeState() {
       if (typeof parsed.periodOffset === 'number') {
         globalOffset = parsed.periodOffset;
       }
+      // Geçmişte 'NaN-NaN-NaN' gibi bozuk bir değer kalıcılaşmış olabilir; doğrula.
+      // Geçersizse güvenli varsayılanı koru ve bozuk kaydı onarmak için yeniden yaz.
       if (parsed.customStartDate) {
-        globalCustomStart = new Date(parsed.customStartDate + 'T00:00:00');
+        const d = new Date(parsed.customStartDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          globalCustomStart = ensureValidDate(d);
+        } else {
+          needsRepair = true;
+        }
       }
       if (parsed.customEndDate) {
-        globalCustomEnd = new Date(parsed.customEndDate + 'T00:00:00');
+        const d = new Date(parsed.customEndDate + 'T00:00:00');
+        if (!isNaN(d.getTime())) {
+          globalCustomEnd = ensureValidDate(d);
+        } else {
+          needsRepair = true;
+        }
       }
     }
     isInitialized = true;
+    // Bozuk değer tespit edildiyse güvenli değerlerle üzerine yaz (kendini onarma)
+    if (needsRepair) {
+      persistState();
+    }
     notifyListeners();
   } catch {
     isInitialized = true;
@@ -65,11 +82,12 @@ async function initializeState() {
 
 async function persistState() {
   try {
+    // ensureValidDate + (artık guard'lı) formatDateForDB ile asla 'NaN-NaN-NaN' yazılmaz
     const state: PersistedState = {
       period: globalPeriod,
       periodOffset: globalOffset,
-      customStartDate: formatDateForDB(globalCustomStart),
-      customEndDate: formatDateForDB(globalCustomEnd),
+      customStartDate: formatDateForDB(ensureValidDate(globalCustomStart)),
+      customEndDate: formatDateForDB(ensureValidDate(globalCustomEnd)),
     };
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -138,8 +156,9 @@ export function useReportPeriod() {
   }, []);
 
   const setCustomDates = useCallback((start: Date, end: Date) => {
-    globalCustomStart = start;
-    globalCustomEnd = end;
+    // Geçersiz tarihlerin global duruma sızmasını en baştan engelle
+    globalCustomStart = ensureValidDate(start);
+    globalCustomEnd = ensureValidDate(end);
     notifyListeners();
     persistState();
   }, []);

@@ -221,6 +221,9 @@ export function useTransactionSubmit({
   const createUrunHareket = useCreateUrunHareket();
   const reapplyUrunHareketler = useReapplyUrunHareketlerForIslem();
   const isSavingRef = useRef(false);
+  // Çift/üç gönderim koruması: handleSave'de ilk await'ten (network check) ÖNCE
+  // senkron olarak kurulur; yavaş ağda hızlı çift dokunuşun ikinci/üçüncüsü erkenden eler.
+  const submitInFlightRef = useRef(false);
 
   // Helper: Get urun movement type based on transaction type
   const getUrunHareketTipi = useCallback((txnType: TransactionType): UrunHareketTipi | null => {
@@ -397,7 +400,11 @@ export function useTransactionSubmit({
 
   // Handle save
   const handleSave = useCallback(async () => {
-    if (isSavingRef.current) return;
+    // Senkron kilit: erken kontrol ile gerçek kayıt arasında 'await checkNetworkConnectivity()'
+    // gibi async boşluklar var; yavaş ağda 2-3 dokunuş aksi halde hepsi geçip çift kayıt yapardı.
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+    try {
 
     if (!isValidAmount(amount)) {
       if (Platform.OS !== 'web') {
