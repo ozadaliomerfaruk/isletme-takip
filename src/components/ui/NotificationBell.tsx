@@ -86,6 +86,20 @@ export function NotificationBell() {
 
   const count = combinedItems.length;
 
+  // Konu 3: Vadesi BUGÜN veya GEÇMİŞ olan, henüz tamamlanmamış kalem var mı?
+  // Varsa çanda dikkat çeken bir "!" göstergesi gösterilir (normal sayı rozetinden ayrı).
+  const hasUrgent = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return combinedItems.some((item) => {
+      const dateStr = item.itemType === 'islem' ? item.data.scheduled_date : item.data.vade_tarihi;
+      if (!dateStr) return false;
+      const d = new Date(dateStr + 'T00:00:00');
+      d.setHours(0, 0, 0, 0);
+      return d.getTime() <= today.getTime(); // bugün veya geçmiş
+    });
+  }, [combinedItems]);
+
   const openModal = () => {
     setIsVisible(true);
     setIsOpen(true);
@@ -202,12 +216,18 @@ export function NotificationBell() {
         onPress={openModal}
         activeOpacity={0.7}
       >
-        <Bell size={24} color={colors.text} />
+        <Bell size={24} color={hasUrgent ? colors.error : colors.text} />
         {count > 0 && (
-          <View style={styles.badge}>
+          <View style={[styles.badge, hasUrgent && styles.badgeUrgent]}>
             <Text style={styles.badgeText}>
               {count > 99 ? '99+' : count}
             </Text>
+          </View>
+        )}
+        {/* Konu 3: Bugün/geçmiş tamamlanmamış işlem varsa dikkat çeken "!" göstergesi */}
+        {hasUrgent && (
+          <View style={styles.urgentDot}>
+            <Text style={styles.urgentDotText}>!</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -359,6 +379,29 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontSize: 10,
     fontWeight: '700',
+  },
+  badgeUrgent: {
+    backgroundColor: colors.error,
+  },
+  // Konu 3: vadesi gelmiş/geçmiş uyarısı — çanın sol-altında belirgin "!" göstergesi
+  urgentDot: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    backgroundColor: colors.error,
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: colors.surface,
+  },
+  urgentDotText: {
+    color: colors.surface,
+    fontSize: 11,
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,
