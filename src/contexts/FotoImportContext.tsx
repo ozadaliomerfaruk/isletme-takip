@@ -324,11 +324,18 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
           && base.supplierTaxNumber === candidate.supplierTaxNumber;
         const sameSupplierName = base.supplierName && candidate.supplierName
           && normalizeTurkish(base.supplierName) === normalizeTurkish(candidate.supplierName);
-        // Fuzzy supplier name matching (one contains the other)
-        const fuzzySupplierName = base.supplierName && candidate.supplierName && (
-          normalizeTurkish(base.supplierName).includes(normalizeTurkish(candidate.supplierName))
-          || normalizeTurkish(candidate.supplierName).includes(normalizeTurkish(base.supplierName))
-        );
+        // Fuzzy supplier name matching (one contains the other).
+        // #5: Sınırsız alt-dize eşleşmesi farklı tedarikçileri birleştirip veri kaybına
+        // yol açıyordu (ör. "Anadolu Gıda" ⊂ "Anadolu Gıda San. Tic."). Yanlış birleşmeyi
+        // azaltmak için: (a) kısa ad eşleşmesini ele (en az 5 karakter), (b) içerilen adın
+        // içeren adın anlamlı bir oranını (>=%60) kaplamasını şart koş.
+        const baseNorm = base.supplierName ? normalizeTurkish(base.supplierName) : '';
+        const candNorm = candidate.supplierName ? normalizeTurkish(candidate.supplierName) : '';
+        const fuzzySupplierName = baseNorm.length >= 5 && candNorm.length >= 5 && (() => {
+          const [shorter, longer] = baseNorm.length <= candNorm.length ? [baseNorm, candNorm] : [candNorm, baseNorm];
+          if (!longer.includes(shorter)) return false;
+          return shorter.length / longer.length >= 0.6;
+        })();
         const sameSupplier = sameSupplierTax || sameSupplierName || fuzzySupplierName;
         const sameSupplierCari = base.supplierMatchCariId && candidate.supplierMatchCariId
           && base.supplierMatchCariId === candidate.supplierMatchCariId;
@@ -782,11 +789,17 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
 
   // ====== REVIEW: Save single invoice ======
   const pendingDirection = useRef<UrunHareketTipi | null>(null);
+  // Senkron in-flight kilidi (#3): isSaved ancak await bitince true olduğundan, ağ
+  // süresince hızlı 2. dokunuş korumadan geçip aynı faturayı çift kaydediyordu. Bu ref
+  // dokunuş anında (senkron) kilitler; modal/Alert beklerken de aktif kalır.
+  const saveInFlightRef = useRef(false);
 
   const handleSaveWithDirection = useCallback(async (hareketTipi: UrunHareketTipi) => {
     if (selectedIndex === null) return;
     const entry = entries[selectedIndex];
     if (!entry || entry.isSaved) return;
+    if (saveInFlightRef.current) return; // çift gönderim koruması
+    saveInFlightRef.current = true;
 
     // Skip new product confirmation for modes that don't create products
     const needsProductConfirmation = entry.saveMode === 'stock_and_cari' || entry.saveMode === 'stock_only' || entry.saveMode === 'irsaliye_pending';
@@ -796,7 +809,10 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
       );
 
       if (newUnconfirmed.length > 0) {
+        // Modal açılıyor; kullanıcı onaylayınca handleConfirmNewProducts tekrar çağıracak.
+        // Kilidi burada bırak ki yeniden giriş engellenmesin (modal akışı senkron-güvenli).
         pendingDirection.current = hareketTipi;
+        saveInFlightRef.current = false;
         setNewProductModalVisible(true);
         return;
       }
@@ -810,6 +826,13 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         editedGrandTotal: entry.editedGrandTotal,
         description: entry.description || undefined,
       });
+
+      // İPTAL (#2): mükerrer fatura uyarısında kullanıcı "İptal" dediyse hiçbir şey
+      // yazılmadı. Başarı işaretleme/mesajı GÖSTERME, ekranı kapatma — review'da kal.
+      if (result.cancelled) {
+        setStep('review');
+        return;
+      }
 
       setEntries(prev => {
         const newEntries = [...prev];
@@ -859,6 +882,9 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error));
       setStep('review');
+    } finally {
+      // Kayıt (başarı/iptal/hata) bitince kilidi bırak.
+      saveInFlightRef.current = false;
     }
   }, [selectedIndex, entries, saveImport, t, router]);
 

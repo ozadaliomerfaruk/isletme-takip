@@ -211,11 +211,15 @@ export function useOcrImport(sessionId: string) {
   ): Promise<boolean> => {
     if (!invoiceNumber || !isletme) return false;
 
+    // LIKE joker karakterlerini (%, _, \) escape et — aksi halde fatura no içindeki
+    // bu karakterler joker gibi yorumlanır ve yanlış pozitif/negatif mükerrer uyarısı çıkar.
+    const sanitized = invoiceNumber.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+
     const query = supabase
       .from('islemler')
       .select('id')
       .eq('isletme_id', isletme.id)
-      .ilike('description', `%${invoiceNumber}%`)
+      .ilike('description', `%${sanitized}%`)
       .limit(1);
 
     if (cariId) {
@@ -232,7 +236,7 @@ export function useOcrImport(sessionId: string) {
     saveMode: OcrSaveMode,
     hareketTipi: UrunHareketTipi,
     options?: SaveImportOptions,
-  ): Promise<{ productCount: number; movementCount: number }> => {
+  ): Promise<{ productCount: number; movementCount: number; cancelled?: boolean }> => {
     if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
     setIsSaving(true);
@@ -262,8 +266,11 @@ export function useOcrImport(sessionId: string) {
             );
           });
           if (!confirmed) {
+            // İPTAL: başarı ile karıştırılmaması için ayırt edilebilir sentinel dön.
+            // (Aksi halde çağıran kod 'kaydedildi' sanıp başarı gösterip ekranı kapatıyordu
+            //  — hayalet başarı; oysa hiçbir şey yazılmadı.)
             setIsSaving(false);
-            return { productCount: 0, movementCount: 0 };
+            return { productCount: 0, movementCount: 0, cancelled: true };
           }
         }
       }
@@ -517,9 +524,17 @@ export function useOcrImport(sessionId: string) {
 
         // Phase 3: Create cari transaction (KDV dahil grandTotal kullan)
         if (invoice.supplierMatchCariId && movementCount > 0) {
-          const totalAmount = options?.editedGrandTotal
-            ?? invoice.grandTotal
-            ?? itemsToSave.reduce((sum, item) => sum + item.totalPrice, 0);
+          const itemsSum = itemsToSave.reduce((sum, item) => sum + item.totalPrice, 0);
+          // Kullanıcı bazı kalemleri çıkardıysa/atladıysa (itemsToSave < tüm kalemler),
+          // faturanın tam grandTotal'ına GÜVENME — yoksa stok 2 kalem girip cari borç
+          // 3 kalemlik tam tutarla yazılır (stok ile bakiye tutmaz). Bu durumda yalnızca
+          // kaydedilen kalemlerin toplamını kullan. Hiç kalem çıkmadıysa eski davranış (grandTotal).
+          const allItemsIncluded = itemsToSave.length === invoice.items.length;
+          const totalAmount = options?.editedGrandTotal != null
+            ? options.editedGrandTotal
+            : allItemsIncluded
+              ? (invoice.grandTotal ?? itemsSum)
+              : itemsSum;
 
           // Sıfır tutarlı işlemlerde (irsaliye/sipariş fişi gibi) cari hareketi oluşturma
           // ama ürün hareketlerini kaydet - amount 0 olunca DB constraint hata verir
