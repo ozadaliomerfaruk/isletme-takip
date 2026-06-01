@@ -260,3 +260,66 @@ filtre/arama değişince görünmeyen seçimler budanıyor.
   - Para/cache grubu: `aa7aaaf`
   - Kozmetik grubu: `9e1e586`
 - DB tarafında bu turda değişiklik YOK (canlı veri etkilenmedi).
+
+---
+
+# EK — Cross-currency gösterim + ileri tarihli işlem + bildirim saati (2026-06-01)
+
+4 ek konu düzeltildi: cross-currency gösterim, ileri tarihli işlemin kaybolmaması,
+"!" uyarı göstergesi, bildirim saatinin 08:00'e alınması.
+
+## Konu 1 — Cross-currency işlemde ana/alt tutar gösterimi ⭐
+**Ne değişti:** Ana satır HEDEF tarafın para biriminde, alt satır kaynak hesabın para biriminde.
+(Yalnız gösterim; DB tutar/bakiye AYNI.)
+
+### Test K1.1 — EUR hesaptan TL personele ödeme (asıl senaryo)
+1. [ ] EUR bir kasa/hesaptan TL bir personele **ödeme** yap (ör. 100 EUR), kur gir.
+2. [ ] Personel detayında ve genel işlem listesinde o işleme bak.
+   - **Beklenen:** Ana (büyük) tutar **TL karşılığı** (personel TL olduğu için, ör. ~3.560 ₺).
+   - **Beklenen:** Hemen altında küçük gri **100 € (kaynak)** yazıyor.
+   - **Beklenen:** EUR hesabın ekstresinde (hesap detayı) hesabın kendi pb'si öncelikli (ekstre mantığı — bu kasıtlı).
+3. [ ] EUR cariye TL hesaptan ödeme/tahsilat (ters yön) da test et.
+   - **Beklenen:** Ana = cari pb, alt = kaynak hesap pb.
+
+### Test K1.2 — Aynı para birimli işlem (regresyon)
+1. [ ] TL hesaptan TL personele/cariye normal ödeme.
+   - **Beklenen:** Tek tutar (alt satır YOK); eskisi gibi.
+
+### Test K1.3 — Transfer (regresyon)
+1. [ ] Farklı para birimli iki hesap arası transfer.
+   - **Beklenen:** Ana = hedef hesap pb, alt = kaynak pb (zaten çalışıyordu, bozulmamış).
+
+## Konu 2 — İleri tarihli işlem bildirimden sonra kaybolmuyor
+**Ne değişti:** Bu oturumda `7b56cb4` ile zaten çözüldü; tüm scheduled sorgular `pending+notified`
+getiriyor. (Canlı kontrol: SGK işlemi — 720.000, 31.05 — DB'de `notified` olarak SAĞLAM duruyor,
+silinmemiş; eski build `notified`'ı gizliyordu.)
+
+### Test K2.1
+1. [ ] Vadesi BUGÜN/GEÇMİŞ olan, bildirimi gelmiş ama henüz yapılmamış bir ileri tarihli işlem olsun.
+2. [ ] Yeni build ile uygulamayı aç → bildirim çanı + ilgili hesap/cari/personel detayı.
+   - **Beklenen:** İşlem hâlâ **görünüyor** (sen "Gerçekleştir" diyene kadar kaybolmuyor).
+3. [ ] İşlemi "Gerçekleştir" ile tamamla.
+   - **Beklenen:** Artık listeden çıkıyor (gerçek işleme dönüştü).
+
+## Konu 3 — Vadesi gelen/geçen için "!" uyarı göstergesi
+**Ne değişti:** Bildirim çanı, bugün/geçmiş tamamlanmamış kalem varsa kırmızı çan + "!" rozeti gösteriyor.
+
+### Test K3.1
+1. [ ] Vadesi bugün veya geçmiş, tamamlanmamış bir ileri tarihli işlem/çek olsun.
+2. [ ] Uygulamaya gir, sağ üstteki bildirim çanına bak.
+   - **Beklenen:** Çan **kırmızı** + sol-altında belirgin **"!"** göstergesi var (normal sayı rozetine ek).
+3. [ ] Tüm bugünkü/geçmiş işlemleri tamamla.
+   - **Beklenen:** "!" kayboluyor; çan normale dönüyor (gelecekteki işlemler için yalnız sayı rozeti kalır).
+
+## Konu 4 — Bildirim saati 08:00 (Türkiye)
+**Ne değişti:** Cron `5 21 * * *` (TR 00:05) → `0 5 * * *` (UTC 05:00 = TR 08:00). Canlıda uygulandı+doğrulandı.
+
+### Test K4.1
+1. [ ] Yarına bir ileri tarihli işlem oluştur.
+   - **Beklenen:** Bildirim ertesi sabah **~08:00**'de gelir (gece 00:05'te DEĞİL).
+   - **Not:** Bu sunucu-taraflı; build gerektirmez, zaten aktif. Bir sonraki tetiklenme TR 08:00.
+
+## Geri dönüş (bu ek konular)
+- Konu 1 + 3: salt istemci — ilgili commit (`b70ce91`, `b072e9f`) geri alınıp build alınabilir.
+- Konu 4: cron canlıda değişti. Geri almak için `cron.schedule('process-scheduled-transactions','5 21 * * *', <aynı komut>)`.
+- Migration `20260601000000` cron'u belgeler (komutu bozmadan yalnız schedule'ı değiştirir).
