@@ -209,6 +209,7 @@
     "fillSalaries": "Fill Salaries",
     "selectAccount": "Please select an account",
     "description": "Salary payment",
-    "success": "Payment recorded for {{count}} staff"
+    "success": "Payment recorded for {{count}} staff",
+    "partialError": "{{success}} payment(s) recorded, {{failed}} failed. Failed ones stayed selected; you can retry (already-paid staff are no longer selected, so no double payment)."
   }
 }

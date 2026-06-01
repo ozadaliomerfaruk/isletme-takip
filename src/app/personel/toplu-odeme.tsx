@@ -179,33 +179,67 @@ export default function TopluOdemePage() {
     setIsSaving(true);
 
     try {
-      // Her seçili personel için ödeme işlemi oluştur
-      const promises: Promise<any>[] = [];
+      // Her seçili (tutarı > 0) personel için ödeme işlemini PARALEL başlat ama
+      // Promise.allSettled ile sonuçları AYRI AYRI değerlendir. Promise.all kısmi
+      // başarıda hata fırlatır ama commit olmuş ödemeler geri alınmaz; kullanıcı tekrar
+      // basınca AYNI seçimi gönderip çift ödeme yapardı. Burada başarılı personeli
+      // seçimden çıkarıyoruz; böylece tekrar deneme yalnızca başarısızları gönderir.
+      const targets = Array.from(selectedPersonel).filter(
+        (id) => parseCurrency(amounts[id] || '0') > 0
+      );
 
-      selectedPersonel.forEach(personelId => {
-        const amount = parseCurrency(amounts[personelId] || '0');
-        if (amount > 0) {
-          promises.push(
-            createIslem.mutateAsync({
-              type: 'personel_odeme',
-              amount,
-              personel_id: personelId,
-              hesap_id: hesapId,
-              kategori_id: kategoriId,
-              date: formatDateTimeForDB(safeDate),
-              description: description.trim() || (kategoriId ? null : t('staff:bulkPayment.description')),
-            })
-          );
+      const results = await Promise.allSettled(
+        targets.map((personelId) =>
+          createIslem.mutateAsync({
+            type: 'personel_odeme',
+            amount: parseCurrency(amounts[personelId] || '0'),
+            personel_id: personelId,
+            hesap_id: hesapId,
+            kategori_id: kategoriId,
+            date: formatDateTimeForDB(safeDate),
+            description: description.trim() || (kategoriId ? null : t('staff:bulkPayment.description')),
+          }).then(() => personelId)
+        )
+      );
+
+      const succeededIds = new Set<string>();
+      let failedCount = 0;
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          succeededIds.add(targets[i]);
+        } else {
+          failedCount++;
+          if (__DEV__) console.error('Toplu ödeme — başarısız:', targets[i], r.reason);
         }
       });
 
-      await Promise.all(promises);
+      // Başarılı ödenenleri seçimden çıkar (çift ödemeyi önler) ve tutarlarını temizle
+      if (succeededIds.size > 0) {
+        setSelectedPersonel((prev) => {
+          const next = new Set(prev);
+          succeededIds.forEach((id) => next.delete(id));
+          return next;
+        });
+        setAmounts((prev) => {
+          const next = { ...prev };
+          succeededIds.forEach((id) => { delete next[id]; });
+          return next;
+        });
+      }
 
-      Alert.alert(
-        t('common:status.success'),
-        t('staff:bulkPayment.success', { count: selectedCount }),
-        [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
-      );
+      if (failedCount === 0) {
+        Alert.alert(
+          t('common:status.success'),
+          t('staff:bulkPayment.success', { count: succeededIds.size }),
+          [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
+        );
+      } else {
+        // Kısmi başarı: başarısızlar seçili kaldı, ekranda kal — kullanıcı tekrar deneyebilir
+        Alert.alert(
+          t('common:status.warning'),
+          t('staff:bulkPayment.partialError', { success: succeededIds.size, failed: failedCount })
+        );
+      }
     } catch (error) {
       if (__DEV__) {
         console.error('Toplu ödeme hatası:', error);

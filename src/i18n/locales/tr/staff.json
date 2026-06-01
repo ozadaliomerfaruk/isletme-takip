@@ -209,6 +209,7 @@
     "fillSalaries": "Maaş Doldur",
     "selectAccount": "Lütfen hesap seçin",
     "description": "Maaş ödemesi",
-    "success": "{{count}} personele ödeme kaydedildi"
+    "success": "{{count}} personele ödeme kaydedildi",
+    "partialError": "{{success}} ödeme kaydedildi, {{failed}} başarısız oldu. Başarısız olanlar seçili kaldı; tekrar deneyebilirsiniz (ödenen personel artık seçili değil, çift ödeme olmaz)."
   }
 }

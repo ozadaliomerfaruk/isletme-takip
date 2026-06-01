@@ -136,10 +136,17 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions): UseUndoDeleteRe
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
-        // On unmount, commit pending delete
+        // Unmount'ta bekleyen silmeyi commit et. #6: hatayı diğer commit yollarıyla
+        // SİMETRİK ele al — sessizce yutma; onError'ı çağır ve logla. (Unmount'ta UI
+        // state'i geri yükleyemeyiz çünkü component gitti, ama tüketici hatayı görüp
+        // toast/log gösterebilir; aksi halde başarısız silme tamamen görünmez kalıyordu.)
         const pending = pendingRef.current;
+        pendingRef.current = null;
         if (pending) {
-          onCommitDeleteRef.current(pending.id).catch(() => {});
+          onCommitDeleteRef.current(pending.id).catch((error: unknown) => {
+            if (__DEV__) console.error('[useUndoDelete] unmount commit hatası:', error);
+            onErrorRef.current?.(error);
+          });
         }
       }
     };

@@ -414,6 +414,10 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     immediate: [
       'kategoriler',
       'kategori',
+      // #8: İşlem listeleri kategori adını embedded join ile gömülü tutuyor; kategori
+      // yeniden adlandırılınca cari/personel ile tutarlı olması için islemler de yenilenmeli
+      // (aksi halde açık liste eski adı navigasyona kadar gösteriyordu).
+      'islemler',
     ],
     deferred: [
       'category-report',

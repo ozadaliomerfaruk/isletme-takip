@@ -59,131 +59,112 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
   }
 }
 
+type BalanceOp = { table: 'hesaplar' | 'cariler' | 'personel'; id: string; delta: number };
+
 /**
- * İşlem tipine göre bakiyeleri güncelle
- * NOT: initial_balance ASLA güncellenmez - sadece mevcut balance değişir
+ * İşlem tipine göre uygulanacak bakiye operasyonlarını (saf, async olmayan) üret.
+ * Böylece operasyonlar tek tek uygulanıp, kısmi hata durumunda yalnızca UYGULANANLAR
+ * geri alınabilir (#7). initial_balance ASLA değişmez.
  */
-async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isletme_id'>): Promise<void> {
+function buildBalanceOps(islem: Omit<IslemInsert, 'isletme_id'>): BalanceOp[] {
   const amount = toNumber(islem.amount);
-  if (amount === 0) return;
+  if (amount === 0) return [];
 
   const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
   const sourceCurrency = islem.source_currency || 'TRY';
   const targetCurrency = islem.target_currency || 'TRY';
+  const ops: BalanceOp[] = [];
 
   switch (islem.type) {
     case 'gelir':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-      }
+      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: amount });
       break;
-
     case 'gider':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
+      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
       break;
-
     case 'transfer':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
+      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
       if (islem.hedef_hesap_id) {
         const targetAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, targetAmount);
+        ops.push({ table: 'hesaplar', id: islem.hedef_hesap_id, delta: targetAmount });
       }
       break;
-
     case 'cari_alis':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
+      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: -amount });
       break;
-
     case 'cari_satis':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
+      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: amount });
       break;
-
-    case 'cari_odeme':
-      {
-        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        if (islem.cari_id) {
-          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-        }
-      }
+    case 'cari_odeme': {
+      const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: cariAmount });
+      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
       break;
-
-    case 'cari_tahsilat':
-      {
-        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        if (islem.cari_id) {
-          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-      }
+    }
+    case 'cari_tahsilat': {
+      const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: -cariAmount });
+      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: amount });
       break;
-
+    }
     case 'cari_alis_iade':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
+      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: amount });
       break;
-
     case 'cari_satis_iade':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
+      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: -amount });
       break;
-
     case 'personel_gider':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
+      if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: -amount });
       break;
-
-    case 'personel_odeme':
-      {
-        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        if (islem.personel_id) {
-          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-        }
-      }
+    case 'personel_odeme': {
+      const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+      if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: personelAmount });
+      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
       break;
-
-    case 'personel_tahsilat':
-      {
-        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        if (islem.personel_id) {
-          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-      }
+    }
+    case 'personel_tahsilat': {
+      const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
+      if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: -personelAmount });
+      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: amount });
       break;
-
+    }
     case 'personel_satis':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
+      if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: amount });
       break;
-
     case 'nakit_avans_taksit':
       // Nakit avans taksiti - kredi kartı borcunu azaltır
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
+      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
       break;
+  }
+  return ops;
+}
+
+/**
+ * İşlem tipine göre bakiyeleri güncelle.
+ * #7: Operasyonlar tek tek uygulanır; ortada bir operasyon hata verirse YALNIZCA o ana
+ * kadar UYGULANANLAR ters delta ile geri alınır (kör tam-reverse over-reverse yapardı).
+ * Böylece kısmi başarı kalıcı yanlış bakiye bırakmaz; fonksiyon ya tümünü uygular ya hiçbirini.
+ * NOT: initial_balance ASLA güncellenmez - sadece mevcut balance değişir.
+ */
+async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isletme_id'>): Promise<void> {
+  const ops = buildBalanceOps(islem);
+  const applied: BalanceOp[] = [];
+  try {
+    for (const op of ops) {
+      await safeIncrementBalance(op.table, op.id, op.delta);
+      applied.push(op);
+    }
+  } catch (err) {
+    // Uygulanan bacakları ters çevirerek geri al (yalnızca gerçekten uygulananlar)
+    for (let i = applied.length - 1; i >= 0; i--) {
+      const op = applied[i];
+      try {
+        await safeIncrementBalance(op.table, op.id, -op.delta);
+      } catch (reverseError) {
+        console.error('CRITICAL: kısmi bakiye geri alma başarısız:', op, reverseError);
+      }
+    }
+    throw err;
   }
 }
 
