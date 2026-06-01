@@ -334,6 +334,30 @@ export default function PersonelPage() {
       return a.first_name.localeCompare(b.first_name, 'tr');
     });
 
+  // #11: "Tümünü seç" durumunu sayı eşitliği yerine ÜYELİK ile belirle + filtre/arama
+  // değişince bayat seçimleri buda (yanlış etiket / hayalet seçim önlenir).
+  const visiblePersonelIds = useMemo(
+    () => filteredPersonel.map((p) => p.id),
+    [filteredPersonel]
+  );
+  const allVisibleSelected = visiblePersonelIds.length > 0
+    && visiblePersonelIds.every((id) => selectedIds.has(id));
+
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const visible = new Set(visiblePersonelIds);
+    let changed = false;
+    selectedIds.forEach((id) => { if (!visible.has(id)) changed = true; });
+    if (changed) {
+      setSelectedIds((prev) => {
+        const next = new Set<string>();
+        prev.forEach((id) => { if (visible.has(id)) next.add(id); });
+        return next;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visiblePersonelIds]);
+
   // Helper fonksiyonlar - useCallback ile memoize edildi (renderPersonelItem dependency)
   const getBalanceLabel = useCallback((balance: number): string => {
     if (balance === 0) return t('staff:balance.noBalance');
@@ -731,11 +755,11 @@ export default function PersonelPage() {
               {t('common:bulkSelect.selected', { count: selectedIds.size })}
             </Text>
             <TouchableOpacity
-              onPress={selectedIds.size === filteredPersonel?.length ? handleDeselectAll : handleSelectAll}
+              onPress={allVisibleSelected ? handleDeselectAll : handleSelectAll}
               style={styles.bulkActionSelectAll}
             >
               <Text variant="body" style={{ color: colors.primary }}>
-                {selectedIds.size === filteredPersonel?.length
+                {allVisibleSelected
                   ? t('common:bulkSelect.deselectAll')
                   : t('common:bulkSelect.selectAll')}
               </Text>

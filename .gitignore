@@ -3,6 +3,10 @@
 # dependencies
 node_modules/
 
+# backups
+backups/
+scripts/backup.bat
+
 # Expo
 .expo/
 dist/
@@ -50,3 +54,8 @@ google-service-account.json
 # generated native folders
 /ios
 /android
+
+# scratch / probe output (geçici analiz dosyaları)
+/_*.txt
+/__*.txt
+.sweep_*.json

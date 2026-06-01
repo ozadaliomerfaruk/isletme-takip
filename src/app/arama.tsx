@@ -281,7 +281,10 @@ export default function AramaPage() {
   const allTypesEnabled = enabledTypes.size === allEntityTypes.length;
 
   const sections = useMemo<FullSection[]>(() => {
-    const q = normalizeTurkish(query.trim());
+    // #10: Yerel varlıkları da debouncedQuery ile filtrele (işlemlerle aynı kaynak).
+    // Aksi halde 300ms boyunca yerel varlıklar yeni sorguyu, işlemler eski sorguyu
+    // yansıtıp sayaç rozeti ve vurgu satırlarla uyuşmuyordu.
+    const q = normalizeTurkish(debouncedQuery.trim());
     if (!q && !hasAmountFilter && !hasDateFilter) return [];
 
     const result: FullSection[] = [];
@@ -348,7 +351,7 @@ export default function AramaPage() {
     }
 
     return result;
-  }, [query, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, notlar, islemResults, t, expandedSections, enabledTypes, hasAmountFilter, amountInRange, hasDateFilter, dateInRange]);
+  }, [debouncedQuery, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, notlar, islemResults, t, expandedSections, enabledTypes, hasAmountFilter, amountInRange, hasDateFilter, dateInRange]);
 
   const totalResults = useMemo(
     () => sections.reduce((sum, s) => sum + s.totalCount, 0),
@@ -559,7 +562,7 @@ export default function AramaPage() {
           <View style={styles.resultContent}>
             <View style={styles.resultRow}>
               <View style={styles.resultNameContainer}>
-                <HighlightedText text={getName(item)} highlight={query} />
+                <HighlightedText text={getName(item)} highlight={debouncedQuery} />
                 {subtitle && (
                   <Text style={styles.resultSubtitle} numberOfLines={1}>
                     {subtitle}

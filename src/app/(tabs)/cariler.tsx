@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -484,6 +484,33 @@ export default function CarilerPage() {
       return a.name.localeCompare(b.name, 'tr');
     });
 
+  // #11: "Tümünü seç" durumunu sayı eşitliği yerine ÜYELİK ile belirle. Filtre/arama
+  // değişince selectedIds bayat id'ler tutabiliyor; saf sayı karşılaştırması yanlış
+  // etiket gösteriyordu. Görünür (linked olmayan) tüm carilerin seçili olup olmadığına bak.
+  const selectableVisibleIds = useMemo(
+    () => filteredCariler.filter((c) => !c.isLinked).map((c) => c.id),
+    [filteredCariler]
+  );
+  const allVisibleSelected = selectableVisibleIds.length > 0
+    && selectableVisibleIds.every((id) => selectedIds.has(id));
+
+  // Filtre/arama değişince artık görünür olmayan seçimleri buda (bayat seçim temizliği)
+  useEffect(() => {
+    if (selectedIds.size === 0) return;
+    const visible = new Set(selectableVisibleIds);
+    let changed = false;
+    selectedIds.forEach((id) => { if (!visible.has(id)) changed = true; });
+    if (changed) {
+      setSelectedIds((prev) => {
+        const next = new Set<string>();
+        prev.forEach((id) => { if (visible.has(id)) next.add(id); });
+        return next;
+      });
+    }
+    // selectedIds'i dep'e koymuyoruz: yalnızca görünür küme değişince budama yapılır,
+    // her seçim değişiminde değil (sonsuz döngü/agresif budama olmaz).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectableVisibleIds]);
 
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
   const renderCariItem = useCallback(({ item: cari, index }: { item: MergedCari; index: number }) => {
@@ -851,11 +878,11 @@ export default function CarilerPage() {
               {t('common:bulkSelect.selected', { count: selectedIds.size })}
             </Text>
             <TouchableOpacity
-              onPress={selectedIds.size === filteredCariler?.filter(c => !c.isLinked).length ? handleDeselectAll : handleSelectAll}
+              onPress={allVisibleSelected ? handleDeselectAll : handleSelectAll}
               style={styles.bulkActionSelectAll}
             >
               <Text variant="body" style={{ color: colors.primary }}>
-                {selectedIds.size === filteredCariler?.filter(c => !c.isLinked).length
+                {allVisibleSelected
                   ? t('common:bulkSelect.deselectAll')
                   : t('common:bulkSelect.selectAll')}
               </Text>
