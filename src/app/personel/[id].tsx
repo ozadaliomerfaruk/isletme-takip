@@ -34,7 +34,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
-import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatCurrency, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem, MilestoneItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -126,20 +126,24 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
       : null
     : null;
   const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
+  // Cross-currency (ör. EUR hesaptan TL personele ödeme): ana satır personel(hedef) pb,
+  // alt satır kaynak hesabın pb. Cross-currency değilse mevcut davranış (subText null).
+  const xc = getCrossCurrencyDisplay(islem);
 
   return (
     <SwipeableRow onDelete={canEdit ? handleDelete : undefined} onCopy={canEdit ? handleCopy : undefined} enabled={canEdit} deleteLabel={deleteLabel} copyLabel={copyLabel}>
       <TransactionRow
         id={islem.id}
         type={islem.type}
-        amount={Number(islem.amount)}
+        amount={xc.subText ? xc.mainAmount : Number(islem.amount)}
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.kategori?.name || null}
         tertiaryText={islem.description || null}
         creatorText={creatorText}
-        currency={currency}
+        subAmount={xc.subText}
+        currency={xc.subText ? xc.mainCurrency : currency}
         overrideColor={getEntityPerspectiveColor(islem.type)}
         overridePrefix={getEntityPerspectivePrefix(islem.type)}
         onPress={onPress}

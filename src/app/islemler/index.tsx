@@ -33,8 +33,7 @@ import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transac
 import { IslemWithRelations } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isLeaveType } from '@/constants/islemTypes';
-import { formatCurrency } from '@/lib/currency';
-import type { Currency } from '@/types/database';
+import { getCrossCurrencyDisplay } from '@/lib/currency';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -61,23 +60,6 @@ function getIslemEntity(islem: IslemWithRelations): string | null {
   return null;
 }
 
-/** Cross-currency transferlerde hedef tutarı gösterir */
-function getTransferSubAmount(islem: IslemWithRelations): string | null {
-  if (islem.type !== 'transfer') return null;
-  if (!islem.source_currency || !islem.target_currency ||
-      islem.source_currency === islem.target_currency ||
-      !islem.exchange_rate || islem.exchange_rate <= 0) {
-    return null;
-  }
-  const sourceAmount = Number(islem.amount);
-  let targetAmount: number;
-  if (islem.source_currency === 'TRY') {
-    targetAmount = sourceAmount / islem.exchange_rate;
-  } else {
-    targetAmount = sourceAmount * islem.exchange_rate;
-  }
-  return formatCurrency(targetAmount, islem.target_currency as Currency);
-}
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM (SwipeableRow wrapper + TransactionRow)
@@ -124,8 +106,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   const kategoriName = islem.kategori?.name || null;
   const noteText = islem.description || null;
   const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
-  const subAmount = getTransferSubAmount(islem);
-  const hesapCurrency = islem.hesap?.currency || undefined;
+  // Cross-currency: ana satır HEDEF pb, alt satır KAYNAK pb (tek kural, tüm tipler).
+  const xc = getCrossCurrencyDisplay(islem);
 
   return (
     <SwipeableRow
@@ -138,14 +120,14 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
       <TransactionRow
         id={islem.id}
         type={islem.type}
-        amount={islem.amount}
+        amount={xc.mainAmount}
         date={formatDateMedium(islem.date)}
         typeLabel={t(`transactions:types.${islem.type}`)}
         entityText={entityName}
         secondaryText={kategoriName}
         tertiaryText={noteText}
-        subAmount={subAmount}
-        currency={hesapCurrency}
+        subAmount={xc.subText}
+        currency={xc.mainCurrency}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         onPress={onPress}

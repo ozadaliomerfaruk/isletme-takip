@@ -528,3 +528,76 @@ export function calculateTargetAmount(
   // Floating point precision fix: 2 ondalık basamağa yuvarla (IEEE 754 safe)
   return roundCurrency(result);
 }
+
+// ============================================================================
+// CROSS-CURRENCY GÖSTERİM YARDIMCISI
+// ============================================================================
+
+/** Cross-currency gösterim için işlemden okunan minimal alanlar */
+export interface CrossCurrencyIslemLike {
+  type: string;
+  amount: number | string;
+  source_currency?: string | null;
+  target_currency?: string | null;
+  exchange_rate?: number | null;
+  hesap?: { currency?: string | null } | null;
+  hedef_hesap?: { currency?: string | null } | null;
+  cari?: { currency?: string | null } | null;
+  personel?: { currency?: string | null } | null;
+}
+
+export interface CrossCurrencyDisplay {
+  /** Ana (büyük) satırda gösterilecek tutar — HEDEF tarafın para biriminde */
+  mainAmount: number;
+  /** Ana satırın para birimi (hedef taraf) */
+  mainCurrency: string | undefined;
+  /** Alt (küçük) satırda gösterilecek metin — KAYNAK para birimindeki karşılığı. Cross-currency değilse null */
+  subText: string | null;
+}
+
+/**
+ * Bir işlemin ana/alt tutar gösterimini tek kuralla hesaplar:
+ *   - Ana satır: HEDEF tarafın (paranın gittiği entity) para biriminde tutar
+ *   - Alt satır: KAYNAK hesabın para birimindeki orijinal tutar
+ * Yalnızca GÖRSEL; saklanan tutar/bakiye değişmez. Cross-currency değilse alt satır null.
+ *
+ * Hedef taraf: transfer -> hedef_hesap, cari_* -> cari, personel_* -> personel.
+ * 'amount' kaynak (hesap) para birimindedir; HEDEF tutar = calculateTargetAmount ile çevrilir.
+ */
+export function getCrossCurrencyDisplay(islem: CrossCurrencyIslemLike): CrossCurrencyDisplay {
+  const amount = toNumber(islem.amount);
+  const sourceCurrency = islem.source_currency || islem.hesap?.currency || undefined;
+
+  // Hedef tarafın para birimini işlem tipine göre çöz
+  let targetCurrency: string | undefined;
+  if (islem.type === 'transfer') {
+    targetCurrency = islem.target_currency || islem.hedef_hesap?.currency || undefined;
+  } else if (islem.type.startsWith('cari_')) {
+    targetCurrency = islem.target_currency || islem.cari?.currency || undefined;
+  } else if (islem.type.startsWith('personel_')) {
+    targetCurrency = islem.target_currency || islem.personel?.currency || undefined;
+  } else {
+    targetCurrency = sourceCurrency;
+  }
+
+  const rate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
+
+  // Cross-currency değilse (aynı pb / kur yok / taraf yok): ana=kaynak, alt yok
+  if (!sourceCurrency || !targetCurrency || sourceCurrency === targetCurrency || !rate || rate <= 0) {
+    return { mainAmount: amount, mainCurrency: sourceCurrency, subText: null };
+  }
+
+  let targetAmount: number;
+  try {
+    targetAmount = calculateTargetAmount(amount, rate, sourceCurrency, targetCurrency);
+  } catch {
+    // Kur hesaplanamazsa güvenli düş: kaynak tutarı göster, alt satır yok
+    return { mainAmount: amount, mainCurrency: sourceCurrency, subText: null };
+  }
+
+  return {
+    mainAmount: targetAmount,
+    mainCurrency: targetCurrency,
+    subText: formatCurrency(amount, sourceCurrency),
+  };
+}
