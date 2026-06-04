@@ -91,6 +91,7 @@ export default function NakitAvanslarPage() {
       await exportNakitAvanslar({
         hesapName: hesap.name,
         isletmeName: isletme.name,
+        currency: hesap.currency,
         avanslar: avanslar.filter(a => !pendingDeleteIds.has(a.id)),
         t: {
           title: t('accounts:nakitAvans.title'),

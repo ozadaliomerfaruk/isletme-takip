@@ -155,6 +155,10 @@ export function useAnalyticsTrend(
           )
         );
 
+        // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
+        const convToBase = (v: number) =>
+          baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+
         trendData = periods.map((p, i) => {
           const result = rpcResults[i];
           if (result.error) throw result.error;
@@ -170,11 +174,13 @@ export function useAnalyticsTrend(
             else if (isExpenseReturnType(t)) expense -= amount;
           }
 
+          const incomeBase = convToBase(income);
+          const expenseBase = convToBase(expense);
           return {
             label: p.label,
-            income: Math.round(income * 100) / 100,
-            expense: Math.round(expense * 100) / 100,
-            net: Math.round((income - expense) * 100) / 100,
+            income: Math.round(incomeBase * 100) / 100,
+            expense: Math.round(expenseBase * 100) / 100,
+            net: Math.round((incomeBase - expenseBase) * 100) / 100,
             isCurrentPeriod: todayStr >= p.startDate && todayStr <= p.endDate,
           };
         });

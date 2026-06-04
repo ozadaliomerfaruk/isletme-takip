@@ -2,11 +2,21 @@
  * Currency utility tests - Bugs #5, #6, #7
  */
 
-// Mock useSettings before importing currency
+// Mock useSettings before importing currency.
+// mockCurrencyConfig değiştirilebilir; locale-bağımlı davranış testlerinde değiştirilir.
+const mockCurrencyConfig = { code: 'TRY', symbol: '₺', locale: 'tr-TR' };
 jest.mock('@/hooks/useSettings', () => ({
-  getCurrentCurrency: () => ({ code: 'TRY', symbol: '₺', locale: 'tr-TR' }),
+  getCurrentCurrency: () => mockCurrencyConfig,
   getCurrentDateFormat: () => ({ code: 'DMY', example: '31/12/2024', separator: '/' }),
 }));
+
+/** Test süresince ana para birimi locale'ini geçici olarak değiştirir */
+function setMockCurrency(code: string, symbol: string, locale: string) {
+  mockCurrencyConfig.code = code;
+  mockCurrencyConfig.symbol = symbol;
+  mockCurrencyConfig.locale = locale;
+}
+const TR_DEFAULT = { code: 'TRY', symbol: '₺', locale: 'tr-TR' };
 
 jest.mock('@/constants/currencies', () => ({
   getCurrencySymbol: (code: string) => {
@@ -489,5 +499,47 @@ describe('unformatCurrencyInput', () => {
 
   it('should handle empty string', () => {
     expect(unformatCurrencyInput('')).toBe('');
+  });
+});
+
+// ============================================================================
+// Locale-bilinçli giriş/parse (ana para birimi USD/GBP -> en-US/en-GB)
+// Bug: ana=USD iken "1234.56" girişi sessizce bozuluyordu (123456'ya şişiyordu)
+// ============================================================================
+describe('en-US locale (ana para birimi USD/GBP)', () => {
+  beforeEach(() => setMockCurrency('USD', '$', 'en-US'));
+  afterEach(() => setMockCurrency(TR_DEFAULT.code, TR_DEFAULT.symbol, TR_DEFAULT.locale));
+
+  describe('parseCurrency (locale-bağımsız)', () => {
+    it('nokta ondalık olarak parse edilmeli', () => {
+      expect(parseCurrency('1234.56')).toBe(1234.56);
+    });
+    it('EN formatı (virgül binlik + nokta ondalık) parse edilmeli', () => {
+      expect(parseCurrency('1,234.56')).toBe(1234.56);
+    });
+    it('TR formatı da (nokta binlik + virgül ondalık) çalışmalı', () => {
+      expect(parseCurrency('1.234,56')).toBe(1234.56);
+    });
+    it('ondalıksız değer', () => {
+      expect(parseCurrency('500')).toBe(500);
+    });
+  });
+
+  describe('formatCurrencyInput', () => {
+    it('binlik ayracı virgül olmalı', () => {
+      expect(formatCurrencyInput('2000')).toBe('2,000');
+    });
+    it('nokta ondalık korunmalı (sessiz bozulma OLMAMALI)', () => {
+      expect(formatCurrencyInput('1234.56')).toBe('1,234.56');
+    });
+    it('ondalık 2 haneyle sınırlı', () => {
+      expect(formatCurrencyInput('100.123')).toBe('100.12');
+    });
+  });
+
+  describe('unformatCurrencyInput', () => {
+    it('binlik virgüllerini kaldırmalı, ondalık noktayı korumalı', () => {
+      expect(unformatCurrencyInput('2,000.50')).toBe('2000.50');
+    });
   });
 });

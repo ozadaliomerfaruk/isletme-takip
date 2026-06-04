@@ -193,6 +193,8 @@ export interface NakitAvansExportOptions {
       status: string;
     }> | null;
   }>;
+  /** Hesabın para birimi (nakit avanslar tek hesaba aittir) */
+  currency?: string;
   t: {
     title: string;
     business: string;
@@ -221,7 +223,7 @@ export interface NakitAvansExportOptions {
 }
 
 export async function exportNakitAvanslar(opts: NakitAvansExportOptions) {
-  const { hesapName, isletmeName, avanslar, t } = opts;
+  const { hesapName, isletmeName, avanslar, currency = 'TRY', t } = opts;
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};
 
@@ -246,8 +248,8 @@ export async function exportNakitAvanslar(opts: NakitAvansExportOptions) {
 
   avanslar.forEach((a) => {
     ws[XLSX.utils.encode_cell({ r: row, c: 0 })] = { v: formatDateShort(a.tarih), s: cellStyle };
-    ws[XLSX.utils.encode_cell({ r: row, c: 1 })] = { v: formatCurrency(a.tutar), s: numberCellStyle };
-    ws[XLSX.utils.encode_cell({ r: row, c: 2 })] = { v: formatCurrency(a.geri_odeme_tutari), s: numberCellStyle };
+    ws[XLSX.utils.encode_cell({ r: row, c: 1 })] = { v: formatCurrency(a.tutar, currency), s: numberCellStyle };
+    ws[XLSX.utils.encode_cell({ r: row, c: 2 })] = { v: formatCurrency(a.geri_odeme_tutari, currency), s: numberCellStyle };
     ws[XLSX.utils.encode_cell({ r: row, c: 3 })] = { v: a.hedef_hesap?.name || '-', s: cellStyle };
     ws[XLSX.utils.encode_cell({ r: row, c: 4 })] = { v: statusLabel(a.status), s: cellStyle };
     ws[XLSX.utils.encode_cell({ r: row, c: 5 })] = { v: a.is_taksitli ? `${a.taksit_sayisi || 0}` : '1', s: numberCellStyle };
@@ -259,8 +261,8 @@ export async function exportNakitAvanslar(opts: NakitAvansExportOptions) {
   const totalTutar = avanslar.reduce((s, a) => s + a.tutar, 0);
   const totalGeri = avanslar.reduce((s, a) => s + a.geri_odeme_tutari, 0);
   ws[XLSX.utils.encode_cell({ r: row, c: 0 })] = { v: t.total, s: totalRowStyle };
-  ws[XLSX.utils.encode_cell({ r: row, c: 1 })] = { v: formatCurrency(totalTutar), s: totalNumberStyle };
-  ws[XLSX.utils.encode_cell({ r: row, c: 2 })] = { v: formatCurrency(totalGeri), s: totalNumberStyle };
+  ws[XLSX.utils.encode_cell({ r: row, c: 1 })] = { v: formatCurrency(totalTutar, currency), s: totalNumberStyle };
+  ws[XLSX.utils.encode_cell({ r: row, c: 2 })] = { v: formatCurrency(totalGeri, currency), s: totalNumberStyle };
   for (let c = 3; c <= 6; c++) ws[XLSX.utils.encode_cell({ r: row, c })] = { v: '', s: totalRowStyle };
   row++;
 
@@ -281,10 +283,10 @@ export async function exportNakitAvanslar(opts: NakitAvansExportOptions) {
 
     taksitliAvanslar.forEach((a) => {
       a.taksitler!.sort((x, y) => x.sira_no - y.sira_no).forEach((tk) => {
-        ws[XLSX.utils.encode_cell({ r: row, c: 0 })] = { v: formatCurrency(a.tutar), s: cellStyle };
+        ws[XLSX.utils.encode_cell({ r: row, c: 0 })] = { v: formatCurrency(a.tutar, currency), s: cellStyle };
         ws[XLSX.utils.encode_cell({ r: row, c: 1 })] = { v: `${tk.sira_no}/${a.taksit_sayisi}`, s: cellStyle };
         ws[XLSX.utils.encode_cell({ r: row, c: 2 })] = { v: formatDateShort(tk.odeme_tarihi), s: cellStyle };
-        ws[XLSX.utils.encode_cell({ r: row, c: 3 })] = { v: formatCurrency(tk.tutar), s: numberCellStyle };
+        ws[XLSX.utils.encode_cell({ r: row, c: 3 })] = { v: formatCurrency(tk.tutar, currency), s: numberCellStyle };
         ws[XLSX.utils.encode_cell({ r: row, c: 4 })] = { v: taksitStatus(tk.status), s: cellStyle };
         row++;
       });
@@ -315,6 +317,8 @@ export interface CategoryDetailExportOptions {
     transactionCount: number;
   }>;
   totalAmount: number;
+  /** Ana/gösterim para birimi (varsayılan TRY) */
+  currency?: string;
   t: {
     title: string;
     business: string;
@@ -333,7 +337,7 @@ export interface CategoryDetailExportOptions {
 }
 
 export async function exportCategoryDetail(opts: CategoryDetailExportOptions) {
-  const { categoryName, isletmeName, startDate, endDate, subCategories, totalAmount, t } = opts;
+  const { categoryName, isletmeName, startDate, endDate, subCategories, totalAmount, currency = 'TRY', t } = opts;
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};
 
@@ -358,14 +362,14 @@ export async function exportCategoryDetail(opts: CategoryDetailExportOptions) {
   subCategories.forEach((sc, i) => {
     const r = hRow + i;
     ws[XLSX.utils.encode_cell({ r, c: 0 })] = { v: sc.name, s: cellStyle };
-    ws[XLSX.utils.encode_cell({ r, c: 1 })] = { v: formatCurrency(sc.amount), s: numberCellStyle };
+    ws[XLSX.utils.encode_cell({ r, c: 1 })] = { v: formatCurrency(sc.amount, currency), s: numberCellStyle };
     ws[XLSX.utils.encode_cell({ r, c: 2 })] = { v: `%${sc.percentage}`, s: numberCellStyle };
     ws[XLSX.utils.encode_cell({ r, c: 3 })] = { v: sc.transactionCount, s: numberCellStyle };
   });
 
   const totalRow = hRow + subCategories.length;
   ws[XLSX.utils.encode_cell({ r: totalRow, c: 0 })] = { v: t.total, s: totalRowStyle };
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 1 })] = { v: formatCurrency(totalAmount), s: totalNumberStyle };
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 1 })] = { v: formatCurrency(totalAmount, currency), s: totalNumberStyle };
   ws[XLSX.utils.encode_cell({ r: totalRow, c: 2 })] = { v: '%100', s: totalNumberStyle };
   const totalTx = subCategories.reduce((s, sc) => s + sc.transactionCount, 0);
   ws[XLSX.utils.encode_cell({ r: totalRow, c: 3 })] = { v: totalTx, s: totalNumberStyle };

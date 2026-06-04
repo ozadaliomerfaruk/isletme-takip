@@ -1,10 +1,13 @@
+import { useMemo } from 'react';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
 import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } from '@/constants/islemTypes';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
-import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
+import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount, roundCurrency } from '@/lib/currency';
+import { useSettings } from './useSettings';
+import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import { invertCariTransactionType } from '@/lib/cariTransactionMapper';
 import {
   getDateRange,
@@ -964,6 +967,9 @@ export function useMonthSummary(
   customRange?: { startDate: string; endDate: string }
 ) {
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const rates = exchangeRatesData?.rates;
 
   const { startDate, endDate, label } = getPeriodDateRange(period, offset, customRange);
 
@@ -1015,8 +1021,23 @@ export function useMonthSummary(
     gcTime: 15 * 60 * 1000,
   });
 
+  // RPC sonucu TRY cinsindendir; ana para birimine çevir (dashboard'ın geri kalanıyla tutarlı).
+  // Kur yoksa TRY değeri korunur (sessiz 1:1 yerine mevcut değeri gösterir).
+  const convertedData = useMemo(() => {
+    const raw = query.data;
+    if (!raw) return raw;
+    if (baseCurrency === 'TRY') return raw;
+    const income = convertCurrency(raw.income, 'TRY', baseCurrency, rates);
+    const expense = convertCurrency(raw.expense, 'TRY', baseCurrency, rates);
+    return {
+      income: income === null ? raw.income : roundCurrency(income),
+      expense: expense === null ? raw.expense : roundCurrency(expense),
+    };
+  }, [query.data, baseCurrency, rates]);
+
   return {
     ...query,
+    data: convertedData,
     periodLabel: label,
   };
 }

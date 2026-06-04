@@ -37,6 +37,8 @@ import { useTranslation } from 'react-i18next';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { exportCategoryDetail } from '@/lib/pageExports';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Lucide icon haritası
@@ -85,6 +87,9 @@ export default function KategoriDetayPage() {
   const { t } = useTranslation(['reports', 'common', 'errors', 'transactions']);
   const { formatDateMedium } = useDateFormat();
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
+  const { data: ratesData } = useExchangeRates();
+  const rates = ratesData?.rates;
 
   const isUncategorized = id === 'uncategorized';
   const kategoriId = isUncategorized ? null : id;
@@ -192,11 +197,14 @@ export default function KategoriDetayPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   // Filtrelenmiş toplam (kategori-spesifik tutarları kullan)
+  // Her kalem kendi hesap para birimindedir; ana para birimine çevirip topla.
+  // (convertCurrency aynı para biriminde no-op olduğundan tek-para-birimli kullanıcıda değişmez.)
   const filteredTotal = filteredIslemler?.reduce((acc, islem) => {
     const amount = (islem as { _categoryAmount?: number })._categoryAmount !== undefined
       ? (islem as { _categoryAmount: number })._categoryAmount
       : Number(islem.amount);
-    return acc + amount;
+    const cur = islem.hesap?.currency ?? baseCurrency;
+    return acc + (convertCurrency(amount, cur, baseCurrency, rates) ?? amount);
   }, 0) ?? 0;
   const filteredCount = filteredIslemler?.length ?? 0;
 
@@ -221,6 +229,7 @@ export default function KategoriDetayPage() {
         endDate: endDate!,
         subCategories: subCats,
         totalAmount: subCategoryReport.totalAmount,
+        currency: baseCurrency,
         t: {
           title: `${pageTitle} - ${type === 'gelir' ? t('reports:titles.incomeAnalysis') : t('reports:titles.expenseAnalysis')}`,
           business: t('common:export.excel.business'),
@@ -242,7 +251,7 @@ export default function KategoriDetayPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [isletme, startDate, endDate, subCategoryReport, pageTitle, type, t]);
+  }, [isletme, startDate, endDate, subCategoryReport, pageTitle, type, baseCurrency, t]);
 
   // Tarih aralığını formatla
   const formatDateRange = () => {
@@ -487,7 +496,11 @@ export default function KategoriDetayPage() {
   );
 
   // Kategorisiz için özel hesaplamalar
-  const uncategorizedTotal = uncategorizedIslemler?.reduce((acc, islem) => acc + Number(islem.amount), 0) ?? 0;
+  const uncategorizedTotal = uncategorizedIslemler?.reduce((acc, islem) => {
+    const amount = Number(islem.amount);
+    const cur = islem.hesap?.currency ?? baseCurrency;
+    return acc + (convertCurrency(amount, cur, baseCurrency, rates) ?? amount);
+  }, 0) ?? 0;
   const uncategorizedCount = uncategorizedIslemler?.length ?? 0;
 
   // Kategorisiz sayfası

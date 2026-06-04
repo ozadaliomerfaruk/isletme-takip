@@ -3,6 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 
 // Alış işlem tipleri
 const PURCHASE_TYPES = ['cari_alis'];
@@ -56,6 +58,9 @@ export function useProductReport(
   options: UseProductReportOptions
 ): ProductReportResult {
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
+  const { data: ratesData } = useExchangeRates();
+  const rates = ratesData?.rates;
   const { startDate, endDate } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
@@ -129,21 +134,24 @@ export function useProductReport(
   });
 
   const result = useMemo(() => {
+    // RPC tutarları TRY cinsinden döner; ana para birimine çevir.
+    // baseCurrency === 'TRY' iken tam no-op (TR kullanıcı için davranış değişmez).
+    // Miktar (adet) ve işlem sayısı para DEĞİL — çevrilmez.
+    const conv = (v: number) =>
+      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+
+    const returnTotal = conv(returnData || 0);
+
     if (!mainData || mainData.length === 0) {
       return {
         items: [],
         totalAmount: 0,
         totalAmountKdvsiz: 0,
-        returnTotal: returnData || 0,
-        netAmount: -(returnData || 0),
+        returnTotal,
+        netAmount: -returnTotal,
         totalTransactions: 0,
       };
     }
-
-    const totalAmount = mainData.reduce((sum, row) => sum + (Number(row.toplam_tutar) || 0), 0);
-    const totalAmountKdvsiz = mainData.reduce((sum, row) => sum + (Number(row.toplam_tutar_kdvsiz) || 0), 0);
-    const totalTransactions = mainData.reduce((sum, row) => sum + (Number(row.islem_sayisi) || 0), 0);
-    const returnTotal = returnData || 0;
 
     const items: ProductReportItem[] = mainData.map((row) => ({
       urunId: row.urun_id,
@@ -152,13 +160,20 @@ export function useProductReport(
       kategoriId: row.kategori_id,
       kategoriAdi: row.kategori_adi,
       toplamMiktar: Number(row.toplam_miktar) || 0,
-      toplamTutar: Number(row.toplam_tutar) || 0,
-      toplamTutarKdvsiz: Number(row.toplam_tutar_kdvsiz) || 0,
+      toplamTutar: conv(Number(row.toplam_tutar) || 0),
+      toplamTutarKdvsiz: conv(Number(row.toplam_tutar_kdvsiz) || 0),
       islemSayisi: Number(row.islem_sayisi) || 0,
-      percentage: totalAmount > 0
-        ? Math.round(((Number(row.toplam_tutar) || 0) / totalAmount) * 100)
-        : 0,
+      percentage: 0, // çevrilmiş toplam üzerinden aşağıda hesaplanır
     }));
+
+    const totalAmount = items.reduce((sum, it) => sum + it.toplamTutar, 0);
+    const totalAmountKdvsiz = items.reduce((sum, it) => sum + it.toplamTutarKdvsiz, 0);
+    const totalTransactions = mainData.reduce((sum, row) => sum + (Number(row.islem_sayisi) || 0), 0);
+
+    // Yüzde oran olduğundan para biriminden bağımsız; çevrilmiş değerlerle hesapla
+    items.forEach((it) => {
+      it.percentage = totalAmount > 0 ? Math.round((it.toplamTutar / totalAmount) * 100) : 0;
+    });
 
     return {
       items,
@@ -168,7 +183,7 @@ export function useProductReport(
       netAmount: totalAmount - returnTotal,
       totalTransactions,
     };
-  }, [mainData, returnData]);
+  }, [mainData, returnData, baseCurrency, rates]);
 
   return {
     ...result,

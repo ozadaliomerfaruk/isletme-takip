@@ -44,22 +44,41 @@ export function roundCurrency(value: number): number {
  * parseCurrency("5.000")    // 5000 (Türkçe binlik ayracı)
  * parseCurrency("")         // NaN
  */
+/**
+ * Aktif (ana) para biriminin locale'ine göre binlik/ondalık ayraçlarını döndürür.
+ * en-US / en-GB (USD/GBP): ondalık '.', binlik ','
+ * tr-TR / de-DE (TRY/EUR): ondalık ',', binlik '.'
+ */
+function getLocaleSeparators(): { decimal: string; thousands: string } {
+  const locale = getCurrentCurrency().locale;
+  return locale.startsWith('en')
+    ? { decimal: '.', thousands: ',' }
+    : { decimal: ',', thousands: '.' };
+}
+
 export function parseCurrency(value: string): number {
   if (!value || value.trim() === '') return NaN;
 
   let cleaned = value.trim();
 
-  // Hem nokta hem virgül varsa, Türkçe format (1.234,56)
+  // LOCALE-BAĞIMSIZ ve geriye tam uyumlu:
+  // Hem nokta hem virgül varsa SON gelen ayraç ondalıktır, diğeri binliktir.
+  //   "1.234,56" (TR) -> virgül sonda  -> ondalık virgül
+  //   "1,234.56" (EN) -> nokta sonda   -> ondalık nokta
+  // Böylece ana para birimi ne olursa olsun her iki yazım da doğru parse edilir.
   if (cleaned.includes('.') && cleaned.includes(',')) {
-    // Binlik ayracı olan noktaları kaldır, ondalık virgülü noktaya çevir
-    cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
   } else if (cleaned.includes(',')) {
-    // Sadece virgül var - ondalık ayracı olarak kullan
+    // Sadece virgül var - ondalık ayracı olarak kullan (mevcut davranış)
     cleaned = cleaned.replace(',', '.');
   } else if (cleaned.includes('.')) {
     // Sadece nokta var - binlik mi ondalık mı kontrol et
-    // Türkçe binlik ayracı: nokta her zaman 3 rakamdan önce gelir (5.000, 50.000, 1.234.567)
-    // İngilizce ondalık: nokta 1-2 rakamdan önce gelir (5.5, 5.50)
+    // Binlik ayracı: nokta 3 rakamdan önce gelir (5.000, 50.000)
+    // Ondalık: nokta 1-2 rakamdan önce gelir (5.5, 5.50)
     const dotIndex = cleaned.lastIndexOf('.');
     const afterDot = cleaned.length - dotIndex - 1;
 
@@ -280,8 +299,8 @@ export function formatCurrencyCompact(amount: number, accountCurrency?: Currency
 
   if (accountCurrency) {
     symbol = getCurrencySymbol(accountCurrency as Currency);
-    // USD/EUR için nokta, diğerleri için virgül
-    decimalSeparator = (accountCurrency === 'USD' || accountCurrency === 'EUR') ? '.' : ',';
+    // USD/EUR/GBP için nokta (formatCurrency bunlarda en-US formatı kullanır), diğerleri için virgül
+    decimalSeparator = (accountCurrency === 'USD' || accountCurrency === 'EUR' || accountCurrency === 'GBP') ? '.' : ',';
   } else {
     const currencyConfig = getCurrentCurrency();
     symbol = currencyConfig.symbol;
@@ -321,30 +340,38 @@ export function formatCurrencyCompact(amount: number, accountCurrency?: Currency
 export function formatCurrencyInput(value: string): string {
   if (!value || value.trim() === '') return '';
 
-  // Sadece rakam, virgül ve nokta bırak
-  let cleaned = value.replace(/[^\d,]/g, '');
+  const locale = getCurrentCurrency().locale;
+  const { decimal } = getLocaleSeparators();
 
-  // Birden fazla virgül varsa sadece ilkini tut
-  const parts = cleaned.split(',');
-  if (parts.length > 2) {
-    cleaned = parts[0] + ',' + parts.slice(1).join('');
+  // Hem nokta hem virgülü kabul et; SON gelen ayraç ondalıktır (locale-bağımsız giriş).
+  // Böylece kullanıcı hangi ayracı yazarsa yazsın (1234.56 veya 1234,56) doğru çalışır;
+  // mevcut kullanıcıların alışkanlığı bozulmaz.
+  const cleaned = value.replace(/[^\d.,]/g, '');
+  const lastSep = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+
+  let integerPart: string;
+  let decimalPart: string | undefined;
+  if (lastSep === -1) {
+    integerPart = cleaned;
+  } else {
+    integerPart = cleaned.slice(0, lastSep).replace(/[.,]/g, '');
+    decimalPart = cleaned.slice(lastSep + 1).replace(/[.,]/g, '').slice(0, 2);
   }
 
-  // Virgülden önce ve sonra ayır
-  const [integerPart, decimalPart] = cleaned.split(',');
-
-  // Tam kısmı formatla (binlik ayracı ekle)
+  // Tam kısım yoksa boş dön (örn. henüz sadece ayraç yazıldıysa)
   if (!integerPart) return '';
 
   const parsedInteger = parseInt(integerPart, 10);
   if (isNaN(parsedInteger)) return '';
 
-  const formattedInteger = parsedInteger.toLocaleString('tr-TR');
+  // Tam kısmı locale'e göre binlik ayraçla formatla
+  const formattedInteger = new Intl.NumberFormat(locale, {
+    maximumFractionDigits: 0,
+  }).format(parsedInteger);
 
-  // Ondalık kısım varsa ekle (max 2 hane)
+  // Ondalık kısım varsa locale'in ondalık ayracıyla ekle (max 2 hane)
   if (decimalPart !== undefined) {
-    const limitedDecimal = decimalPart.slice(0, 2);
-    return `${formattedInteger},${limitedDecimal}`;
+    return `${formattedInteger}${decimal}${decimalPart}`;
   }
 
   return formattedInteger;
@@ -359,7 +386,30 @@ export function formatCurrencyInput(value: string): string {
  * unformatCurrencyInput("2.000")    // "2000"
  */
 export function unformatCurrencyInput(value: string): string {
-  return value.replace(/\./g, '');
+  const { thousands } = getLocaleSeparators();
+  const thousandsEsc = thousands === '.' ? '\\.' : ',';
+  return value.replace(new RegExp(thousandsEsc, 'g'), '');
+}
+
+/**
+ * Ham (canlı) girişi locale'e göre temizler: yalnızca rakam + ondalık ayracı bırakır,
+ * ondalık kısmı en fazla 2 haneyle sınırlar, binlik ayracı EKLEMEZ.
+ * AmountInput gibi tuş-tuş güncellenen giriş alanları için kullanılır.
+ *
+ * @example
+ * cleanAmountInput("2.000,567")  // "2000,56" (tr-TR / de-DE)
+ * cleanAmountInput("2,000.567")  // "2000.56" (en-US / en-GB)
+ */
+export function cleanAmountInput(text: string): string {
+  const { decimal } = getLocaleSeparators();
+  // Hem nokta hem virgülü ondalık girişi olarak kabul et; SON gelen ayraç ondalıktır.
+  // (Mevcut kullanıcıların virgül alışkanlığı da, nokta yazımı da çalışır.)
+  const cleaned = text.replace(/[^\d.,]/g, '');
+  const lastSep = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+  if (lastSep === -1) return cleaned;
+  const integerPart = cleaned.slice(0, lastSep).replace(/[.,]/g, '');
+  const decimalPart = cleaned.slice(lastSep + 1).replace(/[.,]/g, '').slice(0, 2);
+  return `${integerPart}${decimal}${decimalPart}`;
 }
 
 // ============================================================================

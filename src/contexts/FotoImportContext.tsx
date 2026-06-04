@@ -840,21 +840,24 @@ export function FotoImportProvider({ children }: { children: React.ReactNode }) 
         return newEntries;
       });
 
+      // Mesajdaki tutar, kaydın yapıldığı hesabın para biriminde gösterilmeli
+      // (hesap yoksa TRY'ye düşer; TR kullanıcıda davranış değişmez).
+      const msgCurrency = getHesapById(entry.selectedHesapId)?.currency || 'TRY';
       let message: string;
       if (entry.saveMode === 'cari_odeme_tahsilat') {
         const totalAmount = entry.editedGrandTotal ?? entry.invoice.grandTotal
           ?? entry.invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
         message = hareketTipi === 'giris'
-          ? t('ocrImport:messages.successCariTahsilat', { amount: formatCurrency(totalAmount) })
-          : t('ocrImport:messages.successCariOdeme', { amount: formatCurrency(totalAmount) });
+          ? t('ocrImport:messages.successCariTahsilat', { amount: formatCurrency(totalAmount, msgCurrency) })
+          : t('ocrImport:messages.successCariOdeme', { amount: formatCurrency(totalAmount, msgCurrency) });
       } else if (entry.saveMode === 'cari_borc_only') {
         const totalAmount = entry.editedGrandTotal ?? entry.invoice.grandTotal
           ?? entry.invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
-        message = t('ocrImport:messages.successOnlyCari', { amount: formatCurrency(totalAmount) });
+        message = t('ocrImport:messages.successOnlyCari', { amount: formatCurrency(totalAmount, msgCurrency) });
       } else if (entry.saveMode === 'direct_gider') {
         const totalAmount = entry.editedGrandTotal ?? entry.invoice.grandTotal
           ?? entry.invoice.items.reduce((sum, item) => sum + item.totalPrice, 0);
-        message = t('ocrImport:messages.successDirectGider', { amount: formatCurrency(totalAmount) });
+        message = t('ocrImport:messages.successDirectGider', { amount: formatCurrency(totalAmount, msgCurrency) });
       } else if (entry.saveMode === 'irsaliye_pending') {
         message = t('ocrImport:messages.successIrsaliyePending', { productCount: result.productCount });
       } else if (entry.saveMode === 'stock_only') {

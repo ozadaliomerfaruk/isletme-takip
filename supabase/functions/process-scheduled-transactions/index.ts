@@ -73,13 +73,36 @@ function getIslemTypeLabel(type: IslemType): string {
   return labels[type] || type;
 }
 
-// Para formatla
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("tr-TR", {
-    style: "currency",
-    currency: "TRY",
-    minimumFractionDigits: 2,
-  }).format(amount);
+// Para formatla (işlemin hesabının para birimine göre)
+function formatCurrency(amount: number, currency: string = "TRY"): string {
+  const localeMap: Record<string, string> = {
+    TRY: "tr-TR",
+    USD: "en-US",
+    EUR: "de-DE",
+    GBP: "en-GB",
+  };
+  // Altın/Gümüş ISO currency olarak gösterilmez; gram olarak yaz
+  if (currency === "XAU" || currency === "XAG") {
+    return `${new Intl.NumberFormat("tr-TR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)} gr`;
+  }
+  const locale = localeMap[currency];
+  try {
+    return new Intl.NumberFormat(locale || "tr-TR", {
+      style: "currency",
+      currency: locale ? currency : "TRY",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    // Bilinmeyen para birimi -> TRY ile güvenli düş
+    return new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency: "TRY",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  }
 }
 
 // Expo Push Notification gönder
@@ -216,6 +239,25 @@ Deno.serve(withFnTelemetry({ name: "process-scheduled-transactions" }, async (re
       tokenMap.set(pt.user_id, pt.token);
     }
 
+    // hesap_id -> currency map (bildirimde doğru para sembolü için)
+    const hesapIds = [
+      ...new Set(
+        islemler
+          .map((i: IleriTarihliIslem) => i.hesap_id)
+          .filter((id): id is string => !!id)
+      ),
+    ];
+    const hesapCurrencyMap = new Map<string, string>();
+    if (hesapIds.length > 0) {
+      const { data: hesaplar } = await supabaseAdmin
+        .from("hesaplar")
+        .select("id, currency")
+        .in("id", hesapIds);
+      for (const h of (hesaplar || []) as Array<{ id: string; currency: string | null }>) {
+        hesapCurrencyMap.set(h.id, h.currency || "TRY");
+      }
+    }
+
     const results: Array<{
       id: string;
       type: string;
@@ -243,8 +285,9 @@ Deno.serve(withFnTelemetry({ name: "process-scheduled-transactions" }, async (re
         }
 
         // Bildirim gönder
+        const currency = (ileriIslem.hesap_id && hesapCurrencyMap.get(ileriIslem.hesap_id)) || "TRY";
         const title = "Bugün Yapılacak İşlem";
-        const body = `${getIslemTypeLabel(ileriIslem.type)}: ${formatCurrency(ileriIslem.amount)}${
+        const body = `${getIslemTypeLabel(ileriIslem.type)}: ${formatCurrency(ileriIslem.amount, currency)}${
           ileriIslem.description ? ` - ${ileriIslem.description}` : ""
         }`;
 

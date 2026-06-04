@@ -6,6 +6,8 @@ import { queryKeys } from '@/lib/queryKeys';
 import { Kategori, KategoriType, HesapType } from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 
 const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'birikim', 'diger'];
 
@@ -82,6 +84,9 @@ export function useCategoryReport(
   options: UseCategoryReportOptions
 ): CategoryReportResult {
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
+  const { data: ratesData } = useExchangeRates();
+  const rates = ratesData?.rates;
   const { startDate, endDate, source } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
@@ -187,11 +192,16 @@ export function useCategoryReport(
   // Kategori bazlı gruplama ve hesaplama (alt kategoriler ana kategoriye dahil)
   // RPC zaten kategori bazlı aggregate döndürüyor, burada sadece parent gruplama yapıyoruz
   const result = useMemo(() => {
+    // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
+    const conv = (v: number) =>
+      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    const convertedReturnTotal = conv(returnTotal || 0);
+
     if (!islemler || islemler.length === 0) {
       return {
         items: [],
-        totalAmount: -(returnTotal || 0),
-        returnTotal: returnTotal || 0,
+        totalAmount: -convertedReturnTotal,
+        returnTotal: convertedReturnTotal,
         uncategorizedAmount: 0,
         uncategorizedCount: 0,
       };
@@ -215,7 +225,7 @@ export function useCategoryReport(
     let uncategorizedCount = 0;
 
     islemler.forEach((row) => {
-      const amount = Number(row.total_amount) || 0;
+      const amount = conv(Number(row.total_amount) || 0);
       const count = Number(row.islem_count) || 0;
       totalAmount += amount;
 
@@ -279,7 +289,7 @@ export function useCategoryReport(
     });
 
     // İade tutarını toplam tutardan çıkar (dashboard ile tutarlılık) — başlıkta gösterilen net toplam
-    const adjustedTotalAmount = totalAmount - (returnTotal || 0);
+    const adjustedTotalAmount = totalAmount - convertedReturnTotal;
 
     // Yüzde hesabı için payda: dışarıdan verilmişse onu kullan (örn: giderlerin gelire oranı);
     // yoksa İADE SONRASI (net) toplamı kullan ki yüzdeler gösterilen başlıkla tutarlı olsun (#9).
@@ -310,11 +320,11 @@ export function useCategoryReport(
     return {
       items,
       totalAmount: adjustedTotalAmount,
-      returnTotal: returnTotal || 0,
+      returnTotal: convertedReturnTotal,
       uncategorizedAmount,
       uncategorizedCount,
     };
-  }, [islemler, allKategoriler, returnTotal, options.percentageReferenceTotal]);
+  }, [islemler, allKategoriler, returnTotal, options.percentageReferenceTotal, baseCurrency, rates]);
 
   // Combine errors - prefer islemler error as it's more critical
   const combinedError = islemlerError || kategorilerError;
@@ -334,6 +344,9 @@ export function useHierarchicalCategoryReport(
   options: UseCategoryReportOptions
 ): HierarchicalCategoryReportResult {
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
+  const { data: ratesData } = useExchangeRates();
+  const rates = ratesData?.rates;
   const { startDate, endDate, source } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
@@ -408,6 +421,11 @@ export function useHierarchicalCategoryReport(
 
   // Hiyerarşik gruplama (RPC aggregate verisi üzerinden)
   const result = useMemo(() => {
+    // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
+    const conv = (v: number) =>
+      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    const convertedReturnTotal = conv(returnTotal || 0);
+
     if (!islemler || islemler.length === 0) {
       return {
         items: [],
@@ -427,7 +445,7 @@ export function useHierarchicalCategoryReport(
     let totalAmount = 0;
 
     islemler.forEach((row) => {
-      const amount = Number(row.total_amount) || 0;
+      const amount = conv(Number(row.total_amount) || 0);
       const count = Number(row.islem_count) || 0;
       totalAmount += amount;
 
@@ -567,7 +585,7 @@ export function useHierarchicalCategoryReport(
     }
 
     // İade tutarını toplam tutardan çıkar (dashboard ile tutarlılık)
-    const adjustedTotalAmount = totalAmount - (returnTotal || 0);
+    const adjustedTotalAmount = totalAmount - convertedReturnTotal;
 
     return {
       items,
@@ -575,7 +593,7 @@ export function useHierarchicalCategoryReport(
       uncategorizedAmount,
       uncategorizedCount,
     };
-  }, [islemler, returnTotal]);
+  }, [islemler, returnTotal, baseCurrency, rates]);
 
   return {
     ...result,
@@ -963,6 +981,9 @@ export function useSubCategoryReport(
   options: UseCategoryReportOptions
 ): SubCategoryReportResult {
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
+  const { data: ratesData } = useExchangeRates();
+  const rates = ratesData?.rates;
   const { startDate, endDate, source } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
@@ -1075,9 +1096,13 @@ export function useSubCategoryReport(
       subCategoryMap.set(child.id, { total: 0, count: 0 });
     });
 
+    // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
+    const conv = (v: number) =>
+      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+
     // RPC aggregate verisini grupla
     rpcData.forEach((row) => {
-      const amount = Number(row.total_amount) || 0;
+      const amount = conv(Number(row.total_amount) || 0);
       const count = Number(row.islem_count) || 0;
       totalAmount += amount;
       totalCount += count;
@@ -1114,7 +1139,7 @@ export function useSubCategoryReport(
       totalAmount,
       totalCount,
     };
-  }, [kategoriler, rpcData, parentKategoriId]);
+  }, [kategoriler, rpcData, parentKategoriId, baseCurrency, rates]);
 
   // Combine errors - prefer rpc error as it's more critical
   const combinedError = rpcError || kategorilerError;

@@ -11,7 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { Text } from './Text';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { colors } from '@/constants/colors';
-import { formatCurrencyInput } from '@/lib/currency';
+import { formatCurrencyInput, cleanAmountInput } from '@/lib/currency';
 import type { Currency } from '@/types/database';
 
 export interface AmountInputProps {
@@ -64,15 +64,8 @@ export function AmountInput({
   // Handle text change
   const handleChange = useCallback(
     (text: string) => {
-      // Remove all non-numeric characters except comma
-      const cleaned = text.replace(/[^\d,]/g, '');
-
-      // Limit to one comma and 2 decimal places
-      const parts = cleaned.split(',');
-      let newValue = parts[0];
-      if (parts.length > 1) {
-        newValue += ',' + parts[1].slice(0, 2);
-      }
+      // Locale'e göre temizle (rakam + ondalık ayracı, max 2 ondalık hane)
+      const newValue = cleanAmountInput(text);
 
       // Animate and haptic on change
       if (newValue !== value) {

@@ -475,7 +475,8 @@ export default function HesapHareketleriPage() {
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = (islemler || []).find(i => i.id === islemId);
     if (islem) {
-      const desc = islem.description || t(`accounts:transactionLabels.${islem.type}`) || islem.type;
+      const labelKey = getHareketLabelKey(islem.type);
+      const desc = islem.description || (labelKey.includes(':') ? t(labelKey) : t(`transactions:types.${islem.type}`));
       requestDelete(islemId, islem, desc);
     }
   }, [islemler, requestDelete, t]);

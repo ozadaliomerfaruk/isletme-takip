@@ -8,6 +8,7 @@ import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { exportReportToExcel, ReportType, ReportExcelTranslations } from '@/lib/reportExcelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useSettings } from '@/hooks/useSettings';
 import { supabase } from '@/lib/supabase';
 import { IslemWithRelations } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
@@ -22,6 +23,7 @@ interface UseReportExcelExportReturn {
 
 export function useReportExcelExport(reportType: ReportType): UseReportExcelExportReturn {
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
 
@@ -101,6 +103,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
           endDate,
           periodLabel,
           transactions,
+          baseCurrency,
           translations,
         });
       } catch (error) {

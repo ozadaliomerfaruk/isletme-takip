@@ -17,7 +17,7 @@ import {
   Banknote,
 } from 'lucide-react-native';
 import { IslemWithRelations } from '@/types/database';
-import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatCurrency, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useTranslation } from 'react-i18next';
@@ -101,6 +101,8 @@ export function EntityTransactionList({
           const { Icon, color, label } = getTransactionStyle(transaction.type, t);
           const isLast = index === displayTransactions.length - 1;
           const dateObj = new Date(transaction.date);
+          // İşlemi kendi (hedef taraf) para biriminde göster — yerleşik desen
+          const xc = getCrossCurrencyDisplay(transaction);
 
           return (
             <TouchableOpacity
@@ -123,7 +125,7 @@ export function EntityTransactionList({
                   >
                     {isLeaveType(transaction.type)
                       ? `${toNumber(transaction.amount)} ${t('staff:leave.days')}`
-                      : formatCurrency(toNumber(transaction.amount))}
+                      : formatCurrency(xc.mainAmount, xc.mainCurrency)}
                   </Text>
                 </View>
                 <View style={styles.transactionFooter}>

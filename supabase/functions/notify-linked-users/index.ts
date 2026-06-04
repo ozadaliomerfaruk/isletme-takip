@@ -82,15 +82,35 @@ function getTexts(lang: string) {
   return notificationTexts[lang] || notificationTexts["tr"];
 }
 
-// Para formatla (dil bazli)
-function formatCurrency(amount: number, lang: string): string {
-  const locale = lang === "en" ? "en-US" : "tr-TR";
-  const currency = lang === "en" ? "USD" : "TRY";
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  }).format(amount);
+// Para formatla (işlemin kendi para birimine göre — dil/locale'den bağımsız)
+function formatCurrency(amount: number, currency: string = "TRY"): string {
+  const localeMap: Record<string, string> = {
+    TRY: "tr-TR",
+    USD: "en-US",
+    EUR: "de-DE",
+    GBP: "en-GB",
+  };
+  // Altın/Gümüş ISO currency olarak gösterilmez; gram olarak yaz
+  if (currency === "XAU" || currency === "XAG") {
+    return `${new Intl.NumberFormat("tr-TR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount)} gr`;
+  }
+  const locale = localeMap[currency];
+  try {
+    return new Intl.NumberFormat(locale || "tr-TR", {
+      style: "currency",
+      currency: locale ? currency : "TRY",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency: "TRY",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  }
 }
 
 // Dedup: eski app versiyonu (client) + yeni DB trigger aynı anda çağırabilir.
@@ -266,7 +286,7 @@ Deno.serve(withFnTelemetry({ name: "notify-linked-users" }, async (req) => {
 
         // Bildirim mesajini olustur
         const islemTypeLabel = getIslemTypeLabel(record.type as IslemType, lang);
-        const formattedAmount = formatCurrency(record.amount, lang);
+        const formattedAmount = formatCurrency(record.amount, record.source_currency || "TRY");
 
         const title = texts.title;
         const body = `${senderName}: ${islemTypeLabel} - ${formattedAmount}${

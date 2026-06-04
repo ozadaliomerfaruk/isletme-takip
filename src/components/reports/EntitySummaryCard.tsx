@@ -165,7 +165,7 @@ export function EntitySummaryCard({
             </Text>
           </View>
           <Text variant="h3" color="error">
-            {formatCurrency(metrics.primary.value)}
+            {formatCurrency(metrics.primary.value, entity.currency)}
           </Text>
         </View>
 
@@ -180,7 +180,7 @@ export function EntitySummaryCard({
                 <TrendingUp size={16} color={colors.success} />
               </View>
               <Text variant="h3" color="success">
-                {formatCurrency(metrics.secondary.value)}
+                {formatCurrency(metrics.secondary.value, entity.currency)}
               </Text>
             </View>
           </>
@@ -194,7 +194,7 @@ export function EntitySummaryCard({
             {metrics.payments.label}
           </Text>
           <Text variant="body">
-            {formatCurrency(metrics.payments.value)}
+            {formatCurrency(metrics.payments.value, entity.currency)}
           </Text>
         </View>
         <ArrowRight size={16} color={colors.textMuted} />
@@ -203,7 +203,7 @@ export function EntitySummaryCard({
             {metrics.collections.label}
           </Text>
           <Text variant="body">
-            {formatCurrency(metrics.collections.value)}
+            {formatCurrency(metrics.collections.value, entity.currency)}
           </Text>
         </View>
       </View>
@@ -265,7 +265,7 @@ export function EntitySummaryCard({
             color={metrics.balanceChange >= 0 ? 'success' : 'error'}
             style={styles.balanceValue}
           >
-            {metrics.balanceChange >= 0 ? '+' : ''}{formatCurrency(metrics.balanceChange)}
+            {metrics.balanceChange >= 0 ? '+' : ''}{formatCurrency(metrics.balanceChange, entity.currency)}
           </Text>
         </View>
         <View style={styles.balanceRow}>
@@ -277,7 +277,7 @@ export function EntitySummaryCard({
               variant="h3"
               color={currentBalance >= 0 ? 'success' : 'error'}
             >
-              {formatCurrency(Math.abs(currentBalance))}
+              {formatCurrency(Math.abs(currentBalance), entity.currency)}
             </Text>
             <Text variant="caption" color="secondary">
               {getBalanceLabel(currentBalance)}

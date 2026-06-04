@@ -11,6 +11,7 @@ import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useProductReport, ProductReportItem } from '@/hooks/useProductReport';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useSettings } from '@/hooks/useSettings';
 import { PeriodType } from '@/hooks/useIslemler';
 // Alış-Satış işlem tipleri (useProductReport ile uyumlu)
 const PURCHASE_TYPES = ['cari_alis'];
@@ -49,6 +50,7 @@ export default function AlisSatisRaporPage() {
   ];
 
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
   const [isExporting, setIsExporting] = useState(false);
 
   const alisRaporu = useProductReport('alis', {
@@ -186,6 +188,7 @@ export default function AlisSatisRaporPage() {
         saleNet: satisRaporu.netAmount,
         purchaseTransactions: purchaseTxns,
         saleTransactions: saleTxns,
+        baseCurrency,
         translations,
       });
     } catch (error) {
@@ -193,7 +196,7 @@ export default function AlisSatisRaporPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [isletme, alisRaporu, satisRaporu, state.dateRange, state.periodLabel, t]);
+  }, [isletme, alisRaporu, satisRaporu, state.dateRange, state.periodLabel, baseCurrency, t]);
 
   return (
     <>

@@ -7,7 +7,7 @@ import { SlidersHorizontal, Calendar } from 'lucide-react-native';
 import { Text } from '@/components/ui/Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { getDateRange, PeriodType, formatDateForDB, ensureValidDate } from '@/lib/date';
+import { getDateRange, PeriodType, formatDateForDB, ensureValidDate, getLocale } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatCurrency } from '@/lib/currency';
 import { usePdfExport } from '@/hooks/usePdfExport';
@@ -162,8 +162,9 @@ export function PdfExportSheet({
   }, [customEndDate]);
 
   const now = new Date();
-  const dateStr = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  const pdfLocale = getLocale();
+  const dateStr = now.toLocaleDateString(pdfLocale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString(pdfLocale, { hour: '2-digit', minute: '2-digit' });
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onDismiss}>

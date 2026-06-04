@@ -14,6 +14,7 @@ import { PeriodType } from '@/hooks/useIslemler';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { exportCashFlowToExcel, CashFlowExcelTranslations } from '@/lib/reportExcelExport';
+import { useSettings } from '@/hooks/useSettings';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -41,6 +42,7 @@ export default function NakitAkisiPage() {
   ];
 
   const { isletme } = useAuthContext();
+  const { currency: baseCurrency } = useSettings();
   const [isExporting, setIsExporting] = useState(false);
 
   const cashFlow = useCashFlowByCategory({
@@ -84,6 +86,7 @@ export default function NakitAkisiPage() {
         totalInflow: cashFlow.totalInflow,
         totalOutflow: cashFlow.totalOutflow,
         netCashFlow: cashFlow.netCashFlow,
+        baseCurrency,
         translations,
       });
     } catch (error) {
@@ -91,7 +94,7 @@ export default function NakitAkisiPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [isletme, cashFlow, state.dateRange, state.periodLabel, t]);
+  }, [isletme, cashFlow, state.dateRange, state.periodLabel, baseCurrency, t]);
 
   const handleCategoryPress = (item: CashFlowItem) => {
     const type = selectedType === 'inflow' ? 'gelir' : 'gider';

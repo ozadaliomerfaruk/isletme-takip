@@ -15,6 +15,7 @@ import { useHesaplar } from './useHesaplar';
 import { useCariler } from './useCariler';
 import { usePersonelList } from './usePersonel';
 import { useSettings } from './useSettings';
+import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import { getDateRange } from '@/lib/date';
 import { isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
 import { toNumber } from '@/lib/currency';
@@ -46,6 +47,8 @@ export function useAnalyticsSummary(
 ): AnalyticsSummary {
   const { isletme } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
+  const { data: ratesData } = useExchangeRates();
+  const rates = ratesData?.rates;
 
   // Get instant metrics from existing hooks
   const financialSummary = useFinancialSummary();
@@ -144,8 +147,14 @@ export function useAnalyticsSummary(
       carilerLoading ||
       personelLoading;
 
-    const currentPeriod = periodData?.current || { income: 0, expense: 0, net: 0 };
-    const previousPeriod = periodData?.previous || { income: 0, expense: 0, net: 0 };
+    // RPC income/expense/net değerleri TRY cinsindendir; ana para birimine çevir.
+    // baseCurrency === 'TRY' iken tam no-op (TR kullanıcı için davranış değişmez).
+    const conv = (v: number) =>
+      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    const rawCurrent = periodData?.current || { income: 0, expense: 0, net: 0 };
+    const rawPrevious = periodData?.previous || { income: 0, expense: 0, net: 0 };
+    const currentPeriod = { income: conv(rawCurrent.income), expense: conv(rawCurrent.expense), net: conv(rawCurrent.net) };
+    const previousPeriod = { income: conv(rawPrevious.income), expense: conv(rawPrevious.expense), net: conv(rawPrevious.net) };
 
     const incomeMetric: MetricWithDelta = {
       current: currentPeriod.income,
@@ -211,6 +220,7 @@ export function useAnalyticsSummary(
     personelList,
     personelLoading,
     baseCurrency,
+    rates,
   ]);
 
   return summary;
