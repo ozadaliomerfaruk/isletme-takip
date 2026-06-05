@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type {
@@ -75,8 +76,9 @@ export function useCreateInvite() {
       if (error) throw error;
       return data as string; // invite_code
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       invalidateRelatedQueries(queryClient, 'isletmeUser');
+      logEvent('invite_created', { role: variables.role });
     },
   });
 }

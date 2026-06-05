@@ -5,6 +5,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
@@ -183,6 +184,7 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
       const html = generatePdfHtml(opts);
 
       const { uri } = await Print.printToFileAsync({ html });
+      logEvent('export_completed', { format: 'pdf' });
 
       const safeName = entityName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\s-]/g, '').replace(/\s+/g, '_');
       const newUri = uri.replace(/\.pdf$/, `_${safeName}.pdf`);

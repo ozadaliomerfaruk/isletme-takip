@@ -7,6 +7,7 @@ import { useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { exportReportToExcel, ReportType, ReportExcelTranslations } from '@/lib/reportExcelExport';
+import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
 import { supabase } from '@/lib/supabase';
@@ -106,6 +107,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
           baseCurrency,
           translations,
         });
+        logEvent('export_completed', { format: 'excel', export_type: 'report', report_type: reportType });
       } catch (error) {
         console.error('Report Excel export error:', error);
         Alert.alert(
@@ -116,7 +118,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
         setIsExporting(false);
       }
     },
-    [reportType, isletme, t]
+    [reportType, isletme, baseCurrency, t]
   );
 
   return {

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
 import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } from '@/constants/islemTypes';
@@ -180,8 +181,14 @@ export function useCreateIslem() {
 
       return data as Islem;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       invalidateRelatedQueries(queryClient, 'islem');
+      logEvent('transaction_created', {
+        type: data?.type,
+        has_cari: !!data?.cari_id,
+        has_personel: !!data?.personel_id,
+        has_kategori: !!data?.kategori_id,
+      });
     },
   });
 }

@@ -23,6 +23,7 @@ import {
   addNotificationListeners,
 } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 
 // Initialize i18n
 import '@/i18n';
@@ -115,6 +116,13 @@ function RootLayoutNav() {
 
     return () => sub.remove();
   }, [user, trackSession]);
+
+  // Ekran görüntüleme izleme: her route değişiminde tek olay (ateşle-unut)
+  const screenPath = segments.join('/');
+  useEffect(() => {
+    if (!user || !screenPath) return;
+    logEvent('screen_view', { screen: screenPath });
+  }, [user, screenPath]);
 
   // Bildirim dinleyicileri
   useEffect(() => {

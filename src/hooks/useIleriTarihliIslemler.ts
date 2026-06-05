@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import {
   IleriTarihliIslem,
@@ -268,8 +269,14 @@ export function useCreateIleriTarihliIslem() {
       if (error) throw error;
       return data as IleriTarihliIslem;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       invalidateRelatedQueries(queryClient, 'ileriTarihliIslem');
+      logEvent('scheduled_transaction_created', {
+        type: data?.type,
+        has_cari: !!data?.cari_id,
+        has_personel: !!data?.personel_id,
+        has_kategori: !!data?.kategori_id,
+      });
     },
   });
 }

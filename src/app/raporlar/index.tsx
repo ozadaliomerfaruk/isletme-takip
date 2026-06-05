@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -22,6 +22,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatDateForDB } from '@/lib/date';
 import { useTranslation } from 'react-i18next';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { logEvent } from '@/lib/appEvents';
 
 type ReportTab = 'ozet' | 'grafikler';
 
@@ -48,6 +49,11 @@ export default function RaporlarPage() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<ReportTab>('ozet');
+
+  // Rapor bölümü açıldığında bir kez olay (aktivasyon hunisi için)
+  useEffect(() => {
+    logEvent('report_viewed', { report_type: 'overview' });
+  }, []);
 
   // Custom date pickers
   const [showStartPicker, setShowStartPicker] = useState(false);

@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { exportToExcel, EntityType, ExcelTranslations } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
@@ -192,6 +193,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
             typeMismatch,
             translations,
           });
+          logEvent('export_completed', { format: 'excel', entity_type: entityType });
         } catch (error) {
           console.error('Excel export hatası:', error);
           Alert.alert(

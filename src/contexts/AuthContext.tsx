@@ -1,8 +1,9 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, useEffect, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
 import { Isletme } from '@/types/database';
 import type { Permissions, UserRole } from '@/types/multiUser';
+import { setEventContext } from '@/lib/appEvents';
 
 interface AuthContextType {
   session: Session | null;
@@ -41,6 +42,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
+
+  // Olay izleme bağlamını güncel tut (logEvent her yerden bunu kullanır)
+  useEffect(() => {
+    setEventContext(auth.user?.id ?? null, auth.isletme?.id ?? null);
+  }, [auth.user?.id, auth.isletme?.id]);
 
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }

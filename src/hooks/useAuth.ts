@@ -6,6 +6,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import type * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
+import { logEvent, setEventContext } from '@/lib/appEvents';
 import { Isletme } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import type { Permissions, UserRole } from '@/types/multiUser';
@@ -201,7 +202,11 @@ export function useAuth() {
               return existingIsletme as Isletme | null;
             }
 
-            return newIsletme as Isletme;
+            const created = newIsletme as Isletme;
+            // Olay bağlamını garanti et (ilk kayıtta AuthContext henüz set etmemiş olabilir)
+            setEventContext(userId, created.id);
+            logEvent('business_created');
+            return created;
           } finally {
             createIsletmeLock.current = null;
           }

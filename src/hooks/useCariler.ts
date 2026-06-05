@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Cari, CariInsert, CariUpdate, CariType } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
@@ -94,9 +95,10 @@ export function useCreateCari() {
       if (error) throw error;
       return data as Cari;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Merkezi invalidation helper kullan
       invalidateRelatedQueries(queryClient, 'cari');
+      logEvent('client_created', { cari_type: data?.type, currency: data?.currency });
     },
   });
 }

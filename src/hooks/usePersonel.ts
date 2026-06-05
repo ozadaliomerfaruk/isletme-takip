@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Personel, PersonelInsert, PersonelUpdate } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
@@ -92,9 +93,10 @@ export function useCreatePersonel() {
       if (error) throw error;
       return data as Personel;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       // Merkezi invalidation helper kullan
       invalidateRelatedQueries(queryClient, 'personel');
+      logEvent('staff_created', { currency: data?.currency });
     },
   });
 }
