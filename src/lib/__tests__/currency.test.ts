@@ -483,6 +483,16 @@ describe('formatCurrencyInput', () => {
   it('should strip non-numeric characters', () => {
     expect(formatCurrencyInput('abc123')).toBe('123');
   });
+
+  // REGRESYON: 4+ haneli tutar bug'ı — formatlanmış değer tekrar verilince binlik
+  // ayracı ondalık sanılıp "1,00"a çevriliyordu. İdempotent olmalı.
+  it('idempotent: 4+ haneli formatlanmış değer tekrar verilince değişmez', () => {
+    expect(formatCurrencyInput('1000')).toBe('1.000');
+    expect(formatCurrencyInput('1.000')).toBe('1.000');
+    expect(formatCurrencyInput('10000')).toBe('10.000');
+    expect(formatCurrencyInput('10.000')).toBe('10.000');
+    expect(formatCurrencyInput('1.234,56')).toBe('1.234,56');
+  });
 });
 
 // ============================================================================
@@ -523,6 +533,10 @@ describe('en-US locale (ana para birimi USD/GBP)', () => {
     it('ondalıksız değer', () => {
       expect(parseCurrency('500')).toBe(500);
     });
+    it('EN binlik (yalnız virgül) parse edilmeli', () => {
+      expect(parseCurrency('1,000')).toBe(1000);
+      expect(parseCurrency('2,000')).toBe(2000);
+    });
   });
 
   describe('formatCurrencyInput', () => {
@@ -534,6 +548,10 @@ describe('en-US locale (ana para birimi USD/GBP)', () => {
     });
     it('ondalık 2 haneyle sınırlı', () => {
       expect(formatCurrencyInput('100.123')).toBe('100.12');
+    });
+    it('idempotent: "1,000" tekrar formatlanınca değişmez', () => {
+      expect(formatCurrencyInput('1000')).toBe('1,000');
+      expect(formatCurrencyInput('1,000')).toBe('1,000');
     });
   });
 

@@ -60,12 +60,10 @@ export function parseCurrency(value: string): number {
   if (!value || value.trim() === '') return NaN;
 
   let cleaned = value.trim();
+  const { thousands } = getLocaleSeparators();
 
-  // LOCALE-BAĞIMSIZ ve geriye tam uyumlu:
-  // Hem nokta hem virgül varsa SON gelen ayraç ondalıktır, diğeri binliktir.
-  //   "1.234,56" (TR) -> virgül sonda  -> ondalık virgül
-  //   "1,234.56" (EN) -> nokta sonda   -> ondalık nokta
-  // Böylece ana para birimi ne olursa olsun her iki yazım da doğru parse edilir.
+  // Hem nokta hem virgül varsa SON gelen ayraç ondalıktır, diğeri binliktir (locale-bağımsız).
+  //   "1.234,56" (TR) -> virgül sonda -> ondalık virgül ; "1,234.56" (EN) -> nokta sonda -> ondalık nokta
   if (cleaned.includes('.') && cleaned.includes(',')) {
     if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
       cleaned = cleaned.replace(/\./g, '').replace(',', '.');
@@ -73,20 +71,15 @@ export function parseCurrency(value: string): number {
       cleaned = cleaned.replace(/,/g, '');
     }
   } else if (cleaned.includes(',')) {
-    // Sadece virgül var - ondalık ayracı olarak kullan (mevcut davranış)
-    cleaned = cleaned.replace(',', '.');
+    // Tek tür ayraç: virgül. EN'de binlik (1,000 -> 1000), TR/DE'de ondalık (1234,56).
+    cleaned = thousands === ',' ? cleaned.replace(/,/g, '') : cleaned.replace(',', '.');
   } else if (cleaned.includes('.')) {
-    // Sadece nokta var - binlik mi ondalık mı kontrol et
-    // Binlik ayracı: nokta 3 rakamdan önce gelir (5.000, 50.000)
-    // Ondalık: nokta 1-2 rakamdan önce gelir (5.5, 5.50)
-    const dotIndex = cleaned.lastIndexOf('.');
-    const afterDot = cleaned.length - dotIndex - 1;
-
-    if (afterDot === 3) {
-      // Türkçe binlik ayracı (5.000 → 5000)
+    // Tek tür ayraç: nokta. TR/DE'de 3 rakam öncesi binliktir (5.000 -> 5000); aksi halde ondalık.
+    const afterDot = cleaned.length - cleaned.lastIndexOf('.') - 1;
+    if (thousands === '.' && afterDot === 3) {
       cleaned = cleaned.replace(/\./g, '');
     }
-    // afterDot < 3 ise İngilizce ondalık, olduğu gibi bırak
+    // EN'de nokta her zaman ondalık; TR/DE'de <3 hane lenient ondalık (olduğu gibi bırak)
   }
 
   return parseFloat(cleaned);
@@ -342,23 +335,20 @@ export function formatCurrencyInput(value: string): string {
 
   const locale = getCurrentCurrency().locale;
   const { decimal } = getLocaleSeparators();
+  const decimalClass = decimal === '.' ? '\\.' : ',';
 
-  // Hem nokta hem virgülü kabul et; SON gelen ayraç ondalıktır (locale-bağımsız giriş).
-  // Böylece kullanıcı hangi ayracı yazarsa yazsın (1234.56 veya 1234,56) doğru çalışır;
-  // mevcut kullanıcıların alışkanlığı bozulmaz.
-  const cleaned = value.replace(/[^\d.,]/g, '');
-  const lastSep = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
+  // Yalnızca rakam ve locale'in ONDALIK ayracını bırak; binlik ayracını AT.
+  // Bu, fonksiyonu idempotent yapar: kendi formatladığı "1.000" tekrar verildiğinde
+  // binlik nokta atılır → "1.000" sabit kalır (yanlışlıkla ondalık sanılmaz).
+  let cleaned = value.replace(new RegExp(`[^\\d${decimalClass}]`, 'g'), '');
 
-  let integerPart: string;
-  let decimalPart: string | undefined;
-  if (lastSep === -1) {
-    integerPart = cleaned;
-  } else {
-    integerPart = cleaned.slice(0, lastSep).replace(/[.,]/g, '');
-    decimalPart = cleaned.slice(lastSep + 1).replace(/[.,]/g, '').slice(0, 2);
+  // Birden fazla ondalık ayracı varsa sadece ilkini tut
+  const parts = cleaned.split(decimal);
+  if (parts.length > 2) {
+    cleaned = parts[0] + decimal + parts.slice(1).join('');
   }
 
-  // Tam kısım yoksa boş dön (örn. henüz sadece ayraç yazıldıysa)
+  const [integerPart, decimalPart] = cleaned.split(decimal);
   if (!integerPart) return '';
 
   const parsedInteger = parseInt(integerPart, 10);
@@ -371,7 +361,7 @@ export function formatCurrencyInput(value: string): string {
 
   // Ondalık kısım varsa locale'in ondalık ayracıyla ekle (max 2 hane)
   if (decimalPart !== undefined) {
-    return `${formattedInteger}${decimal}${decimalPart}`;
+    return `${formattedInteger}${decimal}${decimalPart.slice(0, 2)}`;
   }
 
   return formattedInteger;
@@ -402,14 +392,15 @@ export function unformatCurrencyInput(value: string): string {
  */
 export function cleanAmountInput(text: string): string {
   const { decimal } = getLocaleSeparators();
-  // Hem nokta hem virgülü ondalık girişi olarak kabul et; SON gelen ayraç ondalıktır.
-  // (Mevcut kullanıcıların virgül alışkanlığı da, nokta yazımı da çalışır.)
-  const cleaned = text.replace(/[^\d.,]/g, '');
-  const lastSep = Math.max(cleaned.lastIndexOf(','), cleaned.lastIndexOf('.'));
-  if (lastSep === -1) return cleaned;
-  const integerPart = cleaned.slice(0, lastSep).replace(/[.,]/g, '');
-  const decimalPart = cleaned.slice(lastSep + 1).replace(/[.,]/g, '').slice(0, 2);
-  return `${integerPart}${decimal}${decimalPart}`;
+  const decimalClass = decimal === '.' ? '\\.' : ',';
+  // Yalnızca rakam ve locale ondalık ayracını bırak; binlik ayracını AT (idempotent).
+  const cleaned = text.replace(new RegExp(`[^\\d${decimalClass}]`, 'g'), '');
+  const parts = cleaned.split(decimal);
+  let result = parts[0];
+  if (parts.length > 1) {
+    result += decimal + parts[1].slice(0, 2);
+  }
+  return result;
 }
 
 // ============================================================================
