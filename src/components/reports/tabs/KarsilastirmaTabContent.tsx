@@ -1,336 +1,158 @@
-import { useState, useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
 
-import { Text, Card, TabFilter } from '@/components/ui';
+import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
-import { useMonthSummary } from '@/hooks/useIslemler';
-import type { TabContentProps } from './types';
+import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
+import type { ComparisonReport } from '@/hooks/useComparisonReport';
+
+// Dönem kartları: yatay kaydırma YOK. Her dönemde en kritik metrik (Net) baskın/işaretli
+// gösterilir; Gelir/Gider tam tutarla altında. NN/g "Illusion of Completeness" çözümü.
+const netColorValue = (value: number) => (value >= 0 ? colors.success : colors.error);
 
 const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
   },
-  sectionTitle: {
-    marginBottom: spacing.xs,
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
     marginLeft: spacing.xs,
   },
   summaryCard: {
-    padding: spacing.lg,
-    gap: spacing.md,
+    backgroundColor: colors.primaryLight,
+    marginBottom: spacing.md,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  card: {
+    marginBottom: spacing.sm,
   },
-  summaryItem: {
-    flex: 1,
-    gap: spacing.xs,
+  cardLabel: {
+    marginBottom: spacing.sm,
   },
-  summaryDivider: {
-    width: 1,
-    height: 40,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.md,
-  },
-  netRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    padding: spacing.md,
-    borderRadius: 8,
+  netLabel: {
+    letterSpacing: 0.5,
   },
   netValue: {
+    fontSize: 22,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    marginTop: 2,
   },
-  averageRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  netValueSummary: {
+    fontSize: 26,
   },
-  averageItem: {
-    gap: 2,
-  },
-  listCard: {
-    padding: 0,
-    overflow: 'hidden',
-  },
-  monthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-    paddingHorizontal: spacing.lg,
-  },
-  monthRowCurrent: {
-    backgroundColor: colors.primaryLight,
-  },
-  monthRowBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  monthContent: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  monthHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  currentMonthText: {
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  barContainer: {
-    height: 4,
+  divider: {
+    height: 1,
     backgroundColor: colors.border,
-    borderRadius: 2,
+    marginVertical: spacing.md,
   },
-  bar: {
-    height: 4,
-    borderRadius: 2,
-  },
-  otherMetrics: {
+  metricRow: {
     flexDirection: 'row',
-    gap: spacing.md,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  metricValue: {
+    fontSize: 15,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  income: {
+    color: colors.success,
+  },
+  expense: {
+    color: colors.error,
   },
 });
 
-export function KarsilastirmaTabContent({ period, periodOffset }: TabContentProps) {
+interface MetricRowProps {
+  label: string;
+  value: string;
+  valueStyle: object;
+}
+
+function MetricRow({ label, value, valueStyle }: MetricRowProps) {
+  return (
+    <View style={styles.metricRow}>
+      <Text variant="body" color="secondary">
+        {label}
+      </Text>
+      <Text style={[styles.metricValue, valueStyle]} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }) {
   const { t } = useTranslation(['reports']);
-  const [comparisonMetric, setComparisonMetric] = useState<'income' | 'expense' | 'net'>('income');
+  const { displayRows, totals, isLoading } = report;
 
-  const COMPARISON_OPTIONS = [
-    { label: t('reports:summary.income'), value: 'income' },
-    { label: t('reports:summary.expense'), value: 'expense' },
-    { label: t('reports:comparison.net'), value: 'net' },
-  ];
-
-  // Use props: 6 periods relative to the selected period/offset
-  const activePeriod = period || 'monthly';
-  const activeOffset = periodOffset || 0;
-
-  const p1 = useMonthSummary(activePeriod, activeOffset - 5);
-  const p2 = useMonthSummary(activePeriod, activeOffset - 4);
-  const p3 = useMonthSummary(activePeriod, activeOffset - 3);
-  const p4 = useMonthSummary(activePeriod, activeOffset - 2);
-  const p5 = useMonthSummary(activePeriod, activeOffset - 1);
-  const p6 = useMonthSummary(activePeriod, activeOffset);
-
-  const getSummaryData = (summary: typeof p1) => ({
-    income: summary.data?.income ?? 0,
-    expense: summary.data?.expense ?? 0,
-    periodLabel: summary.periodLabel,
-  });
-
-  const monthsData = useMemo(() => [
-    getSummaryData(p1),
-    getSummaryData(p2),
-    getSummaryData(p3),
-    getSummaryData(p4),
-    getSummaryData(p5),
-    getSummaryData(p6),
-  ], [p1, p2, p3, p4, p5, p6]);
-
-  // Toplam ve ortalama hesapla
-  const totals = useMemo(() => {
-    const totalIncome = monthsData.reduce((sum, m) => sum + m.income, 0);
-    const totalExpense = monthsData.reduce((sum, m) => sum + m.expense, 0);
-    const count = monthsData.length;
-    return {
-      income: totalIncome,
-      expense: totalExpense,
-      net: totalIncome - totalExpense,
-      avgIncome: totalIncome / count,
-      avgExpense: totalExpense / count,
-      avgNet: (totalIncome - totalExpense) / count,
-    };
-  }, [monthsData]);
-
-  const getMetricValue = (data: { income: number; expense: number }) => {
-    switch (comparisonMetric) {
-      case 'income': return data.income;
-      case 'expense': return data.expense;
-      case 'net': return data.income - data.expense;
-    }
-  };
-
-  const getMetricColor = (value: number): 'success' | 'error' | 'secondary' => {
-    if (comparisonMetric === 'expense') return 'error';
-    if (comparisonMetric === 'income') return value > 0 ? 'success' : 'secondary';
-    return value >= 0 ? 'success' : 'error';
-  };
-
-  // Ters sıralı ay verisi (en yeni ay en üstte)
-  const reversedMonths = useMemo(() => [...monthsData].reverse(), [monthsData]);
-
-  // En yüksek değeri bul (bar genişliği hesabı için)
-  const maxValue = useMemo(() => {
-    return Math.max(...monthsData.map((d) => Math.abs(getMetricValue(d))), 1);
-  }, [monthsData, comparisonMetric]);
+  const netLabel = t('reports:comparison.net');
+  const incomeLabel = t('reports:summary.income');
+  const expenseLabel = t('reports:summary.expense');
 
   return (
-    <>
-      <View style={styles.section}>
-        <TabFilter
-          options={COMPARISON_OPTIONS}
-          value={comparisonMetric}
-          onChange={(v) => setComparisonMetric(v as 'income' | 'expense' | 'net')}
-        />
-      </View>
-
-      {/* Özet Kart */}
-      <View style={styles.section}>
-        <Card style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Text variant="caption" color="secondary">
-                {t('reports:summary.totalIncome')}
-              </Text>
-              <Text variant="h3" color="success">
-                {formatCurrency(totals.income)}
-              </Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={[styles.summaryItem, { alignItems: 'flex-end' }]}>
-              <Text variant="caption" color="secondary">
-                {t('reports:summary.totalExpense')}
-              </Text>
-              <Text variant="h3" color="error">
-                {formatCurrency(totals.expense)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.netRow}>
-            <Text variant="body" color="secondary">
-              {t('reports:comparison.net')}
-            </Text>
-            <Text
-              variant="h3"
-              color={totals.net >= 0 ? 'success' : 'error'}
-              style={styles.netValue}
-            >
-              {totals.net >= 0 ? '+' : ''}{formatCurrency(totals.net)}
-            </Text>
-          </View>
-
-          <View style={styles.averageRow}>
-            <View style={styles.averageItem}>
-              <Text variant="caption" color="secondary">
-                {t('reports:comparison.average')} {t('reports:summary.income').toLowerCase()}
-              </Text>
-              <Text variant="body" color="success">
-                {formatCurrency(totals.avgIncome)}
-              </Text>
-            </View>
-            <View style={styles.averageItem}>
-              <Text variant="caption" color="secondary">
-                {t('reports:comparison.average')} {t('reports:summary.expense').toLowerCase()}
-              </Text>
-              <Text variant="body" color="error" style={{ textAlign: 'right' }}>
-                {formatCurrency(totals.avgExpense)}
-              </Text>
-            </View>
-          </View>
-        </Card>
-      </View>
-
-      {/* Ay Listesi */}
-      <View style={styles.section}>
-        <Text variant="label" color="secondary" style={styles.sectionTitle}>
-          {t('reports:comparison.last6Periods')}
+    <View style={styles.section}>
+      <View style={styles.titleRow}>
+        <Text variant="label" color="secondary">
+          {t('reports:comparison.last12Periods')}
         </Text>
-        <Card style={styles.listCard}>
-          {reversedMonths.map((month, index) => {
-            const isCurrentMonth = index === 0;
-            const value = getMetricValue(month);
-            const barWidth = maxValue > 0 ? (Math.abs(value) / maxValue) * 100 : 0;
-            const metricColor = getMetricColor(value);
-
-            // Diğer iki metrik (caption olarak göster)
-            const otherMetrics = [];
-            if (comparisonMetric !== 'income') {
-              otherMetrics.push({ label: t('reports:summary.income'), value: month.income, color: colors.success });
-            }
-            if (comparisonMetric !== 'expense') {
-              otherMetrics.push({ label: t('reports:summary.expense'), value: month.expense, color: colors.error });
-            }
-            if (comparisonMetric !== 'net') {
-              const net = month.income - month.expense;
-              otherMetrics.push({ label: t('reports:comparison.net'), value: net, color: net >= 0 ? colors.success : colors.error });
-            }
-
-            return (
-              <View
-                key={index}
-                style={[
-                  styles.monthRow,
-                  isCurrentMonth && styles.monthRowCurrent,
-                  index < monthsData.length - 1 && styles.monthRowBorder,
-                ]}
-              >
-                <View style={styles.monthContent}>
-                  <View style={styles.monthHeader}>
-                    <Text
-                      variant="body"
-                      style={isCurrentMonth ? styles.currentMonthText : undefined}
-                    >
-                      {month.periodLabel}
-                    </Text>
-                    <Text
-                      variant="h3"
-                      color={metricColor}
-                    >
-                      {comparisonMetric === 'net' && value >= 0 ? '+' : ''}
-                      {formatCurrency(value)}
-                    </Text>
-                  </View>
-
-                  {/* Mini bar */}
-                  <View style={styles.barContainer}>
-                    <View
-                      style={[
-                        styles.bar,
-                        {
-                          width: `${Math.max(barWidth, 2)}%`,
-                          backgroundColor: metricColor === 'success' ? colors.success
-                            : metricColor === 'error' ? colors.error
-                            : colors.textMuted,
-                          opacity: isCurrentMonth ? 1 : 0.6,
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  {/* Diğer metrikler */}
-                  <View style={styles.otherMetrics}>
-                    {otherMetrics.map((m, i) => (
-                      <Text key={i} variant="caption" color="secondary">
-                        {m.label}: <Text variant="caption" style={{ color: m.color }}>{formatCurrency(m.value)}</Text>
-                      </Text>
-                    ))}
-                  </View>
-                </View>
-
-                {/* Trend ikonu */}
-                {index < monthsData.length - 1 && (() => {
-                  const prevMonth = reversedMonths[index + 1];
-                  const prevValue = getMetricValue(prevMonth);
-                  const diff = value - prevValue;
-                  if (diff > 0) return <TrendingUp size={16} color={colors.success} />;
-                  if (diff < 0) return <TrendingDown size={16} color={colors.error} />;
-                  return <Minus size={16} color={colors.textMuted} />;
-                })()}
-              </View>
-            );
-          })}
-        </Card>
+        {isLoading && <ActivityIndicator size="small" color={colors.primary} />}
       </View>
-    </>
+
+      {/* Özet (12 dönem toplamı) */}
+      <Card style={styles.summaryCard}>
+        <Text variant="label" color="secondary" style={styles.cardLabel}>
+          {t('reports:comparison.total')}
+        </Text>
+        <Text variant="caption" color="secondary" style={styles.netLabel}>
+          {netLabel.toUpperCase()}
+        </Text>
+        <Text
+          style={[styles.netValue, styles.netValueSummary, { color: netColorValue(totals.net) }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.6}
+        >
+          {formatCurrencyWithSign(totals.net)}
+        </Text>
+        <View style={styles.divider} />
+        <MetricRow label={incomeLabel} value={formatCurrency(totals.income)} valueStyle={styles.income} />
+        <MetricRow label={expenseLabel} value={formatCurrency(totals.expense)} valueStyle={styles.expense} />
+        <MetricRow
+          label={`${t('reports:comparison.average')} ${netLabel}`}
+          value={formatCurrencyWithSign(totals.avgNet)}
+          valueStyle={{ color: netColorValue(totals.avgNet) }}
+        />
+      </Card>
+
+      {/* Dönem kartları (en yeni üstte) */}
+      {displayRows.map((row, index) => (
+        <Card key={index} style={styles.card}>
+          <Text variant="label" color="secondary" style={styles.cardLabel}>
+            {row.periodLabel}
+          </Text>
+          <Text variant="caption" color="secondary" style={styles.netLabel}>
+            {netLabel.toUpperCase()}
+          </Text>
+          <Text
+            style={[styles.netValue, { color: netColorValue(row.net) }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
+            {formatCurrencyWithSign(row.net)}
+          </Text>
+          <View style={styles.divider} />
+          <MetricRow label={incomeLabel} value={formatCurrency(row.income)} valueStyle={styles.income} />
+          <MetricRow label={expenseLabel} value={formatCurrency(row.expense)} valueStyle={styles.expense} />
+        </Card>
+      ))}
+    </View>
   );
 }
