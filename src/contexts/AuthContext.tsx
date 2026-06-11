@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useLayoutEffect, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/useAuth';
 import { Isletme } from '@/types/database';
@@ -43,8 +43,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const auth = useAuth();
 
-  // Olay izleme bağlamını güncel tut (logEvent her yerden bunu kullanır)
-  useEffect(() => {
+  // Olay izleme bağlamını güncel tut (logEvent her yerden bunu kullanır).
+  // useLayoutEffect ŞART: passive effect'ler çocuktan üst bileşene koşar; useEffect
+  // kullanılırsa _layout'taki screen_view effect'i bağlam set edilmeden önce çalışır
+  // ve oturumun ilk screen_view olayı sessizce düşer (iOS soğuk açılışta deterministik).
+  useLayoutEffect(() => {
     setEventContext(auth.user?.id ?? null, auth.isletme?.id ?? null);
   }, [auth.user?.id, auth.isletme?.id]);
 

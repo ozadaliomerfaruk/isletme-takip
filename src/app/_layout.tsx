@@ -117,12 +117,16 @@ function RootLayoutNav() {
     return () => sub.remove();
   }, [user, trackSession]);
 
-  // Ekran görüntüleme izleme: her route değişiminde tek olay (ateşle-unut)
+  // Ekran görüntüleme izleme: her route değişiminde tek olay (ateşle-unut).
+  // Bağımlılık user NESNESİ değil user.id olmalı: TOKEN_REFRESHED her seferinde
+  // yeni user nesnesi set ediyor; nesne bağımlılığı kullanıcı gezinmeden mükerrer
+  // screen_view üretiyordu (uygulama açıkken ~saatte bir + her foreground dönüşü).
   const screenPath = segments.join('/');
+  const userId = user?.id;
   useEffect(() => {
-    if (!user || !screenPath) return;
+    if (!userId || !screenPath) return;
     logEvent('screen_view', { screen: screenPath });
-  }, [user, screenPath]);
+  }, [userId, screenPath]);
 
   // Bildirim dinleyicileri
   useEffect(() => {
