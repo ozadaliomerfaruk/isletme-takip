@@ -437,6 +437,13 @@ Mobil `colors.ts`'den CSS variables:
 2. Authentication > Providers > **Google**: Web redirect URI ekle
 3. Authentication > Providers > **Apple**: Web Services ID + domain doğrulama ekle
 
+> ⚠️ **APPLE CLIENT SECRET JWT YENİLENMELİ (web auth için zorunlu ön koşul!)**
+> Supabase'deki Apple provider'ın "Secret Key (for OAuth)" JWT'sinin süresi **19 Haziran 2026 22:15 UTC**'de doluyor (10 Haziran 2026'da doğrulandı). Mobil uygulama yalnızca native akış (`signInWithIdToken`) kullandığı için **mobil Apple girişi bundan ETKİLENMEZ** — ama web'deki `signInWithOAuth({ provider: 'apple' })` akışı bu secret olmadan ÇALIŞMAZ. Web auth'a (Faz 1.2) başlamadan önce yenile:
+> 1. Apple Developer → Keys → Key ID **`J2D248YY2D`** (.p8 dosyası gerekli; kayıpsa revoke edip yeni key oluştur).
+> 2. https://supabase.com/docs/guides/auth/social-login/auth-apple sayfasındaki tarayıcı içi üreteçle yeni JWT üret (Chrome/Firefox; Safari'de çalışmıyor). Team ID: **`43WRJ4G6TP`**. Not: web OAuth için native bundle ID (`com.isletmetakip.app`) değil, ayrı oluşturulacak **Web Services ID** kullanılır.
+> 3. Yeni JWT'yi Supabase Dashboard → Authentication → Providers → Apple → Secret Key alanına yapıştır.
+> 4. JWT azami 6 ay geçerli — **her 6 ayda bir tekrarlanmalı**, takvime yinelenen hatırlatma koy.
+
 ---
 
 ## FAZ 1: AUTH + LAYOUT + LANDING PAGE (5-7 gün)
