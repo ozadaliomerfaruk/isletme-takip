@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { toErrorMessage } from '@/lib/errors';
+import i18n from '@/i18n';
 
 // Reminder storage key prefix
 const REMINDER_STORAGE_KEY = 'reminder_';
@@ -114,6 +115,8 @@ export async function savePushToken(userId: string, token: string): Promise<void
           user_id: userId,
           token: token,
           platform: Platform.OS,
+          // Edge function'lar (notify-linked-users) bildirim dilini bu alandan okur
+          locale: i18n.language?.startsWith('en') ? 'en' : 'tr',
           updated_at: new Date().toISOString(),
         },
         {
