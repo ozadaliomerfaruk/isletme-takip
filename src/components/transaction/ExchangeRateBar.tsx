@@ -21,7 +21,7 @@ import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { Currency } from '@/types/database';
 import { getCurrencySymbol, getExchangeRateDisplay } from '@/constants/currencies';
-import { parseCurrency, formatCurrency } from '@/lib/currency';
+import { parseCurrency, formatCurrency, formatAmountForInput } from '@/lib/currency';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 
 export interface ExchangeRateBarProps {
@@ -127,7 +127,7 @@ export function ExchangeRateBar({
     if (!displayRate || displayRate <= 0) return;
 
     prefillAppliedRef.current = true;
-    const formatted = displayRate.toFixed(displayRate < 1 ? 6 : 2).replace('.', ',');
+    const formatted = formatAmountForInput(displayRate, displayRate < 1 ? 6 : 2);
     setRateInput(formatted);
 
     // Calculate target amount using the same logic as calculateTargetFromRate
@@ -137,7 +137,7 @@ export function ExchangeRateBar({
     } else {
       targetAmount = sourceAmount / displayRate;
     }
-    const targetFormatted = targetAmount.toFixed(targetAmount < 1 ? 4 : 2).replace('.', ',');
+    const targetFormatted = formatAmountForInput(targetAmount, targetAmount < 1 ? 4 : 2);
     setTargetAmountInput(targetFormatted);
   }, [visible, exchangeRatesData, baseCurrency, quoteCurrency, sourceCurrency, sourceAmount]);
 
@@ -279,7 +279,7 @@ export function ExchangeRateBar({
     if (!isNaN(rate) && rate > 0) {
       const targetAmount = calculateTargetFromRate(rate);
       // Format with 2-4 decimal places for precision
-      const formatted = targetAmount.toFixed(targetAmount < 1 ? 4 : 2).replace('.', ',');
+      const formatted = formatAmountForInput(targetAmount, targetAmount < 1 ? 4 : 2);
       setTargetAmountInput(formatted);
     } else {
       setTargetAmountInput('');
@@ -296,7 +296,7 @@ export function ExchangeRateBar({
     if (!isNaN(targetAmount) && targetAmount > 0) {
       const rate = calculateRateFromTarget(targetAmount);
       // Format rate with appropriate precision
-      const formatted = rate.toFixed(rate < 1 ? 6 : 2).replace('.', ',');
+      const formatted = formatAmountForInput(rate, rate < 1 ? 6 : 2);
       setRateInput(formatted);
     } else {
       setRateInput('');

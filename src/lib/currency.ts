@@ -43,6 +43,11 @@ export function roundCurrency(value: number): number {
  * parseCurrency("1234.56")  // 1234.56
  * parseCurrency("5.000")    // 5000 (Türkçe binlik ayracı)
  * parseCurrency("")         // NaN
+ *
+ * Ana para birimi USD/GBP (en-* locale) iken:
+ * parseCurrency("1,000")    // 1000 (gerçek binlik kalıbı)
+ * parseCurrency("5,50")     // 5.5  (binlik kalıbına uymayan virgül = ondalık)
+ * parseCurrency("43,27")    // 43.27
  */
 /**
  * Aktif (ana) para biriminin locale'ine göre binlik/ondalık ayraçlarını döndürür.
@@ -71,8 +76,17 @@ export function parseCurrency(value: string): number {
       cleaned = cleaned.replace(/,/g, '');
     }
   } else if (cleaned.includes(',')) {
-    // Tek tür ayraç: virgül. EN'de binlik (1,000 -> 1000), TR/DE'de ondalık (1234,56).
-    cleaned = thousands === ',' ? cleaned.replace(/,/g, '') : cleaned.replace(',', '.');
+    // Tek tür ayraç: virgül. TR/DE'de ondalık (1234,56).
+    // EN'de yalnızca GERÇEK binlik kalıbına uyuyorsa binliktir (1,000 / 12,345,678).
+    // Aksi halde virgül ondalıktır (5,50 / 43,27 / 1234,56) — koşulsuz silmek
+    // virgül-klavyeli kullanıcıda sessiz 100x tutar bozulmasına yol açıyordu.
+    if (thousands === ',') {
+      cleaned = /^-?\d{1,3}(,\d{3})+$/.test(cleaned)
+        ? cleaned.replace(/,/g, '')
+        : cleaned.replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(',', '.');
+    }
   } else if (cleaned.includes('.')) {
     // Tek tür ayraç: nokta. TR/DE'de 3 rakam öncesi binliktir (5.000 -> 5000); aksi halde ondalık.
     const afterDot = cleaned.length - cleaned.lastIndexOf('.') - 1;
@@ -244,6 +258,25 @@ export function formatCurrency(amount: number, accountCurrency?: Currency | stri
 export function formatCurrencyWithSign(amount: number, accountCurrency?: Currency | string | null): string {
   const sign = amount >= 0 ? '+' : '-';
   return `${sign}${formatCurrency(amount, accountCurrency)}`;
+}
+
+/**
+ * Sayıyı TextInput prefill'i için düz input string'ine çevirir:
+ * binlik ayraç YOK, ondalık ayraç aktif (ana) para biriminin locale'ine göre.
+ * parseCurrency bu çıktıyı her locale'de kayıpsız geri okur.
+ *
+ * Hard-coded `.replace('.', ',')` kalıbı yerine kullanılmalı: o kalıp ana para
+ * birimi USD/GBP iken virgülün binlik sayılıp atılmasına (100x bozulma) yol açar.
+ *
+ * @param decimals - verilirse value.toFixed(decimals); verilmezse String(value)
+ *
+ * @example (TRY/EUR aktifken)  formatAmountForInput(43.27, 2)  // "43,27"
+ * @example (USD/GBP aktifken)  formatAmountForInput(43.27, 2)  // "43.27"
+ */
+export function formatAmountForInput(value: number, decimals?: number): string {
+  const { decimal } = getLocaleSeparators();
+  const str = decimals === undefined ? String(value) : value.toFixed(decimals);
+  return decimal === ',' ? str.replace('.', ',') : str;
 }
 
 /**

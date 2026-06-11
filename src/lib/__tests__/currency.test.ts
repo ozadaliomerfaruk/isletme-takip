@@ -35,6 +35,7 @@ import {
   safeParseExchangeRate,
   formatCurrencyInput,
   unformatCurrencyInput,
+  formatAmountForInput,
   isValidAmount,
   isValidBalance,
   getBalanceInfo,
@@ -516,6 +517,20 @@ describe('unformatCurrencyInput', () => {
 // Locale-bilinçli giriş/parse (ana para birimi USD/GBP -> en-US/en-GB)
 // Bug: ana=USD iken "1234.56" girişi sessizce bozuluyordu (123456'ya şişiyordu)
 // ============================================================================
+describe('formatAmountForInput (tr-TR varsayılan)', () => {
+  it('TRY aktifken eski String(x).replace(".", ",") davranışıyla birebir aynı çıktıyı vermeli', () => {
+    expect(formatAmountForInput(5000)).toBe('5000');
+    expect(formatAmountForInput(1234.56)).toBe('1234,56');
+    expect(formatAmountForInput(43.27, 2)).toBe('43,27');
+    expect(formatAmountForInput(0.921659, 6)).toBe('0,921659');
+  });
+
+  it('çıktı parseCurrency ile kayıpsız round-trip yapmalı', () => {
+    expect(parseCurrency(formatAmountForInput(1234.56))).toBe(1234.56);
+    expect(parseCurrency(formatAmountForInput(43.27, 2))).toBe(43.27);
+  });
+});
+
 describe('en-US locale (ana para birimi USD/GBP)', () => {
   beforeEach(() => setMockCurrency('USD', '$', 'en-US'));
   afterEach(() => setMockCurrency(TR_DEFAULT.code, TR_DEFAULT.symbol, TR_DEFAULT.locale));
@@ -536,6 +551,30 @@ describe('en-US locale (ana para birimi USD/GBP)', () => {
     it('EN binlik (yalnız virgül) parse edilmeli', () => {
       expect(parseCurrency('1,000')).toBe(1000);
       expect(parseCurrency('2,000')).toBe(2000);
+    });
+
+    // Regresyon (v1.4.0 öncesi düzeltme): tek virgül GERÇEK binlik kalıbına
+    // uymuyorsa ondalıktır. Eskiden "5,50" → 550 (100x) parse ediliyordu;
+    // ExchangeRateBar prefill'i ("43,27") ve virgül-klavyeli giriş DB'ye
+    // 100x-1.000.000x bozuk tutar/kur yazıyordu.
+    it('binlik kalıbına uymayan virgül ondalık sayılmalı (100x regresyonu)', () => {
+      expect(parseCurrency('5,50')).toBe(5.5);
+      expect(parseCurrency('43,27')).toBe(43.27);
+      expect(parseCurrency('1234,56')).toBe(1234.56);
+      expect(parseCurrency('0,921659')).toBe(0.921659);
+    });
+
+    it('çoklu gerçek binlik grupları korunmalı', () => {
+      expect(parseCurrency('12,345,678')).toBe(12345678);
+    });
+  });
+
+  describe('formatAmountForInput (en-US)', () => {
+    it('ondalık ayraç nokta olmalı ve parseCurrency ile kayıpsız round-trip yapmalı', () => {
+      expect(formatAmountForInput(43.27, 2)).toBe('43.27');
+      expect(parseCurrency(formatAmountForInput(43.27, 2))).toBe(43.27);
+      expect(parseCurrency(formatAmountForInput(0.921659, 6))).toBe(0.921659);
+      expect(parseCurrency(formatAmountForInput(4327, 2))).toBe(4327);
     });
   });
 

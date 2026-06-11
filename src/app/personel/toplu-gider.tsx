@@ -24,7 +24,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
-import { formatCurrency, parseCurrency, toNumber } from '@/lib/currency';
+import { formatCurrency, parseCurrency, toNumber, formatAmountForInput } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -75,7 +75,7 @@ export default function TopluGiderPage() {
       const initialAmounts: Record<string, string> = {};
       activePersonel.forEach(personel => {
         const salary = personel.salary ? toNumber(personel.salary) : 0;
-        initialAmounts[personel.id] = String(salary).replace('.', ',');
+        initialAmounts[personel.id] = formatAmountForInput(salary);
       });
       setAmounts(initialAmounts);
     }
