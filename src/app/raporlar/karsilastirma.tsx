@@ -46,7 +46,7 @@ export default function KarsilastirmaRaporPage() {
             <TouchableOpacity
               style={styles.headerBtn}
               onPress={report.exportPdf}
-              disabled={report.isExporting}
+              disabled={report.isExporting || report.isLoading}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={t('reports:export.exportPDF')}

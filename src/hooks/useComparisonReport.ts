@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
+import { getLocale } from '@/lib/date';
 import { useMonthSummary, type PeriodType } from '@/hooks/useIslemler';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { logEvent } from '@/lib/appEvents';
@@ -93,6 +94,8 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
   const displayRows = useMemo(() => [...monthsData].reverse(), [monthsData]);
 
   const exportPdf = useCallback(async () => {
+    // Veriler yüklenmeden export, tüm dönemleri ₺0,00 gösteren "geçerli görünümlü" PDF üretir
+    if (isLoading) return;
     try {
       setIsExporting(true);
       const rangeLabel =
@@ -104,7 +107,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
         businessName: isletme?.name || '',
         rangeLabel,
         generatedLabel: t('common:export.pdf.date'),
-        generatedValue: new Date().toLocaleDateString(),
+        generatedValue: new Date().toLocaleDateString(getLocale()),
         labels: {
           period: t('reports:comparison.period'),
           income: t('reports:summary.income'),
@@ -121,7 +124,10 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
         })),
         totals: { income: totals.income, expense: totals.expense, net: totals.net },
         averages: { income: totals.avgIncome, expense: totals.avgExpense, net: totals.avgNet },
-        formatAmount: (value: number) => formatCurrency(value),
+        // formatCurrency mutlak değer basar; negatif net (zarar) PDF'te işaretsiz
+        // kalıp kâr gibi okunuyordu. Negatiflerde işaretli format kullan.
+        formatAmount: (value: number) =>
+          value < 0 ? formatCurrencyWithSign(value) : formatCurrency(value),
       });
 
       const { uri } = await Print.printToFileAsync({ html });
@@ -143,7 +149,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
     } finally {
       setIsExporting(false);
     }
-  }, [monthsData, displayRows, totals, isletme, t]);
+  }, [monthsData, displayRows, totals, isletme, t, isLoading]);
 
   return { displayRows, totals, isLoading, isExporting, exportPdf };
 }
