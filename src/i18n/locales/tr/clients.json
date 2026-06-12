@@ -149,6 +149,9 @@
     "searchSuppliers": "Tedarikçi ara...",
     "noResults": "Sonuç bulunamadı"
   },
+  "picker": {
+    "addNew": "\"{{name}}\" olarak yeni ekle"
+  },
   "filters": {
     "all": "Tümü",
     "customers": "Müşteriler",

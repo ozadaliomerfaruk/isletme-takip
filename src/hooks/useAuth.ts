@@ -7,6 +7,7 @@ import type * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
 import { logEvent, setEventContext } from '@/lib/appEvents';
+import { markNeedsSetup } from '@/lib/setupFlow';
 import { Isletme } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import type { Permissions, UserRole } from '@/types/multiUser';
@@ -206,6 +207,9 @@ export function useAuth() {
             // Olay bağlamını garanti et (ilk kayıtta AuthContext henüz set etmemiş olabilir)
             setEventContext(userId, created.id);
             logEvent('business_created');
+            // Yeni işletme → kurulum akışını (sektör + ilk kayıt) tetikle.
+            // YALNIZCA create yolunda set edilir; mevcut kullanıcılar etkilenmez.
+            markNeedsSetup();
             return created;
           } finally {
             createIsletmeLock.current = null;

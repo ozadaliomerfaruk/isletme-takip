@@ -61,6 +61,17 @@ export interface Database {
   };
 }
 
+// İşletme sektörleri (onboarding'de seçilir; null = seçilmedi / eski kullanıcı)
+export type IsletmeSector =
+  | 'market_bakkal'
+  | 'kafe_restoran'
+  | 'berber_kuafor'
+  | 'giyim_tekstil'
+  | 'oto'
+  | 'nalbur_insaat'
+  | 'toptan_dagitim'
+  | 'diger';
+
 // İşletme
 export interface Isletme {
   id: string;
@@ -69,6 +80,7 @@ export interface Isletme {
   phone: string | null;
   address: string | null;
   tax_number: string | null;
+  sector: IsletmeSector | null;
   scheduled_deletion_at: string | null;
   created_at: string;
   updated_at: string;
@@ -81,6 +93,7 @@ export interface IsletmeInsert {
   phone?: string | null;
   address?: string | null;
   tax_number?: string | null;
+  sector?: IsletmeSector | null;
 }
 
 export interface IsletmeUpdate {
@@ -88,6 +101,7 @@ export interface IsletmeUpdate {
   phone?: string | null;
   address?: string | null;
   tax_number?: string | null;
+  sector?: IsletmeSector | null;
   scheduled_deletion_at?: string | null;
 }
 
@@ -107,6 +121,7 @@ export interface Hesap {
   card_last_four: string | null;
   card_network: string | null;
   payment_due_day: number | null; // Kredi kartı son ödeme günü (1-31)
+  is_auto_created: boolean; // Sistem tarafından otomatik açıldı (onboarding Kasa'sı) — aktivasyon metriklerinde sayılmaz
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -128,6 +143,7 @@ export interface HesapInsert {
   card_last_four?: string | null;
   card_network?: string | null;
   payment_due_day?: number | null;
+  is_auto_created?: boolean;
 }
 
 export interface HesapUpdate {

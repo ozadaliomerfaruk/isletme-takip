@@ -22,7 +22,13 @@ Notifications.setNotificationHandler({
 });
 
 // Push token al
-export async function registerForPushNotificationsAsync(): Promise<string | null> {
+// promptIfNeeded=false: sistem izni İSTEMEZ; yalnızca izin zaten verilmişse token alır.
+// (v1.5: izin isteme, app açılışından kurulum-sonu kutlama ekranındaki pre-prompt'a taşındı.
+// Mevcut kullanıcılar izni zaten vermişse token yenileme davranışı değişmez.)
+export async function registerForPushNotificationsAsync(
+  options?: { promptIfNeeded?: boolean }
+): Promise<string | null> {
+  const promptIfNeeded = options?.promptIfNeeded ?? true;
   let token: string | null = null;
 
   // Fiziksel cihaz kontrolü
@@ -56,6 +62,10 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
   let finalStatus = existingStatus;
 
   if (existingStatus !== 'granted') {
+    if (!promptIfNeeded) {
+      // Sessiz mod: izin yoksa sormadan çık (izin pre-prompt ile ayrıca istenir)
+      return null;
+    }
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }

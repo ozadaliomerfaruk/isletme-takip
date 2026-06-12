@@ -149,6 +149,9 @@
     "searchSuppliers": "Search suppliers...",
     "noResults": "No results found"
   },
+  "picker": {
+    "addNew": "Add \"{{name}}\" as new"
+  },
   "filters": {
     "all": "All",
     "customers": "Customers",

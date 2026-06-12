@@ -9,7 +9,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Search, Users, Building2, Check } from 'lucide-react-native';
+import { X, Search, Users, Building2, Check, Plus } from 'lucide-react-native';
+import { ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
@@ -34,6 +35,11 @@ export interface CariPickerSheetProps {
   cariler: Cari[];
   selectedId: string | null;
   mode: CariPickerMode;
+  // Inline cari oluşturma (v1.5): verilirse, aranan isim listede yoksa
+  // "+ ... olarak ekle" satırı gösterilir. Oluşturma üst bileşende yapılır
+  // (useCreateCari) ve başarıda onSelect çağrılması beklenir.
+  onCreateNew?: (name: string) => void;
+  creating?: boolean;
   // Sequential modal handling
   pendingModal?: PendingModal;
   onPendingModalHandled?: (modal: PendingModal) => void;
@@ -46,6 +52,8 @@ export function CariPickerSheet({
   cariler,
   selectedId,
   mode,
+  onCreateNew,
+  creating,
   pendingModal,
   onPendingModalHandled,
 }: CariPickerSheetProps) {
@@ -94,6 +102,20 @@ export function CariPickerSheet({
     },
     [onSelect, pendingModal, onPendingModalHandled]
   );
+
+  // Inline oluşturma satırı: arama dolu, birebir isim eşleşmesi yok ve onCreateNew verili
+  const trimmedQuery = searchQuery.trim();
+  const showCreateRow =
+    !!onCreateNew &&
+    trimmedQuery.length > 0 &&
+    !cariler.some((c) => c.name.toLowerCase() === trimmedQuery.toLowerCase());
+
+  const handleCreateNew = useCallback(() => {
+    if (!onCreateNew || !trimmedQuery || creating) return;
+    onCreateNew(trimmedQuery);
+    // Seçim, oluşturma başarısında üst bileşenin onSelect çağrısıyla yapılır;
+    // arama metni orada handleSelect üzerinden temizlenir.
+  }, [onCreateNew, trimmedQuery, creating]);
 
   if (!visible) return null;
 
@@ -198,7 +220,25 @@ export function CariPickerSheet({
                     </TouchableOpacity>
                   );
                 })}
-                {filteredCariler.length === 0 && searchQuery.trim() && (
+                {showCreateRow && (
+                  <TouchableOpacity
+                    style={[styles.bottomSheetItem, { borderStyle: 'dashed', borderWidth: 1, borderColor: iconColor }]}
+                    onPress={handleCreateNew}
+                    disabled={creating}
+                  >
+                    <View style={[styles.bottomSheetItemIcon, { backgroundColor: iconBgColor }]}>
+                      {creating ? (
+                        <ActivityIndicator size="small" color={iconColor} />
+                      ) : (
+                        <Plus size={20} color={iconColor} />
+                      )}
+                    </View>
+                    <Text style={[styles.bottomSheetItemText, { color: iconColor }]}>
+                      {t('clients:picker.addNew', { name: trimmedQuery })}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {filteredCariler.length === 0 && searchQuery.trim() && !showCreateRow && (
                   <View style={styles.emptySearchState}>
                     <Search size={48} color={colors.textMuted} />
                     <Text style={styles.emptySearchText}>{t('common:search.noResults')}</Text>

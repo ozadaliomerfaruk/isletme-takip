@@ -23,6 +23,7 @@ import {
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { getNeedsSetupSync } from '@/lib/setupFlow';
 
 const { width } = Dimensions.get('window');
 
@@ -104,14 +105,16 @@ export default function OnboardingScreen() {
   };
 
   const completeOnboarding = async () => {
+    // Yeni işletme oluşturulduysa tanıtım karuselinden sonra kurulum akışına geç
+    const next = getNeedsSetupSync() ? '/kurulum' : '/(tabs)';
     try {
       await AsyncStorage.setItem(ONBOARDING_KEY, 'true');
-      router.replace('/(tabs)');
+      router.replace(next);
     } catch (error) {
       if (__DEV__) {
         console.error('Onboarding kayıt hatası:', error);
       }
-      router.replace('/(tabs)');
+      router.replace(next);
     }
   };
 

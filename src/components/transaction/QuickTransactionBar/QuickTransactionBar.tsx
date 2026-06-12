@@ -50,6 +50,7 @@ import {
 } from './hooks';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { usePickImage, useTakePhoto } from '@/hooks/useIslemPhoto';
+import { useCreateCari } from '@/hooks/useCariler';
 
 export function QuickTransactionBar({
   visible,
@@ -290,6 +291,29 @@ export function QuickTransactionBar({
       modals.setCariSearchQuery('');
     },
     [form, modals]
+  );
+
+  // Picker'ın müşteri/tedarikçi bağlamı: cari modunda defaultCariType belirler,
+  // normal modda tahsilat=müşteri / ödeme=tedarikçi (mevcut davranış).
+  const cariPickerMode: 'customer' | 'supplier' = form.isCariMode
+    ? defaultCariType === 'tedarikci'
+      ? 'supplier'
+      : 'customer'
+    : form.type === 'tahsilat'
+      ? 'customer'
+      : 'supplier';
+
+  // Inline cari oluşturma (v1.5): picker'da aranan isim yoksa "+ ekle" ile
+  // formdan çıkmadan cari yaratılır ve otomatik seçilir.
+  const createCari = useCreateCari();
+  const handleCariCreateNew = useCallback(
+    (name: string) => {
+      createCari.mutate(
+        { name, type: cariPickerMode === 'customer' ? 'musteri' : 'tedarikci' },
+        { onSuccess: (yeniCari) => handleCariSelect(yeniCari.id) }
+      );
+    },
+    [createCari, cariPickerMode, handleCariSelect]
   );
 
   // Handle personel selection from picker
@@ -626,7 +650,9 @@ export function QuickTransactionBar({
         onSelect={handleCariSelect}
         cariler={entities.carilerForType || []}
         selectedId={form.cariId}
-        mode={form.type === 'tahsilat' ? 'customer' : 'supplier'}
+        mode={cariPickerMode}
+        onCreateNew={handleCariCreateNew}
+        creating={createCari.isPending}
         pendingModal={modals.pendingModal}
         onPendingModalHandled={handlePendingModalHandled}
       />

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { Stack, useRouter, useSegments, Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -28,6 +28,7 @@ import { logEvent } from '@/lib/appEvents';
 // Initialize i18n
 import '@/i18n';
 import { loadSavedLanguage } from '@/i18n';
+import { subscribeNeedsSetup, getNeedsSetupSync, loadNeedsSetup } from '@/lib/setupFlow';
 
 const ONBOARDING_KEY = '@defter_onboarding_completed';
 
@@ -38,6 +39,9 @@ function RootLayoutNav() {
   const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport', 'errors']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  // Kurulum akışı (v1.5): yalnızca YENİ işletme oluşturulduğunda true olur (setupFlow).
+  // useSyncExternalStore → kurulum tamamlanınca kapı anında kapanır, geri sıçrama olmaz.
+  const needsSetup = useSyncExternalStore(subscribeNeedsSetup, getNeedsSetupSync);
   const pushTokenRegistered = useRef(false);
   const insets = useSafeAreaInsets();
   const modifiedInsets = useMemo(() => ({ ...insets, bottom: 0 }), [insets]);
@@ -83,6 +87,8 @@ function RootLayoutNav() {
     loadSavedLanguage();
 
     checkOnboarding();
+    // Kurulum bayrağını AsyncStorage'dan yükle (yeni işletme oluşturulmuşsa true)
+    loadNeedsSetup();
   }, []);
 
   // Push notification ayarları
@@ -90,7 +96,10 @@ function RootLayoutNav() {
     if (!user || pushTokenRegistered.current) return;
 
     const setupPushNotifications = async () => {
-      const token = await registerForPushNotificationsAsync();
+      // promptIfNeeded:false — açılışta sistem izni İSTENMEZ; yalnızca izni zaten
+      // vermiş kullanıcıların token'ı tazelenir. Yeni kullanıcıya izin, ilk işlem
+      // sonrası kutlama ekranındaki pre-prompt ile sorulur (kurulum-tamam.tsx).
+      const token = await registerForPushNotificationsAsync({ promptIfNeeded: false });
       if (token) {
         await savePushToken(user.id, token);
         pushTokenRegistered.current = true;
@@ -175,6 +184,7 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
     const inVerify = segments[0] === 'verify';
+    const inKurulum = segments[0]?.startsWith('kurulum') ?? false;
 
     if (!user && !inAuthGroup && !inOnboarding && !inVerify) {
       // Kullanici giris yapmamis, login'e yonlendir
@@ -184,12 +194,19 @@ function RootLayoutNav() {
       if (showOnboarding) {
         // Onboarding gosterilmemis, onboarding'e yonlendir
         router.replace('/onboarding');
+      } else if (needsSetup) {
+        // Yeni isletme: kurulum akisi (sektor -> ilk kayit -> kutlama)
+        router.replace('/kurulum');
       } else {
         // Ana sayfaya yonlendir
         router.replace('/(tabs)');
       }
+    } else if (user && needsSetup && !inKurulum && !inOnboarding && !inAuthGroup && !inVerify && !needsPasswordReset) {
+      // Kurulum yarim kaldiysa (uygulama kapatilip acildi vb.) kuruluma geri getir.
+      // Bayrak yalnizca yeni isletmede set edildigi icin mevcut kullanicilar buraya hic girmez.
+      router.replace('/kurulum');
     }
-  }, [user, segments, initialized, onboardingChecked, showOnboarding, needsPasswordReset, router]);
+  }, [user, segments, initialized, onboardingChecked, showOnboarding, needsSetup, needsPasswordReset, router]);
 
   // Yukleniyor - sadece initialized ve onboardingChecked kontrol et
   // loading'i burada kontrol etmiyoruz çünkü login/logout sırasında da true oluyor
@@ -231,6 +248,9 @@ function RootLayoutNav() {
         <Stack.Screen name="arama" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
+        <Stack.Screen name="kurulum" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="kurulum-ilk-kayit" options={{ headerShown: false, animation: 'slide_from_right', gestureEnabled: false }} />
+        <Stack.Screen name="kurulum-tamam" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="verify" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen
           name="hesaplar/[id]"
