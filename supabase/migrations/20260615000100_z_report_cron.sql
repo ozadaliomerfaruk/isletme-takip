@@ -3,45 +3,42 @@
 -- (Esnafın dükkanı ~23:00 kapanıyor; 23:30 günün tamamını yakalar. 23:30 gece
 --  yarısından önce olduğu için "bugün" TR tarihi doğru kalır.)
 --
--- !!! BU MIGRATION VARSAYILAN OLARAK UYGULANMAZ — DIŞA DÖNÜK (658 kullanıcıya
---     bildirim gönderir). Yalnızca aşağıdaki TEST + ONAY adımlarından SONRA uygula.
+-- !!! BU DOSYA OTOMATİK UYGULANMAZ — sadece NO-OP notice verir.
+--     Cron'un auth'u service-role JWT gerektirir ve JWT git'e GİREMEZ; ayrıca
+--     Supabase'de `postgres` rolü `ALTER DATABASE ... SET app.settings.*` YAPAMAZ
+--     (42501 permission denied). Bu yüzden GUC yöntemi bu projede çalışmaz.
+--     (Aynı sebeple delete-scheduled-accounts-daily cron'unun GUC'u boş = auth kırık.)
 --
--- ETKİNLEŞTİRME SIRASI:
---   1) Edge function deploy: send-z-report  (deploy tek başına bir şey GÖNDERMEZ;
---      yalnızca çağrılınca çalışır).
---   2) TEST: function'ı SADECE kendi hesabına çağır:
---        POST .../functions/v1/send-z-report   body: {"test_user_id":"<senin-user-id>"}
---      Telefonuna tek bildirim gelir; metni/rakamı doğrula. (Önce {"dry_run":true}
---      ile hiç göndermeden örnek metni de görebilirsin.)
---   3) Onaylanınca: service-role anahtarını GUC olarak ayarla (cron auth'u için):
---        ALTER DATABASE postgres SET app.settings.service_role_key = '<SERVICE_ROLE_KEY>';
---      NOT: Bu GUC şu an HİÇ set değil; bu yüzden delete-scheduled-accounts-daily
---      cron'unun auth'u da muhtemelen kırık — bu adım onu da onarır. (Sır git'e
---      girmez; yalnızca DB config'inde tutulur.)
---   4) Bu migration'ı uygula (cron'u planlar). Aynı jobname ile tekrar çağrı job'u
---      GÜNCELLER (mükerrer yaratmaz) -> idempotent.
+-- DOĞRU YÖNTEM (mevcut çalışan process-scheduled-transactions / fetch-exchange-rates
+-- cron'larıyla aynı): JWT'yi cron KOMUTUNA göm ve cron'u Dashboard > SQL Editor'da
+-- ELLE planla. JWT cron.job.command'da kalır (git'te değil).
+--
+-- ETKİNLEŞTİRME (dışa dönük — 658 kullanıcı; önce dry-run ile doğrula):
+--   1) Edge function deploy edildi: send-z-report (atıl; çağrılana dek bir şey göndermez).
+--   2) DOĞRULA (göndermeden): Dashboard > Edge Functions > send-z-report > Invoke,
+--      body {"dry_run":true} -> hedef sayıları + örnek metni gör.
+--   3) SQL Editor'da AŞAĞIDAKİ komutu çalıştır (<SERVICE_ROLE_JWT> yerine
+--      Dashboard > Settings > API > service_role 'eyJ...' anahtarını yapıştır):
+--
+--      SELECT cron.schedule(
+--        'send-z-report-evening',
+--        '30 20 * * *',  -- UTC 20:30 = TR 23:30
+--        $cmd$
+--        SELECT net.http_post(
+--          url := 'https://ulohxpkhesxozwnlnonb.supabase.co/functions/v1/send-z-report',
+--          headers := jsonb_build_object(
+--            'Authorization', 'Bearer <SERVICE_ROLE_JWT>',
+--            'Content-Type', 'application/json'
+--          ),
+--          body := '{}'::jsonb
+--        );
+--        $cmd$
+--      );
 --
 -- GERİ ALMA:  SELECT cron.unschedule('send-z-report-evening');
+-- NOT: delete-scheduled-accounts-daily de aynı şekilde JWT-gömülü yeniden planlanmalı.
 -- =============================================================================
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
-    RAISE NOTICE 'pg_cron yok, cron planlama atlandi';
-    RETURN;
-  END IF;
-
-  PERFORM cron.schedule(
-    'send-z-report-evening',
-    '30 20 * * *',  -- UTC 20:30 = TR 23:30 (TR sabit UTC+3)
-    $cmd$
-    SELECT net.http_post(
-      url := 'https://ulohxpkhesxozwnlnonb.supabase.co/functions/v1/send-z-report',
-      headers := jsonb_build_object(
-        'Authorization', 'Bearer ' || current_setting('app.settings.service_role_key'),
-        'Content-Type', 'application/json'
-      ),
-      body := '{}'::jsonb
-    );
-    $cmd$
-  );
+  RAISE NOTICE 'send-z-report cron ELLE planlanir (yukaridaki SQL, gomulu JWT ile). Bu migration no-op.';
 END $$;

@@ -31,7 +31,7 @@ Deno.serve(withFnTelemetry({ name: "delete-scheduled-accounts" }, async (req) =>
     // Silme tarihi geçmiş işletmeleri bul
     const { data: isletmeler, error: fetchError } = await supabaseAdmin
       .from("isletmeler")
-      .select("id, user_id, name")
+      .select("id, user_id, name, scheduled_deletion_at")
       .lte("scheduled_deletion_at", new Date().toISOString())
       .not("scheduled_deletion_at", "is", null);
 
@@ -50,6 +50,21 @@ Deno.serve(withFnTelemetry({ name: "delete-scheduled-accounts" }, async (req) =>
 
     for (const isletme of isletmeler) {
       try {
+        // GÜVENLİK KORUMASI: scheduled_deletion_at SONRASINDA işlem varsa kullanıcı
+        // geri dönüp aktif kullanıyor demektir → SİLME. (Cron günlerce gecikse bile
+        // geri dönen aktif kullanıcının verisi asla silinmez — defense-in-depth.)
+        const { count: postActivity } = await supabaseAdmin
+          .from("islemler")
+          .select("id", { count: "exact", head: true })
+          .eq("isletme_id", isletme.id)
+          .gt("created_at", isletme.scheduled_deletion_at);
+
+        if (postActivity && postActivity > 0) {
+          console.log(`ATLANDI (vade sonrası ${postActivity} işlem - aktif kullanıcı): ${isletme.name}`);
+          results.push({ id: isletme.id, name: isletme.name, status: "skipped_active" });
+          continue;
+        }
+
         console.log(`Siliniyor: ${isletme.name} (${isletme.id})`);
 
         // 1. Tüm işlemleri sil
@@ -124,11 +139,13 @@ Deno.serve(withFnTelemetry({ name: "delete-scheduled-accounts" }, async (req) =>
 
     const successCount = results.filter((r) => r.status === "deleted").length;
     const errorCount = results.filter((r) => r.status === "error").length;
+    const skippedCount = results.filter((r) => r.status === "skipped_active").length;
 
     return new Response(
       JSON.stringify({
-        message: `${successCount} hesap silindi, ${errorCount} hata oluştu`,
+        message: `${successCount} hesap silindi, ${skippedCount} aktif atlandı, ${errorCount} hata`,
         deleted: successCount,
+        skipped_active: skippedCount,
         errors: errorCount,
         results,
       }),
