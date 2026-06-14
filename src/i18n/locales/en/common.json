@@ -1,5 +1,15 @@
 {
   "appName": "Small Business Finance",
+  "setupCard": {
+    "title": "Finish setup",
+    "subtitle": "{{done}}/{{total}} steps done",
+    "steps": {
+      "sector": "Choose your sector",
+      "banka": "Add a bank account",
+      "cari": "Add your first client",
+      "islem": "Add your first transaction"
+    }
+  },
   "total": "Total",
   "fields": {
     "optional": "Optional"

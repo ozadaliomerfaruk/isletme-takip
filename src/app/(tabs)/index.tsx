@@ -23,7 +23,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -46,6 +46,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useSetupProgress, type SetupStepKey } from '@/hooks/useSetupProgress';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -98,6 +99,25 @@ export default function HomePage() {
   // Cariler (FAB cari işlem için)
   const { data: musteriCariler } = useCariler('musteri');
   const { data: tedarikciCariler } = useCariler('tedarikci');
+
+  // Kurulumu bitir kartı (yarım-kurulum işletmeler)
+  const setup = useSetupProgress();
+  const handleSetupStepPress = useCallback((key: SetupStepKey) => {
+    switch (key) {
+      case 'sector':
+        router.push('/kurulum');
+        break;
+      case 'banka':
+        router.push('/hesaplar/ekle');
+        break;
+      case 'cari':
+        router.push('/cariler/ekle');
+        break;
+      case 'islem':
+        router.push('/islemler/gelir');
+        break;
+    }
+  }, [router]);
 
   // Döviz kurları (TRY karşılığı göstermek için)
   const { data: exchangeRatesData } = useExchangeRates();
@@ -442,6 +462,17 @@ export default function HomePage() {
           }}
           periodBadge={currentMonthLabel}
         />
+
+        {/* Kurulumu Bitir Kartı */}
+        {setup.shouldShow && (
+          <FinishSetupCard
+            steps={setup.steps}
+            completedCount={setup.completedCount}
+            totalCount={setup.totalCount}
+            onStepPress={handleSetupStepPress}
+            onDismiss={setup.dismiss}
+          />
+        )}
 
         {/* Hesaplar Bölümü */}
         <View style={styles.section}>

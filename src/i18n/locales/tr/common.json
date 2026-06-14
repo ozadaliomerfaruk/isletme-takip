@@ -1,5 +1,15 @@
 {
   "appName": "İşletme Takip",
+  "setupCard": {
+    "title": "Kurulumu tamamla",
+    "subtitle": "{{done}}/{{total}} adım tamam",
+    "steps": {
+      "sector": "Sektörünü seç",
+      "banka": "Banka hesabı ekle",
+      "cari": "İlk müşteri/tedarikçi ekle",
+      "islem": "İlk işlemini gir"
+    }
+  },
   "total": "Toplam",
   "fields": {
     "optional": "İsteğe Bağlı"
