@@ -151,6 +151,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    gap: spacing.md,
     paddingTop: spacing.md,
     paddingBottom: spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -174,6 +175,7 @@ const styles = StyleSheet.create({
   },
   valuesRow: {
     flexDirection: 'row',
+    gap: spacing.md,
   },
   value: {
     flex: 1,
@@ -182,7 +184,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     fontVariant: ['tabular-nums'],
-    paddingLeft: spacing.sm,
   },
   valueEmpty: {
     color: colors.textMuted,
