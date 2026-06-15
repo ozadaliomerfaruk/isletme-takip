@@ -32,7 +32,8 @@
     "canEditDelete": "Can edit / delete",
     "scopeOwn": "Only own entries",
     "scopeAll": "All entries",
-    "moduleNotlar": "Notes"
+    "moduleNotlar": "Notes",
+    "showSavings": "Show savings accounts"
   },
   "users": {
     "title": "Users",

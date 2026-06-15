@@ -32,7 +32,8 @@
     "canEditDelete": "Düzenleyebilir / silebilir",
     "scopeOwn": "Yalnızca kendi eklediğini",
     "scopeAll": "Tümünü",
-    "moduleNotlar": "Notlar"
+    "moduleNotlar": "Notlar",
+    "showSavings": "Birikim hesaplarını göster"
   },
   "users": {
     "title": "Kullanıcılar",

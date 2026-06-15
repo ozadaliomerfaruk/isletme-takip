@@ -18,60 +18,40 @@ export function RoleSelector({ value, onChange }: RoleSelectorProps) {
   const { data: templates } = useRoleTemplates();
   const lang = getCurrentLanguage();
 
-  // Fallback roles if templates haven't loaded yet
-  const roles: { name: UserRole; label: string; description: string | null; permissions?: Permissions }[] =
+  // Yan yana kart düzeni. 'purchaser' (satın almacı) rolü kaldırıldı —
+  // şablondan gelse bile filtrelenir.
+  const roles: { name: UserRole; label: string; permissions?: Permissions }[] = (
     templates?.map((tmpl: RoleTemplate) => ({
       name: tmpl.name as UserRole,
       label: lang === 'tr' ? tmpl.label_tr : tmpl.label_en,
-      description: lang === 'tr' ? tmpl.description_tr : tmpl.description_en,
       permissions: tmpl.default_permissions,
     })) ?? [
-      { name: 'manager', label: t('roles.manager'), description: null },
-      { name: 'operator', label: t('roles.operator'), description: null },
-      { name: 'purchaser', label: t('roles.purchaser'), description: null },
-      { name: 'custom', label: t('roles.custom'), description: null },
-    ];
+      { name: 'manager', label: t('roles.manager') },
+      { name: 'operator', label: t('roles.operator') },
+      { name: 'custom', label: t('roles.custom') },
+    ]
+  ).filter((role) => role.name !== 'purchaser');
 
   return (
     <View style={styles.container}>
-      {roles.map((role, index) => {
+      {roles.map((role) => {
         const isSelected = value === role.name;
-        const isLast = index === roles.length - 1;
-
         return (
           <TouchableOpacity
             key={role.name}
-            style={[
-              styles.roleItem,
-              isSelected && styles.roleItemSelected,
-              !isLast && styles.roleItemBorder,
-            ]}
+            style={[styles.card, isSelected && styles.cardSelected]}
             onPress={() => onChange(role.name, role.permissions)}
-            activeOpacity={0.6}
+            activeOpacity={0.7}
           >
-            <View style={styles.roleContent}>
-              <Text
-                style={[
-                  styles.roleLabel,
-                  isSelected && styles.roleLabelSelected,
-                ]}
-              >
-                {role.label}
-              </Text>
-              {role.description && (
-                <Text
-                  variant="caption"
-                  color="muted"
-                  numberOfLines={2}
-                  style={styles.roleDescription}
-                >
-                  {role.description}
-                </Text>
-              )}
-            </View>
             <View style={[styles.checkCircle, isSelected && styles.checkCircleSelected]}>
-              {isSelected && <Check size={14} color={colors.white} strokeWidth={3} />}
+              {isSelected && <Check size={12} color={colors.white} strokeWidth={3} />}
             </View>
+            <Text
+              style={[styles.roleLabel, isSelected && styles.roleLabelSelected]}
+              numberOfLines={1}
+            >
+              {role.label}
+            </Text>
           </TouchableOpacity>
         );
       })}
@@ -81,46 +61,30 @@ export function RoleSelector({ value, onChange }: RoleSelectorProps) {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.borderLight,
-    overflow: 'hidden',
-  },
-  roleItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  roleItemSelected: {
+  card: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xs,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    backgroundColor: colors.surface,
+    minHeight: 72,
+  },
+  cardSelected: {
+    borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
   },
-  roleItemBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderLight,
-  },
-  roleContent: {
-    flex: 1,
-    gap: 2,
-  },
-  roleLabel: {
-    fontSize: 15,
-    fontWeight: fontWeight.medium,
-    color: colors.text,
-  },
-  roleLabelSelected: {
-    color: colors.primary,
-    fontWeight: fontWeight.semibold,
-  },
-  roleDescription: {
-    lineHeight: 16,
-  },
   checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
@@ -129,5 +93,15 @@ const styles = StyleSheet.create({
   checkCircleSelected: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  roleLabel: {
+    fontSize: 13,
+    fontWeight: fontWeight.medium,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  roleLabelSelected: {
+    color: colors.primary,
+    fontWeight: fontWeight.semibold,
   },
 });

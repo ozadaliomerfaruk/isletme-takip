@@ -17,13 +17,28 @@ interface PermissionEditorProps {
 const MODULE_GROUPS: {
   headerKey: string;
   headerDefault: string;
-  modules: { name: ModuleName; i18nKey: string; label: string }[];
+  modules: {
+    name: ModuleName;
+    i18nKey: string;
+    label: string;
+    // Üst modüle bağlı alt aç/kapa (yalnızca üst açıkken görünür).
+    subToggle?: { name: ModuleName; i18nKey: string; label: string };
+  }[];
 }[] = [
   {
     headerKey: 'multiUser:permissions.groupMain',
     headerDefault: 'Hesaplar',
     modules: [
-      { name: 'hesaplar', i18nKey: 'navigation:menu.accounts', label: 'Hesaplar' },
+      {
+        name: 'hesaplar',
+        i18nKey: 'navigation:menu.accounts',
+        label: 'Hesaplar',
+        subToggle: {
+          name: 'birikim',
+          i18nKey: 'multiUser:permissions.showSavings',
+          label: 'Birikim hesaplarını göster',
+        },
+      },
       { name: 'cariler', i18nKey: 'navigation:tabs.clients', label: 'Cariler' },
       { name: 'urunler', i18nKey: 'navigation:tabs.stock', label: 'Ürünler / Stok' },
       { name: 'personel', i18nKey: 'navigation:tabs.personnel', label: 'Personel' },
@@ -33,9 +48,7 @@ const MODULE_GROUPS: {
     headerKey: 'multiUser:permissions.groupOther',
     headerDefault: 'Diğer',
     modules: [
-      { name: 'islemler', i18nKey: 'navigation:menu.allTransactions', label: 'İşlemler' },
       { name: 'raporlar', i18nKey: 'navigation:menu.reports', label: 'Raporlar' },
-      { name: 'ileri_tarihli', i18nKey: 'navigation:menu.futureTransactions', label: 'İleri Tarihli' },
       { name: 'notlar', i18nKey: 'multiUser:permissions.moduleNotlar', label: 'Notlar' },
     ],
   },
@@ -48,7 +61,10 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
   const level = deriveLevel(value);
 
   const toggleModule = (mod: ModuleName) => {
-    onChange(buildPermissions({ ...modules, [mod]: !modules[mod] }, level));
+    const next = { ...modules, [mod]: !modules[mod] };
+    // Hesaplar kapatılırsa bağlı 'birikim' alt seçeneği de kapanır.
+    if (mod === 'hesaplar' && !next.hesaplar) next.birikim = false;
+    onChange(buildPermissions(next, level));
   };
   const setLevel = (l: PermissionLevel) => onChange(buildPermissions(modules, l));
 
@@ -68,22 +84,39 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
             {t(group.headerKey, { defaultValue: group.headerDefault })}
           </Text>
           <View style={styles.card}>
-            {group.modules.map((mod, i) => (
-              <View
-                key={mod.name}
-                style={[styles.row, i < group.modules.length - 1 && styles.rowDivider]}
-              >
-                <Text variant="body" style={styles.rowLabel}>
-                  {t(mod.i18nKey, { defaultValue: mod.label })}
-                </Text>
-                <Switch
-                  value={modules[mod.name] ?? false}
-                  onValueChange={() => toggleModule(mod.name)}
-                  trackColor={trackColor}
-                  thumbColor={thumb(!!modules[mod.name])}
-                />
-              </View>
-            ))}
+            {group.modules.map((mod, i) => {
+              const isLast = i === group.modules.length - 1;
+              const sub = mod.subToggle;
+              const showSub = !!sub && !!modules[mod.name];
+              return (
+                <View key={mod.name}>
+                  <View style={[styles.row, (!isLast || showSub) && styles.rowDivider]}>
+                    <Text variant="body" style={styles.rowLabel}>
+                      {t(mod.i18nKey, { defaultValue: mod.label })}
+                    </Text>
+                    <Switch
+                      value={modules[mod.name] ?? false}
+                      onValueChange={() => toggleModule(mod.name)}
+                      trackColor={trackColor}
+                      thumbColor={thumb(!!modules[mod.name])}
+                    />
+                  </View>
+                  {showSub && sub && (
+                    <View style={[styles.row, styles.subRow, !isLast && styles.rowDivider]}>
+                      <Text variant="body" color="secondary" style={styles.rowLabel}>
+                        {t(sub.i18nKey, { defaultValue: sub.label })}
+                      </Text>
+                      <Switch
+                        value={modules[sub.name] ?? false}
+                        onValueChange={() => toggleModule(sub.name)}
+                        trackColor={trackColor}
+                        thumbColor={thumb(!!modules[sub.name])}
+                      />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </View>
         </View>
       ))}
@@ -189,6 +222,10 @@ const styles = StyleSheet.create({
   rowLabel: {
     flex: 1,
     marginRight: spacing.md,
+  },
+  subRow: {
+    paddingLeft: spacing.xl,
+    backgroundColor: colors.surfaceLight,
   },
   scopeRow: {
     flexDirection: 'row',

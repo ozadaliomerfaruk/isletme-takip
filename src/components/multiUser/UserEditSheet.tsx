@@ -22,6 +22,7 @@ const EMPTY_PERMISSIONS: Permissions = {
   modules: {
     dashboard: true,
     hesaplar: false,
+    birikim: false,
     cariler: false,
     personel: false,
     islemler: false,

@@ -10,6 +10,7 @@ export type AuditAction = 'create' | 'update' | 'delete';
 export type ModuleName =
   | 'dashboard'
   | 'hesaplar'
+  | 'birikim'
   | 'cariler'
   | 'personel'
   | 'islemler'
