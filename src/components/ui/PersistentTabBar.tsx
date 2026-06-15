@@ -105,7 +105,15 @@ export function PersistentTabBar() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    router.replace(tab.route);
+    // (tabs) içindeyken sekme-arası geçiş → replace (stack birikmez, mevcut davranış).
+    // DIŞINDA (Ayarlar/Raporlar/Notlar gibi kök ekranlar) → navigate; aksi halde
+    // expo-router replace'i göreli çözmeye çalışıp "route 'daha' yok" uyarısı veriyor
+    // ve o basışta navigasyon hiç olmuyordu.
+    if (segments[0] === '(tabs)') {
+      router.replace(tab.route);
+    } else {
+      router.navigate(tab.route);
+    }
   };
 
   return (
