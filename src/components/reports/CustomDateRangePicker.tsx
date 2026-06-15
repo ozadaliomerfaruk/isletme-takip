@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, ensureValidDate } from '@/lib/date';
 
 interface CustomDateRangePickerProps {
   startDate: Date;
@@ -32,17 +32,25 @@ export function CustomDateRangePicker({ startDate, endDate, onChange, locale }: 
     setShowEndPicker(false);
   };
 
+  // Güvenli türevler: geçersiz/epoch tarihleri bugüne çek; iOS'ta bitiş picker'ının
+  // minimumDate'i asla maximumDate'i (bugün) geçmesin — gelecek tarihli startDate
+  // native UIDatePicker'da min>max çökmesine yol açıyor.
+  const todayMax = new Date();
+  const safeStart = ensureValidDate(startDate);
+  const safeEnd = ensureValidDate(endDate);
+  const endMin = safeStart.getTime() <= todayMax.getTime() ? safeStart : todayMax;
+
   return (
     <>
       <View style={styles.customDateRow}>
         <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowStartPicker(true)}>
           <Calendar size={14} color={colors.primary} />
-          <Text variant="caption">{formatDateForDB(startDate)}</Text>
+          <Text variant="caption">{formatDateForDB(safeStart)}</Text>
         </TouchableOpacity>
         <Text variant="caption" style={styles.dateSeparator}>-</Text>
         <TouchableOpacity style={styles.datePickerButton} onPress={() => setShowEndPicker(true)}>
           <Calendar size={14} color={colors.primary} />
-          <Text variant="caption">{formatDateForDB(endDate)}</Text>
+          <Text variant="caption">{formatDateForDB(safeEnd)}</Text>
         </TouchableOpacity>
       </View>
 
@@ -61,7 +69,7 @@ export function CustomDateRangePicker({ startDate, endDate, onChange, locale }: 
               </View>
               <View style={{ alignItems: 'center' }}>
                 <DateTimePicker
-                  value={showStartPicker ? startDate : endDate}
+                  value={showStartPicker ? safeStart : safeEnd}
                   mode="date"
                   display="inline"
                   themeVariant="light"
@@ -71,15 +79,15 @@ export function CustomDateRangePicker({ startDate, endDate, onChange, locale }: 
                   onChange={(_, date) => {
                     if (date) {
                       if (showStartPicker) {
-                        const newEnd = date > endDate ? date : endDate;
+                        const newEnd = date > safeEnd ? date : safeEnd;
                         onChange(date, newEnd);
                       } else {
-                        onChange(startDate, date);
+                        onChange(safeStart, date);
                       }
                     }
                   }}
-                  minimumDate={showEndPicker ? startDate : undefined}
-                  maximumDate={new Date()}
+                  minimumDate={showEndPicker ? endMin : undefined}
+                  maximumDate={todayMax}
                 />
               </View>
               <Button variant="primary" onPress={close}>
@@ -93,32 +101,32 @@ export function CustomDateRangePicker({ startDate, endDate, onChange, locale }: 
       {/* Android */}
       {Platform.OS === 'android' && showStartPicker && (
         <DateTimePicker
-          value={startDate}
+          value={safeStart}
           mode="date"
           display="default"
           onChange={(event, date) => {
             setShowStartPicker(false);
             if (event.type === 'set' && date) {
-              const newEnd = date > endDate ? date : endDate;
+              const newEnd = date > safeEnd ? date : safeEnd;
               onChange(date, newEnd);
             }
           }}
-          maximumDate={new Date()}
+          maximumDate={todayMax}
         />
       )}
       {Platform.OS === 'android' && showEndPicker && (
         <DateTimePicker
-          value={endDate}
+          value={safeEnd}
           mode="date"
           display="default"
           onChange={(event, date) => {
             setShowEndPicker(false);
             if (event.type === 'set' && date) {
-              onChange(startDate, date);
+              onChange(safeStart, date);
             }
           }}
-          minimumDate={startDate}
-          maximumDate={new Date()}
+          minimumDate={endMin}
+          maximumDate={todayMax}
         />
       )}
     </>

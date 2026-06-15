@@ -4,6 +4,7 @@ import { X } from 'lucide-react-native';
 import { Text, Button } from '@/components/ui';
 import { styles } from './styles';
 import { colors } from '@/constants/colors';
+import { ensureValidDate } from '@/lib/date';
 
 interface ProductPeriodPickersProps {
   period: string;
@@ -54,6 +55,14 @@ export function ProductPeriodPickers(props: ProductPeriodPickersProps) {
     locale, t,
   } = props;
 
+  // Güvenli türevler: iOS'ta bitiş picker'ının minimumDate'i asla maximumDate'i
+  // (bugün) geçmesin — gelecek tarihli başlangıç native UIDatePicker'da min>max
+  // çökmesine yol açar.
+  const todayMax = new Date();
+  const safeStart = ensureValidDate(customStartDate);
+  const safeEnd = ensureValidDate(customEndDate);
+  const endMin = safeStart.getTime() <= todayMax.getTime() ? safeStart : todayMax;
+
   return (
     <>
       {/* Custom Date Pickers - iOS */}
@@ -80,7 +89,7 @@ export function ProductPeriodPickers(props: ProductPeriodPickersProps) {
               </View>
               <View style={styles.datePickerWrapper}>
                 <DateTimePicker
-                  value={showStartPicker ? customStartDate : customEndDate}
+                  value={showStartPicker ? safeStart : safeEnd}
                   mode="date"
                   display="inline"
                   themeVariant="light"
@@ -91,7 +100,7 @@ export function ProductPeriodPickers(props: ProductPeriodPickersProps) {
                     if (date) {
                       if (showStartPicker) {
                         setCustomStartDate(date);
-                        if (date > customEndDate) {
+                        if (date > safeEnd) {
                           setCustomEndDate(date);
                         }
                       } else {
@@ -99,8 +108,8 @@ export function ProductPeriodPickers(props: ProductPeriodPickersProps) {
                       }
                     }
                   }}
-                  minimumDate={showEndPicker ? customStartDate : undefined}
-                  maximumDate={new Date()}
+                  minimumDate={showEndPicker ? endMin : undefined}
+                  maximumDate={todayMax}
                 />
               </View>
               <Button variant="primary" onPress={() => {
@@ -117,24 +126,24 @@ export function ProductPeriodPickers(props: ProductPeriodPickersProps) {
       {/* Custom Date Pickers - Android */}
       {Platform.OS === 'android' && showStartPicker && (
         <DateTimePicker
-          value={customStartDate}
+          value={safeStart}
           mode="date"
           display="default"
           onChange={(event, date) => {
             setShowStartPicker(false);
             if (event.type === 'set' && date) {
               setCustomStartDate(date);
-              if (date > customEndDate) {
+              if (date > safeEnd) {
                 setCustomEndDate(date);
               }
             }
           }}
-          maximumDate={new Date()}
+          maximumDate={todayMax}
         />
       )}
       {Platform.OS === 'android' && showEndPicker && (
         <DateTimePicker
-          value={customEndDate}
+          value={safeEnd}
           mode="date"
           display="default"
           onChange={(event, date) => {
@@ -143,8 +152,8 @@ export function ProductPeriodPickers(props: ProductPeriodPickersProps) {
               setCustomEndDate(date);
             }
           }}
-          minimumDate={customStartDate}
-          maximumDate={new Date()}
+          minimumDate={endMin}
+          maximumDate={todayMax}
         />
       )}
 
