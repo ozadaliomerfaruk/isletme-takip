@@ -99,12 +99,12 @@ export default function KullaniciYonetimiPage() {
                     activeOpacity={0.7}
                   >
                     <Avatar
-                      name={user.profile?.display_name ?? user.profile?.email ?? '?'}
+                      name={user.member_label ?? user.profile?.display_name ?? user.profile?.email ?? '?'}
                       size={40}
                     />
                     <View style={styles.userInfo}>
                       <Text variant="body" numberOfLines={1}>
-                        {user.profile?.display_name ?? user.profile?.email ?? '?'}
+                        {user.member_label ?? user.profile?.display_name ?? user.profile?.email ?? '?'}
                       </Text>
                       <Text variant="caption" color="muted">
                         {user.role_label ?? t(`multiUser:roles.${user.role}`)} ·{' '}
@@ -150,7 +150,11 @@ export default function KullaniciYonetimiPage() {
                       </Text>
                       <Text variant="caption" color="muted">
                         {invite.role_label ?? t(`multiUser:roles.${invite.role}`)}
-                        {invite.invited_email ? ` · ${invite.invited_email}` : ''}
+                        {invite.member_label
+                          ? ` · ${invite.member_label}`
+                          : invite.invited_email
+                            ? ` · ${invite.invited_email}`
+                            : ''}
                       </Text>
                     </View>
                     <TouchableOpacity

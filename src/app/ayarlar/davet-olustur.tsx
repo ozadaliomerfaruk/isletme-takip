@@ -27,7 +27,7 @@ export default function DavetOlusturPage() {
   const [permissions, setPermissions] = useState<Permissions>(() =>
     rolePresetPermissions('operator'),
   );
-  const [email, setEmail] = useState('');
+  const [memberName, setMemberName] = useState('');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -41,7 +41,7 @@ export default function DavetOlusturPage() {
     try {
       const code = await createInvite.mutateAsync({
         role: selectedRole,
-        email: email.trim() || undefined,
+        memberLabel: memberName.trim() || undefined,
         permissions,
       });
       setGeneratedCode(code);
@@ -88,17 +88,16 @@ export default function DavetOlusturPage() {
               <PermissionEditor value={permissions} onChange={setPermissions} />
             </View>
 
-            {/* E-posta (opsiyonel) */}
+            {/* İsim (opsiyonel) — kodu paylaştığın kişiyi listede tanımak için */}
             <View style={styles.section}>
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                {t('multiUser:invites.emailOptional')}
+                {t('multiUser:invites.memberName')}
               </Text>
               <Input
-                value={email}
-                onChangeText={setEmail}
-                placeholder={t('multiUser:invites.emailPlaceholder')}
-                keyboardType="email-address"
-                autoCapitalize="none"
+                value={memberName}
+                onChangeText={setMemberName}
+                placeholder={t('multiUser:invites.memberNamePlaceholder')}
+                autoCapitalize="words"
               />
             </View>
 

@@ -77,6 +77,7 @@ export interface IsletmeInvite {
   invited_email: string | null;
   role: UserRole;
   role_label: string | null;
+  member_label: string | null;
   permissions: Permissions;
   expires_at: string;
   status: InviteStatus;
@@ -96,6 +97,7 @@ export interface IsletmeUser {
   invite_id: string | null;
   role: UserRole;
   role_label: string | null;
+  member_label: string | null;
   permissions: Permissions;
   status: UserStatus;
   created_at: string;

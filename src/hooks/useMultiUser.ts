@@ -65,6 +65,7 @@ export function useCreateInvite() {
       roleLabel?: string;
       permissions?: Permissions;
       email?: string;
+      memberLabel?: string;
     }) => {
       const { data, error } = await supabase.rpc('create_isletme_invite', {
         p_isletme_id: isletme!.id,
@@ -74,6 +75,16 @@ export function useCreateInvite() {
         p_invited_email: params.email ?? null,
       });
       if (error) throw error;
+      // Görünen ad (member_label) davet satırına yazılır — owner'ın RLS update
+      // yetkisi var. Best-effort: yazılamazsa davet yine geçerli kalır.
+      if (params.memberLabel && typeof data === 'string') {
+        const { error: lblErr } = await supabase
+          .from('isletme_invites')
+          .update({ member_label: params.memberLabel })
+          .eq('invite_code', data)
+          .eq('isletme_id', isletme!.id);
+        if (lblErr) console.warn('member_label yazılamadı:', lblErr.message);
+      }
       return data as string; // invite_code
     },
     onSuccess: (_data, variables) => {
@@ -194,6 +205,7 @@ export function useUpdateIsletmeUser() {
       roleLabel?: string | null;
       permissions?: Permissions;
       status?: UserStatus;
+      memberLabel?: string | null;
     }) => {
       const updateData: Record<string, unknown> = {
         role: params.role,
@@ -204,6 +216,9 @@ export function useUpdateIsletmeUser() {
       }
       if (params.status) {
         updateData.status = params.status;
+      }
+      if (params.memberLabel !== undefined) {
+        updateData.member_label = params.memberLabel;
       }
 
       const { error } = await supabase

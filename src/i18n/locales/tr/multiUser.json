@@ -44,7 +44,10 @@
     "removeUser": "Kullanıcıyı Kaldır",
     "removeConfirm": "Bu kullanıcının erişimini kaldırmak istediğinize emin misiniz?",
     "suspendUser": "Askıya Al",
-    "activateUser": "Aktifleştir"
+    "activateUser": "Aktifleştir",
+    "displayNameLabel": "Görünen ad",
+    "displayNamePlaceholder": "örn. Ahmet - Kasiyer",
+    "displayNameHelp": "Listede tanımak için bir ad verin (boş bırakılırsa e-posta görünür)"
   },
   "invites": {
     "title": "Davet Oluştur",
@@ -52,6 +55,8 @@
     "selectRole": "Rol Seçin",
     "emailOptional": "E-posta (opsiyonel)",
     "emailPlaceholder": "kullanici@example.com",
+    "memberName": "İsim (opsiyonel)",
+    "memberNamePlaceholder": "Bu kodu kime verdin? örn. Ahmet",
     "generateCode": "Kod Oluştur",
     "codeGenerated": "Davet Kodu",
     "copyCode": "Kodu Kopyala",

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Alert } from 'react-native';
 import { Shield, UserX, Pause, Play } from 'lucide-react-native';
-import { Text, Button, Avatar } from '@/components/ui';
+import { Text, Button, Avatar, Input } from '@/components/ui';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { RoleSelector } from './RoleSelector';
 import { PermissionEditor } from './PermissionEditor';
@@ -57,12 +57,14 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
 
   const [role, setRole] = useState<UserRole>('operator');
   const [permissions, setPermissions] = useState<Permissions>(EMPTY_PERMISSIONS);
+  const [memberLabel, setMemberLabel] = useState('');
 
   // Reset form when user changes
   useEffect(() => {
     if (user) {
       setRole(user.role);
       setPermissions(user.permissions ?? EMPTY_PERMISSIONS);
+      setMemberLabel(user.member_label ?? '');
     }
   }, [user]);
 
@@ -82,6 +84,7 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
         isletmeId: user.isletme_id,
         role,
         permissions,
+        memberLabel: memberLabel.trim() || null,
       });
       onClose();
     } catch (error) {
@@ -148,6 +151,24 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
               </Text>
             </View>
           </View>
+        </View>
+
+        {/* Görünen Ad (owner'ın atadığı tanınır isim) */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, styles.standaloneLabel]}>
+            {t('multiUser:users.displayNameLabel')}
+          </Text>
+          <Input
+            value={memberLabel}
+            onChangeText={setMemberLabel}
+            placeholder={
+              user.profile?.display_name ?? user.profile?.email ?? t('multiUser:users.displayNamePlaceholder')
+            }
+            autoCapitalize="words"
+          />
+          <Text variant="caption" color="muted" style={styles.helpText}>
+            {t('multiUser:users.displayNameHelp')}
+          </Text>
         </View>
 
         {/* Rol Seçimi */}
@@ -287,6 +308,14 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  standaloneLabel: {
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  helpText: {
+    marginTop: spacing.xs,
+    marginLeft: spacing.xs,
   },
   saveSection: {
     marginTop: spacing.sm,

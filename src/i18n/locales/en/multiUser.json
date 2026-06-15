@@ -44,7 +44,10 @@
     "removeUser": "Remove User",
     "removeConfirm": "Are you sure you want to remove this user's access?",
     "suspendUser": "Suspend",
-    "activateUser": "Activate"
+    "activateUser": "Activate",
+    "displayNameLabel": "Display name",
+    "displayNamePlaceholder": "e.g. John - Cashier",
+    "displayNameHelp": "Give a name to recognize them in the list (email shown if empty)"
   },
   "invites": {
     "title": "Create Invite",
@@ -52,6 +55,8 @@
     "selectRole": "Select Role",
     "emailOptional": "Email (optional)",
     "emailPlaceholder": "user@example.com",
+    "memberName": "Name (optional)",
+    "memberNamePlaceholder": "Who did you share this code with? e.g. John",
     "generateCode": "Generate Code",
     "codeGenerated": "Invite Code",
     "copyCode": "Copy Code",
