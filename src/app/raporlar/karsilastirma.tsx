@@ -1,16 +1,14 @@
 import { useState, useCallback, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, StyleSheet, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FileSpreadsheet } from 'lucide-react-native';
-import { TabFilter } from '@/components/ui';
+import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
 import { KarsilastirmaTabContent } from '@/components/reports/tabs';
-import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useComparisonReport } from '@/hooks/useComparisonReport';
-import { PeriodType } from '@/hooks/useIslemler';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -32,13 +30,6 @@ export default function KarsilastirmaRaporPage() {
       setRefreshing(false);
     }
   }, [queryClient]);
-
-  const PERIOD_OPTIONS = [
-    { label: t('reports:period.yearly'), value: 'yearly' },
-    { label: t('reports:period.monthly'), value: 'monthly' },
-    { label: t('reports:period.weekly'), value: 'weekly' },
-    { label: t('reports:period.daily'), value: 'daily' },
-  ];
 
   return (
     <>
@@ -67,22 +58,7 @@ export default function KarsilastirmaRaporPage() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         >
-          <View style={styles.periodFilter}>
-            <TabFilter
-              options={PERIOD_OPTIONS}
-              value={state.period}
-              onChange={(v) => {
-                state.setPeriod(v as PeriodType);
-                state.setPeriodOffset(0);
-              }}
-            />
-            <PeriodNavigator
-              period={state.period}
-              periodOffset={state.periodOffset}
-              periodLabel={state.periodLabel}
-              setPeriodOffset={state.setPeriodOffset}
-            />
-          </View>
+          <ReportPeriodBar state={state} />
 
           <KarsilastirmaTabContent report={report} />
         </ScrollView>
@@ -95,11 +71,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  periodFilter: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
   },
   headerBtn: {
     width: 36,

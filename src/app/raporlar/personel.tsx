@@ -1,24 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { TabFilter } from '@/components/ui';
+import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
 import { PersonelTabContent } from '@/components/reports/tabs';
-import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
-import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
-import { PeriodType } from '@/hooks/useIslemler';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function PersonelRaporPage() {
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'personel' }); }, []);
-  const { t } = useTranslation(['reports', 'common']);
   const { personelId } = useLocalSearchParams<{ personelId?: string }>();
   const state = useReportRouteState();
   const queryClient = useQueryClient();
@@ -33,14 +27,6 @@ export default function PersonelRaporPage() {
     }
   }, [queryClient]);
 
-  const PERIOD_OPTIONS = [
-    { label: t('reports:period.yearly'), value: 'yearly' },
-    { label: t('reports:period.monthly'), value: 'monthly' },
-    { label: t('reports:period.weekly'), value: 'weekly' },
-    { label: t('reports:period.daily'), value: 'daily' },
-    { label: t('reports:period.custom'), value: 'custom' },
-  ];
-
   return (
     <>
       <SafeAreaView style={styles.container} edges={['bottom']}>
@@ -48,34 +34,7 @@ export default function PersonelRaporPage() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         >
-          <View style={styles.periodFilter}>
-            <TabFilter
-              options={PERIOD_OPTIONS}
-              value={state.period}
-              onChange={(v) => {
-                state.setPeriod(v as PeriodType);
-                state.setPeriodOffset(0);
-              }}
-            />
-            {state.period === 'custom' ? (
-              <CustomDateRangePicker
-                startDate={state.customStartDate}
-                endDate={state.customEndDate}
-                onChange={(s, e) => {
-                  state.setCustomStartDate(s);
-                  state.setCustomEndDate(e);
-                }}
-                locale={state.locale}
-              />
-            ) : (
-              <PeriodNavigator
-                period={state.period}
-                periodOffset={state.periodOffset}
-                periodLabel={state.periodLabel}
-                setPeriodOffset={state.setPeriodOffset}
-              />
-            )}
-          </View>
+          <ReportPeriodBar state={state} includeCustom />
 
           <PersonelTabContent
             dateRange={state.dateRange}
@@ -94,10 +53,5 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  periodFilter: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
   },
 });

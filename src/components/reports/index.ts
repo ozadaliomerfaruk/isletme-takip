@@ -1,5 +1,6 @@
 export { CustomDateRangePicker } from './CustomDateRangePicker';
 export { ReportExportButton } from './ReportExportButton';
+export { ReportPeriodBar } from './ReportPeriodBar';
 export { EntityPicker } from './EntityPicker';
 export { EntitySummaryCard } from './EntitySummaryCard';
 export { EntityTransactionList } from './EntityTransactionList';
