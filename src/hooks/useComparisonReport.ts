@@ -145,7 +145,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
       });
 
       const { uri } = await Print.printToFileAsync({ html });
-      logEvent('export_completed', { format: 'pdf' });
+      logEvent('export_completed', { format: 'pdf', export_type: 'report', report_type: 'comparison' });
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {

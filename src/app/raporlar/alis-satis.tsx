@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
+import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -32,6 +33,7 @@ type ReportDirection = 'alis' | 'satis';
 
 export default function AlisSatisRaporPage() {
   usePagePermission({ module: 'raporlar' });
+  useEffect(() => { logEvent('report_viewed', { report_type: 'purchase_sales' }); }, []);
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common', 'products']);
   const state = useReportRouteState();

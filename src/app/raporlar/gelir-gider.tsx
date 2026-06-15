@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -22,6 +23,7 @@ type ReportType = 'gelir' | 'gider';
 
 export default function GelirGiderRaporPage() {
   usePagePermission({ module: 'raporlar' });
+  useEffect(() => { logEvent('report_viewed', { report_type: 'income_expense' }); }, []);
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
   const state = useReportRouteState();

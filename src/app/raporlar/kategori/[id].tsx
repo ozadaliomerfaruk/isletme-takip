@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { logEvent } from '@/lib/appEvents';
 import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -76,6 +77,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 
 export default function KategoriDetayPage() {
   usePagePermission({ module: 'raporlar' });
+  useEffect(() => { logEvent('report_viewed', { report_type: 'category_detail' }); }, []);
   const router = useRouter();
   const { id, type, startDate, endDate, source } = useLocalSearchParams<{
     id: string;

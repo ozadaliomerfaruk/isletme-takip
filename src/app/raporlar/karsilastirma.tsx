@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
@@ -17,6 +18,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 export default function KarsilastirmaRaporPage() {
   usePagePermission({ module: 'raporlar' });
+  useEffect(() => { logEvent('report_viewed', { report_type: 'comparison' }); }, []);
   const { t } = useTranslation(['reports']);
   const state = useReportRouteState();
   const report = useComparisonReport(state.period, state.periodOffset);

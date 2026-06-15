@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Modal, Pressable, Platform, RefreshControl } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -19,6 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 export default function PersonelRaporPage() {
   usePagePermission({ module: 'raporlar' });
+  useEffect(() => { logEvent('report_viewed', { report_type: 'personel' }); }, []);
   const { t } = useTranslation(['reports', 'common']);
   const { personelId } = useLocalSearchParams<{ personelId?: string }>();
   const state = useReportRouteState();

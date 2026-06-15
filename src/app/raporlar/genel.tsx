@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Stack } from 'expo-router';
@@ -20,6 +21,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 export default function GenelRaporPage() {
   usePagePermission({ module: 'raporlar' });
+  useEffect(() => { logEvent('report_viewed', { report_type: 'general' }); }, []);
   const state = useReportRouteState();
   const { t } = useTranslation(['reports', 'common']);
   const { isletme } = useAuthContext();
