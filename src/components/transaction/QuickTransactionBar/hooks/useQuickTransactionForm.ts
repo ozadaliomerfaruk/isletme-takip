@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ensureValidDate } from '@/lib/date';
+import { roundCurrency, toNumber } from '@/lib/currency';
 import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, UrunItem } from '../types';
 import type { CariType, Currency, BirimType } from '@/types/database';
 import { useIslem } from '@/hooks/useIslemler';
@@ -302,7 +303,9 @@ export function useQuickTransactionForm({
 
     // Set form values from transaction
     setType(mappedState.type);
-    setAmount(transaction.amount.toString());
+    // Emniyet: tutar alanına her zaman 2-ondalık yaz (parseCurrency TR locale'de
+    // 3-ondalık değeri ~1000x şişirme riskine karşı defense-in-depth).
+    setAmount(roundCurrency(toNumber(transaction.amount)).toString());
     setDescription(transaction.description || '');
 
     // Copy mode: set date to today; Edit mode: use original date

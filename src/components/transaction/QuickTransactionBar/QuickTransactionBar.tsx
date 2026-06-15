@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
+import { roundCurrency } from '@/lib/currency';
 
 import { getTransactionTypeColor } from '../TransactionTypeTabs';
 import { ExchangeRateBar } from '../ExchangeRateBar';
@@ -721,9 +722,13 @@ export function QuickTransactionBar({
         searchQuery={modals.urunSearchQuery}
         onSearchQueryChange={modals.setUrunSearchQuery}
         onTotalChange={(total) => {
-          // Urun toplamını işlem tutarına yaz
+          // Ürün toplamını işlem tutarına yaz.
+          // KRİTİK: ürün toplamı 3+ ondalık olabilir (ör. %1 KDV: 12*40.40+%1 = 489.648
+          // → genel toplam ...828). 2 ondalığa YUVARLANMAZSA, parseCurrency TR locale'de
+          // noktadan sonraki 3 haneyi binlik ayracı sanıp noktayı siliyor ve tutarı
+          // ~1000x şişiriyor (2692.828 → 2692828). roundCurrency 2 ondalık garanti eder.
           if (total > 0) {
-            form.setAmount(total.toString());
+            form.setAmount(roundCurrency(total).toString());
           }
         }}
       />

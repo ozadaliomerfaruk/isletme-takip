@@ -14,6 +14,7 @@ import {
   KeyboardEvent,
   Easing,
 } from 'react-native';
+import { roundCurrency } from '@/lib/currency';
 import { ensureValidDate } from '@/lib/date';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -87,7 +88,9 @@ export function usePendingFormState({ pendingIslem, visible, onDismiss }: Pendin
       setType((corrections.type || raw.mappedType || 'gider') as IslemType);
 
       const amountVal = corrections.amount ?? raw.amount;
-      setAmount(amountVal?.toString() || '');
+      // Tutar 3+ ondalık olabilir (OCR); 2 ondalığa yuvarla ki parseCurrency TR
+      // locale'de noktayı binlik ayracı sanıp ~1000x şişirmesin.
+      setAmount(amountVal != null ? roundCurrency(amountVal).toString() : '');
 
       setDescription(corrections.description ?? raw.description ?? '');
 
