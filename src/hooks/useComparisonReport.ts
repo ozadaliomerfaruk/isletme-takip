@@ -16,9 +16,13 @@ export interface ComparisonRow {
   income: number;
   expense: number;
   net: number;
+  /** Bu döneme ait dönem-offset'i (detay raporuna filtreli geçiş için) */
+  offset: number;
 }
 
 export interface ComparisonReport {
+  /** Aktif dönem tipi (detay raporuna geçişte kullanılır) */
+  period: PeriodType;
   /** En yeni dönem üstte (ekran/PDF sırası) */
   displayRows: ComparisonRow[];
   totals: {
@@ -67,10 +71,17 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
   // Kronolojik sıra (en eski -> en yeni)
   const monthsData = useMemo(
     () =>
-      periods.map((s) => {
+      periods.map((s, index) => {
         const income = s.data?.income ?? 0;
         const expense = s.data?.expense ?? 0;
-        return { periodLabel: s.periodLabel, income, expense, net: income - expense };
+        // periods[0]=p1 (en eski) -> offset = activeOffset - 11; periods[11]=p12 -> activeOffset
+        return {
+          periodLabel: s.periodLabel,
+          income,
+          expense,
+          net: income - expense,
+          offset: activeOffset - 11 + index,
+        };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     periods
@@ -151,5 +162,5 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
     }
   }, [monthsData, displayRows, totals, isletme, t, isLoading]);
 
-  return { displayRows, totals, isLoading, isExporting, exportPdf };
+  return { period: activePeriod, displayRows, totals, isLoading, isExporting, exportPdf };
 }

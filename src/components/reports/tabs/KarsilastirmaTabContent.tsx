@@ -1,5 +1,6 @@
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
 
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -14,7 +15,8 @@ const formatNet = (v: number) => (v < 0 ? formatCurrencyWithSign(v) : formatCurr
 
 export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }) {
   const { t } = useTranslation(['reports']);
-  const { displayRows, totals, isLoading } = report;
+  const router = useRouter();
+  const { period, displayRows, totals, isLoading } = report;
 
   // En yeni dönem üstte (yeni → eski); Ortalama/Toplam en altta.
   const rows = displayRows;
@@ -46,7 +48,17 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
         {rows.map((row, i) => {
           const empty = row.income === 0 && row.expense === 0;
           return (
-            <View key={i} style={styles.row}>
+            <TouchableOpacity
+              key={i}
+              style={styles.row}
+              activeOpacity={0.6}
+              onPress={() =>
+                router.push({
+                  pathname: '/raporlar/gelir-gider',
+                  params: { period, periodOffset: String(row.offset) },
+                })
+              }
+            >
               <Text variant="caption" style={styles.periodLabel}>
                 {row.periodLabel}
               </Text>
@@ -76,7 +88,7 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
                   {formatNet(row.net)}
                 </Text>
               </View>
-            </View>
+            </TouchableOpacity>
           );
         })}
 
