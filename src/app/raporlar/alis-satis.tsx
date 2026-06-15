@@ -1,14 +1,15 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
 import { Stack, useRouter, Href } from 'expo-router';
-import { Package, ShoppingCart, Store, Share2, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Package, ShoppingCart, Store, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, Card, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useProductReport, ProductReportItem } from '@/hooks/useProductReport';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -209,18 +210,11 @@ export default function AlisSatisRaporPage() {
           headerBackVisible: true,
           gestureEnabled: true,
           headerRight: () => (
-            <TouchableOpacity
+            <ReportExportButton
               onPress={handleExport}
-              disabled={isExporting}
-              style={styles.headerBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              {isExporting ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <Share2 size={22} color={colors.text} />
-              )}
-            </TouchableOpacity>
+              isExporting={isExporting}
+              accessibilityLabel={t('reports:export.exportExcel')}
+            />
           ),
         }}
       />
@@ -651,8 +645,5 @@ const styles = StyleSheet.create({
   barFill: {
     height: 4,
     borderRadius: 2,
-  },
-  headerBtn: {
-    padding: 6,
   },
 });

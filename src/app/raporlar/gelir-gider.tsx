@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { Share2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, CategoryReportCard, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useReportExcelExport } from '@/hooks/useReportExcelExport';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
@@ -78,18 +78,11 @@ export default function GelirGiderRaporPage() {
           headerBackVisible: true,
           gestureEnabled: true,
           headerRight: () => (
-            <TouchableOpacity
+            <ReportExportButton
               onPress={handleExport}
-              disabled={isExporting}
-              style={styles.headerBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              {isExporting ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <Share2 size={22} color={colors.text} />
-              )}
-            </TouchableOpacity>
+              isExporting={isExporting}
+              accessibilityLabel={t('reports:export.exportExcel')}
+            />
           ),
         }}
       />
@@ -331,8 +324,5 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-  },
-  headerBtn: {
-    padding: 6,
   },
 });
