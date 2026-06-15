@@ -100,7 +100,7 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
             ) : (
               <EntityTransactionList
                 transactions={filteredCariIslemler}
-                maxItems={20}
+                maxItems={0}
                 onTransactionPress={handleTransactionPress}
               />
             )}

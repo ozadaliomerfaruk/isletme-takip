@@ -34,6 +34,8 @@ export interface ComparisonReport {
     avgNet: number;
   };
   isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<unknown>;
   isExporting: boolean;
   exportPdf: () => Promise<void>;
 }
@@ -67,6 +69,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
 
   const periods = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12];
   const isLoading = periods.some((p) => p.isLoading);
+  const error = (periods.find((p) => p.error)?.error ?? null) as Error | null;
 
   // Kronolojik sıra (en eski -> en yeni)
   const monthsData = useMemo(
@@ -162,5 +165,14 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
     }
   }, [monthsData, displayRows, totals, isletme, t, isLoading]);
 
-  return { period: activePeriod, displayRows, totals, isLoading, isExporting, exportPdf };
+  return {
+    period: activePeriod,
+    displayRows,
+    totals,
+    isLoading,
+    error,
+    refetch: () => Promise.all(periods.map((p) => p.refetch())),
+    isExporting,
+    exportPdf,
+  };
 }

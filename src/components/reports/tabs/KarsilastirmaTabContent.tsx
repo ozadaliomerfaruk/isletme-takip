@@ -2,7 +2,7 @@ import { View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-nat
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 
-import { Text } from '@/components/ui';
+import { Text, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -15,9 +15,9 @@ const netColor = (v: number) => (v >= 0 ? colors.success : colors.error);
 const formatNet = (v: number) => (v < 0 ? formatCurrencyWithSign(v) : formatCurrency(v));
 
 export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }) {
-  const { t } = useTranslation(['reports']);
+  const { t } = useTranslation(['reports', 'common']);
   const router = useRouter();
-  const { period, displayRows, totals, isLoading } = report;
+  const { period, displayRows, totals, isLoading, error } = report;
 
   // İlk yüklemede 12 satır ₺0,00 flash etmesin — iskelet göster (diğer tab'larla tutarlı).
   if (isLoading) {
@@ -26,6 +26,19 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
         {[0, 1, 2, 3, 4, 5].map((i) => (
           <SkeletonListItem key={i} />
         ))}
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.section}>
+        <Text variant="body" color="error" style={{ textAlign: 'center', marginVertical: spacing.lg }}>
+          {t('reports:empty.dataLoadError')}
+        </Text>
+        <Button variant="ghost" onPress={() => report.refetch()}>
+          {t('common:buttons.retry')}
+        </Button>
       </View>
     );
   }

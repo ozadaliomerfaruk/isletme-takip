@@ -362,7 +362,16 @@ export default function AlisSatisRaporPage() {
 
           {/* Product List - Grouped by Category */}
           <View style={styles.productList}>
-            {activeReport.isLoading ? (
+            {activeReport.error ? (
+              <View style={styles.emptyContainer}>
+                <Text variant="body" color="error" style={styles.emptyText}>
+                  {t('reports:empty.dataLoadError')}
+                </Text>
+                <Button variant="ghost" onPress={() => activeReport.refetch()}>
+                  {t('common:buttons.retry')}
+                </Button>
+              </View>
+            ) : activeReport.isLoading ? (
               <View style={styles.loadingContainer}>
                 <SkeletonListItem />
                 <SkeletonListItem />

@@ -210,7 +210,16 @@ export default function GelirGiderRaporPage() {
 
           {/* Category List */}
           <View style={styles.categoryList}>
-            {activeReport.isLoading ? (
+            {activeReport.error ? (
+              <View style={styles.emptyContainer}>
+                <Text variant="body" color="error" style={styles.emptyText}>
+                  {t('reports:empty.dataLoadError')}
+                </Text>
+                <Button variant="ghost" onPress={() => activeReport.refetch()}>
+                  {t('common:buttons.retry')}
+                </Button>
+              </View>
+            ) : activeReport.isLoading ? (
               <View style={styles.loadingContainer}>
                 <SkeletonListItem />
                 <SkeletonListItem />

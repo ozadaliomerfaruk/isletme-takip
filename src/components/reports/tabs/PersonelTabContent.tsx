@@ -92,7 +92,7 @@ export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }
             ) : (
               <EntityTransactionList
                 transactions={filteredPersonelIslemler}
-                maxItems={20}
+                maxItems={0}
                 onTransactionPress={handleTransactionPress}
               />
             )}
