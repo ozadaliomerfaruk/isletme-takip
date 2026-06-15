@@ -126,6 +126,7 @@ export function PeriodNavigator({
       <TouchableOpacity
         style={styles.navButton}
         onPress={() => setPeriodOffset(periodOffset - 1)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <ChevronLeft size={20} color={colors.text} />
       </TouchableOpacity>
@@ -145,6 +146,7 @@ export function PeriodNavigator({
       <TouchableOpacity
         style={styles.navButton}
         onPress={() => setPeriodOffset(periodOffset + 1)}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
         <ChevronRight size={20} color={colors.text} />
       </TouchableOpacity>

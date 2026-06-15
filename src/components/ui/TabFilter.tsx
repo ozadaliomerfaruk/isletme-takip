@@ -8,6 +8,7 @@ import Animated, {
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { Text } from './Text';
+import { useHaptics } from '@/hooks/useHaptics';
 
 const SPRING_CONFIG = {
   damping: 18,
@@ -27,6 +28,7 @@ interface TabFilterProps {
 }
 
 export function TabFilter({ options, value, onChange }: TabFilterProps) {
+  const haptics = useHaptics();
   const [tabWidths, setTabWidths] = useState<number[]>([]);
   const translateX = useSharedValue(0);
   const indicatorWidth = useSharedValue(0);
@@ -74,7 +76,7 @@ export function TabFilter({ options, value, onChange }: TabFilterProps) {
           <TouchableOpacity
             key={option.value}
             style={styles.tab}
-            onPress={() => onChange(option.value)}
+            onPress={() => { if (option.value !== value) haptics.selection(); onChange(option.value); }}
             onLayout={handleTabLayout(index)}
             activeOpacity={0.7}
           >

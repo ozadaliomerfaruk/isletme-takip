@@ -1,6 +1,7 @@
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
+import { useHaptics } from '@/hooks/useHaptics';
 
 import { Text, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
@@ -17,6 +18,7 @@ const formatNet = (v: number) => (v < 0 ? formatCurrencyWithSign(v) : formatCurr
 export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }) {
   const { t } = useTranslation(['reports', 'common']);
   const router = useRouter();
+  const haptics = useHaptics();
   const { period, displayRows, totals, isLoading, error } = report;
 
   // İlk yüklemede 12 satır ₺0,00 flash etmesin — iskelet göster (diğer tab'larla tutarlı).
@@ -76,13 +78,14 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
             <TouchableOpacity
               key={i}
               style={styles.row}
-              activeOpacity={0.6}
-              onPress={() =>
+              activeOpacity={0.7}
+              onPress={() => {
+                haptics.light();
                 router.push({
                   pathname: '/raporlar/gelir-gider',
                   params: { period, periodOffset: String(row.offset) },
-                })
-              }
+                });
+              }}
             >
               <Text variant="caption" style={styles.periodLabel}>
                 {row.periodLabel}

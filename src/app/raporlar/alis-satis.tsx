@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert, RefreshControl } from 'react-native';
+import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter, Href } from 'expo-router';
 import { Calendar, X, Package, ShoppingCart, Store, Share2, ChevronDown, ChevronUp } from 'lucide-react-native';
@@ -105,6 +105,10 @@ export default function AlisSatisRaporPage() {
   }, [activeReport.items, t]);
 
   const toggleCategory = (key: string) => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setCollapsedCategories(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
