@@ -1,3 +1,4 @@
+export { CustomDateRangePicker } from './CustomDateRangePicker';
 export { EntityPicker } from './EntityPicker';
 export { EntitySummaryCard } from './EntitySummaryCard';
 export { EntityTransactionList } from './EntityTransactionList';
