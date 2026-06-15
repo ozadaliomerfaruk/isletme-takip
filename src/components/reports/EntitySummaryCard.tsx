@@ -84,9 +84,13 @@ export function EntitySummaryCard({
         .filter((tx) => tx.type === 'personel_tahsilat')
         .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
 
-      // Dönem içi bakiye değişimi:
-      // Giderler borcumuzu artırır (-), ödemeler borcumuzu azaltır (+)
-      const balanceChange = odemeler + tahsilatlar - giderler;
+      const satislar = transactions
+        .filter((tx) => tx.type === 'personel_satis')
+        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+
+      // Dönem içi bakiye değişimi (kanonik applyBalanceChange ile hizalı):
+      //   personel_odeme (+), personel_satis (+); personel_gider (-), personel_tahsilat (-)
+      const balanceChange = (odemeler + satislar) - (giderler + tahsilatlar);
 
       return {
         primary: { label: t('reports:entitySummary.expenses'), value: giderler, isExpense: true },

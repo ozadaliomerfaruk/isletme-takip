@@ -5,11 +5,13 @@ import {
   Users,
   Building2,
   CreditCard,
+  AlertTriangle,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { Text, Card } from '@/components/ui';
+import { SkeletonSummaryCard, SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -33,6 +35,16 @@ export function GenelTabContent(_props: TabContentProps) {
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
   const financialSummary = useFinancialSummary();
+
+  // İlk yüklemede sıfır-değerli kartların flash etmesini önle (diğer rapor tab'larıyla tutarlı).
+  if (financialSummary.isLoading) {
+    return (
+      <>
+        <View style={styles.section}><SkeletonSummaryCard /></View>
+        <View style={styles.section}><SkeletonAccountList count={3} /></View>
+      </>
+    );
+  }
 
   const totalReceivables = financialSummary.receivables.cari;
   const totalPayables = financialSummary.payables.cari;
@@ -149,6 +161,14 @@ export function GenelTabContent(_props: TabContentProps) {
             </View>
           </View>
         </Card>
+        {financialSummary.conversionIncomplete && (
+          <View style={styles.conversionWarning}>
+            <AlertTriangle size={14} color={colors.error} />
+            <Text variant="caption" color="error" style={styles.conversionWarningText}>
+              {t('reports:summary.conversionIncomplete')}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Hesap Bakiyeleri */}
@@ -328,6 +348,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: spacing.xs,
     marginLeft: spacing.xs,
+  },
+  conversionWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  conversionWarningText: {
+    flex: 1,
+    lineHeight: 16,
   },
   heroCard: {
     padding: spacing.lg,

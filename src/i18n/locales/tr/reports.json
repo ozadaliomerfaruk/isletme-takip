@@ -46,6 +46,7 @@
   },
   "summary": {
     "generalStatus": "Genel Durum",
+    "conversionIncomplete": "Döviz kurları yüklenemedi; bazı döviz bakiyeleri toplamlara dahil edilmedi.",
     "netValue": "Net Değer",
     "netAssets": "Net Varlık",
     "assets": "Varlıklar",

@@ -46,6 +46,7 @@
   },
   "summary": {
     "generalStatus": "General Status",
+    "conversionIncomplete": "Exchange rates unavailable; some foreign-currency balances were excluded from totals.",
     "netValue": "Net Value",
     "netAssets": "Net Assets",
     "assets": "Assets",

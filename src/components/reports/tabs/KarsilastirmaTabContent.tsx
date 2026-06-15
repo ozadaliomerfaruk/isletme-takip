@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 
 import { Text } from '@/components/ui';
+import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
@@ -17,6 +18,17 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
   const { t } = useTranslation(['reports']);
   const router = useRouter();
   const { period, displayRows, totals, isLoading } = report;
+
+  // İlk yüklemede 12 satır ₺0,00 flash etmesin — iskelet göster (diğer tab'larla tutarlı).
+  if (isLoading) {
+    return (
+      <View style={styles.section}>
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <SkeletonListItem key={i} />
+        ))}
+      </View>
+    );
+  }
 
   // En yeni dönem üstte (yeni → eski); Ortalama/Toplam en altta.
   const rows = displayRows;
