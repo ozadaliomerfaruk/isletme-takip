@@ -31,6 +31,7 @@ const EMPTY_PERMISSIONS: Permissions = {
     nakit_avans: false,
     ileri_tarihli: false,
     urunler: false,
+    notlar: false,
     arsiv: false,
     ayarlar: false,
   },

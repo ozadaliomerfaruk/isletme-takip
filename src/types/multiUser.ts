@@ -19,12 +19,23 @@ export type ModuleName =
   | 'nakit_avans'
   | 'ileri_tarihli'
   | 'urunler'
+  | 'notlar'
   | 'arsiv'
   | 'ayarlar';
+
+// Sade model: tek global yetki seviyesi (kademeli, açık tüm modüllere geçerli).
+//   view = açık modüllerde tüm kayıtları gör; add = + ekle;
+//   edit_own = + yalnızca kendi eklediğini düzenle/sil; edit_all = + tümünü.
+export type PermissionLevel = 'view' | 'add' | 'edit_own' | 'edit_all';
 
 // Yetki yapısı (JSONB permissions kolonu ile eşleşir)
 export interface Permissions {
   modules: Record<ModuleName, boolean>;
+  // YENİ (sade model): tek global yetki seviyesi. Yoksa aşağıdaki legacy `actions`
+  // kullanılır (geçiş dönemi; tüm kullanıcılar level'a geçince actions/visibility/
+  // restrictions kaldırılacak).
+  level?: PermissionLevel;
+  // @deprecated — sade modelde `level` ile değişti. Geçiş için korunuyor.
   actions: {
     [module: string]: {
       can_create: boolean;
