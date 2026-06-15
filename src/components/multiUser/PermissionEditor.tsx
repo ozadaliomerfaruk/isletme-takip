@@ -34,10 +34,7 @@ const MODULE_GROUPS: {
     headerDefault: 'Diğer',
     modules: [
       { name: 'islemler', i18nKey: 'navigation:menu.allTransactions', label: 'İşlemler' },
-      { name: 'kategoriler', i18nKey: 'navigation:menu.categories', label: 'Kategoriler' },
       { name: 'raporlar', i18nKey: 'navigation:menu.reports', label: 'Raporlar' },
-      { name: 'cekler', i18nKey: 'navigation:menu.checks', label: 'Çekler' },
-      { name: 'nakit_avans', i18nKey: 'multiUser:permissions.moduleNakitAvans', label: 'Nakit Avans' },
       { name: 'ileri_tarihli', i18nKey: 'navigation:menu.futureTransactions', label: 'İleri Tarihli' },
       { name: 'notlar', i18nKey: 'multiUser:permissions.moduleNotlar', label: 'Notlar' },
     ],
