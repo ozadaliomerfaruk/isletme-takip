@@ -6,6 +6,7 @@ import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
 import { useTranslation } from 'react-i18next';
 import { useRoleTemplates } from '@/hooks/useMultiUser';
 import type { UserRole, Permissions, RoleTemplate } from '@/types/multiUser';
+import { rolePresetPermissions } from '@/lib/permissions';
 import { getCurrentLanguage } from '@/i18n';
 
 interface RoleSelectorProps {
@@ -20,11 +21,10 @@ export function RoleSelector({ value, onChange }: RoleSelectorProps) {
 
   // Yan yana kart düzeni. 'purchaser' (satın almacı) rolü kaldırıldı —
   // şablondan gelse bile filtrelenir.
-  const roles: { name: UserRole; label: string; permissions?: Permissions }[] = (
+  const roles: { name: UserRole; label: string }[] = (
     templates?.map((tmpl: RoleTemplate) => ({
       name: tmpl.name as UserRole,
       label: lang === 'tr' ? tmpl.label_tr : tmpl.label_en,
-      permissions: tmpl.default_permissions,
     })) ?? [
       { name: 'manager', label: t('roles.manager') },
       { name: 'operator', label: t('roles.operator') },
@@ -40,7 +40,12 @@ export function RoleSelector({ value, onChange }: RoleSelectorProps) {
           <TouchableOpacity
             key={role.name}
             style={[styles.card, isSelected && styles.cardSelected]}
-            onPress={() => onChange(role.name, role.permissions)}
+            onPress={() =>
+              onChange(
+                role.name,
+                role.name === 'custom' ? undefined : rolePresetPermissions(role.name),
+              )
+            }
             activeOpacity={0.7}
           >
             <View style={[styles.checkCircle, isSelected && styles.checkCircleSelected]}>
@@ -68,23 +73,23 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
+    gap: 6,
+    paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xs,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius.md,
     borderWidth: 1,
     borderColor: colors.borderLight,
     backgroundColor: colors.surface,
-    minHeight: 72,
+    minHeight: 52,
   },
   cardSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
   },
   checkCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1.5,
     borderColor: colors.border,
     alignItems: 'center',
@@ -95,8 +100,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   roleLabel: {
-    fontSize: 13,
-    fontWeight: fontWeight.medium,
+    fontSize: 15,
+    fontWeight: fontWeight.semibold,
     color: colors.text,
     textAlign: 'center',
   },

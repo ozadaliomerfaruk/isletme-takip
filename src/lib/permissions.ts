@@ -6,7 +6,7 @@
  * (henüz güncellenmemiş kullanıcılar) okumaya devam etsin. Tüm kullanıcılar yeni
  * sürüme geçince bu türetilen alanlar temizlik migration'ı ile kaldırılacak.
  */
-import type { ModuleName, Permissions, PermissionLevel } from '@/types/multiUser';
+import type { ModuleName, Permissions, PermissionLevel, UserRole } from '@/types/multiUser';
 
 /** Permissions'tan etkin global seviyeyi türet: `level` varsa onu, yoksa eski actions'tan. */
 export function deriveLevel(p: Permissions | null | undefined): PermissionLevel {
@@ -47,4 +47,44 @@ export function buildPermissions(
     // Sade modelde görünürlük ayrımı yok: açık modülde her şey görünür.
     visibility: { can_see_passive: true, can_see_archived: true, can_see_all_users_data: true },
   };
+}
+
+// Tüm modüller (sıralı). dashboard her zaman açık; ayarlar owner-only.
+export const ALL_MODULES: ModuleName[] = [
+  'dashboard', 'hesaplar', 'birikim', 'cariler', 'personel', 'islemler',
+  'kategoriler', 'raporlar', 'cekler', 'nakit_avans', 'ileri_tarihli',
+  'urunler', 'notlar', 'arsiv', 'ayarlar',
+];
+
+// Owner dışı rollere verilebilen modüller (dashboard zaten açık, ayarlar owner-only).
+const GRANTABLE_MODULES: ModuleName[] = ALL_MODULES.filter(
+  (m) => m !== 'dashboard' && m !== 'ayarlar',
+);
+
+function emptyModuleMap(): Record<ModuleName, boolean> {
+  return ALL_MODULES.reduce((acc, m) => {
+    acc[m] = false;
+    return acc;
+  }, {} as Record<ModuleName, boolean>);
+}
+
+/**
+ * Rol kartına basınca uygulanacak hazır izin seti (sade model).
+ *   manager  → tüm modüller açık + edit_all (tümünü düzenle/sil)
+ *   operator → birikim + raporlar kapalı, gerisi açık + edit_own (yalnızca kendi)
+ *   custom   → boş (kullanıcı kendi seçer)
+ */
+export function rolePresetPermissions(role: UserRole): Permissions {
+  const modules = emptyModuleMap();
+  if (role === 'manager') {
+    GRANTABLE_MODULES.forEach((m) => { modules[m] = true; });
+    return buildPermissions(modules, 'edit_all');
+  }
+  if (role === 'operator') {
+    GRANTABLE_MODULES.forEach((m) => { modules[m] = true; });
+    modules.birikim = false;
+    modules.raporlar = false;
+    return buildPermissions(modules, 'edit_own');
+  }
+  return buildPermissions(modules, 'view');
 }

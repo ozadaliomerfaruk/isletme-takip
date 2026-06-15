@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,36 +11,10 @@ import { RoleSelector } from '@/components/multiUser/RoleSelector';
 import { PermissionEditor } from '@/components/multiUser/PermissionEditor';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useCreateInvite, useRoleTemplates } from '@/hooks/useMultiUser';
+import { useCreateInvite } from '@/hooks/useMultiUser';
 import type { UserRole, Permissions } from '@/types/multiUser';
+import { rolePresetPermissions } from '@/lib/permissions';
 import { useRequireOwner } from '@/hooks/usePagePermission';
-
-// Boş permissions objesi (custom rol için başlangıç)
-const EMPTY_PERMISSIONS: Permissions = {
-  modules: {
-    dashboard: true,
-    hesaplar: false,
-    birikim: false,
-    cariler: false,
-    personel: false,
-    islemler: false,
-    kategoriler: false,
-    raporlar: false,
-    cekler: false,
-    nakit_avans: false,
-    ileri_tarihli: false,
-    urunler: false,
-    notlar: false,
-    arsiv: false,
-    ayarlar: false,
-  },
-  actions: {},
-  visibility: {
-    can_see_passive: false,
-    can_see_archived: false,
-    can_see_all_users_data: false,
-  },
-};
 
 export default function DavetOlusturPage() {
   const router = useRouter();
@@ -48,33 +22,19 @@ export default function DavetOlusturPage() {
   useRequireOwner();
   const createInvite = useCreateInvite();
 
-  const { data: roleTemplates } = useRoleTemplates();
-
   const [selectedRole, setSelectedRole] = useState<UserRole>('operator');
-  const [permissions, setPermissions] = useState<Permissions>(EMPTY_PERMISSIONS);
-  const [initialLoaded, setInitialLoaded] = useState(false);
+  // Başlangıç: Operatör hazır izinleri (rol kartı değişince güncellenir).
+  const [permissions, setPermissions] = useState<Permissions>(() =>
+    rolePresetPermissions('operator'),
+  );
   const [email, setEmail] = useState('');
   const [generatedCode, setGeneratedCode] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Apply template permissions on initial load when templates become available
-  useEffect(() => {
-    if (roleTemplates && !initialLoaded) {
-      const template = roleTemplates.find((t) => t.name === selectedRole);
-      if (template?.default_permissions) {
-        setPermissions(template.default_permissions);
-      }
-      setInitialLoaded(true);
-    }
-  }, [roleTemplates, initialLoaded, selectedRole]);
-
   const handleRoleChange = (role: UserRole, defaultPermissions?: Permissions) => {
     setSelectedRole(role);
-    if (role === 'custom') {
-      setPermissions(EMPTY_PERMISSIONS);
-    } else if (defaultPermissions?.modules) {
-      setPermissions(defaultPermissions);
-    }
+    // manager/operator → hazır preset gelir; custom → mevcut seçimler korunur.
+    if (defaultPermissions) setPermissions(defaultPermissions);
   };
 
   const handleGenerateCode = async () => {
