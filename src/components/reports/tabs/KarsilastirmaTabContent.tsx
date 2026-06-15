@@ -16,9 +16,8 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
   const { t } = useTranslation(['reports']);
   const { displayRows, totals, isLoading } = report;
 
-  // displayRows en yeni üstte gelir; tabloda kronolojik (eski → yeni) gösterip
-  // Toplam'ı en alta koyuyoruz.
-  const rows = [...displayRows].reverse();
+  // En yeni dönem üstte (yeni → eski); Ortalama/Toplam en altta.
+  const rows = displayRows;
 
   return (
     <View style={styles.section}>
@@ -171,6 +170,7 @@ const styles = StyleSheet.create({
   periodLabel: {
     color: colors.primary,
     fontWeight: '600',
+    fontSize: 15,
     marginBottom: 4,
   },
   valuesRow: {
