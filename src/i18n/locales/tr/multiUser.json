@@ -23,7 +23,17 @@
     "noModuleAccess": "Bu modüle erişim yetkiniz yok",
     "noActionAccess": "Bu işlem için yetkiniz yok",
     "denied": "Erişim Engellendi",
-    "ownerOnly": "Bu sayfa sadece işletme sahibi tarafından kullanılabilir"
+    "ownerOnly": "Bu sayfa sadece işletme sahibi tarafından kullanılabilir",
+    "groupMain": "Hesaplar",
+    "groupOther": "Diğer",
+    "levelTitle": "Yetki Seviyesi",
+    "canView": "Görebilir",
+    "canAdd": "Ekleyebilir",
+    "canEditDelete": "Düzenleyebilir / silebilir",
+    "scopeOwn": "Yalnızca kendi eklediğini",
+    "scopeAll": "Tümünü",
+    "moduleNakitAvans": "Nakit Avans",
+    "moduleNotlar": "Notlar"
   },
   "users": {
     "title": "Kullanıcılar",

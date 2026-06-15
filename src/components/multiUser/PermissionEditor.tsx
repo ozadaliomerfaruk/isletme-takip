@@ -1,166 +1,159 @@
-import { View, StyleSheet, TouchableOpacity, Switch } from 'react-native';
+import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
+import { Check } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useTranslation } from 'react-i18next';
-import type { Permissions, ModuleName } from '@/types/multiUser';
+import type { Permissions, ModuleName, PermissionLevel } from '@/types/multiUser';
+import { buildPermissions, deriveLevel } from '@/lib/permissions';
 
 interface PermissionEditorProps {
   value: Permissions;
   onChange: (permissions: Permissions) => void;
 }
 
-// Modüller ve bunlar için hangi aksiyonların gösterileceği
-const MODULE_CONFIG: {
-  name: ModuleName;
-  i18nKey: string;
-  hasActions: boolean;
+// Sade model: modüller iki grupta, her biri tek aç/kapa toggle.
+// (dashboard her zaman açık, ayarlar owner-only, arsiv modüle bağlı → gösterilmez.)
+const MODULE_GROUPS: {
+  headerKey: string;
+  headerDefault: string;
+  modules: { name: ModuleName; i18nKey: string; label: string }[];
 }[] = [
-  { name: 'dashboard', i18nKey: 'navigation:tabs.home', hasActions: false },
-  { name: 'hesaplar', i18nKey: 'navigation:menu.accounts', hasActions: true },
-  { name: 'cariler', i18nKey: 'navigation:tabs.clients', hasActions: true },
-  { name: 'personel', i18nKey: 'navigation:tabs.personnel', hasActions: true },
-  { name: 'islemler', i18nKey: 'navigation:menu.allTransactions', hasActions: true },
-  { name: 'kategoriler', i18nKey: 'navigation:menu.categories', hasActions: true },
-  { name: 'raporlar', i18nKey: 'navigation:menu.reports', hasActions: false },
-  { name: 'cekler', i18nKey: 'navigation:menu.checks', hasActions: true },
-  { name: 'ileri_tarihli', i18nKey: 'navigation:menu.futureTransactions', hasActions: true },
-  { name: 'urunler', i18nKey: 'navigation:tabs.stock', hasActions: true },
-  { name: 'arsiv', i18nKey: 'common:archive.title', hasActions: false },
-  { name: 'ayarlar', i18nKey: 'navigation:tabs.more', hasActions: false },
+  {
+    headerKey: 'multiUser:permissions.groupMain',
+    headerDefault: 'Hesaplar',
+    modules: [
+      { name: 'hesaplar', i18nKey: 'navigation:menu.accounts', label: 'Hesaplar' },
+      { name: 'cariler', i18nKey: 'navigation:tabs.clients', label: 'Cariler' },
+      { name: 'urunler', i18nKey: 'navigation:tabs.stock', label: 'Ürünler / Stok' },
+      { name: 'personel', i18nKey: 'navigation:tabs.personnel', label: 'Personel' },
+    ],
+  },
+  {
+    headerKey: 'multiUser:permissions.groupOther',
+    headerDefault: 'Diğer',
+    modules: [
+      { name: 'islemler', i18nKey: 'navigation:menu.allTransactions', label: 'İşlemler' },
+      { name: 'kategoriler', i18nKey: 'navigation:menu.categories', label: 'Kategoriler' },
+      { name: 'raporlar', i18nKey: 'navigation:menu.reports', label: 'Raporlar' },
+      { name: 'cekler', i18nKey: 'navigation:menu.checks', label: 'Çekler' },
+      { name: 'nakit_avans', i18nKey: 'multiUser:permissions.moduleNakitAvans', label: 'Nakit Avans' },
+      { name: 'ileri_tarihli', i18nKey: 'navigation:menu.futureTransactions', label: 'İleri Tarihli' },
+      { name: 'notlar', i18nKey: 'multiUser:permissions.moduleNotlar', label: 'Notlar' },
+    ],
+  },
 ];
-
-const ACTION_LABELS = [
-  { key: 'can_create', i18n: 'create' },
-  { key: 'can_update_own', i18n: 'editOwn' },
-  { key: 'can_update_all', i18n: 'editAll' },
-  { key: 'can_delete_own', i18n: 'deleteOwn' },
-  { key: 'can_delete_all', i18n: 'deleteAll' },
-] as const;
 
 export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
   const { t } = useTranslation(['multiUser', 'navigation', 'common']);
 
-  // Defensive: ensure nested objects exist
   const modules = value.modules ?? ({} as Record<ModuleName, boolean>);
-  const actions = value.actions ?? {};
-  const visibility = value.visibility ?? { can_see_passive: false, can_see_archived: false, can_see_all_users_data: false };
+  const level = deriveLevel(value);
 
-  const toggleModule = (module: ModuleName) => {
-    const newModules = { ...modules, [module]: !modules[module] };
-    onChange({ ...value, modules: newModules });
+  const toggleModule = (mod: ModuleName) => {
+    onChange(buildPermissions({ ...modules, [mod]: !modules[mod] }, level));
   };
+  const setLevel = (l: PermissionLevel) => onChange(buildPermissions(modules, l));
 
-  const toggleAction = (module: string, actionKey: string) => {
-    const currentActions = actions[module] ?? {
-      can_create: false,
-      can_update_own: false,
-      can_update_all: false,
-      can_delete_own: false,
-      can_delete_all: false,
-    };
-    const newActions = {
-      ...actions,
-      [module]: { ...currentActions, [actionKey]: !currentActions[actionKey as keyof typeof currentActions] },
-    };
-    onChange({ ...value, actions: newActions });
-  };
+  const canAdd = level !== 'view';
+  const canEdit = level === 'edit_own' || level === 'edit_all';
+  const editAll = level === 'edit_all';
 
-  const toggleVisibility = (key: keyof Permissions['visibility']) => {
-    onChange({
-      ...value,
-      visibility: { ...visibility, [key]: !visibility[key] },
-    });
-  };
+  const trackColor = { false: colors.borderLight, true: colors.primaryLight };
+  const thumb = (on: boolean) => (on ? colors.primary : colors.textMuted);
 
   return (
     <View style={styles.container}>
-      {/* Modül Erişimi */}
-      <Text variant="label" color="secondary" style={styles.sectionTitle}>
-        {t('multiUser:permissionActions.moduleAccess')}
-      </Text>
-      {MODULE_CONFIG.map((mod) => (
-        <View key={mod.name} style={styles.moduleSection}>
-          {/* Modül toggle */}
-          <View style={styles.moduleRow}>
-            <Text variant="body" style={styles.moduleLabel}>
-              {t(mod.i18nKey, { defaultValue: mod.name })}
-            </Text>
-            <Switch
-              value={modules[mod.name] ?? false}
-              onValueChange={() => toggleModule(mod.name)}
-              trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
-              thumbColor={modules[mod.name] ? colors.primary : colors.textMuted}
-            />
+      {/* MODÜL ERİŞİMİ */}
+      {MODULE_GROUPS.map((group) => (
+        <View key={group.headerDefault} style={styles.group}>
+          <Text variant="label" color="secondary" style={styles.groupHeader}>
+            {t(group.headerKey, { defaultValue: group.headerDefault })}
+          </Text>
+          <View style={styles.card}>
+            {group.modules.map((mod, i) => (
+              <View
+                key={mod.name}
+                style={[styles.row, i < group.modules.length - 1 && styles.rowDivider]}
+              >
+                <Text variant="body" style={styles.rowLabel}>
+                  {t(mod.i18nKey, { defaultValue: mod.label })}
+                </Text>
+                <Switch
+                  value={modules[mod.name] ?? false}
+                  onValueChange={() => toggleModule(mod.name)}
+                  trackColor={trackColor}
+                  thumbColor={thumb(!!modules[mod.name])}
+                />
+              </View>
+            ))}
           </View>
-
-          {/* Aksiyon detayları (modül açıksa ve aksiyonları varsa) */}
-          {mod.hasActions && modules[mod.name] && (
-            <View style={styles.actionsContainer}>
-              {ACTION_LABELS.map((action) => (
-                <TouchableOpacity
-                  key={action.key}
-                  style={styles.actionRow}
-                  onPress={() => toggleAction(mod.name, action.key)}
-                  activeOpacity={0.7}
-                >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      actions[mod.name]?.[action.key] && styles.checkboxChecked,
-                    ]}
-                  >
-                    {actions[mod.name]?.[action.key] && (
-                      <Text variant="caption" style={styles.checkmark}>✓</Text>
-                    )}
-                  </View>
-                  <Text variant="caption">
-                    {t(`multiUser:permissionActions.${action.i18n}`, { defaultValue: action.key })}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </View>
       ))}
 
-      {/* Görünürlük Ayarları */}
-      <Text variant="label" color="secondary" style={[styles.sectionTitle, { marginTop: spacing.lg }]}>
-        {t('multiUser:permissionActions.visibility')}
-      </Text>
-      <View style={styles.visibilitySection}>
-        <View style={styles.moduleRow}>
-          <Text variant="body">
-            {t('multiUser:permissionActions.canSeePassive')}
-          </Text>
-          <Switch
-            value={visibility.can_see_passive}
-            onValueChange={() => toggleVisibility('can_see_passive')}
-            trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
-            thumbColor={visibility.can_see_passive ? colors.primary : colors.textMuted}
-          />
-        </View>
-        <View style={styles.moduleRow}>
-          <Text variant="body">
-            {t('multiUser:permissionActions.canSeeArchived')}
-          </Text>
-          <Switch
-            value={visibility.can_see_archived}
-            onValueChange={() => toggleVisibility('can_see_archived')}
-            trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
-            thumbColor={visibility.can_see_archived ? colors.primary : colors.textMuted}
-          />
-        </View>
-        <View style={styles.moduleRow}>
-          <Text variant="body">
-            {t('multiUser:permissionActions.canSeeAllData')}
-          </Text>
-          <Switch
-            value={visibility.can_see_all_users_data}
-            onValueChange={() => toggleVisibility('can_see_all_users_data')}
-            trackColor={{ false: colors.borderLight, true: colors.primaryLight }}
-            thumbColor={visibility.can_see_all_users_data ? colors.primary : colors.textMuted}
-          />
+      {/* YETKİ SEVİYESİ (tüm açık modüllere geçerli) */}
+      <View style={styles.group}>
+        <Text variant="label" color="secondary" style={styles.groupHeader}>
+          {t('multiUser:permissions.levelTitle', { defaultValue: 'Yetki Seviyesi' })}
+        </Text>
+        <View style={styles.card}>
+          {/* Görebilir — taban (her açık modülde) */}
+          <View style={[styles.row, styles.rowDivider]}>
+            <Text variant="body" style={styles.rowLabel}>
+              {t('multiUser:permissions.canView', { defaultValue: 'Görebilir' })}
+            </Text>
+            <Check size={20} color={colors.primary} />
+          </View>
+
+          {/* Ekleyebilir */}
+          <View style={[styles.row, styles.rowDivider]}>
+            <Text variant="body" style={styles.rowLabel}>
+              {t('multiUser:permissions.canAdd', { defaultValue: 'Ekleyebilir' })}
+            </Text>
+            <Switch
+              value={canAdd}
+              onValueChange={(on) => setLevel(on ? (canEdit ? level : 'add') : 'view')}
+              trackColor={trackColor}
+              thumbColor={thumb(canAdd)}
+            />
+          </View>
+
+          {/* Düzenleyebilir / silebilir */}
+          <View style={styles.row}>
+            <Text variant="body" style={styles.rowLabel}>
+              {t('multiUser:permissions.canEditDelete', { defaultValue: 'Düzenleyebilir / silebilir' })}
+            </Text>
+            <Switch
+              value={canEdit}
+              onValueChange={(on) => setLevel(on ? 'edit_own' : canAdd ? 'add' : 'view')}
+              trackColor={trackColor}
+              thumbColor={thumb(canEdit)}
+            />
+          </View>
+
+          {/* Kapsam: yalnızca kendi / tümü (sadece düzenleme açıkken) */}
+          {canEdit && (
+            <View style={styles.scopeRow}>
+              <TouchableOpacity
+                style={[styles.chip, !editAll && styles.chipActive]}
+                onPress={() => setLevel('edit_own')}
+                activeOpacity={0.7}
+              >
+                <Text variant="caption" style={!editAll ? styles.chipActiveText : styles.chipText}>
+                  {t('multiUser:permissions.scopeOwn', { defaultValue: 'Yalnızca kendi eklediğini' })}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.chip, editAll && styles.chipActive]}
+                onPress={() => setLevel('edit_all')}
+                activeOpacity={0.7}
+              >
+                <Text variant="caption" style={editAll ? styles.chipActiveText : styles.chipText}>
+                  {t('multiUser:permissions.scopeAll', { defaultValue: 'Tümünü' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -169,65 +162,62 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
 
 const styles = StyleSheet.create({
   container: {
+    gap: spacing.md,
+  },
+  group: {
     gap: spacing.xs,
   },
-  sectionTitle: {
-    marginBottom: spacing.xs,
+  groupHeader: {
     marginLeft: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  moduleSection: {
+  card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
-    marginBottom: spacing.xs,
   },
-  moduleRow: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    minHeight: 44,
+    minHeight: 48,
   },
-  moduleLabel: {
+  rowDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
+  },
+  rowLabel: {
     flex: 1,
     marginRight: spacing.md,
   },
-  actionsContainer: {
-    paddingLeft: spacing.xl,
-    paddingRight: spacing.md,
-    paddingBottom: spacing.sm,
+  scopeRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.xs,
   },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
+  chip: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  checkboxChecked: {
-    backgroundColor: colors.primary,
+  chipActive: {
+    backgroundColor: colors.primaryLight,
     borderColor: colors.primary,
   },
-  checkmark: {
-    color: colors.white,
-    fontSize: 12,
-    fontWeight: '700',
-    lineHeight: 14,
+  chipText: {
+    color: colors.textMuted,
   },
-  visibilitySection: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    overflow: 'hidden',
+  chipActiveText: {
+    color: colors.primary,
+    fontWeight: '700',
   },
 });

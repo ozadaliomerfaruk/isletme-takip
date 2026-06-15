@@ -23,7 +23,17 @@
     "noModuleAccess": "You do not have access to this module",
     "noActionAccess": "You do not have permission for this action",
     "denied": "Access Denied",
-    "ownerOnly": "This page is only accessible to the business owner"
+    "ownerOnly": "This page is only accessible to the business owner",
+    "groupMain": "Accounts",
+    "groupOther": "Other",
+    "levelTitle": "Permission Level",
+    "canView": "Can view",
+    "canAdd": "Can add",
+    "canEditDelete": "Can edit / delete",
+    "scopeOwn": "Only own entries",
+    "scopeAll": "All entries",
+    "moduleNakitAvans": "Cash Advance",
+    "moduleNotlar": "Notes"
   },
   "users": {
     "title": "Users",
