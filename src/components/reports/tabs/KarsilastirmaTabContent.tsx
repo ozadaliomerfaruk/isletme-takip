@@ -81,6 +81,29 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
           );
         })}
 
+        {/* Ortalama (dönem başına) */}
+        <View style={[styles.row, styles.summaryRow]}>
+          <Text variant="caption" style={styles.avgLabel}>
+            {t('reports:comparison.average')}
+          </Text>
+          <View style={styles.valuesRow}>
+            <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              {formatCurrency(totals.avgIncome)}
+            </Text>
+            <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              {formatCurrency(totals.avgExpense)}
+            </Text>
+            <Text
+              style={[styles.value, styles.netValue, { color: netColor(totals.avgNet) }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {formatNet(totals.avgNet)}
+            </Text>
+          </View>
+        </View>
+
         {/* Toplam */}
         <View style={[styles.row, styles.totalRow]}>
           <Text variant="caption" style={styles.totalLabel}>
@@ -170,8 +193,17 @@ const styles = StyleSheet.create({
   },
   totalRow: {
     borderBottomWidth: 0,
+  },
+  summaryRow: {
     borderTopWidth: 1,
     borderTopColor: colors.border,
+  },
+  avgLabel: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 4,
   },
   totalLabel: {
     color: colors.text,
