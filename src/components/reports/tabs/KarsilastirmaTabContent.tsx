@@ -1,15 +1,112 @@
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, Card } from '@/components/ui';
+import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
 import type { ComparisonReport } from '@/hooks/useComparisonReport';
 
-// Dönem kartları: yatay kaydırma YOK. Her dönemde en kritik metrik (Net) baskın/işaretli
-// gösterilir; Gelir/Gider tam tutarla altında. NN/g "Illusion of Completeness" çözümü.
-const netColorValue = (value: number) => (value >= 0 ? colors.success : colors.error);
+// Net: kâr (>=0) işaretsiz + yeşil; zarar (<0) işaretli + kırmızı (mutlak değer
+// işaretsiz basılırsa zarar kâr gibi okunuyordu).
+const netColor = (v: number) => (v >= 0 ? colors.success : colors.error);
+const formatNet = (v: number) => (v < 0 ? formatCurrencyWithSign(v) : formatCurrency(v));
+
+export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }) {
+  const { t } = useTranslation(['reports']);
+  const { displayRows, totals, isLoading } = report;
+
+  // displayRows en yeni üstte gelir; tabloda kronolojik (eski → yeni) gösterip
+  // Toplam'ı en alta koyuyoruz.
+  const rows = [...displayRows].reverse();
+
+  return (
+    <View style={styles.section}>
+      <View style={styles.titleRow}>
+        <Text variant="label" color="secondary">
+          {t('reports:comparison.last12Periods')}
+        </Text>
+        {isLoading && <ActivityIndicator size="small" color={colors.primary} />}
+      </View>
+
+      <View style={styles.table}>
+        {/* Sütun başlıkları */}
+        <View style={styles.headerRow}>
+          <Text variant="caption" color="muted" style={styles.headerText}>
+            {t('reports:summary.income')}
+          </Text>
+          <Text variant="caption" color="muted" style={styles.headerText}>
+            {t('reports:summary.expense')}
+          </Text>
+          <Text variant="caption" color="muted" style={styles.headerText}>
+            {t('reports:comparison.net')}
+          </Text>
+        </View>
+
+        {/* Dönem satırları */}
+        {rows.map((row, i) => {
+          const empty = row.income === 0 && row.expense === 0;
+          return (
+            <View key={i} style={styles.row}>
+              <Text variant="caption" style={styles.periodLabel}>
+                {row.periodLabel}
+              </Text>
+              <View style={styles.valuesRow}>
+                <Text
+                  style={[styles.value, empty && styles.valueEmpty]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  {formatCurrency(row.income)}
+                </Text>
+                <Text
+                  style={[styles.value, empty && styles.valueEmpty]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  {formatCurrency(row.expense)}
+                </Text>
+                <Text
+                  style={[styles.value, styles.netValue, { color: empty ? colors.textMuted : netColor(row.net) }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.7}
+                >
+                  {formatNet(row.net)}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+
+        {/* Toplam */}
+        <View style={[styles.row, styles.totalRow]}>
+          <Text variant="caption" style={styles.totalLabel}>
+            {t('reports:comparison.total')}
+          </Text>
+          <View style={styles.valuesRow}>
+            <Text style={[styles.value, styles.totalValue]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              {formatCurrency(totals.income)}
+            </Text>
+            <Text style={[styles.value, styles.totalValue]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+              {formatCurrency(totals.expense)}
+            </Text>
+            <Text
+              style={[styles.value, styles.totalValue, { color: netColor(totals.net) }]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {formatNet(totals.net)}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   section: {
@@ -23,136 +120,68 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
   },
-  summaryCard: {
-    backgroundColor: colors.primaryLight,
-    marginBottom: spacing.md,
+  table: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    overflow: 'hidden',
   },
-  card: {
-    marginBottom: spacing.sm,
+  headerRow: {
+    flexDirection: 'row',
+    paddingTop: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
-  cardLabel: {
-    marginBottom: spacing.sm,
+  headerText: {
+    flex: 1,
+    textAlign: 'right',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
-  netLabel: {
-    letterSpacing: 0.5,
+  row: {
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
+  },
+  periodLabel: {
+    color: colors.primary,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  valuesRow: {
+    flexDirection: 'row',
+  },
+  value: {
+    flex: 1,
+    textAlign: 'right',
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
+    paddingLeft: spacing.sm,
+  },
+  valueEmpty: {
+    color: colors.textMuted,
+    fontWeight: '400',
   },
   netValue: {
-    fontSize: 22,
     fontWeight: '700',
-    fontVariant: ['tabular-nums'],
-    marginTop: 2,
   },
-  netValueSummary: {
-    fontSize: 26,
+  totalRow: {
+    borderBottomWidth: 0,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-    marginVertical: spacing.md,
+  totalLabel: {
+    color: colors.text,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+    marginBottom: 4,
   },
-  metricRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.xs,
-  },
-  metricValue: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-  income: {
-    color: colors.success,
-  },
-  expense: {
-    color: colors.error,
+  totalValue: {
+    fontWeight: '700',
+    color: colors.text,
   },
 });
-
-interface MetricRowProps {
-  label: string;
-  value: string;
-  valueStyle: object;
-}
-
-function MetricRow({ label, value, valueStyle }: MetricRowProps) {
-  return (
-    <View style={styles.metricRow}>
-      <Text variant="body" color="secondary">
-        {label}
-      </Text>
-      <Text style={[styles.metricValue, valueStyle]} numberOfLines={1}>
-        {value}
-      </Text>
-    </View>
-  );
-}
-
-export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }) {
-  const { t } = useTranslation(['reports']);
-  const { displayRows, totals, isLoading } = report;
-
-  const netLabel = t('reports:comparison.net');
-  const incomeLabel = t('reports:summary.income');
-  const expenseLabel = t('reports:summary.expense');
-
-  return (
-    <View style={styles.section}>
-      <View style={styles.titleRow}>
-        <Text variant="label" color="secondary">
-          {t('reports:comparison.last12Periods')}
-        </Text>
-        {isLoading && <ActivityIndicator size="small" color={colors.primary} />}
-      </View>
-
-      {/* Özet (12 dönem toplamı) */}
-      <Card style={styles.summaryCard}>
-        <Text variant="label" color="secondary" style={styles.cardLabel}>
-          {t('reports:comparison.total')}
-        </Text>
-        <Text variant="caption" color="secondary" style={styles.netLabel}>
-          {netLabel.toUpperCase()}
-        </Text>
-        <Text
-          style={[styles.netValue, styles.netValueSummary, { color: netColorValue(totals.net) }]}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.6}
-        >
-          {formatCurrencyWithSign(totals.net)}
-        </Text>
-        <View style={styles.divider} />
-        <MetricRow label={incomeLabel} value={formatCurrency(totals.income)} valueStyle={styles.income} />
-        <MetricRow label={expenseLabel} value={formatCurrency(totals.expense)} valueStyle={styles.expense} />
-        <MetricRow
-          label={`${t('reports:comparison.average')} ${netLabel}`}
-          value={formatCurrencyWithSign(totals.avgNet)}
-          valueStyle={{ color: netColorValue(totals.avgNet) }}
-        />
-      </Card>
-
-      {/* Dönem kartları (en yeni üstte) */}
-      {displayRows.map((row, index) => (
-        <Card key={index} style={styles.card}>
-          <Text variant="label" color="secondary" style={styles.cardLabel}>
-            {row.periodLabel}
-          </Text>
-          <Text variant="caption" color="secondary" style={styles.netLabel}>
-            {netLabel.toUpperCase()}
-          </Text>
-          <Text
-            style={[styles.netValue, { color: netColorValue(row.net) }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.6}
-          >
-            {formatCurrencyWithSign(row.net)}
-          </Text>
-          <View style={styles.divider} />
-          <MetricRow label={incomeLabel} value={formatCurrency(row.income)} valueStyle={styles.income} />
-          <MetricRow label={expenseLabel} value={formatCurrency(row.expense)} valueStyle={styles.expense} />
-        </Card>
-      ))}
-    </View>
-  );
-}
