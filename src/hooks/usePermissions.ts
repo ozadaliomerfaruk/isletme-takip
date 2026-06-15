@@ -75,6 +75,9 @@ export function usePermissions() {
     canSeePassive: isOwner || (isNewModel ? true : (p?.visibility?.can_see_passive ?? false)),
     canSeeArchived: isOwner || (isNewModel ? true : (p?.visibility?.can_see_archived ?? false)),
     canSeeAllUsersData: isOwner || (isNewModel ? true : (p?.visibility?.can_see_all_users_data ?? false)),
+    // Birikim hesap tipi erişimi — RLS ile AYNI semantik (yok→true geriye-uyum):
+    // yalnızca açıkça birikim=false yapılmış kullanıcıda gizlenir.
+    canUseBirikim: isOwner || (p?.modules?.birikim ?? true),
     restrictions: isNewModel ? undefined : p?.restrictions,
   };
 }

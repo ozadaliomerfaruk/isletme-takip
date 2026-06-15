@@ -19,6 +19,7 @@ import { DEFAULT_CURRENCY } from '@/constants/currencies';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export default function HesapEklePage() {
   const router = useRouter();
@@ -26,13 +27,16 @@ export default function HesapEklePage() {
   usePagePermission({ module: 'hesaplar', action: 'create' });
   const createHesap = useCreateHesap();
   const insets = useSafeAreaInsets();
+  const { canUseBirikim } = usePermissions();
 
-  const hesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
+  // Birikim tipi yalnızca birikim iznine sahip kullanıcıya gösterilir (RLS ile uyumlu).
+  const allHesapTypes: { type: HesapType; label: string; icon: React.ReactNode }[] = [
     { type: 'nakit', label: t('accounts:typeLabels.nakit'), icon: <Wallet size={24} color={colors.primary} /> },
     { type: 'banka', label: t('accounts:typeLabels.banka'), icon: <Building2 size={24} color={colors.info} /> },
     { type: 'kredi_karti', label: t('accounts:typeLabels.kredi_karti'), icon: <CreditCard size={24} color={colors.warning} /> },
     { type: 'birikim', label: t('accounts:typeLabels.birikim'), icon: <Vault size={24} color={colors.textSecondary} /> },
   ];
+  const hesapTypes = allHesapTypes.filter((item) => item.type !== 'birikim' || canUseBirikim);
 
   const [name, setName] = useState('');
   const [type, setType] = useState<HesapType>('nakit');
