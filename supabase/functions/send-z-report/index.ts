@@ -10,12 +10,15 @@
 //
 // Deep link: data.screen = "/(tabs)" -> _layout bildirim handler'ı dashboard'a götürür.
 //
-// GÜVENLİ TEST (cron'u açmadan önce):
-//   POST body { "test_user_id": "<uuid>" } -> SADECE o kullanıcıya gönderir (pasiflik
-//      kuralını da atlar; her durumda bir mesaj gider).
-//   POST body { "dry_run": true }          -> hesaplar ama GÖNDERMEZ; ne gideceğini döner.
+// ÇALIŞMA MODLARI:
+//   - Body yok/boş (CRON)         -> HEMEN 202 döner, gönderimi EdgeRuntime.waitUntil
+//        ile ARKA PLANDA yapar. Böylece pg_net 5sn timeout'una takılmaz (eski hata).
+//   - Body { "test_user_id": "<uuid>" } -> SENKRON çalışır, sonucu döner. SADECE o
+//        kullanıcıya gönderir; pasiflik kuralını VE is_internal filtresini atlar
+//        (RPC'ye p_include_internal=true geçilir) -> iç/test hesabına da test push'u.
+//   - Body { "dry_run": true }    -> SENKRON; hesaplar ama GÖNDERMEZ, ne gideceğini döner.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
 
 const corsHeaders = {
@@ -140,6 +143,121 @@ async function sendExpoBatch(messages: ExpoMessage[]): Promise<{ ok: number; fai
   return { ok, fail };
 }
 
+// Çekirdek iş: hedefleri çek, mesajları kur, (dry-run değilse) gönder, özet döndür.
+async function runZReport(
+  supabaseAdmin: SupabaseClient,
+  opts: { testUserId: string | null; dryRun: boolean },
+): Promise<Record<string, unknown>> {
+  const { testUserId, dryRun } = opts;
+
+  // "Bugün"ü ana pazar olan Europe/Istanbul takvim gününde hesapla
+  // (process-scheduled-transactions ile aynı desen; en-CA -> YYYY-MM-DD).
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
+
+  // Test modunda iç/test hesapları (is_internal=true) da dahil edilir ki dev
+  // hesabına test push'u gidebilsin; cron modunda dışlanır (p_include_internal=false).
+  const { data: targetsRaw, error: rpcError } = await supabaseAdmin.rpc("get_z_report_targets", {
+    p_date: today,
+    p_include_internal: !!testUserId,
+  });
+  if (rpcError) throw new Error(`RPC get_z_report_targets: ${rpcError.message}`);
+
+  let targets = (targetsRaw || []) as ZReportTarget[];
+
+  // Test modu: yalnızca tek kullanıcı, pasiflik kuralı atlanır (her zaman gönder)
+  if (testUserId) {
+    targets = targets.filter((t) => t.user_id === testUserId);
+  }
+
+  // Gönderilecek kullanıcıların push token'larını topla
+  const userIds = [...new Set(targets.map((t) => t.user_id))];
+  const tokenMap = new Map<string, PushTokenRow>();
+  if (userIds.length > 0) {
+    const { data: tokens, error: tokenError } = await supabaseAdmin
+      .from("push_tokens")
+      .select("user_id, token, locale")
+      .in("user_id", userIds);
+    if (tokenError) console.error("push_tokens fetch error:", tokenError.message);
+    for (const tk of (tokens || []) as PushTokenRow[]) {
+      tokenMap.set(tk.user_id, tk);
+    }
+  }
+
+  const messages: ExpoMessage[] = [];
+  let summaryCount = 0;
+  let reminderCount = 0;
+  let skippedDormant = 0;
+  let noToken = 0;
+
+  for (const target of targets) {
+    const hasActivity = target.islem_sayisi > 0;
+
+    // Pasiflik kuralı (test modunda atlanır): bugün girmemiş + son 14 günde de
+    // aktif değilse rahatsız etme.
+    if (!hasActivity && !target.aktif_son14 && !testUserId) {
+      skippedDormant++;
+      continue;
+    }
+
+    const tk = tokenMap.get(target.user_id);
+    if (!tk?.token) {
+      noToken++;
+      continue;
+    }
+
+    const locale: "tr" | "en" = tk.locale === "en" ? "en" : "tr";
+    const { title, body } = buildMessage(target, locale);
+
+    if (hasActivity) summaryCount++;
+    else reminderCount++;
+
+    messages.push({
+      to: tk.token,
+      sound: "default",
+      title,
+      body,
+      data: { type: "z_report", screen: "/(tabs)", isletme_id: target.isletme_id },
+      priority: "high",
+      channelId: "default",
+    });
+  }
+
+  // dry-run: gönderme, ne gideceğini döndür (rakam doğrulaması için ilk 5 örnek)
+  if (dryRun) {
+    return {
+      dry_run: true,
+      date: today,
+      total_targets: targets.length,
+      would_send: messages.length,
+      summary_count: summaryCount,
+      reminder_count: reminderCount,
+      skipped_dormant: skippedDormant,
+      no_token: noToken,
+      sample: messages.slice(0, 5).map((m) => ({ title: m.title, body: m.body })),
+    };
+  }
+
+  const { ok, fail } = messages.length > 0 ? await sendExpoBatch(messages) : { ok: 0, fail: 0 };
+
+  console.log(
+    `Z raporu: tarih=${today} hedef=${targets.length} ozet=${summaryCount} hatirlatma=${reminderCount} ` +
+      `pasif_atlandi=${skippedDormant} token_yok=${noToken} gonderildi=${ok} basarisiz=${fail}` +
+      (testUserId ? ` [TEST user=${testUserId}]` : ""),
+  );
+
+  return {
+    date: today,
+    test_user_id: testUserId,
+    total_targets: targets.length,
+    summary_count: summaryCount,
+    reminder_count: reminderCount,
+    skipped_dormant: skippedDormant,
+    no_token: noToken,
+    sent: ok,
+    failed: fail,
+  };
+}
+
 Deno.serve(
   withFnTelemetry({ name: "send-z-report" }, async (req) => {
     if (req.method === "OPTIONS") {
@@ -166,115 +284,34 @@ Deno.serve(
         { auth: { autoRefreshToken: false, persistSession: false } },
       );
 
-      // "Bugün"ü ana pazar olan Europe/Istanbul takvim gününde hesapla
-      // (process-scheduled-transactions ile aynı desen; en-CA -> YYYY-MM-DD).
-      const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
-
-      const { data: targetsRaw, error: rpcError } = await supabaseAdmin.rpc("get_z_report_targets", {
-        p_date: today,
-      });
-      if (rpcError) throw new Error(`RPC get_z_report_targets: ${rpcError.message}`);
-
-      let targets = (targetsRaw || []) as ZReportTarget[];
-
-      // Test modu: yalnızca tek kullanıcı, pasiflik kuralı atlanır (her zaman gönder)
-      if (testUserId) {
-        targets = targets.filter((t) => t.user_id === testUserId);
-      }
-
-      // Gönderilecek kullanıcıların push token'larını topla
-      const userIds = [...new Set(targets.map((t) => t.user_id))];
-      const tokenMap = new Map<string, PushTokenRow>();
-      if (userIds.length > 0) {
-        const { data: tokens, error: tokenError } = await supabaseAdmin
-          .from("push_tokens")
-          .select("user_id, token, locale")
-          .in("user_id", userIds);
-        if (tokenError) console.error("push_tokens fetch error:", tokenError.message);
-        for (const tk of (tokens || []) as PushTokenRow[]) {
-          tokenMap.set(tk.user_id, tk);
-        }
-      }
-
-      const messages: ExpoMessage[] = [];
-      let summaryCount = 0;
-      let reminderCount = 0;
-      let skippedDormant = 0;
-      let noToken = 0;
-
-      for (const target of targets) {
-        const hasActivity = target.islem_sayisi > 0;
-
-        // Pasiflik kuralı (test modunda atlanır): bugün girmemiş + son 14 günde de
-        // aktif değilse rahatsız etme.
-        if (!hasActivity && !target.aktif_son14 && !testUserId) {
-          skippedDormant++;
-          continue;
-        }
-
-        const tk = tokenMap.get(target.user_id);
-        if (!tk?.token) {
-          noToken++;
-          continue;
-        }
-
-        const locale: "tr" | "en" = tk.locale === "en" ? "en" : "tr";
-        const { title, body } = buildMessage(target, locale);
-
-        if (hasActivity) summaryCount++;
-        else reminderCount++;
-
-        messages.push({
-          to: tk.token,
-          sound: "default",
-          title,
-          body,
-          data: { type: "z_report", screen: "/(tabs)", isletme_id: target.isletme_id },
-          priority: "high",
-          channelId: "default",
+      // Test / dry-run: senkron çalış, sonucu döndür (gözlemlenebilirlik; tek/az
+      // kullanıcı -> hızlı, timeout riski yok).
+      if (testUserId || dryRun) {
+        const result = await runZReport(supabaseAdmin, { testUserId, dryRun });
+        return new Response(JSON.stringify(result), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // dry-run: gönderme, ne gideceğini döndür (rakam doğrulaması için ilk 5 örnek)
-      if (dryRun) {
-        return new Response(
-          JSON.stringify({
-            dry_run: true,
-            date: today,
-            total_targets: targets.length,
-            would_send: messages.length,
-            summary_count: summaryCount,
-            reminder_count: reminderCount,
-            skipped_dormant: skippedDormant,
-            no_token: noToken,
-            sample: messages.slice(0, 5).map((m) => ({ title: m.title, body: m.body })),
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
+      // CRON modu: gönderim binlerce kullanıcıya uzun sürebilir. pg_net 5sn
+      // timeout'una takılmamak için HEMEN 202 dön, işi arka planda tamamla.
+      const work = runZReport(supabaseAdmin, { testUserId: null, dryRun: false }).catch((err) =>
+        console.error("send-z-report arka plan hatası:", err instanceof Error ? err.message : err),
+      );
+      const er = (globalThis as unknown as {
+        EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+      }).EdgeRuntime;
+      if (er?.waitUntil) {
+        er.waitUntil(work);
+      } else {
+        // waitUntil yoksa (yerel) senkron bekle
+        await work;
       }
 
-      const { ok, fail } = messages.length > 0 ? await sendExpoBatch(messages) : { ok: 0, fail: 0 };
-
-      console.log(
-        `Z raporu: tarih=${today} hedef=${targets.length} ozet=${summaryCount} hatirlatma=${reminderCount} ` +
-          `pasif_atlandi=${skippedDormant} token_yok=${noToken} gonderildi=${ok} basarisiz=${fail}` +
-          (testUserId ? ` [TEST user=${testUserId}]` : ""),
-      );
-
-      return new Response(
-        JSON.stringify({
-          date: today,
-          test_user_id: testUserId,
-          total_targets: targets.length,
-          summary_count: summaryCount,
-          reminder_count: reminderCount,
-          skipped_dormant: skippedDormant,
-          no_token: noToken,
-          sent: ok,
-          failed: fail,
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return new Response(JSON.stringify({ status: "accepted" }), {
+        status: 202,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Bilinmeyen hata";
       console.error("send-z-report hatası:", message);
