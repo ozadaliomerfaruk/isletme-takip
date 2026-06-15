@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
@@ -18,6 +18,7 @@ import { useRequireOwner } from '@/hooks/usePagePermission';
 
 export default function DavetOlusturPage() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation(['multiUser', 'common']);
   useRequireOwner();
   const createInvite = useCreateInvite();
@@ -62,6 +63,11 @@ export default function DavetOlusturPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex1}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+      >
       {/* Header */}
       <View style={styles.header}>
         <BackButton />
@@ -72,7 +78,12 @@ export default function DavetOlusturPage() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.scrollContent}
+      >
         {!generatedCode ? (
           <>
             {/* Rol Seçimi */}
@@ -161,6 +172,7 @@ export default function DavetOlusturPage() {
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -182,6 +194,12 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  flex1: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.xl,
   },
   section: {
     paddingHorizontal: spacing.lg,
