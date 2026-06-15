@@ -1,7 +1,7 @@
 # Multi-User Güvenlik Denetimi — 15 Haziran 2026
 
 > **Kim hazırladı:** Otonom senior denetim (33-ajan workflow + canlı RLS/grant doğrulaması).
-> **Durum:** Salt-okunur denetim tamamlandı. **Üretime hiçbir değişiklik UYGULANMADI** (gerekçe §0).
+> **Durum:** **§1 UYGULANDI + DOĞRULANDI (15 Haz)** — 7 SECURITY DEFINER fonksiyona üyelik guard'ı + anon REVOKE; her biri block-test + owner app-test ile doğrulandı. **§2 ve sonrası HÂLÂ bekliyor.** (§0'daki "hiçbir şey uygulanmadı" notu artık yalnızca §2+ için geçerli.)
 > **Sonraki adım:** Bu raporu incele, aşağıdaki hazır SQL'leri **Dashboard → SQL Editor**'da gözden geçirip uygula. Sırayla: §1 (en kritik) → §2 → §3.
 > **Yedek:** Bugünkü tam yedek `backups/2026-06-15/` — her şey geri alınabilir.
 
@@ -13,9 +13,11 @@ Sen "acil olanları düzelt" dedin ama "onay veremeyebilirim, uyuyacağım" da d
 
 ---
 
-## §1 — 🔴 KRİTİK: SECURITY DEFINER fonksiyonlar çağıran yetkisini kontrol etmiyor (ÇAPRAZ-KİRACI)
+## §1 — 🔴 KRİTİK: SECURITY DEFINER fonksiyonlar çağıran yetkisini kontrol etmiyor (ÇAPRAZ-KİRACI) — ✅ UYGULANDI 15 Haz
 
-**Bu, multi-user'dan daha geniş bir açık — tüm kiracıları (tenant) etkiler.**
+> **YAPILDI (15 Haz):** (a) 7 fonksiyondan `anon` + `PUBLIC` EXECUTE revoke edildi (kimliksiz kapısı kapandı). (b) 7 fonksiyonun her birine, ana BEGIN'in başına `IF NOT public.user_has_isletme_access(p_isletme_id) THEN RAISE EXCEPTION 'Yetkisiz erisim'` guard'ı eklendi (update_urun_miktar'da işletme üründen türetildi). Her biri block-test (üye-olmayan çağrı → 42501) + owner app-test ile doğrulandı. Hesaplama/iş mantığı gövdelerine dokunulmadı.
+
+**Bu, multi-user'dan daha geniş bir açıktı — tüm kiracıları (tenant) etkiliyordu.**
 
 7 fonksiyon `SECURITY DEFINER` (RLS'i bypass eder), `isletme_id`'yi parametre alır ve **çağıranın o işletmeye üye olup olmadığını HİÇ kontrol etmez.** Üstelik hepsi hem `authenticated` hem **`anon`** rolüne `EXECUTE`-grant'lı.
 
