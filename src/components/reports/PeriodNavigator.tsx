@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,6 +16,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { PeriodType } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { ensureValidDate } from '@/lib/date';
 
 interface PeriodNavigatorProps {
   period: PeriodType;
@@ -39,12 +40,15 @@ export function PeriodNavigator({
   const [showMonthYearPicker, setShowMonthYearPicker] = useState(false);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-  // Calculate the currently displayed date for daily mode
-  const getCurrentDailyDate = () => {
+  // Günlük mod için gösterilen tarih. Kontrollü iOS picker'a HER render aynı Date
+  // kimliği gitsin diye memoize edilir (her render yeni Date objesi spinner/inline'ı
+  // sürekli sıfırlayıp "tarih değiştirilemiyor" hatasına yol açıyordu). ensureValidDate
+  // ayrıca olası epoch/1970 sentinel'ini bugüne çeker.
+  const dailyValue = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + periodOffset);
-    return d;
-  };
+    return ensureValidDate(d);
+  }, [periodOffset]);
 
   const handleDateChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') {
@@ -120,6 +124,24 @@ export function PeriodNavigator({
 
   // Determine the currently active year for the year picker highlight
   const currentDisplayYear = new Date().getFullYear() + periodOffset;
+
+  // Ay grid vurgusu için AKTİF dönemin yıl/ayı (bugünün değil — periodOffset'ten türetilir).
+  const getActiveMonthYear = (): { year: number; month: number } => {
+    const now = new Date();
+    if (period === 'weekly') {
+      const dayOfWeek = now.getDay();
+      const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const start = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + mondayOffset + periodOffset * 7,
+      );
+      return { year: start.getFullYear(), month: start.getMonth() };
+    }
+    const target = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
+    return { year: target.getFullYear(), month: target.getMonth() };
+  };
+  const { year: activeYear, month: activeMonth } = getActiveMonthYear();
 
   return (
     <View style={styles.container}>
@@ -230,8 +252,7 @@ export function PeriodNavigator({
               {Array.from({ length: 12 }, (_, i) => {
                 const monthDate = new Date(selectedYear, i, 1);
                 const monthName = monthDate.toLocaleDateString(locale, { month: 'short' });
-                const now = new Date();
-                const isCurrentMonth = selectedYear === now.getFullYear() && i === now.getMonth();
+                const isCurrentMonth = selectedYear === activeYear && i === activeMonth;
                 return (
                   <TouchableOpacity
                     key={i}
@@ -255,10 +276,11 @@ export function PeriodNavigator({
       {/* ===== DAILY DATE PICKER ===== */}
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePickerRN
-          value={getCurrentDailyDate()}
+          value={dailyValue}
           mode="date"
           display="default"
           onChange={handleDateChange}
+          maximumDate={new Date()}
           locale={locale}
         />
       )}
@@ -281,13 +303,14 @@ export function PeriodNavigator({
               </View>
               <View style={{ alignItems: 'center' }}>
                 <DateTimePickerRN
-                  value={getCurrentDailyDate()}
+                  value={dailyValue}
                   mode="date"
-                  display="spinner"
+                  display="inline"
                   onChange={handleDateChange}
                   locale={locale}
-                  textColor={colors.text}
                   themeVariant="light"
+                  accentColor={colors.primary}
+                  maximumDate={new Date()}
                   style={styles.datePickerStyle}
                 />
               </View>
@@ -407,9 +430,9 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
-  // Daily date picker
+  // Daily date picker (inline takvim — yeterli yükseklik)
   datePickerStyle: {
-    height: 150,
+    height: 350,
   },
   doneBtn: {
     marginTop: 16,
