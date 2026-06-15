@@ -53,11 +53,19 @@ Deno.serve(withFnTelemetry({ name: "delete-scheduled-accounts" }, async (req) =>
         // GÜVENLİK KORUMASI: scheduled_deletion_at SONRASINDA işlem varsa kullanıcı
         // geri dönüp aktif kullanıyor demektir → SİLME. (Cron günlerce gecikse bile
         // geri dönen aktif kullanıcının verisi asla silinmez — defense-in-depth.)
-        const { count: postActivity } = await supabaseAdmin
+        const { count: postActivity, error: postActivityError } = await supabaseAdmin
           .from("islemler")
           .select("id", { count: "exact", head: true })
           .eq("isletme_id", isletme.id)
           .gt("created_at", isletme.scheduled_deletion_at);
+
+        // FAIL-SAFE: aktiflik kontrolü başarısızsa SİLME (geri dönülemez silme yerine
+        // güvenli tarafta kal); bir sonraki cron'da yeniden değerlendirilir.
+        if (postActivityError) {
+          console.error(`Aktiflik kontrolü başarısız, GÜVENLE ATLANDI: ${isletme.name}`, postActivityError);
+          results.push({ id: isletme.id, name: isletme.name, status: "error", error: `activity-check-failed: ${postActivityError.message}` });
+          continue;
+        }
 
         if (postActivity && postActivity > 0) {
           console.log(`ATLANDI (vade sonrası ${postActivity} işlem - aktif kullanıcı): ${isletme.name}`);

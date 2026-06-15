@@ -295,13 +295,17 @@ export function QuickTransactionBar({
   );
 
   // Picker'ın müşteri/tedarikçi bağlamı: cari modunda defaultCariType belirler,
-  // normal modda tahsilat=müşteri / ödeme=tedarikçi (mevcut davranış).
+  // normal modda tahsilat hedefi (tedarikçi tahsilatı -> tedarikçi), aksi halde
+  // müşteri; ödeme -> tedarikçi. Bu, picker başlığı/ikonu + inline cari oluşturma
+  // tipinin (müşteri/tedarikçi) doğru olmasını sağlar.
   const cariPickerMode: 'customer' | 'supplier' = form.isCariMode
     ? defaultCariType === 'tedarikci'
       ? 'supplier'
       : 'customer'
     : form.type === 'tahsilat'
-      ? 'customer'
+      ? form.tahsilatHedefType === 'tedarikci'
+        ? 'supplier'
+        : 'customer'
       : 'supplier';
 
   // Inline cari oluşturma (v1.5): picker'da aranan isim yoksa "+ ekle" ile
