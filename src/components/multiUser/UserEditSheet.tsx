@@ -5,6 +5,7 @@ import { Text, Button, Avatar, Input } from '@/components/ui';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { RoleSelector } from './RoleSelector';
 import { PermissionEditor } from './PermissionEditor';
+import { rolePresetPermissions } from '@/lib/permissions';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
 import { useTranslation } from 'react-i18next';
@@ -16,33 +17,6 @@ interface UserEditSheetProps {
   visible: boolean;
   onClose: () => void;
 }
-
-// Boş permissions objesi
-const EMPTY_PERMISSIONS: Permissions = {
-  modules: {
-    dashboard: true,
-    hesaplar: false,
-    birikim: false,
-    cariler: false,
-    personel: false,
-    islemler: false,
-    kategoriler: false,
-    raporlar: false,
-    cekler: false,
-    nakit_avans: false,
-    ileri_tarihli: false,
-    urunler: false,
-    notlar: false,
-    arsiv: false,
-    ayarlar: false,
-  },
-  actions: {},
-  visibility: {
-    can_see_passive: false,
-    can_see_archived: false,
-    can_see_all_users_data: false,
-  },
-};
 
 const STATUS_CONFIG = {
   active: { color: colors.success, bg: colors.successLight },
@@ -56,14 +30,14 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
   const updateStatus = useUpdateUserStatus();
 
   const [role, setRole] = useState<UserRole>('operator');
-  const [permissions, setPermissions] = useState<Permissions>(EMPTY_PERMISSIONS);
+  const [permissions, setPermissions] = useState<Permissions>(() => rolePresetPermissions('custom'));
   const [memberLabel, setMemberLabel] = useState('');
 
   // Reset form when user changes
   useEffect(() => {
     if (user) {
       setRole(user.role);
-      setPermissions(user.permissions ?? EMPTY_PERMISSIONS);
+      setPermissions(user.permissions ?? rolePresetPermissions('custom'));
       setMemberLabel(user.member_label ?? '');
     }
   }, [user]);

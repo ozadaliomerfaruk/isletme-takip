@@ -59,6 +59,10 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
 
   const modules = value.modules ?? ({} as Record<ModuleName, boolean>);
   const level = deriveLevel(value);
+  // İş modüllerinden hiçbiri açık değil mi? (çekirdek modüller editörde gösterilmez,
+  // hep açıktır; burada yalnızca kullanıcının seçtiği görünür modüllere bakılır.)
+  const businessModuleKeys = MODULE_GROUPS.flatMap((g) => g.modules.map((m) => m.name));
+  const noModuleOn = businessModuleKeys.every((k) => !modules[k]);
 
   const toggleModule = (mod: ModuleName) => {
     const next = { ...modules, [mod]: !modules[mod] };
@@ -121,10 +125,23 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
         </View>
       ))}
 
+      {noModuleOn && (
+        <Text variant="caption" color="muted" style={styles.noModuleWarning}>
+          {t('multiUser:permissions.noModuleWarning', {
+            defaultValue: 'Hiçbir modül seçili değil — bu kullanıcı yalnızca ana ekranı görebilir.',
+          })}
+        </Text>
+      )}
+
       {/* YETKİ SEVİYESİ (tüm açık modüllere geçerli) */}
       <View style={styles.group}>
         <Text variant="label" color="secondary" style={styles.groupHeader}>
           {t('multiUser:permissions.levelTitle', { defaultValue: 'Yetki Seviyesi' })}
+        </Text>
+        <Text variant="caption" color="muted" style={styles.levelHelp}>
+          {t('multiUser:permissions.levelHelp', {
+            defaultValue: 'Açık modüllerde tüm kayıtlar görünür; ekleme/düzenleme/silme aşağıdaki seçime göredir.',
+          })}
         </Text>
         <View style={styles.card}>
           {/* Görebilir — taban (her açık modülde) */}
@@ -201,6 +218,15 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  levelHelp: {
+    marginLeft: spacing.xs,
+    marginBottom: spacing.xs,
+    lineHeight: 16,
+  },
+  noModuleWarning: {
+    marginHorizontal: spacing.xs,
+    lineHeight: 16,
   },
   card: {
     backgroundColor: colors.surface,

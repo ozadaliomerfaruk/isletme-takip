@@ -30,6 +30,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePagePermission } from '@/hooks/usePagePermission';
 import { useToast } from '@/contexts/ToastContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -77,8 +78,9 @@ export default function NotlarPage() {
   const { t } = useTranslation(['common', 'navigation']);
   const { formatDateTime } = useDateFormat();
   const { showToast } = useToast();
-  const { isletme } = useAuthContext();
+  const { isletme, user, isOwner } = useAuthContext();
   const insets = useSafeAreaInsets();
+  usePagePermission({ module: 'notlar' }); // notlar kapalı kullanıcıyı geri yollar (yok→true geriye-uyum)
 
   const [filter, setFilter] = useState<FilterKey>('all');
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'done'>('all');
@@ -285,10 +287,12 @@ export default function NotlarPage() {
   const renderNote = useCallback(({ item }: { item: Not }) => {
     const entityLabel = t(ENTITY_TYPE_LABEL_KEYS[item.entity_type]);
     const entityName = item.entity_id ? entityNameMap[item.entity_id] : null;
+    // RLS yalnızca kendi notuna düzenleme/silme izni verir (owner hepsine). UI'da da hizala.
+    const canModify = isOwner || item.created_by === user?.id;
 
     return (
       <SwipeableRow
-        onDelete={() => handleDelete(item)}
+        onDelete={canModify ? () => handleDelete(item) : undefined}
         deleteLabel={t('common:buttons.delete')}
       >
         <View style={styles.noteWrapper}>
@@ -306,7 +310,7 @@ export default function NotlarPage() {
           {/* Note card */}
           <NoteRow
             note={item}
-            onEdit={() => setEditingNote(item)}
+            onEdit={canModify ? () => setEditingNote(item) : undefined}
             onToggleComplete={handleToggleComplete}
             onMarkAsTask={handleMarkAsTask}
             onPhotoPress={setViewPhotoPath}
@@ -317,7 +321,7 @@ export default function NotlarPage() {
         </View>
       </SwipeableRow>
     );
-  }, [formatDateTime, handleDelete, handleToggleComplete, handleMarkAsTask, t, entityNameMap, userNameMap, cariNameMap, personelNameMap]);
+  }, [formatDateTime, handleDelete, handleToggleComplete, handleMarkAsTask, t, entityNameMap, userNameMap, cariNameMap, personelNameMap, isOwner, user?.id]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>

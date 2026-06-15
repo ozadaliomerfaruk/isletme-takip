@@ -33,7 +33,9 @@
     "scopeOwn": "Yalnızca kendi eklediğini",
     "scopeAll": "Tümünü",
     "moduleNotlar": "Notlar",
-    "showSavings": "Birikim hesaplarını göster"
+    "showSavings": "Birikim hesaplarını göster",
+    "levelHelp": "Açık modüllerde tüm kayıtlar görünür; ekleme/düzenleme/silme aşağıdaki seçime göredir.",
+    "noModuleWarning": "Hiçbir modül seçili değil — bu kullanıcı yalnızca ana ekranı görebilir."
   },
   "users": {
     "title": "Kullanıcılar",
@@ -53,8 +55,6 @@
     "title": "Davet Oluştur",
     "subtitle": "Yeni kullanıcı davet etmek için kod oluşturun",
     "selectRole": "Rol Seçin",
-    "emailOptional": "E-posta (opsiyonel)",
-    "emailPlaceholder": "kullanici@example.com",
     "memberName": "İsim (opsiyonel)",
     "memberNamePlaceholder": "Bu kodu kime verdin? örn. Ahmet",
     "generateCode": "Kod Oluştur",
@@ -102,18 +102,6 @@
     "userNotFound": "Kullanıcı bulunamadı",
     "accessRevoked": "Bu işletmeye erişiminiz kaldırılmış veya askıya alınmış",
     "switchFailed": "İşletme geçişi sırasında bir hata oluştu"
-  },
-  "permissionActions": {
-    "create": "Oluşturma",
-    "editOwn": "Kendi Kaydını Düzenleme",
-    "editAll": "Tüm Kayıtları Düzenleme",
-    "deleteOwn": "Kendi Kaydını Silme",
-    "deleteAll": "Tüm Kayıtları Silme",
-    "visibility": "Görünürlük",
-    "canSeePassive": "Pasif kayıtları görebilir",
-    "canSeeArchived": "Arşiv kayıtlarını görebilir",
-    "canSeeAllData": "Tüm kullanıcıların verilerini görebilir",
-    "moduleAccess": "Modül Erişimi"
   },
   "success": {
     "inviteAccepted": "Davet kabul edildi",

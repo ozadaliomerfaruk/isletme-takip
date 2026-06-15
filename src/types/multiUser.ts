@@ -51,11 +51,6 @@ export interface Permissions {
     can_see_archived: boolean;
     can_see_all_users_data: boolean;
   };
-  restrictions?: {
-    cari_types?: ('musteri' | 'tedarikci')[];
-    islem_types?: string[];
-    max_transaction_amount?: number;
-  };
 }
 
 // Profil (auth.users trigger ile oluşturulur)

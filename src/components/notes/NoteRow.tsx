@@ -236,12 +236,14 @@ export function NoteRow({
       {/* Expanded actions */}
       {expanded && (
         <View style={styles.expandedActions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={onEdit} activeOpacity={0.7}>
-            <Pencil size={16} color={colors.primary} />
-            <Text variant="caption" style={styles.actionText}>
-              {t('common:buttons.edit')}
-            </Text>
-          </TouchableOpacity>
+          {onEdit && (
+            <TouchableOpacity style={styles.actionBtn} onPress={onEdit} activeOpacity={0.7}>
+              <Pencil size={16} color={colors.primary} />
+              <Text variant="caption" style={styles.actionText}>
+                {t('common:buttons.edit')}
+              </Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity style={styles.actionBtn} onPress={handleShare} activeOpacity={0.7}>
             <Share2 size={16} color={colors.primary} />
             <Text variant="caption" style={styles.actionText}>

@@ -4,6 +4,10 @@ import type { Permissions } from '@/types/multiUser';
 
 type ModuleName = keyof Permissions['modules'];
 
+// RLS ile AYNI semantik: 'notlar' ve 'birikim' modül flag'i YOKSA varsayılan true
+// (geriye-uyum; yalnızca açıkça false yapılan kullanıcıda kapalı). Diğer modüller yok→false.
+const DEFAULT_TRUE_MODULES: ModuleName[] = ['notlar', 'birikim'];
+
 /**
  * İzin kontrolü — SADE model (modül aç/kapa + tek global `level`) ile GERİYE-UYUMLU.
  *
@@ -19,7 +23,9 @@ export function usePermissions() {
 
   const canAccessModule = useCallback((module: ModuleName): boolean => {
     if (isOwner) return true;
-    return currentPermissions?.modules?.[module] ?? false;
+    const v = currentPermissions?.modules?.[module];
+    if (v === undefined) return DEFAULT_TRUE_MODULES.includes(module);
+    return v;
   }, [isOwner, currentPermissions]);
 
   const canCreate = useCallback((module: string): boolean => {
@@ -61,9 +67,6 @@ export function usePermissions() {
   }, [isOwner, currentPermissions, user]);
 
   const p = currentPermissions;
-  // Sade modelde görünürlük ayrımı yok: modül açıksa tüm/pasif/arşiv kayıtlar görünür.
-  // Eski formatta (level yok) eski visibility bayrakları okunur.
-  const isNewModel = !!p?.level;
 
   return {
     isOwner,
@@ -72,12 +75,8 @@ export function usePermissions() {
     canCreate,
     canUpdate,
     canDelete,
-    canSeePassive: isOwner || (isNewModel ? true : (p?.visibility?.can_see_passive ?? false)),
-    canSeeArchived: isOwner || (isNewModel ? true : (p?.visibility?.can_see_archived ?? false)),
-    canSeeAllUsersData: isOwner || (isNewModel ? true : (p?.visibility?.can_see_all_users_data ?? false)),
     // Birikim hesap tipi erişimi — RLS ile AYNI semantik (yok→true geriye-uyum):
     // yalnızca açıkça birikim=false yapılmış kullanıcıda gizlenir.
     canUseBirikim: isOwner || (p?.modules?.birikim ?? true),
-    restrictions: isNewModel ? undefined : p?.restrictions,
   };
 }

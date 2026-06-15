@@ -32,10 +32,13 @@ export function RoleSelector({ value, onChange }: RoleSelectorProps) {
     ]
   ).filter((role) => role.name !== 'purchaser');
 
+  // Kaldırılan 'purchaser' (veya tanınmayan eski rol) → 'Özel Rol' kartı seçili görünsün.
+  const normalizedValue: UserRole = value === 'purchaser' ? 'custom' : value;
+
   return (
     <View style={styles.container}>
       {roles.map((role) => {
-        const isSelected = value === role.name;
+        const isSelected = normalizedValue === role.name;
         return (
           <TouchableOpacity
             key={role.name}

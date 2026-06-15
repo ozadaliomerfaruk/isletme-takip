@@ -96,7 +96,14 @@ export default function DavetOlusturPage() {
 
             {/* Yetki Düzenleme (tüm roller için göster, şablon otomatik doldurulur) */}
             <View style={styles.section}>
-              <PermissionEditor value={permissions} onChange={setPermissions} />
+              <PermissionEditor
+                value={permissions}
+                onChange={(next) => {
+                  setPermissions(next);
+                  // Hazır rol seçiliyken elle değişiklik → artık 'Özel' (etiket/izin tutarlılığı).
+                  if (selectedRole !== 'custom') setSelectedRole('custom');
+                }}
+              />
             </View>
 
             {/* İsim (opsiyonel) — kodu paylaştığın kişiyi listede tanımak için */}

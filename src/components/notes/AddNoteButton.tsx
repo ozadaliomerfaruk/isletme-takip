@@ -7,6 +7,7 @@ import { useCreateNot, useInvalidateNotlar } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { scheduleNoteReminder } from '@/lib/notifications';
 import { NoteInputModal } from './NoteInputModal';
 import type { NoteFormData } from './NoteInputModal';
@@ -26,6 +27,7 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
   const invalidateNotlar = useInvalidateNotlar();
   const { isletme } = useAuthContext();
   const { showToast } = useToast();
+  const { canAccessModule } = usePermissions();
 
   const handleSave = async (data: NoteFormData) => {
     try {
@@ -76,6 +78,9 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
       Alert.alert(t('common:status.error'), t('common:errors.genericError'));
     }
   };
+
+  // notlar modülü kapalıysa not ekleme butonu hiç gösterilmez (RLS ile uyumlu).
+  if (!canAccessModule('notlar')) return null;
 
   return (
     <>

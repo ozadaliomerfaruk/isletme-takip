@@ -33,7 +33,9 @@
     "scopeOwn": "Only own entries",
     "scopeAll": "All entries",
     "moduleNotlar": "Notes",
-    "showSavings": "Show savings accounts"
+    "showSavings": "Show savings accounts",
+    "levelHelp": "All records are visible in enabled modules; add/edit/delete follows the selection below.",
+    "noModuleWarning": "No module selected — this user will only see the home screen."
   },
   "users": {
     "title": "Users",
@@ -53,8 +55,6 @@
     "title": "Create Invite",
     "subtitle": "Generate a code to invite new users",
     "selectRole": "Select Role",
-    "emailOptional": "Email (optional)",
-    "emailPlaceholder": "user@example.com",
     "memberName": "Name (optional)",
     "memberNamePlaceholder": "Who did you share this code with? e.g. John",
     "generateCode": "Generate Code",
@@ -102,18 +102,6 @@
     "userNotFound": "User not found",
     "accessRevoked": "Your access to this business has been revoked or suspended",
     "switchFailed": "An error occurred while switching businesses"
-  },
-  "permissionActions": {
-    "create": "Create",
-    "editOwn": "Edit Own",
-    "editAll": "Edit All",
-    "deleteOwn": "Delete Own",
-    "deleteAll": "Delete All",
-    "visibility": "Visibility",
-    "canSeePassive": "Can see passive records",
-    "canSeeArchived": "Can see archived records",
-    "canSeeAllData": "Can see all users' data",
-    "moduleAccess": "Module Access"
   },
   "success": {
     "inviteAccepted": "Invite accepted",

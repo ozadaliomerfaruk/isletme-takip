@@ -24,11 +24,17 @@ export function deriveLevel(p: Permissions | null | undefined): PermissionLevel 
  * `level` + `modules` yazar; geçiş için eski `actions` (açık modüller başına) ve
  * `visibility`'yi de türetir. dashboard her zaman açık tutulur.
  */
+// İşlevsel çekirdek modüller: editörde ayrı toggle olarak GÖSTERİLMEZ, her izinde
+// (dashboard gibi) otomatik AÇIK tutulur. Böylece 'Özel' rol de işlem / kategori /
+// ileri-tarihli / çek / nakit-avans akışını kullanabilir; sade UI korunur.
+const CORE_MODULES: ModuleName[] = ['islemler', 'kategoriler', 'ileri_tarihli', 'cekler', 'nakit_avans'];
+
 export function buildPermissions(
   modules: Record<ModuleName, boolean>,
   level: PermissionLevel,
 ): Permissions {
   const m: Record<ModuleName, boolean> = { ...modules, dashboard: true };
+  CORE_MODULES.forEach((k) => { m[k] = true; });
   const actions: Permissions['actions'] = {};
   (Object.keys(m) as ModuleName[]).forEach((mod) => {
     if (!m[mod]) return;

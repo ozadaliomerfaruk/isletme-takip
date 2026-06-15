@@ -212,12 +212,16 @@ export default function DahaPage() {
                 />
               </>
             )}
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<StickyNote size={22} color={colors.warning} />}
-              label={t('navigation:menu.notes')}
-              onPress={() => router.push('/notlar' as Href)}
-            />
+            {canAccessModule('notlar') && (
+              <>
+                <View style={styles.divider} />
+                <MenuItem
+                  icon={<StickyNote size={22} color={colors.warning} />}
+                  label={t('navigation:menu.notes')}
+                  onPress={() => router.push('/notlar' as Href)}
+                />
+              </>
+            )}
           </Card>
         </View>
 
