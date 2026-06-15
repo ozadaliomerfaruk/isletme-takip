@@ -65,7 +65,7 @@ export default function KarsilastirmaRaporPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <ScrollView
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         >
           <View style={styles.periodFilter}>
             <TabFilter

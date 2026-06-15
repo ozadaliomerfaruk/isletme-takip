@@ -723,7 +723,7 @@ export default function KategoriDetayPage() {
         ListEmptyComponent={EmptyState}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         ListFooterComponent={islemlerLoading ? (
           <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />
         ) : null}
