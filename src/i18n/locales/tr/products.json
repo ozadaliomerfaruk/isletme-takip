@@ -3,6 +3,9 @@
   "addProduct": "Ürün Ekle",
   "editProduct": "Ürün Düzenle",
   "productDetails": "Ürün Detayı",
+  "picker": {
+    "addNew": "\"{{name}}\" olarak yeni ekle"
+  },
   "form": {
     "name": "Ürün Adı",
     "code": "Ürün Kodu",

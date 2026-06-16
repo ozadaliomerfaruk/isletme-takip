@@ -52,6 +52,9 @@ import {
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { usePickImage, useTakePhoto } from '@/hooks/useIslemPhoto';
 import { useCreateCari } from '@/hooks/useCariler';
+import { useCreateUrun } from '@/hooks/useUrunler';
+import { useSettings } from '@/hooks/useSettings';
+import type { Currency, Urun } from '@/types/database';
 
 export function QuickTransactionBar({
   visible,
@@ -319,6 +322,27 @@ export function QuickTransactionBar({
       );
     },
     [createCari, cariPickerMode, handleCariSelect]
+  );
+
+  // Inline ürün oluşturma: picker'da aranan ürün yoksa "+ yeni ekle" ile oluştur + otomatik seç.
+  const createUrun = useCreateUrun();
+  const { currency: userCurrency } = useSettings();
+  const handleUrunCreateNew = useCallback(
+    async (name: string): Promise<Urun | undefined> => {
+      try {
+        return await createUrun.mutateAsync({
+          ad: name.trim(),
+          birim: 'adet',
+          kdv_orani: 0,
+          alis_fiyati: 0,
+          satis_fiyati: 0,
+          currency: userCurrency as Currency,
+        });
+      } catch {
+        return undefined;
+      }
+    },
+    [createUrun, userCurrency]
   );
 
   // Handle personel selection from picker
@@ -735,6 +759,9 @@ export function QuickTransactionBar({
             form.setAmount(roundCurrency(total).toString());
           }
         }}
+        currency={userCurrency}
+        onCreateNew={handleUrunCreateNew}
+        creating={createUrun.isPending}
       />
 
       {/* Photo Viewer Modal */}

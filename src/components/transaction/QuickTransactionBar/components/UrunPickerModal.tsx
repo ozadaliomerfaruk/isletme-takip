@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Package, Plus, Trash2, Check, Pencil } from 'lucide-react-native';
@@ -18,6 +19,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
+import { useHaptics } from '@/hooks/useHaptics';
 import { styles as sharedStyles } from '../styles';
 import type { UrunItem } from '../types';
 import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
@@ -33,6 +35,9 @@ export interface UrunPickerModalProps {
   onSearchQueryChange: (query: string) => void;
   onTotalChange?: (total: number) => void;
   currency?: string;
+  /** Aranan ürün yoksa inline oluşturma; oluşturulan ürünü döndürürse otomatik seçilir. */
+  onCreateNew?: (name: string) => Promise<Urun | undefined>;
+  creating?: boolean;
 }
 
 // Ürün ekleme formu için state
@@ -53,9 +58,12 @@ export function UrunPickerModal({
   onSearchQueryChange,
   onTotalChange,
   currency = 'TRY',
+  onCreateNew,
+  creating = false,
 }: UrunPickerModalProps) {
   const { t } = useTranslation(['transactions', 'products', 'common']);
   const insets = useSafeAreaInsets();
+  const haptics = useHaptics();
   const windowHeight = Dimensions.get('window').height;
   const { data: kategoriler } = useKategoriler();
   const kategoriNameMap = useMemo(
@@ -110,6 +118,23 @@ export function UrunPickerModal({
       kdvOrani: urun.kdv_orani || 0,
     });
   }, [urunItems]);
+
+  // Inline ürün oluşturma (CariPickerSheet inline-cari deseninin ürün karşılığı):
+  // arama eşleşmiyorsa "+ yeni ekle" satırı çıkar, oluşturulan ürün otomatik seçilir.
+  const trimmedQuery = searchQuery.trim();
+  const showCreateRow =
+    !!onCreateNew &&
+    trimmedQuery.length > 0 &&
+    !urunler.some((u) => u.ad.toLowerCase() === trimmedQuery.toLowerCase());
+  const handleCreateNew = useCallback(async () => {
+    if (!onCreateNew || !trimmedQuery || creating) return;
+    haptics.light();
+    const yeni = await onCreateNew(trimmedQuery);
+    if (yeni) {
+      onSearchQueryChange('');
+      handleSelectUrun(yeni);
+    }
+  }, [onCreateNew, trimmedQuery, creating, haptics, onSearchQueryChange, handleSelectUrun]);
 
   // Mevcut ürünü düzenleme moduna al
   const handleEditItem = useCallback((item: UrunItem) => {
@@ -420,7 +445,27 @@ export function UrunPickerModal({
                     <Text style={styles.sectionTitle}>
                       {t('transactions:stock.selectProduct')}
                     </Text>
-                    {filteredUrunler.length === 0 ? (
+                    {showCreateRow && (
+                      <TouchableOpacity
+                        style={[styles.urunItem, { borderStyle: 'dashed', borderColor: colors.primary }]}
+                        onPress={handleCreateNew}
+                        disabled={creating}
+                      >
+                        <View style={styles.urunIcon}>
+                          {creating ? (
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          ) : (
+                            <Plus size={20} color={colors.primary} />
+                          )}
+                        </View>
+                        <View style={styles.urunInfo}>
+                          <Text style={[styles.urunName, { color: colors.primary }]}>
+                            {t('products:picker.addNew', { name: trimmedQuery })}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    )}
+                    {filteredUrunler.length === 0 && !showCreateRow ? (
                       <View style={styles.emptyState}>
                         <Package size={40} color={colors.textMuted} />
                         <Text style={styles.emptyStateText}>

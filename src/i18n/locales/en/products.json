@@ -3,6 +3,9 @@
   "addProduct": "Add Product",
   "editProduct": "Edit Product",
   "productDetails": "Product Details",
+  "picker": {
+    "addNew": "Add \"{{name}}\" as new"
+  },
   "form": {
     "name": "Product Name",
     "code": "Product Code",
