@@ -235,12 +235,12 @@ export function useTransactionSubmit({
     if (txnType === 'alis_iade') return 'cikis';
     // satis_iade: Müşteriden mal iade alındı → Ürün Girişi
     if (txnType === 'satis_iade') return 'giris';
-    // gelir: Gelir işleminde ürün eklenmişse → Ürün Girişi
-    if (txnType === 'gelir') return 'giris';
-    // gider: Gider işleminde ürün eklenmişse → Ürün Çıkışı
-    if (txnType === 'gider') return 'cikis';
-    // kredi_karti_gider: Kredi kartı gideri → Ürün Çıkışı
-    if (txnType === 'kredi_karti_gider') return 'cikis';
+    // gelir: Para GİRDİ = mal SATILDI → Ürün ÇIKIŞI (satis ile tutarlı)
+    if (txnType === 'gelir') return 'cikis';
+    // gider: Para ÇIKTI = mal SATIN ALINDI → Ürün GİRİŞİ (alis ile tutarlı)
+    if (txnType === 'gider') return 'giris';
+    // kredi_karti_gider: Kart gideri = mal satın alındı → Ürün GİRİŞİ
+    if (txnType === 'kredi_karti_gider') return 'giris';
     return null;
   }, []);
 
