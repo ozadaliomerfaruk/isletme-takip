@@ -1,4 +1,7 @@
 {
+  "productItems": {
+    "more": "+{{count}} daha"
+  },
   "types": {
     "gelir": "Gelir",
     "gider": "Gider",

@@ -1,4 +1,7 @@
 {
+  "productItems": {
+    "more": "+{{count}} more"
+  },
   "types": {
     "gelir": "Income",
     "gider": "Expense",

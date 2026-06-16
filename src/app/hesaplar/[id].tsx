@@ -18,6 +18,7 @@ import { Text, Card, Button, EmptyState, ArchivedBanner } from '@/components/ui'
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
+import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
@@ -66,6 +67,7 @@ interface HesapTransactionItemProps {
   copyLabel: string;
   canEdit?: boolean;
   currentUserId?: string;
+  urunItems?: UrunKalemOzet[];
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -226,6 +228,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   copyLabel,
   canEdit = true,
   currentUserId,
+  urunItems,
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -261,6 +264,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         currency={hesapCurrency}
+        urunItems={urunItems}
         subAmount={getCrossCurrencySubText(islem, hesapId)}
         overrideColor={getHesapPerspectiveColor(islem.type, hesapId, islem.hedef_hesap_id)}
         overridePrefix={getHesapPerspectivePrefix(islem.type, hesapId, islem.hedef_hesap_id)}
@@ -275,7 +279,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
     && prev.islem.photo_path === next.islem.photo_path
     && prev.hesapCurrency === next.hesapCurrency
     && prev.canEdit === next.canEdit
-    && prev.currentUserId === next.currentUserId;
+    && prev.currentUserId === next.currentUserId
+    && prev.urunItems === next.urunItems;
 });
 
 // ============================================================================
@@ -294,6 +299,9 @@ export default function HesapHareketleriPage() {
 
   const { data: hesap, isLoading: hesapLoading, refetch: refetchHesap } = useHesap(id!);
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByHesap(id!);
+  // Ürün kalemleri (satırda önizleme) — tek batch sorgu, N+1 yok
+  const islemIdList = useMemo(() => (islemler || []).map((i) => i.id), [islemler]);
+  const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByHesap(id!);
   const { data: entityNotes } = useNotlarByEntity('hesap', id!);
@@ -694,9 +702,10 @@ export default function HesapHareketleriPage() {
         copyLabel={copyLabel}
         canEdit={canEditItem}
         currentUserId={user?.id}
+        urunItems={getUrunItems(islem.id)}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, canDelete, user?.id]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

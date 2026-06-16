@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -403,6 +404,86 @@ export function useIslemlerWithUrunByCari(cariId: string | undefined) {
     isLoading: result.isLoading || isletmeLoading,
     hasUrun: (islemId: string) => (result.data?.get(islemId) ?? 0) > 0,
     getUrunCount: (islemId: string) => result.data?.get(islemId) ?? 0,
+  };
+}
+
+/**
+ * İşlem satırında kompakt ürün-kalem önizlemesi için tek kalem.
+ */
+export interface UrunKalemOzet {
+  ad: string;
+  miktar: number;
+  birim_fiyat: number | null;
+  birim: string;
+}
+
+// Modül düzeyi stabil boş referans — TransactionRow memo'sunu bozmamak için
+// (getUrunItems her render yeni [] dönmemeli).
+const EMPTY_KALEMLER: UrunKalemOzet[] = [];
+
+/**
+ * Birden fazla işlem için ürün KALEMLERİNİ (ad + miktar + birim fiyat) TEK batch
+ * sorguda getir. Liste ekranlarında işlem satırında kalem önizlemesi için — map
+ * içinde tek-tek sorgu (N+1) YAPMAZ. useIslemlerWithUrun deseninin kalem-detaylı hali.
+ */
+export function useUrunKalemlerByIslemIds(islemIds: string[]) {
+  const { isletme, isletmeLoading } = useAuthContext();
+
+  const stableKey = islemIds.length > 0 ? islemIds.slice().sort().join(',') : '';
+
+  const result = useQuery({
+    queryKey: queryKeys.urunHareketler.kalemlerByIslemler(stableKey, isletme?.id || ''),
+    queryFn: async () => {
+      if (!isletme || islemIds.length === 0) return new Map<string, UrunKalemOzet[]>();
+
+      const { data, error } = await supabase
+        .from('urun_hareketler')
+        .select('islem_id, miktar, birim_fiyat, urunler(ad, birim)')
+        .eq('isletme_id', isletme.id)
+        .in('islem_id', islemIds)
+        .not('islem_id', 'is', null)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const map = new Map<string, UrunKalemOzet[]>();
+      data?.forEach((row) => {
+        if (!row.islem_id) return;
+        // Supabase ilişkisi object veya array dönebilir
+        const urunRaw = row.urunler as unknown;
+        const urun = Array.isArray(urunRaw) ? urunRaw[0] : urunRaw;
+        const ad =
+          urun && typeof urun === 'object' && 'ad' in urun ? (urun as { ad: string }).ad : null;
+        if (!ad) return;
+        const birim = (urun as { birim?: string })?.birim || 'adet';
+        const list = map.get(row.islem_id) || [];
+        list.push({
+          ad,
+          miktar: Math.abs(Number(row.miktar) || 0),
+          birim_fiyat: row.birim_fiyat != null ? Number(row.birim_fiyat) : null,
+          birim,
+        });
+        map.set(row.islem_id, list);
+      });
+
+      return map;
+    },
+    enabled: !!isletme && islemIds.length > 0,
+    // Yeni islemIds'e geçerken eski veriyi koru — kalem önizlemesi flicker etmesin
+    placeholderData: (previousData) => previousData,
+  });
+
+  // getUrunItems'i stabil tut (yalnız data değişince değişir) — renderItem dep'i +
+  // TransactionRow memo'su bozulmasın.
+  const getUrunItems = useCallback(
+    (islemId: string) => result.data?.get(islemId) ?? EMPTY_KALEMLER,
+    [result.data]
+  );
+
+  return {
+    ...result,
+    isLoading: result.isLoading || isletmeLoading,
+    getUrunItems,
   };
 }
 

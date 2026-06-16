@@ -182,6 +182,8 @@ export const queryKeys = {
       ['urun-hareketler', 'islemler-with-urun', stableKey, isletmeId] as const,
     islemlerWithUrunByCari: (cariId: string, isletmeId: string) =>
       ['urun-hareketler', 'islemler-with-urun-by-cari', cariId, isletmeId] as const,
+    kalemlerByIslemler: (stableKey: string, isletmeId: string) =>
+      ['urun-hareketler', 'kalemler-by-islemler', stableKey, isletmeId] as const,
   },
 
   // Ürün Alias'ları

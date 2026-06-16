@@ -29,6 +29,10 @@ export interface TransactionRowProps {
   hasPhoto?: boolean;
   hasUrunler?: boolean;
   urunCount?: number;
+  /** İşleme bağlı ürün kalemleri (satırda kompakt liste: ad · miktar × birim fiyat). */
+  urunItems?: { ad: string; miktar: number; birim_fiyat: number | null; birim: string }[];
+  /** Satırda gösterilecek azami kalem sayısı (varsayılan 3); fazlası "+X daha". */
+  maxUrunItems?: number;
   currency?: string;
   /** Override the default color derived from type */
   overrideColor?: string;
@@ -54,6 +58,8 @@ export const TransactionRow = memo(function TransactionRow({
   hasPhoto,
   hasUrunler,
   urunCount,
+  urunItems,
+  maxUrunItems = 3,
   currency,
   overrideColor,
   overridePrefix,
@@ -66,7 +72,7 @@ export const TransactionRow = memo(function TransactionRow({
   const handleLongPress = useCallback(() => onLongPress?.(id), [onLongPress, id]);
   const handlePhotoPress = useCallback(() => onPhotoPress?.(id), [onPhotoPress, id]);
 
-  const { t } = useTranslation(['staff']);
+  const { t } = useTranslation(['staff', 'transactions']);
   const txColor = overrideColor ?? getTransactionColor(type);
   const prefix = overridePrefix ?? getTransactionPrefix(type);
   const numAmount = typeof amount === 'string' ? toNumber(amount) : amount;
@@ -122,6 +128,22 @@ export const TransactionRow = memo(function TransactionRow({
             {secondaryText}
           </Text>
         ) : null}
+        {/* Line 3.5: Ürün kalemleri (ad · miktar × birim fiyat) */}
+        {urunItems && urunItems.length > 0 ? (
+          <View style={styles.urunList}>
+            {urunItems.slice(0, maxUrunItems).map((it, i) => (
+              <Text key={i} style={styles.urunItemText} numberOfLines={1}>
+                {it.ad}  {it.miktar}
+                {it.birim_fiyat != null ? ` × ${formatCurrency(it.birim_fiyat, currency)}` : ''}
+              </Text>
+            ))}
+            {urunItems.length > maxUrunItems ? (
+              <Text style={styles.urunMoreText}>
+                {t('transactions:productItems.more', { count: urunItems.length - maxUrunItems })}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         {/* Line 4: Tertiary (note) — no line limit */}
         {tertiaryText ? (
           <Text style={styles.tertiaryText}>
@@ -164,6 +186,8 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.hasPhoto === next.hasPhoto
     && prev.hasUrunler === next.hasUrunler
     && prev.urunCount === next.urunCount
+    && prev.urunItems === next.urunItems
+    && prev.maxUrunItems === next.maxUrunItems
     && prev.entityText === next.entityText
     && prev.secondaryText === next.secondaryText
     && prev.tertiaryText === next.tertiaryText
@@ -257,6 +281,20 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.normal,
     color: colors.textMuted,
+  },
+  urunList: {
+    gap: 1,
+    marginTop: 1,
+  },
+  urunItemText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.normal,
+    color: colors.textSecondary,
+  },
+  urunMoreText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.primary,
   },
   amountContainer: {
     alignItems: 'flex-end',

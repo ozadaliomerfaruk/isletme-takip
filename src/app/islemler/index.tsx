@@ -26,6 +26,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useIslemler, useDeleteIslem, useUpdateIslem } from '@/hooks/useIslemler';
+import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
@@ -77,6 +78,7 @@ interface IslemlerTransactionItemProps {
   copyLabel: string;
   canEdit?: boolean;
   currentUserId?: string;
+  urunItems?: UrunKalemOzet[];
 }
 
 const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
@@ -91,6 +93,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   copyLabel,
   canEdit = true,
   currentUserId,
+  urunItems,
 }: IslemlerTransactionItemProps) {
   const handleDelete = useCallback(
     () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
@@ -128,6 +131,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
         tertiaryText={noteText}
         subAmount={xc.subText}
         currency={xc.mainCurrency}
+        urunItems={urunItems}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         onPress={onPress}
@@ -140,7 +144,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
     && prev.islem.updated_at === next.islem.updated_at
     && prev.islem.photo_path === next.islem.photo_path
     && prev.canEdit === next.canEdit
-    && prev.currentUserId === next.currentUserId;
+    && prev.currentUserId === next.currentUserId
+    && prev.urunItems === next.urunItems;
 });
 
 // ============================================================================
@@ -168,6 +173,9 @@ export default function IslemlerPage() {
 
   const { isletme, user } = useAuthContext();
   const { data: islemler, isLoading, isFetching, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemler();
+  // Ürün kalemleri (satırda önizleme) — tek batch sorgu, N+1 yok
+  const islemIdList = useMemo(() => (islemler || []).map((i) => i.id), [islemler]);
+  const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
   const deleteIslem = useDeleteIslem();
   const updateIslem = useUpdateIslem();
   const deletePhoto = useDeleteIslemPhoto();
@@ -413,9 +421,10 @@ export default function IslemlerPage() {
         copyLabel={copyLabel}
         canEdit={canEditItem}
         currentUserId={user?.id}
+        urunItems={getUrunItems(islem.id)}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, formatDateMedium, t, deleteLabel, copyLabel, canDelete, user?.id]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, formatDateMedium, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

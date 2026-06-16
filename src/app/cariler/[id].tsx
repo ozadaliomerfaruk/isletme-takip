@@ -47,7 +47,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useIslemlerWithUrunByCari, useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
+import { useIslemlerWithUrunByCari, useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
@@ -85,6 +85,7 @@ interface CariTransactionItemProps {
   canEdit?: boolean;
   currentUserId?: string;
   otherPartyName?: string | null;
+  urunItems?: UrunKalemOzet[];
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -153,6 +154,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   canEdit = true,
   currentUserId,
   otherPartyName,
+  urunItems,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -196,6 +198,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
         hasUrunler={hasUrunFn(islem.id)}
         urunCount={getUrunCountFn(islem.id)}
         currency={currency}
+        urunItems={urunItems}
         subAmount={getCariSubAmount(islem)}
         overrideColor={getEntityPerspectiveColor(effectiveType)}
         overridePrefix={getEntityPerspectivePrefix(effectiveType)}
@@ -210,6 +213,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
     && prev.islem.updated_at === next.islem.updated_at
     && prev.canEdit === next.canEdit
     && prev.currentUserId === next.currentUserId
+    && prev.urunItems === next.urunItems
     && prev.displayType === next.displayType
     && prev.hideHesap === next.hideHesap
     && prev.otherPartyName === next.otherPartyName;
@@ -425,6 +429,9 @@ export default function CariHareketleriPage() {
 
   // İşlemlerin ürünlü olup olmadığını kontrol et - cari bazlı sorgu ile ilk yüklemede de hızlı
   const { hasUrun, getUrunCount } = useIslemlerWithUrunByCari(id);
+  // Ürün kalemleri (satırda önizleme) — tek batch sorgu, N+1 yok
+  const islemIdList = useMemo(() => (islemler || []).map((i) => i.id), [islemler]);
+  const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
   const deleteIslem = useDeleteIslem();
   const deleteCari = useDeleteCari();
   const updateCari = useUpdateCari();
@@ -783,9 +790,10 @@ export default function CariHareketleriPage() {
         canEdit={canEditItem}
         currentUserId={user?.id}
         otherPartyName={itemOtherPartyName}
+        urunItems={getUrunItems(islem.id)}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
