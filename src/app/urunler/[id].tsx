@@ -41,6 +41,7 @@ import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
@@ -82,6 +83,12 @@ export default function UrunDetayPage() {
   const { showToast } = useToast();
   const haptics = useHaptics();
   const insets = useSafeAreaInsets();
+
+  // Yetki gizleme (diğer detay/liste sayfalarıyla aynı desen; owner'da hepsi true)
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canEdit = canUpdate('urunler', urun?.created_by ?? null);
+  const canRemove = canDelete('urunler', urun?.created_by ?? null);
+  const canAddStock = canCreate('urunler');
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [quickUrunVisible, setQuickUrunVisible] = useState(false);
@@ -240,9 +247,11 @@ export default function UrunDetayPage() {
               <TouchableOpacity onPress={() => setExportSheetVisible(true)}>
                 <FileSpreadsheet size={22} color={colors.success} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setMenuVisible(true)}>
-                <MoreVertical size={24} color={colors.text} />
-              </TouchableOpacity>
+              {(canEdit || canRemove) && (
+                <TouchableOpacity onPress={() => setMenuVisible(true)}>
+                  <MoreVertical size={24} color={colors.text} />
+                </TouchableOpacity>
+              )}
             </View>
           ),
         }}
@@ -288,30 +297,32 @@ export default function UrunDetayPage() {
           </View>
 
           {/* Quick Actions */}
-          <View style={styles.section}>
-            <View style={styles.actionButtons}>
-              <Button
-                variant="primary"
-                size="md"
-                icon={<Plus size={18} color={colors.white} />}
-                iconPosition="left"
-                onPress={() => openQuickUrun('giris')}
-                style={styles.actionButton}
-              >
-                {t('products:stock.stockIn')}
-              </Button>
-              <Button
-                variant="outline"
-                size="md"
-                icon={<Minus size={18} color={colors.primary} />}
-                iconPosition="left"
-                onPress={() => openQuickUrun('cikis')}
-                style={styles.actionButton}
-              >
-                {t('products:stock.stockOut')}
-              </Button>
+          {canAddStock && (
+            <View style={styles.section}>
+              <View style={styles.actionButtons}>
+                <Button
+                  variant="primary"
+                  size="md"
+                  icon={<Plus size={18} color={colors.white} />}
+                  iconPosition="left"
+                  onPress={() => openQuickUrun('giris')}
+                  style={styles.actionButton}
+                >
+                  {t('products:stock.stockIn')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="md"
+                  icon={<Minus size={18} color={colors.primary} />}
+                  iconPosition="left"
+                  onPress={() => openQuickUrun('cikis')}
+                  style={styles.actionButton}
+                >
+                  {t('products:stock.stockOut')}
+                </Button>
+              </View>
             </View>
-          </View>
+          )}
 
           {/* Aylik Ozet */}
           {aylikOzet && aylikOzet.length > 0 && (
@@ -455,7 +466,7 @@ export default function UrunDetayPage() {
                           </Text>
                           {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
                             <Text variant="body" color="secondary" style={{ fontSize: 13 }}>
-                              {formatCurrency(hareket.birim_fiyat)}/{getBirimLabel(urun.birim)} × {Math.abs(hareket.miktar)}
+                              {formatCurrency(hareket.birim_fiyat, urun.currency)}/{getBirimLabel(urun.birim)} × {Math.abs(hareket.miktar)}
                             </Text>
                           )}
                         </View>
@@ -480,7 +491,7 @@ export default function UrunDetayPage() {
                             const total = subtotal + kdv;
                             return (
                               <Text variant="body" color="secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                                {formatCurrency(total)}{kdv > 0 ? ` (${formatCurrency(kdv)} ${t('common:tax.vat')})` : ''}
+                                {formatCurrency(total, urun.currency)}{kdv > 0 ? ` (${formatCurrency(kdv, urun.currency)} ${t('common:tax.vat')})` : ''}
                               </Text>
                             );
                           })()}
@@ -491,36 +502,44 @@ export default function UrunDetayPage() {
                     <View style={styles.hareketActions}>
                       {hareket.islem_id ? (
                         // İşleme bağlı (cari/hesap/kart/personel) - sadece düzenle → QuickTransactionBar edit
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<Pencil size={16} color={colors.text} />}
-                          onPress={() => handleEditIslemHareket(hareket)}
-                          style={styles.actionButton}
-                        >
-                          {t('common:buttons.edit')}
-                        </Button>
-                      ) : (
-                        // Doğrudan stok girişi/çıkışı/düzeltme (işlem yok) - düzenle ve sil
-                        <>
+                        canEdit && (
                           <Button
                             variant="secondary"
                             size="sm"
                             icon={<Pencil size={16} color={colors.text} />}
-                            onPress={() => handleEditDirectHareket(hareket)}
+                            onPress={() => handleEditIslemHareket(hareket)}
                             style={styles.actionButton}
                           >
                             {t('common:buttons.edit')}
                           </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            icon={<Trash2 size={16} color={colors.error} />}
-                            onPress={() => handleDeleteHareket(hareket)}
-                            style={styles.actionButton}
-                          >
-                            {t('common:buttons.delete')}
-                          </Button>
+                        )
+                      ) : (
+                        // Doğrudan stok girişi/çıkışı/düzeltme (işlem yok)
+                        // NOT: 'duzeltme' hareketinin Düzenle yolu stoğu bozar (giriş/çıkış'a map ediliyor),
+                        // bu yüzden düzeltme satırında yalnızca Sil gösterilir (yanlışsa sil + yeniden oluştur).
+                        <>
+                          {canEdit && hareket.hareket_tipi !== 'duzeltme' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              icon={<Pencil size={16} color={colors.text} />}
+                              onPress={() => handleEditDirectHareket(hareket)}
+                              style={styles.actionButton}
+                            >
+                              {t('common:buttons.edit')}
+                            </Button>
+                          )}
+                          {canRemove && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              icon={<Trash2 size={16} color={colors.error} />}
+                              onPress={() => handleDeleteHareket(hareket)}
+                              style={styles.actionButton}
+                            >
+                              {t('common:buttons.delete')}
+                            </Button>
+                          )}
                         </>
                       )}
                     </View>
@@ -550,18 +569,20 @@ export default function UrunDetayPage() {
             onPress={() => setMenuVisible(false)}
           >
             <View style={styles.menuContent}>
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => {
-                  setMenuVisible(false);
-                  router.push(`/urunler/duzenle/${id}` as Href);
-                }}
-              >
-                <Pencil size={20} color={colors.text} />
-                <Text variant="body">{t('products:editProduct')}</Text>
-              </TouchableOpacity>
-              <View style={styles.menuDivider} />
-              {urun.is_archived ? (
+              {canEdit && (
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setMenuVisible(false);
+                    router.push(`/urunler/duzenle/${id}` as Href);
+                  }}
+                >
+                  <Pencil size={20} color={colors.text} />
+                  <Text variant="body">{t('products:editProduct')}</Text>
+                </TouchableOpacity>
+              )}
+              {canEdit && <View style={styles.menuDivider} />}
+              {canEdit && (urun.is_archived ? (
                 <TouchableOpacity style={styles.menuItem} onPress={handleUnarchive}>
                   <ArchiveRestore size={20} color={colors.success} />
                   <Text variant="body" style={{ color: colors.success }}>
@@ -575,14 +596,16 @@ export default function UrunDetayPage() {
                     {t('products:actions.archive')}
                   </Text>
                 </TouchableOpacity>
+              ))}
+              {canEdit && canRemove && <View style={styles.menuDivider} />}
+              {canRemove && (
+                <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
+                  <Trash2 size={20} color={colors.error} />
+                  <Text variant="body" style={{ color: colors.error }}>
+                    {t('common:buttons.delete')}
+                  </Text>
+                </TouchableOpacity>
               )}
-              <View style={styles.menuDivider} />
-              <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
-                <Trash2 size={20} color={colors.error} />
-                <Text variant="body" style={{ color: colors.error }}>
-                  {t('common:buttons.delete')}
-                </Text>
-              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         </Modal>

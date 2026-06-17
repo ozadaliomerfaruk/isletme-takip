@@ -181,26 +181,28 @@ export function QuickUrunBar({
         // Focus input after animation
         setTimeout(() => amountInputRef.current?.focus(), 100);
       });
-    } else {
-      // Animate out
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 150,
-          useNativeDriver: true,
-        }),
-        Animated.timing(translateY, {
-          toValue: 100,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
     }
+    // visible=false: kapanış animasyonu handleDismiss içinde oynatılır (burada no-op).
+    // Modal visible={visible} olduğundan, çıkış animasyonu BİTMEDEN parent visible=false
+    // yapmaz (handleDismiss .start callback'inde onDismiss çağırır) → animasyon görünür.
   }, [visible, defaultType, opacity, translateY]);
 
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
   };
+
+  const handleDismiss = useCallback(() => {
+    Keyboard.dismiss();
+    setShowDatePicker(false);
+    // Kapanış animasyonunu oynat; BİTİNCE onDismiss → parent visible=false → unmount.
+    // (Kardeş QuickTransactionBar ile aynı desen; sert anlık kapanış yerine akıcı çıkış.)
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+      Animated.timing(translateY, { toValue: 100, duration: 200, useNativeDriver: true }),
+    ]).start(() => {
+      onDismiss();
+    });
+  }, [onDismiss, opacity, translateY]);
 
   const handleBackdropPress = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -217,15 +219,9 @@ export function QuickUrunBar({
       return;
     }
 
-    // Otherwise close the bar
-    onDismiss();
-  }, [isKeyboardVisible, showDatePicker, onDismiss]);
-
-  const handleDismiss = useCallback(() => {
-    Keyboard.dismiss();
-    setShowDatePicker(false);
-    onDismiss();
-  }, [onDismiss]);
+    // Otherwise close the bar (animasyonlu)
+    handleDismiss();
+  }, [isKeyboardVisible, showDatePicker, handleDismiss]);
 
   const handleDateChange = useCallback(
     (event: { type: string }, selectedDate?: Date) => {

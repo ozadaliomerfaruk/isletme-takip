@@ -121,7 +121,7 @@ export default function UrunDuzenlePage() {
         />
         <SafeAreaView style={styles.container} edges={['bottom']}>
           <View style={styles.loadingContainer}>
-            <Text color="secondary">{t('errors:general.notFound')}</Text>
+            <Text color="secondary">{t('errors:product.notFound')}</Text>
           </View>
         </SafeAreaView>
       </>
