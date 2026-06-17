@@ -7,7 +7,7 @@ import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import type { Not } from '@/types/database';
 
-type EntityType = 'cari' | 'hesap' | 'personel';
+type EntityType = 'cari' | 'hesap' | 'personel' | 'urun';
 
 interface UseDetailNoteHandlersParams {
   entityType: EntityType;

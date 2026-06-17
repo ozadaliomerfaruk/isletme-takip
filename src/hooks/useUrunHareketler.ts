@@ -2,20 +2,37 @@ import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani } from '@/types/database';
+import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, HesapType } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 import i18n from '@/i18n';
 
 /**
- * Urun hareketi ile birlikte cari bilgisi
+ * Urun hareketi ile birlikte bağlı işlemin kaynağı (cari / hesap-kart / personel).
+ * islem_id NULL ise (manuel stok giriş/çıkış/düzeltme) hepsi null'dır.
  */
-export interface UrunHareketWithCari extends UrunHareket {
+export interface UrunHareketWithSource extends UrunHareket {
   cari?: {
     id: string;
     name: string;
     type: 'musteri' | 'tedarikci';
   } | null;
+  /** Bağlı işlemin tipi (gelir/gider/cari_alis/cari_satis/personel_satis...). */
+  islemType?: IslemType | null;
+  /** İşlemin para hesabı; type === 'kredi_karti' ise kredi kartı kaynağı. */
+  hesap?: {
+    id: string;
+    name: string;
+    type: HesapType;
+  } | null;
+  /** Personel kaynaklı işlemlerde (personel_satis vb.) personel adı. */
+  personel?: {
+    id: string;
+    name: string;
+  } | null;
 }
+
+/** Geriye uyumluluk: eski ad korunur (artık kaynak alanlarını da taşır). */
+export type UrunHareketWithCari = UrunHareketWithSource;
 
 /**
  * Bir ürüne ait urun hareketlerini getir (cari bilgisi dahil)
@@ -49,40 +66,60 @@ export function useUrunHareketler(urunId: string | undefined) {
         return hareketler.map(h => ({ ...h, cari: null })) as UrunHareketWithCari[];
       }
 
-      // İşlemleri ve carilerini al
+      // İşlemleri ve kaynaklarını al (cari + hesap/kart + personel + tip).
+      // İki FK (hesap_id, hedef_hesap_id) olduğundan PostgREST alias zorunlu (useIslemler ile aynı desen).
       const { data: islemler, error: islemError } = await supabase
         .from('islemler')
-        .select('id, cari_id, cariler(id, name, type)')
+        .select('id, type, cari_id, hesap_id, personel_id, cariler(id, name, type), hesap:hesaplar!hesap_id(id, name, type), personel:personel(id, first_name, last_name)')
         .in('id', islemIds);
 
       if (islemError) {
-        console.error('Error fetching islemler for cari info:', islemError);
-        return hareketler.map(h => ({ ...h, cari: null })) as UrunHareketWithCari[];
+        console.error('Error fetching islemler for source info:', islemError);
+        return hareketler.map(h => ({ ...h, cari: null })) as UrunHareketWithSource[];
       }
 
-      // islem_id -> cari mapping oluştur
-      const islemCariMap = new Map<string, { id: string; name: string; type: 'musteri' | 'tedarikci' } | null>();
-      islemler?.forEach(islem => {
-        // Supabase can return object or array depending on the relation
-        const cariRaw = islem.cariler as unknown;
-        const cariData = Array.isArray(cariRaw) ? cariRaw[0] : cariRaw;
-        if (cariData && typeof cariData === 'object' && 'id' in cariData) {
-          const cari = cariData as { id: string; name: string; type: string };
-          islemCariMap.set(islem.id, {
-            id: cari.id,
-            name: cari.name,
-            type: cari.type as 'musteri' | 'tedarikci',
-          });
-        } else {
-          islemCariMap.set(islem.id, null);
-        }
+      // Supabase ilişkisi tek obje VEYA dizi dönebilir → normalize et
+      const normalizeRel = (raw: unknown): Record<string, unknown> | null => {
+        const v = Array.isArray(raw) ? raw[0] : raw;
+        return v && typeof v === 'object' && 'id' in (v as object) ? (v as Record<string, unknown>) : null;
+      };
+
+      // islem_id -> kaynak (cari/hesap/personel + tip) mapping oluştur
+      type SourceInfo = Pick<UrunHareketWithSource, 'cari' | 'hesap' | 'personel' | 'islemType'>;
+      const islemSourceMap = new Map<string, SourceInfo>();
+      islemler?.forEach(islemRaw => {
+        const islem = islemRaw as { id: string; type: string | null; cariler: unknown; hesap: unknown; personel: unknown };
+        const cariData = normalizeRel(islem.cariler);
+        const hesapData = normalizeRel(islem.hesap);
+        const personelData = normalizeRel(islem.personel);
+        islemSourceMap.set(islem.id, {
+          islemType: (islem.type as IslemType) ?? null,
+          cari: cariData
+            ? { id: cariData.id as string, name: cariData.name as string, type: cariData.type as 'musteri' | 'tedarikci' }
+            : null,
+          hesap: hesapData
+            ? { id: hesapData.id as string, name: hesapData.name as string, type: hesapData.type as HesapType }
+            : null,
+          personel: personelData
+            ? {
+                id: personelData.id as string,
+                name: [personelData.first_name, personelData.last_name].filter(Boolean).join(' ').trim() || '—',
+              }
+            : null,
+        });
       });
 
-      // Urun hareketlerine cari bilgisi ekle
-      return hareketler.map(h => ({
-        ...h,
-        cari: h.islem_id ? islemCariMap.get(h.islem_id) || null : null,
-      })) as UrunHareketWithCari[];
+      // Urun hareketlerine kaynak bilgisi ekle
+      return hareketler.map(h => {
+        const src = h.islem_id ? islemSourceMap.get(h.islem_id) : undefined;
+        return {
+          ...h,
+          cari: src?.cari ?? null,
+          islemType: src?.islemType ?? null,
+          hesap: src?.hesap ?? null,
+          personel: src?.personel ?? null,
+        };
+      }) as UrunHareketWithSource[];
     },
     enabled: !!isletme && !!urunId,
   });

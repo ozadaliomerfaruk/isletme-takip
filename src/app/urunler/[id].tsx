@@ -25,13 +25,22 @@ import {
   Building2,
   User,
   FileSpreadsheet,
+  CreditCard,
+  Wallet,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, ExpandableCard, EmptyState } from '@/components/ui';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { UrunExportSheet } from '@/components/export/UrunExportSheet';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
+import { NoteRow } from '@/components/notes/NoteRow';
+import { NoteInputModal } from '@/components/notes/NoteInputModal';
+import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { useNotlarByEntity } from '@/hooks/useNotlar';
+import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
@@ -39,7 +48,7 @@ import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
-import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketWithCari } from '@/hooks/useUrunHareketler';
+import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketWithSource } from '@/hooks/useUrunHareketler';
 import { BirimType } from '@/types/database';
 import { formatCurrency } from '@/lib/currency';
 import { toErrorMessage } from '@/lib/errors';
@@ -54,6 +63,18 @@ export default function UrunDetayPage() {
   const { data: urun, isLoading: urunLoading, refetch: refetchUrun } = useUrun(id);
   const { data: hareketler, isLoading: hareketlerLoading, refetch: refetchHareketler } = useUrunHareketler(id);
   const { data: aylikOzet, refetch: refetchOzet } = useAylikUrunOzet(id);
+  const { isletme } = useAuthContext();
+  // Bu ürüne ait notlar (ürün detayında oluşturulanlar burada da görünür)
+  const { data: entityNotes } = useNotlarByEntity('urun', id!);
+  const {
+    editingNote,
+    setEditingNoteId,
+    handleNoteUpdate,
+    handleNoteDelete,
+    handleToggleNoteCompletion,
+    handleMarkAsTask,
+    isUpdatingNote,
+  } = useDetailNoteHandlers({ entityType: 'urun', entityId: id!, entityNotes, isletmeId: isletme?.id });
   const deleteUrun = usePermanentDeleteUrun();
   const archiveUrun = useArchiveUrun();
   const unarchiveUrun = useUnarchiveUrun();
@@ -71,7 +92,7 @@ export default function UrunDetayPage() {
   const [expandedHareketId, setExpandedHareketId] = useState<string | null>(null);
   const { refreshing, onRefresh } = usePullToRefresh(refetchUrun, refetchHareketler, refetchOzet);
 
-  const { pendingDeleteIds, requestDelete: requestDeleteHareket, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<UrunHareketWithCari>({
+  const { pendingDeleteIds, requestDelete: requestDeleteHareket, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<UrunHareketWithSource>({
     onCommitDelete: async (hareketId) => { await deleteUrunHareket.mutateAsync(hareketId); },
   });
 
@@ -83,6 +104,10 @@ export default function UrunDetayPage() {
     birimFiyat: number | null;
     urunType: 'giris' | 'cikis';
   } | undefined>(undefined);
+
+  // İşleme bağlı (cari/hesap/kart/personel) hareketi düzenlemek için QuickTransactionBar edit modu
+  const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
+  const [showEditBar, setShowEditBar] = useState(false);
 
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
@@ -102,7 +127,7 @@ export default function UrunDetayPage() {
   };
 
   // Doğrudan urun hareketi düzenleme
-  const handleEditDirectHareket = (hareket: UrunHareketWithCari) => {
+  const handleEditDirectHareket = (hareket: UrunHareketWithSource) => {
     setEditMode(true);
     setEditHareketId(hareket.id);
     setEditInitialValues({
@@ -159,20 +184,19 @@ export default function UrunDetayPage() {
     }
   };
 
-  // Urun hareketi düzenleme (cari işlem üzerinden)
-  const handleEditHareket = (hareket: UrunHareketWithCari) => {
-    if (hareket.islem_id && hareket.cari) {
-      // Cari hareketler sayfasına git, ilgili işlem açık olsun
-      router.push({
-        pathname: '/cariler/[id]',
-        params: { id: hareket.cari.id, expandIslemId: hareket.islem_id },
-      });
-    }
+  // İşleme bağlı (cari/hesap/kart/personel) ürün hareketini düzenle:
+  // ilgili işlemin QuickTransactionBar'ını edit modunda aç. Kaynak fark etmez —
+  // QTB transactionId'den tipi (cari_alis/gider/personel_satis...) ve ürün kalemlerini kendi yükler.
+  // Cari ile aynı standart: satıra tıkla → sadece düzenle → QTB.
+  const handleEditIslemHareket = (hareket: UrunHareketWithSource) => {
     setExpandedHareketId(null);
+    if (!hareket.islem_id) return;
+    setEditTransactionId(hareket.islem_id);
+    setShowEditBar(true);
   };
 
   // Urun hareketi silme (doğrudan girişler için)
-  const handleDeleteHareket = (hareket: UrunHareketWithCari) => {
+  const handleDeleteHareket = (hareket: UrunHareketWithSource) => {
     setExpandedHareketId(null);
     const desc = `${hareket.hareket_tipi === 'giris' ? '↑' : '↓'} ${hareket.miktar}`;
     requestDeleteHareket(hareket.id, hareket, desc);
@@ -323,6 +347,29 @@ export default function UrunDetayPage() {
             </View>
           )}
 
+          {/* Notlar - bu ürüne ait notlar */}
+          {entityNotes && entityNotes.length > 0 && (
+            <View style={styles.section}>
+              <Text variant="label" style={styles.sectionTitle}>
+                {t('common:notes.title')}
+              </Text>
+              {entityNotes.map((note) => (
+                <SwipeableRow
+                  key={note.id}
+                  onDelete={() => handleNoteDelete(note.id)}
+                  deleteLabel={t('common:buttons.delete')}
+                >
+                  <NoteRow
+                    note={note}
+                    onEdit={() => setEditingNoteId(note.id)}
+                    onToggleComplete={handleToggleNoteCompletion}
+                    onMarkAsTask={handleMarkAsTask}
+                  />
+                </SwipeableRow>
+              ))}
+            </View>
+          )}
+
           {/* Son Hareketler */}
           <View style={styles.section}>
             <Text variant="label" style={styles.sectionTitle}>
@@ -368,7 +415,7 @@ export default function UrunDetayPage() {
                                 month: 'short',
                               })}
                             </Text>
-                            {hareket.cari && (
+                            {hareket.cari ? (
                               <View style={styles.cariBadge}>
                                 {hareket.cari.type === 'tedarikci' ? (
                                   <Building2 size={12} color={colors.warning} />
@@ -379,7 +426,25 @@ export default function UrunDetayPage() {
                                   {hareket.cari.name}
                                 </Text>
                               </View>
-                            )}
+                            ) : hareket.personel ? (
+                              <View style={styles.cariBadge}>
+                                <User size={12} color={colors.info} />
+                                <Text style={styles.cariName} numberOfLines={1}>
+                                  {hareket.personel.name}
+                                </Text>
+                              </View>
+                            ) : hareket.hesap ? (
+                              <View style={styles.cariBadge}>
+                                {hareket.hesap.type === 'kredi_karti' ? (
+                                  <CreditCard size={12} color={colors.primary} />
+                                ) : (
+                                  <Wallet size={12} color={colors.primary} />
+                                )}
+                                <Text style={styles.cariName} numberOfLines={1}>
+                                  {hareket.hesap.name}
+                                </Text>
+                              </View>
+                            ) : null}
                           </View>
                           <Text variant="body" color="secondary" style={{ fontSize: 14 }}>
                             {hareket.hareket_tipi === 'giris'
@@ -424,19 +489,19 @@ export default function UrunDetayPage() {
                     }
                   >
                     <View style={styles.hareketActions}>
-                      {hareket.islem_id && hareket.cari ? (
-                        // Cari işlem üzerinden yapılmış - sadece düzenle
+                      {hareket.islem_id ? (
+                        // İşleme bağlı (cari/hesap/kart/personel) - sadece düzenle → QuickTransactionBar edit
                         <Button
                           variant="secondary"
                           size="sm"
                           icon={<Pencil size={16} color={colors.text} />}
-                          onPress={() => handleEditHareket(hareket)}
+                          onPress={() => handleEditIslemHareket(hareket)}
                           style={styles.actionButton}
                         >
                           {t('common:buttons.edit')}
                         </Button>
                       ) : (
-                        // Doğrudan ürün girişi - düzenle ve sil
+                        // Doğrudan stok girişi/çıkışı/düzeltme (işlem yok) - düzenle ve sil
                         <>
                           <Button
                             variant="secondary"
@@ -538,6 +603,16 @@ export default function UrunDetayPage() {
           editInitialValues={editInitialValues}
         />
 
+        {/* İşleme bağlı (cari/hesap/kart/personel) ürünlü hareket düzenleme — cari sayfasıyla aynı standart */}
+        <QuickTransactionBar
+          visible={showEditBar}
+          onDismiss={() => { setShowEditBar(false); setEditTransactionId(null); }}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          onSuccess={() => { setShowEditBar(false); setEditTransactionId(null); }}
+        />
+
         {/* Not Ekle FAB */}
         {!urun.is_archived && (
           <AddNoteButton
@@ -546,6 +621,26 @@ export default function UrunDetayPage() {
             style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom }}
           />
         )}
+
+        {/* Not düzenleme modalı */}
+        <NoteInputModal
+          visible={!!editingNote}
+          onClose={() => setEditingNoteId(null)}
+          onSave={handleNoteUpdate}
+          initialData={editingNote ? {
+            content: editingNote.content,
+            is_completed: editingNote.is_completed,
+            reminder_date: editingNote.reminder_date,
+            photo_uri: editingNote.photo_path,
+            assigned_to_user: editingNote.assigned_to_user,
+            assigned_to_cari: editingNote.assigned_to_cari,
+            assigned_to_personel: editingNote.assigned_to_personel,
+          } : undefined}
+          isEditing
+          loading={isUpdatingNote}
+          entityType="urun"
+          entityId={id!}
+        />
 
         {/* Export Sheet */}
         <UrunExportSheet
