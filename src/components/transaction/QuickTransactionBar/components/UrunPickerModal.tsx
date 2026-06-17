@@ -9,6 +9,9 @@ import {
   Dimensions,
   StyleSheet,
   ActivityIndicator,
+  LayoutAnimation,
+  Platform,
+  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Package, Plus, Trash2, Check, Pencil } from 'lucide-react-native';
@@ -16,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -24,6 +27,12 @@ import { styles as sharedStyles } from '../styles';
 import type { UrunItem } from '../types';
 import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
 import type { Urun, BirimType } from '@/types/database';
+
+// LayoutAnimation Android'de varsayılan kapalı; buton etiket/durum geçişlerini
+// yumuşatmak için bir kez etkinleştir (ev-tarzı: LeaveQuotaCard/NoteRow deseni).
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 export interface UrunPickerModalProps {
   visible: boolean;
@@ -38,6 +47,8 @@ export interface UrunPickerModalProps {
   /** Aranan ürün yoksa inline oluşturma; oluşturulan ürünü döndürürse otomatik seçilir. */
   onCreateNew?: (name: string) => Promise<Urun | undefined>;
   creating?: boolean;
+  /** Boş aramada / tam ekran ürün ekleme sayfasına yönlendirme (modal kapanır). */
+  onAddFullProduct?: () => void;
 }
 
 // Ürün ekleme formu için state
@@ -60,6 +71,7 @@ export function UrunPickerModal({
   currency = 'TRY',
   onCreateNew,
   creating = false,
+  onAddFullProduct,
 }: UrunPickerModalProps) {
   const { t } = useTranslation(['transactions', 'products', 'common']);
   const insets = useSafeAreaInsets();
@@ -135,6 +147,20 @@ export function UrunPickerModal({
       handleSelectUrun(yeni);
     }
   }, [onCreateNew, trimmedQuery, creating, haptics, onSearchQueryChange, handleSelectUrun]);
+
+  // Kalıcı "ürün ekle" butonunun akıllı davranışı:
+  // - Yeni bir isim yazıldıysa (showCreateRow) → hızlı inline oluştur + otomatik seç.
+  // - Boş arama veya mevcut isim → tam ürün ekleme sayfasına yönlendir (modal kapanır).
+  const canAddProduct = showCreateRow || !!onAddFullProduct;
+  const handleAddProductPress = useCallback(() => {
+    if (showCreateRow) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      handleCreateNew();
+    } else if (onAddFullProduct) {
+      haptics.light();
+      onAddFullProduct();
+    }
+  }, [showCreateRow, handleCreateNew, onAddFullProduct, haptics]);
 
   // Mevcut ürünü düzenleme moduna al
   const handleEditItem = useCallback((item: UrunItem) => {
@@ -274,6 +300,39 @@ export function UrunPickerModal({
                   </TouchableOpacity>
                 )}
               </View>
+
+              {/* === Kalıcı "Yeni Ürün Ekle" butonu — arama barının hemen altında, ScrollView DIŞINDA.
+                  Yeni isim yazılınca '"x" olarak yeni ekle' (hızlı inline), boş/mevcut isimde
+                  "Yeni Ürün Ekle" (tam ekran sayfa). Eski liste-içi dashed satır kaldırıldı. */}
+              {!addingProduct && canAddProduct && (
+                <TouchableOpacity
+                  style={[styles.createNewButton, creating && styles.createNewButtonDisabled]}
+                  onPress={handleAddProductPress}
+                  disabled={creating}
+                  activeOpacity={0.85}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: creating }}
+                  accessibilityLabel={
+                    showCreateRow
+                      ? t('products:picker.addNew', { name: trimmedQuery })
+                      : t('products:picker.addNewStatic')
+                  }
+                >
+                  <View style={styles.createNewIcon}>
+                    {creating ? (
+                      <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                      <Plus size={20} color={colors.white} />
+                    )}
+                  </View>
+                  <Text style={styles.createNewText} numberOfLines={1}>
+                    {showCreateRow
+                      ? t('products:picker.addNew', { name: trimmedQuery })
+                      : t('products:picker.addNewStatic')}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <ScrollView
                 style={styles.content}
@@ -445,27 +504,7 @@ export function UrunPickerModal({
                     <Text style={styles.sectionTitle}>
                       {t('transactions:stock.selectProduct')}
                     </Text>
-                    {showCreateRow && (
-                      <TouchableOpacity
-                        style={[styles.urunItem, { borderStyle: 'dashed', borderColor: colors.primary }]}
-                        onPress={handleCreateNew}
-                        disabled={creating}
-                      >
-                        <View style={styles.urunIcon}>
-                          {creating ? (
-                            <ActivityIndicator size="small" color={colors.primary} />
-                          ) : (
-                            <Plus size={20} color={colors.primary} />
-                          )}
-                        </View>
-                        <View style={styles.urunInfo}>
-                          <Text style={[styles.urunName, { color: colors.primary }]}>
-                            {t('products:picker.addNew', { name: trimmedQuery })}
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
-                    )}
-                    {filteredUrunler.length === 0 && !showCreateRow ? (
+                    {filteredUrunler.length === 0 ? (
                       <View style={styles.emptyState}>
                         <Package size={40} color={colors.textMuted} />
                         <Text style={styles.emptyStateText}>
@@ -653,6 +692,36 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   addButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.white,
+  },
+  // Kalıcı "Yeni Ürün Ekle" butonu (arama barı altı)
+  createNewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    borderRadius: borderRadius.lg,
+    ...shadows.md,
+  },
+  createNewButtonDisabled: {
+    opacity: 0.5,
+  },
+  createNewIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createNewText: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '600',
     color: colors.white,

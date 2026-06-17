@@ -4,7 +4,8 @@
   "editProduct": "Edit Product",
   "productDetails": "Product Details",
   "picker": {
-    "addNew": "Add \"{{name}}\" as new"
+    "addNew": "Add \"{{name}}\" as new",
+    "addNewStatic": "Add New Product"
   },
   "form": {
     "name": "Product Name",

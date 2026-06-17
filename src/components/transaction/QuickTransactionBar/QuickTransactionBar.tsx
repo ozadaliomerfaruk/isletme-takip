@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
+import { useRouter, type Href } from 'expo-router';
 
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
 import { roundCurrency } from '@/lib/currency';
@@ -75,6 +76,7 @@ export function QuickTransactionBar({
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   // Refs
   const amountInputRef = useRef<TextInput>(null);
@@ -762,6 +764,15 @@ export function QuickTransactionBar({
         currency={userCurrency}
         onCreateNew={handleUrunCreateNew}
         creating={createUrun.isPending}
+        onAddFullProduct={() => {
+          // Boş aramada tam ekran ürün ekleme sayfası: iç içe iki modalı (picker + bar)
+          // kapatmadan route push edilirse sayfa modalların arkasında kalır. Bu yüzden
+          // önce ikisini de kapatıp sonra yönlendiriyoruz.
+          modals.setShowUrunPicker(false);
+          modals.setUrunSearchQuery('');
+          handleDismiss();
+          router.push('/urunler/ekle' as Href);
+        }}
       />
 
       {/* Photo Viewer Modal */}
