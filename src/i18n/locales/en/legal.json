@@ -38,7 +38,7 @@
       "transfer": {
         "title": "5. Transfer of Personal Data",
         "intro": "Your personal data may be transferred to:",
-        "items": "Authorized public institutions and organizations in cases of legal obligation\nTechnical infrastructure and cloud service providers\nOther users authorized by the business owner (within the multi-user feature)",
+        "items": "Authorized public institutions and organizations in cases of legal obligation\nTechnical infrastructure and cloud service providers\nOther users authorized by the business owner (within the multi-user feature)\nWhen the business owner shares a client account, only the data related to that specific client account, to the other business it is shared with",
         "outro": "in accordance with applicable data protection regulations."
       },
       "rights": {
@@ -57,7 +57,7 @@
   },
   "terms": {
     "title": "Terms of Service",
-    "lastUpdated": "Last Updated: May 21, 2026",
+    "lastUpdated": "Last Updated: June 18, 2026",
     "intro": "By using the Simple Business Finance application, you agree to the following terms.",
     "sections": {
       "serviceDescription": {
@@ -74,7 +74,7 @@
       },
       "multiUser": {
         "title": "4. Multi-User Access",
-        "content": "Business owners can invite other users to their business by generating invite codes. Invited users are assigned one of the following roles: owner, manager, operator, or purchaser. Each role has different access permissions.\n\nBusiness owners can restrict or revoke invited users' access at any time. Business owners are responsible for the actions of invited users on business data."
+        "content": "Business owners can invite other users to their business by generating invite codes. Invited users are assigned one of the following roles: manager, operator, or custom. Each role has different access permissions.\n\nBusiness owners can restrict or revoke invited users' access at any time. Business owners are responsible for the actions of invited users on business data.\n\nIn addition, a business owner may share a specific client account with another business via a share code. Depending on the granted permission, the other business can only view or edit the information belonging to that client account, and cannot access the business's other data. Client sharing can be revoked at any time."
       },
       "dataSecurity": {
         "title": "5. Data Security",
@@ -116,7 +116,7 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last Updated: May 21, 2026",
+    "lastUpdated": "Last Updated: June 18, 2026",
     "intro": "At Simple Business Finance, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
     "sections": {
       "collectedData": {
@@ -147,7 +147,7 @@
       },
       "multiUser": {
         "title": "3. Multi-User Access and Data Sharing",
-        "content": "Business owners can invite other users to their business by generating invite codes.\nInvited users can access business data within the roles and permissions set by the business owner.\nUser roles (owner, manager, operator, purchaser) provide different access levels.\nBusiness owners can revoke invited users' access at any time."
+        "content": "Business owners can invite other users to their business by generating invite codes.\nInvited users can access business data within the roles and permissions set by the business owner.\nUser roles (owner, manager, operator, and customizable custom roles) provide different access levels.\nBusiness owners can revoke invited users' access at any time.\nIn addition, a business owner may share a specific client account with another business via a share code. The other business can only view or (depending on the granted permission) edit the information and transactions belonging to that single client account, and cannot access the business's other data. Client sharing can be revoked by the owner at any time."
       },
       "appStore": {
         "title": "4. Data Relationship with User (Apple App Store Perspective)",

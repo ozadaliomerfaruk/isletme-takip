@@ -38,7 +38,7 @@
       "transfer": {
         "title": "5. Kişisel Verilerin Aktarılması",
         "intro": "Kişisel verileriniz;",
-        "items": "Yasal zorunluluk hallerinde yetkili kamu kurum ve kuruluşlarına\nTeknik altyapı ve bulut hizmet sağlayıcılarına\nİşletme sahibinin yetkilendirdiği diğer kullanıcılara (çoklu kullanıcı özelliği kapsamında)",
+        "items": "Yasal zorunluluk hallerinde yetkili kamu kurum ve kuruluşlarına\nTeknik altyapı ve bulut hizmet sağlayıcılarına\nİşletme sahibinin yetkilendirdiği diğer kullanıcılara (çoklu kullanıcı özelliği kapsamında)\nİşletme sahibinin bir cari hesabı paylaşması durumunda, yalnızca o cari hesaba ilişkin bilgiler paylaşımın yapıldığı diğer işletmeye",
         "outro": "KVKK'nın 8. ve 9. maddelerine uygun olarak aktarılabilir."
       },
       "rights": {
@@ -57,7 +57,7 @@
   },
   "terms": {
     "title": "Kullanım Koşulları",
-    "lastUpdated": "Son Güncelleme: 21 Mayıs 2026",
+    "lastUpdated": "Son Güncelleme: 18 Haziran 2026",
     "intro": "İşletme Takip – Hesap Kitap uygulamasını kullanarak aşağıdaki koşulları kabul etmiş sayılırsınız.",
     "sections": {
       "serviceDescription": {
@@ -74,7 +74,7 @@
       },
       "multiUser": {
         "title": "4. Çoklu Kullanıcı Erişimi",
-        "content": "İşletme sahibi, davet kodu oluşturarak diğer kullanıcıları işletmesine ekleyebilir. Davet edilen kullanıcılara sahip, yönetici, operatör veya satın almacı rollerinden biri atanır. Her rol farklı erişim yetkilerine sahiptir.\n\nİşletme sahibi, davet ettiği kullanıcıların erişimini istediği zaman kısıtlayabilir veya kaldırabilir. Davet edilen kullanıcıların işletme verileri üzerindeki işlemlerinden işletme sahibi sorumludur."
+        "content": "İşletme sahibi, davet kodu oluşturarak diğer kullanıcıları işletmesine ekleyebilir. Davet edilen kullanıcılara yönetici, operatör veya özel rollerden biri atanır. Her rol farklı erişim yetkilerine sahiptir.\n\nİşletme sahibi, davet ettiği kullanıcıların erişimini istediği zaman kısıtlayabilir veya kaldırabilir. Davet edilen kullanıcıların işletme verileri üzerindeki işlemlerinden işletme sahibi sorumludur.\n\nAyrıca işletme sahibi, belirli bir cari hesabı bir paylaşım kodu ile başka bir işletmeyle paylaşabilir. Paylaşılan işletme, verilen yetkiye göre yalnızca o cari hesaba ait bilgileri görüntüleyebilir veya düzenleyebilir; işletmenin diğer verilerine erişemez. Cari paylaşımı istenildiği zaman kaldırılabilir."
       },
       "dataSecurity": {
         "title": "5. Veri Güvenliği",
@@ -116,7 +116,7 @@
   },
   "privacy": {
     "title": "Gizlilik Politikası",
-    "lastUpdated": "Son Güncelleme: 21 Mayıs 2026",
+    "lastUpdated": "Son Güncelleme: 18 Haziran 2026",
     "intro": "İşletme Takip – Hesap Kitap olarak gizliliğinize önem veriyoruz. Bu Gizlilik Politikası, mobil uygulamamız aracılığıyla toplanan kişisel verilerin hangi amaçlarla işlendiği, nasıl korunduğunu ve kullanıcıların haklarını açıklamaktadır.",
     "sections": {
       "collectedData": {
@@ -147,7 +147,7 @@
       },
       "multiUser": {
         "title": "3. Çoklu Kullanıcı ve Veri Paylaşımı",
-        "content": "İşletme sahibi, davet kodu oluşturarak diğer kullanıcıları işletmesine ekleyebilir.\nDavet edilen kullanıcılar, işletme sahibinin belirlediği rol ve yetkiler kapsamında işletme verilerine erişebilir.\nKullanıcı rolleri (sahip, yönetici, operatör, satın almacı) farklı erişim düzeyleri sunar.\nİşletme sahibi, davet ettiği kullanıcıların erişimini istediği zaman kaldırabilir."
+        "content": "İşletme sahibi, davet kodu oluşturarak diğer kullanıcıları işletmesine ekleyebilir.\nDavet edilen kullanıcılar, işletme sahibinin belirlediği rol ve yetkiler kapsamında işletme verilerine erişebilir.\nKullanıcı rolleri (sahip, yönetici, operatör ve özelleştirilebilir özel roller) farklı erişim düzeyleri sunar.\nİşletme sahibi, davet ettiği kullanıcıların erişimini istediği zaman kaldırabilir.\nAyrıca işletme sahibi, belirli bir cari hesabı bir paylaşım kodu aracılığıyla başka bir işletmeyle paylaşabilir. Paylaşılan işletme yalnızca o cari hesaba ait bilgileri ve işlemleri (verilen yetkiye göre görüntüleyebilir veya düzenleyebilir) görür; işletmenin diğer verilerine erişemez. Cari paylaşımı, sahibi tarafından istenildiği zaman kaldırılabilir."
       },
       "appStore": {
         "title": "4. Verilerin Kullanıcıyla İlişkisi (Apple App Store Açısından)",
