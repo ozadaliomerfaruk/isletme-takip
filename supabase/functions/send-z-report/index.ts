@@ -19,7 +19,46 @@
 //   - Body { "dry_run": true }    -> SENKRON; hesaplar ama GÖNDERMEZ, ne gideceğini döner.
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
+
+// Telemetri — ../_shared importu per-function deploy'da çözülemediği için INLINE
+// (deploy edilen sürümle birebir). Yalnız kullanılan iki yardımcı.
+interface FnTelemetryOptions { name: string; largePayloadProne?: boolean; }
+async function measuredFetch(url: string, init: RequestInit | undefined, fnName: string): Promise<Response> {
+  const t0 = performance.now();
+  let status = 0;
+  try {
+    const res = await fetch(url, init);
+    status = res.status;
+    return res;
+  } finally {
+    try {
+      const host = (() => { try { return new URL(url).host; } catch { return "unknown"; } })();
+      console.log(JSON.stringify({ source: "edge", kind: "upstream", t: Date.now(), fn_name: fnName, upstream: host, upstreamMs: +(performance.now() - t0).toFixed(1), upstreamStatus: status }));
+    } catch { /* */ }
+  }
+}
+function withFnTelemetry(opts: FnTelemetryOptions, handler: (req: Request) => Promise<Response> | Response): (req: Request) => Promise<Response> {
+  const { name } = opts;
+  return async (req: Request) => {
+    const t0 = performance.now();
+    let res: Response | undefined;
+    let thrown: unknown;
+    try {
+      res = await handler(req);
+      return res;
+    } catch (err) {
+      thrown = err;
+      throw err;
+    } finally {
+      try {
+        let status = 0;
+        if (res) status = res.status;
+        else if (thrown) status = 500;
+        console.log(JSON.stringify({ source: "edge", kind: "fn", t: Date.now(), fn_name: name, ms: +(performance.now() - t0).toFixed(1), status, method: req.method, thrown: thrown ? String((thrown as Error).message ?? thrown).slice(0, 200) : undefined }));
+      } catch { /* */ }
+    }
+  };
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -169,15 +208,24 @@ async function runZReport(
     targets = targets.filter((t) => t.user_id === testUserId);
   }
 
-  // Gönderilecek kullanıcıların push token'larını topla
+  // Gönderilecek kullanıcıların push token'larını topla.
+  // ÖNEMLİ (bug fix): user_id'leri TEK .in() ile sorgulamak ~600 kullanıcıda URL uzunluk
+  // limitini aşıp sorguyu BAŞARISIZ yapıyordu -> tokenMap boş -> KİMSEYE gönderilemiyordu.
+  // Bu yüzden 100'erlik gruplara bölüp her grubu ayrı çekiyoruz. Hedefleme/pasiflik/
+  // is_internal/force_z_report mantığı AYNEN korunur; yalnız token getirme parçalanır.
   const userIds = [...new Set(targets.map((t) => t.user_id))];
   const tokenMap = new Map<string, PushTokenRow>();
-  if (userIds.length > 0) {
+  const TOKEN_FETCH_CHUNK = 100;
+  for (let i = 0; i < userIds.length; i += TOKEN_FETCH_CHUNK) {
+    const chunk = userIds.slice(i, i + TOKEN_FETCH_CHUNK);
     const { data: tokens, error: tokenError } = await supabaseAdmin
       .from("push_tokens")
       .select("user_id, token, locale")
-      .in("user_id", userIds);
-    if (tokenError) console.error("push_tokens fetch error:", tokenError.message);
+      .in("user_id", chunk);
+    if (tokenError) {
+      console.error("push_tokens fetch error:", tokenError.message);
+      continue;
+    }
     for (const tk of (tokens || []) as PushTokenRow[]) {
       tokenMap.set(tk.user_id, tk);
     }
