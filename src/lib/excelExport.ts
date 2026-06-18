@@ -9,6 +9,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
 import { formatCurrency, toNumber } from './currency';
+import { getCurrencySymbol } from '@/constants/currencies';
 import { IslemWithRelations, Currency, UrunHareket } from '@/types/database';
 import { invertCariTransactionType, shouldInvertTransaction } from '@/lib/cariTransactionMapper';
 
@@ -846,8 +847,15 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   }
 
   const currency = productCurrency || 'TRY';
-  const formatAmount = (val: number | null) =>
-    val !== null && val !== undefined ? formatCurrency(val, currency) : '';
+
+  // Para hücrelerini Excel'de GERÇEK SAYI (SUM/sıralama/grafik çalışsın) + para-birimi
+  // gösterim formatıyla yaz. Sembol format koduna gömülür; sayı değeri ham kalır.
+  const moneyFmt = `"${getCurrencySymbol(currency)}"#,##0.00`;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SheetJS hücre nesnesi
+  const moneyCell = (val: number | null | undefined, style: any): any =>
+    val !== null && val !== undefined
+      ? { v: val, t: 'n', z: moneyFmt, s: style }
+      : { v: '', s: style };
 
   // İşlemleri tarih sırasına göre sırala (eskiden yeniye)
   const sorted = [...hareketler].sort((a, b) =>
@@ -937,11 +945,11 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
     ws[`C${rowNum}`] = { v: r.cariName, s: cellStyle };
     ws[`D${rowNum}`] = { v: r.quantity, s: currencyCellStyle };
     ws[`E${rowNum}`] = { v: r.unitLabel, s: cellStyle };
-    ws[`F${rowNum}`] = { v: formatAmount(r.unitPrice), s: currencyCellStyle };
-    ws[`G${rowNum}`] = { v: formatAmount(r.subtotal), s: currencyCellStyle };
+    ws[`F${rowNum}`] = moneyCell(r.unitPrice, currencyCellStyle);
+    ws[`G${rowNum}`] = moneyCell(r.subtotal, currencyCellStyle);
     ws[`H${rowNum}`] = { v: r.vatRate != null ? `%${r.vatRate}` : '', s: cellStyle };
-    ws[`I${rowNum}`] = { v: formatAmount(r.vatAmount), s: currencyCellStyle };
-    ws[`J${rowNum}`] = { v: formatAmount(r.total), s: currencyCellStyle };
+    ws[`I${rowNum}`] = moneyCell(r.vatAmount, currencyCellStyle);
+    ws[`J${rowNum}`] = moneyCell(r.total, currencyCellStyle);
     ws[`K${rowNum}`] = { v: r.description, s: cellStyle };
   });
 
@@ -954,7 +962,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   ws[`C${summaryStartRow}`] = { v: t.totalIn, s: summaryRowStyle };
   ws[`D${summaryStartRow}`] = { v: totalIn, s: summaryCurrencyStyle };
   for (let i = 4; i <= 8; i++) ws[`${cols[i]}${summaryStartRow}`] = { v: '', s: summaryRowStyle };
-  ws[`J${summaryStartRow}`] = { v: formatAmount(totalInAmount), s: summaryCurrencyStyle };
+  ws[`J${summaryStartRow}`] = moneyCell(totalInAmount, summaryCurrencyStyle);
   ws[`K${summaryStartRow}`] = { v: '', s: summaryRowStyle };
 
   // Toplam Çıkış
@@ -964,7 +972,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   ws[`C${outRow}`] = { v: t.totalOut, s: summaryRowStyle };
   ws[`D${outRow}`] = { v: -totalOut, s: summaryCurrencyStyle };
   for (let i = 4; i <= 8; i++) ws[`${cols[i]}${outRow}`] = { v: '', s: summaryRowStyle };
-  ws[`J${outRow}`] = { v: formatAmount(totalOutAmount), s: summaryCurrencyStyle };
+  ws[`J${outRow}`] = moneyCell(totalOutAmount, summaryCurrencyStyle);
   ws[`K${outRow}`] = { v: '', s: summaryRowStyle };
 
   // Düzeltme (only if there are adjustment rows)
@@ -988,7 +996,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   ws[`C${netRow}`] = { v: t.netChange, s: totalRowStyle };
   ws[`D${netRow}`] = { v: totalIn - totalOut + totalAdjustment, s: totalCurrencyStyle };
   for (let i = 4; i <= 8; i++) ws[`${cols[i]}${netRow}`] = { v: '', s: totalRowStyle };
-  ws[`J${netRow}`] = { v: formatAmount(totalInAmount - totalOutAmount), s: totalCurrencyStyle };
+  ws[`J${netRow}`] = moneyCell(totalInAmount - totalOutAmount, totalCurrencyStyle);
   ws[`K${netRow}`] = { v: '', s: totalRowStyle };
 
   // Worksheet aralığını ayarla
