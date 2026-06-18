@@ -24,7 +24,7 @@ import { spacing } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { isToday } from '@/lib/date';
+import { isToday, formatDateTimeForDB } from '@/lib/date';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
@@ -207,7 +207,7 @@ export default function TopluGirisPage() {
           hareket_tipi: 'giris',
           items,
           cari_id: selectedCariId,
-          date: date.toISOString().split('T')[0],
+          date: formatDateTimeForDB(date),
         });
       } else {
         const promises = validRows.map(row =>
@@ -217,6 +217,7 @@ export default function TopluGirisPage() {
             miktar: parseCurrency(row.miktar),
             birim_fiyat: parseCurrency(row.birimFiyat) || null,
             aciklama: null,
+            created_at: formatDateTimeForDB(date),
           })
         );
         await Promise.all(promises);

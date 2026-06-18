@@ -110,6 +110,7 @@ export default function UrunDetayPage() {
     miktar: number;
     birimFiyat: number | null;
     urunType: 'giris' | 'cikis';
+    date?: string;
   } | undefined>(undefined);
 
   // İşleme bağlı (cari/hesap/kart/personel) hareketi düzenlemek için QuickTransactionBar edit modu
@@ -141,6 +142,7 @@ export default function UrunDetayPage() {
       miktar: hareket.miktar,
       birimFiyat: hareket.birim_fiyat,
       urunType: hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis',
+      date: hareket.created_at,
     });
     setQuickUrunType(hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis');
     setQuickUrunVisible(true);

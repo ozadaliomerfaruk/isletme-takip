@@ -29,6 +29,7 @@ import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { styles } from './styles';
 import { CariLinkSection } from './CariLinkSection';
 import { toErrorMessage } from '@/lib/errors';
+import { formatDateTimeForDB } from '@/lib/date';
 import { useSettings } from '@/hooks/useSettings';
 import { getCurrencySymbol } from '@/constants/currencies';
 
@@ -50,6 +51,7 @@ interface QuickUrunBarProps {
     miktar: number;
     birimFiyat: number | null;
     urunType: UrunType;
+    date?: string; // Hareketin mevcut iş tarihi (created_at) — edit formuna yüklenir
   };
 }
 
@@ -156,7 +158,9 @@ export function QuickUrunBar({
         // Auto-fill price based on urun type
         setBirimFiyat(getPriceForType(defaultType));
       }
-      setTarih(new Date());
+      // Edit modunda hareketin mevcut tarihini yükle (yoksa bugün); böylece "düzelt"te
+      // tarih görünür ve değiştirilebilir.
+      setTarih(isEditMode && editInitialValues?.date ? new Date(editInitialValues.date) : new Date());
       setShowDatePicker(false);
       setCariLinkEnabled(false);
       setSelectedCariId(null);
@@ -261,6 +265,7 @@ export function QuickUrunBar({
           miktar: delta,
           birim_fiyat: null,
           aciklama: null,
+          created_at: formatDateTimeForDB(tarih),
         });
         handleDismiss();
         Alert.alert(t('common:status.success'), t('products:messages.stockAdjustmentSuccess'));
@@ -285,6 +290,7 @@ export function QuickUrunBar({
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
           hareket_tipi: urunType,
+          created_at: formatDateTimeForDB(tarih),
         });
 
         handleDismiss();
@@ -302,7 +308,7 @@ export function QuickUrunBar({
           birim_fiyat: fiyatNum,
           kdv_orani: kdvOrani,
           cari_id: selectedCariId,
-          date: tarih.toISOString(),
+          date: formatDateTimeForDB(tarih),
         });
 
         handleDismiss();
@@ -318,6 +324,7 @@ export function QuickUrunBar({
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
           aciklama: null,
+          created_at: formatDateTimeForDB(tarih),
         });
 
         handleDismiss();

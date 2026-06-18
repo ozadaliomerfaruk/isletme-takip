@@ -324,6 +324,8 @@ export function useCreateUrunHareket() {
           onceki_miktar: oncekiMiktar,
           yeni_miktar: yeniMiktar,
           aciklama: input.aciklama,
+          // İş tarihi: verilmişse seçilen tarih, yoksa DB now() (undefined -> JSON'da düşer)
+          created_at: input.created_at,
         })
         .select()
         .single();
@@ -568,6 +570,7 @@ export function useUpdateUrunHareket() {
       miktar: number;
       birim_fiyat: number | null;
       hareket_tipi: UrunHareketTipi;
+      created_at?: string; // İş tarihi düzenlemesi; verilmezse değişmez
     }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
@@ -627,6 +630,8 @@ export function useUpdateUrunHareket() {
           miktar: input.miktar,
           birim_fiyat: input.birim_fiyat,
           yeni_miktar: yeniUrunMiktar,
+          // İş tarihi: verilmişse güncelle, yoksa undefined -> JSON'da düşer -> değişmez
+          created_at: input.created_at,
         })
         .eq('id', input.id)
         .eq('isletme_id', isletme.id)
@@ -943,6 +948,8 @@ export function useCreateUrunHareketWithCari() {
           onceki_miktar: oncekiMiktar?.miktar ?? 0,
           yeni_miktar: yeniMiktar,
           aciklama: input.aciklama,
+          // İş tarihi: işlemle (islem.date) aynı tarih → cari ekstresi ile ürün raporu uyuşur
+          created_at: input.date,
         })
         .select()
         .single();
@@ -1111,6 +1118,8 @@ export function useCreateBulkUrunHareketWithCari() {
             onceki_miktar: urunData?.miktar ?? 0,
             yeni_miktar: yeniMiktar,
             aciklama: input.aciklama,
+            // İş tarihi: işlemle (islem.date) aynı tarih → cari ekstresi ile ürün raporu uyuşur
+            created_at: input.date,
           })
           .select()
           .single();

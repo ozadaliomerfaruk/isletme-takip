@@ -788,6 +788,9 @@ export interface UrunHareketInsert {
   birim_fiyat?: number | null;
   kdv_orani?: number | null;
   aciklama?: string | null;
+  /** İş tarihi (geçmiş/ileri tarihli hareket). Verilmezse DB now() uygular.
+   *  formatDateTimeForDB ile yerel tarih+offset olarak yazılmalı (aylık özet substring + görüntü doğru olsun). */
+  created_at?: string;
 }
 
 export interface UrunHareketWithUrun extends UrunHareket {
