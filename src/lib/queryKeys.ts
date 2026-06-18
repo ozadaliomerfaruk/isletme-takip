@@ -37,6 +37,8 @@ export const queryKeys = {
       ['islemler', 'cari', 'all', cariId, isletmeId] as const,
     allByPersonel: (personelId: string, isletmeId: string) =>
       ['islemler', 'personel', 'all', personelId, isletmeId] as const,
+    allLeaveByPersonel: (personelId: string, isletmeId: string) =>
+      ['islemler', 'personel', 'all-leave', personelId, isletmeId] as const,
     search: (isletmeId: string, query: string) =>
       ['islemler-search', isletmeId, query] as const,
   },

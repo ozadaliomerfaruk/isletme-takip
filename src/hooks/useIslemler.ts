@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
-import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } from '@/constants/islemTypes';
+import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType, LEAVE_TYPES } from '@/constants/islemTypes';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount, roundCurrency } from '@/lib/currency';
 import { useSettings } from './useSettings';
@@ -582,6 +582,37 @@ export function useAllIslemlerByPersonel(personelId: string) {
         `)
         .eq('isletme_id', isletme.id)
         .eq('personel_id', personelId)
+        .order('date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data as IslemWithRelations[];
+    },
+    enabled: !!isletme && !!personelId,
+  });
+}
+
+// Personel İZİN işlemleri - izin geçmişi için (type-filtreli, pagination yok).
+// Sadece izin satırları çekilir (düşük egress); tüm izin geçmişi eksiksiz gelir.
+export function useAllLeaveByPersonel(personelId: string) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.islemler.allLeaveByPersonel(personelId, isletme?.id ?? ''),
+    queryFn: async () => {
+      if (!isletme || !personelId) return [];
+
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          *,
+          kategori:kategoriler(id,name),
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+        `)
+        .eq('isletme_id', isletme.id)
+        .eq('personel_id', personelId)
+        .in('type', LEAVE_TYPES)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
 

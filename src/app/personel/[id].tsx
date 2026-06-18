@@ -44,6 +44,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
 import { usePersonelById, useDeletePersonel, useUpdatePersonel } from '@/hooks/usePersonel';
+import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
 import { useUnarchivePersonel } from '@/hooks/useArchive';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIslemler';
@@ -175,6 +176,9 @@ export default function PersonelHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const { data: entityNotes } = useNotlarByEntity('personel', id!);
+  // İzin kotası: KANONİK kaynak (tüm izin satırları, sayfalamasız) — ana sayfa ve izin
+  // geçmişiyle birebir aynı; paginated `islemler`'den hesaplanmaz (scroll'a göre oynamaz).
+  const { data: leaveQuotas } = usePersonelLeaveQuotas();
   const { canUpdate, canDelete } = usePermissions();
   const { user, isletme } = useAuthContext();
   const deleteIslem = useDeleteIslem();
@@ -262,22 +266,12 @@ export default function PersonelHareketleriPage() {
     return toNumber(personel.balance) - totalEffect;
   }, [personel, islemler]);
 
-  // İzin kota hesaplaması
-  const leaveQuota = useMemo(() => {
-    if (!islemler) return { hakEdilen: 0, kullanilan: 0 };
-    return islemler.reduce(
-      (acc, islem) => {
-        const amount = toNumber(islem.amount);
-        if (islem.type === 'personel_izin_hakki') {
-          acc.hakEdilen += amount;
-        } else if (islem.type === 'personel_izin_kullanimi') {
-          acc.kullanilan += amount;
-        }
-        return acc;
-      },
-      { hakEdilen: 0, kullanilan: 0 }
-    );
-  }, [islemler]);
+  // İzin kotası KANONİK kaynaktan (usePersonelLeaveQuotas) — sayfalı `islemler` listesine
+  // bağlı DEĞİL; böylece kart ana sayfa/izin geçmişiyle aynı değeri verir ve scroll'la oynamaz.
+  const leaveQuota = useMemo(
+    () => leaveQuotas?.[id!] ?? { hakEdilen: 0, kullanilan: 0 },
+    [leaveQuotas, id]
+  );
 
   const handleAddLeave = useCallback(() => {
     setQuickBarDefaultType('personel_izin_hakki_tab');

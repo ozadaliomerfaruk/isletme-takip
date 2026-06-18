@@ -15,7 +15,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { usePersonel } from '@/hooks/usePersonel';
-import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
+import { useAllLeaveByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
 import { useNotlarByEntity, useDeleteNot, useUpdateNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { NoteRow } from '@/components/notes/NoteRow';
@@ -58,7 +58,12 @@ export default function LeaveHistoryPage() {
 
   const { isletme } = useAuthContext();
   const { data: personel, refetch: refetchPersonel } = usePersonel(id);
-  const { data: islemler, refetch: refetchIslemler } = useIslemlerByPersonel(id!);
+  // İzin-only, pagination'sız sorgu: TÜM izin hareketleri (geçmiş yıl dahil) eksiksiz gelir,
+  // sadece izin satırları çekilir (düşük egress). Böylece liste tam + kalan gün ana sayfayla
+  // (usePersonelLeaveQuotas, aynı toplam) birebir aynı olur.
+  // (Önceki useIslemlerByPersonel sayfalıydı; en yeni 50 işlemi yüklüyordu → geçmiş hak ediş
+  //  listede yok + 22 gün eksik gösteriyordu.)
+  const { data: islemler, refetch: refetchIslemler } = useAllLeaveByPersonel(id!);
   const { data: entityNotes, refetch: refetchNotes } = useNotlarByEntity('personel_izin', id!);
 
   const { refreshing, onRefresh } = usePullToRefresh(refetchPersonel, refetchIslemler, refetchNotes);
