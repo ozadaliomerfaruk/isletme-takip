@@ -432,18 +432,22 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
 }
 
 // Cari işlemleri (kategori bilgisi dahil) - infinite scroll
-export function useIslemlerByCari(cariId: string) {
+// asViewer=true: bağlantılı cari'yi GÖRÜNTÜLEYEN işletme için. Kendi isletme_id filtresi
+// UYGULANMAZ; bunun yerine RLS (view_linked_islemler) erişimi yalnız bağlı cari'nin
+// işlemleriyle sınırlar → sahibin işlemleri güvenle görünür, başka veri sızmaz.
+// asViewer=false (varsayılan): sahip/normal akış — davranış birebir aynı.
+export function useIslemlerByCari(cariId: string, asViewer = false) {
   const { isletme } = useAuthContext();
 
   const result = useInfiniteQuery({
-    queryKey: queryKeys.islemler.byCari(cariId, isletme?.id ?? ''),
+    queryKey: [...queryKeys.islemler.byCari(cariId, isletme?.id ?? ''), asViewer ? 'viewer' : 'owner'],
     queryFn: async ({ pageParam = 0 }) => {
       if (!isletme || !cariId) return [];
 
       const from = pageParam * ISLEMLER_PAGE_SIZE;
       const to = from + ISLEMLER_PAGE_SIZE - 1;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('islemler')
         .select(`
           *,
@@ -451,8 +455,14 @@ export function useIslemlerByCari(cariId: string) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
-        .eq('isletme_id', isletme.id)
-        .eq('cari_id', cariId)
+        .eq('cari_id', cariId);
+
+      // Sahip/normal akışta kendi işletmesiyle sınırla. Viewer'da atlanır (RLS scope eder).
+      if (!asViewer) {
+        query = query.eq('isletme_id', isletme.id);
+      }
+
+      const { data, error } = await query
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
         .range(from, to);

@@ -398,11 +398,16 @@ export default function CariHareketleriPage() {
   const exchangeRates = exchangeRatesData?.rates;
 
   const { data: cari, isLoading: cariLoading, refetch: refetchCari } = useCari(id!);
-  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByCari(id!);
+  // Viewer bağlantı durumu — işlemler sorgusundan ÖNCE belirlenmeli (sahibin işlemlerini
+  // çekmek için asViewer parametresi gerekiyor).
+  const { data: linkStatus } = useCariLinkStatus(id);
+  const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
+  // Viewer ise sahibin işlemlerini de çek: kendi isletme_id filtresi atlanır, erişimi RLS
+  // (view_linked_islemler) yalnız bağlı cari ile sınırlar → güvenli, RLS'e dokunulmaz.
+  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByCari(id!, !!isViewer);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
   const { data: entityNotes } = useNotlarByEntity('cari', id!);
-  const { data: linkStatus } = useCariLinkStatus(id);
   const { canUpdate, canDelete } = usePermissions();
   const { user, isletme } = useAuthContext();
   const haptics = useHaptics();
@@ -412,8 +417,7 @@ export default function CariHareketleriPage() {
     isUpdatingNote,
   } = useDetailNoteHandlers({ entityType: 'cari', entityId: id!, entityNotes, isletmeId: isletme?.id });
 
-  // Viewer olarak baglantili mi ve izin seviyesi nedir
-  const isViewer = linkStatus?.is_linked && !linkStatus.is_owner;
+  // Viewer izin seviyesi (isViewer yukarıda, işlemler sorgusundan önce tanımlandı)
   const isViewerViewOnly = isViewer && linkStatus?.permission === 'view';
   const canEditTransactions = !isViewer || linkStatus?.permission === 'full';
 
@@ -573,6 +577,9 @@ export default function CariHareketleriPage() {
 
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
+    // Görüntüleme modundaki viewer: işleme tıklama BOŞ geçer (ürün detayı/QTB hiçbir şey açılmaz).
+    if (isViewerViewOnly) return;
+
     const islem = (islemler || []).find(i => i.id === islemId);
     if (!islem) return;
 
@@ -586,7 +593,7 @@ export default function CariHareketleriPage() {
 
     setEditTransactionId(islemId);
     setShowEditBar(true);
-  }, [hasUrun, islemler, isletme?.id]);
+  }, [hasUrun, islemler, isletme?.id, isViewerViewOnly]);
 
   // Fotoğraf ikonuna basıldığında fotoğraf viewer aç
   const handlePressPhoto = useCallback((islemId: string) => {
@@ -603,9 +610,10 @@ export default function CariHareketleriPage() {
   }, [islemler, requestDelete, t]);
 
   const handleLongPressIslem = useCallback((islemId: string) => {
+    if (isViewerViewOnly) return; // viewer (görüntüleme): basılı tutma da bir şey açmaz
     setEditTransactionId(islemId);
     setShowEditBar(true);
-  }, []);
+  }, [isViewerViewOnly]);
 
   const handleCopyIslem = useCallback((islemId: string) => {
     setCopySourceId(islemId);
