@@ -95,9 +95,11 @@ export const resources = {
 // Get device language
 const getDeviceLanguage = (): string => {
   const locales = Localization.getLocales();
-  const deviceLang = locales[0]?.languageCode || 'tr';
-  // Only support tr and en, fallback to tr
-  return ['tr', 'en'].includes(deviceLang) ? deviceLang : 'tr';
+  const deviceLang = locales[0]?.languageCode || 'en';
+  // Yalnız tr/en destekleniyor. Türkçe cihaz -> Türkçe; diğer TÜM diller (ve algılanamayan)
+  // -> İngilizce. (Önceden tr-dışı her dil Türkçe'ye düşüyordu; uluslararası kullanıcıda
+  // İngilizce daha evrensel.)
+  return deviceLang === 'tr' ? 'tr' : 'en';
 };
 
 // Namespace list
@@ -129,7 +131,7 @@ i18n
   .init({
     resources,
     lng: getDeviceLanguage(),
-    fallbackLng: 'tr',
+    fallbackLng: 'en',
     defaultNS: 'common',
     ns: namespaces,
     interpolation: {
