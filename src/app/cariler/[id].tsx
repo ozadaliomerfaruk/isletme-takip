@@ -21,6 +21,7 @@ import {
   Eye,
   ShieldCheck,
   Info,
+  Link,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
@@ -54,7 +55,6 @@ import { useCeklerByCari } from '@/hooks/useCekler';
 import { IslemWithRelations, IslemType, Not } from '@/types/database';
 import { useCariLinkStatus, useRemoveCariLink } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
-import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { invertCariTransactionType, hasTypeMismatch, shouldInvertTransaction } from '@/lib/cariTransactionMapper';
@@ -804,11 +804,23 @@ export default function CariHareketleriPage() {
     const isTedarikci = effectiveType === 'tedarikci';
     // Viewer perspektifinde bakiye ters cevrilerek gosterilir
     const displayBalance = shouldInvertBalance ? -Number(cari.balance) : Number(cari.balance);
+    // Bağlantılı (paylaşılan) cari: ayrı kutu yerine özet kartının çerçevesi yeşil + üstte
+    // kompakt "Bağlantılı · {paylaşan işletme}" şeridi gösterilir.
+    const linkedOwnerName = (linkStatus?.is_linked && linkStatus.link?.owner_isletme?.name) || undefined;
 
     return (
       <View>
         {/* Cari Özeti */}
-        <Card style={styles.summaryCard}>
+        <Card style={[styles.summaryCard, linkedOwnerName && styles.summaryCardLinked]}>
+          {linkedOwnerName && (
+            <View style={styles.linkedStrip}>
+              <Link size={13} color={colors.primary} />
+              <Text style={styles.linkedStripText} numberOfLines={1}>
+                {t('clients:sharing.linkedBadge')}
+                <Text style={styles.linkedStripPartner}>{'  ·  ' + linkedOwnerName}</Text>
+              </Text>
+            </View>
+          )}
           <View style={styles.summaryRow}>
             <View style={[styles.summaryIcon, { backgroundColor: isTedarikci ? colors.warningLight : colors.infoLight }]}>
               {isTedarikci ? (
@@ -846,18 +858,7 @@ export default function CariHareketleriPage() {
           </View>
         </Card>
 
-        {/* Bağlantı Durumu */}
-        {linkStatus?.is_linked && linkStatus.link?.owner_isletme?.name && (
-          <View style={styles.linkedBadgeContainer}>
-            <LinkedCariBadge
-              ownerIsletmeName={linkStatus.link.owner_isletme.name}
-              permission={linkStatus.permission ?? 'view'}
-              variant="card"
-            />
-          </View>
-        )}
-
-        {/* Paylaşım İzin Modu Banner */}
+        {/* Paylaşım İzin Modu Banner (görüntüleme/tam erişim) — tek yer, kart şeridiyle tekrar etmez */}
         {isViewer && (
           <View style={styles.permissionBanner}>
             {isViewerViewOnly ? (
@@ -1233,9 +1234,30 @@ const styles = StyleSheet.create({
   summaryCard: {
     margin: spacing.lg,
   },
-  linkedBadgeContainer: {
-    marginHorizontal: spacing.lg,
+  // Bağlantılı (paylaşılan) cari: kart çerçevesi yeşil
+  summaryCardLinked: {
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  // Kart üstündeki kompakt "Bağlantılı · {paylaşan}" şeridi
+  linkedStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
     marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary + '22',
+  },
+  linkedStripText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  linkedStripPartner: {
+    fontWeight: '400',
+    color: colors.textSecondary,
   },
   bannerContainer: {
     marginHorizontal: spacing.lg,
