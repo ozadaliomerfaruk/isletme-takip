@@ -13,7 +13,7 @@ import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, 
 import type { Currency, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
-import { checkNetworkConnectivity } from '@/lib/supabase';
+import { supabase, checkNetworkConnectivity } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
 
 interface Hesap {
@@ -584,6 +584,48 @@ export function useTransactionSubmit({
       return;
     }
 
+    // İzin kullanımı: bitiş tarihi başlangıçtan önce olamaz (ters aralık) — sessiz 1-güne
+    // kelepçelenme yerine kullanıcıya açık uyarı ver ve kaydı engelle.
+    if (type === 'personel_izin_kullanimi_tab' && safeDateEnd) {
+      const startDay = new Date(safeDate.getFullYear(), safeDate.getMonth(), safeDate.getDate()).getTime();
+      const endDay = new Date(safeDateEnd.getFullYear(), safeDateEnd.getMonth(), safeDateEnd.getDate()).getTime();
+      if (endDay < startDay) {
+        Alert.alert(t('staff:leave.invalidRangeTitle'), t('staff:leave.invalidRangeMessage'));
+        return;
+      }
+    }
+
+    // İzin hak edişi: aynı GÜNE zaten hak ediş girilmişse onay iste (mükerrer kaydı engelleme,
+    // sadece "emin misiniz?"). Yalnız yeni kayıt için (edit'te atla).
+    if (type === 'personel_izin_hakki_tab' && !isEditMode && personelId && isletme) {
+      try {
+        const { data: existing } = await supabase
+          .from('islemler')
+          .select('date')
+          .eq('isletme_id', isletme.id)
+          .eq('personel_id', personelId)
+          .eq('type', 'personel_izin_hakki');
+        const targetDay = formatDateForDB(safeDate);
+        const dup = (existing ?? []).some((r) => r.date && formatDateForDB(new Date(r.date)) === targetDay);
+        if (dup) {
+          const proceed = await new Promise<boolean>((resolve) => {
+            Alert.alert(
+              t('staff:leave.duplicateTitle'),
+              t('staff:leave.duplicateMessage'),
+              [
+                { text: t('common:buttons.cancel'), style: 'cancel', onPress: () => resolve(false) },
+                { text: t('common:buttons.continue'), onPress: () => resolve(true) },
+              ],
+              { cancelable: true, onDismiss: () => resolve(false) }
+            );
+          });
+          if (!proceed) return;
+        }
+      } catch {
+        // Mükerrer kontrolü başarısız olursa kaydı engelleme (sadece uyarı atlanır)
+      }
+    }
+
     // Parse amount
     const parsedAmount = parseCurrency(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
@@ -799,6 +841,7 @@ export function useTransactionSubmit({
     hesapId,
     isScheduled,
     safeDate,
+    safeDateEnd,
     photoUri,
     isletme,
     t,

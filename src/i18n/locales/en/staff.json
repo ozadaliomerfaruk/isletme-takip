@@ -170,7 +170,11 @@
     "dayCountLabel": "Number of Days",
     "carryOver": "Carry over from previous period",
     "remainingDays": "{{count}} days leave",
-    "noLeave": "No leave"
+    "noLeave": "No leave",
+    "duplicateTitle": "Leave Entitlement Exists",
+    "duplicateMessage": "A leave entitlement already exists for this day. Are you sure you want to add another?",
+    "invalidRangeTitle": "Invalid Date Range",
+    "invalidRangeMessage": "End date cannot be before start date."
   },
   "milestones": {
     "startDate": "Start Date",

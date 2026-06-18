@@ -134,12 +134,18 @@ export function QuickTransactionBar({
   // Leave usage type flag
   const isLeaveUsageType = form.type === 'personel_izin_kullanimi_tab';
 
-  // Auto-calculate day count from date range for leave usage
+  // Auto-calculate day count from date range for leave usage.
+  // Gün başına (yerel 00:00) normalize edilir: saat farkı / DST kenarı gün sayısını bozmasın
+  // (ham getTime() farklı saatlerde ±1 gün hatalı sayıyordu). Round, DST gün-uzunluğu
+  // sapmasını da tolere eder. Ters aralık burada 1'e kelepçelenir ama kayıt anında
+  // "geçersiz aralık" ile engellenir (useTransactionSubmit).
   useEffect(() => {
     if (isLeaveUsageType && form.dateEnd) {
-      const startMs = form.safeDate.getTime();
-      const endMs = form.dateEnd.getTime();
-      const diffDays = Math.max(1, Math.floor((endMs - startMs) / (1000 * 60 * 60 * 24)) + 1);
+      const s = form.safeDate;
+      const e = form.dateEnd;
+      const startDay = new Date(s.getFullYear(), s.getMonth(), s.getDate()).getTime();
+      const endDay = new Date(e.getFullYear(), e.getMonth(), e.getDate()).getTime();
+      const diffDays = Math.max(1, Math.round((endDay - startDay) / (1000 * 60 * 60 * 24)) + 1);
       form.setAmount(diffDays.toString());
     }
   }, [isLeaveUsageType, form.safeDate, form.dateEnd]);

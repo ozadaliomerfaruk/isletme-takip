@@ -170,7 +170,11 @@
     "dayCountLabel": "Gün Sayısı",
     "carryOver": "Önceki dönemden devir",
     "remainingDays": "{{count}} gün izin",
-    "noLeave": "İzin yok"
+    "noLeave": "İzin yok",
+    "duplicateTitle": "İzin Hak Edişi Var",
+    "duplicateMessage": "Bu güne zaten izin hak edişi girilmiş. Tekrar eklemek istediğinize emin misiniz?",
+    "invalidRangeTitle": "Geçersiz Tarih Aralığı",
+    "invalidRangeMessage": "Bitiş tarihi başlangıç tarihinden önce olamaz."
   },
   "milestones": {
     "startDate": "İşe Giriş",
