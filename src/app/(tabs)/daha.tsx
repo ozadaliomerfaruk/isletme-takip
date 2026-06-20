@@ -123,6 +123,9 @@ export default function DahaPage() {
 
   const handleDateFormatChange = async (format: DateFormatType) => {
     await setDateFormat(format);
+    // Invalidate all queries so mounted screens re-render with the new date format
+    // (lib/date.ts reads the global format; non-useSettings screens otherwise stay stale)
+    queryClient.invalidateQueries();
     setDateFormatModalVisible(false);
   };
 
