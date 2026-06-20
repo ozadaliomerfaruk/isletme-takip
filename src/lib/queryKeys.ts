@@ -422,12 +422,18 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       // yeniden adlandırılınca cari/personel ile tutarlı olması için islemler de yenilenmeli
       // (aksi halde açık liste eski adı navigasyona kadar gösteriyordu).
       'islemler',
-    ],
-    deferred: [
+      // Aynı "açık ekran eski adı/rengi gösteriyor" sorunu raporlar için de geçerli:
+      // mounted rapor ekranları kategori değişiminde anında güncellensin (deferred mounted observer'ı yenilemiyor).
       'category-report',
+      'hierarchical-category-report',
       'category-transactions',
+      'multi-category-transactions',
+      'sub-category-report-rpc',
       'cash-flow-by-category',
+      'product-report',
+      'product-report-returns',
     ],
+    deferred: [],
   },
 
   // İşletme değişikliği - her şeyi invalidate et
@@ -459,11 +465,23 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'urun',
       'urun-hareketler',
       'archive',
-    ],
-    deferred: [
+      // Raporlar: ürünün kategorisi/adı/fiyatı değişince AÇIK rapor ekranı anında güncellensin.
+      // Bunlar rapor ekranlarının fiilen kullandığı query key'ler (bkz. queryKeys.report.*).
+      // Eskiden urun invalidation'ında bu key'ler ya hiç yoktu ya da deferred'di (refetchType:'none');
+      // raporlarda useFocusEffect/odak-refetch yok ve deferred mounted observer'ı yenilemediği için,
+      // kategori raporu açıkken ürünün kategorisini değiştirip dönünce rapor eski kategoride takılı kalıyordu.
+      // 'active' (immediate) ile mounted rapor anında yenilenir; rapor kapalıyken refetchType:'active'
+      // hiçbir şey çekmez → maliyetsiz. (Aynı mantık kategori bloğundaki 'islemler' #8 notu ile birebir.)
       'category-report',
       'hierarchical-category-report',
+      'category-transactions',
+      'multi-category-transactions',
+      'sub-category-report-rpc',
+      'cash-flow-by-category',
+      'product-report',
+      'product-report-returns',
     ],
+    deferred: [],
   },
 
   // Urun hareket değişikliği
