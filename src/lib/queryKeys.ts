@@ -309,7 +309,17 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'personel-detail',
       'personel-leave-quotas',
       'month-summary',
+      // Raporlar: işlem değişimi tüm kategori/ürün raporlarını etkiler. raporlar/kategori/[id]
+      // ekranı QuickTransactionBar'ı gömülü barındırdığı için işlem o ekran MOUNTED iken
+      // düzenlenebiliyor; deferred (refetchType:'none') mounted ekranı yenilemediğinden bu
+      // rapor key'leri immediate olmalı (urun/kategori bloklarıyla tutarlı).
       'category-report',
+      'hierarchical-category-report',
+      'category-report-returns',
+      'hierarchical-category-report-returns',
+      'category-transactions',
+      'multi-category-transactions',
+      'sub-category-report-rpc',
       'cash-flow-by-category',
       'urun-hareketler',
       'product-report',
@@ -317,7 +327,6 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     ],
     deferred: [
       'dashboard',
-      'category-transactions',
       'analytics-periods',
       'analytics-trend',
     ],
@@ -418,6 +427,10 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     immediate: [
       'kategoriler',
       'kategori',
+      // Kategori lookup map'i (id->ad/renk/parent) ve alt-kategori ağacı: rename/recolor/parent
+      // değişiminde rapor & dashboard widget'ları bunlardan okur; mounted iken bayat kalmasın.
+      'all-kategoriler',
+      'sub-categories',
       // #8: İşlem listeleri kategori adını embedded join ile gömülü tutuyor; kategori
       // yeniden adlandırılınca cari/personel ile tutarlı olması için islemler de yenilenmeli
       // (aksi halde açık liste eski adı navigasyona kadar gösteriyordu).
