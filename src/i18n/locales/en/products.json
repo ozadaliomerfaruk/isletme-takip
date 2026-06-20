@@ -94,11 +94,19 @@
   "search": {
     "placeholder": "Search product, category..."
   },
+  "filter": {
+    "all": "All",
+    "uncategorized": "Uncategorized",
+    "resultCount": "{{count}} products",
+    "clear": "Clear"
+  },
   "empty": {
     "title": "No products yet",
     "description": "Add a product to start tracking inventory",
     "archivedTitle": "No archived products",
-    "archivedDescription": "Archived products will appear here"
+    "archivedDescription": "Archived products will appear here",
+    "noResultsTitle": "No results found",
+    "noResultsDescription": "Try changing your search or filter"
   },
   "tabs": {
     "active": "Active",

@@ -94,11 +94,19 @@
   "search": {
     "placeholder": "Ürün, kategori ara..."
   },
+  "filter": {
+    "all": "Tümü",
+    "uncategorized": "Kategorisiz",
+    "resultCount": "{{count}} ürün",
+    "clear": "Temizle"
+  },
   "empty": {
     "title": "Henüz ürün yok",
     "description": "Ürün ekleyerek ürün takibine başlayın",
     "archivedTitle": "Arşivde ürün yok",
-    "archivedDescription": "Arşivlenen ürünler burada görünecek"
+    "archivedDescription": "Arşivlenen ürünler burada görünecek",
+    "noResultsTitle": "Sonuç bulunamadı",
+    "noResultsDescription": "Aramanızı veya filtreyi değiştirip tekrar deneyin"
   },
   "tabs": {
     "active": "Aktif",

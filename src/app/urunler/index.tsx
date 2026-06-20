@@ -3,10 +3,11 @@ import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressabl
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
+import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet, X } from 'lucide-react-native';
 import { Text, Button, Input, EmptyState, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
+import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
 import { styles } from '@/components/urunlerPage/styles';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -38,6 +39,8 @@ export default function UrunlerPage() {
   const { t } = useTranslation(['products', 'common', 'errors', 'reports', 'categories']);
   const { getDateRangeLabel, locale } = useDateFormat();
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState<string>(CATEGORY_FILTER_ALL);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [quickUrunVisible, setQuickUrunVisible] = useState(false);
   const [selectedUrun, setSelectedUrun] = useState<Urun | null>(null);
@@ -94,6 +97,12 @@ export default function UrunlerPage() {
     }).start();
   }, [fabMenuVisible, fabAnim]);
 
+  // Arama debounce: her tuş vuruşunda tüm listeyi yeniden filtrelememek için
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedSearch(searchQuery), 250);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
   const { isletme } = useAuthContext();
   const { canUpdate, canDelete } = usePermissions();
   const [isExporting, setIsExporting] = useState(false);
@@ -122,13 +131,42 @@ export default function UrunlerPage() {
     onCommitDelete: (id) => permanentDeleteUrun.mutateAsync(id),
   });
 
-  const uncategorizedProductCount = useMemo(
-    () => (urunler || []).filter(u => !u.kategori_id).length,
-    [urunler]
-  );
-
   // Kategori id -> ad map'i
   const kategoriMap = useMemo(() => new Map(kategoriler?.map(k => [k.id, k.name]) || []), [kategoriler]);
+
+  // "Kategorisiz" = kategori_id null VEYA artık mevcut olmayan (silinmiş/pasif) bir kategoriye
+  // işaret ediyor. Silinmiş kategoriye bağlı ürünler de kategorisiz sayılır; aksi halde adı
+  // çözülemediği için ayrı ve kafa karıştırıcı bir '?' grubu oluşuyordu.
+  const isUrunUncategorized = useCallback(
+    (u: Urun) => !u.kategori_id || !kategoriMap.has(u.kategori_id),
+    [kategoriMap]
+  );
+
+  const uncategorizedProductCount = useMemo(
+    () => (urunler || []).filter(isUrunUncategorized).length,
+    [urunler, isUrunUncategorized]
+  );
+
+  // Üründe fiilen kullanılan (hâlâ mevcut) kategoriler, sayaçlarıyla — filtre çipleri için
+  const categoryChips = useMemo(() => {
+    const counts = new Map<string, number>();
+    (urunler || []).forEach((u) => {
+      if (u.kategori_id && kategoriMap.has(u.kategori_id)) {
+        counts.set(u.kategori_id, (counts.get(u.kategori_id) || 0) + 1);
+      }
+    });
+    return Array.from(counts.entries())
+      .map(([id, count]) => ({ id, name: kategoriMap.get(id)!, count }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+  }, [urunler, kategoriMap]);
+
+  const isFiltered = searchQuery.trim().length > 0 || categoryFilter !== CATEGORY_FILTER_ALL;
+
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery('');
+    setDebouncedSearch('');
+    setCategoryFilter(CATEGORY_FILTER_ALL);
+  }, []);
 
   // ÃœrÃ¼n listesi export
   const handleExportProductList = useCallback(async () => {
@@ -174,17 +212,30 @@ export default function UrunlerPage() {
     }
   }, [urunler, isletme, kategoriMap, t, showToast]);
 
-  // Arama filtresi (Ã¼rÃ¼n adÄ±, kodu ve kategori adÄ±)
+  // Arama (Ã¼rÃ¼n adÄ±, kodu ve kategori adÄ±) + kategori filtresi
   const filteredUrunler = useMemo(() => {
+    const query = debouncedSearch.toLowerCase();
     const filtered = urunler?.filter((urun) => {
       if (pendingDeleteIds.has(urun.id)) return false;
-      const query = searchQuery.toLowerCase();
-      const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
-      return (
-        urun.ad.toLowerCase().includes(query) ||
-        (urun.kod && urun.kod.toLowerCase().includes(query)) ||
-        (kategoriAdi && kategoriAdi.includes(query))
-      );
+
+      // Kategori filtresi
+      if (categoryFilter === CATEGORY_FILTER_UNCATEGORIZED) {
+        if (!isUrunUncategorized(urun)) return false;
+      } else if (categoryFilter !== CATEGORY_FILTER_ALL) {
+        if (urun.kategori_id !== categoryFilter) return false;
+      }
+
+      // Arama filtresi
+      if (query) {
+        const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
+        const matches =
+          urun.ad.toLowerCase().includes(query) ||
+          (urun.kod && urun.kod.toLowerCase().includes(query)) ||
+          (kategoriAdi && kategoriAdi.includes(query));
+        if (!matches) return false;
+      }
+
+      return true;
     }) || [];
 
     // SÄ±ralama
@@ -208,13 +259,13 @@ export default function UrunlerPage() {
           return 0;
       }
     });
-  }, [urunler, searchQuery, kategoriMap, sortType, donemUrunOzet, pendingDeleteIds]);
+  }, [urunler, debouncedSearch, categoryFilter, kategoriMap, sortType, donemUrunOzet, pendingDeleteIds, isUrunUncategorized]);
 
-  // ArÅŸivlenmiÅŸ Ã¼rÃ¼nler filtresi
+  // ArÅŸivlenmiÅŸ Ã¼rÃ¼nler filtresi (arama)
   const filteredArchivedUrunler = useMemo(() => {
     if (!archivedUrunler) return [];
-    if (!searchQuery) return archivedUrunler;
-    const query = searchQuery.toLowerCase();
+    if (!debouncedSearch) return archivedUrunler;
+    const query = debouncedSearch.toLowerCase();
     return archivedUrunler.filter((urun) => {
       const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
       return (
@@ -223,7 +274,7 @@ export default function UrunlerPage() {
         (kategoriAdi && kategoriAdi.includes(query))
       );
     });
-  }, [archivedUrunler, searchQuery, kategoriMap]);
+  }, [archivedUrunler, debouncedSearch, kategoriMap]);
 
   const archivedCount = archivedUrunler?.length ?? 0;
 
@@ -244,7 +295,7 @@ export default function UrunlerPage() {
       { key: 'saleLeast', label: t('products:sort.saleLeast') },
     ];
     return options.map(opt => ({
-      label: opt.key === sortType ? `âœ“  ${opt.label}` : `    ${opt.label}`,
+      label: opt.key === sortType ? `✓  ${opt.label}` : `    ${opt.label}`,
       onPress: () => {
         setSortType(opt.key);
         haptics.light();
@@ -523,6 +574,14 @@ export default function UrunlerPage() {
             value={searchQuery}
             onChangeText={setSearchQuery}
             leftIcon={<Search size={20} color={colors.textMuted} />}
+            rightIcon={searchQuery.length > 0 ? (
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <X size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            ) : undefined}
           />
         </View>
       )}
@@ -595,23 +654,59 @@ export default function UrunlerPage() {
         </View>
       )}
 
-      {/* Kategorisiz Ã¼rÃ¼n uyarÄ±sÄ± */}
+      {/* Kategori filtresi */}
+      {activeTab === 'active' && (urunler && urunler.length > 0) && (
+        <ProductCategoryFilter
+          chips={categoryChips}
+          totalCount={urunler.length}
+          uncategorizedCount={uncategorizedProductCount}
+          value={categoryFilter}
+          onChange={setCategoryFilter}
+          isFiltered={isFiltered}
+          resultCount={filteredUrunler.length}
+          onClearFilters={handleClearFilters}
+        />
+      )}
+
+      {/* Kategorisiz Ã¼rÃ¼n uyarÄ±sÄ± (tÄ±klanÄ±nca o Ã¼rÃ¼nleri filtreler) */}
       {activeTab === 'active' && uncategorizedProductCount > 0 && (
         <View style={styles.warningSection}>
-          <View style={styles.warningBanner}>
+          <TouchableOpacity
+            style={styles.warningBanner}
+            activeOpacity={0.7}
+            onPress={() => {
+              haptics.light();
+              setCategoryFilter(CATEGORY_FILTER_UNCATEGORIZED);
+            }}
+          >
             <AlertTriangle size={16} color={colors.warning} />
             <Text variant="caption" style={styles.warningText}>
               {t('categories:warnings.uncategorizedProducts', { count: uncategorizedProductCount })}
             </Text>
-          </View>
+            <ChevronRight size={16} color={colors.warning} />
+          </TouchableOpacity>
         </View>
       )}
     </View>
-  ), [t, urunler, archivedCount, searchQuery, activeTab, TAB_OPTIONS, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, router, uncategorizedProductCount]);
+  ), [t, urunler, archivedCount, searchQuery, activeTab, TAB_OPTIONS, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, router, uncategorizedProductCount, categoryChips, categoryFilter, isFiltered, filteredUrunler, handleClearFilters, isExporting]);
 
   // Empty component
   const listEmptyComponent = useMemo(() => {
     if (activeTab === 'active') {
+      // ÃœrÃ¼n var ama arama/filtre sonucu boÅŸ â†’ "sonuÃ§ yok"
+      if ((urunler?.length ?? 0) > 0) {
+        return (
+          <View style={styles.listSection}>
+            <EmptyState
+              icon={<Search size={48} color={colors.textMuted} />}
+              title={t('products:empty.noResultsTitle')}
+              description={t('products:empty.noResultsDescription')}
+              actionLabel={t('products:filter.clear')}
+              onAction={handleClearFilters}
+            />
+          </View>
+        );
+      }
       return (
         <View style={styles.listSection}>
           <EmptyState
@@ -620,6 +715,20 @@ export default function UrunlerPage() {
             description={t('products:empty.description')}
             actionLabel={t('products:addProduct')}
             onAction={() => router.push('/urunler/ekle' as Href)}
+          />
+        </View>
+      );
+    }
+    // ArÅŸiv: arama sonucu boÅŸ â†’ "sonuÃ§ yok"
+    if ((archivedUrunler?.length ?? 0) > 0) {
+      return (
+        <View style={styles.listSection}>
+          <EmptyState
+            icon={<Search size={48} color={colors.textMuted} />}
+            title={t('products:empty.noResultsTitle')}
+            description={t('products:empty.noResultsDescription')}
+            actionLabel={t('products:filter.clear')}
+            onAction={handleClearFilters}
           />
         </View>
       );
@@ -633,7 +742,7 @@ export default function UrunlerPage() {
         />
       </View>
     );
-  }, [activeTab, t, router]);
+  }, [activeTab, t, router, urunler, archivedUrunler, handleClearFilters]);
 
   // Active list data
   const listData = activeTab === 'active' ? filteredUrunler : filteredArchivedUrunler;
