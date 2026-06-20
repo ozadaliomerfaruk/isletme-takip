@@ -168,6 +168,18 @@ export default function UrunlerPage() {
     setCategoryFilter(CATEGORY_FILTER_ALL);
   }, []);
 
+  // Seçili kategori filtresi silinmiş/yok olmuşsa otomatik "Tümü"ye dön
+  // (aksi halde liste sessizce boşalır, aktif çip görünmez)
+  useEffect(() => {
+    if (
+      categoryFilter !== CATEGORY_FILTER_ALL &&
+      categoryFilter !== CATEGORY_FILTER_UNCATEGORIZED &&
+      !kategoriMap.has(categoryFilter)
+    ) {
+      setCategoryFilter(CATEGORY_FILTER_ALL);
+    }
+  }, [categoryFilter, kategoriMap]);
+
   // ÃœrÃ¼n listesi export
   const handleExportProductList = useCallback(async () => {
     if (!urunler || urunler.length === 0 || !isletme) return;
@@ -693,8 +705,10 @@ export default function UrunlerPage() {
   // Empty component
   const listEmptyComponent = useMemo(() => {
     if (activeTab === 'active') {
-      // ÃœrÃ¼n var ama arama/filtre sonucu boÅŸ â†’ "sonuÃ§ yok"
-      if ((urunler?.length ?? 0) > 0) {
+      // Arama/kategori filtresi aktifken boÅŸ â†’ "sonuÃ§ yok"; aksi halde "Ã¼rÃ¼n yok".
+      // (urunler.length yerine isFiltered: undo penceresinde tÃ¼m Ã¼rÃ¼nler silinince
+      //  yanlÄ±ÅŸ "filtreyi deÄŸiÅŸtir" mesajÄ± gÃ¶sterilmesin)
+      if (isFiltered) {
         return (
           <View style={styles.listSection}>
             <EmptyState
@@ -719,8 +733,8 @@ export default function UrunlerPage() {
         </View>
       );
     }
-    // ArÅŸiv: arama sonucu boÅŸ â†’ "sonuÃ§ yok"
-    if ((archivedUrunler?.length ?? 0) > 0) {
+    // ArÅŸiv: arama aktifken boÅŸ â†’ "sonuÃ§ yok"
+    if (searchQuery.trim().length > 0) {
       return (
         <View style={styles.listSection}>
           <EmptyState
@@ -742,7 +756,7 @@ export default function UrunlerPage() {
         />
       </View>
     );
-  }, [activeTab, t, router, urunler, archivedUrunler, handleClearFilters]);
+  }, [activeTab, t, router, isFiltered, searchQuery, handleClearFilters]);
 
   // Active list data
   const listData = activeTab === 'active' ? filteredUrunler : filteredArchivedUrunler;

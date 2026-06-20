@@ -221,12 +221,15 @@ export function usePermanentDeleteUrun() {
       if (hareketError) throw hareketError;
 
       // Bu ürüne iliştirilmiş notları genel nota çevir (yetim not kalmasın)
-      await supabase
+      const { error: notlarError } = await supabase
         .from('notlar')
         .update({ entity_type: 'genel', entity_id: null })
         .eq('entity_id', id)
         .eq('entity_type', 'urun')
         .eq('isletme_id', isletme.id);
+      if (notlarError && __DEV__) {
+        console.error('Not temizleme başarısız (yetim not kalabilir):', notlarError);
+      }
 
       // Sonra ürünü sil
       const { error } = await supabase

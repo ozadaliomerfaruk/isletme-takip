@@ -154,7 +154,7 @@ export function useDeleteHesap() {
         .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
 
       if (islemCount && islemCount > 0) {
-        throw new Error(i18n.t('errors:accounts.hasTransactions'));
+        throw new Error(i18n.t('errors:account.hasTransactions'));
       }
 
       // İleri tarihli işlem varsa silmeyi engelle
@@ -165,7 +165,7 @@ export function useDeleteHesap() {
         .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
 
       if (ileriCount && ileriCount > 0) {
-        throw new Error(i18n.t('errors:accounts.hasFutureTransactions'));
+        throw new Error(i18n.t('errors:account.hasFutureTransactions'));
       }
 
       // Bağlı çek kontrolü: çek hesabı silinince cekler.hesap_id CASCADE ile sessizce silinir
@@ -177,7 +177,7 @@ export function useDeleteHesap() {
         .eq('isletme_id', isletme.id);
 
       if (cekCount && cekCount > 0) {
-        throw new Error(i18n.t('errors:accounts.hasChecks'));
+        throw new Error(i18n.t('errors:account.hasChecks'));
       }
 
       // Bağlı nakit avans kontrolü: hedef/kredi kartı hesabı silinince nakit_avanslar +
@@ -189,16 +189,19 @@ export function useDeleteHesap() {
         .or(`kredi_karti_id.eq.${id},hedef_hesap_id.eq.${id}`);
 
       if (avansCount && avansCount > 0) {
-        throw new Error(i18n.t('errors:accounts.hasCashAdvances'));
+        throw new Error(i18n.t('errors:account.hasCashAdvances'));
       }
 
       // Bu hesaba iliştirilmiş notları genel nota çevir (yetim not kalmasın)
-      await supabase
+      const { error: notlarError } = await supabase
         .from('notlar')
         .update({ entity_type: 'genel', entity_id: null })
         .eq('entity_id', id)
         .eq('entity_type', 'hesap')
         .eq('isletme_id', isletme.id);
+      if (notlarError && __DEV__) {
+        console.error('Not temizleme başarısız (yetim not kalabilir):', notlarError);
+      }
 
       // İşlem/çek/avans yoksa güvenle sil
       const { error } = await supabase

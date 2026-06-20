@@ -603,7 +603,7 @@
     "sessionExpired": "Oturum süresi doldu, lütfen tekrar giriş yapın",
     "hasLinkedTransactions": "Bu kaydı silmek için önce bağlı işlemleri silmeniz gerekiyor. {{count}} adet işlem bulunuyor.",
     "hasLinkedChecks": "Bu kaydı silmek için önce bağlı çekleri silmeniz gerekiyor. {{count}} adet çek bulunuyor.",
-    "transactionLinkedToCheck": "Bu işlem bir çek tahsilatına bağlı. Silmek için önce Çekler ekranından ilgili çeki geri alın.",
+    "transactionLinkedToCheck": "Bu işlem bir çek tahsilatına bağlı olduğu için silinemez.",
     "hasLinkedScheduledTransactions": "Bu kaydı silmek için önce bağlı ileri tarihli işlemleri silmeniz gerekiyor. {{count}} adet ileri tarihli işlem bulunuyor.",
     "hasLinkedRecords": "Bu kaydı silmek için önce bağlı kayıtları silmeniz gerekiyor.",
     "cannotDeleteTitle": "Silinemez"
