@@ -221,19 +221,69 @@ export function useDeleteKategori() {
 
       if (islemError) throw islemError;
 
-      // Bağlı ileri tarihli işlem kontrolü
+      // Bağlı ileri tarihli işlem kontrolü ('notified' de aktif sayılır — listeleme/tamamlama
+      // semantiğiyle tutarlı; aksi halde notified kayda bağlı kategori pasifleşip "hayalet" kalıyordu)
       const { count: ileriCount, error: ileriError } = await supabase
         .from('ileri_tarihli_islemler')
         .select('id', { count: 'exact', head: true })
         .eq('kategori_id', id)
         .eq('isletme_id', isletme.id)
-        .eq('status', 'pending');
+        .in('status', ['pending', 'notified']);
 
       if (ileriError) throw ileriError;
 
       if ((islemCount ?? 0) > 0 || (ileriCount ?? 0) > 0) {
         throw new Error(i18n.t('errors:category.hasTransactions'));
       }
+
+      // Bağlı ürünlerin kategori bağını temizle (yetim referans kalmasın).
+      // İşlemlerin aksine ürünü silmeyiz; sadece kategorisini boşaltırız (kategorisiz olur).
+      // Kategori silinmeden ÖNCE yaparız ki silme başarısız olsa bile tekrar denemede idempotent kalsın.
+      const { error: urunError } = await supabase
+        .from('urunler')
+        .update({ kategori_id: null })
+        .eq('kategori_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (urunError) throw urunError;
+
+      // Bağlı nakit avansların kategori bağını da temizle (urunler ile aynı idempotent desen;
+      // soft-delete olduğu için FK'nin SET NULL'ı tetiklenmez, stale referans kalmasın).
+      const { error: avansKatError } = await supabase
+        .from('nakit_avanslar')
+        .update({ kategori_id: null })
+        .eq('kategori_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (avansKatError) throw avansKatError;
+
+      // Bu kategoriyi alt kategori olarak kullanan kategorilerin parent bağını da temizle
+      // (silinen kategoriye işaret eden yetim parent_id kalmasın → üst seviyeye taşınırlar).
+      const { error: childError } = await supabase
+        .from('kategoriler')
+        .update({ parent_id: null })
+        .eq('parent_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (childError) throw childError;
+
+      // Bu kategoriyi gelir/gider eşlemesi (mapped) olarak kullanan ürün kategorilerinin
+      // eşleme bağını temizle (silinen kategoriye işaret eden yetim mapping kalmasın).
+      const { error: mappedGelirError } = await supabase
+        .from('kategoriler')
+        .update({ mapped_gelir_kategori_id: null })
+        .eq('mapped_gelir_kategori_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (mappedGelirError) throw mappedGelirError;
+
+      const { error: mappedGiderError } = await supabase
+        .from('kategoriler')
+        .update({ mapped_gider_kategori_id: null })
+        .eq('mapped_gider_kategori_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (mappedGiderError) throw mappedGiderError;
 
       const { error } = await supabase
         .from('kategoriler')
@@ -245,6 +295,8 @@ export function useDeleteKategori() {
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'kategori');
+      // Ürünlerin kategori_id'si null'landı → ürün listesi ve ürün-bağlı raporları da tazele
+      invalidateRelatedQueries(queryClient, 'urun');
     },
   });
 }

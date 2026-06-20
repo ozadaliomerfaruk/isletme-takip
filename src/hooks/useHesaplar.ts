@@ -168,7 +168,39 @@ export function useDeleteHesap() {
         throw new Error(i18n.t('errors:accounts.hasFutureTransactions'));
       }
 
-      // İşlem yoksa güvenle sil
+      // Bağlı çek kontrolü: çek hesabı silinince cekler.hesap_id CASCADE ile sessizce silinir
+      // (bekleyen çek işlem satırı oluşturmadığı için yukarıdaki işlem guard'ından geçer).
+      const { count: cekCount } = await supabase
+        .from('cekler')
+        .select('id', { count: 'exact', head: true })
+        .eq('hesap_id', id)
+        .eq('isletme_id', isletme.id);
+
+      if (cekCount && cekCount > 0) {
+        throw new Error(i18n.t('errors:accounts.hasChecks'));
+      }
+
+      // Bağlı nakit avans kontrolü: hedef/kredi kartı hesabı silinince nakit_avanslar +
+      // taksitler CASCADE ile silinir, bakiye reversal'ı atlanır (fantom borç kalır).
+      const { count: avansCount } = await supabase
+        .from('nakit_avanslar')
+        .select('id', { count: 'exact', head: true })
+        .eq('isletme_id', isletme.id)
+        .or(`kredi_karti_id.eq.${id},hedef_hesap_id.eq.${id}`);
+
+      if (avansCount && avansCount > 0) {
+        throw new Error(i18n.t('errors:accounts.hasCashAdvances'));
+      }
+
+      // Bu hesaba iliştirilmiş notları genel nota çevir (yetim not kalmasın)
+      await supabase
+        .from('notlar')
+        .update({ entity_type: 'genel', entity_id: null })
+        .eq('entity_id', id)
+        .eq('entity_type', 'hesap')
+        .eq('isletme_id', isletme.id);
+
+      // İşlem/çek/avans yoksa güvenle sil
       const { error } = await supabase
         .from('hesaplar')
         .delete()

@@ -86,6 +86,8 @@
     "notFound": "Account not found",
     "hasTransactions": "This account has transactions. Delete them first.",
     "hasFutureTransactions": "This account has scheduled transactions. Delete them first.",
+    "hasChecks": "This account has linked checks. Delete them first.",
+    "hasCashAdvances": "This account has cash advances. Delete them first.",
     "nameRequired": "Account name is required",
     "duplicateName": "An account with this name already exists",
     "selectAccount": "Please select an account",

@@ -182,6 +182,14 @@ export function useDeleteCari() {
         throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedChecks', { count: cekCount }));
       }
 
+      // Bu cariye iliştirilmiş notları genel nota çevir (yetim not kalmasın)
+      await supabase
+        .from('notlar')
+        .update({ entity_type: 'genel', entity_id: null })
+        .eq('entity_id', id)
+        .eq('entity_type', 'cari')
+        .eq('isletme_id', isletme.id);
+
       // Cariyi sil (bağlı kayıt yoksa güvenle silinebilir)
       const { error } = await supabase
         .from('cariler')

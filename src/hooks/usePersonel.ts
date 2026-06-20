@@ -169,6 +169,14 @@ export function useDeletePersonel() {
         throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedScheduledTransactions', { count: scheduledCount }));
       }
 
+      // Bu personele iliştirilmiş notları (personel + izin notları) genel nota çevir (yetim not kalmasın)
+      await supabase
+        .from('notlar')
+        .update({ entity_type: 'genel', entity_id: null })
+        .eq('entity_id', id)
+        .in('entity_type', ['personel', 'personel_izin'])
+        .eq('isletme_id', isletme.id);
+
       // Personeli sil (bağlı kayıt yoksa güvenle silinebilir)
       const { error } = await supabase
         .from('personel')
