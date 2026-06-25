@@ -185,6 +185,11 @@ function RootLayoutNav() {
     const inOnboarding = segments[0] === 'onboarding';
     const inVerify = segments[0] === 'verify';
     const inKurulum = segments[0]?.startsWith('kurulum') ?? false;
+    // Kurulum sırasında "ekle" ekranlarına (cari/personel/hesap) gidilebilsin —
+    // rehberli oluşturma adımı buraya yönlendirir; guard başa atmamalı.
+    const inSetupCreate =
+      (segments[0] === 'cariler' || segments[0] === 'personel' || segments[0] === 'hesaplar') &&
+      segments[1] === 'ekle';
 
     if (!user && !inAuthGroup && !inOnboarding && !inVerify) {
       // Kullanici giris yapmamis, login'e yonlendir
@@ -201,9 +206,10 @@ function RootLayoutNav() {
         // Ana sayfaya yonlendir
         router.replace('/(tabs)');
       }
-    } else if (user && needsSetup && !inKurulum && !inOnboarding && !inAuthGroup && !inVerify && !needsPasswordReset) {
+    } else if (user && needsSetup && !inKurulum && !inSetupCreate && !inOnboarding && !inAuthGroup && !inVerify && !needsPasswordReset) {
       // Kurulum yarim kaldiysa (uygulama kapatilip acildi vb.) kuruluma geri getir.
       // Bayrak yalnizca yeni isletmede set edildigi icin mevcut kullanicilar buraya hic girmez.
+      // inSetupCreate: kurulumun "ekle" adimlari haric (oraya gidebilmeli).
       router.replace('/kurulum');
     }
   }, [user, segments, initialized, onboardingChecked, showOnboarding, needsSetup, needsPasswordReset, router]);
@@ -249,6 +255,7 @@ function RootLayoutNav() {
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="kurulum" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
+        <Stack.Screen name="kurulum-tabela" options={{ headerShown: false, animation: 'slide_from_right', gestureEnabled: false }} />
         <Stack.Screen name="kurulum-ilk-kayit" options={{ headerShown: false, animation: 'slide_from_right', gestureEnabled: false }} />
         <Stack.Screen name="kurulum-tamam" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="verify" options={{ headerShown: false, animation: 'fade' }} />

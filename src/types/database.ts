@@ -70,7 +70,33 @@ export type IsletmeSector =
   | 'oto'
   | 'nalbur_insaat'
   | 'toptan_dagitim'
+  | 'eczane'
+  | 'serbest_meslek'
+  | 'fotografci'
+  | 'emlak'
   | 'diger';
+
+// Onboarding V2 anket cevapları (isletmeler.onboarding_prefs jsonb).
+// PII-siz: tutar/isim YOK; sadece tip/seçim. NULL = eski kullanıcı / atlandı.
+// Adaptif modül görünürlüğü bu alanlardan türetilir (useModulePreferences).
+export interface OnboardingPrefs {
+  veresiye?: 'sik' | 'bazen' | 'hayir'; // Cariler modülü
+  calisan?: 'tek' | '2-5' | '6-15' | '16-50' | '50+'; // Personel modülü
+  stok?: boolean; // Ürünler modülü
+  yontem?: 'defter' | 'excel' | 'telefon' | 'akil' | 'hic'; // empati + içe aktarma
+  aksam_ozeti?: boolean; // push / akşam özeti
+  sector_other?: string | null; // "Diğer" seçilince yazılan serbest metin
+  // Ayarlar > Modüller'den manuel aç/kapa override'ı (anket türetmesini ezer).
+  // Yoksa görünürlük anket cevaplarından türetilir; cevap da yoksa AÇIK.
+  modules?: {
+    cariler?: boolean;
+    personel?: boolean;
+    urunler?: boolean;
+  };
+}
+
+// Onboarding'in adaptif gizleyebileceği modüller (owner tarafı tercih katmanı)
+export type AdaptiveModule = 'cariler' | 'personel' | 'urunler';
 
 // İşletme
 export interface Isletme {
@@ -81,6 +107,7 @@ export interface Isletme {
   address: string | null;
   tax_number: string | null;
   sector: IsletmeSector | null;
+  onboarding_prefs: OnboardingPrefs | null;
   scheduled_deletion_at: string | null;
   created_at: string;
   updated_at: string;
@@ -102,6 +129,7 @@ export interface IsletmeUpdate {
   address?: string | null;
   tax_number?: string | null;
   sector?: IsletmeSector | null;
+  onboarding_prefs?: OnboardingPrefs | null;
   scheduled_deletion_at?: string | null;
 }
 

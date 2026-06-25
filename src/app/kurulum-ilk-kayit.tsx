@@ -1,182 +1,99 @@
 /**
- * Kurulum 2/3 — İlk kayıt (Onboarding v1.5)
+ * Kurulum 2/3 — Rehberli oluşturma (Onboarding sade akış)
  *
- * "Bugün dükkânda ne oldu?" — üç büyük seçenek:
- *   Para girdi  → gelir      | Para çıktı → gider
- *   Veresiye yazdım → ÖNCE "Kime?" (cari seç/oluştur — inline) → cari modunda satış
- * İlk işlem kaydedilince kutlama ekranına geçilir. "Şimdilik geç" her zaman var;
- * geçeni ana ekrandaki "kurulumu bitir" kartı sonra yakalar.
+ * Soru sormadan, kullanıcıyı uygulamayı TANIMASI için temel kayıtları oluşturmaya
+ * yönlendirir: Hesap · Cari · Personel. Her kart ilgili ekleme ekranını açar;
+ * kayıt eklenince ✓ olur (react-query cache create mutasyonunda invalidate edilir).
+ * Hepsi opsiyonel — "Devam" ile kutlama ekranına geçilir.
  */
-import { useEffect, useRef, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { TrendingUp, TrendingDown, NotebookPen, ChevronRight } from 'lucide-react-native';
+import { Wallet, Users, UserCircle, Check, ChevronRight, type LucideIcon } from 'lucide-react-native';
 
-import { Text } from '@/components/ui';
+import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
-import { CariPickerSheet } from '@/components/transaction/QuickTransactionBar/components';
-import { useHesaplar, useCreateHesap } from '@/hooks/useHesaplar';
-import { useCariler, useCreateCari } from '@/hooks/useCariler';
+import { useHesaplar } from '@/hooks/useHesaplar';
+import { useCariler } from '@/hooks/useCariler';
+import { usePersonelList } from '@/hooks/usePersonel';
 import { logEvent } from '@/lib/appEvents';
-import { clearNeedsSetup } from '@/lib/setupFlow';
 
-type EntryOption = 'gelir' | 'gider' | 'veresiye';
-
-export default function KurulumIlkKayit() {
+export default function KurulumOlustur() {
   const router = useRouter();
   const { t } = useTranslation(['auth']);
 
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
-  const createHesap = useCreateHesap();
-  const { data: musteriler } = useCariler('musteri');
-  const createCari = useCreateCari();
+  const { data: hesaplar } = useHesaplar();
+  const { data: cariler } = useCariler();
+  const { data: personeller } = usePersonelList();
 
-  const [activeEntry, setActiveEntry] = useState<EntryOption | null>(null);
-  const [showCariPicker, setShowCariPicker] = useState(false);
-  const [veresiyeCariId, setVeresiyeCariId] = useState<string | null>(null);
+  const items: { key: string; route: Href; Icon: LucideIcon; color: string; done: boolean }[] = [
+    { key: 'hesap', route: '/hesaplar/ekle' as Href, Icon: Wallet, color: colors.primary, done: (hesaplar?.length ?? 0) > 0 },
+    { key: 'cari', route: '/cariler/ekle' as Href, Icon: Users, color: colors.info, done: (cariler?.length ?? 0) > 0 },
+    { key: 'personel', route: '/personel/ekle' as Href, Icon: UserCircle, color: colors.warning, done: (personeller?.length ?? 0) > 0 },
+  ];
 
-  // Hesabı olmayan işletmede (eski kullanıcı / migration öncesi) Kasa'yı sessizce aç.
-  // Yeni kayıtlarda DB trigger'ı zaten açıyor; bu istemci tarafı güvenlik ağı.
-  const kasaEnsuredRef = useRef(false);
-  useEffect(() => {
-    if (kasaEnsuredRef.current || hesaplarLoading || !hesaplar) return;
-    if (hesaplar.length > 0) {
-      kasaEnsuredRef.current = true;
-      return;
-    }
-    kasaEnsuredRef.current = true;
-    const kasa = { name: t('auth:setup.defaultCashAccount'), type: 'nakit' as const, currency: 'TRY' as const };
-    createHesap
-      .mutateAsync({ ...kasa, is_auto_created: true })
-      .catch(() =>
-        // is_auto_created kolonu henüz yoksa (migration uygulanmadıysa) kolonsuz dene
-        createHesap.mutateAsync(kasa).catch(() => {})
-      );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hesaplarLoading, hesaplar]);
-
-  const handleEntryPress = (entry: EntryOption) => {
-    if (entry === 'veresiye') {
-      // Veresiye = cari satış → önce "kime yazdın?" (cari seç ya da inline oluştur)
-      setShowCariPicker(true);
-    } else {
-      setActiveEntry(entry);
-    }
-  };
-
-  const handleVeresiyeCariSelect = (cariId: string) => {
-    setShowCariPicker(false);
-    setVeresiyeCariId(cariId);
-    setActiveEntry('veresiye');
-  };
-
-  const handleVeresiyeCariCreate = (name: string) => {
-    createCari.mutate(
-      { name, type: 'musteri' },
-      {
-        onSuccess: (yeniCari) => handleVeresiyeCariSelect(yeniCari.id),
-      }
-    );
-  };
-
-  const handleTransactionSuccess = () => {
-    logEvent('setup_first_tx_saved', { entry: activeEntry });
-    setActiveEntry(null);
-    setVeresiyeCariId(null);
+  const handleFinish = () => {
+    logEvent('setup_create_done', {
+      hesap: (hesaplar?.length ?? 0) > 0,
+      cari: (cariler?.length ?? 0) > 0,
+      personel: (personeller?.length ?? 0) > 0,
+    });
     router.replace('/kurulum-tamam');
   };
-
-  const handleSkip = () => {
-    logEvent('setup_skipped', { step: 'first_tx' });
-    clearNeedsSetup();
-    router.replace('/(tabs)');
-  };
-
-  const OPTIONS: { id: EntryOption; icon: typeof TrendingUp; color: string; bg: string }[] = [
-    { id: 'gelir', icon: TrendingUp, color: colors.success, bg: colors.success + '18' },
-    { id: 'gider', icon: TrendingDown, color: colors.error, bg: colors.error + '18' },
-    { id: 'veresiye', icon: NotebookPen, color: colors.info, bg: colors.info + '18' },
-  ];
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text variant="caption" style={styles.stepLabel}>
-            {t('auth:setup.step', { current: 2, total: 3 })}
+            {t('auth:setup.step', { current: 3, total: 3 })}
           </Text>
           <Text variant="h2" center style={styles.title}>
-            {t('auth:setup.firstEntry.title')}
+            {t('auth:setup.create.title')}
           </Text>
           <Text variant="body" color="secondary" center style={styles.subtitle}>
-            {t('auth:setup.firstEntry.subtitle')}
+            {t('auth:setup.create.subtitle')}
           </Text>
         </View>
 
-        <View style={styles.options}>
-          {OPTIONS.map((option) => {
-            const Icon = option.icon;
-            return (
-              <TouchableOpacity
-                key={option.id}
-                style={styles.optionCard}
-                onPress={() => handleEntryPress(option.id)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.optionIcon, { backgroundColor: option.bg }]}>
-                  <Icon size={28} color={option.color} />
+        <View style={styles.list}>
+          {items.map((item) => (
+            <TouchableOpacity
+              key={item.key}
+              style={styles.card}
+              activeOpacity={0.7}
+              onPress={() => router.push(item.route)}
+            >
+              <View style={[styles.iconCircle, { backgroundColor: item.color + '18' }]}>
+                <item.Icon size={24} color={item.color} />
+              </View>
+              <View style={styles.cardText}>
+                <Text variant="body" style={styles.cardLabel}>
+                  {t(`auth:setup.create.${item.key}.label`)}
+                </Text>
+                <Text variant="caption" color="secondary">
+                  {t(`auth:setup.create.${item.key}.desc`)}
+                </Text>
+              </View>
+              {item.done ? (
+                <View style={styles.doneBadge}>
+                  <Check size={16} color={colors.white} />
                 </View>
-                <View style={styles.optionTextContainer}>
-                  <Text variant="body" style={styles.optionLabel}>
-                    {t(`auth:setup.firstEntry.options.${option.id}.label`)}
-                  </Text>
-                  <Text variant="caption" color="secondary">
-                    {t(`auth:setup.firstEntry.options.${option.id}.description`)}
-                  </Text>
-                </View>
+              ) : (
                 <ChevronRight size={20} color={colors.textMuted} />
-              </TouchableOpacity>
-            );
-          })}
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
-
-        <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
-          <Text variant="body" color="secondary" style={styles.skipText}>
-            {t('auth:setup.skipForNow')}
-          </Text>
-        </TouchableOpacity>
       </ScrollView>
 
-      {/* Veresiye: önce müşteri seç / inline oluştur */}
-      <CariPickerSheet
-        visible={showCariPicker}
-        onDismiss={() => setShowCariPicker(false)}
-        onSelect={handleVeresiyeCariSelect}
-        cariler={musteriler || []}
-        selectedId={veresiyeCariId}
-        mode="customer"
-        onCreateNew={handleVeresiyeCariCreate}
-        creating={createCari.isPending}
-      />
-
-      {/* Mini işlem formu */}
-      {activeEntry && (
-        <QuickTransactionBar
-          visible
-          onDismiss={() => {
-            setActiveEntry(null);
-            setVeresiyeCariId(null);
-          }}
-          defaultType={activeEntry === 'veresiye' ? 'satis' : activeEntry}
-          defaultCariId={activeEntry === 'veresiye' ? veresiyeCariId || undefined : undefined}
-          defaultCariType={activeEntry === 'veresiye' ? 'musteri' : undefined}
-          onSuccess={handleTransactionSuccess}
-        />
-      )}
+      <View style={styles.footer}>
+        <Button variant="primary" size="lg" fullWidth onPress={handleFinish}>
+          {t('auth:setup.create.continue')}
+        </Button>
+      </View>
     </SafeAreaView>
   );
 }
@@ -208,10 +125,10 @@ const styles = StyleSheet.create({
   subtitle: {
     paddingHorizontal: spacing.lg,
   },
-  options: {
+  list: {
     gap: spacing.md,
   },
-  optionCard: {
+  card: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
@@ -221,27 +138,32 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     gap: spacing.md,
   },
-  optionIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  iconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  optionTextContainer: {
+  cardText: {
     flex: 1,
     gap: 2,
   },
-  optionLabel: {
+  cardLabel: {
     fontWeight: '700',
     fontSize: 16,
   },
-  skipButton: {
-    marginTop: spacing['2xl'],
-    alignSelf: 'center',
-    padding: spacing.md,
+  doneBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.success,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  skipText: {
-    textDecorationLine: 'underline',
+  footer: {
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
+    paddingTop: spacing.md,
   },
 });

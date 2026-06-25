@@ -10,15 +10,13 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, Wallet, BellRing } from 'lucide-react-native';
+import { CheckCircle2, BarChart3, BellRing } from 'lucide-react-native';
 
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useHesaplar } from '@/hooks/useHesaplar';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { registerForPushNotificationsAsync, savePushToken } from '@/lib/notifications';
-import { formatCurrency, toNumber } from '@/lib/currency';
 import { logEvent } from '@/lib/appEvents';
 import { clearNeedsSetup } from '@/lib/setupFlow';
 
@@ -26,11 +24,7 @@ export default function KurulumTamam() {
   const router = useRouter();
   const { t } = useTranslation(['auth']);
   const { user } = useAuthContext();
-  const { data: hesaplar } = useHesaplar();
   const [requestingPermission, setRequestingPermission] = useState(false);
-
-  // Kasa kartı: önce nakit hesap, yoksa ilk hesap
-  const kasa = hesaplar?.find((h) => h.type === 'nakit') ?? hesaplar?.[0];
 
   const finish = () => {
     logEvent('setup_completed');
@@ -76,21 +70,19 @@ export default function KurulumTamam() {
           </Text>
         </View>
 
-        {kasa && (
-          <View style={styles.kasaCard}>
-            <View style={styles.kasaIcon}>
-              <Wallet size={22} color={colors.primary} />
-            </View>
-            <View style={styles.kasaInfo}>
-              <Text variant="caption" color="secondary">
-                {kasa.name}
-              </Text>
-              <Text variant="h3" style={styles.kasaBalance}>
-                {formatCurrency(toNumber(kasa.balance), kasa.currency)}
-              </Text>
-            </View>
+        <View style={styles.tipCard}>
+          <View style={styles.tipIcon}>
+            <BarChart3 size={22} color={colors.primary} />
           </View>
-        )}
+          <View style={styles.tipText}>
+            <Text variant="body" style={styles.tipTitle}>
+              {t('auth:setup.done.tip.title')}
+            </Text>
+            <Text variant="caption" color="secondary" style={styles.tipBody}>
+              {t('auth:setup.done.tip.body')}
+            </Text>
+          </View>
+        </View>
 
         <View style={styles.promptCard}>
           <View style={styles.promptIcon}>
@@ -152,9 +144,9 @@ const styles = StyleSheet.create({
   subtitle: {
     paddingHorizontal: spacing.lg,
   },
-  kasaCard: {
+  tipCard: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
@@ -163,7 +155,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.xl,
   },
-  kasaIcon: {
+  tipIcon: {
     width: 44,
     height: 44,
     borderRadius: 22,
@@ -171,11 +163,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  kasaInfo: {
+  tipText: {
     flex: 1,
+    gap: 2,
   },
-  kasaBalance: {
-    marginTop: 2,
+  tipTitle: {
+    fontWeight: '700',
+  },
+  tipBody: {
+    lineHeight: 18,
   },
   promptCard: {
     backgroundColor: colors.surface,
