@@ -13,12 +13,32 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Building2, Lock, X } from 'lucide-react-native';
+import {
+  Building2, Lock, X, ChevronDown, Check,
+  ShoppingBasket, Coffee, Scissors, Shirt, Car, Hammer, Truck, Pill, Camera, Laptop, Store,
+  type LucideIcon,
+} from 'lucide-react-native';
 import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUpdateIsletme } from '@/hooks/useIsletme';
+import type { IsletmeSector } from '@/types/database';
+
+const SECTORS: { id: IsletmeSector; icon: LucideIcon; color: string }[] = [
+  { id: 'market_bakkal', icon: ShoppingBasket, color: '#10B981' },
+  { id: 'kafe_restoran', icon: Coffee, color: '#F59E0B' },
+  { id: 'berber_kuafor', icon: Scissors, color: '#8B5CF6' },
+  { id: 'giyim_tekstil', icon: Shirt, color: '#EC4899' },
+  { id: 'oto', icon: Car, color: '#3B82F6' },
+  { id: 'nalbur_insaat', icon: Hammer, color: '#EF4444' },
+  { id: 'toptan_dagitim', icon: Truck, color: '#14B8A6' },
+  { id: 'eczane', icon: Pill, color: '#06B6D4' },
+  { id: 'emlak', icon: Building2, color: '#0EA5E9' },
+  { id: 'fotografci', icon: Camera, color: '#D946EF' },
+  { id: 'serbest_meslek', icon: Laptop, color: '#6366F1' },
+  { id: 'diger', icon: Store, color: '#6B7280' },
+];
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { parseDateFromDB } from '@/lib/date';
 import { useRequireOwner } from '@/hooks/usePagePermission';
@@ -26,7 +46,7 @@ import { toErrorMessage } from '@/lib/errors';
 
 export default function IsletmeBilgileriPage() {
   const router = useRouter();
-  const { t } = useTranslation(['settings', 'common', 'errors']);
+  const { t } = useTranslation(['settings', 'common', 'errors', 'auth']);
   useRequireOwner();
   const { formatDateNative } = useDateFormat();
   const { isletme, user, changePassword } = useAuthContext();
@@ -36,6 +56,8 @@ export default function IsletmeBilgileriPage() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [taxNumber, setTaxNumber] = useState('');
+  const [sector, setSector] = useState<IsletmeSector | null>(null);
+  const [showSectorModal, setShowSectorModal] = useState(false);
   const [errors, setErrors] = useState<{ name?: string }>({});
 
   // Şifre değiştirme modal state'leri
@@ -54,6 +76,7 @@ export default function IsletmeBilgileriPage() {
       setPhone(isletme.phone || '');
       setAddress(isletme.address || '');
       setTaxNumber(isletme.tax_number || '');
+      setSector(isletme.sector ?? null);
     }
   }, [isletme]);
 
@@ -77,6 +100,7 @@ export default function IsletmeBilgileriPage() {
         phone: phone.trim() || null,
         address: address.trim() || null,
         tax_number: taxNumber.trim() || null,
+        sector: sector ?? null,
       });
 
       Alert.alert(t('common:status.success'), t('settings:messages.businessInfoUpdated'), [
@@ -210,6 +234,25 @@ export default function IsletmeBilgileriPage() {
                 error={errors.name}
               />
 
+              {/* Sektör */}
+              <View style={styles.sectorWrapper}>
+                <Text variant="label" color="secondary" style={styles.sectorLabel}>
+                  {t('settings:business.sector')}
+                </Text>
+                <TouchableOpacity
+                  style={styles.sectorField}
+                  onPress={() => setShowSectorModal(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text variant="body" color={sector ? 'primary' : 'muted'}>
+                    {sector
+                      ? t(`auth:setup.sector.options.${sector}`)
+                      : t('settings:business.sectorNotSet')}
+                  </Text>
+                  <ChevronDown size={20} color={colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
               <Input
                 label={t('settings:business.phone')}
                 placeholder={t('settings:business.phonePlaceholder')}
@@ -336,6 +379,46 @@ export default function IsletmeBilgileriPage() {
             </KeyboardAvoidingView>
           </Pressable>
         </Modal>
+
+        {/* Sektör Seçim Modal */}
+        <Modal visible={showSectorModal} transparent animationType="slide">
+          <Pressable style={styles.modalOverlay} onPress={() => setShowSectorModal(false)}>
+            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeader}>
+                <Text variant="h3">{t('settings:business.sectorSelectTitle')}</Text>
+                <TouchableOpacity onPress={() => setShowSectorModal(false)}>
+                  <X size={24} color={colors.text} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView style={styles.sectorList} showsVerticalScrollIndicator={false}>
+                {SECTORS.map(({ id, icon: Icon, color }) => {
+                  const selected = sector === id;
+                  return (
+                    <TouchableOpacity
+                      key={id}
+                      style={styles.sectorOption}
+                      onPress={() => {
+                        setSector(id);
+                        setShowSectorModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.sectorOptionLeft}>
+                        <View style={[styles.sectorIconCircle, { backgroundColor: color + '18' }]}>
+                          <Icon size={20} color={color} />
+                        </View>
+                        <Text variant="body" color={selected ? 'primary' : 'secondary'}>
+                          {t(`auth:setup.sector.options.${id}`)}
+                        </Text>
+                      </View>
+                      {selected && <Check size={20} color={colors.primary} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </Pressable>
+          </Pressable>
+        </Modal>
     </SafeAreaView>
   );
 }
@@ -445,5 +528,47 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     marginTop: spacing.lg,
+  },
+  // Sektör alanı
+  sectorWrapper: {
+    marginBottom: spacing.md,
+  },
+  sectorLabel: {
+    marginBottom: spacing.xs,
+  },
+  sectorField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  sectorList: {
+    maxHeight: 360,
+  },
+  sectorOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
+  },
+  sectorOptionLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  sectorIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
