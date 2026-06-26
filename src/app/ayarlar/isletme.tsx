@@ -57,6 +57,7 @@ export default function IsletmeBilgileriPage() {
   const [address, setAddress] = useState('');
   const [taxNumber, setTaxNumber] = useState('');
   const [sector, setSector] = useState<IsletmeSector | null>(null);
+  const [sectorOther, setSectorOther] = useState('');
   const [showSectorModal, setShowSectorModal] = useState(false);
   const [errors, setErrors] = useState<{ name?: string }>({});
 
@@ -77,6 +78,7 @@ export default function IsletmeBilgileriPage() {
       setAddress(isletme.address || '');
       setTaxNumber(isletme.tax_number || '');
       setSector(isletme.sector ?? null);
+      setSectorOther(isletme.onboarding_prefs?.sector_other ?? '');
     }
   }, [isletme]);
 
@@ -101,6 +103,12 @@ export default function IsletmeBilgileriPage() {
         address: address.trim() || null,
         tax_number: taxNumber.trim() || null,
         sector: sector ?? null,
+        // "Diğer" sektörde serbest metin onboarding_prefs.sector_other'a yazılır
+        // (kurulumdaki ile aynı alan); başka sektörde temizlenir.
+        onboarding_prefs:
+          sector === 'diger' && sectorOther.trim()
+            ? { sector_other: sectorOther.trim() }
+            : null,
       });
 
       Alert.alert(t('common:status.success'), t('settings:messages.businessInfoUpdated'), [
@@ -251,6 +259,15 @@ export default function IsletmeBilgileriPage() {
                   </Text>
                   <ChevronDown size={20} color={colors.textMuted} />
                 </TouchableOpacity>
+                {sector === 'diger' && (
+                  <View style={styles.sectorOtherInput}>
+                    <Input
+                      value={sectorOther}
+                      onChangeText={setSectorOther}
+                      placeholder={t('auth:setup.sector.otherPlaceholder')}
+                    />
+                  </View>
+                )}
               </View>
 
               <Input
@@ -535,6 +552,9 @@ const styles = StyleSheet.create({
   },
   sectorLabel: {
     marginBottom: spacing.xs,
+  },
+  sectorOtherInput: {
+    marginTop: spacing.sm,
   },
   sectorField: {
     flexDirection: 'row',
