@@ -76,27 +76,12 @@ export type IsletmeSector =
   | 'emlak'
   | 'diger';
 
-// Onboarding V2 anket cevapları (isletmeler.onboarding_prefs jsonb).
-// PII-siz: tutar/isim YOK; sadece tip/seçim. NULL = eski kullanıcı / atlandı.
-// Adaptif modül görünürlüğü bu alanlardan türetilir (useModulePreferences).
+// İşletme onboarding tercihleri (isletmeler.onboarding_prefs jsonb). PII-siz.
+// NULL = eski kullanıcı / atlandı. (V2 anket alanları + adaptif modül katmanı
+// geri alındı; sade akışta yalnızca sektör "Diğer" serbest metni saklanır.)
 export interface OnboardingPrefs {
-  veresiye?: 'sik' | 'bazen' | 'hayir'; // Cariler modülü
-  calisan?: 'tek' | '2-5' | '6-15' | '16-50' | '50+'; // Personel modülü
-  stok?: boolean; // Ürünler modülü
-  yontem?: 'defter' | 'excel' | 'telefon' | 'akil' | 'hic'; // empati + içe aktarma
-  aksam_ozeti?: boolean; // push / akşam özeti
   sector_other?: string | null; // "Diğer" seçilince yazılan serbest metin
-  // Ayarlar > Modüller'den manuel aç/kapa override'ı (anket türetmesini ezer).
-  // Yoksa görünürlük anket cevaplarından türetilir; cevap da yoksa AÇIK.
-  modules?: {
-    cariler?: boolean;
-    personel?: boolean;
-    urunler?: boolean;
-  };
 }
-
-// Onboarding'in adaptif gizleyebileceği modüller (owner tarafı tercih katmanı)
-export type AdaptiveModule = 'cariler' | 'personel' | 'urunler';
 
 // İşletme
 export interface Isletme {

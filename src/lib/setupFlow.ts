@@ -13,7 +13,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const NEEDS_SETUP_KEY = '@defter_needs_setup';
 
 let needsSetupCache = false;
-let loaded = false;
 const listeners = new Set<() => void>();
 
 function emit() {
@@ -28,17 +27,12 @@ export async function loadNeedsSetup(): Promise<boolean> {
   } catch {
     needsSetupCache = false;
   }
-  loaded = true;
   emit();
   return needsSetupCache;
 }
 
 export function getNeedsSetupSync(): boolean {
   return needsSetupCache;
-}
-
-export function isNeedsSetupLoaded(): boolean {
-  return loaded;
 }
 
 export function subscribeNeedsSetup(callback: () => void): () => void {
