@@ -189,7 +189,7 @@ function RootLayoutNav() {
     // rehberli oluşturma adımı buraya yönlendirir; guard başa atmamalı.
     const inSetupCreate =
       (segments[0] === 'cariler' || segments[0] === 'personel' || segments[0] === 'hesaplar') &&
-      segments[1] === 'ekle';
+      (segments as readonly string[])[1] === 'ekle';
 
     if (!user && !inAuthGroup && !inOnboarding && !inVerify) {
       // Kullanici giris yapmamis, login'e yonlendir
