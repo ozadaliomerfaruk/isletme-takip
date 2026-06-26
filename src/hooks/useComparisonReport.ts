@@ -104,14 +104,17 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
   const totals = useMemo(() => {
     const income = monthsData.reduce((sum, m) => sum + m.income, 0);
     const expense = monthsData.reduce((sum, m) => sum + m.expense, 0);
-    const count = monthsData.length || 1;
+    // Ortalama, VERİ OLAN dönemler üzerinden alınır — boş/gelecek aylar (₺0)
+    // paydayı şişirip ortalamayı yapay düşürmesin (satır gösterimindeki 'empty'
+    // tanımıyla aynı: gelir ve gider ikisi de 0 ise dönem boş sayılır).
+    const activeCount = monthsData.filter((m) => m.income !== 0 || m.expense !== 0).length || 1;
     return {
       income,
       expense,
       net: income - expense,
-      avgIncome: income / count,
-      avgExpense: expense / count,
-      avgNet: (income - expense) / count,
+      avgIncome: income / activeCount,
+      avgExpense: expense / activeCount,
+      avgNet: (income - expense) / activeCount,
     };
   }, [monthsData]);
 
