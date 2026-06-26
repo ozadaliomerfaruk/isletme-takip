@@ -6,8 +6,8 @@
  * serbest metin onboarding_prefs.sector_other'a kaydedilir (ne iş yaptığını görmek için).
  * Sektör sonrası → tabela adı ekranı.
  */
-import { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView } from 'react-native';
+import { useState, useRef } from 'react';
+import { View, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -57,6 +57,7 @@ export default function KurulumSektor() {
   const [savingId, setSavingId] = useState<IsletmeSector | null>(null);
   const [showOther, setShowOther] = useState(false);
   const [otherText, setOtherText] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
 
   const goNext = () => router.replace('/kurulum-tabela');
 
@@ -82,6 +83,8 @@ export default function KurulumSektor() {
     if (savingId) return;
     if (sector === 'diger') {
       setShowOther(true);
+      // Metin kutusu klavyenin altında kalmasın: görünür olunca en alta kaydır
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 350);
       return;
     }
     setShowOther(false);
@@ -102,7 +105,8 @@ export default function KurulumSektor() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text variant="caption" style={styles.stepLabel}>
             {t('auth:setup.step', { current: 1, total: 3 })}
@@ -170,6 +174,7 @@ export default function KurulumSektor() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -178,6 +183,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  flex: {
+    flex: 1,
   },
   scroll: {
     flexGrow: 1,
