@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
   UserPlus,
   ChevronRight,
 } from 'lucide-react-native';
-import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Avatar, Button } from '@/components/ui';
 import { UserEditSheet } from '@/components/multiUser/UserEditSheet';
 import { colors } from '@/constants/colors';
@@ -42,17 +41,17 @@ export default function KullaniciYonetimiPage() {
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <BackButton />
-        <View style={styles.headerCenter}>
-          <Text variant="h3">{t('multiUser:users.title')}</Text>
-          <Text variant="caption" color="muted">{t('multiUser:users.subtitle')}</Text>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
-
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          headerTitle: t('multiUser:users.title'),
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Davet Butonu */}
         <View style={styles.section}>
@@ -179,6 +178,7 @@ export default function KullaniciYonetimiPage() {
         onClose={() => setEditingUser(null)}
       />
     </SafeAreaView>
+    </>
   );
 }
 
@@ -186,16 +186,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
   },
   scrollView: {
     flex: 1,

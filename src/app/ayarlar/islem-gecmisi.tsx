@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Trash2, Pencil } from 'lucide-react-native';
-import { BackButton } from '@/components/ui/BackButton';
+import { Stack } from 'expo-router';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -80,17 +80,17 @@ export default function IslemGecmisiPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <BackButton />
-        <View style={styles.headerCenter}>
-          <Text variant="h3">{t('multiUser:auditLog.title')}</Text>
-          <Text variant="caption" color="muted">{t('multiUser:auditLog.subtitle')}</Text>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
-
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          headerTitle: t('multiUser:auditLog.title'),
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -141,7 +141,8 @@ export default function IslemGecmisiPage() {
           )}
         </View>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </>
   );
 }
 
@@ -149,16 +150,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
   },
   tabContainer: {
     flexDirection: 'row',
