@@ -322,6 +322,7 @@ const styles = StyleSheet.create({
   auditAmount: {
     color: colors.text,
     fontWeight: '700',
+    fontSize: 16,
   },
   detailsList: {
     marginLeft: 32 + spacing.md,
