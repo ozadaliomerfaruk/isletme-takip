@@ -131,16 +131,22 @@ export function useUrunHareketler(urunId: string | undefined) {
         };
       }) as UrunHareketWithSource[];
 
-      // İş tarihine göre yeniden sırala (yeni → eski). DB sorgusu created_at'e göre
-      // sıralıyordu; ama created_at düzenlemede NOW()'a kaydığı için gerçek tarihi
-      // yansıtmaz. islem.date varsa onu, yoksa created_at'i kullan.
-      const businessTs = (h: UrunHareketWithSource): number => {
-        const raw = h.islemDate ?? h.created_at;
+      // Sıralama: iş tarihine göre ESKİ → YENİ (en son girilen en SONDA). İş tarihi
+      // islem.date (saat dahil); yoksa created_at. Aynı iş tarihinde giriş anına
+      // (created_at) göre, tam stabillik için son olarak id ile çöz. created_at
+      // düzenlemede NOW()'a kaydığı için ASIL sıralama anahtarı islem.date'tir.
+      const toTs = (raw: string | null | undefined): number => {
         if (!raw) return 0;
         const t = new Date(raw.replace(' ', 'T')).getTime();
         return Number.isNaN(t) ? 0 : t;
       };
-      withSource.sort((a, b) => businessTs(b) - businessTs(a));
+      withSource.sort((a, b) => {
+        const d = toTs(a.islemDate ?? a.created_at) - toTs(b.islemDate ?? b.created_at);
+        if (d !== 0) return d;
+        const c = toTs(a.created_at) - toTs(b.created_at);
+        if (c !== 0) return c;
+        return (a.id || '').localeCompare(b.id || '');
+      });
 
       return withSource;
     },
