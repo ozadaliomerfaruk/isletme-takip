@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import type { StyleProp, TextStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -77,21 +78,22 @@ interface FullSection {
   totalCount: number;
 }
 
-function HighlightedText({ text, highlight }: { text: string; highlight: string }) {
-  if (!highlight.trim()) return <Text style={styles.resultName} numberOfLines={1}>{text}</Text>;
+function HighlightedText({ text, highlight, textStyle }: { text: string; highlight: string; textStyle?: StyleProp<TextStyle> }) {
+  const nameStyle = [styles.resultName, textStyle];
+  if (!highlight.trim()) return <Text style={nameStyle} numberOfLines={1}>{text}</Text>;
 
   const normalizedText = normalizeTurkish(text);
   const normalizedQuery = normalizeTurkish(highlight.trim());
   const matchIndex = normalizedText.indexOf(normalizedQuery);
 
-  if (matchIndex === -1) return <Text style={styles.resultName} numberOfLines={1}>{text}</Text>;
+  if (matchIndex === -1) return <Text style={nameStyle} numberOfLines={1}>{text}</Text>;
 
   const before = text.slice(0, matchIndex);
   const match = text.slice(matchIndex, matchIndex + normalizedQuery.length);
   const after = text.slice(matchIndex + normalizedQuery.length);
 
   return (
-    <Text style={styles.resultName} numberOfLines={1}>
+    <Text style={nameStyle} numberOfLines={1}>
       {before}
       <Text style={styles.resultNameHighlight}>{match}</Text>
       {after}
@@ -546,12 +548,48 @@ export default function AramaPage() {
     }
   }, [t, formatDateNative]);
 
+  // İşlem için kısa tip etiketi (transactions:tabs): cari_alis→Alış, cari_odeme→Ödeme,
+  // gelir→Gelir, transfer→Transfer ... (cari_ ön ekini at, kalanı tabs'tan çöz).
+  const getShortTypeLabel = useCallback((type: string) => {
+    const key = type.startsWith('cari_') ? type.slice(5) : type;
+    return t(`transactions:tabs.${key}`, {
+      defaultValue: t(`transactions:types.${type}`, { defaultValue: type }),
+    });
+  }, [t]);
+
+  // İşlemin "kimi/neyi" — ilk bakışta kime/kimden yapıldığı: cari > personel >
+  // (transferse hesap → hedef) > kategori (bağsız gelir/gider) > hesap > tip.
+  const getIslemWho = useCallback((islem: IslemWithRelations): string => {
+    if (islem.type === 'transfer') {
+      const src = islem.hesap?.name;
+      const dst = islem.hedef_hesap?.name;
+      if (src && dst) return `${src} → ${dst}`;
+      return src || dst || getShortTypeLabel(islem.type);
+    }
+    if (islem.cari?.name) return islem.cari.name;
+    if (islem.personel) {
+      const name = `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim();
+      if (name) return name;
+    }
+    if (islem.kategori?.name) return islem.kategori.name;
+    if (islem.hesap?.name) return islem.hesap.name;
+    return getShortTypeLabel(islem.type);
+  }, [getShortTypeLabel]);
+
+  // Alt satır: kısa tip + (varsa not/açıklama).
+  const getIslemTypeNote = useCallback((islem: IslemWithRelations): string => {
+    const shortType = getShortTypeLabel(islem.type);
+    const note = islem.description?.trim();
+    return note ? `${shortType} · ${note}` : shortType;
+  }, [getShortTypeLabel]);
+
   const renderItem = useCallback(
     ({ item, index, section }: { item: SearchResultItem; index: number; section: FullSection }) => {
       const archived = isArchived(item);
-      const subtitle = getSubtitle(item);
       const balance = getBalance(item);
       const isLast = index === section.data.length - 1;
+      const isIslem = item.type === 'islem';
+      const subtitle = isIslem ? null : getSubtitle(item);
       return (
         <TouchableOpacity
           style={[styles.resultItem, archived && styles.resultItemArchived]}
@@ -562,11 +600,35 @@ export default function AramaPage() {
           <View style={styles.resultContent}>
             <View style={styles.resultRow}>
               <View style={styles.resultNameContainer}>
-                <HighlightedText text={getName(item)} highlight={debouncedQuery} />
-                {subtitle && (
-                  <Text style={styles.resultSubtitle} numberOfLines={1}>
-                    {subtitle}
-                  </Text>
+                {isIslem ? (
+                  <>
+                    <View style={styles.islemTitleRow}>
+                      {item.data.date ? (
+                        <Text style={styles.islemDate}>
+                          {formatDateNative(new Date(item.data.date))}
+                        </Text>
+                      ) : null}
+                      <View style={styles.islemNameWrap}>
+                        <HighlightedText
+                          text={getIslemWho(item.data)}
+                          highlight={debouncedQuery}
+                          textStyle={styles.islemNameBold}
+                        />
+                      </View>
+                    </View>
+                    <Text style={styles.resultSubtitle} numberOfLines={1}>
+                      {getIslemTypeNote(item.data)}
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <HighlightedText text={getName(item)} highlight={debouncedQuery} />
+                    {subtitle && (
+                      <Text style={styles.resultSubtitle} numberOfLines={1}>
+                        {subtitle}
+                      </Text>
+                    )}
+                  </>
                 )}
               </View>
               {balance.text ? (
@@ -586,7 +648,7 @@ export default function AramaPage() {
         </TouchableOpacity>
       );
     },
-    [handleItemPress, renderIcon, getName, getBalance, getSubtitle, isArchived, t, query]
+    [handleItemPress, renderIcon, getName, getBalance, getSubtitle, getIslemWho, getIslemTypeNote, isArchived, t, debouncedQuery, formatDateNative]
   );
 
   const renderSectionHeader = useCallback(
@@ -1207,6 +1269,23 @@ const styles = StyleSheet.create({
   resultNameHighlight: {
     fontWeight: '700',
     color: colors.primary,
+  },
+  islemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  islemDate: {
+    fontSize: 12,
+    color: colors.textMuted,
+    flexShrink: 0,
+  },
+  islemNameWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  islemNameBold: {
+    fontWeight: '700',
   },
   resultSubtitle: {
     fontSize: 12,
