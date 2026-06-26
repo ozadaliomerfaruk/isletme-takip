@@ -576,11 +576,15 @@ export default function AramaPage() {
     return getShortTypeLabel(islem.type);
   }, [getShortTypeLabel]);
 
-  // Alt satır: kısa tip + (varsa not/açıklama).
-  const getIslemTypeNote = useCallback((islem: IslemWithRelations): string => {
-    const shortType = getShortTypeLabel(islem.type);
+  // Alt satır: kısa tip + hesap/kredi kartı + (varsa not). Hesap, transferde 1. satırda
+  // (hesap→hedef) zaten var; ayrıca 1. satırdaki adla (who) aynıysa tekrar etmez.
+  const getIslemTypeNote = useCallback((islem: IslemWithRelations, who: string): string => {
+    const parts: string[] = [getShortTypeLabel(islem.type)];
+    const account = islem.type === 'transfer' ? null : islem.hesap?.name;
+    if (account && account !== who) parts.push(account);
     const note = islem.description?.trim();
-    return note ? `${shortType} · ${note}` : shortType;
+    if (note) parts.push(note);
+    return parts.join(' · ');
   }, [getShortTypeLabel]);
 
   const renderItem = useCallback(
@@ -590,6 +594,7 @@ export default function AramaPage() {
       const isLast = index === section.data.length - 1;
       const isIslem = item.type === 'islem';
       const subtitle = isIslem ? null : getSubtitle(item);
+      const islemWho = isIslem ? getIslemWho(item.data) : '';
       return (
         <TouchableOpacity
           style={[styles.resultItem, archived && styles.resultItemArchived]}
@@ -610,14 +615,14 @@ export default function AramaPage() {
                       ) : null}
                       <View style={styles.islemNameWrap}>
                         <HighlightedText
-                          text={getIslemWho(item.data)}
+                          text={islemWho}
                           highlight={debouncedQuery}
                           textStyle={styles.islemNameBold}
                         />
                       </View>
                     </View>
                     <Text style={styles.resultSubtitle} numberOfLines={1}>
-                      {getIslemTypeNote(item.data)}
+                      {getIslemTypeNote(item.data, islemWho)}
                     </Text>
                   </>
                 ) : (
