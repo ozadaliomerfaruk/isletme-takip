@@ -37,6 +37,10 @@ async function fetchAuditLog(
     .order('created_at', { ascending: false })
     .limit(100);
 
+  // Retention: yalnızca son 30 gün gösterilir (eskiler pg_cron ile DB'den silinir).
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  query = query.gte('created_at', cutoff);
+
   if (filters?.startDate) query = query.gte('created_at', filters.startDate);
   if (filters?.endDate) query = query.lte('created_at', filters.endDate);
 

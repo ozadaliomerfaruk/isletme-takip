@@ -2,7 +2,7 @@ import { useState, useMemo, type ReactNode } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Pencil, Calendar, Users, Wallet, Tag, User, FileText } from 'lucide-react-native';
+import { Trash2, Pencil, Calendar, Users, Wallet, Tag, User, FileText, Info } from 'lucide-react-native';
 import { Stack } from 'expo-router';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -161,6 +161,14 @@ export default function IslemGecmisiPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
+      {/* Bilgilendirme */}
+      <View style={styles.infoBanner}>
+        <Info size={15} color={colors.textMuted} />
+        <Text variant="caption" color="muted" style={styles.infoBannerText}>
+          {t('multiUser:auditLog.infoNotice')}
+        </Text>
+      </View>
+
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -243,6 +251,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceLight,
+  },
+  infoBannerText: {
+    flex: 1,
+    lineHeight: 16,
   },
   tabContainer: {
     flexDirection: 'row',

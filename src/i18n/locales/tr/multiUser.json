@@ -92,7 +92,8 @@
     "filterAccounts": "Hesaplar",
     "filterClients": "Cariler",
     "filterPersonnel": "Personel",
-    "filterProducts": "Ürünler"
+    "filterProducts": "Ürünler",
+    "infoNotice": "Bu sayfa yalnızca bilgi amaçlıdır; silinen ve düzeltilen işlemler geri alınamaz. Yalnızca son 30 günün kayıtları gösterilir."
   },
   "menu": {
     "userManagement": "Kullanıcı Yönetimi",
