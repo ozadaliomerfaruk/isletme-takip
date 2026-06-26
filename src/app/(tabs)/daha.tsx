@@ -5,7 +5,6 @@ import { useRouter, Href } from 'expo-router';
 import {
   Receipt,
   BarChart3,
-  Building2,
   Tag,
   FileText,
   Shield,
@@ -176,7 +175,11 @@ export default function DahaPage() {
         <SharedIsletmeBanner />
         {/* Profile Card */}
         <View style={styles.profileSection}>
-          <View style={styles.profileCard}>
+          <TouchableOpacity
+            style={styles.profileCard}
+            onPress={() => router.push('/ayarlar/isletme')}
+            activeOpacity={0.7}
+          >
             <Avatar name={businessName} size={48} />
             <View style={styles.profileInfo}>
               <Text variant="h3" numberOfLines={1}>{businessName}</Text>
@@ -184,14 +187,8 @@ export default function DahaPage() {
                 <Text variant="caption" color="muted" numberOfLines={1}>{userEmail}</Text>
               ) : null}
             </View>
-            <TouchableOpacity
-              onPress={() => router.push('/ayarlar/isletme')}
-              style={styles.profileEditButton}
-              activeOpacity={0.7}
-            >
-              <ChevronRight size={20} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
+            <ChevronRight size={20} color={colors.textMuted} />
+          </TouchableOpacity>
         </View>
 
         {/* İşlemler & Raporlar */}
@@ -234,12 +231,6 @@ export default function DahaPage() {
             {t('settings:titles.settings').toUpperCase()}
           </Text>
           <Card padding="none">
-            <MenuItem
-              icon={<Building2 size={22} color={colors.warning} />}
-              label={t('navigation:menu.businessInfo')}
-              onPress={() => router.push('/ayarlar/isletme')}
-            />
-            <View style={styles.divider} />
             <MenuItem
               icon={<Tag size={22} color={colors.success} />}
               label={t('navigation:menu.categories')}
@@ -581,9 +572,6 @@ const styles = StyleSheet.create({
   profileInfo: {
     flex: 1,
     gap: 2,
-  },
-  profileEditButton: {
-    padding: spacing.sm,
   },
   section: {
     paddingHorizontal: spacing.lg,
