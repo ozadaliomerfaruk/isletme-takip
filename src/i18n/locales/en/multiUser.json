@@ -87,7 +87,12 @@
     "deletedBy": "Deleted by",
     "editedBy": "Edited by",
     "originalAmount": "Original Amount",
-    "newAmount": "New Amount"
+    "newAmount": "New Amount",
+    "filterAll": "All",
+    "filterAccounts": "Accounts",
+    "filterClients": "Clients",
+    "filterPersonnel": "Personnel",
+    "filterProducts": "Products"
   },
   "menu": {
     "userManagement": "User Management",

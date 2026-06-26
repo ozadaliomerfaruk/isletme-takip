@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -15,18 +15,51 @@ import { formatCurrency } from '@/lib/currency';
 import type { IslemAuditLog } from '@/types/multiUser';
 
 type TabType = 'deleted' | 'edited';
+type ModuleFilterKey = 'all' | 'hesaplar' | 'cariler' | 'personel' | 'urunler';
+
+// Modül filtre chipleri. Tip bazlı sınıflandırma (ürün dökümü audit'te tutulmadığından
+// "Ürünler" = alış/satış işlemleri).
+const MODULE_FILTERS: { key: ModuleFilterKey; labelKey: string }[] = [
+  { key: 'all', labelKey: 'multiUser:auditLog.filterAll' },
+  { key: 'hesaplar', labelKey: 'multiUser:auditLog.filterAccounts' },
+  { key: 'cariler', labelKey: 'multiUser:auditLog.filterClients' },
+  { key: 'personel', labelKey: 'multiUser:auditLog.filterPersonnel' },
+  { key: 'urunler', labelKey: 'multiUser:auditLog.filterProducts' },
+];
 
 export default function IslemGecmisiPage() {
   const { t } = useTranslation(['multiUser', 'common', 'transactions']);
   const { formatDateNative } = useDateFormat();
   const { currency } = useSettings();
   const [activeTab, setActiveTab] = useState<TabType>('deleted');
+  const [moduleFilter, setModuleFilter] = useState<ModuleFilterKey>('all');
 
   const { data: deletedIslemler, isLoading: deletedLoading } = useDeletedIslemler();
   const { data: editedIslemler, isLoading: editedLoading } = useEditedIslemler();
 
   const isLoading = activeTab === 'deleted' ? deletedLoading : editedLoading;
   const data = activeTab === 'deleted' ? deletedIslemler : editedIslemler;
+
+  // Modül chip'ine göre tip bazlı filtre.
+  const filteredData = useMemo(() => {
+    if (!data || moduleFilter === 'all') return data;
+    return data.filter((item) => {
+      const d = item.new_data ?? item.old_data;
+      const type = String(d?.type ?? '');
+      switch (moduleFilter) {
+        case 'cariler':
+          return type.startsWith('cari_');
+        case 'personel':
+          return type.startsWith('personel_') || type === 'nakit_avans_taksit';
+        case 'hesaplar':
+          return ['gelir', 'gider', 'transfer', 'kredi_karti_gider'].includes(type);
+        case 'urunler':
+          return type === 'cari_alis' || type === 'cari_satis';
+        default:
+          return true;
+      }
+    });
+  }, [data, moduleFilter]);
 
   const renderAuditItem = (item: IslemAuditLog) => {
     const oldData = item.old_data;
@@ -156,19 +189,42 @@ export default function IslemGecmisiPage() {
         </TouchableOpacity>
       </View>
 
+      {/* Modül filtre chipleri */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.chipScroll}
+        contentContainerStyle={styles.chipRow}
+      >
+        {MODULE_FILTERS.map((f) => {
+          const active = moduleFilter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setModuleFilter(f.key)}
+            >
+              <Text variant="label" style={active ? styles.chipTextActive : styles.chipText}>
+                {t(f.labelKey)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           {isLoading ? (
             <Card>
               <Text variant="body" color="muted">{t('common:status.loading')}</Text>
             </Card>
-          ) : !data?.length ? (
+          ) : !filteredData?.length ? (
             <Card>
               <Text variant="body" color="muted">{t('multiUser:auditLog.empty')}</Text>
             </Card>
           ) : (
             <Card padding="none">
-              {data.map((item, index) => (
+              {filteredData.map((item, index) => (
                 <View key={item.id}>
                   {index > 0 && <View style={styles.divider} />}
                   {renderAuditItem(item)}
@@ -208,6 +264,29 @@ const styles = StyleSheet.create({
   tabActive: {
     backgroundColor: colors.surface,
   },
+  chipScroll: {
+    flexGrow: 0,
+    marginBottom: spacing.md,
+  },
+  chipRow: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  chip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceLight,
+  },
+  chipActive: {
+    backgroundColor: colors.primaryLight,
+  },
+  chipText: {
+    color: colors.textMuted,
+  },
+  chipTextActive: {
+    color: colors.primary,
+  },
   scrollView: {
     flex: 1,
   },
@@ -220,8 +299,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.borderLight,
   },
   auditItem: {
-    padding: spacing.lg,
-    gap: spacing.sm,
+    padding: spacing.md,
+    gap: 5,
   },
   auditHeader: {
     flexDirection: 'row',
@@ -246,8 +325,8 @@ const styles = StyleSheet.create({
   },
   detailsList: {
     marginLeft: 32 + spacing.md,
-    marginTop: 2,
-    gap: 3,
+    marginTop: 1,
+    gap: 2,
   },
   detailRow: {
     flexDirection: 'row',
@@ -256,6 +335,7 @@ const styles = StyleSheet.create({
   },
   detailText: {
     flex: 1,
+    fontSize: 13,
   },
   auditMeta: {
     flexDirection: 'row',

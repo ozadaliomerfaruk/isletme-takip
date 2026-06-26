@@ -87,7 +87,12 @@
     "deletedBy": "Silen",
     "editedBy": "Düzenleyen",
     "originalAmount": "Orijinal Tutar",
-    "newAmount": "Yeni Tutar"
+    "newAmount": "Yeni Tutar",
+    "filterAll": "Tümü",
+    "filterAccounts": "Hesaplar",
+    "filterClients": "Cariler",
+    "filterPersonnel": "Personel",
+    "filterProducts": "Ürünler"
   },
   "menu": {
     "userManagement": "Kullanıcı Yönetimi",
