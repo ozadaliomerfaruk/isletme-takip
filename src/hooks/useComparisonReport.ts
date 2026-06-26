@@ -23,6 +23,8 @@ export interface ComparisonRow {
 export interface ComparisonReport {
   /** Aktif dönem tipi (detay raporuna geçişte kullanılır) */
   period: PeriodType;
+  /** Aylık-takvim modunda gösterilen takvim yılı (başlık için); diğer modlarda null */
+  year: number | null;
   /** En yeni dönem üstte (ekran/PDF sırası) */
   displayRows: ComparisonRow[];
   totals: {
@@ -53,19 +55,28 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
   const activePeriod = period || 'monthly';
   const activeOffset = periodOffset || 0;
 
-  // 12 dönem: kayan pencere (en eski -> en yeni)
-  const p1 = useMonthSummary(activePeriod, activeOffset - 11);
-  const p2 = useMonthSummary(activePeriod, activeOffset - 10);
-  const p3 = useMonthSummary(activePeriod, activeOffset - 9);
-  const p4 = useMonthSummary(activePeriod, activeOffset - 8);
-  const p5 = useMonthSummary(activePeriod, activeOffset - 7);
-  const p6 = useMonthSummary(activePeriod, activeOffset - 6);
-  const p7 = useMonthSummary(activePeriod, activeOffset - 5);
-  const p8 = useMonthSummary(activePeriod, activeOffset - 4);
-  const p9 = useMonthSummary(activePeriod, activeOffset - 3);
-  const p10 = useMonthSummary(activePeriod, activeOffset - 2);
-  const p11 = useMonthSummary(activePeriod, activeOffset - 1);
-  const p12 = useMonthSummary(activePeriod, activeOffset);
+  // Aylık modda karşılaştırma TAKVİM YILI gösterir: burada periodOffset = YIL offset'i
+  // (0 = bu yıl, -1 = geçen yıl). 12 satır = o yılın Ocak–Aralık'ı; her ay için bu aya
+  // göre ay-offset'i hesaplanır (activeOffset*12 + (i - bu ay)). Gelecek/boş aylar
+  // useMonthSummary'den doğal olarak ₺0 döner. Diğer dönem tiplerinde eski davranış
+  // korunur: [activeOffset-11 .. activeOffset] kayan 12 dönem.
+  const monthOffsets =
+    activePeriod === 'monthly'
+      ? Array.from({ length: 12 }, (_, i) => activeOffset * 12 + (i - new Date().getMonth()))
+      : Array.from({ length: 12 }, (_, i) => activeOffset - 11 + i);
+
+  const p1 = useMonthSummary(activePeriod, monthOffsets[0]);
+  const p2 = useMonthSummary(activePeriod, monthOffsets[1]);
+  const p3 = useMonthSummary(activePeriod, monthOffsets[2]);
+  const p4 = useMonthSummary(activePeriod, monthOffsets[3]);
+  const p5 = useMonthSummary(activePeriod, monthOffsets[4]);
+  const p6 = useMonthSummary(activePeriod, monthOffsets[5]);
+  const p7 = useMonthSummary(activePeriod, monthOffsets[6]);
+  const p8 = useMonthSummary(activePeriod, monthOffsets[7]);
+  const p9 = useMonthSummary(activePeriod, monthOffsets[8]);
+  const p10 = useMonthSummary(activePeriod, monthOffsets[9]);
+  const p11 = useMonthSummary(activePeriod, monthOffsets[10]);
+  const p12 = useMonthSummary(activePeriod, monthOffsets[11]);
 
   const periods = [p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12];
   const isLoading = periods.some((p) => p.isLoading);
@@ -83,7 +94,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
           income,
           expense,
           net: income - expense,
-          offset: activeOffset - 11 + index,
+          offset: monthOffsets[index],
         };
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -104,8 +115,12 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
     };
   }, [monthsData]);
 
-  // Ekranda/PDF'te en yeni dönem üstte
-  const displayRows = useMemo(() => [...monthsData].reverse(), [monthsData]);
+  // Aylık (takvim yılı): Ocak üstte → Aralık altta (doğal takvim sırası).
+  // Diğer dönem tipleri: en yeni dönem üstte (kayan pencere).
+  const displayRows = useMemo(
+    () => (activePeriod === 'monthly' ? monthsData : [...monthsData].reverse()),
+    [monthsData, activePeriod]
+  );
 
   const exportPdf = useCallback(async () => {
     // Veriler yüklenmeden export, tüm dönemleri ₺0,00 gösteren "geçerli görünümlü" PDF üretir
@@ -167,6 +182,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
 
   return {
     period: activePeriod,
+    year: activePeriod === 'monthly' ? new Date().getFullYear() + activeOffset : null,
     displayRows,
     totals,
     isLoading,

@@ -19,7 +19,7 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
   const { t } = useTranslation(['reports', 'common']);
   const router = useRouter();
   const haptics = useHaptics();
-  const { period, displayRows, totals, isLoading, error } = report;
+  const { period, year, displayRows, totals, isLoading, error } = report;
 
   // İlk yüklemede 12 satır ₺0,00 flash etmesin — iskelet göster (diğer tab'larla tutarlı).
   if (isLoading) {
@@ -52,7 +52,9 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
     <View style={styles.section}>
       <View style={styles.titleRow}>
         <Text variant="label" color="secondary">
-          {t('reports:comparison.last12Periods')}
+          {period === 'monthly' && year != null
+            ? t('reports:comparison.yearMonths', { year })
+            : t('reports:comparison.last12Periods')}
         </Text>
         {isLoading && <ActivityIndicator size="small" color={colors.primary} />}
       </View>

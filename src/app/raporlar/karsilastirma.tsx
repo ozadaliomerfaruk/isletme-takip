@@ -58,7 +58,7 @@ export default function KarsilastirmaRaporPage() {
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         >
-          <ReportPeriodBar state={state} />
+          <ReportPeriodBar state={state} monthlyAsYear />
 
           <KarsilastirmaTabContent report={report} />
         </ScrollView>

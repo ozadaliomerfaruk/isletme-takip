@@ -23,6 +23,13 @@ interface PeriodNavigatorProps {
   periodOffset: number;
   periodLabel: string;
   setPeriodOffset: (offset: number) => void;
+  /**
+   * Aylık modda periodOffset'i YIL offset'i gibi ele al: etiket yılı gösterir,
+   * etikete basınca yıl seçici açılır, sol/sağ tuşları yılı değiştirir. Karşılaştırma
+   * sayfası (takvim yılı = 12 ay) için kullanılır. Varsayılan kapalı → diğer ekranlar
+   * normal aylık (tek ay + ay seçici) davranışını korur.
+   */
+  monthlyAsYear?: boolean;
 }
 
 export function PeriodNavigator({
@@ -30,6 +37,7 @@ export function PeriodNavigator({
   periodOffset,
   periodLabel,
   setPeriodOffset,
+  monthlyAsYear = false,
 }: PeriodNavigatorProps) {
   const { t } = useTranslation(['common', 'reports']);
   const { locale } = useDateFormat();
@@ -73,6 +81,11 @@ export function PeriodNavigator({
 
   // Handle label press - open appropriate picker modal
   const handleLabelPress = () => {
+    // Aylık-yıl modu (karşılaştırma): etiket yıl seçiciyi açar
+    if (period === 'monthly' && monthlyAsYear) {
+      setShowYearPicker(true);
+      return;
+    }
     switch (period) {
       case 'yearly':
         setShowYearPicker(true);
@@ -161,7 +174,9 @@ export function PeriodNavigator({
       >
         <Calendar size={14} color={colors.primary} />
         <Text variant="body" style={styles.dateLabelText}>
-          {periodLabel}
+          {period === 'monthly' && monthlyAsYear
+            ? String(new Date().getFullYear() + periodOffset)
+            : periodLabel}
         </Text>
       </TouchableOpacity>
 

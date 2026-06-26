@@ -13,6 +13,8 @@ interface ReportPeriodBarProps {
   state: ReportRouteState;
   /** 'custom' donem secenegini ve ozel tarih araligi secicisini de goster. */
   includeCustom?: boolean;
+  /** Aylık modu takvim-yılı olarak ele al (karşılaştırma sayfası): etiket yıl, sol/sağ yılı değiştirir. */
+  monthlyAsYear?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ interface ReportPeriodBarProps {
  * birebir ayniydi. gelir-gider/alis-satis (navigator ozet sekmeleriyle ayni
  * satirda) ve index (useReportPeriod, farkli yerlesim) bu yapiyi kullanmaz.
  */
-export function ReportPeriodBar({ state, includeCustom = false }: ReportPeriodBarProps) {
+export function ReportPeriodBar({ state, includeCustom = false, monthlyAsYear = false }: ReportPeriodBarProps) {
   const { t } = useTranslation(['reports']);
 
   const periodOptions = [
@@ -59,6 +61,7 @@ export function ReportPeriodBar({ state, includeCustom = false }: ReportPeriodBa
           periodOffset={state.periodOffset}
           periodLabel={state.periodLabel}
           setPeriodOffset={state.setPeriodOffset}
+          monthlyAsYear={monthlyAsYear}
         />
       )}
     </View>
