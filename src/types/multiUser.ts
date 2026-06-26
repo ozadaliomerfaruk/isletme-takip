@@ -127,6 +127,12 @@ export interface IslemAuditLog {
   created_at: string;
   // Relations
   performer?: Profile;
+  // Çözümlenmiş ilişki isimleri (audit görünümü için; ayrı sorgularla doldurulur)
+  cariName?: string | null;
+  hesapName?: string | null;
+  hedefHesapName?: string | null;
+  kategoriName?: string | null;
+  personelName?: string | null;
 }
 
 // Audit log filtre parametreleri

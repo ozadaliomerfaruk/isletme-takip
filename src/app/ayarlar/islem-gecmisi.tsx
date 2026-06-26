@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { Trash2, Pencil } from 'lucide-react-native';
+import { Trash2, Pencil, Calendar, Users, Wallet, Tag, User, FileText } from 'lucide-react-native';
 import { Stack } from 'expo-router';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -46,6 +46,19 @@ export default function IslemGecmisiPage() {
     const oldAmount = oldData?.amount != null ? Number(oldData.amount as number | string) : null;
     const newAmount = newData?.amount != null ? Number(newData.amount as number | string) : null;
 
+    // Detaylar: işlem tarihi, cari, hesap (transferde → hedef), kategori, personel, not.
+    const islemTarihi = data?.date ? formatDateNative(parseDateFromDB(String(data.date))) : null;
+    const hesapText = item.hesapName
+      ? (item.hedefHesapName ? `${item.hesapName} → ${item.hedefHesapName}` : item.hesapName)
+      : null;
+    const details: { icon: ReactNode; value: string }[] = [];
+    if (islemTarihi) details.push({ icon: <Calendar size={13} color={colors.textMuted} />, value: islemTarihi });
+    if (item.cariName) details.push({ icon: <Users size={13} color={colors.textMuted} />, value: item.cariName });
+    if (hesapText) details.push({ icon: <Wallet size={13} color={colors.textMuted} />, value: hesapText });
+    if (item.kategoriName) details.push({ icon: <Tag size={13} color={colors.textMuted} />, value: item.kategoriName });
+    if (item.personelName) details.push({ icon: <User size={13} color={colors.textMuted} />, value: item.personelName });
+    if (description) details.push({ icon: <FileText size={13} color={colors.textMuted} />, value: description });
+
     return (
       <View key={item.id} style={styles.auditItem}>
         <View style={styles.auditHeader}>
@@ -58,9 +71,6 @@ export default function IslemGecmisiPage() {
           </View>
           <View style={styles.auditInfo}>
             <Text variant="body" numberOfLines={1}>{baslik}</Text>
-            {typeLabel && description ? (
-              <Text variant="caption" color="muted" numberOfLines={1}>{description}</Text>
-            ) : null}
           </View>
           {amount != null && (
             <Text variant="label" style={styles.auditAmount}>
@@ -68,6 +78,19 @@ export default function IslemGecmisiPage() {
             </Text>
           )}
         </View>
+
+        {details.length > 0 && (
+          <View style={styles.detailsList}>
+            {details.map((d, i) => (
+              <View key={i} style={styles.detailRow}>
+                {d.icon}
+                <Text variant="caption" color="muted" numberOfLines={1} style={styles.detailText}>
+                  {d.value}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
         <View style={styles.auditMeta}>
           <Text variant="caption" color="muted">
             {item.action === 'delete'
@@ -220,6 +243,19 @@ const styles = StyleSheet.create({
   auditAmount: {
     color: colors.text,
     fontWeight: '700',
+  },
+  detailsList: {
+    marginLeft: 32 + spacing.md,
+    marginTop: 2,
+    gap: 3,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  detailText: {
+    flex: 1,
   },
   auditMeta: {
     flexDirection: 'row',
