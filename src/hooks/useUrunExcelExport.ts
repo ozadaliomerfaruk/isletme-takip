@@ -48,48 +48,47 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
         endDateTime.setDate(endDateTime.getDate() + 1);
         const endDateNextDay = formatDateForDB(endDateTime);
 
-        // Ürün hareketlerini getir (paginated - 1000 satır limitini aşmak için)
-        const hareketler = await fetchAllPages<any>(() =>
-          supabase
-            .from('urun_hareketler')
-            .select('*')
-            .eq('isletme_id', isletme.id)
-            .eq('urun_id', urunId)
-            .gte('created_at', startDate)
-            .lt('created_at', endDateNextDay)
-            .order('created_at', { ascending: true })
-        );
+        // Ürün hareketlerini İŞ TARİHİNE göre getir (ekrandaki liste/rapor ile aynı eksen):
+        //  - İşleme bağlı: islemler.date dönemde mi (inner join) + cari bilgisi gömülü
+        //  - Manuel (islem_id NULL): iş tarihi = created_at
+        const [linkedHareketler, manuelHareketler] = await Promise.all([
+          fetchAllPages<any>(() =>
+            supabase
+              .from('urun_hareketler')
+              .select('*, islemler!inner(date, cari_id, cariler(id, name))')
+              .eq('isletme_id', isletme.id)
+              .eq('urun_id', urunId)
+              .gte('islemler.date', startDate)
+              .lt('islemler.date', endDateNextDay)
+              .order('id', { ascending: true })
+          ),
+          fetchAllPages<any>(() =>
+            supabase
+              .from('urun_hareketler')
+              .select('*')
+              .eq('isletme_id', isletme.id)
+              .eq('urun_id', urunId)
+              .is('islem_id', null)
+              .gte('created_at', startDate)
+              .lt('created_at', endDateNextDay)
+              .order('created_at', { ascending: true })
+          ),
+        ]);
 
-        // islem_id'lerle cari bilgilerini getir
-        const islemIds = (hareketler || [])
-          .filter(h => h.islem_id)
-          .map(h => h.islem_id as string);
-
-        const islemCariMap = new Map<string, { id: string; name: string } | null>();
-
-        if (islemIds.length > 0) {
-          const { data: islemler } = await supabase
-            .from('islemler')
-            .select('id, cari_id, cariler(id, name)')
-            .in('id', islemIds);
-
-          islemler?.forEach(islem => {
-            const cariRaw = islem.cariler as unknown;
+        // Hareketlere iş tarihi (islemDate) + cari bilgisi iliştir
+        const hareketlerWithCari = [
+          ...(linkedHareketler || []).map(h => {
+            const islemRel = Array.isArray(h.islemler) ? h.islemler[0] : h.islemler;
+            const cariRaw = islemRel?.cariler as unknown;
             const cariData = Array.isArray(cariRaw) ? cariRaw[0] : cariRaw;
-            if (cariData && typeof cariData === 'object' && 'id' in cariData) {
-              const cari = cariData as { id: string; name: string };
-              islemCariMap.set(islem.id, { id: cari.id, name: cari.name });
-            } else {
-              islemCariMap.set(islem.id, null);
-            }
-          });
-        }
-
-        // Hareketlere cari bilgisi ekle
-        const hareketlerWithCari = (hareketler || []).map(h => ({
-          ...h,
-          cari: h.islem_id ? islemCariMap.get(h.islem_id) || null : null,
-        }));
+            const cari =
+              cariData && typeof cariData === 'object' && 'id' in cariData
+                ? { id: (cariData as { id: string; name: string }).id, name: (cariData as { id: string; name: string }).name }
+                : null;
+            return { ...h, islemDate: (islemRel?.date as string | undefined) ?? h.created_at, cari };
+          }),
+          ...(manuelHareketler || []).map(h => ({ ...h, islemDate: h.created_at, cari: null })),
+        ];
 
         // Çevirileri hazırla
         const translations: UrunExcelTranslations = {

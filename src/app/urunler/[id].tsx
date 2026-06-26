@@ -423,7 +423,8 @@ export default function UrunDetayPage() {
                         <View style={styles.hareketInfo}>
                           <View style={styles.hareketTitleRow}>
                             <Text variant="body">
-                              {new Date(hareket.created_at).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
+                              {/* İş tarihi (islem.date) — created_at değil; created_at düzenlemede NOW()'a kayıyor */}
+                              {new Date((hareket.islemDate ?? hareket.created_at).replace(' ', 'T')).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
                                 day: 'numeric',
                                 month: 'short',
                               })}
@@ -484,7 +485,11 @@ export default function UrunDetayPage() {
                                   : colors.warning,
                             }}
                           >
-                            {hareket.hareket_tipi === 'giris' ? '+' : '-'}
+                            {hareket.hareket_tipi === 'giris'
+                              ? '+'
+                              : hareket.hareket_tipi === 'cikis'
+                              ? '-'
+                              : hareket.miktar >= 0 ? '+' : '-'}
                             {Math.abs(hareket.miktar)}
                           </Text>
                           {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (() => {

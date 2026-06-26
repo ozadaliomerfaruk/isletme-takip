@@ -820,7 +820,7 @@ export interface UrunExportOptions {
   isletmeName: string;
   startDate: string;
   endDate: string;
-  hareketler: (UrunHareket & { cari?: { id: string; name: string } | null })[];
+  hareketler: (UrunHareket & { cari?: { id: string; name: string } | null; islemDate?: string | null })[];
   translations: UrunExcelTranslations;
 }
 
@@ -857,9 +857,9 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
       ? { v: val, t: 'n', z: moneyFmt, s: style }
       : { v: '', s: style };
 
-  // İşlemleri tarih sırasına göre sırala (eskiden yeniye)
+  // İŞ TARİHİNE göre sırala (islem.date varsa onu, yoksa created_at) — ekran listesiyle aynı eksen
   const sorted = [...hareketler].sort((a, b) =>
-    a.created_at.localeCompare(b.created_at)
+    (a.islemDate ?? a.created_at).localeCompare(b.islemDate ?? b.created_at)
   );
 
   // Satırları oluştur
@@ -871,7 +871,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
     const total = subtotal != null ? subtotal + (kdvAmount ?? 0) : null;
 
     return {
-      date: formatDateShort(h.created_at),
+      date: formatDateShort(h.islemDate ?? h.created_at),
       movementType: t.movementTypes[h.hareket_tipi] || h.hareket_tipi,
       cariName: h.cari?.name || '',
       quantity: h.hareket_tipi === 'cikis' ? -Math.abs(h.miktar) : h.miktar,

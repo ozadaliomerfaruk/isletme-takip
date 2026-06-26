@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, HesapType } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
 import i18n from '@/i18n';
 
 /**
@@ -18,6 +19,13 @@ export interface UrunHareketWithSource extends UrunHareket {
   } | null;
   /** Bağlı işlemin tipi (gelir/gider/cari_alis/cari_satis/personel_satis...). */
   islemType?: IslemType | null;
+  /**
+   * Bağlı işlemin iş tarihi (islemler.date). Liste gösterimi ve sıralaması bunu
+   * kullanmalı — created_at DEĞİL. created_at, düzenleme/yeniden-uygulama (reapply)
+   * sırasında NOW()'a kayar ve gerçek işlem tarihini yansıtmaz. islem_id NULL ise
+   * (manuel stok hareketi) null'dır → tüketici created_at'e düşer.
+   */
+  islemDate?: string | null;
   /** İşlemin para hesabı; type === 'kredi_karti' ise kredi kartı kaynağı. */
   hesap?: {
     id: string;
@@ -70,7 +78,7 @@ export function useUrunHareketler(urunId: string | undefined) {
       // İki FK (hesap_id, hedef_hesap_id) olduğundan PostgREST alias zorunlu (useIslemler ile aynı desen).
       const { data: islemler, error: islemError } = await supabase
         .from('islemler')
-        .select('id, type, cari_id, hesap_id, personel_id, cariler(id, name, type), hesap:hesaplar!hesap_id(id, name, type), personel:personel(id, first_name, last_name)')
+        .select('id, type, date, cari_id, hesap_id, personel_id, cariler(id, name, type), hesap:hesaplar!hesap_id(id, name, type), personel:personel(id, first_name, last_name)')
         .in('id', islemIds);
 
       if (islemError) {
@@ -85,15 +93,16 @@ export function useUrunHareketler(urunId: string | undefined) {
       };
 
       // islem_id -> kaynak (cari/hesap/personel + tip) mapping oluştur
-      type SourceInfo = Pick<UrunHareketWithSource, 'cari' | 'hesap' | 'personel' | 'islemType'>;
+      type SourceInfo = Pick<UrunHareketWithSource, 'cari' | 'hesap' | 'personel' | 'islemType' | 'islemDate'>;
       const islemSourceMap = new Map<string, SourceInfo>();
       islemler?.forEach(islemRaw => {
-        const islem = islemRaw as { id: string; type: string | null; cariler: unknown; hesap: unknown; personel: unknown };
+        const islem = islemRaw as { id: string; type: string | null; date: string | null; cariler: unknown; hesap: unknown; personel: unknown };
         const cariData = normalizeRel(islem.cariler);
         const hesapData = normalizeRel(islem.hesap);
         const personelData = normalizeRel(islem.personel);
         islemSourceMap.set(islem.id, {
           islemType: (islem.type as IslemType) ?? null,
+          islemDate: islem.date ?? null,
           cari: cariData
             ? { id: cariData.id as string, name: cariData.name as string, type: cariData.type as 'musteri' | 'tedarikci' }
             : null,
@@ -110,16 +119,30 @@ export function useUrunHareketler(urunId: string | undefined) {
       });
 
       // Urun hareketlerine kaynak bilgisi ekle
-      return hareketler.map(h => {
+      const withSource = hareketler.map(h => {
         const src = h.islem_id ? islemSourceMap.get(h.islem_id) : undefined;
         return {
           ...h,
           cari: src?.cari ?? null,
           islemType: src?.islemType ?? null,
+          islemDate: src?.islemDate ?? null,
           hesap: src?.hesap ?? null,
           personel: src?.personel ?? null,
         };
       }) as UrunHareketWithSource[];
+
+      // İş tarihine göre yeniden sırala (yeni → eski). DB sorgusu created_at'e göre
+      // sıralıyordu; ama created_at düzenlemede NOW()'a kaydığı için gerçek tarihi
+      // yansıtmaz. islem.date varsa onu, yoksa created_at'i kullan.
+      const businessTs = (h: UrunHareketWithSource): number => {
+        const raw = h.islemDate ?? h.created_at;
+        if (!raw) return 0;
+        const t = new Date(raw.replace(' ', 'T')).getTime();
+        return Number.isNaN(t) ? 0 : t;
+      };
+      withSource.sort((a, b) => businessTs(b) - businessTs(a));
+
+      return withSource;
     },
     enabled: !!isletme && !!urunId,
   });
@@ -148,23 +171,27 @@ export function useAylikUrunOzet(urunId: string | undefined) {
     queryFn: async () => {
       if (!isletme || !urunId) return [];
 
-      // Son 12 ayın verilerini al
+      // Son 12 ay. created_at yalnız çekme sınırı; gruplama İŞ TARİHİNE (islem.date)
+      // göre yapılır — created_at düzenleme/yeniden-uygulamada NOW()'a kayıyor.
       const { data, error } = await supabase
         .from('urun_hareketler')
-        .select('hareket_tipi, miktar, created_at')
+        .select('hareket_tipi, miktar, created_at, islem_id, islemler(date)')
         .eq('isletme_id', isletme.id)
         .eq('urun_id', urunId)
-        .gte('created_at', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString())
-        .order('created_at', { ascending: false });
+        .gte('created_at', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString());
 
       if (error) throw error;
 
       // Aylara göre grupla
       const aylikMap = new Map<string, { giris: number; cikis: number; duzeltme: number }>();
 
-      (data as UrunHareket[]).forEach((hareket) => {
-        if (!hareket.created_at) return;
-        const ay = hareket.created_at.substring(0, 7); // YYYY-MM
+      type AylikRow = UrunHareket & { islemler?: { date: string | null } | { date: string | null }[] | null };
+      (data as AylikRow[]).forEach((hareket) => {
+        // İş tarihi: bağlı işlemin date'i; manuel hareket (islem_id NULL) ise created_at
+        const islemRel = Array.isArray(hareket.islemler) ? hareket.islemler[0] : hareket.islemler;
+        const isTarihi = islemRel?.date ?? hareket.created_at;
+        if (!isTarihi) return;
+        const ay = isTarihi.substring(0, 7); // YYYY-MM
         const mevcut = aylikMap.get(ay) || { giris: 0, cikis: 0, duzeltme: 0 };
 
         if (hareket.hareket_tipi === 'giris') {
@@ -222,14 +249,29 @@ export function useDonemUrunOzet(options: {
     queryFn: async () => {
       if (!isletme) return {} as DonemUrunOzet;
 
-      const { data, error } = await supabase
-        .from('urun_hareketler')
-        .select('urun_id, hareket_tipi, miktar')
-        .eq('isletme_id', isletme.id)
-        .gte('created_at', `${startDate}T00:00:00`)
-        .lte('created_at', `${endDate}T23:59:59`);
+      // İŞ TARİHİNE göre filtrele (created_at değil — düzenlemede NOW()'a kayıyor):
+      //  - İşleme bağlı hareketler: islemler.date dönem içinde mi? (inner join → DB'de filtre)
+      //  - Manuel hareketler (islem_id NULL): iş tarihi = created_at
+      const [linkedRes, manualRes] = await Promise.all([
+        supabase
+          .from('urun_hareketler')
+          .select('urun_id, hareket_tipi, miktar, islemler!inner(date)')
+          .eq('isletme_id', isletme.id)
+          .gte('islemler.date', `${startDate}T00:00:00`)
+          .lte('islemler.date', `${endDate}T23:59:59`),
+        supabase
+          .from('urun_hareketler')
+          .select('urun_id, hareket_tipi, miktar')
+          .eq('isletme_id', isletme.id)
+          .is('islem_id', null)
+          .gte('created_at', `${startDate}T00:00:00`)
+          .lte('created_at', `${endDate}T23:59:59`),
+      ]);
 
-      if (error) throw error;
+      if (linkedRes.error) throw linkedRes.error;
+      if (manualRes.error) throw manualRes.error;
+
+      const data = [...(linkedRes.data ?? []), ...(manualRes.data ?? [])];
 
       // Ürün bazlı giriş/çıkış toplamları
       const ozet: DonemUrunOzet = {};
@@ -407,31 +449,34 @@ export function useIslemlerWithUrunByCari(cariId: string | undefined) {
     queryFn: async () => {
       if (!isletme || !cariId) return new Map<string, number>();
 
-      // Join through islemler to get urun_hareketler for this cari
-      const { data: islemlerData, error: islemError } = await supabase
-        .from('islemler')
-        .select('id')
-        .eq('cari_id', cariId);
-
-      if (islemError) throw islemError;
+      // Carinin TÜM işlem id'lerini sayfalı çek — PostgREST'in ~1000 satır varsayılan
+      // limiti yüzünden çok işlemli carilerde id'ler eksik kalıp küp ikonu kaybolmasın.
+      const islemlerData = await fetchAllPages<{ id: string }>(() =>
+        supabase.from('islemler').select('id').eq('cari_id', cariId)
+      );
       if (!islemlerData || islemlerData.length === 0) return new Map<string, number>();
 
       const islemIds = islemlerData.map(i => i.id);
 
-      const { data, error } = await supabase
-        .from('urun_hareketler')
-        .select('islem_id')
-        .in('islem_id', islemIds)
-        .not('islem_id', 'is', null);
-
-      if (error) throw error;
-
+      // .in() listesini parçalara böl — yüzlerce/binlerce UUID URL uzunluk limitini aşmasın.
+      const CHUNK = 200;
       const islemUrunCountMap = new Map<string, number>();
-      data?.forEach(row => {
-        if (row.islem_id) {
-          islemUrunCountMap.set(row.islem_id, (islemUrunCountMap.get(row.islem_id) || 0) + 1);
-        }
-      });
+      for (let i = 0; i < islemIds.length; i += CHUNK) {
+        const chunk = islemIds.slice(i, i + CHUNK);
+        const { data, error } = await supabase
+          .from('urun_hareketler')
+          .select('islem_id')
+          .in('islem_id', chunk)
+          .not('islem_id', 'is', null);
+
+        if (error) throw error;
+
+        data?.forEach(row => {
+          if (row.islem_id) {
+            islemUrunCountMap.set(row.islem_id, (islemUrunCountMap.get(row.islem_id) || 0) + 1);
+          }
+        });
+      }
 
       return islemUrunCountMap;
     },

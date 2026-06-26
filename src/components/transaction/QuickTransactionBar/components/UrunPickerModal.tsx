@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useHaptics } from '@/hooks/useHaptics';
 import { styles as sharedStyles } from '../styles';
@@ -182,8 +182,8 @@ export function UrunPickerModal({
 
     // Default to 1 if miktar is empty
     const miktarStr = addingProduct.miktar.trim() || '1';
-    const miktar = parseFloat(miktarStr.replace(',', '.')) || 1;
-    const birimFiyat = parseFloat(addingProduct.birimFiyat.replace(',', '.')) || 0;
+    const miktar = parseCurrency(miktarStr) || 1;
+    const birimFiyat = parseCurrency(addingProduct.birimFiyat) || 0;
 
     if (miktar <= 0) return;
 
@@ -244,8 +244,8 @@ export function UrunPickerModal({
     if (!addingProduct) return { subtotal: 0, kdvAmount: 0, total: 0 };
     // Default to 1 if miktar is empty
     const miktarStr = addingProduct.miktar.trim() || '1';
-    const miktar = parseFloat(miktarStr.replace(',', '.')) || 1;
-    const birimFiyat = parseFloat(addingProduct.birimFiyat.replace(',', '.')) || 0;
+    const miktar = parseCurrency(miktarStr) || 1;
+    const birimFiyat = parseCurrency(addingProduct.birimFiyat) || 0;
     const subtotal = miktar * birimFiyat;
     const kdvAmount = subtotal * (addingProduct.kdvOrani / 100);
     return { subtotal, kdvAmount, total: subtotal + kdvAmount };

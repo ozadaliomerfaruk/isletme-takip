@@ -699,24 +699,28 @@ export function useTransactionSubmit({
           // hata olursa tümü geri sarılır -> stok asla yarım kalmaz. items boşsa (ürünler
           // kaldırılmışsa) yalnızca geri alma yapılır.
           {
+            // #1: Ürün hareketlerini HER ZAMAN yeniden uygula. Yeni tip ürün üretmiyorsa
+            // (ör. tahsilat/transfer'e çevrildi) items BOŞ gider → reapply RPC eski
+            // hareketleri geri alıp siler; böylece orphan stok/hayalet hareket kalmaz.
+            // Ürünsüz işlemlerde (hiç hareketi yok) bu çağrı zararsız no-op'tur.
             const hareketTipi = getUrunHareketTipi(type);
-            if (hareketTipi) {
-              try {
-                await reapplyUrunHareketler.mutateAsync({
-                  islemId: transactionId,
-                  items: urunItems.map((item) => ({
-                    urun_id: item.urunId,
-                    hareket_tipi: hareketTipi,
-                    miktar: item.miktar,
-                    birim_fiyat: item.birimFiyat,
-                    kdv_orani: item.kdvOrani,
-                    aciklama: description.trim() || null,
-                  })),
-                });
-              } catch (urunError) {
-                console.error('[UrunHareket] Edit reapply error:', urunError);
-                Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
-              }
+            try {
+              await reapplyUrunHareketler.mutateAsync({
+                islemId: transactionId,
+                items: hareketTipi
+                  ? urunItems.map((item) => ({
+                      urun_id: item.urunId,
+                      hareket_tipi: hareketTipi,
+                      miktar: item.miktar,
+                      birim_fiyat: item.birimFiyat,
+                      kdv_orani: item.kdvOrani,
+                      aciklama: description.trim() || null,
+                    }))
+                  : [],
+              });
+            } catch (urunError) {
+              console.error('[UrunHareket] Edit reapply error:', urunError);
+              Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
             }
           }
         } else if (!isScheduledTransaction && isScheduled) {

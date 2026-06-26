@@ -63,7 +63,10 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'building': Building, 'building-2': Building2, 'settings': Settings, 'megaphone': Megaphone,
   'presentation': Presentation, 'clipboard': Clipboard, 'globe': Globe, 'target': Target,
   'chart-bar': ChartBar, 'sparkles': Sparkles, 'ribbon': Ribbon, 'circle-help': CircleHelp,
-  'circle-plus': CirclePlus, 'circle-minus': CircleMinus, 'hand-helping': HandHelping,
+  'circle-plus': CirclePlus, 'circle-minus': CircleMinus,
+  // Eski varsayılan kategoriler 'plus-circle'/'minus-circle' adıyla kaydedilmiş olabilir → alias
+  'plus-circle': CirclePlus, 'minus-circle': CircleMinus,
+  'hand-helping': HandHelping,
   'file-signature': FileSignature, 'scale': Scale, 'chart-line': ChartLine,
   'monitor': Monitor, 'smartphone': Smartphone, 'laptop': Laptop, 'printer': Printer,
   'hard-drive': HardDrive, 'camera': Camera, 'tv': Tv, 'headphones': Headphones, 'cog': Cog,

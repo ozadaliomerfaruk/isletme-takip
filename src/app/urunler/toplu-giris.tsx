@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -62,6 +62,7 @@ export default function TopluGirisPage() {
     { id: '1', urunId: null, miktar: '', birimFiyat: '', kdvOrani: 0 },
   ]);
   const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [productPickerVisible, setProductPickerVisible] = useState(false);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState('');
@@ -188,6 +189,9 @@ export default function TopluGirisPage() {
       return;
     }
 
+    // Senkron çift-kaydetme kilidi: hızlı çift dokunuşta state güncellenmeden 2. kez girmesin
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
     setIsSaving(true);
 
     try {
@@ -232,6 +236,7 @@ export default function TopluGirisPage() {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
     } finally {
       setIsSaving(false);
+      isSavingRef.current = false;
     }
   };
 

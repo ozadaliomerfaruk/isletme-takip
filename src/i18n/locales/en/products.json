@@ -91,6 +91,10 @@
     "quantityRequired": "Quantity is required",
     "quantityPositive": "Quantity must be greater than 0"
   },
+  "duplicate": {
+    "title": "Duplicate product name",
+    "message": "A product named \"{{name}}\" already exists. Add it as a new product anyway?"
+  },
   "search": {
     "placeholder": "Search product, category..."
   },

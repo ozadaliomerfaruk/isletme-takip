@@ -8,6 +8,7 @@ import { UrunForm, type UrunFormValues } from '@/components/urun/UrunForm';
 import { colors } from '@/constants/colors';
 import { useUrun, useUpdateUrun } from '@/hooks/useUrunler';
 import { toErrorMessage } from '@/lib/errors';
+import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function UrunDuzenlePage() {
@@ -44,8 +45,8 @@ export default function UrunDuzenlePage() {
         kod: values.kod.trim() || null,
         birim: values.birim,
         kdv_orani: values.kdvOrani,
-        alis_fiyati: values.alisFiyati ? parseFloat(values.alisFiyati.replace(',', '.')) : 0,
-        satis_fiyati: values.satisFiyati ? parseFloat(values.satisFiyati.replace(',', '.')) : 0,
+        alis_fiyati: values.alisFiyati ? parseCurrency(values.alisFiyati) : 0,
+        satis_fiyati: values.satisFiyati ? parseCurrency(values.satisFiyati) : 0,
         kategori_id: values.kategoriId,
         aciklama: values.aciklama.trim() || null,
       });

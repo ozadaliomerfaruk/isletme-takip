@@ -426,6 +426,9 @@ export function useOcrImport(sessionId: string) {
             birim_fiyat: item.unitPrice,
             kdv_orani: item.vatRate,
             aciklama,
+            // #16: Fatura/irsaliye tarihini iş tarihi olarak kullan (yoksa parseDateForDB now() döner).
+            // Manuel hareket (islem_id NULL) raporlarda created_at'e göre dönemleniyor.
+            created_at: parseDateForDB(dateInfo),
           });
 
           createdIds.current.hareketIds.push(hareket.id);
@@ -516,6 +519,9 @@ export function useOcrImport(sessionId: string) {
             birim_fiyat: item.unitPrice,
             kdv_orani: item.vatRate,
             aciklama,
+            // #16: Fatura tarihini iş tarihi olarak kullan; cari'ye bağlanınca islem.date taşır,
+            // bağlanmazsa (tutar 0) created_at doğru dönemi verir.
+            created_at: parseDateForDB(dateInfo),
           });
 
           createdIds.current.hareketIds.push(hareket.id);

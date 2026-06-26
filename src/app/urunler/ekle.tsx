@@ -7,8 +7,11 @@ import { colors } from '@/constants/colors';
 import { useCreateUrun } from '@/hooks/useUrunler';
 import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { useSettings } from '@/hooks/useSettings';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function UrunEklePage() {
@@ -18,10 +21,11 @@ export default function UrunEklePage() {
   const createUrun = useCreateUrun();
   const createUrunHareket = useCreateUrunHareket();
   const { currency: userCurrency } = useSettings();
+  const { isletme } = useAuthContext();
 
-  const handleSubmit = async (values: UrunFormValues) => {
-    const initialStockNum = values.baslangicMiktar ? parseFloat(values.baslangicMiktar.replace(',', '.')) : 0;
-    const purchasePrice = values.alisFiyati ? parseFloat(values.alisFiyati.replace(',', '.')) : 0;
+  const doCreate = async (values: UrunFormValues) => {
+    const initialStockNum = values.baslangicMiktar ? parseCurrency(values.baslangicMiktar) : 0;
+    const purchasePrice = values.alisFiyati ? parseCurrency(values.alisFiyati) : 0;
 
     try {
       // Create the product
@@ -31,7 +35,7 @@ export default function UrunEklePage() {
         birim: values.birim,
         kdv_orani: values.kdvOrani,
         alis_fiyati: purchasePrice,
-        satis_fiyati: values.satisFiyati ? parseFloat(values.satisFiyati.replace(',', '.')) : 0,
+        satis_fiyati: values.satisFiyati ? parseCurrency(values.satisFiyati) : 0,
         kategori_id: values.kategoriId,
         aciklama: values.aciklama.trim() || null,
         currency: userCurrency as Currency,
@@ -54,6 +58,36 @@ export default function UrunEklePage() {
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
     }
+  };
+
+  // #24: Mükerrer ürün adı kontrolü — engellemez, kullanıcı onayıyla yine de ekler.
+  const handleSubmit = async (values: UrunFormValues) => {
+    const name = values.ad.trim();
+    if (isletme && name) {
+      try {
+        const { data: dupes } = await supabase
+          .from('urunler')
+          .select('id')
+          .eq('isletme_id', isletme.id)
+          .eq('is_active', true)
+          .ilike('ad', name)
+          .limit(1);
+        if (dupes && dupes.length > 0) {
+          Alert.alert(
+            t('products:duplicate.title'),
+            t('products:duplicate.message', { name }),
+            [
+              { text: t('common:buttons.cancel'), style: 'cancel' },
+              { text: t('common:buttons.add'), onPress: () => doCreate(values) },
+            ]
+          );
+          return;
+        }
+      } catch {
+        // Kontrol başarısızsa akışı engelleme — normal oluşturmaya devam et
+      }
+    }
+    await doCreate(values);
   };
 
   return (

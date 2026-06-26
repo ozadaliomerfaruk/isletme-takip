@@ -157,7 +157,7 @@ export const TransactionRow = memo(function TransactionRow({
         <View style={styles.amountRow}>
           {hasUrunler && (
             <View style={styles.urunBadge}>
-              <Package size={14} color={colors.primary} />
+              <Package size={17} color={colors.primary} />
               {(urunCount ?? 0) > 0 && (
                 <Text style={styles.urunCountText}>{urunCount}</Text>
               )}
@@ -307,11 +307,11 @@ const styles = StyleSheet.create({
   urunBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    gap: 3,
     marginTop: 1,
   },
   urunCountText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: fontWeight.semibold,
     color: colors.primary,
   },
