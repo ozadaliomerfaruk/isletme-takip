@@ -17,7 +17,7 @@ import type { IslemAuditLog } from '@/types/multiUser';
 type TabType = 'deleted' | 'edited';
 
 export default function IslemGecmisiPage() {
-  const { t } = useTranslation(['multiUser', 'common']);
+  const { t } = useTranslation(['multiUser', 'common', 'transactions']);
   const { formatDateNative } = useDateFormat();
   const { currency } = useSettings();
   const [activeTab, setActiveTab] = useState<TabType>('deleted');
@@ -31,9 +31,20 @@ export default function IslemGecmisiPage() {
   const renderAuditItem = (item: IslemAuditLog) => {
     const oldData = item.old_data;
     const newData = item.new_data;
+    // Silme: old_data; düzenleme: sonuç (new_data) öncelikli.
+    const data = newData ?? oldData;
     const performerName = item.performer?.display_name ?? item.performer?.email ?? '?';
-    const amount = (oldData?.tutar ?? newData?.tutar) as number | undefined;
-    const aciklama = String(oldData?.aciklama ?? newData?.aciklama ?? '');
+
+    // İşlemler tablosu kolonları İngilizce: amount / description / type.
+    const amountRaw = data?.amount as number | string | null | undefined;
+    const amount = amountRaw != null ? Number(amountRaw) : null;
+    const description = String(data?.description ?? '').trim();
+    const type = data?.type ? String(data.type) : '';
+    const typeLabel = type ? t(`transactions:types.${type}`, { defaultValue: type }) : '';
+    const baslik = typeLabel || description || '—';
+
+    const oldAmount = oldData?.amount != null ? Number(oldData.amount as number | string) : null;
+    const newAmount = newData?.amount != null ? Number(newData.amount as number | string) : null;
 
     return (
       <View key={item.id} style={styles.auditItem}>
@@ -46,13 +57,16 @@ export default function IslemGecmisiPage() {
             )}
           </View>
           <View style={styles.auditInfo}>
-            <Text variant="body" numberOfLines={1}>{aciklama || '-'}</Text>
-            {amount != null && (
-              <Text variant="label" style={{ color: colors.text }}>
-                {formatCurrency(Number(amount), currency)}
-              </Text>
-            )}
+            <Text variant="body" numberOfLines={1}>{baslik}</Text>
+            {typeLabel && description ? (
+              <Text variant="caption" color="muted" numberOfLines={1}>{description}</Text>
+            ) : null}
           </View>
+          {amount != null && (
+            <Text variant="label" style={styles.auditAmount}>
+              {formatCurrency(amount, currency)}
+            </Text>
+          )}
         </View>
         <View style={styles.auditMeta}>
           <Text variant="caption" color="muted">
@@ -64,14 +78,14 @@ export default function IslemGecmisiPage() {
             {formatDateNative(parseDateFromDB(item.created_at))}
           </Text>
         </View>
-        {item.action === 'update' && oldData?.tutar != null && newData?.tutar != null && oldData.tutar !== newData.tutar && (
+        {item.action === 'update' && oldAmount != null && newAmount != null && oldAmount !== newAmount && (
           <View style={styles.changeRow}>
             <Text variant="caption" color="muted">
-              {t('multiUser:auditLog.originalAmount')}: {formatCurrency(Number(oldData.tutar), currency)}
+              {t('multiUser:auditLog.originalAmount')}: {formatCurrency(oldAmount, currency)}
             </Text>
             <Text variant="caption" color="muted">→</Text>
             <Text variant="caption" color="muted">
-              {t('multiUser:auditLog.newAmount')}: {formatCurrency(Number(newData.tutar), currency)}
+              {t('multiUser:auditLog.newAmount')}: {formatCurrency(newAmount, currency)}
             </Text>
           </View>
         )}
@@ -202,6 +216,10 @@ const styles = StyleSheet.create({
   auditInfo: {
     flex: 1,
     gap: 2,
+  },
+  auditAmount: {
+    color: colors.text,
+    fontWeight: '700',
   },
   auditMeta: {
     flexDirection: 'row',
