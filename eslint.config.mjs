@@ -46,4 +46,21 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
+  // Node ortamı: yedek/yardımcı scriptler (RN değil; console/process/Buffer/fetch/URL/
+  // require globaldir). CI'da yalnız commit'li scripts/ dosyaları taranır.
+  {
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+        fetch: 'readonly',
+        URL: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
 );
