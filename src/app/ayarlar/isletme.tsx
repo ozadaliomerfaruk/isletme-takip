@@ -82,6 +82,10 @@ export default function IsletmeBilgileriPage() {
     }
   }, [isletme]);
 
+  // Seçili sektörün ikon/rengi — sektör satırında modaldekiyle aynı ikon gösterilsin
+  const selectedSector = SECTORS.find((s) => s.id === sector) ?? null;
+  const SectorIcon = selectedSector?.icon;
+
   const validate = () => {
     const newErrors: { name?: string } = {};
 
@@ -252,11 +256,18 @@ export default function IsletmeBilgileriPage() {
                   onPress={() => setShowSectorModal(true)}
                   activeOpacity={0.7}
                 >
-                  <Text variant="body" color={sector ? 'primary' : 'muted'}>
-                    {sector
-                      ? t(`auth:setup.sector.options.${sector}`)
-                      : t('settings:business.sectorNotSet')}
-                  </Text>
+                  <View style={styles.sectorFieldLeft}>
+                    {selectedSector && SectorIcon && (
+                      <View style={[styles.sectorFieldIcon, { backgroundColor: selectedSector.color + '18' }]}>
+                        <SectorIcon size={18} color={selectedSector.color} />
+                      </View>
+                    )}
+                    <Text variant="body" color={sector ? 'primary' : 'muted'}>
+                      {sector
+                        ? t(`auth:setup.sector.options.${sector}`)
+                        : t('settings:business.sectorNotSet')}
+                    </Text>
+                  </View>
                   <ChevronDown size={20} color={colors.textMuted} />
                 </TouchableOpacity>
                 {sector === 'diger' && (
@@ -555,6 +566,19 @@ const styles = StyleSheet.create({
   },
   sectorOtherInput: {
     marginTop: spacing.sm,
+  },
+  sectorFieldLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flex: 1,
+  },
+  sectorFieldIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectorField: {
     flexDirection: 'row',
