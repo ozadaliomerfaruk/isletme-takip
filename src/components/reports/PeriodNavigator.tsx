@@ -16,7 +16,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { PeriodType } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { ensureValidDate } from '@/lib/date';
+import { ensureValidDate, getDateRange } from '@/lib/date';
 
 interface PeriodNavigatorProps {
   period: PeriodType;
@@ -30,6 +30,13 @@ interface PeriodNavigatorProps {
    * normal aylık (tek ay + ay seçici) davranışını korur.
    */
   monthlyAsYear?: boolean;
+  /**
+   * Günlük modda periodOffset'i AY offset'i gibi ele al: etiket ayı gösterir,
+   * etikete basınca ay seçici açılır, sol/sağ tuşları ayı değiştirir. Karşılaştırma
+   * sayfası (takvim ayı = o ayın günleri) için. Varsayılan kapalı → diğer ekranlar
+   * normal günlük (tek gün + tarih seçici) davranışını korur.
+   */
+  dailyAsMonth?: boolean;
 }
 
 export function PeriodNavigator({
@@ -38,6 +45,7 @@ export function PeriodNavigator({
   periodLabel,
   setPeriodOffset,
   monthlyAsYear = false,
+  dailyAsMonth = false,
 }: PeriodNavigatorProps) {
   const { t } = useTranslation(['common', 'reports']);
   const { locale } = useDateFormat();
@@ -84,6 +92,13 @@ export function PeriodNavigator({
     // Aylık-yıl modu (karşılaştırma): etiket yıl seçiciyi açar
     if (period === 'monthly' && monthlyAsYear) {
       setShowYearPicker(true);
+      return;
+    }
+    // Günlük-ay modu (karşılaştırma): etiket ay seçiciyi açar
+    if (period === 'daily' && dailyAsMonth) {
+      const target = new Date(new Date().getFullYear(), new Date().getMonth() + periodOffset, 1);
+      setSelectedYear(target.getFullYear());
+      setShowMonthYearPicker(true);
       return;
     }
     switch (period) {
@@ -176,6 +191,8 @@ export function PeriodNavigator({
         <Text variant="body" style={styles.dateLabelText}>
           {period === 'monthly' && monthlyAsYear
             ? String(new Date().getFullYear() + periodOffset)
+            : period === 'daily' && dailyAsMonth
+            ? getDateRange('monthly', periodOffset).label
             : periodLabel}
         </Text>
       </TouchableOpacity>

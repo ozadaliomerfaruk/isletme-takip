@@ -185,6 +185,7 @@
     "last6Periods": "Son 6 Dönem",
     "last12Periods": "Son 12 Dönem",
     "yearMonths": "{{year}} ayları",
+    "monthDays": "{{month}} günleri",
     "total": "Toplam",
     "average": "Ortalama",
     "last3Months": "Son 3 Ay",

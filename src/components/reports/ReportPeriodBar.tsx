@@ -15,6 +15,8 @@ interface ReportPeriodBarProps {
   includeCustom?: boolean;
   /** Aylık modu takvim-yılı olarak ele al (karşılaştırma sayfası): etiket yıl, sol/sağ yılı değiştirir. */
   monthlyAsYear?: boolean;
+  /** Günlük modu takvim-ayı olarak ele al (karşılaştırma sayfası): etiket ay, sol/sağ ayı değiştirir. */
+  dailyAsMonth?: boolean;
 }
 
 /**
@@ -24,7 +26,7 @@ interface ReportPeriodBarProps {
  * birebir ayniydi. gelir-gider/alis-satis (navigator ozet sekmeleriyle ayni
  * satirda) ve index (useReportPeriod, farkli yerlesim) bu yapiyi kullanmaz.
  */
-export function ReportPeriodBar({ state, includeCustom = false, monthlyAsYear = false }: ReportPeriodBarProps) {
+export function ReportPeriodBar({ state, includeCustom = false, monthlyAsYear = false, dailyAsMonth = false }: ReportPeriodBarProps) {
   const { t } = useTranslation(['reports']);
 
   const periodOptions = [
@@ -62,6 +64,7 @@ export function ReportPeriodBar({ state, includeCustom = false, monthlyAsYear = 
           periodLabel={state.periodLabel}
           setPeriodOffset={state.setPeriodOffset}
           monthlyAsYear={monthlyAsYear}
+          dailyAsMonth={dailyAsMonth}
         />
       )}
     </View>

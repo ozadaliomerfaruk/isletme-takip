@@ -185,6 +185,7 @@
     "last6Periods": "Last 6 Periods",
     "last12Periods": "Last 12 Periods",
     "yearMonths": "{{year}} months",
+    "monthDays": "{{month}} days",
     "total": "Total",
     "average": "Average",
     "last3Months": "Last 3 Months",
