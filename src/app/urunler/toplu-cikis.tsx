@@ -24,8 +24,8 @@ import { spacing } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { isToday, formatDateTimeForDB } from '@/lib/date';
-import { formatCurrency, parseCurrency } from '@/lib/currency';
+import { isToday, formatDateTimeForDB, ensureValidDate } from '@/lib/date';
+import { formatCurrency, parseCurrency, parseQuantity, formatQuantity } from '@/lib/currency';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
 import { Urun, BirimType, KdvOrani } from '@/types/database';
@@ -138,14 +138,14 @@ export default function TopluCikisPage() {
 
   // Valid rows count
   const validRows = useMemo(() => {
-    return rows.filter(r => r.urunId && parseCurrency(r.miktar) > 0);
+    return rows.filter(r => r.urunId && parseQuantity(r.miktar) > 0);
   }, [rows]);
 
   // Total amount (subtotal without KDV)
   const totalAmount = useMemo(() => {
     let total = 0;
     validRows.forEach(r => {
-      const miktar = parseCurrency(r.miktar);
+      const miktar = parseQuantity(r.miktar);
       const fiyat = parseCurrency(r.birimFiyat);
       if (fiyat > 0) {
         total += miktar * fiyat;
@@ -156,7 +156,7 @@ export default function TopluCikisPage() {
 
   // Row line total (without KDV)
   const getRowSubtotal = (row: StockRow) => {
-    const miktar = parseCurrency(row.miktar);
+    const miktar = parseQuantity(row.miktar);
     const fiyat = parseCurrency(row.birimFiyat);
     if (miktar > 0 && fiyat > 0) return miktar * fiyat;
     return 0;
@@ -201,7 +201,7 @@ export default function TopluCikisPage() {
           return {
             urun_id: row.urunId!,
             urun_ad: urun?.ad || '',
-            miktar: parseCurrency(row.miktar),
+            miktar: parseQuantity(row.miktar),
             birim_fiyat: parseCurrency(row.birimFiyat) || 0,
             kdv_orani: row.kdvOrani,
           };
@@ -218,7 +218,7 @@ export default function TopluCikisPage() {
           createUrunHareket.mutateAsync({
             urun_id: row.urunId!,
             hareket_tipi: 'cikis',
-            miktar: parseCurrency(row.miktar),
+            miktar: parseQuantity(row.miktar),
             birim_fiyat: parseCurrency(row.birimFiyat) || null,
             aciklama: null,
             created_at: formatDateTimeForDB(date),
@@ -329,7 +329,7 @@ export default function TopluCikisPage() {
                               {urun.ad}
                             </Text>
                             <Text style={styles.productStockText}>
-                              {t('products:stock.currentStock')}: {urun.miktar} {getBirimLabel(urun.birim)}
+                              {t('products:stock.currentStock')}: {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
                             </Text>
                           </View>
                         </View>
@@ -467,7 +467,7 @@ export default function TopluCikisPage() {
                   <View style={styles.pickerSheet}>
                     <Text style={styles.pickerTitle}>{t('common:date.date')}</Text>
                     <DateTimePickerRN
-                      value={date}
+                      value={ensureValidDate(date)}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       onChange={(event, selectedDate) => {
@@ -553,7 +553,7 @@ export default function TopluCikisPage() {
                             </View>
                           )}
                           <Text style={styles.pickerItemStock}>
-                            {urun.miktar} {getBirimLabel(urun.birim)}
+                            {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
                           </Text>
                           {urun.satis_fiyati > 0 && (
                             <Text style={styles.pickerItemPrice}>

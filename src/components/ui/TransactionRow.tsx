@@ -6,7 +6,7 @@ import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize, fontWeight, borderRadius } from '@/constants/spacing';
 import { useTranslation } from 'react-i18next';
-import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
 import { isLeaveType } from '@/constants/islemTypes';
 import type { IslemType } from '@/types/database';
@@ -133,7 +133,7 @@ export const TransactionRow = memo(function TransactionRow({
           <View style={styles.urunList}>
             {urunItems.slice(0, maxUrunItems).map((it, i) => (
               <Text key={i} style={styles.urunItemText} numberOfLines={1}>
-                {it.ad}  {it.miktar}
+                {it.ad}  {formatQuantity(it.miktar)}
                 {it.birim_fiyat != null ? ` × ${formatCurrency(it.birim_fiyat, currency)}` : ''}
               </Text>
             ))}

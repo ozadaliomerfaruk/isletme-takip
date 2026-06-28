@@ -12,7 +12,7 @@ import { useCashFlowByCategory, CashFlowItem } from '@/hooks/useCashFlowByCatego
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PeriodType } from '@/hooks/useIslemler';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, ensureValidDate } from '@/lib/date';
 import { exportCashFlowToExcel, CashFlowExcelTranslations } from '@/lib/reportExcelExport';
 import { useSettings } from '@/hooks/useSettings';
 import { toErrorMessage } from '@/lib/errors';
@@ -295,7 +295,7 @@ export default function NakitAkisiPage() {
               </View>
               <View style={{ alignItems: 'center' }}>
                 <DateTimePicker
-                  value={showStartPicker ? state.customStartDate : state.customEndDate}
+                  value={ensureValidDate(showStartPicker ? state.customStartDate : state.customEndDate)}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'inline' : 'default'}
                   themeVariant="light"
@@ -328,7 +328,7 @@ export default function NakitAkisiPage() {
       {/* Custom Date Pickers - Android */}
       {Platform.OS === 'android' && showStartPicker && (
         <DateTimePicker
-          value={state.customStartDate}
+          value={ensureValidDate(state.customStartDate)}
           mode="date"
           display="default"
           onChange={(event, date) => {
@@ -344,7 +344,7 @@ export default function NakitAkisiPage() {
       )}
       {Platform.OS === 'android' && showEndPicker && (
         <DateTimePicker
-          value={state.customEndDate}
+          value={ensureValidDate(state.customEndDate)}
           mode="date"
           display="default"
           onChange={(event, date) => {

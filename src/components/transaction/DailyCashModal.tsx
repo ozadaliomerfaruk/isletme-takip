@@ -27,7 +27,7 @@ import { Text, Button, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
-import { formatDateTimeForDB } from '@/lib/date';
+import { formatDateTimeForDB, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
@@ -603,7 +603,7 @@ export function DailyCashModal({
                 <View style={styles.pickerContainer}>
                   <Text style={styles.pickerTitle}>{t('transactions:dailyCash.selectDate')}</Text>
                   <DateTimePickerRN
-                    value={date}
+                    value={ensureValidDate(date)}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={handleDateChange}

@@ -5,6 +5,7 @@ import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { OcrParsedItem } from '@/types/ocrImport';
+import { formatQuantity } from '@/lib/currency';
 
 interface OcrNewProductModalProps {
   visible: boolean;
@@ -49,7 +50,7 @@ export function OcrNewProductModal({
                 <View style={styles.itemInfo}>
                   <Text variant="body">{item.name}</Text>
                   <Text variant="caption" color="secondary">
-                    {item.quantity} {item.unitRaw || 'AD'} x {item.unitPrice}
+                    {formatQuantity(item.quantity)} {item.unitRaw || 'AD'} x {item.unitPrice}
                   </Text>
                 </View>
               </View>

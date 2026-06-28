@@ -100,6 +100,26 @@ export function parseCurrency(value: string): number {
 }
 
 /**
+ * Miktar (adet/kg/gram) girişini sayıya çevir.
+ *
+ * Ayraç mantığı parseCurrency ile AYNIDIR (locale-duyarlı): Türkçe (1.234,56),
+ * İngilizce (1,234.56) ve yalın ondalıkları (5,977 / 5.977) doğru okur. Amaç:
+ * miktarı uygulamanın HER yerinde TEK ve TUTARLI biçimde parse etmek — özellikle
+ * QuickUrunBar'daki yereld-duyarsız `parseFloat(x.replace(',','.'))` kalıbının
+ * yerini alır (o kalıp "1.500" gibi binlikli girişi 1.5'e düşürüyordu).
+ *
+ * Para ile tek farkı niyet/isimdir: miktar 3 ondalığa (kg→gram) kadar korunur,
+ * 2'ye yuvarlanmaz (parseCurrency zaten yuvarlamaz). Boş giriş için NaN döner.
+ *
+ * @example parseQuantity("5,977") // 5.977  (TRY/EUR locale)
+ * @example parseQuantity("5.977") // 5.977  (USD/GBP locale)
+ * @example parseQuantity("5.5")   // 5.5
+ */
+export function parseQuantity(value: string): number {
+  return parseCurrency(value);
+}
+
+/**
  * Veritabanından gelen balance değerini number'a çevir
  * null, undefined, string ve number tiplerini güvenli şekilde handle eder
  *
@@ -293,6 +313,26 @@ export function formatNumber(amount: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Math.abs(amount));
+}
+
+/**
+ * Miktar (adet/kg/gram) formatla — kullanıcının locale'ine göre ONDALIK ayraçla.
+ * Para DEĞİL; sembol eklemez. En fazla 3 ondalık (kg/gram hassasiyeti), sondaki
+ * sıfırlar atılır (5 → "5", 5.977 → "5,977" (tr) / "5.977" (en), 5.5 → "5,5").
+ *
+ * NEDEN: Ham `${miktar}` interpolasyonu JS sayısını her zaman NOKTA ile yazar
+ * (5.977 → "5.977"); TR kullanıcı noktayı binlik ayracı okuyup 5.977 kg'ı "5977"
+ * sanıyordu ("ondalık virgülü atılmış" hatası). Bu fonksiyon locale-doğru gösterir.
+ *
+ * @example  formatQuantity(5.977) // "5,977" (TRY/EUR) | "5.977" (USD/GBP)
+ * @example  formatQuantity(1500)  // "1.500" (TRY/EUR) | "1,500" (USD/GBP)
+ */
+export function formatQuantity(value: number | string | null | undefined): string {
+  const num = toNumber(value);
+  return new Intl.NumberFormat(getCurrentCurrency().locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  }).format(num);
 }
 
 /**

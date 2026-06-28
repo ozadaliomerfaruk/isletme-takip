@@ -24,7 +24,7 @@ import { useFotoImportContext } from '@/contexts/FotoImportContext';
 import { usePendingIrsaliyeByCari } from '@/hooks/useIrsaliyeRecords';
 import { Kategori } from '@/types/database';
 import { DOCUMENT_TYPE_DEFAULTS, OcrDocumentType, OcrSaveMode } from '@/types/ocrImport';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity, parseCurrency } from '@/lib/currency';
 
 export default function FotoImportReviewPage() {
   const { t } = useTranslation(['ocrImport', 'common', 'products', 'clients']);
@@ -458,12 +458,12 @@ export default function FotoImportReviewPage() {
                             placeholder="0.00"
                             placeholderTextColor={colors.textMuted}
                             onBlur={() => {
-                              const val = parseFloat(totalInput.replace(',', '.'));
+                              const val = parseCurrency(totalInput);
                               handleEditGrandTotal(isNaN(val) || val <= 0 ? null : val);
                               setEditingTotal(false);
                             }}
                             onSubmitEditing={() => {
-                              const val = parseFloat(totalInput.replace(',', '.'));
+                              const val = parseCurrency(totalInput);
                               handleEditGrandTotal(isNaN(val) || val <= 0 ? null : val);
                               setEditingTotal(false);
                             }}
@@ -743,7 +743,7 @@ export default function FotoImportReviewPage() {
                   <View style={styles.pickerItemInfo}>
                     <Text variant="body">{urun.ad}</Text>
                     <Text variant="caption" color="secondary">
-                      {urun.miktar} {t(`products:units.${urun.birim}`)}
+                      {formatQuantity(urun.miktar)} {t(`products:units.${urun.birim}`)}
                       {urun.kategori_id && kategoriler ? (() => {
                         const kat = kategoriler.find((k: Kategori) => k.id === urun.kategori_id);
                         return kat ? ` \u00B7 ${kat.name}` : '';

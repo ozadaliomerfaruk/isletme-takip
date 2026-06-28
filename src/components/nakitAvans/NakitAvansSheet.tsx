@@ -35,7 +35,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, formatCurrency } from '@/lib/currency';
 import { getCurrentCurrency } from '@/hooks/useSettings';
-import { formatDateForDB, addMonths } from '@/lib/date';
+import { formatDateForDB, addMonths, ensureValidDate, parseDateFromDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateNakitAvans, useUpdateNakitAvans } from '@/hooks/useNakitAvans';
@@ -147,7 +147,7 @@ export function NakitAvansSheet({
       setAmount(String(editingAvans.tutar));
       setRepaymentAmount(String(editingAvans.geri_odeme_tutari));
       setSelectedTargetHesapId(editingAvans.hedef_hesap_id);
-      setSelectedDate(new Date(editingAvans.tarih));
+      setSelectedDate(parseDateFromDB(editingAvans.tarih));
       setSelectedKategoriId(editingAvans.kategori_id || null);
       setDescription(editingAvans.aciklama || '');
       setTaksitSayisi(editingAvans.taksit_sayisi || 1);
@@ -656,7 +656,7 @@ export function NakitAvansSheet({
                 <View style={styles.pickerContainer}>
                   <Text style={styles.pickerTitle}>{t('common:date.selectDate')}</Text>
                   <DateTimePickerRN
-                    value={selectedDate}
+                    value={ensureValidDate(selectedDate)}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                     onChange={handleDateChange}

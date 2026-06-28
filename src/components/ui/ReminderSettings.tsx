@@ -17,6 +17,7 @@ import { Button } from './Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { ensureValidDate } from '@/lib/date';
 
 export interface ReminderConfig {
   enabled: boolean;
@@ -179,7 +180,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
                 </TouchableOpacity>
               </View>
               <DateTimePicker
-                value={timeStringToDate(value.time)}
+                value={ensureValidDate(timeStringToDate(value.time))}
                 mode="time"
                 display="spinner"
                 onChange={handleTimeChange}
@@ -202,7 +203,7 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
       {/* Android Time Picker */}
       {Platform.OS === 'android' && showTimePicker && (
         <DateTimePicker
-          value={timeStringToDate(value.time)}
+          value={ensureValidDate(timeStringToDate(value.time))}
           mode="time"
           display="default"
           onChange={handleTimeChange}

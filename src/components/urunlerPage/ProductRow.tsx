@@ -5,7 +5,7 @@ import { Package, ArrowRightLeft, History, MoreVertical } from 'lucide-react-nat
 import { Text, Button, ExpandableCard } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity } from '@/lib/currency';
 import type { Urun, BirimType } from '@/types/database';
 
 interface DonemOzet { giris: number; cikis: number }
@@ -58,7 +58,7 @@ export const ProductRow = memo(function ProductRow({
               </View>
               <View style={rowStyles.metaRow}>
                 <Text variant="caption" color="secondary">
-                  {urun.miktar} {getBirimLabel(urun.birim)}
+                  {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
                 </Text>
                 {urun.satis_fiyati > 0 && (
                   <Text variant="caption" color="secondary">
@@ -77,12 +77,12 @@ export const ProductRow = memo(function ProductRow({
                 <>
                   {urunOzet.giris > 0 && (
                     <View style={rowStyles.pillIn}>
-                      <Text style={rowStyles.pillInText}>+{urunOzet.giris}</Text>
+                      <Text style={rowStyles.pillInText}>+{formatQuantity(urunOzet.giris)}</Text>
                     </View>
                   )}
                   {urunOzet.cikis > 0 && (
                     <View style={rowStyles.pillOut}>
-                      <Text style={rowStyles.pillOutText}>-{urunOzet.cikis}</Text>
+                      <Text style={rowStyles.pillOutText}>-{formatQuantity(urunOzet.cikis)}</Text>
                     </View>
                   )}
                 </>
@@ -157,7 +157,7 @@ export const ArchivedProductRow = memo(function ArchivedProductRow({
             <View style={rowStyles.info}>
               <Text variant="body" color="secondary">{urun.ad}</Text>
               <Text variant="caption" color="muted">
-                {urun.miktar} {getBirimLabel(urun.birim)}
+                {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
                 {urun.kod && ` • ${urun.kod}`}
               </Text>
             </View>

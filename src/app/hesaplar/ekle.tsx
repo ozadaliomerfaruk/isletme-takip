@@ -18,6 +18,7 @@ import { HesapType, Currency } from '@/types/database';
 import { DEFAULT_CURRENCY } from '@/constants/currencies';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -65,7 +66,7 @@ export default function HesapEklePage() {
     // Bakiye hesaplama
     // debt (artı bakiye) = pozitif
     // credit (eksi bakiye) = negatif
-    let finalBalance = balance ? parseFloat(balance.replace(',', '.')) : 0;
+    let finalBalance = balance ? parseCurrency(balance) : 0;
     if (balanceDirection === 'credit' && finalBalance > 0) {
       finalBalance = -finalBalance;
     }
@@ -79,7 +80,7 @@ export default function HesapEklePage() {
         initial_balance: finalBalance, // Açılış bakiyesi olarak kaydet
         description: description.trim() || null,
         credit_limit: type === 'kredi_karti' && creditLimit
-          ? parseFloat(creditLimit.replace(',', '.'))
+          ? parseCurrency(creditLimit)
           : null,
         payment_due_day: type === 'kredi_karti' && paymentDueDay
           ? parseInt(paymentDueDay, 10)

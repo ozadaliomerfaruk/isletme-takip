@@ -30,6 +30,7 @@ import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
+import { ensureValidDate, parseDateFromDB } from '@/lib/date';
 import { useNotePhotoField } from '@/hooks/useNotePhoto';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { useCariler } from '@/hooks/useCariler';
@@ -97,7 +98,7 @@ export function NoteInputModal({
     if (visible) {
       setContent(initialData?.content ?? '');
       setIsCompleted(initialData?.is_completed ?? false);
-      setReminderDate(initialData?.reminder_date ? new Date(initialData.reminder_date) : null);
+      setReminderDate(initialData?.reminder_date ? parseDateFromDB(initialData.reminder_date) : null);
       setAssignedUser(initialData?.assigned_to_user ?? null);
       setAssignedCari(initialData?.assigned_to_cari ?? null);
       setAssignedPersonel(initialData?.assigned_to_personel ?? null);
@@ -466,7 +467,7 @@ export function NoteInputModal({
               {t('common:notes.setReminder')}
             </Text>
             <DateTimePicker
-              value={reminderDate ?? new Date()}
+              value={ensureValidDate(reminderDate ?? new Date())}
               mode="datetime"
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleDateChange}

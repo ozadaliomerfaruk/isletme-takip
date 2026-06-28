@@ -18,6 +18,7 @@ import { useHesap, useUpdateHesap } from '@/hooks/useHesaplar';
 import { HesapType } from '@/types/database';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 // Hesap tipi için ikon ve renk
@@ -82,7 +83,7 @@ export default function HesapDuzenlePage() {
         name: name.trim(),
         description: description.trim() || null,
         credit_limit: hesap.type === 'kredi_karti' && creditLimit
-          ? parseFloat(creditLimit.replace(',', '.'))
+          ? parseCurrency(creditLimit)
           : null,
         payment_due_day: hesap.type === 'kredi_karti' && paymentDueDay
           ? parseInt(paymentDueDay, 10)

@@ -14,7 +14,7 @@ import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatDateForDB, getDateRange, PeriodType } from '@/lib/date';
+import { formatDateForDB, getDateRange, PeriodType, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useUrunExcelExport } from '@/hooks/useUrunExcelExport';
 import { Currency } from '@/types/database';
@@ -158,7 +158,7 @@ export function UrunExportSheet({
             </View>
             <View style={styles.datePickerWrapper}>
               <DateTimePickerRN
-                value={currentValue}
+                value={ensureValidDate(currentValue)}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 onChange={(event, date) => {
@@ -331,7 +331,7 @@ export function UrunExportSheet({
       {/* Android Date Pickers */}
       {Platform.OS === 'android' && showStartPicker && (
         <DateTimePickerRN
-          value={customStartDate}
+          value={ensureValidDate(customStartDate)}
           mode="date"
           display="default"
           onChange={handleStartDateChange}
@@ -340,7 +340,7 @@ export function UrunExportSheet({
       )}
       {Platform.OS === 'android' && showEndPicker && (
         <DateTimePickerRN
-          value={customEndDate}
+          value={ensureValidDate(customEndDate)}
           mode="date"
           display="default"
           onChange={handleEndDateChange}

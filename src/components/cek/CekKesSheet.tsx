@@ -34,7 +34,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
 import { getCurrencySymbol } from '@/constants/currencies';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, ensureValidDate, parseDateFromDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -217,8 +217,8 @@ export function CekKesSheet({
       setCekNo(editCekData.cek_no);
       setAmount(String(editCekData.tutar));
       setDescription(editCekData.aciklama || '');
-      setKesimTarihi(new Date(editCekData.kesim_tarihi + 'T00:00:00'));
-      setVadeTarihi(new Date(editCekData.vade_tarihi + 'T00:00:00'));
+      setKesimTarihi(parseDateFromDB(editCekData.kesim_tarihi));
+      setVadeTarihi(parseDateFromDB(editCekData.vade_tarihi));
       setKategoriId(editCekData.kategori_id);
       setHesapId(editCekData.hesap_id);
       setCariId(editCekData.cari_id);
@@ -614,7 +614,7 @@ export function CekKesSheet({
 
                   <View style={styles.datePickerSection}>
                     <DateTimePickerRN
-                      value={kesimTarihi}
+                      value={ensureValidDate(kesimTarihi)}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       onChange={(event, selectedDate) => {
@@ -658,7 +658,7 @@ export function CekKesSheet({
 
                   <View style={styles.datePickerSection}>
                     <DateTimePickerRN
-                      value={vadeTarihi}
+                      value={ensureValidDate(vadeTarihi)}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       minimumDate={new Date()}

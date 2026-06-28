@@ -18,7 +18,7 @@ import { PeriodType } from '@/hooks/useIslemler';
 // Alış-Satış işlem tipleri (useProductReport ile uyumlu)
 const PURCHASE_TYPES = ['cari_alis'];
 const SALE_TYPES = ['cari_satis', 'personel_satis'];
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { exportProductReportToExcel, ProductExcelTranslations } from '@/lib/reportExcelExport';
 import { supabase } from '@/lib/supabase';
@@ -453,6 +453,7 @@ function ProductReportCard({
           <Text variant="caption" color="secondary">
             {t('reports:purchaseSales.quantity', {
               count: item.toplamMiktar,
+              formatted: formatQuantity(item.toplamMiktar),
               unit: t(`products:units.${item.urunBirim}`),
             })}
           </Text>

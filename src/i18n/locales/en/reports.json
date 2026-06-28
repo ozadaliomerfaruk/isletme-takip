@@ -232,7 +232,7 @@
     "productBreakdown": "PRODUCT BREAKDOWN",
     "noPurchases": "No product purchases in this period",
     "noSales": "No product sales in this period",
-    "quantity": "{{count}} {{unit}}",
+    "quantity": "{{formatted}} {{unit}}",
     "transactionCount": "{{count}} transactions",
     "uncategorized": "Uncategorized",
     "sortByAmount": "By Amount",

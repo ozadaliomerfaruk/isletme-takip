@@ -1,5 +1,6 @@
 import { Modal, View, TouchableWithoutFeedback, TouchableOpacity, Platform } from 'react-native';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
+import { ensureValidDate } from '@/lib/date';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { styles } from './styles';
@@ -68,7 +69,7 @@ export function CreditCardDatePicker({
               <View style={styles.pickerSection}>
                 <Text style={styles.pickerSectionTitle}>{t('common:date.date')}</Text>
                 <DateTimePickerRN
-                  value={date}
+                  value={ensureValidDate(date)}
                   mode="date"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleDateChange}
@@ -82,7 +83,7 @@ export function CreditCardDatePicker({
               <View style={styles.pickerSection}>
                 <Text style={styles.pickerSectionTitle}>{t('common:date.time')}</Text>
                 <DateTimePickerRN
-                  value={date}
+                  value={ensureValidDate(date)}
                   mode="time"
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   is24Hour={true}

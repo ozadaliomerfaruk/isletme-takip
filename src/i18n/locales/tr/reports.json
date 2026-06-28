@@ -232,7 +232,7 @@
     "productBreakdown": "ÜRÜN BAZLI DAĞILIM",
     "noPurchases": "Bu dönemde ürün alışı bulunmuyor",
     "noSales": "Bu dönemde ürün satışı bulunmuyor",
-    "quantity": "{{count}} {{unit}}",
+    "quantity": "{{formatted}} {{unit}}",
     "transactionCount": "{{count}} işlem",
     "uncategorized": "Kategorisiz",
     "sortByAmount": "Tutara Göre",

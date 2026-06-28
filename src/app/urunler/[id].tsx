@@ -51,7 +51,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
 import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketWithSource } from '@/hooks/useUrunHareketler';
 import { BirimType } from '@/types/database';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity } from '@/lib/currency';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
@@ -207,7 +207,7 @@ export default function UrunDetayPage() {
   // Urun hareketi silme (doğrudan girişler için)
   const handleDeleteHareket = (hareket: UrunHareketWithSource) => {
     setExpandedHareketId(null);
-    const desc = `${hareket.hareket_tipi === 'giris' ? '↑' : '↓'} ${hareket.miktar}`;
+    const desc = `${hareket.hareket_tipi === 'giris' ? '↑' : '↓'} ${formatQuantity(hareket.miktar)}`;
     requestDeleteHareket(hareket.id, hareket, desc);
   };
 
@@ -291,7 +291,7 @@ export default function UrunDetayPage() {
                     {t('products:stock.currentStock')}
                   </Text>
                   <Text variant="h3" color="primary">
-                    {urun.miktar} {getBirimLabel(urun.birim)}
+                    {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
                   </Text>
                 </View>
               </View>
@@ -339,15 +339,15 @@ export default function UrunDetayPage() {
                       <Text variant="body" style={{ fontSize: 14 }}>{getMonthLabel(ozet.ay)}</Text>
                       <View style={styles.aylikValues}>
                         <View style={styles.aylikPillIn}>
-                          <Text style={styles.aylikPillInText}>+{ozet.giris}</Text>
+                          <Text style={styles.aylikPillInText}>+{formatQuantity(ozet.giris)}</Text>
                         </View>
                         <View style={styles.aylikPillOut}>
-                          <Text style={styles.aylikPillOutText}>-{ozet.cikis}</Text>
+                          <Text style={styles.aylikPillOutText}>-{formatQuantity(ozet.cikis)}</Text>
                         </View>
                         {ozet.duzeltme !== 0 && (
                           <View style={styles.aylikPillDuzeltme}>
                             <Text style={styles.aylikPillDuzeltmeText}>
-                              {ozet.duzeltme > 0 ? '+' : ''}{ozet.duzeltme}
+                              {ozet.duzeltme > 0 ? '+' : ''}{formatQuantity(ozet.duzeltme)}
                             </Text>
                           </View>
                         )}
@@ -469,7 +469,7 @@ export default function UrunDetayPage() {
                           </Text>
                           {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
                             <Text variant="body" color="secondary" style={{ fontSize: 13 }}>
-                              {formatCurrency(hareket.birim_fiyat, urun.currency)}/{getBirimLabel(urun.birim)} × {Math.abs(hareket.miktar)}
+                              {formatCurrency(hareket.birim_fiyat, urun.currency)}/{getBirimLabel(urun.birim)} × {formatQuantity(Math.abs(hareket.miktar))}
                             </Text>
                           )}
                         </View>
@@ -490,7 +490,7 @@ export default function UrunDetayPage() {
                               : hareket.hareket_tipi === 'cikis'
                               ? '-'
                               : hareket.miktar >= 0 ? '+' : '-'}
-                            {Math.abs(hareket.miktar)}
+                            {formatQuantity(Math.abs(hareket.miktar))}
                           </Text>
                           {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (() => {
                             const subtotal = Math.abs(hareket.miktar) * hareket.birim_fiyat;

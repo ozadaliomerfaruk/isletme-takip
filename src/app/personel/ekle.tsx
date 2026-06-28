@@ -19,7 +19,8 @@ import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirect
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreatePersonel } from '@/hooks/usePersonel';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateForDB, ensureValidDate } from '@/lib/date';
+import { parseCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
@@ -68,7 +69,7 @@ export default function PersonelEklePage() {
     // Bakiye hesaplama
     // debt (bize borç) = personelin bize borcu var = pozitif bakiye (alacağımız var)
     // credit (bize alacak) = bizim personele borcumuz var = negatif bakiye
-    let finalBalance = balance ? parseFloat(balance.replace(',', '.')) : 0;
+    let finalBalance = balance ? parseCurrency(balance) : 0;
     if (balanceDirection === 'credit' && finalBalance > 0) {
       finalBalance = -finalBalance; // Bize alacak = bizim borcumuz, negatif
     }
@@ -81,7 +82,7 @@ export default function PersonelEklePage() {
         currency,
         phone: phone.trim() || null,
         position: position.trim() || null,
-        salary: salary ? parseFloat(salary.replace(',', '.')) : null,
+        salary: salary ? parseCurrency(salary) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
         end_date: endDate ? formatDateForDB(endDate) : null,
         balance: finalBalance !== 0 ? finalBalance : undefined,
@@ -250,7 +251,7 @@ export default function PersonelEklePage() {
                       </TouchableOpacity>
                     </View>
                     <DateTimePicker
-                      value={startDate || new Date()}
+                      value={ensureValidDate(startDate || new Date())}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'inline' : 'default'}
                       onChange={(event, date) => {
@@ -279,7 +280,7 @@ export default function PersonelEklePage() {
             {/* Android için DateTimePicker */}
             {Platform.OS === 'android' && showDatePicker && (
               <DateTimePicker
-                value={startDate || new Date()}
+                value={ensureValidDate(startDate || new Date())}
                 mode="date"
                 display="default"
                 onChange={(event, date) => {
@@ -340,7 +341,7 @@ export default function PersonelEklePage() {
                       </TouchableOpacity>
                     </View>
                     <DateTimePicker
-                      value={endDate || new Date()}
+                      value={ensureValidDate(endDate || new Date())}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'inline' : 'default'}
                       onChange={(event, date) => {
@@ -369,7 +370,7 @@ export default function PersonelEklePage() {
             {/* Android için End Date DateTimePicker */}
             {Platform.OS === 'android' && showEndDatePicker && (
               <DateTimePicker
-                value={endDate || new Date()}
+                value={ensureValidDate(endDate || new Date())}
                 mode="date"
                 display="default"
                 onChange={(event, date) => {

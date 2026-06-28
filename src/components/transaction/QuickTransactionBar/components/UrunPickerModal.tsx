@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
-import { formatCurrency, parseCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useHaptics } from '@/hooks/useHaptics';
 import { styles as sharedStyles } from '../styles';
@@ -170,8 +170,8 @@ export function UrunPickerModal({
     setEditingUrunId(item.urunId);
     setAddingProduct({
       urun,
-      miktar: item.miktar.toString(),
-      birimFiyat: item.birimFiyat.toString(),
+      miktar: formatAmountForInput(item.miktar),
+      birimFiyat: formatAmountForInput(item.birimFiyat),
       kdvOrani: item.kdvOrani,
     });
   }, [urunler]);
@@ -182,7 +182,7 @@ export function UrunPickerModal({
 
     // Default to 1 if miktar is empty
     const miktarStr = addingProduct.miktar.trim() || '1';
-    const miktar = parseCurrency(miktarStr) || 1;
+    const miktar = parseQuantity(miktarStr) || 1;
     const birimFiyat = parseCurrency(addingProduct.birimFiyat) || 0;
 
     if (miktar <= 0) return;
@@ -244,7 +244,7 @@ export function UrunPickerModal({
     if (!addingProduct) return { subtotal: 0, kdvAmount: 0, total: 0 };
     // Default to 1 if miktar is empty
     const miktarStr = addingProduct.miktar.trim() || '1';
-    const miktar = parseCurrency(miktarStr) || 1;
+    const miktar = parseQuantity(miktarStr) || 1;
     const birimFiyat = parseCurrency(addingProduct.birimFiyat) || 0;
     const subtotal = miktar * birimFiyat;
     const kdvAmount = subtotal * (addingProduct.kdvOrani / 100);
@@ -473,7 +473,7 @@ export function UrunPickerModal({
                           <View style={styles.addedItemLeft}>
                             <Text style={styles.addedItemName}>{item.urunAd}</Text>
                             <Text style={styles.addedItemDetail}>
-                              {item.miktar} {getBirimLabel(item.birim)} × {formatCurrency(item.birimFiyat, currency)}
+                              {formatQuantity(item.miktar)} {getBirimLabel(item.birim)} × {formatCurrency(item.birimFiyat, currency)}
                               {item.kdvOrani > 0 && ` (+%${item.kdvOrani} ${t('common:tax.vat')})`}
                             </Text>
                           </View>
@@ -528,7 +528,7 @@ export function UrunPickerModal({
                               <Text style={styles.urunName}>{urun.ad}</Text>
                               <View style={styles.urunDetailRow}>
                                 <Text style={styles.urunDetail}>
-                                  {urun.miktar} {getBirimLabel(urun.birim)}
+                                  {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
                                   {urun.satis_fiyati > 0 &&
                                     ` • ${formatCurrency(urun.satis_fiyati, urun.currency)}`}
                                 </Text>

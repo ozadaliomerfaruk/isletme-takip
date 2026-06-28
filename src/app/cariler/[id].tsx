@@ -37,7 +37,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
-import { formatCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
+import { formatCurrency, formatQuantity, parseCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -291,7 +291,7 @@ function ProductDetailModal({
                     </View>
                     <View style={productDetailStyles.itemDetails}>
                       <Text variant="caption" color="secondary">
-                        {Math.abs(hareket.miktar)} {hareket.urunler?.birim || 'adet'} x {formatCurrency(hareket.birim_fiyat || 0)}
+                        {formatQuantity(Math.abs(hareket.miktar))} {hareket.urunler?.birim || 'adet'} x {formatCurrency(hareket.birim_fiyat || 0)}
                       </Text>
                       {(hareket.kdv_orani ?? 0) > 0 && (
                         <Text variant="caption" color="secondary">
@@ -542,7 +542,7 @@ export default function CariHareketleriPage() {
   }, [initialBalance]);
 
   const handleSaveInitialBalance = () => {
-    const absoluteAmount = parseFloat(newInitialBalance.replace(',', '.')) || 0;
+    const absoluteAmount = parseCurrency(newInitialBalance) || 0;
     // Yöne göre işareti uygula: debt = pozitif, credit = negatif
     const newInitial = balanceDirection === 'debt' ? absoluteAmount : -absoluteAmount;
 

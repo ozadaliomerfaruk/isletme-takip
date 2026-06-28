@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Card, SearchInput, EmptyState, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import {
   useArchivedHesaplar,
@@ -347,7 +347,7 @@ export default function ArsivPage() {
               {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
             </View>
             <Text variant="caption" color="secondary">
-              {urun.miktar} {getBirimLabel(urun.birim)}
+              {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
               {urun.kod && ` • ${urun.kod}`}
             </Text>
           </View>

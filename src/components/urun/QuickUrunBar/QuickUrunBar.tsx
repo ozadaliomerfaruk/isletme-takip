@@ -29,11 +29,11 @@ import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { styles } from './styles';
 import { CariLinkSection } from './CariLinkSection';
 import { toErrorMessage } from '@/lib/errors';
-import { formatDateTimeForDB } from '@/lib/date';
+import { formatDateTimeForDB, ensureValidDate, parseDateFromDB } from '@/lib/date';
 import { useSettings } from '@/hooks/useSettings';
 import { getCurrencySymbol } from '@/constants/currencies';
 
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity, formatAmountForInput, parseQuantity, parseCurrency } from '@/lib/currency';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -94,8 +94,8 @@ export function QuickUrunBar({
 
   // Calculated totals for cari link display
   const cariTotals = useMemo(() => {
-    const miktarNum = parseFloat((miktar || '0').replace(',', '.'));
-    const fiyatNum = parseFloat((birimFiyat || '0').replace(',', '.'));
+    const miktarNum = parseQuantity(miktar || '0');
+    const fiyatNum = parseCurrency(birimFiyat || '0');
     if (isNaN(miktarNum) || isNaN(fiyatNum) || miktarNum <= 0 || fiyatNum <= 0) {
       return null;
     }
@@ -141,7 +141,7 @@ export function QuickUrunBar({
   const getPriceForType = useCallback((type: UrunType) => {
     if (!urun) return '';
     const price = type === 'giris' ? urun.alis_fiyati : urun.satis_fiyati;
-    return price > 0 ? price.toString() : '';
+    return price > 0 ? formatAmountForInput(price) : '';
   }, [urun]);
 
   // Animate in/out
@@ -150,8 +150,8 @@ export function QuickUrunBar({
       // Reset form - use edit values if in edit mode
       if (isEditMode && editInitialValues) {
         setUrunType(editInitialValues.urunType);
-        setMiktar(editInitialValues.miktar.toString());
-        setBirimFiyat(editInitialValues.birimFiyat?.toString() || '');
+        setMiktar(formatAmountForInput(editInitialValues.miktar));
+        setBirimFiyat(editInitialValues.birimFiyat != null ? formatAmountForInput(editInitialValues.birimFiyat) : '');
       } else {
         setUrunType(defaultType);
         setMiktar('');
@@ -160,7 +160,7 @@ export function QuickUrunBar({
       }
       // Edit modunda hareketin mevcut tarihini yükle (yoksa bugün); böylece "düzelt"te
       // tarih görünür ve değiştirilebilir.
-      setTarih(isEditMode && editInitialValues?.date ? new Date(editInitialValues.date) : new Date());
+      setTarih(isEditMode && editInitialValues?.date ? parseDateFromDB(editInitialValues.date) : new Date());
       setShowDatePicker(false);
       setCariLinkEnabled(false);
       setSelectedCariId(null);
@@ -244,7 +244,7 @@ export function QuickUrunBar({
   const handleSave = async () => {
     if (!urun) return;
 
-    const miktarNum = parseFloat(miktar.replace(',', '.'));
+    const miktarNum = parseQuantity(miktar);
 
     if (urunType === 'duzeltme') {
       // For adjustment, miktar is the new target stock (can be 0 or positive)
@@ -280,7 +280,7 @@ export function QuickUrunBar({
       return;
     }
 
-    const fiyatNum = birimFiyat ? parseFloat(birimFiyat.replace(',', '.')) : null;
+    const fiyatNum = birimFiyat ? parseCurrency(birimFiyat) : null;
 
     try {
       if (isEditMode && editHareketId) {
@@ -342,7 +342,7 @@ export function QuickUrunBar({
 
   if (!urun) return null;
 
-  const miktarNum = parseFloat(miktar.replace(',', '.'));
+  const miktarNum = parseQuantity(miktar);
   const isValidAmount = urunType === 'duzeltme'
     ? !isNaN(miktarNum) && miktarNum >= 0
     : !isNaN(miktarNum) && miktarNum > 0;
@@ -387,7 +387,7 @@ export function QuickUrunBar({
                 {urun.ad}
               </RNText>
               <RNText style={styles.urunStock}>
-                {t('products:stock.currentStock')}: {urun.miktar} {getBirimLabel(urun.birim)}
+                {t('products:stock.currentStock')}: {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
               </RNText>
             </View>
           </View>
@@ -423,7 +423,7 @@ export function QuickUrunBar({
                 value={miktar}
                 onChangeText={setMiktar}
                 placeholder={urunType === 'duzeltme'
-                  ? `${t('products:stock.currentStock')}: ${urun.miktar}`
+                  ? `${t('products:stock.currentStock')}: ${formatQuantity(urun.miktar)}`
                   : t('products:stock.quantity')}
                 placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
@@ -607,7 +607,7 @@ export function QuickUrunBar({
                 <View style={styles.datePickerContainer}>
                   <RNText style={styles.datePickerTitle}>{t('common:date.date')}</RNText>
                   <DateTimePickerRN
-                    value={tarih}
+                    value={ensureValidDate(tarih)}
                     mode="date"
                     display="spinner"
                     onChange={handleDateChange}
@@ -631,7 +631,7 @@ export function QuickUrunBar({
 
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePickerRN
-          value={tarih}
+          value={ensureValidDate(tarih)}
           mode="date"
           display="default"
           onChange={handleDateChange}

@@ -18,6 +18,7 @@ import { useCreateCari } from '@/hooks/useCariler';
 import { CariType, Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function CariEklePage() {
@@ -76,7 +77,7 @@ export default function CariEklePage() {
       // Bakiye mantığı:
       // debt (bize borç) = onların bize borcu var = pozitif bakiye (alacağımız var)
       // credit (bize alacak) = bizim onlara borcumuz var = negatif bakiye
-      let finalBalance = balance ? parseFloat(balance.replace(',', '.')) : 0;
+      let finalBalance = balance ? parseCurrency(balance) : 0;
       if (balanceDirection === 'credit' && finalBalance > 0) {
         finalBalance = -finalBalance; // Bize alacak = bizim borcumuz, negatif
       }

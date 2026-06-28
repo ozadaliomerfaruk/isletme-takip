@@ -44,7 +44,8 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency } from '@/lib/currency';
+import { ensureValidDate } from '@/lib/date';
 import { normalizeTurkish } from '@/lib/turkishTextUtils';
 import { isLeaveType, isIncomeType } from '@/constants/islemTypes';
 
@@ -192,12 +193,12 @@ export default function AramaPage() {
   const { data: urunler = [] } = useUrunler(true);
 
   const parsedMin = useMemo(() => {
-    const v = parseFloat(minAmount.replace(/,/g, '.'));
+    const v = parseCurrency(minAmount);
     return isNaN(v) ? null : v;
   }, [minAmount]);
 
   const parsedMax = useMemo(() => {
-    const v = parseFloat(maxAmount.replace(/,/g, '.'));
+    const v = parseCurrency(maxAmount);
     return isNaN(v) ? null : v;
   }, [maxAmount]);
 
@@ -871,7 +872,7 @@ export default function AramaPage() {
       {/* Date Picker (Android) */}
       {Platform.OS === 'android' && showDatePicker && (
         <DateTimePickerRN
-          value={tempDate}
+          value={ensureValidDate(tempDate)}
           mode="date"
           display="default"
           onChange={handleDateChange}
@@ -895,7 +896,7 @@ export default function AramaPage() {
                 </TouchableOpacity>
               </View>
               <DateTimePickerRN
-                value={tempDate}
+                value={ensureValidDate(tempDate)}
                 mode="date"
                 display="spinner"
                 onChange={handleDateChange}

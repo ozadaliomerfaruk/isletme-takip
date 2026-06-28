@@ -7,7 +7,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { OcrParsedItem, MatchTier } from '@/types/ocrImport';
 import { Urun } from '@/types/database';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity, parseCurrency } from '@/lib/currency';
 
 interface OcrReviewItemProps {
   item: OcrParsedItem;
@@ -69,9 +69,8 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
   }, [onUpdate, index]);
 
   const handleFieldChange = (field: keyof OcrParsedItem, value: string) => {
-    // Hem virgül hem nokta kabul et
-    const normalized = value.replace(',', '.');
-    const numValue = parseFloat(normalized) || 0;
+    // Locale-duyarlı parse (hem virgül hem nokta, binlik ayracı dahil)
+    const numValue = parseCurrency(value) || 0;
     let updated = { ...item, userEdited: true };
 
     switch (field) {
@@ -123,7 +122,7 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
       {/* Matched product info */}
       {matchedProduct && (
         <Text variant="caption" color="success" style={styles.matchInfo}>
-          → {matchedProduct.ad} ({matchedProduct.miktar} {t(`products:units.${matchedProduct.birim}`)})
+          → {matchedProduct.ad} ({formatQuantity(matchedProduct.miktar)} {t(`products:units.${matchedProduct.birim}`)})
         </Text>
       )}
 

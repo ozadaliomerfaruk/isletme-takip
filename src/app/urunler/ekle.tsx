@@ -11,7 +11,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
-import { parseCurrency } from '@/lib/currency';
+import { parseCurrency, parseQuantity } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function UrunEklePage() {
@@ -24,7 +24,7 @@ export default function UrunEklePage() {
   const { isletme } = useAuthContext();
 
   const doCreate = async (values: UrunFormValues) => {
-    const initialStockNum = values.baslangicMiktar ? parseCurrency(values.baslangicMiktar) : 0;
+    const initialStockNum = values.baslangicMiktar ? parseQuantity(values.baslangicMiktar) : 0;
     const purchasePrice = values.alisFiyati ? parseCurrency(values.alisFiyati) : 0;
 
     try {

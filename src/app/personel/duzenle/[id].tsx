@@ -20,7 +20,8 @@ import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
-import { formatDateForDB, parseDateFromDB } from '@/lib/date';
+import { formatDateForDB, parseDateFromDB, ensureValidDate } from '@/lib/date';
+import { parseCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
@@ -86,7 +87,7 @@ export default function PersonelDuzenlePage() {
         last_name: lastName.trim() || '',
         phone: phone.trim() || null,
         position: position.trim() || null,
-        salary: salary ? parseFloat(salary.replace(',', '.')) : null,
+        salary: salary ? parseCurrency(salary) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
         end_date: endDate ? formatDateForDB(endDate) : null,
         is_active: isActive,
@@ -236,7 +237,7 @@ export default function PersonelDuzenlePage() {
                         </TouchableOpacity>
                       </View>
                       <DateTimePicker
-                        value={startDate || new Date()}
+                        value={ensureValidDate(startDate || new Date())}
                         mode="date"
                         display={Platform.OS === 'ios' ? 'inline' : 'default'}
                         onChange={(event, date) => {
@@ -265,7 +266,7 @@ export default function PersonelDuzenlePage() {
               {/* Android için DateTimePicker */}
               {Platform.OS === 'android' && showDatePicker && (
                 <DateTimePicker
-                  value={startDate || new Date()}
+                  value={ensureValidDate(startDate || new Date())}
                   mode="date"
                   display="default"
                   onChange={(event, date) => {
@@ -326,7 +327,7 @@ export default function PersonelDuzenlePage() {
                         </TouchableOpacity>
                       </View>
                       <DateTimePicker
-                        value={endDate || new Date()}
+                        value={ensureValidDate(endDate || new Date())}
                         mode="date"
                         display={Platform.OS === 'ios' ? 'inline' : 'default'}
                         onChange={(event, date) => {
@@ -355,7 +356,7 @@ export default function PersonelDuzenlePage() {
               {/* Android için End Date DateTimePicker */}
               {Platform.OS === 'android' && showEndDatePicker && (
                 <DateTimePicker
-                  value={endDate || new Date()}
+                  value={ensureValidDate(endDate || new Date())}
                   mode="date"
                   display="default"
                   onChange={(event, date) => {
