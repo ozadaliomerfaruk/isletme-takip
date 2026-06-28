@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  ScrollView,
   Alert,
   TouchableOpacity,
   Modal,
   RefreshControl,
+  FlatList,
+  Platform,
+  ListRenderItemInfo,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack, Href } from 'expo-router';
@@ -211,6 +213,173 @@ export default function UrunDetayPage() {
     requestDeleteHareket(hareket.id, hareket, desc);
   };
 
+  // Hareket satırı (FlatList renderItem) — .map'teki ExpandableCard JSX birebir korunuyor.
+  // Yatay padding orijinaldeki styles.section ile aynı (paddingHorizontal: spacing.lg).
+  const renderHareket = useCallback(({ item: hareket }: ListRenderItemInfo<UrunHareketWithSource>) => (
+    <View style={{ paddingHorizontal: spacing.lg }}>
+      <ExpandableCard
+        expanded={expandedHareketId === hareket.id}
+        onToggle={() => setExpandedHareketId(expandedHareketId === hareket.id ? null : hareket.id)}
+        header={
+          <View style={styles.hareketHeader}>
+            <View
+              style={[
+                styles.hareketIcon,
+                {
+                  backgroundColor:
+                    hareket.hareket_tipi === 'giris'
+                      ? colors.successLight
+                      : hareket.hareket_tipi === 'cikis'
+                      ? colors.errorLight
+                      : colors.warningLight,
+                },
+              ]}
+            >
+              {hareket.hareket_tipi === 'giris' ? (
+                <TrendingUp size={14} color={colors.success} />
+              ) : hareket.hareket_tipi === 'cikis' ? (
+                <TrendingDown size={14} color={colors.error} />
+              ) : (
+                <Package size={14} color={colors.warning} />
+              )}
+            </View>
+            <View style={styles.hareketInfo}>
+              <View style={styles.hareketTitleRow}>
+                <Text variant="body">
+                  {/* İş tarihi (islem.date) — created_at değil; created_at düzenlemede NOW()'a kayıyor */}
+                  {new Date((hareket.islemDate ?? hareket.created_at).replace(' ', 'T')).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
+                    day: 'numeric',
+                    month: 'short',
+                  })}
+                </Text>
+                {hareket.cari ? (
+                  <View style={styles.cariBadge}>
+                    {hareket.cari.type === 'tedarikci' ? (
+                      <Building2 size={12} color={colors.warning} />
+                    ) : (
+                      <User size={12} color={colors.info} />
+                    )}
+                    <Text style={styles.cariName} numberOfLines={1}>
+                      {hareket.cari.name}
+                    </Text>
+                  </View>
+                ) : hareket.personel ? (
+                  <View style={styles.cariBadge}>
+                    <User size={12} color={colors.info} />
+                    <Text style={styles.cariName} numberOfLines={1}>
+                      {hareket.personel.name}
+                    </Text>
+                  </View>
+                ) : hareket.hesap ? (
+                  <View style={styles.cariBadge}>
+                    {hareket.hesap.type === 'kredi_karti' ? (
+                      <CreditCard size={12} color={colors.primary} />
+                    ) : (
+                      <Wallet size={12} color={colors.primary} />
+                    )}
+                    <Text style={styles.cariName} numberOfLines={1}>
+                      {hareket.hesap.name}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text variant="body" color="secondary" style={{ fontSize: 14 }}>
+                {hareket.hareket_tipi === 'giris'
+                  ? t('products:stock.stockIn')
+                  : hareket.hareket_tipi === 'cikis'
+                  ? t('products:stock.stockOut')
+                  : t('products:stock.adjustment')}
+              </Text>
+              {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
+                <Text variant="body" color="secondary" style={{ fontSize: 13 }}>
+                  {formatCurrency(hareket.birim_fiyat, urun!.currency)}/{getBirimLabel(urun!.birim)} × {formatQuantity(Math.abs(hareket.miktar))}
+                </Text>
+              )}
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text
+                variant="h3"
+                style={{
+                  color:
+                    hareket.hareket_tipi === 'giris'
+                      ? colors.success
+                      : hareket.hareket_tipi === 'cikis'
+                      ? colors.error
+                      : colors.warning,
+                }}
+              >
+                {hareket.hareket_tipi === 'giris'
+                  ? '+'
+                  : hareket.hareket_tipi === 'cikis'
+                  ? '-'
+                  : hareket.miktar >= 0 ? '+' : '-'}
+                {formatQuantity(Math.abs(hareket.miktar))}
+              </Text>
+              {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (() => {
+                const subtotal = Math.abs(hareket.miktar) * hareket.birim_fiyat;
+                const kdv = hareket.kdv_orani ? subtotal * (hareket.kdv_orani / 100) : 0;
+                const total = subtotal + kdv;
+                return (
+                  <Text variant="body" color="secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                    {formatCurrency(total, urun!.currency)}{kdv > 0 ? ` (${formatCurrency(kdv, urun!.currency)} ${t('common:tax.vat')})` : ''}
+                  </Text>
+                );
+              })()}
+            </View>
+          </View>
+        }
+      >
+        <View style={styles.hareketActions}>
+          {hareket.islem_id ? (
+            // İşleme bağlı (cari/hesap/kart/personel) - sadece düzenle → QuickTransactionBar edit
+            canEdit && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Pencil size={16} color={colors.text} />}
+                onPress={() => handleEditIslemHareket(hareket)}
+                style={styles.actionButton}
+              >
+                {t('common:buttons.edit')}
+              </Button>
+            )
+          ) : (
+            // Doğrudan stok girişi/çıkışı/düzeltme (işlem yok)
+            // NOT: 'duzeltme' hareketinin Düzenle yolu stoğu bozar (giriş/çıkış'a map ediliyor),
+            // bu yüzden düzeltme satırında yalnızca Sil gösterilir (yanlışsa sil + yeniden oluştur).
+            <>
+              {canEdit && hareket.hareket_tipi !== 'duzeltme' && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Pencil size={16} color={colors.text} />}
+                  onPress={() => handleEditDirectHareket(hareket)}
+                  style={styles.actionButton}
+                >
+                  {t('common:buttons.edit')}
+                </Button>
+              )}
+              {canRemove && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Trash2 size={16} color={colors.error} />}
+                  onPress={() => handleDeleteHareket(hareket)}
+                  style={styles.actionButton}
+                >
+                  {t('common:buttons.delete')}
+                </Button>
+              )}
+            </>
+          )}
+        </View>
+      </ExpandableCard>
+    </View>
+    // handler'lar (handleDelete/Edit*) ve getBirimLabel stabil setter + hareket arg + t üzerinden çalışır;
+    // eksik dep'ler fonksiyonel olarak güvenli (renderHareket her render yeniden üretilse de FlatList sanallaştırması korunur).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [expandedHareketId, urun, canEdit, canRemove, t, i18n]);
+
   if (urunLoading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -259,309 +428,165 @@ export default function UrunDetayPage() {
         }}
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}>
-          {/* Urun Karti */}
-          <View style={styles.section}>
-            <Card>
-              <View style={styles.urunCard}>
-                <View style={styles.urunLeft}>
-                  <View style={styles.urunIcon}>
-                    <Package size={20} color={colors.primary} />
-                  </View>
-                  <View style={styles.urunInfo}>
-                    <Text variant="body" style={styles.urunName} numberOfLines={1}>
-                      {urun.ad}
-                    </Text>
-                    <View style={styles.urunMeta}>
-                      {urun.kod ? (
-                        <View style={styles.urunCodeBadge}>
-                          <Text style={styles.urunCodeText}>{urun.kod}</Text>
-                        </View>
-                      ) : null}
-                      {urun.satis_fiyati > 0 && (
-                        <Text variant="caption" color="muted">
-                          {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
+        <FlatList
+          style={styles.scrollView}
+          data={hareketlerLoading ? [] : (hareketler?.filter(h => !pendingDeleteIds.has(h.id)) ?? [])}
+          keyExtractor={(h) => h.id}
+          renderItem={renderHareket}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
+          ListHeaderComponent={
+            <>
+              {/* Urun Karti */}
+              <View style={styles.section}>
+                <Card>
+                  <View style={styles.urunCard}>
+                    <View style={styles.urunLeft}>
+                      <View style={styles.urunIcon}>
+                        <Package size={20} color={colors.primary} />
+                      </View>
+                      <View style={styles.urunInfo}>
+                        <Text variant="body" style={styles.urunName} numberOfLines={1}>
+                          {urun.ad}
                         </Text>
-                      )}
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.urunRight}>
-                  <Text variant="caption" color="secondary">
-                    {t('products:stock.currentStock')}
-                  </Text>
-                  <Text variant="h3" color="primary">
-                    {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
-                  </Text>
-                </View>
-              </View>
-            </Card>
-          </View>
-
-          {/* Quick Actions */}
-          {canAddStock && (
-            <View style={styles.section}>
-              <View style={styles.actionButtons}>
-                <Button
-                  variant="primary"
-                  size="md"
-                  icon={<Plus size={18} color={colors.white} />}
-                  iconPosition="left"
-                  onPress={() => openQuickUrun('giris')}
-                  style={styles.actionButton}
-                >
-                  {t('products:stock.stockIn')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="md"
-                  icon={<Minus size={18} color={colors.primary} />}
-                  iconPosition="left"
-                  onPress={() => openQuickUrun('cikis')}
-                  style={styles.actionButton}
-                >
-                  {t('products:stock.stockOut')}
-                </Button>
-              </View>
-            </View>
-          )}
-
-          {/* Aylik Ozet */}
-          {aylikOzet && aylikOzet.length > 0 && (
-            <View style={styles.section}>
-              <Text variant="label" style={styles.sectionTitle}>
-                {t('products:stock.monthlyReport')}
-              </Text>
-              <Card padding="none">
-                {aylikOzet.slice(0, 6).map((ozet, index) => (
-                  <View key={ozet.ay}>
-                    <View style={styles.aylikItem}>
-                      <Text variant="body" style={{ fontSize: 14 }}>{getMonthLabel(ozet.ay)}</Text>
-                      <View style={styles.aylikValues}>
-                        <View style={styles.aylikPillIn}>
-                          <Text style={styles.aylikPillInText}>+{formatQuantity(ozet.giris)}</Text>
-                        </View>
-                        <View style={styles.aylikPillOut}>
-                          <Text style={styles.aylikPillOutText}>-{formatQuantity(ozet.cikis)}</Text>
-                        </View>
-                        {ozet.duzeltme !== 0 && (
-                          <View style={styles.aylikPillDuzeltme}>
-                            <Text style={styles.aylikPillDuzeltmeText}>
-                              {ozet.duzeltme > 0 ? '+' : ''}{formatQuantity(ozet.duzeltme)}
+                        <View style={styles.urunMeta}>
+                          {urun.kod ? (
+                            <View style={styles.urunCodeBadge}>
+                              <Text style={styles.urunCodeText}>{urun.kod}</Text>
+                            </View>
+                          ) : null}
+                          {urun.satis_fiyati > 0 && (
+                            <Text variant="caption" color="muted">
+                              {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
                             </Text>
-                          </View>
-                        )}
+                          )}
+                        </View>
                       </View>
                     </View>
-                    {index < Math.min(aylikOzet.length, 6) - 1 && <View style={styles.divider} />}
-                  </View>
-                ))}
-              </Card>
-            </View>
-          )}
-
-          {/* Notlar - bu ürüne ait notlar */}
-          {entityNotes && entityNotes.length > 0 && (
-            <View style={styles.section}>
-              <Text variant="label" style={styles.sectionTitle}>
-                {t('common:notes.title')}
-              </Text>
-              {entityNotes.map((note) => (
-                <SwipeableRow
-                  key={note.id}
-                  onDelete={() => handleNoteDelete(note.id)}
-                  deleteLabel={t('common:buttons.delete')}
-                >
-                  <NoteRow
-                    note={note}
-                    onEdit={() => setEditingNoteId(note.id)}
-                    onToggleComplete={handleToggleNoteCompletion}
-                    onMarkAsTask={handleMarkAsTask}
-                  />
-                </SwipeableRow>
-              ))}
-            </View>
-          )}
-
-          {/* Son Hareketler */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('products:stock.movements')}
-            </Text>
-            {hareketlerLoading ? (
-              <Text color="secondary">{t('common:status.loading')}</Text>
-            ) : hareketler && hareketler.filter(h => !pendingDeleteIds.has(h.id)).length > 0 ? (
-              <>
-                {hareketler.filter(h => !pendingDeleteIds.has(h.id)).map((hareket) => (
-                  <ExpandableCard
-                    key={hareket.id}
-                    expanded={expandedHareketId === hareket.id}
-                    onToggle={() => setExpandedHareketId(expandedHareketId === hareket.id ? null : hareket.id)}
-                    header={
-                      <View style={styles.hareketHeader}>
-                        <View
-                          style={[
-                            styles.hareketIcon,
-                            {
-                              backgroundColor:
-                                hareket.hareket_tipi === 'giris'
-                                  ? colors.successLight
-                                  : hareket.hareket_tipi === 'cikis'
-                                  ? colors.errorLight
-                                  : colors.warningLight,
-                            },
-                          ]}
-                        >
-                          {hareket.hareket_tipi === 'giris' ? (
-                            <TrendingUp size={14} color={colors.success} />
-                          ) : hareket.hareket_tipi === 'cikis' ? (
-                            <TrendingDown size={14} color={colors.error} />
-                          ) : (
-                            <Package size={14} color={colors.warning} />
-                          )}
-                        </View>
-                        <View style={styles.hareketInfo}>
-                          <View style={styles.hareketTitleRow}>
-                            <Text variant="body">
-                              {/* İş tarihi (islem.date) — created_at değil; created_at düzenlemede NOW()'a kayıyor */}
-                              {new Date((hareket.islemDate ?? hareket.created_at).replace(' ', 'T')).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
-                                day: 'numeric',
-                                month: 'short',
-                              })}
-                            </Text>
-                            {hareket.cari ? (
-                              <View style={styles.cariBadge}>
-                                {hareket.cari.type === 'tedarikci' ? (
-                                  <Building2 size={12} color={colors.warning} />
-                                ) : (
-                                  <User size={12} color={colors.info} />
-                                )}
-                                <Text style={styles.cariName} numberOfLines={1}>
-                                  {hareket.cari.name}
-                                </Text>
-                              </View>
-                            ) : hareket.personel ? (
-                              <View style={styles.cariBadge}>
-                                <User size={12} color={colors.info} />
-                                <Text style={styles.cariName} numberOfLines={1}>
-                                  {hareket.personel.name}
-                                </Text>
-                              </View>
-                            ) : hareket.hesap ? (
-                              <View style={styles.cariBadge}>
-                                {hareket.hesap.type === 'kredi_karti' ? (
-                                  <CreditCard size={12} color={colors.primary} />
-                                ) : (
-                                  <Wallet size={12} color={colors.primary} />
-                                )}
-                                <Text style={styles.cariName} numberOfLines={1}>
-                                  {hareket.hesap.name}
-                                </Text>
-                              </View>
-                            ) : null}
-                          </View>
-                          <Text variant="body" color="secondary" style={{ fontSize: 14 }}>
-                            {hareket.hareket_tipi === 'giris'
-                              ? t('products:stock.stockIn')
-                              : hareket.hareket_tipi === 'cikis'
-                              ? t('products:stock.stockOut')
-                              : t('products:stock.adjustment')}
-                          </Text>
-                          {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
-                            <Text variant="body" color="secondary" style={{ fontSize: 13 }}>
-                              {formatCurrency(hareket.birim_fiyat, urun.currency)}/{getBirimLabel(urun.birim)} × {formatQuantity(Math.abs(hareket.miktar))}
-                            </Text>
-                          )}
-                        </View>
-                        <View style={{ alignItems: 'flex-end' }}>
-                          <Text
-                            variant="h3"
-                            style={{
-                              color:
-                                hareket.hareket_tipi === 'giris'
-                                  ? colors.success
-                                  : hareket.hareket_tipi === 'cikis'
-                                  ? colors.error
-                                  : colors.warning,
-                            }}
-                          >
-                            {hareket.hareket_tipi === 'giris'
-                              ? '+'
-                              : hareket.hareket_tipi === 'cikis'
-                              ? '-'
-                              : hareket.miktar >= 0 ? '+' : '-'}
-                            {formatQuantity(Math.abs(hareket.miktar))}
-                          </Text>
-                          {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (() => {
-                            const subtotal = Math.abs(hareket.miktar) * hareket.birim_fiyat;
-                            const kdv = hareket.kdv_orani ? subtotal * (hareket.kdv_orani / 100) : 0;
-                            const total = subtotal + kdv;
-                            return (
-                              <Text variant="body" color="secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                                {formatCurrency(total, urun.currency)}{kdv > 0 ? ` (${formatCurrency(kdv, urun.currency)} ${t('common:tax.vat')})` : ''}
-                              </Text>
-                            );
-                          })()}
-                        </View>
-                      </View>
-                    }
-                  >
-                    <View style={styles.hareketActions}>
-                      {hareket.islem_id ? (
-                        // İşleme bağlı (cari/hesap/kart/personel) - sadece düzenle → QuickTransactionBar edit
-                        canEdit && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            icon={<Pencil size={16} color={colors.text} />}
-                            onPress={() => handleEditIslemHareket(hareket)}
-                            style={styles.actionButton}
-                          >
-                            {t('common:buttons.edit')}
-                          </Button>
-                        )
-                      ) : (
-                        // Doğrudan stok girişi/çıkışı/düzeltme (işlem yok)
-                        // NOT: 'duzeltme' hareketinin Düzenle yolu stoğu bozar (giriş/çıkış'a map ediliyor),
-                        // bu yüzden düzeltme satırında yalnızca Sil gösterilir (yanlışsa sil + yeniden oluştur).
-                        <>
-                          {canEdit && hareket.hareket_tipi !== 'duzeltme' && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              icon={<Pencil size={16} color={colors.text} />}
-                              onPress={() => handleEditDirectHareket(hareket)}
-                              style={styles.actionButton}
-                            >
-                              {t('common:buttons.edit')}
-                            </Button>
-                          )}
-                          {canRemove && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              icon={<Trash2 size={16} color={colors.error} />}
-                              onPress={() => handleDeleteHareket(hareket)}
-                              style={styles.actionButton}
-                            >
-                              {t('common:buttons.delete')}
-                            </Button>
-                          )}
-                        </>
-                      )}
+                    <View style={styles.urunRight}>
+                      <Text variant="caption" color="secondary">
+                        {t('products:stock.currentStock')}
+                      </Text>
+                      <Text variant="h3" color="primary">
+                        {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
+                      </Text>
                     </View>
-                  </ExpandableCard>
-                ))}
-              </>
-            ) : (
-              <Card>
-                <Text variant="body" color="secondary" style={styles.emptyText}>
-                  {t('products:stock.noMovements')}
+                  </View>
+                </Card>
+              </View>
+
+              {/* Quick Actions */}
+              {canAddStock && (
+                <View style={styles.section}>
+                  <View style={styles.actionButtons}>
+                    <Button
+                      variant="primary"
+                      size="md"
+                      icon={<Plus size={18} color={colors.white} />}
+                      iconPosition="left"
+                      onPress={() => openQuickUrun('giris')}
+                      style={styles.actionButton}
+                    >
+                      {t('products:stock.stockIn')}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="md"
+                      icon={<Minus size={18} color={colors.primary} />}
+                      iconPosition="left"
+                      onPress={() => openQuickUrun('cikis')}
+                      style={styles.actionButton}
+                    >
+                      {t('products:stock.stockOut')}
+                    </Button>
+                  </View>
+                </View>
+              )}
+
+              {/* Aylik Ozet */}
+              {aylikOzet && aylikOzet.length > 0 && (
+                <View style={styles.section}>
+                  <Text variant="label" style={styles.sectionTitle}>
+                    {t('products:stock.monthlyReport')}
+                  </Text>
+                  <Card padding="none">
+                    {aylikOzet.slice(0, 6).map((ozet, index) => (
+                      <View key={ozet.ay}>
+                        <View style={styles.aylikItem}>
+                          <Text variant="body" style={{ fontSize: 14 }}>{getMonthLabel(ozet.ay)}</Text>
+                          <View style={styles.aylikValues}>
+                            <View style={styles.aylikPillIn}>
+                              <Text style={styles.aylikPillInText}>+{formatQuantity(ozet.giris)}</Text>
+                            </View>
+                            <View style={styles.aylikPillOut}>
+                              <Text style={styles.aylikPillOutText}>-{formatQuantity(ozet.cikis)}</Text>
+                            </View>
+                            {ozet.duzeltme !== 0 && (
+                              <View style={styles.aylikPillDuzeltme}>
+                                <Text style={styles.aylikPillDuzeltmeText}>
+                                  {ozet.duzeltme > 0 ? '+' : ''}{formatQuantity(ozet.duzeltme)}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                        {index < Math.min(aylikOzet.length, 6) - 1 && <View style={styles.divider} />}
+                      </View>
+                    ))}
+                  </Card>
+                </View>
+              )}
+
+              {/* Notlar - bu ürüne ait notlar */}
+              {entityNotes && entityNotes.length > 0 && (
+                <View style={styles.section}>
+                  <Text variant="label" style={styles.sectionTitle}>
+                    {t('common:notes.title')}
+                  </Text>
+                  {entityNotes.map((note) => (
+                    <SwipeableRow
+                      key={note.id}
+                      onDelete={() => handleNoteDelete(note.id)}
+                      deleteLabel={t('common:buttons.delete')}
+                    >
+                      <NoteRow
+                        note={note}
+                        onEdit={() => setEditingNoteId(note.id)}
+                        onToggleComplete={handleToggleNoteCompletion}
+                        onMarkAsTask={handleMarkAsTask}
+                      />
+                    </SwipeableRow>
+                  ))}
+                </View>
+              )}
+
+              {/* Son Hareketler başlığı — liste hemen altında geldiği için
+                  styles.section marginBottom'u olmadan, sadece yatay padding ile */}
+              <View style={{ paddingHorizontal: spacing.lg }}>
+                <Text variant="label" style={styles.sectionTitle}>
+                  {t('products:stock.movements')}
                 </Text>
-              </Card>
-            )}
-          </View>
-        </ScrollView>
+              </View>
+            </>
+          }
+          ListEmptyComponent={
+            <View style={styles.section}>
+              {hareketlerLoading ? (
+                <Text color="secondary">{t('common:status.loading')}</Text>
+              ) : (
+                <Card>
+                  <Text variant="body" color="secondary" style={styles.emptyText}>
+                    {t('products:stock.noMovements')}
+                  </Text>
+                </Card>
+              )}
+            </View>
+          }
+        />
 
         {/* Menu Modal */}
         <Modal
