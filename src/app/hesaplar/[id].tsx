@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, ListRenderItemInfo } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, ListRenderItemInfo, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
@@ -912,7 +912,7 @@ export default function HesapHareketleriPage() {
             initialNumToRender={15}
             maxToRenderPerBatch={10}
             windowSize={7}
-            removeClippedSubviews={false}
+            removeClippedSubviews={Platform.OS === 'android'}
             contentContainerStyle={styles.flatListContent}
             refreshing={isRefreshing}
             onRefresh={handleRefresh}

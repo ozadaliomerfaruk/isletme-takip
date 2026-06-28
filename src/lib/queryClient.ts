@@ -12,7 +12,7 @@ export const queryClient = new QueryClient({
       staleTime: 1000 * 60 * 5, // 5 dakika - veri "taze" kabul edilir
       gcTime: 1000 * 60 * 30, // 30 dakika - cache'te tutulur
       refetchOnWindowFocus: false, // Mobilde gereksiz, pil ve data tasarrufu
-      refetchOnMount: 'always', // Sayfa açıldığında her zaman kontrol et (stale ise fetch)
+      refetchOnMount: true, // Taze ise cache'ten anında göster; yalnızca stale ise fetch (her navigasyonda tüm sorguları yeniden çekmeyi önler). Güncellik mutasyonların invalidateRelatedQueries (refetchType:'active') ile sağlanır.
       refetchOnReconnect: true, // İnternet geldiğinde yenile
       retry: 1, // Mobilde 1 retry yeterli, hızlı hata göster
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff, max 10sn

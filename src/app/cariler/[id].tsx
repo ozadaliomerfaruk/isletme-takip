@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, ScrollView, Dimensions, Platform } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -1028,7 +1028,7 @@ export default function CariHareketleriPage() {
             initialNumToRender={15}
             maxToRenderPerBatch={10}
             windowSize={7}
-            removeClippedSubviews={false}
+            removeClippedSubviews={Platform.OS === 'android'}
             contentContainerStyle={styles.flatListContent}
             refreshing={refreshing}
             onRefresh={handleRefresh}

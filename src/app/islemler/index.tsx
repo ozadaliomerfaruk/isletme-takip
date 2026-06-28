@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -519,7 +519,7 @@ export default function IslemlerPage() {
           initialNumToRender={15}
           maxToRenderPerBatch={10}
           windowSize={7}
-          removeClippedSubviews={false}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={styles.flatListContent}
         />
       </SwipeableProvider>

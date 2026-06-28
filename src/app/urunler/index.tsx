@@ -531,6 +531,12 @@ export default function UrunlerPage() {
 
   const keyExtractor = useCallback((item: Urun) => item.id, []);
 
+  // Stabil extraData — her render'da yeni obje literali FlatList'i gereksiz yeniden değerlendirtiyordu
+  const listExtraData = useMemo(
+    () => ({ expandedId, donemUrunOzet, activeTab }),
+    [expandedId, donemUrunOzet, activeTab]
+  );
+
   // List header: search, tabs, period selector
   const listHeaderComponent = useMemo(() => (
     <View>
@@ -785,7 +791,7 @@ export default function UrunlerPage() {
         maxToRenderPerBatch={10}
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
-        extraData={{ expandedId, donemUrunOzet, activeTab }}
+        extraData={listExtraData}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
