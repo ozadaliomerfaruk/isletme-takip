@@ -7,3 +7,4 @@ export type { TransactionType } from './TransactionTypeTabs';
 export { ExchangeRateBar } from './ExchangeRateBar';
 export type { ExchangeRateBarProps } from './ExchangeRateBar';
 export { PhotoViewerModal } from './PhotoViewerModal';
+export { ProductDetailModal } from './ProductDetailModal';

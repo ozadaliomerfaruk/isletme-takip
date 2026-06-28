@@ -22,6 +22,7 @@ import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
+import { ProductDetailModal } from '@/components/transaction';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -132,6 +133,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
         subAmount={xc.subText}
         currency={xc.mainCurrency}
         urunItems={urunItems}
+        hasUrunler={(urunItems?.length ?? 0) > 0}
+        urunCount={urunItems?.length ?? 0}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
         onPress={onPress}
@@ -163,6 +166,7 @@ export default function IslemlerPage() {
   // Edit mode state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   // Copy mode state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
@@ -277,11 +281,15 @@ export default function IslemlerPage() {
   // STABLE CALLBACK HANDLERS
   // ============================================================================
 
-  // Tap → edit bar (press on row opens edit)
+  // Tap → ürünlü işlem ürün detay modalı; değilse düzenleme barı (cariler ile aynı standart)
   const handlePressIslem = useCallback((islemId: string) => {
+    if ((getUrunItems(islemId)?.length ?? 0) > 0) {
+      setProductDetailIslemId(islemId);
+      return;
+    }
     setEditTransactionId(islemId);
     setShowEditBar(true);
-  }, []);
+  }, [getUrunItems]);
 
   // Swipe delete → undo snackbar (no Alert.alert)
   const handleDeleteIslem = useCallback((id: string, description: string) => {
@@ -529,6 +537,17 @@ export default function IslemlerPage() {
         onSuccess={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
+        }}
+      />
+
+      {/* Ürün Detay Modal — ürünlü işleme tıklanınca (cariler ile aynı standart) */}
+      <ProductDetailModal
+        islemId={productDetailIslemId}
+        onDismiss={() => setProductDetailIslemId(null)}
+        onEdit={(islemId) => {
+          setProductDetailIslemId(null);
+          setEditTransactionId(islemId);
+          setShowEditBar(true);
         }}
       />
 

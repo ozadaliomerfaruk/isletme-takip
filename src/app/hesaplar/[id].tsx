@@ -22,7 +22,7 @@ import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHa
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
-import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal } from '@/components/transaction';
+import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal, ProductDetailModal } from '@/components/transaction';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
@@ -263,6 +263,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         tertiaryText={islem.description || null}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
+        hasUrunler={(urunItems?.length ?? 0) > 0}
+        urunCount={urunItems?.length ?? 0}
         currency={hesapCurrency}
         urunItems={urunItems}
         subAmount={getCrossCurrencySubText(islem, hesapId)}
@@ -345,6 +347,8 @@ export default function HesapHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Ürün detay modal state (ürünlü işleme tıklanınca)
+  const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
@@ -476,9 +480,14 @@ export default function HesapHareketleriPage() {
 
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
+    // Ürünlü işlem → ürün detay modalı; değilse düzenleme barı (cariler ile aynı standart)
+    if ((getUrunItems(islemId)?.length ?? 0) > 0) {
+      setProductDetailIslemId(islemId);
+      return;
+    }
     setEditTransactionId(islemId);
     setShowEditBar(true);
-  }, []);
+  }, [getUrunItems]);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = (islemler || []).find(i => i.id === islemId);
@@ -949,6 +958,17 @@ export default function HesapHareketleriPage() {
         onSuccess={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
+        }}
+      />
+
+      {/* Ürün Detay Modal — ürünlü işleme tıklanınca (cariler ile aynı standart) */}
+      <ProductDetailModal
+        islemId={productDetailIslemId}
+        onDismiss={() => setProductDetailIslemId(null)}
+        onEdit={(islemId) => {
+          setProductDetailIslemId(null);
+          setEditTransactionId(islemId);
+          setShowEditBar(true);
         }}
       />
 
