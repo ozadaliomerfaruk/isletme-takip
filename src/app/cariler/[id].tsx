@@ -48,7 +48,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useIslemlerWithUrunByCari, useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
+import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
@@ -75,8 +75,6 @@ interface CariTransactionItemProps {
   onPhotoPress?: (id: string) => void;
   onDelete: (id: string) => void;
   onCopy: (id: string) => void;
-  hasUrunFn: (id: string) => boolean;
-  getUrunCountFn: (id: string) => number;
   formatDateSmart: (date: string) => string;
   t: (key: string) => string;
   deleteLabel: string;
@@ -144,8 +142,6 @@ const CariTransactionItem = memo(function CariTransactionItem({
   onPhotoPress,
   onDelete,
   onCopy,
-  hasUrunFn,
-  getUrunCountFn,
   formatDateSmart,
   t,
   deleteLabel,
@@ -195,8 +191,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         tertiaryText={islem.description || null}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
-        hasUrunler={hasUrunFn(islem.id)}
-        urunCount={getUrunCountFn(islem.id)}
+        hasUrunler={(urunItems?.length ?? 0) > 0}
+        urunCount={urunItems?.length ?? 0}
         currency={currency}
         urunItems={urunItems}
         subAmount={getCariSubAmount(islem)}
@@ -431,9 +427,9 @@ export default function CariHareketleriPage() {
   // Bakiye her zaman owner perspektifinde saklanir; viewer icin negate edilir
   const shouldInvertBalance = !!isViewer && typeMismatch;
 
-  // İşlemlerin ürünlü olup olmadığını kontrol et - cari bazlı sorgu ile ilk yüklemede de hızlı
-  const { hasUrun, getUrunCount } = useIslemlerWithUrunByCari(id);
-  // Ürün kalemleri (satırda önizleme) — tek batch sorgu, N+1 yok
+  // Ürün kalemleri (satırda önizleme + kutu ikonu) — yüklenen sayfaya bağlı tek batch sorgu, N+1 yok.
+  // (Eski useIslemlerWithUrunByCari/fetchAllPages kaldırıldı: cari detayı açılışını yavaşlatıyordu;
+  //  kutu ikonu artık getUrunItems uzunluğundan türetiliyor — hesaplar/işlemler ile aynı standart.)
   const islemIdList = useMemo(() => (islemler || []).map((i) => i.id), [islemler]);
   const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
   const deleteIslem = useDeleteIslem();
@@ -583,7 +579,7 @@ export default function CariHareketleriPage() {
     const islem = (islemler || []).find(i => i.id === islemId);
     if (!islem) return;
 
-    if (hasUrun(islemId)) {
+    if ((getUrunItems(islemId)?.length ?? 0) > 0) {
       setProductDetailIslemId(islemId);
       return;
     }
@@ -593,7 +589,7 @@ export default function CariHareketleriPage() {
 
     setEditTransactionId(islemId);
     setShowEditBar(true);
-  }, [hasUrun, islemler, isletme?.id, isViewerViewOnly]);
+  }, [getUrunItems, islemler, isletme?.id, isViewerViewOnly]);
 
   // Fotoğraf ikonuna basıldığında fotoğraf viewer aç
   const handlePressPhoto = useCallback((islemId: string) => {
@@ -788,8 +784,6 @@ export default function CariHareketleriPage() {
         onPhotoPress={handlePressPhoto}
         onDelete={handleDeleteIslem}
         onCopy={handleCopyIslem}
-        hasUrunFn={hasUrun}
-        getUrunCountFn={getUrunCount}
         formatDateSmart={formatDateSmart}
         t={t}
         deleteLabel={deleteLabel}
@@ -801,7 +795,7 @@ export default function CariHareketleriPage() {
         urunItems={getUrunItems(islem.id)}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, hasUrun, getUrunCount, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
