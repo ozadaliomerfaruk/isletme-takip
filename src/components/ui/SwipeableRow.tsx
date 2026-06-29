@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useContext, createContext } from 'react';
+import React, { useRef, useCallback, useContext, createContext, useEffect } from 'react';
 import { StyleSheet, TouchableOpacity } from 'react-native';
 import ReanimatedSwipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable';
 import Reanimated, { SharedValue, useAnimatedStyle } from 'react-native-reanimated';
@@ -57,6 +57,8 @@ export interface SwipeableRowProps {
   actionLabel?: string;
   actionIcon?: React.ReactNode;
   copyLabel?: string;
+  /** FlashList recycle güvenliği: değişince açık swipe durumunu kapatır (eski satırın açık hali yeni kayda sızmasın). */
+  itemKey?: string | number;
 }
 
 export function SwipeableRow({
@@ -69,10 +71,17 @@ export function SwipeableRow({
   actionLabel,
   actionIcon,
   copyLabel,
+  itemKey,
 }: SwipeableRowProps) {
   const { t } = useTranslation(['common']);
   const swipeableRef = useRef<SwipeableMethods>(null);
   const { registerOpen } = useContext(SwipeableContext);
+
+  // FlashList recycle: hücre farklı bir kayda yeniden kullanıldığında (itemKey değişince)
+  // açık swipe durumunu kapat — eski satırın açık hali yeni kayda sızmasın.
+  useEffect(() => {
+    swipeableRef.current?.close();
+  }, [itemKey]);
 
   const resolvedDeleteLabel = deleteLabel ?? t('common:buttons.delete');
   const resolvedActionLabel = actionLabel ?? t('common:buttons.action', { defaultValue: 'Action' });

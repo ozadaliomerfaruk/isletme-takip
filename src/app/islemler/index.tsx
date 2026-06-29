@@ -32,7 +32,7 @@ import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHa
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
-import { preprocessTransactionsByDate, TransactionListItem } from '@/lib/transactionGrouping';
+import { preprocessTransactionsByDate, getIslemlerItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { IslemWithRelations } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isLeaveType } from '@/constants/islemTypes';
@@ -116,6 +116,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
 
   return (
     <SwipeableRow
+      itemKey={islem.id}
       onDelete={canEdit ? handleDelete : undefined}
       onCopy={canEdit ? handleCopy : undefined}
       enabled={canEdit}
@@ -493,28 +494,38 @@ export default function IslemlerPage() {
     );
   }, [isLoading, showLongLoadingMessage, searchQuery, filter, t]);
 
+  // ============================================================================
+  // FlatList Footer ("daha fazla göster") — useMemo ile stabil (cariler/hesaplar ile aynı standart)
+  // ============================================================================
+
+  const ListFooter = useMemo(
+    () =>
+      hasNextPage ? (
+        <TouchableOpacity
+          style={[styles.loadMoreBtn, isFetchingNextPage && { opacity: 0.5 }]}
+          onPress={() => { if (!isFetchingNextPage) fetchNextPage(); }}
+          disabled={isFetchingNextPage}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.loadMoreText}>
+            {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
+          </Text>
+        </TouchableOpacity>
+      ) : null,
+    [hasNextPage, isFetchingNextPage, fetchNextPage, t]
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <SwipeableProvider>
         <FlashList
           data={groupedData}
           keyExtractor={keyExtractor}
-          getItemType={(item) => item.type === 'header' ? 'header' : (item.type === 'milestone' || item.type === 'note') ? 'skip' : 'row'}
+          getItemType={getIslemlerItemType}
           renderItem={renderItem}
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={ListEmpty}
-          ListFooterComponent={hasNextPage ? (
-            <TouchableOpacity
-              style={[styles.loadMoreBtn, isFetchingNextPage && { opacity: 0.5 }]}
-              onPress={() => { if (!isFetchingNextPage) fetchNextPage(); }}
-              disabled={isFetchingNextPage}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.loadMoreText}>
-                {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
+          ListFooterComponent={ListFooter}
           onEndReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}

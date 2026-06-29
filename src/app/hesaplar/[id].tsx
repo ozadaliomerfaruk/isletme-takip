@@ -25,12 +25,12 @@ import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal, ProductDetailModal } from '@/components/transaction';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
-import { NoteRow } from '@/components/notes/NoteRow';
+import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateSmart } from '@/lib/date';
-import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
+import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -247,6 +247,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
 
   return (
     <SwipeableRow
+      itemKey={islem.id}
       onDelete={canEdit ? handleDelete : undefined}
       onCopy={canEdit ? handleCopy : undefined}
       enabled={canEdit}
@@ -685,15 +686,15 @@ export default function HesapHareketleriPage() {
     if (item.type === 'note') {
       const noteData = item.data as Not;
       return (
-        <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
-          <NoteRow
-            note={noteData}
-            onEdit={() => setEditingNoteId(item.data.id)}
-            onToggleComplete={handleToggleNoteCompletion}
-            onMarkAsTask={handleMarkAsTask}
-            onPhotoPress={setNotePhotoPath}
-          />
-        </SwipeableRow>
+        <NoteListRow
+          note={noteData}
+          onEditId={setEditingNoteId}
+          onDeleteId={handleNoteDelete}
+          onToggleComplete={handleToggleNoteCompletion}
+          onMarkAsTask={handleMarkAsTask}
+          onPhotoPress={setNotePhotoPath}
+          deleteLabel={deleteLabel}
+        />
       );
     }
     const islem = item.data;
@@ -905,7 +906,7 @@ export default function HesapHareketleriPage() {
           <FlashList
             data={groupedData}
             keyExtractor={keyExtractor}
-            getItemType={(item) => item.type === 'header' ? 'header' : item.type === 'milestone' ? 'skip' : item.type === 'note' ? 'note' : 'row'}
+            getItemType={getTransactionDetailItemType}
             renderItem={renderTransactionItem}
             ListHeaderComponent={ListHeader}
             ListFooterComponent={ListFooter}

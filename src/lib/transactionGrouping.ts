@@ -20,6 +20,27 @@ export type TransactionListItem =
   | MilestoneItem
   | NoteListItem;
 
+// FlashList getItemType — modül düzeyi STABİL referanslar (inline arrow yerine).
+// Cari/Hesap detayında not satırı kendi recycle havuzunu alır ('note').
+export function getTransactionDetailItemType(item: TransactionListItem): string {
+  return item.type === 'header'
+    ? 'header'
+    : item.type === 'milestone'
+      ? 'skip'
+      : item.type === 'note'
+        ? 'note'
+        : 'row';
+}
+
+// İşlemler ekranı — mevcut davranış korunur: not + kilometre taşı aynı 'skip' havuzunda.
+export function getIslemlerItemType(item: TransactionListItem): string {
+  return item.type === 'header'
+    ? 'header'
+    : item.type === 'milestone' || item.type === 'note'
+      ? 'skip'
+      : 'row';
+}
+
 /**
  * Groups transactions by date and inserts header items.
  * Uses relative labels for today/yesterday, full dates for older.

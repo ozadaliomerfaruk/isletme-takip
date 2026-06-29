@@ -35,12 +35,12 @@ import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
-import { NoteRow } from '@/components/notes/NoteRow';
+import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency, formatQuantity, parseCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
+import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -175,6 +175,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
 
   return (
     <SwipeableRow
+      itemKey={islem.id}
       onDelete={canEdit ? handleDelete : undefined}
       onCopy={canEdit ? handleCopy : undefined}
       enabled={canEdit}
@@ -751,15 +752,15 @@ export default function CariHareketleriPage() {
     if (item.type === 'note') {
       const noteData = item.data as Not;
       return (
-        <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
-          <NoteRow
-            note={noteData}
-            onEdit={() => setEditingNoteId(item.data.id)}
-            onToggleComplete={handleToggleNoteCompletion}
-            onMarkAsTask={handleMarkAsTask}
-            onPhotoPress={setNotePhotoPath}
-          />
-        </SwipeableRow>
+        <NoteListRow
+          note={noteData}
+          onEditId={setEditingNoteId}
+          onDeleteId={handleNoteDelete}
+          onToggleComplete={handleToggleNoteCompletion}
+          onMarkAsTask={handleMarkAsTask}
+          onPhotoPress={setNotePhotoPath}
+          deleteLabel={deleteLabel}
+        />
       );
     }
     const islem = item.data;
@@ -1016,7 +1017,7 @@ export default function CariHareketleriPage() {
           <FlashList
             data={groupedData}
             keyExtractor={keyExtractor}
-            getItemType={(item) => item.type === 'header' ? 'header' : item.type === 'milestone' ? 'skip' : item.type === 'note' ? 'note' : 'row'}
+            getItemType={getTransactionDetailItemType}
             renderItem={renderTransactionItem}
             ListHeaderComponent={ListHeader}
             ListFooterComponent={ListFooter}

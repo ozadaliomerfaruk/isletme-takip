@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -563,10 +563,29 @@ export function useUrunKalemlerByIslemIds(islemIds: string[]) {
     placeholderData: (previousData) => previousData,
   });
 
-  // getUrunItems'i stabil tut (yalnız data değişince değişir) — renderItem dep'i +
-  // TransactionRow memo'su bozulmasın.
+  // getUrunItems'i stabil tut: data refetch'inde Map yeniden kurulsa bile, bir islemId'nin
+  // kalemleri İÇERİKÇE aynıysa ÖNCEKİ dizi referansını koru. Böylece TransactionRow memo'su
+  // (referans karşılaştırması) gereksiz yere kırılıp tüm görünür satırlar yeniden render olmaz.
+  // İçerik değişirse yeni referans döner → satır doğru güncellenir (stale-UI riski yok).
+  const stableItemsRef = useRef<Map<string, UrunKalemOzet[]>>(new Map());
   const getUrunItems = useCallback(
-    (islemId: string) => result.data?.get(islemId) ?? EMPTY_KALEMLER,
+    (islemId: string): UrunKalemOzet[] => {
+      const next = result.data?.get(islemId);
+      if (!next || next.length === 0) return EMPTY_KALEMLER;
+      const prev = stableItemsRef.current.get(islemId);
+      const same =
+        prev != null &&
+        prev.length === next.length &&
+        prev.every((p, i) =>
+          p.ad === next[i].ad &&
+          p.miktar === next[i].miktar &&
+          p.birim_fiyat === next[i].birim_fiyat &&
+          p.birim === next[i].birim
+        );
+      if (same) return prev;
+      stableItemsRef.current.set(islemId, next);
+      return next;
+    },
     [result.data]
   );
 
