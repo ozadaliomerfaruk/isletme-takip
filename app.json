@@ -6,7 +6,7 @@
       "en": "./src/i18n/locales/en/app.json",
       "tr": "./src/i18n/locales/tr/app.json"
     },
-    "version": "1.5.2",
+    "version": "1.5.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",

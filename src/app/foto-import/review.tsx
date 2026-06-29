@@ -24,7 +24,7 @@ import { useFotoImportContext } from '@/contexts/FotoImportContext';
 import { usePendingIrsaliyeByCari } from '@/hooks/useIrsaliyeRecords';
 import { Kategori } from '@/types/database';
 import { DOCUMENT_TYPE_DEFAULTS, OcrDocumentType, OcrSaveMode } from '@/types/ocrImport';
-import { formatCurrency, formatQuantity, parseCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity, parseCurrency, formatAmountForInput } from '@/lib/currency';
 
 export default function FotoImportReviewPage() {
   const { t } = useTranslation(['ocrImport', 'common', 'products', 'clients']);
@@ -473,7 +473,7 @@ export default function FotoImportReviewPage() {
                         <TouchableOpacity
                           style={styles.editableTotalRow}
                           onPress={() => {
-                            setTotalInput(displayTotal ? String(displayTotal) : '');
+                            setTotalInput(displayTotal ? formatAmountForInput(displayTotal) : '');
                             setEditingTotal(true);
                           }}
                         >

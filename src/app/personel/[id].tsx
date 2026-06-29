@@ -34,7 +34,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
+import { formatCurrency, parseCurrency, formatAmountForInput, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem, MilestoneItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -286,7 +286,7 @@ export default function PersonelHareketleriPage() {
   const handleOpenEditBalance = useCallback(() => {
     // Personelde: pozitif = credit (biz borçluyuz), negatif = debt (personel bize borçlu)
     setBalanceDirection(initialBalance >= 0 ? 'credit' : 'debt');
-    setNewInitialBalance(Math.abs(initialBalance).toString());
+    setNewInitialBalance(formatAmountForInput(Math.abs(initialBalance)));
     setEditBalanceModalVisible(true);
   }, [initialBalance]);
 
