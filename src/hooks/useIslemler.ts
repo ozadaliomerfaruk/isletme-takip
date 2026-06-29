@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
@@ -583,7 +584,7 @@ export function useAllIslemlerByPersonel(personelId: string) {
     queryFn: async () => {
       if (!isletme || !personelId) return [];
 
-      const { data, error } = await supabase
+      const data = await fetchAllPages<IslemWithRelations>(() => supabase
         .from('islemler')
         .select(`
           *,
@@ -594,10 +595,9 @@ export function useAllIslemlerByPersonel(personelId: string) {
         .eq('isletme_id', isletme.id)
         .eq('personel_id', personelId)
         .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as IslemWithRelations[];
+        .order('created_at', { ascending: false })
+      );
+      return data;
     },
     enabled: !!isletme && !!personelId,
   });
@@ -613,7 +613,7 @@ export function useAllLeaveByPersonel(personelId: string) {
     queryFn: async () => {
       if (!isletme || !personelId) return [];
 
-      const { data, error } = await supabase
+      const data = await fetchAllPages<IslemWithRelations>(() => supabase
         .from('islemler')
         .select(`
           *,
@@ -625,10 +625,9 @@ export function useAllLeaveByPersonel(personelId: string) {
         .eq('personel_id', personelId)
         .in('type', LEAVE_TYPES)
         .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as IslemWithRelations[];
+        .order('created_at', { ascending: false })
+      );
+      return data;
     },
     enabled: !!isletme && !!personelId,
   });
@@ -643,7 +642,7 @@ export function useAllIslemlerByCari(cariId: string) {
     queryFn: async () => {
       if (!isletme || !cariId) return [];
 
-      const { data, error } = await supabase
+      const data = await fetchAllPages<IslemWithRelations>(() => supabase
         .from('islemler')
         .select(`
           *,
@@ -654,10 +653,9 @@ export function useAllIslemlerByCari(cariId: string) {
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .order('date', { ascending: false })
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data as IslemWithRelations[];
+        .order('created_at', { ascending: false })
+      );
+      return data;
     },
     enabled: !!isletme && !!cariId,
   });
