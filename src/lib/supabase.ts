@@ -29,6 +29,23 @@ const SupabaseStorageAdapter = {
   },
 };
 
+// supabase-js'in token-yenileme ve REST fetch'inde varsayılan timeout YOK; ağ bir an
+// takılırsa istek SONSUZA asılır (açılışta getSession'ı dondurup "veri yok" gösterir).
+// 15 sn'lik AbortController ile her supabase fetch'ini sınırlıyoruz: takılırsa hızlı hata
+// verir ve OTURUMU KORUR (ağ hatası oturumu silmez) → kullanıcı çıkış yaptırılmaz,
+// ağ geri gelince veri normal yüklenir.
+const FETCH_TIMEOUT_MS = 15000;
+const fetchWithTimeout: typeof fetch = (input, init) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const external = init?.signal;
+  if (external) {
+    if (external.aborted) controller.abort();
+    else external.addEventListener('abort', () => controller.abort(), { once: true });
+  }
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+};
+
 export const supabase = withTelemetrySafe(
   createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
@@ -37,6 +54,7 @@ export const supabase = withTelemetrySafe(
       persistSession: true,
       detectSessionInUrl: false,
     },
+    global: { fetch: fetchWithTimeout },
   })
 );
 
