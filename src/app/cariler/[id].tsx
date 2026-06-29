@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Modal, ScrollView, Dimensions, Platform } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, Modal, ScrollView, Dimensions } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -1012,17 +1013,14 @@ export default function CariHareketleriPage() {
       />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <SwipeableProvider>
-          <FlatList
+          <FlashList
             data={groupedData}
             keyExtractor={keyExtractor}
+            getItemType={(item) => item.type === 'header' ? 'header' : item.type === 'milestone' ? 'skip' : item.type === 'note' ? 'note' : 'row'}
             renderItem={renderTransactionItem}
             ListHeaderComponent={ListHeader}
             ListFooterComponent={ListFooter}
             showsVerticalScrollIndicator={false}
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={7}
-            removeClippedSubviews={Platform.OS === 'android'}
             contentContainerStyle={styles.flatListContent}
             refreshing={refreshing}
             onRefresh={handleRefresh}
@@ -1231,7 +1229,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   flatListContent: {
-    flexGrow: 1,
   },
   summaryCard: {
     margin: spacing.lg,

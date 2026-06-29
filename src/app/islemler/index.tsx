@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -495,9 +496,10 @@ export default function IslemlerPage() {
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <SwipeableProvider>
-        <FlatList
+        <FlashList
           data={groupedData}
           keyExtractor={keyExtractor}
+          getItemType={(item) => item.type === 'header' ? 'header' : (item.type === 'milestone' || item.type === 'note') ? 'skip' : 'row'}
           renderItem={renderItem}
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={ListEmpty}
@@ -516,10 +518,6 @@ export default function IslemlerPage() {
           onEndReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
           onEndReachedThreshold={0.5}
           showsVerticalScrollIndicator={false}
-          initialNumToRender={15}
-          maxToRenderPerBatch={10}
-          windowSize={7}
-          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={styles.flatListContent}
         />
       </SwipeableProvider>
@@ -611,7 +609,6 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
   },
   flatListContent: {
-    flexGrow: 1,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
   },
