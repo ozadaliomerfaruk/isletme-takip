@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AppState } from 'react-native';
 import { checkNetworkConnectivity } from '@/lib/supabase';
 
-const CHECK_INTERVAL = 15000;
+const CHECK_INTERVAL = 30000; // 15s→30s: ön planda boşta dururkenki bağlantı ping egress'ini yarıya indirir (offline tespiti için 30s yeterli)
 
 export function useNetworkStatus() {
   const [isOffline, setIsOffline] = useState(false);

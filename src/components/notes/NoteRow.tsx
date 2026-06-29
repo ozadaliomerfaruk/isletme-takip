@@ -75,6 +75,8 @@ export function NoteRow({
     note.reminder_date && !isDone && new Date(note.reminder_date) < new Date();
 
   useEffect(() => {
+    // FlashList recycle: yeni nota geçerken eski thumbnail'i HEMEN temizle (stale foto sızmasın)
+    setThumbUrl(null);
     if (note.photo_path) {
       supabase.storage
         .from('islem-photos')
@@ -82,10 +84,14 @@ export function NoteRow({
         .then(({ data }) => {
           if (data?.signedUrl) setThumbUrl(data.signedUrl);
         });
-    } else {
-      setThumbUrl(null);
     }
   }, [note.photo_path]);
+
+  // FlashList recycle güvenliği: hücre farklı bir nota yeniden kullanıldığında (note.id değişince)
+  // "genişletilmiş" durumu sıfırla — eski notun açık hali yeni notta görünmesin.
+  useEffect(() => {
+    setExpanded(false);
+  }, [note.id]);
 
   const formatReminder = (dateStr: string) => {
     const date = new Date(dateStr);
