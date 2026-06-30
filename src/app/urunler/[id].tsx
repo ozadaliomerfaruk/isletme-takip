@@ -232,17 +232,17 @@ export default function UrunDetayPage() {
                 {
                   backgroundColor:
                     hareket.hareket_tipi === 'giris'
-                      ? colors.successLight
-                      : hareket.hareket_tipi === 'cikis'
                       ? colors.errorLight
+                      : hareket.hareket_tipi === 'cikis'
+                      ? colors.successLight
                       : colors.warningLight,
                 },
               ]}
             >
               {hareket.hareket_tipi === 'giris' ? (
-                <TrendingUp size={14} color={colors.success} />
+                <TrendingUp size={14} color={colors.error} />
               ) : hareket.hareket_tipi === 'cikis' ? (
-                <TrendingDown size={14} color={colors.error} />
+                <TrendingDown size={14} color={colors.success} />
               ) : (
                 <Package size={14} color={colors.warning} />
               )}
@@ -301,32 +301,39 @@ export default function UrunDetayPage() {
               )}
             </View>
             <View style={{ alignItems: 'flex-end' }}>
-              <Text
-                variant="h3"
-                style={{
-                  color:
-                    hareket.hareket_tipi === 'giris'
-                      ? colors.success
-                      : hareket.hareket_tipi === 'cikis'
-                      ? colors.error
-                      : colors.warning,
-                }}
-              >
-                {hareket.hareket_tipi === 'giris'
+              {(() => {
+                // Renk: alış (giriş) KIRMIZI, satış (çıkış) YEŞİL, düzeltme SARI
+                const renk = hareket.hareket_tipi === 'giris'
+                  ? colors.error
+                  : hareket.hareket_tipi === 'cikis'
+                  ? colors.success
+                  : colors.warning;
+                const isaret = hareket.hareket_tipi === 'giris'
                   ? '+'
                   : hareket.hareket_tipi === 'cikis'
                   ? '-'
-                  : hareket.miktar >= 0 ? '+' : '-'}
-                {formatQuantity(Math.abs(hareket.miktar))}
-              </Text>
-              {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (() => {
-                const subtotal = Math.abs(hareket.miktar) * hareket.birim_fiyat;
-                const kdv = hareket.kdv_orani ? subtotal * (hareket.kdv_orani / 100) : 0;
-                const total = subtotal + kdv;
+                  : hareket.miktar >= 0 ? '+' : '-';
+                // Tutar NET (KDV hariç). Tutar modunda fiyatı olan giriş/çıkışta tutar,
+                // fiyatsızda (düzeltme vb.) miktar gösterilir.
+                const netTutar = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
+                const tutarGoster = ozetMode === 'tutar' && netTutar > 0;
                 return (
-                  <Text variant="body" color="secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                    {formatCurrency(total, urun!.currency)}{kdv > 0 ? ` (${formatCurrency(kdv, urun!.currency)} ${t('common:tax.vat')})` : ''}
-                  </Text>
+                  <>
+                    <Text variant="h3" style={{ color: renk }}>
+                      {tutarGoster
+                        ? formatCurrency(netTutar, urun!.currency)
+                        : `${isaret}${formatQuantity(Math.abs(hareket.miktar))}`}
+                    </Text>
+                    {tutarGoster ? (
+                      <Text variant="body" color="secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                        {formatQuantity(Math.abs(hareket.miktar))} {getBirimLabel(urun!.birim)}
+                      </Text>
+                    ) : (hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
+                      <Text variant="body" color="secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                        {formatCurrency(netTutar, urun!.currency)}
+                      </Text>
+                    ))}
+                  </>
                 );
               })()}
             </View>
@@ -382,7 +389,7 @@ export default function UrunDetayPage() {
     // handler'lar (handleDelete/Edit*) ve getBirimLabel stabil setter + hareket arg + t üzerinden çalışır;
     // eksik dep'ler fonksiyonel olarak güvenli (renderHareket her render yeniden üretilse de FlatList sanallaştırması korunur).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [expandedHareketId, urun, canEdit, canRemove, t, i18n]);
+  ), [expandedHareketId, urun, canEdit, canRemove, t, i18n, ozetMode]);
 
   if (urunLoading) {
     return (
@@ -878,36 +885,37 @@ const styles = StyleSheet.create({
   ozetToggleTextActive: {
     color: colors.white,
   },
+  // Pill renkleri: giriş = ALIŞ → kırmızı, çıkış = SATIŞ → yeşil (gelir/gider mantığı)
   aylikPillIn: {
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: borderRadius.full,
   },
   aylikPillInText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  aylikPillOut: {
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
-  },
-  aylikPillOutText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.error,
   },
+  aylikPillOut: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+  },
+  aylikPillOutText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.success,
+  },
   aylikPillDuzeltme: {
     backgroundColor: '#FEF9C3',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: borderRadius.full,
   },
   aylikPillDuzeltmeText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     color: '#A16207',
   },

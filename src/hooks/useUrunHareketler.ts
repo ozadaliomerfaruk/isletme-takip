@@ -202,9 +202,9 @@ export function useAylikUrunOzet(urunId: string | undefined) {
         const ay = isTarihi.substring(0, 7); // YYYY-MM
         const mevcut = aylikMap.get(ay) || { giris: 0, cikis: 0, duzeltme: 0, girisTutar: 0, cikisTutar: 0 };
 
-        // Tutar: KDV dahil (miktar × birim_fiyat × (1 + kdv/100)). Para birimi ürünün
-        // currency'si kabul edilir (per-satır gösterimle aynı; tek-para-birimi varsayımı).
-        const tutar = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0) * (1 + (hareket.kdv_orani || 0) / 100);
+        // Tutar: KDV HARİÇ (net) — miktar × birim_fiyat. Para birimi ürünün currency'si
+        // kabul edilir (per-satır gösterimle aynı; tek-para-birimi varsayımı).
+        const tutar = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
 
         if (hareket.hareket_tipi === 'giris') {
           mevcut.giris += Math.abs(hareket.miktar);
