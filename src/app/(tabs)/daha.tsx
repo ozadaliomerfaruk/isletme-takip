@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Switch } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Switch, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import {
@@ -40,6 +40,8 @@ import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePermissions } from '@/hooks/usePermissions';
 import * as StoreReview from 'expo-store-review';
+import * as Notifications from 'expo-notifications';
+import { registerForPushNotificationsAsync, savePushToken, removePushToken } from '@/lib/notifications';
 
 const NOTIFICATIONS_ENABLED_KEY = '@defter_notifications_enabled';
 
@@ -129,17 +131,60 @@ export default function DahaPage() {
   };
 
   // Notification toggle state
+  // notificationsEnabled: yerel hatırlatma bayrağı (scheduleTransactionReminder bunu okur)
+  // pushGranted: OS bildirim izni verili mi (push'un ve iOS "Bildirimler" satırının ön koşulu)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [pushGranted, setPushGranted] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY).then((val) => {
       if (val !== null) setNotificationsEnabled(val === 'true');
     });
+    // OS bildirim izni durumunu oku → anahtarı gerçek duruma göre göster
+    Notifications.getPermissionsAsync()
+      .then(({ status }) => setPushGranted(status === 'granted'))
+      .catch(() => {});
   }, []);
 
+  // Tek "Bildirimler" anahtarı: hem OS push iznini/token'ını hem de yerel hatırlatma
+  // bayrağını yönetir. NOT (iOS): uygulama izni zorla açıp kapatamaz; yalnızca bir kez
+  // İSTEYEBİLİR (sonra iOS "Bildirimler" satırı kalıcı belirir, kullanıcı oradan yönetir).
+  // İzin reddedilmişse uygulamadan tekrar sorulamaz → iOS Ayarlar'a yönlendiririz.
   const handleNotificationToggle = async (value: boolean) => {
-    setNotificationsEnabled(value);
-    await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, value.toString());
+    if (value) {
+      // AÇ: OS iznini iste/sağla + push token'ı kaydet
+      const token = await registerForPushNotificationsAsync({ promptIfNeeded: true });
+      if (token) {
+        if (user) await savePushToken(user.id, token);
+        setPushGranted(true);
+        setNotificationsEnabled(true);
+        await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'true');
+        return;
+      }
+      // Token alınamadı (izin yok / fiziksel cihaz değil) → nedenini kontrol et
+      let status: Notifications.PermissionStatus | 'undetermined' = 'undetermined';
+      try {
+        status = (await Notifications.getPermissionsAsync()).status;
+      } catch { /* sessiz geç */ }
+      setPushGranted(false);
+      setNotificationsEnabled(false);
+      await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'false');
+      if (status === 'denied') {
+        Alert.alert(
+          t('settings:notifications.permissionTitle'),
+          t('settings:notifications.permissionDeniedMessage'),
+          [
+            { text: t('common:buttons.cancel'), style: 'cancel' },
+            { text: t('settings:notifications.openSettings'), onPress: () => Linking.openSettings() },
+          ]
+        );
+      }
+    } else {
+      // KAPAT: yerel hatırlatmaları durdur + push token'ı sil (bildirim gelmesin)
+      setNotificationsEnabled(false);
+      await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'false');
+      if (user) await removePushToken(user.id);
+    }
   };
 
   const handleLogout = () => {
@@ -323,13 +368,13 @@ export default function DahaPage() {
               <View style={styles.menuContent}>
                 <Text variant="body">{t('settings:notifications.title')}</Text>
                 <Text variant="caption" color="muted">
-                  {notificationsEnabled
-                    ? t('settings:reminders.enabled')
-                    : t('settings:reminders.disabled')}
+                  {pushGranted && notificationsEnabled
+                    ? t('settings:notifications.statusOn')
+                    : t('settings:notifications.statusOff')}
                 </Text>
               </View>
               <Switch
-                value={notificationsEnabled}
+                value={pushGranted && notificationsEnabled}
                 onValueChange={handleNotificationToggle}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.white}

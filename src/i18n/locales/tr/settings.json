@@ -56,7 +56,12 @@
     "reminderNotifications": "Hatırlatıcı Bildirimleri",
     "transactionAlerts": "İşlem Uyarıları",
     "lowBalanceAlert": "Düşük Bakiye Uyarısı",
-    "dueDateReminders": "Vade Tarihi Hatırlatmaları"
+    "dueDateReminders": "Vade Tarihi Hatırlatmaları",
+    "statusOn": "Açık",
+    "statusOff": "Kapalı",
+    "permissionTitle": "Bildirim İzni",
+    "permissionDeniedMessage": "Bildirimler kapalı. Açmak için telefonun Ayarlar bölümünden bu uygulamaya bildirim izni verin.",
+    "openSettings": "Ayarları Aç"
   },
   "reminders": {
     "title": "Hatırlatıcılar",

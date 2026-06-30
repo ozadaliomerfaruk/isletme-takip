@@ -56,7 +56,12 @@
     "reminderNotifications": "Reminder Notifications",
     "transactionAlerts": "Transaction Alerts",
     "lowBalanceAlert": "Low Balance Alert",
-    "dueDateReminders": "Due Date Reminders"
+    "dueDateReminders": "Due Date Reminders",
+    "statusOn": "On",
+    "statusOff": "Off",
+    "permissionTitle": "Notification Permission",
+    "permissionDeniedMessage": "Notifications are off. To turn them on, allow notification permission for this app in your phone's Settings.",
+    "openSettings": "Open Settings"
   },
   "reminders": {
     "title": "Reminders",
