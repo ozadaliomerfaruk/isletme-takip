@@ -434,20 +434,29 @@ export function UrunPickerModal({
                       </View>
                     </View>
 
-                    {/* Satır Toplamı */}
-                    <View style={styles.addingTotalRow}>
-                      <Text style={styles.addingTotalLabel}>
-                        {t('transactions:stock.lineTotal')}
-                      </Text>
-                      <Text style={styles.addingTotalValue}>
-                        {formatCurrency(addingLineTotal.total, currency)}
-                        {addingLineTotal.kdvAmount > 0 && (
-                          <Text style={styles.addingTotalKdv}>
-                            {' '}({formatCurrency(addingLineTotal.kdvAmount, currency)} {t('common:tax.vat')})
-                          </Text>
-                        )}
-                      </Text>
-                    </View>
+                    {/* Satır toplamı dökümü — faturayla karşılaştırma için KDV hariç + KDV + KDV dahil.
+                        KDV %0 ise tek satır (net=brüt). Kaydedilen işlem tutarı KDV DAHİL kalır. */}
+                    {addingLineTotal.kdvAmount > 0 ? (
+                      <View style={styles.addingBreakdown}>
+                        <View style={styles.addingBreakdownRow}>
+                          <Text style={styles.addingTotalLabel}>{t('transactions:stock.vatExcluded')}</Text>
+                          <Text style={styles.addingBreakdownNet}>{formatCurrency(addingLineTotal.subtotal, currency)}</Text>
+                        </View>
+                        <View style={styles.addingBreakdownRow}>
+                          <Text style={styles.addingTotalLabel}>{t('common:tax.vat')} (%{addingProduct.kdvOrani})</Text>
+                          <Text style={styles.addingBreakdownKdv}>{formatCurrency(addingLineTotal.kdvAmount, currency)}</Text>
+                        </View>
+                        <View style={styles.addingBreakdownRow}>
+                          <Text style={styles.addingBreakdownGrandLabel}>{t('transactions:stock.vatIncluded')}</Text>
+                          <Text style={styles.addingTotalValue}>{formatCurrency(addingLineTotal.total, currency)}</Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.addingTotalRow}>
+                        <Text style={styles.addingTotalLabel}>{t('transactions:stock.lineTotal')}</Text>
+                        <Text style={styles.addingTotalValue}>{formatCurrency(addingLineTotal.total, currency)}</Text>
+                      </View>
+                    )}
 
                     {/* Ekle/Güncelle Butonu */}
                     <TouchableOpacity
@@ -481,7 +490,8 @@ export function UrunPickerModal({
                             </Text>
                           </View>
                           <Text style={styles.addedItemTotal}>
-                            {formatCurrency(lineTotal.total, currency)}
+                            {/* KDV hariç (net) satır toplamı — faturayla karşılaştırma; KDV dökümü altta */}
+                            {formatCurrency(lineTotal.subtotal, currency)}
                           </Text>
                           <TouchableOpacity
                             onPress={() => handleEditItem(item)}
@@ -567,7 +577,7 @@ export function UrunPickerModal({
                   <View style={styles.totalsSection}>
                     <View style={styles.totalRow}>
                       <Text style={styles.totalLabel}>
-                        {t('transactions:stock.subtotal')}
+                        {t('transactions:stock.vatExcluded')}
                       </Text>
                       <Text style={styles.totalValue}>
                         {formatCurrency(totals.subtotal, currency)}
@@ -585,7 +595,7 @@ export function UrunPickerModal({
                     )}
                     <View style={[styles.totalRow, styles.grandTotalRow]}>
                       <Text style={styles.grandTotalLabel}>
-                        {t('transactions:stock.grandTotal')}
+                        {t('transactions:stock.vatIncluded')}
                       </Text>
                       <Text style={styles.grandTotalValue}>
                         {formatCurrency(totals.grandTotal, currency)}
@@ -683,6 +693,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '400',
     color: colors.textMuted,
+  },
+  addingBreakdown: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.primary + '30',
+    gap: 4,
+  },
+  addingBreakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  addingBreakdownNet: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  addingBreakdownKdv: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textMuted,
+  },
+  addingBreakdownGrandLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
   },
   addButton: {
     flexDirection: 'row',

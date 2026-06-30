@@ -223,6 +223,8 @@
     "unitPrice": "Birim Fiyat",
     "vatRate": "KDV Oranı",
     "lineTotal": "Satır Toplamı",
+    "vatExcluded": "KDV Hariç",
+    "vatIncluded": "KDV Dahil",
     "subtotal": "Ara Toplam",
     "vatTotal": "KDV Toplamı",
     "grandTotal": "Genel Toplam",

@@ -223,6 +223,8 @@
     "unitPrice": "Unit Price",
     "vatRate": "VAT Rate",
     "lineTotal": "Line Total",
+    "vatExcluded": "Excl. VAT",
+    "vatIncluded": "Incl. VAT",
     "subtotal": "Subtotal",
     "vatTotal": "VAT Total",
     "grandTotal": "Grand Total",
