@@ -14,6 +14,7 @@ import { spacing } from '@/constants/spacing';
 import { ChevronDown, X, Building2, Users, Check, Search, Link } from 'lucide-react-native';
 import { Cari, Personel } from '@/types/database';
 import { formatCurrency, toNumber } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { useTranslation } from 'react-i18next';
 
 type EntityType = 'cari' | 'personel';
@@ -57,8 +58,7 @@ export function EntityPicker({
 
   const filteredEntities = React.useMemo(() => {
     if (!searchQuery.trim()) return entities;
-    const q = searchQuery.toLowerCase().trim();
-    return entities.filter((e) => getEntityName(e).toLowerCase().includes(q));
+    return entities.filter((e) => textIncludes(getEntityName(e), searchQuery));
   }, [entities, searchQuery, type]);
 
   const handleSelect = (id: string | null) => {

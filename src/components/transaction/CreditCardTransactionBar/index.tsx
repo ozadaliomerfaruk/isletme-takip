@@ -40,6 +40,7 @@ import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
+import { textIncludes } from '@/lib/turkishTextUtils';
 
 import { CreditCardDatePicker } from './CreditCardDatePicker';
 import { HesapPickerSheet, CariPickerSheet, PersonelPickerSheet, OdemeHedefTypePicker } from './CreditCardPickerSheets';
@@ -124,23 +125,20 @@ export function CreditCardTransactionBar({
 
   const filteredHesaplar = useMemo(() => {
     if (!hesapSearchQuery.trim()) return nakitHesaplar;
-    const query = hesapSearchQuery.toLowerCase().trim();
-    return nakitHesaplar.filter(h => h.name.toLowerCase().includes(query));
+    return nakitHesaplar.filter(h => textIncludes(h.name, hesapSearchQuery));
   }, [nakitHesaplar, hesapSearchQuery]);
 
   const filteredCariler = useMemo(() => {
     if (!tedarikciCariler) return [];
     if (!cariSearchQuery.trim()) return tedarikciCariler;
-    const query = cariSearchQuery.toLowerCase().trim();
-    return tedarikciCariler.filter(c => c.name.toLowerCase().includes(query));
+    return tedarikciCariler.filter(c => textIncludes(c.name, cariSearchQuery));
   }, [tedarikciCariler, cariSearchQuery]);
 
   const filteredPersonel = useMemo(() => {
     if (!personelList) return [];
     if (!personelSearchQuery.trim()) return personelList;
-    const query = personelSearchQuery.toLowerCase().trim();
     return personelList.filter(p =>
-      `${p.first_name} ${p.last_name}`.toLowerCase().includes(query)
+      textIncludes(`${p.first_name} ${p.last_name}`, personelSearchQuery)
     );
   }, [personelList, personelSearchQuery]);
 

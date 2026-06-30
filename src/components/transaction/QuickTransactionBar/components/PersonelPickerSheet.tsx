@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { styles } from '../styles';
 import type { PendingModal } from '../types';
 
@@ -55,9 +56,8 @@ export function PersonelPickerSheet({
   // Filter personel
   const filteredPersonel = useMemo(() => {
     if (!searchQuery.trim()) return personelList;
-    const query = searchQuery.toLowerCase().trim();
     return personelList.filter((p) =>
-      `${p.first_name} ${p.last_name}`.toLowerCase().includes(query)
+      textIncludes(`${p.first_name} ${p.last_name}`, searchQuery)
     );
   }, [personelList, searchQuery]);
 

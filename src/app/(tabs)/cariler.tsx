@@ -28,6 +28,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
@@ -447,7 +448,7 @@ export default function CarilerPage() {
       // Type filter
       if (filter !== 'all' && cari.type !== filter) return false;
       // Search filter
-      if (searchQuery && !cari.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (searchQuery && !textIncludes(cari.name, searchQuery)) return false;
       return true;
     })
     .sort((a, b) => {

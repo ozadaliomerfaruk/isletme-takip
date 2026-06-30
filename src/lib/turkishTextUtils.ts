@@ -41,3 +41,19 @@ export function normalizeTurkish(text: string): string {
     .map(ch => TR_CHAR_MAP[ch] || ch.toLowerCase())
     .join('');
 }
+
+/**
+ * Türkçe-güvenli, büyük/küçük harf bağımsız "içeriyor mu" kontrolü.
+ * Hem metni hem sorguyu normalizeTurkish ile katlayarak karşılaştırır; böylece
+ * "diğ" / "DİĞ" / "DIG" sorguları "DİĞER" / "Diğer" / "DIGER" adlarını bulur
+ * (plain .toLowerCase() noktalı İ'yi U+0307 ile bozar ve ğ/ç/ş katlamaz).
+ * Boş/whitespace sorgu her zaman eşleşir (filtre yok sayılır).
+ */
+export function textIncludes(
+  haystack: string | null | undefined,
+  needle: string | null | undefined
+): boolean {
+  const q = normalizeTurkish((needle ?? '').trim());
+  if (!q) return true;
+  return normalizeTurkish(haystack ?? '').includes(q);
+}

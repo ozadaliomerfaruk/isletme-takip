@@ -3,6 +3,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import type { TransactionType, TahsilatHedefType, HesapPickerTarget } from '../types';
 import type { CariType, Urun } from '@/types/database';
 
@@ -169,33 +170,29 @@ export function useQuickTransactionEntities({
         ? hesaplar || []
         : hesaplar?.filter((h) => h.id !== hesapId) || [];
     if (!hesapSearchQuery.trim()) return list;
-    const query = hesapSearchQuery.toLowerCase().trim();
-    return list.filter((h) => h.name.toLowerCase().includes(query));
+    return list.filter((h) => textIncludes(h.name, hesapSearchQuery));
   }, [hesaplar, hesapId, hesapSearchQuery, hesapPickerTarget]);
 
   const filteredCariler = useMemo(() => {
     if (!carilerForType) return [];
     if (!cariSearchQuery.trim()) return carilerForType;
-    const query = cariSearchQuery.toLowerCase().trim();
-    return carilerForType.filter((c) => c.name.toLowerCase().includes(query));
+    return carilerForType.filter((c) => textIncludes(c.name, cariSearchQuery));
   }, [carilerForType, cariSearchQuery]);
 
   const filteredPersonel = useMemo(() => {
     if (!personelList) return [];
     if (!personelSearchQuery.trim()) return personelList;
-    const query = personelSearchQuery.toLowerCase().trim();
     return personelList.filter((p) =>
-      `${p.first_name} ${p.last_name}`.toLowerCase().includes(query)
+      textIncludes(`${p.first_name} ${p.last_name}`, personelSearchQuery)
     );
   }, [personelList, personelSearchQuery]);
 
   const filteredUrunler = useMemo(() => {
     if (!urunler) return [];
     if (!urunSearchQuery.trim()) return urunler;
-    const query = urunSearchQuery.toLowerCase().trim();
     return urunler.filter((u) =>
-      u.ad.toLowerCase().includes(query) ||
-      (u.kod && u.kod.toLowerCase().includes(query))
+      textIncludes(u.ad, urunSearchQuery) ||
+      (u.kod && textIncludes(u.kod, urunSearchQuery))
     );
   }, [urunler, urunSearchQuery]);
 

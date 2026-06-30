@@ -29,6 +29,7 @@ import { formatCurrency, parseCurrency, isValidAmount } from '@/lib/currency';
 import { IslemType } from '@/types/database';
 import { isLeaveType } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB, formatDateForDB } from '@/lib/date';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -75,23 +76,20 @@ export default function IslemDuzenlePage() {
       ? hesaplar?.filter((h) => h.id !== hesapId) || []
       : hesaplar || [];
     if (!hesapSearchQuery.trim()) return list;
-    const query = hesapSearchQuery.toLowerCase().trim();
-    return list.filter((h) => h.name.toLowerCase().includes(query));
+    return list.filter((h) => textIncludes(h.name, hesapSearchQuery));
   }, [hesaplar, hesapId, hesapSearchQuery, hesapPickerTarget]);
 
   const filteredCariler = useMemo(() => {
     if (!cariler) return [];
     if (!cariSearchQuery.trim()) return cariler;
-    const query = cariSearchQuery.toLowerCase().trim();
-    return cariler.filter((c) => c.name.toLowerCase().includes(query));
+    return cariler.filter((c) => textIncludes(c.name, cariSearchQuery));
   }, [cariler, cariSearchQuery]);
 
   const filteredPersonel = useMemo(() => {
     if (!personelList) return [];
     if (!personelSearchQuery.trim()) return personelList;
-    const query = personelSearchQuery.toLowerCase().trim();
     return personelList.filter((p) =>
-      `${p.first_name} ${p.last_name}`.toLowerCase().includes(query)
+      textIncludes(`${p.first_name} ${p.last_name}`, personelSearchQuery)
     );
   }, [personelList, personelSearchQuery]);
 

@@ -37,6 +37,7 @@ import { IslemWithRelations } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isLeaveType } from '@/constants/islemTypes';
 import { getCrossCurrencyDisplay } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -251,16 +252,15 @@ export default function IslemlerPage() {
 
       if (!searchQuery) return matchesFilter;
 
-      const searchLower = searchQuery.toLowerCase();
       const personelName = islem.personel
-        ? `${islem.personel.first_name || ''} ${islem.personel.last_name || ''}`.trim().toLowerCase()
+        ? `${islem.personel.first_name || ''} ${islem.personel.last_name || ''}`.trim()
         : '';
       const matchesSearch =
-        (islem.description?.toLowerCase().includes(searchLower) || false) ||
-        (islem.hesap?.name?.toLowerCase().includes(searchLower) || false) ||
-        (islem.cari?.name?.toLowerCase().includes(searchLower) || false) ||
-        (islem.kategori?.name?.toLowerCase().includes(searchLower) || false) ||
-        (personelName.includes(searchLower));
+        textIncludes(islem.description, searchQuery) ||
+        textIncludes(islem.hesap?.name, searchQuery) ||
+        textIncludes(islem.cari?.name, searchQuery) ||
+        textIncludes(islem.kategori?.name, searchQuery) ||
+        textIncludes(personelName, searchQuery);
 
       return matchesFilter && matchesSearch;
     });

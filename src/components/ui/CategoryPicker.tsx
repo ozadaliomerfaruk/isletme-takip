@@ -37,6 +37,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useKategorilerHierarchical, FlattenedCategory } from '@/hooks/useKategoriler';
 import { usePermissions } from '@/hooks/usePermissions';
 import { KategoriType } from '@/types/database';
+import { textIncludes } from '@/lib/turkishTextUtils';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -154,8 +155,7 @@ export function CategoryPicker({
   // Filtrelenmiş kategori listesi
   const filteredList = useMemo(() => {
     if (!flatList || !searchQuery.trim()) return flatList;
-    const query = searchQuery.toLowerCase().trim();
-    return flatList.filter(c => c.name.toLowerCase().includes(query));
+    return flatList.filter(c => textIncludes(c.name, searchQuery));
   }, [flatList, searchQuery]);
 
   const handleSelect = (categoryId: string | null) => {

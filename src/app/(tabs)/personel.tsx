@@ -31,6 +31,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
@@ -302,7 +303,7 @@ export default function PersonelPage() {
   // Arama ve sıralama (aktif önce)
   const filteredPersonel = (personelList ?? [])
     .filter((p) =>
-      `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+      textIncludes(`${p.first_name} ${p.last_name}`, searchQuery)
     )
     .sort((a, b) => {
       // Aktif olanlar önce

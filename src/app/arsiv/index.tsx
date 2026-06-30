@@ -18,6 +18,7 @@ import { Text, Card, SearchInput, EmptyState, ActionSheet, type ActionSheetOptio
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { getInitials } from '@/lib/utils';
 import {
   useArchivedHesaplar,
@@ -92,20 +93,20 @@ export default function ArsivPage() {
 
   // Filtered data based on search
   const filteredHesaplar = hesaplar?.filter((h) =>
-    h.name.toLowerCase().includes(searchQuery.toLowerCase())
+    textIncludes(h.name, searchQuery)
   );
   const filteredTedarikciler = tedarikciler?.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+    textIncludes(c.name, searchQuery)
   );
   const filteredMusteriler = musteriler?.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
+    textIncludes(c.name, searchQuery)
   );
   const filteredPersonel = personelList?.filter((p) =>
-    `${p.first_name} ${p.last_name}`.toLowerCase().includes(searchQuery.toLowerCase())
+    textIncludes(`${p.first_name} ${p.last_name}`, searchQuery)
   );
   const filteredUrunler = urunler?.filter((u) =>
-    u.ad.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (u.kod && u.kod.toLowerCase().includes(searchQuery.toLowerCase()))
+    textIncludes(u.ad, searchQuery) ||
+    (u.kod && textIncludes(u.kod, searchQuery))
   );
 
   const handleItemPress = useCallback((id: string, type: TabType, name: string, created_by?: string | null) => {

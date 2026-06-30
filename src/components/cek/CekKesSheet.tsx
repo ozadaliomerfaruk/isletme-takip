@@ -41,6 +41,7 @@ import { useCariler } from '@/hooks/useCariler';
 import { useCreateCek, useUpdateCek, useCek } from '@/hooks/useCekler';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { toErrorMessage } from '@/lib/errors';
+import { textIncludes } from '@/lib/turkishTextUtils';
 
 export interface CekKesSheetProps {
   visible: boolean;
@@ -130,8 +131,7 @@ export function CekKesSheet({
   // Filtered lists for search
   const filteredHesaplar = useMemo(() => {
     if (!hesapSearchQuery.trim()) return bankaHesaplari;
-    const query = hesapSearchQuery.toLowerCase().trim();
-    return bankaHesaplari.filter(h => h.name.toLowerCase().includes(query));
+    return bankaHesaplari.filter(h => textIncludes(h.name, hesapSearchQuery));
   }, [bankaHesaplari, hesapSearchQuery]);
 
   // Determine the selected hesap's currency for filtering cariler
@@ -145,8 +145,7 @@ export function CekKesSheet({
       filtered = filtered.filter(c => c.currency === selectedHesapCurrency);
     }
     if (!cariSearchQuery.trim()) return filtered;
-    const query = cariSearchQuery.toLowerCase().trim();
-    return filtered.filter(c => c.name.toLowerCase().includes(query));
+    return filtered.filter(c => textIncludes(c.name, cariSearchQuery));
   }, [tedarikciCariler, cariSearchQuery, selectedHesapCurrency]);
 
   // Keyboard listeners

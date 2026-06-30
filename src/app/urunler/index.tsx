@@ -23,6 +23,7 @@ import { useDonemUrunOzet } from '@/hooks/useUrunHareketler';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { exportUrunListesiToExcel, UrunListeItem } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PermissionGate } from '@/components/PermissionGate';
@@ -239,11 +240,11 @@ export default function UrunlerPage() {
 
       // Arama filtresi
       if (query) {
-        const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
+        const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id) : '';
         const matches =
-          urun.ad.toLowerCase().includes(query) ||
-          (urun.kod && urun.kod.toLowerCase().includes(query)) ||
-          (kategoriAdi && kategoriAdi.includes(query));
+          textIncludes(urun.ad, debouncedSearch) ||
+          (urun.kod && textIncludes(urun.kod, debouncedSearch)) ||
+          (kategoriAdi && textIncludes(kategoriAdi, debouncedSearch));
         if (!matches) return false;
       }
 
@@ -277,13 +278,12 @@ export default function UrunlerPage() {
   const filteredArchivedUrunler = useMemo(() => {
     if (!archivedUrunler) return [];
     if (!debouncedSearch) return archivedUrunler;
-    const query = debouncedSearch.toLowerCase();
     return archivedUrunler.filter((urun) => {
-      const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id)?.toLowerCase() : '';
+      const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id) : '';
       return (
-        urun.ad.toLowerCase().includes(query) ||
-        (urun.kod && urun.kod.toLowerCase().includes(query)) ||
-        (kategoriAdi && kategoriAdi.includes(query))
+        textIncludes(urun.ad, debouncedSearch) ||
+        (urun.kod && textIncludes(urun.kod, debouncedSearch)) ||
+        (kategoriAdi && textIncludes(kategoriAdi, debouncedSearch))
       );
     });
   }, [archivedUrunler, debouncedSearch, kategoriMap]);

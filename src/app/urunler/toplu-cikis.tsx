@@ -26,6 +26,7 @@ import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { isToday, formatDateTimeForDB, ensureValidDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
 import { Urun, BirimType, KdvOrani } from '@/types/database';
@@ -77,8 +78,8 @@ export default function TopluCikisPage() {
   const filteredUrunler = useMemo(() => {
     if (!productSearch.trim()) return urunler;
     return urunler?.filter(u =>
-      u.ad.toLowerCase().includes(productSearch.toLowerCase()) ||
-      (u.kod && u.kod.toLowerCase().includes(productSearch.toLowerCase()))
+      textIncludes(u.ad, productSearch) ||
+      (u.kod && textIncludes(u.kod, productSearch))
     );
   }, [urunler, productSearch]);
 

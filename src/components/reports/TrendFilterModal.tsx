@@ -29,6 +29,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getHesapIcon } from '@/lib/icons';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -112,10 +113,9 @@ export function TrendFilterModal({
   const filteredItems = useMemo(() => {
     if (!searchQuery.trim()) return items;
 
-    const query = searchQuery.toLowerCase().trim();
     return items.filter((item: FilterableEntity) => {
       const name = getItemName(item, filterType);
-      return name.toLowerCase().includes(query);
+      return textIncludes(name, searchQuery);
     });
   }, [items, searchQuery, filterType]);
 

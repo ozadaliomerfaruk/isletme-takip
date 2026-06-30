@@ -36,6 +36,7 @@ import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
@@ -165,8 +166,7 @@ export default function NotlarPage() {
       }
     }
     if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(n => n.content.toLowerCase().includes(q));
+      result = result.filter(n => textIncludes(n.content, searchQuery));
     }
     return result;
   }, [notlar, searchQuery, filter, taskFilter, pendingDeleteIds]);

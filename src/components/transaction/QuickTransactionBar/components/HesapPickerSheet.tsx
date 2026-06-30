@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { styles } from '../styles';
 import type { HesapPickerTarget, PendingModal } from '../types';
 
@@ -60,8 +61,7 @@ export function HesapPickerSheet({
     const list = excludeId ? hesaplar.filter((h) => h.id !== excludeId) : [...hesaplar];
     const sorted = list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
     if (!searchQuery.trim()) return sorted;
-    const query = searchQuery.toLowerCase().trim();
-    return sorted.filter((h) => h.name.toLowerCase().includes(query));
+    return sorted.filter((h) => textIncludes(h.name, searchQuery));
   }, [hesaplar, searchQuery, excludeId]);
 
   const handleClose = useCallback(() => {

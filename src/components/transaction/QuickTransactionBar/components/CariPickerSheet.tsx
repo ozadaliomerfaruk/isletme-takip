@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { styles } from '../styles';
 import type { PendingModal } from '../types';
 
@@ -79,8 +80,7 @@ export function CariPickerSheet({
   // Filter cariler
   const filteredCariler = useMemo(() => {
     if (!searchQuery.trim()) return cariler;
-    const query = searchQuery.toLowerCase().trim();
-    return cariler.filter((c) => c.name.toLowerCase().includes(query));
+    return cariler.filter((c) => textIncludes(c.name, searchQuery));
   }, [cariler, searchQuery]);
 
   const handleClose = useCallback(() => {

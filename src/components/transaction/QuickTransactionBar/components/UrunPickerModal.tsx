@@ -23,6 +23,7 @@ import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useHaptics } from '@/hooks/useHaptics';
+import { textIncludes } from '@/lib/turkishTextUtils';
 import { styles as sharedStyles } from '../styles';
 import type { UrunItem } from '../types';
 import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
@@ -91,12 +92,11 @@ export function UrunPickerModal({
   // Filter urunler based on search query
   const filteredUrunler = useMemo(() => {
     if (!searchQuery.trim()) return urunler;
-    const query = searchQuery.toLowerCase().trim();
     return urunler.filter(
       (u) =>
-        u.ad.toLowerCase().includes(query) ||
-        (u.kod && u.kod.toLowerCase().includes(query)) ||
-        (u.kategori_id && kategoriNameMap.get(u.kategori_id)?.toLowerCase().includes(query))
+        textIncludes(u.ad, searchQuery) ||
+        (u.kod && textIncludes(u.kod, searchQuery)) ||
+        (u.kategori_id && textIncludes(kategoriNameMap.get(u.kategori_id) ?? '', searchQuery))
     );
   }, [urunler, searchQuery, kategoriNameMap]);
 
@@ -126,7 +126,10 @@ export function UrunPickerModal({
     setAddingProduct({
       urun,
       miktar: '',
-      birimFiyat: (urun.alis_fiyati || urun.satis_fiyati || 0).toString(),
+      // formatAmountForInput: locale-doğru ondalık ayraç (tr'de virgül) üretir; ham
+      // .toString() 3-ondalıklı fiyatı ("10.987") parseCurrency'de binlik ayraç sanılıp
+      // ~1000x şişiriyordu (10987). Düzenle yolu (handleEditItem) ile aynı.
+      birimFiyat: formatAmountForInput(urun.alis_fiyati || urun.satis_fiyati || 0),
       kdvOrani: urun.kdv_orani || 0,
     });
   }, [urunItems]);

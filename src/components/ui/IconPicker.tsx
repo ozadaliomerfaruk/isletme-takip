@@ -121,6 +121,7 @@ import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { CATEGORY_ICONS } from '@/constants/categoryIcons';
+import { textIncludes } from '@/lib/turkishTextUtils';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -274,10 +275,9 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
   const filteredIcons = useMemo(() => {
     if (!searchQuery.trim()) return CATEGORY_ICONS;
 
-    const query = searchQuery.toLowerCase().trim();
     return CATEGORY_ICONS.filter(icon =>
-      icon.label.toLowerCase().includes(query) ||
-      icon.name.toLowerCase().includes(query)
+      textIncludes(icon.label, searchQuery) ||
+      textIncludes(icon.name, searchQuery)
     );
   }, [searchQuery]);
 

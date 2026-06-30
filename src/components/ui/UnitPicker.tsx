@@ -19,6 +19,7 @@ import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { BirimType } from '@/types/database';
+import { textIncludes } from '@/lib/turkishTextUtils';
 
 // Unit category definitions
 type UnitCategory = 'piece' | 'weight' | 'volume' | 'length' | 'package' | 'consumption';
@@ -115,10 +116,9 @@ export function UnitPicker({
   // Filter units by search query
   const filteredUnits = useMemo(() => {
     if (!searchQuery.trim()) return UNIT_DEFINITIONS;
-    const query = searchQuery.toLowerCase().trim();
     return UNIT_DEFINITIONS.filter(unit => {
-      const label = getUnitLabel(unit.id).toLowerCase();
-      return label.includes(query) || unit.id.includes(query);
+      const label = getUnitLabel(unit.id);
+      return textIncludes(label, searchQuery) || textIncludes(unit.id, searchQuery);
     });
   }, [searchQuery, getUnitLabel]);
 
