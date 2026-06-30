@@ -40,6 +40,8 @@ export interface PdfExportOptions {
     descriptionColumn: string;
     debitColumn: string;
     creditColumn: string;
+    debitBalanceColumn: string;
+    creditBalanceColumn: string;
     openingBalance: string;
     periodTotal: string;
     closingBalance: string;
@@ -177,6 +179,8 @@ export function generatePdfHtml(options: PdfExportOptions): string {
       <td class="desc">${row.description}</td>
       <td class="amount">${fmt(row.debit, entityCurrency)}</td>
       <td class="amount">${fmt(row.credit, entityCurrency)}</td>
+      <td class="amount">${fmt(row.debitBalance, entityCurrency)}</td>
+      <td class="amount">${fmt(row.creditBalance, entityCurrency)}</td>
     </tr>
   `).join('');
 
@@ -198,8 +202,8 @@ export function generatePdfHtml(options: PdfExportOptions): string {
   .meta-value { color: #333; }
   .meta-value.balance { font-weight: 700; color: #1F4E79; }
   table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  thead th { background: #4472C4; color: white; padding: 6px 8px; font-size: 9px; text-align: center; border: 1px solid #3566A8; }
-  tbody td { border: 1px solid #D0D0D0; padding: 5px 8px; font-size: 9px; vertical-align: top; }
+  thead th { background: #4472C4; color: white; padding: 5px 4px; font-size: 8px; text-align: center; border: 1px solid #3566A8; }
+  tbody td { border: 1px solid #D0D0D0; padding: 4px 4px; font-size: 8px; vertical-align: top; }
   .desc { word-break: break-word; }
   .amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .summary-row td { background: #E7E6E6; font-weight: 600; color: #1F4E79; }
@@ -235,11 +239,13 @@ export function generatePdfHtml(options: PdfExportOptions): string {
         <th>${translations.descriptionColumn}</th>
         <th>${translations.debitColumn}</th>
         <th>${translations.creditColumn}</th>
+        <th>${translations.debitBalanceColumn}</th>
+        <th>${translations.creditBalanceColumn}</th>
       </tr>
     </thead>
     <tbody>
       <tr class="summary-row">
-        <td colspan="3">${translations.openingBalance}</td>
+        <td colspan="5">${translations.openingBalance}</td>
         <td class="amount">${openingDebit}</td>
         <td class="amount">${openingCredit}</td>
       </tr>
@@ -248,9 +254,11 @@ export function generatePdfHtml(options: PdfExportOptions): string {
         <td colspan="3">${translations.periodTotal}</td>
         <td class="amount">${fmt(data.totalDebit, entityCurrency)}</td>
         <td class="amount">${fmt(data.totalCredit, entityCurrency)}</td>
+        <td class="amount"></td>
+        <td class="amount"></td>
       </tr>
       <tr class="summary-row">
-        <td colspan="3">${translations.closingBalance}</td>
+        <td colspan="5">${translations.closingBalance}</td>
         <td class="amount">${closingDebit}</td>
         <td class="amount">${closingCredit}</td>
       </tr>

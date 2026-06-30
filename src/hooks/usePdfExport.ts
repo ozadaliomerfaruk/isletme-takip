@@ -62,6 +62,8 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
     descriptionColumn: t('common:export.excel.description'),
     debitColumn: t('common:export.excel.debit'),
     creditColumn: t('common:export.excel.credit'),
+    debitBalanceColumn: t('common:export.excel.debitBalance'),
+    creditBalanceColumn: t('common:export.excel.creditBalance'),
     openingBalance: t('common:export.excel.openingBalance'),
     periodTotal: t('common:export.excel.periodTotal'),
     closingBalance: t('common:export.excel.closingBalance'),
