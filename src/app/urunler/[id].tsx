@@ -526,7 +526,7 @@ export default function UrunDetayPage() {
                     onToggle={() => setOzetExpanded((v) => !v)}
                     header={
                       <View style={styles.ozetHeaderRow}>
-                        <Text variant="label">{t('products:stock.monthlyReport')}</Text>
+                        <Text variant="label" style={{ fontSize: 16 }}>{t('products:stock.monthlyReport')}</Text>
                         {/* Miktar / Tutar gecisi — header icindeki dokunma kartı acip kapatmaz */}
                         <View style={styles.ozetToggle}>
                           <TouchableOpacity
@@ -871,14 +871,14 @@ const styles = StyleSheet.create({
   },
   ozetToggleBtn: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 4,
+    paddingVertical: 6,
     borderRadius: borderRadius.full,
   },
   ozetToggleBtnActive: {
     backgroundColor: colors.primary,
   },
   ozetToggleText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
   },
