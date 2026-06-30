@@ -162,8 +162,8 @@ export default function AlisSatisRaporPage() {
             hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
             hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
             kategori:kategoriler(id,name),
-            cari:cariler(id,name,type),
-            personel:personel(id,first_name,last_name)
+            cari:cariler(id,name,type,is_active),
+            personel:personel(id,first_name,last_name,is_active)
           `)
           .eq('isletme_id', isletme.id)
           .in('type', types)
@@ -172,10 +172,22 @@ export default function AlisSatisRaporPage() {
           .order('date', { ascending: true });
       };
 
-      const [purchaseTxns, saleTxns] = await Promise.all([
+      // Detay satirlari ozet (get_product_report) ile TUTARLI olsun: pasif
+      // hesap/cari/personel islemlerini disla (NULL-guvenli: yalniz is_active === false).
+      const excludePassive = (islem: IslemWithRelations) => {
+        if (islem.hesap?.is_active === false) return false;
+        if (islem.hedef_hesap?.is_active === false) return false;
+        if (islem.cari?.is_active === false) return false;
+        if (islem.personel?.is_active === false) return false;
+        return true;
+      };
+
+      const [purchaseTxnsRaw, saleTxnsRaw] = await Promise.all([
         fetchAllPages<IslemWithRelations>(buildQuery(PURCHASE_TYPES)),
         fetchAllPages<IslemWithRelations>(buildQuery(SALE_TYPES)),
       ]);
+      const purchaseTxns = purchaseTxnsRaw.filter(excludePassive);
+      const saleTxns = saleTxnsRaw.filter(excludePassive);
 
       await exportProductReportToExcel({
         isletmeName: isletme.name,

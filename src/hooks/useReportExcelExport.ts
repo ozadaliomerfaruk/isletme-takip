@@ -85,8 +85,8 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
               hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
               hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
               kategori:kategoriler(id,name),
-              cari:cariler(id,name,type),
-              personel:personel(id,first_name,last_name)
+              cari:cariler(id,name,type,is_active),
+              personel:personel(id,first_name,last_name,is_active)
             `)
             .eq('isletme_id', isletme.id)
             .in('type', islemTypes)
@@ -97,13 +97,25 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
 
         const transactions = await fetchAllPages<IslemWithRelations>(buildQuery);
 
+        // Ekran raporuyla TUTARLI olsun: ekran get_category_report RPC'si pasif
+        // hesap/cari/personel islemlerini disliyor; export da aynisini yapsin.
+        // NULL-guvenli: yalnizca ACIKCA pasif (is_active === false) kayitlar dislanir;
+        // is_active true/undefined olanlar (ve hesap_id'siz islemler) raporda kalir -> veri kaybi yok.
+        const visibleTransactions = transactions.filter((islem) => {
+          if (islem.hesap?.is_active === false) return false;
+          if (islem.hedef_hesap?.is_active === false) return false;
+          if (islem.cari?.is_active === false) return false;
+          if (islem.personel?.is_active === false) return false;
+          return true;
+        });
+
         await exportReportToExcel({
           reportType,
           isletmeName: isletme.name,
           startDate,
           endDate,
           periodLabel,
-          transactions,
+          transactions: visibleTransactions,
           baseCurrency,
           translations,
         });

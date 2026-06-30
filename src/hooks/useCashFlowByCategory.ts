@@ -23,6 +23,8 @@ interface CashFlowQueryItem {
   kategori: Kategori | Kategori[] | null;
   hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | { id: string; type: HesapType; is_active: boolean; currency: string | null }[] | null;
   hedef_hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | { id: string; type: HesapType; is_active: boolean; currency: string | null }[] | null;
+  cari: { is_active: boolean | null } | { is_active: boolean | null }[] | null;
+  personel: { is_active: boolean | null } | { is_active: boolean | null }[] | null;
 }
 
 /**
@@ -38,6 +40,8 @@ interface NormalizedCashFlowItem {
   kategori: Kategori | null;
   hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | null;
   hedef_hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | null;
+  cari: { is_active: boolean | null } | null;
+  personel: { is_active: boolean | null } | null;
 }
 
 /**
@@ -147,7 +151,9 @@ export function useCashFlowByCategory(
             hedef_hesap_id,
             kategori:kategoriler(id,name),
             hesap:hesaplar!hesap_id(id, type, is_active, currency),
-            hedef_hesap:hesaplar!hedef_hesap_id(id, type, is_active, currency)
+            hedef_hesap:hesaplar!hedef_hesap_id(id, type, is_active, currency),
+            cari:cariler(is_active),
+            personel:personel(is_active)
           `)
           .eq('isletme_id', isletme.id)
           .in('type', allTypes)
@@ -156,18 +162,23 @@ export function useCashFlowByCategory(
       );
 
       // Supabase bazen array döndürüyor, normalize et
-      // Pasif hesaplardaki işlemleri filtrele
+      // Pasif hesap/cari/personel'deki işlemleri filtrele (rapor RPC'leriyle tutarlı)
       return (data as CashFlowQueryItem[])
         .map((item): NormalizedCashFlowItem => ({
           ...item,
           kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
           hesap: Array.isArray(item.hesap) ? item.hesap[0] || null : item.hesap,
           hedef_hesap: Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] || null : item.hedef_hesap,
+          cari: Array.isArray(item.cari) ? item.cari[0] || null : item.cari,
+          personel: Array.isArray(item.personel) ? item.personel[0] || null : item.personel,
         }))
         .filter((item) => {
           // Pasif hesaplardaki işlemleri hariç tut
           if (item.hesap && !item.hesap.is_active) return false;
           if (item.hedef_hesap && !item.hedef_hesap.is_active) return false;
+          // Pasif cari/personel işlemlerini hariç tut (NULL-güvenli: yalnız açıkça is_active=false)
+          if (item.cari?.is_active === false) return false;
+          if (item.personel?.is_active === false) return false;
           return true;
         });
     },
