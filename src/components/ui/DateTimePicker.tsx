@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -9,6 +9,11 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { ensureValidDate } from '@/lib/date';
+
+// 1970/epoch tarih sızıntısını önlemek için makul alt sınır (iş defteri için 2000
+// öncesi işlem gerçekçi değil). Spinner'ı epoch'tan uzak tutar; üst sınır YOK ki
+// ileri tarihli kullanımlar (bazı ekranlar) kısıtlanmasın.
+const MIN_SELECTABLE_DATE = new Date(2000, 0, 1);
 
 interface DateTimePickerProps {
   label?: string;
@@ -34,6 +39,14 @@ export function DateTimePicker({
   const safeValue = useMemo(() => ensureValidDate(value), [value]);
   const [tempDate, setTempDate] = useState(safeValue);
 
+  // value prop'u sonradan (asenkron) gelirse tempDate stale/epoch kalmasın;
+  // pickerlar KAPALIYKEN safeValue ile senkronla (açık spinner'ı bozmamak için koşullu).
+  useEffect(() => {
+    if (!showDatePicker && !showTimePicker) {
+      setTempDate(safeValue);
+    }
+  }, [safeValue, showDatePicker, showTimePicker]);
+
   const formatDate = (date: Date) => {
     return formatDateNative(date);
   };
@@ -54,7 +67,7 @@ export function DateTimePicker({
       }
     } else {
       if (selectedDate) {
-        setTempDate(selectedDate);
+        setTempDate(ensureValidDate(selectedDate));
       }
     }
   };
@@ -70,13 +83,13 @@ export function DateTimePicker({
       }
     } else {
       if (selectedDate) {
-        setTempDate(selectedDate);
+        setTempDate(ensureValidDate(selectedDate));
       }
     }
   };
 
   const handleIOSConfirm = (pickerType: 'date' | 'time') => {
-    onChange(tempDate);
+    onChange(ensureValidDate(tempDate));
     if (pickerType === 'date') {
       setShowDatePicker(false);
     } else {
@@ -121,6 +134,7 @@ export function DateTimePicker({
               mode={pickerType}
               display="spinner"
               onChange={pickerType === 'date' ? handleDateChange : handleTimeChange}
+              minimumDate={pickerType === 'date' ? MIN_SELECTABLE_DATE : undefined}
               locale={locale}
               textColor={colors.text}
               themeVariant="light"
@@ -184,6 +198,7 @@ export function DateTimePicker({
           mode="date"
           display="default"
           onChange={handleDateChange}
+          minimumDate={MIN_SELECTABLE_DATE}
         />
       )}
 
