@@ -167,6 +167,8 @@ export interface AylikUrunOzet {
   giris: number;
   cikis: number;
   duzeltme: number; // net düzeltme miktarı (pozitif veya negatif)
+  girisTutar: number; // giriş (alım) toplam tutarı — KDV dahil, ürünün para biriminde
+  cikisTutar: number; // çıkış (satış) toplam tutarı — KDV dahil
 }
 
 export function useAylikUrunOzet(urunId: string | undefined) {
@@ -181,7 +183,7 @@ export function useAylikUrunOzet(urunId: string | undefined) {
       // göre yapılır — created_at düzenleme/yeniden-uygulamada NOW()'a kayıyor.
       const { data, error } = await supabase
         .from('urun_hareketler')
-        .select('hareket_tipi, miktar, created_at, islem_id, islemler(date)')
+        .select('hareket_tipi, miktar, birim_fiyat, kdv_orani, created_at, islem_id, islemler(date)')
         .eq('isletme_id', isletme.id)
         .eq('urun_id', urunId)
         .gte('created_at', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString());
@@ -189,7 +191,7 @@ export function useAylikUrunOzet(urunId: string | undefined) {
       if (error) throw error;
 
       // Aylara göre grupla
-      const aylikMap = new Map<string, { giris: number; cikis: number; duzeltme: number }>();
+      const aylikMap = new Map<string, { giris: number; cikis: number; duzeltme: number; girisTutar: number; cikisTutar: number }>();
 
       type AylikRow = UrunHareket & { islemler?: { date: string | null } | { date: string | null }[] | null };
       (data as AylikRow[]).forEach((hareket) => {
@@ -198,12 +200,18 @@ export function useAylikUrunOzet(urunId: string | undefined) {
         const isTarihi = islemRel?.date ?? hareket.created_at;
         if (!isTarihi) return;
         const ay = isTarihi.substring(0, 7); // YYYY-MM
-        const mevcut = aylikMap.get(ay) || { giris: 0, cikis: 0, duzeltme: 0 };
+        const mevcut = aylikMap.get(ay) || { giris: 0, cikis: 0, duzeltme: 0, girisTutar: 0, cikisTutar: 0 };
+
+        // Tutar: KDV dahil (miktar × birim_fiyat × (1 + kdv/100)). Para birimi ürünün
+        // currency'si kabul edilir (per-satır gösterimle aynı; tek-para-birimi varsayımı).
+        const tutar = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0) * (1 + (hareket.kdv_orani || 0) / 100);
 
         if (hareket.hareket_tipi === 'giris') {
           mevcut.giris += Math.abs(hareket.miktar);
+          mevcut.girisTutar += tutar;
         } else if (hareket.hareket_tipi === 'cikis') {
           mevcut.cikis += Math.abs(hareket.miktar);
+          mevcut.cikisTutar += tutar;
         } else if (hareket.hareket_tipi === 'duzeltme') {
           mevcut.duzeltme += hareket.miktar; // net düzeltme (pozitif = artış, negatif = azalış)
         }
@@ -218,6 +226,8 @@ export function useAylikUrunOzet(urunId: string | undefined) {
           giris: degerler.giris,
           cikis: degerler.cikis,
           duzeltme: degerler.duzeltme,
+          girisTutar: degerler.girisTutar,
+          cikisTutar: degerler.cikisTutar,
         }))
         .sort((a, b) => b.ay.localeCompare(a.ay));
 

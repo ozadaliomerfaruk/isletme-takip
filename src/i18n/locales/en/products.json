@@ -57,6 +57,7 @@
     "stockOut": "Product Sale",
     "adjustment": "Adjustment",
     "quantity": "Quantity",
+    "amount": "Amount",
     "unitPrice": "Unit Price",
     "monthlyReport": "Monthly Summary",
     "movements": "Product Movements",

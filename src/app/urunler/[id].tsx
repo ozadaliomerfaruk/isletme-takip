@@ -99,6 +99,10 @@ export default function UrunDetayPage() {
 
   // Expanded hareket state
   const [expandedHareketId, setExpandedHareketId] = useState<string | null>(null);
+
+  // Aylık özet: miktar/tutar görünümü + akordiyon (varsayılan kapalı — sayfa kısa kalsın)
+  const [ozetMode, setOzetMode] = useState<'miktar' | 'tutar'>('miktar');
+  const [ozetExpanded, setOzetExpanded] = useState(false);
   const { refreshing, onRefresh } = usePullToRefresh(refetchUrun, refetchHareketler, refetchOzet);
 
   const { pendingDeleteIds, requestDelete: requestDeleteHareket, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<UrunHareketWithSource>({
@@ -507,37 +511,77 @@ export default function UrunDetayPage() {
                 </View>
               )}
 
-              {/* Aylik Ozet */}
+              {/* Aylik Ozet — akordiyon (acilir-kapanir) + miktar/tutar gecisi */}
               {aylikOzet && aylikOzet.length > 0 && (
-                <View style={styles.section}>
-                  <Text variant="label" style={styles.sectionTitle}>
-                    {t('products:stock.monthlyReport')}
-                  </Text>
-                  <Card padding="none">
+                <View style={{ paddingHorizontal: spacing.lg, marginBottom: spacing.md }}>
+                  <ExpandableCard
+                    expanded={ozetExpanded}
+                    onToggle={() => setOzetExpanded((v) => !v)}
+                    header={
+                      <View style={styles.ozetHeaderRow}>
+                        <Text variant="label">{t('products:stock.monthlyReport')}</Text>
+                        {/* Miktar / Tutar gecisi — header icindeki dokunma kartı acip kapatmaz */}
+                        <View style={styles.ozetToggle}>
+                          <TouchableOpacity
+                            style={[styles.ozetToggleBtn, ozetMode === 'miktar' && styles.ozetToggleBtnActive]}
+                            onPress={() => setOzetMode('miktar')}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[styles.ozetToggleText, ozetMode === 'miktar' && styles.ozetToggleTextActive]}>
+                              {t('products:stock.quantity')}
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.ozetToggleBtn, ozetMode === 'tutar' && styles.ozetToggleBtnActive]}
+                            onPress={() => setOzetMode('tutar')}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[styles.ozetToggleText, ozetMode === 'tutar' && styles.ozetToggleTextActive]}>
+                              {t('products:stock.amount')}
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    }
+                  >
                     {aylikOzet.slice(0, 6).map((ozet, index) => (
                       <View key={ozet.ay}>
                         <View style={styles.aylikItem}>
                           <Text variant="body" style={{ fontSize: 14 }}>{getMonthLabel(ozet.ay)}</Text>
                           <View style={styles.aylikValues}>
-                            <View style={styles.aylikPillIn}>
-                              <Text style={styles.aylikPillInText}>+{formatQuantity(ozet.giris)}</Text>
-                            </View>
-                            <View style={styles.aylikPillOut}>
-                              <Text style={styles.aylikPillOutText}>-{formatQuantity(ozet.cikis)}</Text>
-                            </View>
-                            {ozet.duzeltme !== 0 && (
-                              <View style={styles.aylikPillDuzeltme}>
-                                <Text style={styles.aylikPillDuzeltmeText}>
-                                  {ozet.duzeltme > 0 ? '+' : ''}{formatQuantity(ozet.duzeltme)}
-                                </Text>
-                              </View>
+                            {ozetMode === 'miktar' ? (
+                              <>
+                                <View style={styles.aylikPillIn}>
+                                  <Text style={styles.aylikPillInText}>+{formatQuantity(ozet.giris)}</Text>
+                                </View>
+                                <View style={styles.aylikPillOut}>
+                                  <Text style={styles.aylikPillOutText}>-{formatQuantity(ozet.cikis)}</Text>
+                                </View>
+                                {ozet.duzeltme !== 0 && (
+                                  <View style={styles.aylikPillDuzeltme}>
+                                    <Text style={styles.aylikPillDuzeltmeText}>
+                                      {ozet.duzeltme > 0 ? '+' : ''}{formatQuantity(ozet.duzeltme)}
+                                    </Text>
+                                  </View>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {/* Tutar: giriş = toplam harcanan (alım), çıkış = toplam satılan */}
+                                <View style={styles.aylikPillIn}>
+                                  <Text style={styles.aylikPillInText}>{formatCurrency(ozet.girisTutar, urun.currency)}</Text>
+                                </View>
+                                <View style={styles.aylikPillOut}>
+                                  <Text style={styles.aylikPillOutText}>{formatCurrency(ozet.cikisTutar, urun.currency)}</Text>
+                                </View>
+                              </>
                             )}
                           </View>
                         </View>
                         {index < Math.min(aylikOzet.length, 6) - 1 && <View style={styles.divider} />}
                       </View>
                     ))}
-                  </Card>
+                  </ExpandableCard>
                 </View>
               )}
 
@@ -796,11 +840,43 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    // ExpandableCard içeriği zaten yatay padding (lg) veriyor → satır kendi padding'i koymaz
+    paddingHorizontal: 0,
   },
   aylikValues: {
     flexDirection: 'row',
     gap: spacing.sm,
+    flexShrink: 1,
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+  },
+  ozetHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  ozetToggle: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.full,
+    padding: 2,
+  },
+  ozetToggleBtn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+  },
+  ozetToggleBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  ozetToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  ozetToggleTextActive: {
+    color: colors.white,
   },
   aylikPillIn: {
     backgroundColor: '#ECFDF5',
@@ -879,7 +955,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginLeft: spacing.lg,
+    marginLeft: 0,
   },
   emptyText: {
     textAlign: 'center',

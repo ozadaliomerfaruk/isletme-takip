@@ -57,6 +57,7 @@
     "stockOut": "Ürün Satışı",
     "adjustment": "Düzeltme",
     "quantity": "Miktar",
+    "amount": "Tutar",
     "unitPrice": "Birim Fiyat",
     "monthlyReport": "Aylık Özet",
     "movements": "Ürün Hareketleri",
