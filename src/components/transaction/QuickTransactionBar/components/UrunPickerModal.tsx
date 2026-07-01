@@ -14,7 +14,6 @@ import {
   UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { X, Search, Package, Plus, Trash2, Check, Pencil, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -35,10 +34,6 @@ import type { Urun, BirimType } from '@/types/database';
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-// Son kullanılan ürünler (cihaz-genel MRU) için AsyncStorage anahtarı
-const RECENT_URUN_IDS_KEY = 'recent_urun_ids';
-const RECENT_URUN_LIMIT = 8;
 
 export interface UrunPickerModalProps {
   visible: boolean;
@@ -104,8 +99,6 @@ export function UrunPickerModal({
   // Silme geri-al: son silinen kalem + orijinal index; süreli otomatik kapanır
   const [lastRemoved, setLastRemoved] = useState<{ item: UrunItem; index: number } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Son kullanılan ürünler (cihaz-genel MRU) — arama boşken hızlı seçim için
-  const [recentUrunIds, setRecentUrunIds] = useState<string[]>([]);
 
   // Bileşen kaldırılırken geri-al zamanlayıcısını temizle (bellek sızıntısı önleme)
   useEffect(() => {
@@ -113,34 +106,6 @@ export function UrunPickerModal({
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     };
   }, []);
-
-  // Son kullanılan ürün ID'lerini yükle (cihaz-genel MRU)
-  useEffect(() => {
-    AsyncStorage.getItem(RECENT_URUN_IDS_KEY)
-      .then((val) => {
-        if (val) setRecentUrunIds(JSON.parse(val));
-      })
-      .catch(() => {});
-  }, []);
-
-  // Bir ürün eklendiğinde MRU listesinin başına al (dedup + limit)
-  const pushRecentUrun = useCallback((urunId: string) => {
-    setRecentUrunIds((prev) => {
-      const next = [urunId, ...prev.filter((id) => id !== urunId)].slice(0, RECENT_URUN_LIMIT);
-      AsyncStorage.setItem(RECENT_URUN_IDS_KEY, JSON.stringify(next)).catch(() => {});
-      return next;
-    });
-  }, []);
-
-  // Arama boşken gösterilecek son-kullanılan ürünler (silinmiş/eklenmiş olanları ele)
-  const recentUrunler = useMemo(() => {
-    if (searchQuery.trim()) return [];
-    const addedIds = new Set(urunItems.map((i) => i.urunId));
-    return recentUrunIds
-      .map((id) => urunler.find((u) => u.id === id))
-      .filter((u): u is Urun => !!u && !addedIds.has(u.id))
-      .slice(0, 6);
-  }, [recentUrunIds, urunler, urunItems, searchQuery]);
 
   // Filter urunler based on search query
   const filteredUrunler = useMemo(() => {
@@ -271,10 +236,9 @@ export function UrunPickerModal({
       onUrunItemsChange([...urunItems, newItem]);
     }
 
-    pushRecentUrun(addingProduct.urun.id); // MRU güncelle
     setAddingProduct(null);
     setEditingUrunId(null);
-  }, [addingProduct, urunItems, onUrunItemsChange, editingUrunId, pushRecentUrun]);
+  }, [addingProduct, urunItems, onUrunItemsChange, editingUrunId]);
 
   // Ekleme/düzenleme modunu iptal et
   const handleCancelAdd = useCallback(() => {
@@ -584,30 +548,6 @@ export function UrunPickerModal({
                         {editingUrunId ? t('common:buttons.update') : t('common:buttons.add')}
                       </Text>
                     </TouchableOpacity>
-                  </View>
-                )}
-
-                {/* Son Kullanılanlar — arama boşken hızlı yeniden seçim (cihaz-genel MRU) */}
-                {!addingProduct && !searchQuery.trim() && recentUrunler.length > 0 && (
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>
-                      {t('transactions:stock.recentProducts')}
-                    </Text>
-                    <View style={styles.recentChips}>
-                      {recentUrunler.map((urun) => (
-                        <TouchableOpacity
-                          key={urun.id}
-                          style={styles.recentChip}
-                          onPress={() => handleSelectUrun(urun)}
-                          activeOpacity={0.7}
-                        >
-                          <Package size={14} color={colors.primary} />
-                          <Text style={styles.recentChipText} numberOfLines={1}>
-                            {urun.ad}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
                   </View>
                 )}
 
@@ -932,29 +872,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.error,
-  },
-  recentChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  recentChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    maxWidth: '48%',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  recentChipText: {
-    flexShrink: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
   },
   // Ürün Ekleme Formu
   addingSection: {

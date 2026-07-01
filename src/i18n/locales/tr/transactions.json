@@ -233,7 +233,6 @@
     "currencyMismatch": "Bu ürün {{productCurrency}} cinsinden; işlem {{txnCurrency}}. Tutar çevrilmeden eklenir.",
     "itemRemoved": "{{name}} silindi",
     "undo": "Geri Al",
-    "recentProducts": "Son Kullanılanlar",
     "subtotal": "Ara Toplam",
     "vatTotal": "KDV Toplamı",
     "grandTotal": "Genel Toplam",
