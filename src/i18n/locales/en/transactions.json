@@ -231,6 +231,8 @@
     "invoiceMatch": "Matches invoice",
     "invoiceDiff": "Difference",
     "currencyMismatch": "This product is in {{productCurrency}}; transaction is {{txnCurrency}}. Added without conversion.",
+    "itemRemoved": "{{name}} removed",
+    "undo": "Undo",
     "subtotal": "Subtotal",
     "vatTotal": "VAT Total",
     "grandTotal": "Grand Total",

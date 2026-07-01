@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Modal,
@@ -95,11 +95,21 @@ export function UrunPickerModal({
   const [addedExpanded, setAddedExpanded] = useState(true);
   // Fatura mutabakatı: kullanıcının girdiği fatura toplamı (KDV dahil) — canlı fark için
   const [faturaToplami, setFaturaToplami] = useState('');
+  // Silme geri-al: son silinen kalem + orijinal index; süreli otomatik kapanır
+  const [lastRemoved, setLastRemoved] = useState<{ item: UrunItem; index: number } | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Arama moduna göre eklenen-ürünler akordeonunu otomatik aç/kapat
   useEffect(() => {
     setAddedExpanded(!searchQuery.trim());
   }, [searchQuery]);
+
+  // Bileşen kaldırılırken geri-al zamanlayıcısını temizle (bellek sızıntısı önleme)
+  useEffect(() => {
+    return () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    };
+  }, []);
 
   // Filter urunler based on search query
   const filteredUrunler = useMemo(() => {
@@ -127,6 +137,8 @@ export function UrunPickerModal({
     setAddingProduct(null);
     setEditingUrunId(null);
     setFaturaToplami('');
+    setLastRemoved(null);
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     onDismiss();
   }, [onDismiss, onSearchQueryChange]);
 
@@ -241,15 +253,32 @@ export function UrunPickerModal({
 
   const handleRemoveItem = useCallback(
     (urunId: string) => {
+      const index = urunItems.findIndex((item) => item.urunId === urunId);
+      if (index === -1) return;
+      const removed = urunItems[index];
       const newItems = urunItems.filter((item) => item.urunId !== urunId);
       onUrunItemsChange(newItems);
       // Eğer tüm ürünler silindiyse parent'a 0 gönder
       if (newItems.length === 0 && onTotalChange) {
         onTotalChange(0);
       }
+      // Geri-al için sakla + 5 sn sonra otomatik kapat (yanlışlıkla silmeye emniyet)
+      setLastRemoved({ item: removed, index });
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = setTimeout(() => setLastRemoved(null), 5000);
     },
     [urunItems, onUrunItemsChange, onTotalChange]
   );
+
+  const handleUndoRemove = useCallback(() => {
+    if (!lastRemoved) return;
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    const insertAt = Math.min(lastRemoved.index, urunItems.length);
+    const restored = [...urunItems];
+    restored.splice(insertAt, 0, lastRemoved.item);
+    onUrunItemsChange(restored);
+    setLastRemoved(null);
+  }, [lastRemoved, urunItems, onUrunItemsChange]);
 
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
@@ -676,6 +705,21 @@ export function UrunPickerModal({
                 )}
               </ScrollView>
 
+              {/* Silinen kalem için geri-al bandı (5 sn süreli) */}
+              {lastRemoved && (
+                <View style={styles.undoBar}>
+                  <Text style={styles.undoText} numberOfLines={1}>
+                    {t('transactions:stock.itemRemoved', { name: lastRemoved.item.urunAd })}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleUndoRemove}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.undoAction}>{t('transactions:stock.undo')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               {/* Footer with Totals */}
               {urunItems.length > 0 && (
                 <View style={styles.footer}>
@@ -844,6 +888,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.error,
+  },
+  undoBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: 10,
+    backgroundColor: colors.text,
+  },
+  undoText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.background,
+  },
+  undoAction: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
+    textTransform: 'uppercase',
   },
   // Ürün Ekleme Formu
   addingSection: {
