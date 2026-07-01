@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Package, Plus, Trash2, Check, Pencil } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, Button } from '@/components/ui';
+import { Text, Button, ExpandableCard } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
@@ -88,6 +88,13 @@ export function UrunPickerModal({
   const [addingProduct, setAddingProduct] = useState<AddingProduct | null>(null);
   // Düzenleme modunda olan ürün ID'si (null ise yeni ekleme)
   const [editingUrunId, setEditingUrunId] = useState<string | null>(null);
+  // Eklenen ürünler akordeonu: arama yapınca kapanır (sonuçlar önde kalsın), boşalınca açılır
+  const [addedExpanded, setAddedExpanded] = useState(true);
+
+  // Arama moduna göre eklenen-ürünler akordeonunu otomatik aç/kapat
+  useEffect(() => {
+    setAddedExpanded(!searchQuery.trim());
+  }, [searchQuery]);
 
   // Filter urunler based on search query
   const filteredUrunler = useMemo(() => {
@@ -210,6 +217,7 @@ export function UrunPickerModal({
       onUrunItemsChange([...urunItems, newItem]);
     }
 
+    setAddedExpanded(true); // yeni/güncellenen kalem görünür olsun
     setAddingProduct(null);
     setEditingUrunId(null);
   }, [addingProduct, urunItems, onUrunItemsChange, editingUrunId]);
@@ -270,9 +278,12 @@ export function UrunPickerModal({
         <View
           style={[
             sharedStyles.bottomSheetContent,
-            { height: windowHeight * 0.85, paddingBottom: insets.bottom },
+            { height: windowHeight * 0.92, paddingBottom: insets.bottom },
           ]}
         >
+              {/* Grabber — bottom-sheet kaydırılabilirlik ipucu */}
+              <View style={styles.grabber} />
+
               {/* Header */}
               <View style={sharedStyles.bottomSheetHeader}>
                 <Text style={sharedStyles.bottomSheetTitle}>
@@ -471,47 +482,7 @@ export function UrunPickerModal({
                   </View>
                 )}
 
-                {/* Eklenen Ürünler */}
-                {urunItems.length > 0 && (
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>
-                      {t('transactions:stock.addedProducts')} ({urunItems.length})
-                    </Text>
-                    {urunItems.map((item) => {
-                      const lineTotal = calculateUrunLineTotal(item);
-                      const isBeingEdited = editingUrunId === item.urunId;
-                      return (
-                        <View key={item.urunId} style={[styles.addedItem, isBeingEdited && styles.addedItemEditing]}>
-                          <View style={styles.addedItemLeft}>
-                            <Text style={styles.addedItemName}>{item.urunAd}</Text>
-                            <Text style={styles.addedItemDetail}>
-                              {formatQuantity(item.miktar)} {getBirimLabel(item.birim)} × {formatCurrency(item.birimFiyat, currency)}
-                              {item.kdvOrani > 0 && ` (+%${item.kdvOrani} ${t('common:tax.vat')})`}
-                            </Text>
-                          </View>
-                          <Text style={styles.addedItemTotal}>
-                            {/* KDV hariç (net) satır toplamı — faturayla karşılaştırma; KDV dökümü altta */}
-                            {formatCurrency(lineTotal.subtotal, currency)}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => handleEditItem(item)}
-                            style={styles.editButton}
-                          >
-                            <Pencil size={16} color={colors.primary} />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => handleRemoveItem(item.urunId)}
-                            style={styles.removeButton}
-                          >
-                            <Trash2 size={18} color={colors.error} />
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-                  </View>
-                )}
-
-                {/* Ürün Listesi - sadece ekleme modunda değilken göster */}
+                {/* Ürün Listesi (ÜRÜN SEÇ) — arama sonuçları burada; eklenen listenin ÜSTÜNDE olacak şekilde öne alındı */}
                 {!addingProduct && (
                   <View style={styles.section}>
                     <Text style={styles.sectionTitle}>
@@ -568,6 +539,56 @@ export function UrunPickerModal({
                       })
                     )}
                   </View>
+                )}
+
+                {/* Eklenen Ürünler — akordeon (özet: N kalem + KDV Dahil toplam). ÜRÜN SEÇ'in
+                    altında, daraltılabilir; arama modunda otomatik kapanır ki sonuçları bloke etmesin. */}
+                {urunItems.length > 0 && (
+                  <ExpandableCard
+                    expanded={addedExpanded}
+                    onToggle={() => setAddedExpanded((v) => !v)}
+                    header={
+                      <View style={styles.addedHeaderRow}>
+                        <Text style={[styles.sectionTitle, styles.addedHeaderTitle]}>
+                          {t('transactions:stock.addedProducts')} ({urunItems.length})
+                        </Text>
+                        <Text style={styles.addedHeaderTotal}>
+                          {t('transactions:stock.vatIncluded')}: {formatCurrency(totals.grandTotal, currency)}
+                        </Text>
+                      </View>
+                    }
+                  >
+                    {urunItems.map((item) => {
+                      const lineTotal = calculateUrunLineTotal(item);
+                      const isBeingEdited = editingUrunId === item.urunId;
+                      return (
+                        <View key={item.urunId} style={[styles.addedItem, isBeingEdited && styles.addedItemEditing]}>
+                          <View style={styles.addedItemLeft}>
+                            <Text style={styles.addedItemName}>{item.urunAd}</Text>
+                            <Text style={styles.addedItemDetail}>
+                              {formatQuantity(item.miktar)} {getBirimLabel(item.birim)} × {formatCurrency(item.birimFiyat, currency)}
+                              {item.kdvOrani > 0 && ` (+%${item.kdvOrani} ${t('common:tax.vat')})`}
+                            </Text>
+                          </View>
+                          <Text style={styles.addedItemTotal}>
+                            {formatCurrency(lineTotal.subtotal, currency)}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => handleEditItem(item)}
+                            style={styles.editButton}
+                          >
+                            <Pencil size={16} color={colors.primary} />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => handleRemoveItem(item.urunId)}
+                            style={styles.removeButton}
+                          >
+                            <Trash2 size={18} color={colors.error} />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                  </ExpandableCard>
                 )}
               </ScrollView>
 
@@ -639,6 +660,31 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: spacing.sm,
     textTransform: 'uppercase',
+  },
+  grabber: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.border,
+    alignSelf: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  addedHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flex: 1,
+    gap: spacing.sm,
+  },
+  addedHeaderTitle: {
+    marginBottom: 0,
+    flexShrink: 1,
+  },
+  addedHeaderTotal: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
   },
   // Ürün Ekleme Formu
   addingSection: {
