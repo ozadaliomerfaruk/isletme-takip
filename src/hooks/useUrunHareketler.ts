@@ -250,6 +250,8 @@ export interface DonemUrunOzet {
   [urunId: string]: {
     giris: number;
     cikis: number;
+    girisTutar: number; // giriş (alım) net tutarı — KDV hariç, ürünün para biriminde
+    cikisTutar: number; // çıkış (satış) net tutarı — KDV hariç
   };
 }
 
@@ -271,13 +273,13 @@ export function useDonemUrunOzet(options: {
       const [linkedRes, manualRes] = await Promise.all([
         supabase
           .from('urun_hareketler')
-          .select('urun_id, hareket_tipi, miktar, islemler!inner(date)')
+          .select('urun_id, hareket_tipi, miktar, birim_fiyat, islemler!inner(date)')
           .eq('isletme_id', isletme.id)
           .gte('islemler.date', `${startDate}T00:00:00`)
           .lte('islemler.date', `${endDate}T23:59:59`),
         supabase
           .from('urun_hareketler')
-          .select('urun_id, hareket_tipi, miktar')
+          .select('urun_id, hareket_tipi, miktar, birim_fiyat')
           .eq('isletme_id', isletme.id)
           .is('islem_id', null)
           .gte('created_at', `${startDate}T00:00:00`)
@@ -294,15 +296,20 @@ export function useDonemUrunOzet(options: {
 
       (data as UrunHareket[]).forEach((hareket) => {
         if (!ozet[hareket.urun_id]) {
-          ozet[hareket.urun_id] = { giris: 0, cikis: 0 };
+          ozet[hareket.urun_id] = { giris: 0, cikis: 0, girisTutar: 0, cikisTutar: 0 };
         }
+
+        // Tutar: KDV hariç (net) — miktar × birim_fiyat. Düzeltmenin fiyatı olmaz.
+        const tutar = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
 
         if (hareket.hareket_tipi === 'giris') {
           ozet[hareket.urun_id].giris += Math.abs(hareket.miktar);
+          ozet[hareket.urun_id].girisTutar += tutar;
         } else if (hareket.hareket_tipi === 'cikis') {
           ozet[hareket.urun_id].cikis += Math.abs(hareket.miktar);
+          ozet[hareket.urun_id].cikisTutar += tutar;
         } else if (hareket.hareket_tipi === 'duzeltme') {
-          // Düzeltme: pozitif ise giriş, negatif ise çıkış
+          // Düzeltme: pozitif ise giriş, negatif ise çıkış (yalnızca miktar; tutar yok)
           if (hareket.miktar > 0) {
             ozet[hareket.urun_id].giris += hareket.miktar;
           } else {

@@ -8,7 +8,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, formatQuantity } from '@/lib/currency';
 import type { Urun, BirimType } from '@/types/database';
 
-interface DonemOzet { giris: number; cikis: number }
+interface DonemOzet { giris: number; cikis: number; girisTutar: number; cikisTutar: number }
 
 interface ProductRowProps {
   urun: Urun;
@@ -20,11 +20,13 @@ interface ProductRowProps {
   urunOzet?: DonemOzet;
   kategoriAdi?: string;
   getBirimLabel: (birim: BirimType) => string;
+  /** Dönem özeti pill'leri miktar mı tutar mı gösterecek (varsayılan miktar). */
+  ozetMode?: 'miktar' | 'tutar';
 }
 
 export const ProductRow = memo(function ProductRow({
   urun, expanded, onToggle, onNewTransaction, onViewMovements, onOpenActionSheet,
-  urunOzet, kategoriAdi, getBirimLabel,
+  urunOzet, kategoriAdi, getBirimLabel, ozetMode = 'miktar',
 }: ProductRowProps) {
   const { t } = useTranslation(['products', 'common']);
   const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
@@ -75,14 +77,22 @@ export const ProductRow = memo(function ProductRow({
             <View style={rowStyles.periodSummary}>
               {hasMovements ? (
                 <>
-                  {urunOzet.giris > 0 && (
+                  {(ozetMode === 'tutar' ? urunOzet.girisTutar > 0 : urunOzet.giris > 0) && (
                     <View style={rowStyles.pillIn}>
-                      <Text style={rowStyles.pillInText}>+{formatQuantity(urunOzet.giris)}</Text>
+                      <Text style={rowStyles.pillInText}>
+                        {ozetMode === 'tutar'
+                          ? formatCurrency(urunOzet.girisTutar, urun.currency)
+                          : `+${formatQuantity(urunOzet.giris)}`}
+                      </Text>
                     </View>
                   )}
-                  {urunOzet.cikis > 0 && (
+                  {(ozetMode === 'tutar' ? urunOzet.cikisTutar > 0 : urunOzet.cikis > 0) && (
                     <View style={rowStyles.pillOut}>
-                      <Text style={rowStyles.pillOutText}>-{formatQuantity(urunOzet.cikis)}</Text>
+                      <Text style={rowStyles.pillOutText}>
+                        {ozetMode === 'tutar'
+                          ? formatCurrency(urunOzet.cikisTutar, urun.currency)
+                          : `-${formatQuantity(urunOzet.cikis)}`}
+                      </Text>
                     </View>
                   )}
                 </>
@@ -253,8 +263,9 @@ const rowStyles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  // giriş = ALIŞ → kırmızı, çıkış = SATIŞ → yeşil (gelir/gider mantığı; ürün detayıyla tutarlı)
   pillIn: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: '#FEF2F2',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: borderRadius.full,
@@ -262,10 +273,10 @@ const rowStyles = StyleSheet.create({
   pillInText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.success,
+    color: colors.error,
   },
   pillOut: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: '#ECFDF5',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: borderRadius.full,
@@ -273,7 +284,7 @@ const rowStyles = StyleSheet.create({
   pillOutText: {
     fontSize: 12,
     fontWeight: '700',
-    color: colors.error,
+    color: colors.success,
   },
   moreBtn: {
     padding: spacing.xs,

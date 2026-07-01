@@ -13,7 +13,7 @@ import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrunler, useArchiveUrun, usePermanentDeleteUrun } from '@/hooks/useUrunler';
 import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
 import { useToast } from '@/contexts/ToastContext';
@@ -48,7 +48,9 @@ export default function UrunlerPage() {
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
   const [sortType, setSortType] = useState<SortType>('nameAZ');
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
+  const [activeTab] = useState<'active' | 'archived'>('active');
+  // Dönem özeti gösterimi: miktar mı tutar mı (per-ürün giriş/çıkış pill'leri)
+  const [ozetMode, setOzetMode] = useState<'miktar' | 'tutar'>('miktar');
 
   // ActionSheet iÃ§in state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -514,8 +516,9 @@ export default function UrunlerPage() {
       urunOzet={donemUrunOzet?.[urun.id]}
       kategoriAdi={urun.kategori_id ? kategoriMap.get(urun.kategori_id) : undefined}
       getBirimLabel={getBirimLabel}
+      ozetMode={ozetMode}
     />
-  ), [expandedId, handleToggle, handleNewTransaction, handleViewMovements, handleOpenActionSheet, donemUrunOzet, kategoriMap, getBirimLabel]);
+  ), [expandedId, handleToggle, handleNewTransaction, handleViewMovements, handleOpenActionSheet, donemUrunOzet, kategoriMap, getBirimLabel, ozetMode]);
 
   // FlatList renderItem for archived products
   const renderArchivedItem = useCallback(({ item: urun }: ListRenderItemInfo<Urun>) => (
@@ -533,8 +536,8 @@ export default function UrunlerPage() {
 
   // Stabil extraData — her render'da yeni obje literali FlatList'i gereksiz yeniden değerlendirtiyordu
   const listExtraData = useMemo(
-    () => ({ expandedId, donemUrunOzet, activeTab }),
-    [expandedId, donemUrunOzet, activeTab]
+    () => ({ expandedId, donemUrunOzet, activeTab, ozetMode }),
+    [expandedId, donemUrunOzet, activeTab, ozetMode]
   );
 
   // List header: search, tabs, period selector
@@ -604,16 +607,8 @@ export default function UrunlerPage() {
         </View>
       )}
 
-      {/* Aktif / ArÅŸiv Tab */}
-      {archivedCount > 0 && (
-        <View style={styles.tabSection}>
-          <TabFilter
-            options={TAB_OPTIONS}
-            value={activeTab}
-            onChange={(v) => setActiveTab(v as 'active' | 'archived')}
-          />
-        </View>
-      )}
+      {/* Arşiv sekmesi kaldırıldı — arşivlenmiş ürünler Daha → Arşiv sayfasında.
+          Bu sayfa yalnızca aktif ürünleri gösterir. */}
 
       {/* DÃ¶nem SeÃ§ici */}
       {activeTab === 'active' && (urunler && urunler.length > 0) && (
@@ -672,6 +667,32 @@ export default function UrunlerPage() {
         </View>
       )}
 
+      {/* Miktar / Tutar geçişi — per-ürün dönem özeti pill'lerini (giriş/çıkış) değiştirir */}
+      {(urunler && urunler.length > 0) && (
+        <View style={ozetToggleStyles.wrap}>
+          <View style={ozetToggleStyles.toggle}>
+            <TouchableOpacity
+              style={[ozetToggleStyles.btn, ozetMode === 'miktar' && ozetToggleStyles.btnActive]}
+              onPress={() => { haptics.light(); setOzetMode('miktar'); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[ozetToggleStyles.txt, ozetMode === 'miktar' && ozetToggleStyles.txtActive]}>
+                {t('products:stock.quantity')}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[ozetToggleStyles.btn, ozetMode === 'tutar' && ozetToggleStyles.btnActive]}
+              onPress={() => { haptics.light(); setOzetMode('tutar'); }}
+              activeOpacity={0.8}
+            >
+              <Text style={[ozetToggleStyles.txt, ozetMode === 'tutar' && ozetToggleStyles.txtActive]}>
+                {t('products:stock.amount')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Kategori filtresi */}
       {activeTab === 'active' && (urunler && urunler.length > 0) && (
         <ProductCategoryFilter
@@ -706,7 +727,7 @@ export default function UrunlerPage() {
         </View>
       )}
     </View>
-  ), [t, urunler, archivedCount, searchQuery, activeTab, TAB_OPTIONS, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, router, uncategorizedProductCount, categoryChips, categoryFilter, isFiltered, filteredUrunler, handleClearFilters, isExporting]);
+  ), [t, urunler, archivedCount, searchQuery, activeTab, TAB_OPTIONS, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, router, uncategorizedProductCount, categoryChips, categoryFilter, isFiltered, filteredUrunler, handleClearFilters, isExporting, ozetMode]);
 
   // Empty component
   const listEmptyComponent = useMemo(() => {
@@ -961,3 +982,34 @@ export default function UrunlerPage() {
     </SafeAreaView>
   );
 }
+
+// Miktar / Tutar geçiş anahtarı (ürün detay sayfasındaki toggle ile aynı görünüm)
+const ozetToggleStyles = StyleSheet.create({
+  wrap: {
+    paddingHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    alignItems: 'flex-end',
+  },
+  toggle: {
+    flexDirection: 'row',
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.full,
+    padding: 2,
+  },
+  btn: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: 5,
+    borderRadius: borderRadius.full,
+  },
+  btnActive: {
+    backgroundColor: colors.primary,
+  },
+  txt: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  txtActive: {
+    color: colors.white,
+  },
+});
