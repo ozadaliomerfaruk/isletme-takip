@@ -45,6 +45,8 @@ export interface UrunPickerModalProps {
   onSearchQueryChange: (query: string) => void;
   onTotalChange?: (total: number) => void;
   currency?: string;
+  /** İşlem yönü: alış → alış_fiyatı, satış → satış_fiyatı varsayılan olarak gelir. */
+  islemYonu?: 'alis' | 'satis';
   /** Aranan ürün yoksa inline oluşturma; oluşturulan ürünü döndürürse otomatik seçilir. */
   onCreateNew?: (name: string) => Promise<Urun | undefined>;
   creating?: boolean;
@@ -70,6 +72,7 @@ export function UrunPickerModal({
   onSearchQueryChange,
   onTotalChange,
   currency = 'TRY',
+  islemYonu = 'alis',
   onCreateNew,
   creating = false,
   onAddFullProduct,
@@ -136,10 +139,15 @@ export function UrunPickerModal({
       // formatAmountForInput: locale-doğru ondalık ayraç (tr'de virgül) üretir; ham
       // .toString() 3-ondalıklı fiyatı ("10.987") parseCurrency'de binlik ayraç sanılıp
       // ~1000x şişiriyordu (10987). Düzenle yolu (handleEditItem) ile aynı.
-      birimFiyat: formatAmountForInput(urun.alis_fiyati || urun.satis_fiyati || 0),
+      // Yön-bazlı varsayılan: satışta satış fiyatı, alışta alış fiyatı öncelikli.
+      birimFiyat: formatAmountForInput(
+        islemYonu === 'satis'
+          ? (urun.satis_fiyati || urun.alis_fiyati || 0)
+          : (urun.alis_fiyati || urun.satis_fiyati || 0)
+      ),
       kdvOrani: urun.kdv_orani || 0,
     });
-  }, [urunItems]);
+  }, [urunItems, islemYonu]);
 
   // Inline ürün oluşturma (CariPickerSheet inline-cari deseninin ürün karşılığı):
   // arama eşleşmiyorsa "+ yeni ekle" satırı çıkar, oluşturulan ürün otomatik seçilir.
@@ -415,6 +423,26 @@ export function UrunPickerModal({
                       </View>
                     </View>
 
+                    {/* Referans fiyat rozeti — ürünün alış/satış fiyatı; dokununca doldurur */}
+                    {(() => {
+                      const refFiyat = islemYonu === 'satis'
+                        ? addingProduct.urun.satis_fiyati
+                        : addingProduct.urun.alis_fiyati;
+                      if (!refFiyat || refFiyat <= 0) return null;
+                      return (
+                        <TouchableOpacity
+                          style={styles.priceHintRow}
+                          onPress={() => setAddingProduct({ ...addingProduct, birimFiyat: formatAmountForInput(refFiyat) })}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.priceHintText}>
+                            {islemYonu === 'satis' ? t('transactions:stock.refSale') : t('transactions:stock.refPurchase')}: {formatCurrency(refFiyat, currency)}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })()}
+
                     {/* KDV */}
                     <View style={styles.inputRow}>
                       <Text style={styles.inputLabel}>
@@ -684,6 +712,21 @@ const styles = StyleSheet.create({
   addedHeaderTotal: {
     fontSize: 14,
     fontWeight: '700',
+    color: colors.primary,
+  },
+  priceHintRow: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  priceHintText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.primary,
   },
   // Ürün Ekleme Formu

@@ -225,6 +225,8 @@
     "lineTotal": "Line Total",
     "vatExcluded": "Excl. VAT",
     "vatIncluded": "Incl. VAT",
+    "refPurchase": "Purchase price",
+    "refSale": "Sale price",
     "subtotal": "Subtotal",
     "vatTotal": "VAT Total",
     "grandTotal": "Grand Total",

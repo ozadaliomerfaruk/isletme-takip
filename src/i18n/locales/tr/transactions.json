@@ -225,6 +225,8 @@
     "lineTotal": "Satır Toplamı",
     "vatExcluded": "KDV Hariç",
     "vatIncluded": "KDV Dahil",
+    "refPurchase": "Alış fiyatı",
+    "refSale": "Satış fiyatı",
     "subtotal": "Ara Toplam",
     "vatTotal": "KDV Toplamı",
     "grandTotal": "Genel Toplam",

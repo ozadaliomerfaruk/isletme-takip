@@ -768,6 +768,7 @@ export function QuickTransactionBar({
           }
         }}
         currency={userCurrency}
+        islemYonu={form.type === 'satis' || form.type === 'satis_iade' ? 'satis' : 'alis'}
         onCreateNew={handleUrunCreateNew}
         creating={createUrun.isPending}
         onAddFullProduct={() => {
