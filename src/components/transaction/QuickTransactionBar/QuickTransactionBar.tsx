@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { useRouter, type Href } from 'expo-router';
+import { useRouter, useFocusEffect, type Href } from 'expo-router';
 
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
 import { roundCurrency } from '@/lib/currency';
@@ -221,6 +221,15 @@ export function QuickTransactionBar({
       onDismiss();
     });
   }, [animation, onDismiss]);
+
+  // Tam ekran bir sayfaya (ör. /urunler/ekle) gidip geri dönünce, navigatedAway ile
+  // GİZLENEN bar + ürün seçiciyi eski haliyle geri getir. `visible`'a hiç dokunulmadığı
+  // için form/urunItems korunmuştur → kullanıcı eklediği ürünlerle kaldığı yere döner.
+  useFocusEffect(
+    useCallback(() => {
+      modals.setNavigatedAway(false);
+    }, [modals.setNavigatedAway])
+  );
 
   // Handle backdrop press - two-step dismiss
   const handleBackdropPress = useCallback(() => {
@@ -494,7 +503,7 @@ export function QuickTransactionBar({
     : insets.bottom + TAB_BAR_HEIGHT + 10;
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal visible={visible && !modals.navigatedAway} transparent animationType="none" statusBarTranslucent>
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
         <View style={styles.backdrop} />
@@ -772,12 +781,14 @@ export function QuickTransactionBar({
         onCreateNew={handleUrunCreateNew}
         creating={createUrun.isPending}
         onAddFullProduct={() => {
-          // Boş aramada tam ekran ürün ekleme sayfası: iç içe iki modalı (picker + bar)
-          // kapatmadan route push edilirse sayfa modalların arkasında kalır. Bu yüzden
-          // önce ikisini de kapatıp sonra yönlendiriyoruz.
-          modals.setShowUrunPicker(false);
-          modals.setUrunSearchQuery('');
-          handleDismiss();
+          // Eklenen ürünleri KAYBETMEDEN tam ekran ürün ekleme sayfasına git.
+          // ÖNCEDEN: handleDismiss() çağrılıyordu → parent visible=false → form reset
+          // effect'i (useQuickTransactionForm) urunItems'ı siliyordu = VERİ KAYBI.
+          // ARTIK: navigatedAway ile dış Modal'ı gizle (iç ürün seçici de onunla gizlenir,
+          // route push modalların arkasında kalmaz); `visible`'a DOKUNMA → form korunur.
+          // showUrunPicker açık bırakılır; dönüşte useFocusEffect navigatedAway'i temizler,
+          // seçici eklenen ürünlerle yeniden açılır.
+          modals.setNavigatedAway(true);
           router.push('/urunler/ekle' as Href);
         }}
       />

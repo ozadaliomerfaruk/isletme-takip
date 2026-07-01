@@ -21,6 +21,8 @@ interface UseQuickTransactionModalsReturn {
   setShowExchangeRateBar: (show: boolean) => void;
   showUrunPicker: boolean;
   setShowUrunPicker: (show: boolean) => void;
+  navigatedAway: boolean;
+  setNavigatedAway: (v: boolean) => void;
   showDateEndPicker: boolean;
   setShowDateEndPicker: (show: boolean) => void;
 
@@ -72,6 +74,9 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
   const [showExchangeRateBar, setShowExchangeRateBar] = useState(false);
   const [showUrunPicker, setShowUrunPicker] = useState(false);
   const [showDateEndPicker, setShowDateEndPicker] = useState(false);
+  // Tam ekran sayfaya (ör. /urunler/ekle) gidince bar'ı `visible`'a DOKUNMADAN gizler.
+  // Böylece form reset effect'i (visible=false'a bağlı) tetiklenmez → urunItems korunur.
+  const [navigatedAway, setNavigatedAway] = useState(false);
 
   // Search queries
   const [hesapSearchQuery, setHesapSearchQuery] = useState('');
@@ -102,6 +107,7 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
     setShowExchangeRateBar(false);
     setShowUrunPicker(false);
     setShowDateEndPicker(false);
+    setNavigatedAway(false);
     setHesapSearchQuery('');
     setCariSearchQuery('');
     setPersonelSearchQuery('');
@@ -167,6 +173,8 @@ export function useQuickTransactionModals(): UseQuickTransactionModalsReturn {
     setShowExchangeRateBar,
     showUrunPicker,
     setShowUrunPicker,
+    navigatedAway,
+    setNavigatedAway,
     showDateEndPicker,
     setShowDateEndPicker,
 
