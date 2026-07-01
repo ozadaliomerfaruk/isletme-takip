@@ -15,10 +15,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { X, Search, Package, Plus, Trash2, Check, Pencil } from 'lucide-react-native';
+import { X, Search, Package, Plus, Trash2, Check, Pencil, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, Button, ExpandableCard } from '@/components/ui';
+import { Text, Button, UndoSnackbar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, roundCurrency } from '@/lib/currency';
@@ -96,8 +96,9 @@ export function UrunPickerModal({
   const [addingProduct, setAddingProduct] = useState<AddingProduct | null>(null);
   // Düzenleme modunda olan ürün ID'si (null ise yeni ekleme)
   const [editingUrunId, setEditingUrunId] = useState<string | null>(null);
-  // Eklenen ürünler akordeonu: arama yapınca kapanır (sonuçlar önde kalsın), boşalınca açılır
-  const [addedExpanded, setAddedExpanded] = useState(true);
+  // Eklenen ürünler paneli (footer'da, YUKARI açılır): varsayılan KAPALI. 300 kalemlik
+  // listeye scroll etmeden, alttaki toplam satırına dokunup eklenenler açılıp görülür.
+  const [addedExpanded, setAddedExpanded] = useState(false);
   // Fatura mutabakatı: kullanıcının girdiği fatura toplamı (KDV dahil) — canlı fark için
   const [faturaToplami, setFaturaToplami] = useState('');
   // Silme geri-al: son silinen kalem + orijinal index; süreli otomatik kapanır
@@ -105,11 +106,6 @@ export function UrunPickerModal({
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Son kullanılan ürünler (cihaz-genel MRU) — arama boşken hızlı seçim için
   const [recentUrunIds, setRecentUrunIds] = useState<string[]>([]);
-
-  // Arama moduna göre eklenen-ürünler akordeonunu otomatik aç/kapat
-  useEffect(() => {
-    setAddedExpanded(!searchQuery.trim());
-  }, [searchQuery]);
 
   // Bileşen kaldırılırken geri-al zamanlayıcısını temizle (bellek sızıntısı önleme)
   useEffect(() => {
@@ -276,7 +272,6 @@ export function UrunPickerModal({
     }
 
     pushRecentUrun(addingProduct.urun.id); // MRU güncelle
-    setAddedExpanded(true); // yeni/güncellenen kalem görünür olsun
     setAddingProduct(null);
     setEditingUrunId(null);
   }, [addingProduct, urunItems, onUrunItemsChange, editingUrunId, pushRecentUrun]);
@@ -675,58 +670,6 @@ export function UrunPickerModal({
                   </View>
                 )}
 
-                {/* Eklenen Ürünler — akordeon (özet: N kalem + KDV Dahil toplam). ÜRÜN SEÇ'in
-                    altında, daraltılabilir; arama modunda otomatik kapanır ki sonuçları bloke etmesin. */}
-                {urunItems.length > 0 && (
-                  <ExpandableCard
-                    expanded={addedExpanded}
-                    onToggle={() => setAddedExpanded((v) => !v)}
-                    header={
-                      <View style={styles.addedHeaderRow}>
-                        <Text style={[styles.sectionTitle, styles.addedHeaderTitle]}>
-                          {t('transactions:stock.addedProducts')} ({urunItems.length})
-                        </Text>
-                        <Text style={styles.addedHeaderTotal}>
-                          {t('transactions:stock.vatIncluded')}: {formatCurrency(totals.grandTotal, currency)}
-                        </Text>
-                      </View>
-                    }
-                  >
-                    {urunItems.map((item) => {
-                      const lineTotal = calculateUrunLineTotal(item);
-                      const isBeingEdited = editingUrunId === item.urunId;
-                      return (
-                        <View key={item.urunId} style={[styles.addedItem, isBeingEdited && styles.addedItemEditing]}>
-                          <View style={styles.addedItemLeft}>
-                            <Text style={styles.addedItemName}>{item.urunAd}</Text>
-                            <Text style={styles.addedItemDetail}>
-                              {formatQuantity(item.miktar)} {getBirimLabel(item.birim)} × {formatCurrency(item.birimFiyat, currency)}
-                              {item.kdvOrani > 0 && ` (+%${item.kdvOrani} ${t('common:tax.vat')})`}
-                            </Text>
-                          </View>
-                          <Text style={styles.addedItemTotal}>
-                            {formatCurrency(lineTotal.subtotal, currency)}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => handleEditItem(item)}
-                            style={styles.editButton}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Pencil size={16} color={colors.primary} />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            onPress={() => handleRemoveItem(item.urunId)}
-                            style={styles.removeButton}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                          >
-                            <Trash2 size={18} color={colors.error} />
-                          </TouchableOpacity>
-                        </View>
-                      );
-                    })}
-                  </ExpandableCard>
-                )}
-
                 {/* Fatura mutabakatı — faturadaki KDV dahil toplamı gir, hesaplananla farkı
                     canlı gör. ScrollView içinde (klavye-güvenli); tarama modunda gösterilir. */}
                 {!addingProduct && urunItems.length > 0 && (
@@ -765,52 +708,96 @@ export function UrunPickerModal({
                 )}
               </ScrollView>
 
-              {/* Silinen kalem için geri-al bandı (5 sn süreli) */}
-              {lastRemoved && (
-                <View style={styles.undoBar}>
-                  <Text style={styles.undoText} numberOfLines={1}>
-                    {t('transactions:stock.itemRemoved', { name: lastRemoved.item.urunAd })}
-                  </Text>
-                  <TouchableOpacity
-                    onPress={handleUndoRemove}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={styles.undoAction}>{t('transactions:stock.undo')}</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Footer with Totals */}
+              {/* Footer: YUKARI açılan "Eklenen Ürünler" paneli + KDV Dahil özet satırı (tıkla-aç)
+                  + KDV Hariç/KDV dökümü + OK. 300 kalemlik listeye scroll etmeden, alttaki toplam
+                  satırından eklenenler görülür ve panel yukarı doğru açılır. */}
               {urunItems.length > 0 && (
                 <View style={styles.footer}>
+                  {/* Açılır panel — toggle'ın ÜSTÜNDE render edildiği için görsel olarak YUKARI büyür.
+                      maxHeight + kendi ScrollView'u: çok kalemde OK butonunu taşırmaz. */}
+                  {addedExpanded && (
+                    <View style={[styles.addedPanel, { maxHeight: windowHeight * 0.4 }]}>
+                      <ScrollView
+                        style={styles.addedPanelScroll}
+                        nestedScrollEnabled
+                        keyboardShouldPersistTaps="handled"
+                      >
+                        {urunItems.map((item) => {
+                          const lineTotal = calculateUrunLineTotal(item);
+                          const isBeingEdited = editingUrunId === item.urunId;
+                          return (
+                            <View key={item.urunId} style={[styles.addedItem, isBeingEdited && styles.addedItemEditing]}>
+                              <View style={styles.addedItemLeft}>
+                                <Text style={styles.addedItemName}>{item.urunAd}</Text>
+                                <Text style={styles.addedItemDetail}>
+                                  {formatQuantity(item.miktar)} {getBirimLabel(item.birim)} × {formatCurrency(item.birimFiyat, currency)}
+                                  {item.kdvOrani > 0 && ` (+%${item.kdvOrani} ${t('common:tax.vat')})`}
+                                </Text>
+                              </View>
+                              <Text style={styles.addedItemTotal}>
+                                {formatCurrency(lineTotal.subtotal, currency)}
+                              </Text>
+                              <TouchableOpacity
+                                onPress={() => handleEditItem(item)}
+                                style={styles.editButton}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Pencil size={16} color={colors.primary} />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => handleRemoveItem(item.urunId)}
+                                style={styles.removeButton}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              >
+                                <Trash2 size={18} color={colors.error} />
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  )}
+
+                  {/* Tıkla-aç özet satırı: solda chevron + "Eklenen (N)", sağda KDV Dahil toplam */}
+                  <TouchableOpacity
+                    style={styles.toggleRow}
+                    onPress={() => {
+                      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                      haptics.light();
+                      setAddedExpanded((v) => !v);
+                    }}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                  >
+                    <View style={styles.toggleLabelWrap}>
+                      {addedExpanded ? (
+                        <ChevronDown size={20} color={colors.textSecondary} />
+                      ) : (
+                        <ChevronUp size={20} color={colors.textSecondary} />
+                      )}
+                      <Text style={styles.toggleLabel}>
+                        {t('transactions:stock.addedProducts')} ({urunItems.length})
+                      </Text>
+                    </View>
+                    <Text style={styles.toggleTotal}>
+                      {formatCurrency(totals.grandTotal, currency)}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* KDV Hariç + KDV dökümü (KDV Dahil toplam artık üstteki toggle satırında) */}
                   <View style={styles.totalsSection}>
                     <View style={styles.totalRow}>
-                      <Text style={styles.totalLabel}>
-                        {t('transactions:stock.vatExcluded')}
-                      </Text>
-                      <Text style={styles.totalValue}>
-                        {formatCurrency(totals.subtotal, currency)}
-                      </Text>
+                      <Text style={styles.totalLabel}>{t('transactions:stock.vatExcluded')}</Text>
+                      <Text style={styles.totalValue}>{formatCurrency(totals.subtotal, currency)}</Text>
                     </View>
                     {totals.kdvTotal > 0 && (
                       <View style={styles.totalRow}>
-                        <Text style={styles.totalLabel}>
-                          {t('transactions:stock.vatTotal')}
-                        </Text>
-                        <Text style={styles.totalValue}>
-                          {formatCurrency(totals.kdvTotal, currency)}
-                        </Text>
+                        <Text style={styles.totalLabel}>{t('transactions:stock.vatTotal')}</Text>
+                        <Text style={styles.totalValue}>{formatCurrency(totals.kdvTotal, currency)}</Text>
                       </View>
                     )}
-                    <View style={[styles.totalRow, styles.grandTotalRow]}>
-                      <Text style={styles.grandTotalLabel}>
-                        {t('transactions:stock.vatIncluded')}
-                      </Text>
-                      <Text style={styles.grandTotalValue}>
-                        {formatCurrency(totals.grandTotal, currency)}
-                      </Text>
-                    </View>
                   </View>
+
                   <Button variant="primary" onPress={handleClose}>
                     {t('common:buttons.ok')}
                   </Button>
@@ -825,6 +812,19 @@ export function UrunPickerModal({
                   </Button>
                 </View>
               )}
+
+              {/* Silinen kalem için standart geri-al snackbar'ı (uygulama geneliyle AYNI görsel:
+                  koyu-gri yüzen bant, Undo2 ikonu + X). Kendi 5 sn'lik undoTimerRef'imiz sürüyor. */}
+              <UndoSnackbar
+                visible={!!lastRemoved}
+                message={lastRemoved ? t('transactions:stock.itemRemoved', { name: lastRemoved.item.urunAd }) : ''}
+                onUndo={handleUndoRemove}
+                onDismiss={() => {
+                  if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+                  setLastRemoved(null);
+                }}
+                undoLabel={t('transactions:stock.undo')}
+              />
         </View>
       </View>
     </Modal>
@@ -857,22 +857,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
-  },
-  addedHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flex: 1,
-    gap: spacing.sm,
-  },
-  addedHeaderTitle: {
-    marginBottom: 0,
-    flexShrink: 1,
-  },
-  addedHeaderTotal: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
   },
   priceHintRow: {
     alignSelf: 'flex-start',
@@ -948,30 +932,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.error,
-  },
-  undoBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 10,
-    backgroundColor: colors.text,
-  },
-  undoText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.background,
-  },
-  undoAction: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.primary,
-    textTransform: 'uppercase',
   },
   recentChips: {
     flexDirection: 'row',
@@ -1235,6 +1195,40 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primaryLight,
   },
+  // Footer: yukarı açılan eklenen-ürünler paneli + tıkla-aç özet satırı
+  addedPanel: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.sm,
+  },
+  addedPanelScroll: {
+    flexGrow: 0,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: spacing.sm,
+  },
+  toggleLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+  },
+  toggleLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  toggleTotal: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: colors.primary,
+  },
   // Input Rows
   inputRow: {
     flexDirection: 'row',
@@ -1332,21 +1326,5 @@ const styles = StyleSheet.create({
   totalValue: {
     fontSize: 14,
     color: colors.text,
-  },
-  grandTotalRow: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  grandTotalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  grandTotalValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.primary,
   },
 });
