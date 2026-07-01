@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Button, ExpandableCard } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
+import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, roundCurrency } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useHaptics } from '@/hooks/useHaptics';
 import { textIncludes } from '@/lib/turkishTextUtils';
@@ -93,6 +93,8 @@ export function UrunPickerModal({
   const [editingUrunId, setEditingUrunId] = useState<string | null>(null);
   // Eklenen ürünler akordeonu: arama yapınca kapanır (sonuçlar önde kalsın), boşalınca açılır
   const [addedExpanded, setAddedExpanded] = useState(true);
+  // Fatura mutabakatı: kullanıcının girdiği fatura toplamı (KDV dahil) — canlı fark için
+  const [faturaToplami, setFaturaToplami] = useState('');
 
   // Arama moduna göre eklenen-ürünler akordeonunu otomatik aç/kapat
   useEffect(() => {
@@ -124,6 +126,7 @@ export function UrunPickerModal({
     onSearchQueryChange('');
     setAddingProduct(null);
     setEditingUrunId(null);
+    setFaturaToplami('');
     onDismiss();
   }, [onDismiss, onSearchQueryChange]);
 
@@ -362,6 +365,7 @@ export function UrunPickerModal({
                 keyboardShouldPersistTaps="handled"
                 nestedScrollEnabled
                 showsVerticalScrollIndicator
+                automaticallyAdjustKeyboardInsets
               >
                 {/* Ürün Ekleme Formu */}
                 {addingProduct && (
@@ -618,6 +622,43 @@ export function UrunPickerModal({
                     })}
                   </ExpandableCard>
                 )}
+
+                {/* Fatura mutabakatı — faturadaki KDV dahil toplamı gir, hesaplananla farkı
+                    canlı gör. ScrollView içinde (klavye-güvenli); tarama modunda gösterilir. */}
+                {!addingProduct && urunItems.length > 0 && (
+                  <View style={styles.reconcileCard}>
+                    <View style={styles.reconcileRow}>
+                      <Text style={styles.reconcileLabel}>
+                        {t('transactions:stock.invoiceTotal')}
+                      </Text>
+                      <TextInput
+                        style={styles.reconcileInput}
+                        value={faturaToplami}
+                        onChangeText={setFaturaToplami}
+                        keyboardType="decimal-pad"
+                        placeholder={formatCurrency(totals.grandTotal, currency)}
+                        placeholderTextColor={colors.textMuted}
+                        selectTextOnFocus
+                        returnKeyType="done"
+                      />
+                    </View>
+                    {(() => {
+                      const girilen = parseCurrency(faturaToplami);
+                      if (!faturaToplami.trim() || girilen <= 0) return null;
+                      const fark = roundCurrency(girilen - totals.grandTotal);
+                      const esit = Math.abs(fark) < 0.01;
+                      return (
+                        <View style={styles.reconcileDiffRow}>
+                          <Text style={esit ? styles.reconcileMatchText : styles.reconcileMismatchText}>
+                            {esit
+                              ? `✓ ${t('transactions:stock.invoiceMatch')}`
+                              : `${t('transactions:stock.invoiceDiff')}: ${fark > 0 ? '+' : ''}${formatCurrency(fark, currency)}`}
+                          </Text>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                )}
               </ScrollView>
 
               {/* Footer with Totals */}
@@ -728,6 +769,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
+  },
+  reconcileCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  reconcileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  reconcileLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    flexShrink: 1,
+  },
+  reconcileInput: {
+    minWidth: 120,
+    textAlign: 'right',
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingVertical: 4,
+    paddingHorizontal: spacing.xs,
+  },
+  reconcileDiffRow: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    alignItems: 'flex-end',
+  },
+  reconcileMatchText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.success,
+  },
+  reconcileMismatchText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.error,
   },
   // Ürün Ekleme Formu
   addingSection: {
