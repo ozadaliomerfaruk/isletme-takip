@@ -233,6 +233,7 @@
     "currencyMismatch": "This product is in {{productCurrency}}; transaction is {{txnCurrency}}. Added without conversion.",
     "itemRemoved": "{{name}} removed",
     "undo": "Undo",
+    "recentProducts": "Recently Used",
     "subtotal": "Subtotal",
     "vatTotal": "VAT Total",
     "grandTotal": "Grand Total",
