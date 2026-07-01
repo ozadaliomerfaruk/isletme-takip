@@ -230,6 +230,7 @@
     "invoiceTotal": "Invoice Total",
     "invoiceMatch": "Matches invoice",
     "invoiceDiff": "Difference",
+    "currencyMismatch": "This product is in {{productCurrency}}; transaction is {{txnCurrency}}. Added without conversion.",
     "subtotal": "Subtotal",
     "vatTotal": "VAT Total",
     "grandTotal": "Grand Total",

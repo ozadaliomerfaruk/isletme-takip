@@ -230,6 +230,7 @@
     "invoiceTotal": "Fatura Toplamı",
     "invoiceMatch": "Fatura ile eşleşti",
     "invoiceDiff": "Fark",
+    "currencyMismatch": "Bu ürün {{productCurrency}} cinsinden; işlem {{txnCurrency}}. Tutar çevrilmeden eklenir.",
     "subtotal": "Ara Toplam",
     "vatTotal": "KDV Toplamı",
     "grandTotal": "Genel Toplam",

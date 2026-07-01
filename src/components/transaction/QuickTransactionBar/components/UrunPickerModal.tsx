@@ -377,10 +377,23 @@ export function UrunPickerModal({
                           {addingProduct.urun.ad}
                         </Text>
                       </View>
-                      <TouchableOpacity onPress={handleCancelAdd}>
+                      <TouchableOpacity onPress={handleCancelAdd} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                         <X size={20} color={colors.textMuted} />
                       </TouchableOpacity>
                     </View>
+
+                    {/* Para birimi uyarısı — ürün para birimi işlem para biriminden farklıysa
+                        tutarlar çevrilmeden eklenir; kullanıcıyı uyar. */}
+                    {addingProduct.urun.currency && addingProduct.urun.currency !== currency && (
+                      <View style={styles.currencyWarnRow}>
+                        <Text style={styles.currencyWarnText}>
+                          {t('transactions:stock.currencyMismatch', {
+                            productCurrency: addingProduct.urun.currency,
+                            txnCurrency: currency,
+                          })}
+                        </Text>
+                      </View>
+                    )}
 
                     {/* Miktar */}
                     <View style={styles.inputRow}>
@@ -608,12 +621,14 @@ export function UrunPickerModal({
                           <TouchableOpacity
                             onPress={() => handleEditItem(item)}
                             style={styles.editButton}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
                             <Pencil size={16} color={colors.primary} />
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => handleRemoveItem(item.urunId)}
                             style={styles.removeButton}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                           >
                             <Trash2 size={18} color={colors.error} />
                           </TouchableOpacity>
@@ -816,6 +831,18 @@ const styles = StyleSheet.create({
   reconcileMismatchText: {
     fontSize: 13,
     fontWeight: '700',
+    color: colors.error,
+  },
+  currencyWarnRow: {
+    marginBottom: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.error,
+  },
+  currencyWarnText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.error,
   },
   // Ürün Ekleme Formu
