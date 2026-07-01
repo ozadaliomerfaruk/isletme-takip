@@ -266,23 +266,23 @@ const rowStyles = StyleSheet.create({
   // giriş = ALIŞ → kırmızı, çıkış = SATIŞ → yeşil (gelir/gider mantığı; ürün detayıyla tutarlı)
   pillIn: {
     backgroundColor: '#FEF2F2',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: borderRadius.full,
   },
   pillInText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.error,
   },
   pillOut: {
     backgroundColor: '#ECFDF5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     borderRadius: borderRadius.full,
   },
   pillOutText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.success,
   },
