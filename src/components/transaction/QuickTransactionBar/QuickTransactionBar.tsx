@@ -222,9 +222,10 @@ export function QuickTransactionBar({
     });
   }, [animation, onDismiss]);
 
-  // Tam ekran bir sayfaya (ör. /urunler/ekle) gidip geri dönünce, navigatedAway ile
-  // GİZLENEN bar + ürün seçiciyi eski haliyle geri getir. `visible`'a hiç dokunulmadığı
-  // için form/urunItems korunmuştur → kullanıcı eklediği ürünlerle kaldığı yere döner.
+  // Tam ekran bir sayfaya (ör. /urunler/ekle) gidip geri dönünce, navigatedAway ile GİZLENEN
+  // bar'ı geri getir. `visible`'a hiç dokunulmadığı için form/urunItems korunmuştur → kullanıcı
+  // eklediği ürünlerle işlem çubuğuna döner (Ürün butonunda adet görünür). İç ürün seçici
+  // onAddFullProduct'ta kapatıldığı için burada otomatik açılmaz; kullanıcı Ürün'e dokunup devam eder.
   useFocusEffect(
     useCallback(() => {
       modals.setNavigatedAway(false);
@@ -782,14 +783,20 @@ export function QuickTransactionBar({
         creating={createUrun.isPending}
         onAddFullProduct={() => {
           // Eklenen ürünleri KAYBETMEDEN tam ekran ürün ekleme sayfasına git.
-          // ÖNCEDEN: handleDismiss() çağrılıyordu → parent visible=false → form reset
-          // effect'i (useQuickTransactionForm) urunItems'ı siliyordu = VERİ KAYBI.
-          // ARTIK: navigatedAway ile dış Modal'ı gizle (iç ürün seçici de onunla gizlenir,
-          // route push modalların arkasında kalmaz); `visible`'a DOKUNMA → form korunur.
-          // showUrunPicker açık bırakılır; dönüşte useFocusEffect navigatedAway'i temizler,
-          // seçici eklenen ürünlerle yeniden açılır.
-          modals.setNavigatedAway(true);
-          router.push('/urunler/ekle' as Href);
+          // ÖNCEDEN (v1): handleDismiss() → parent visible=false → form reset = VERİ KAYBI.
+          // v2 HATASI: sadece navigatedAway ile dış Modal gizlenip iç ürün seçici (showUrunPicker
+          //   hâlâ true) "visible iken unmount" oluyordu → öksüz, dokunuş-yutan native modal
+          //   kalıyordu → yeni sayfa AÇILIYOR ama DONUYORDU.
+          // v3 (bu): önce iç ürün seçiciyi DÜZGÜN kapat (visible=false → temiz dismiss), SONRAKİ
+          //   adımda (aynı frame'de değil) dış bar'ı navigatedAway ile gizle + navigasyon yap.
+          //   `visible`'a hiç dokunulmadığı için form/urunItems yine KORUNUR (veri kaybı yok);
+          //   dönüşte useFocusEffect bar'ı geri açar (ürünler Ürün butonunda adet olarak görünür).
+          modals.setShowUrunPicker(false);
+          modals.setUrunSearchQuery('');
+          setTimeout(() => {
+            modals.setNavigatedAway(true);
+            router.push('/urunler/ekle' as Href);
+          }, 240);
         }}
       />
 
