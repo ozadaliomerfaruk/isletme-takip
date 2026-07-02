@@ -272,7 +272,9 @@ export function CreditCardTransactionBar({
     setCariId(null);
     setPersonelId(null);
     setOdemeHedefType('tedarikci');
-    setUrunItems([]); // tür değişince ürünleri temizle (ürün yalnız harcamada geçerli)
+    // NOT: urunItems tür değişince TEMİZLENMEZ — kullanıcı sekme değiştirip geri gelince
+    // ürünler durur (ana bar ile aynı UX). Kayıtta yalnız kredi_karti_gider'de stok
+    // hareketi oluşur (aşağıdaki tip guard'ı); Ürün butonu da yalnız o tipte görünür.
   }, [type]);
 
   // Keyboard listeners
@@ -487,8 +489,10 @@ export function CreditCardTransactionBar({
           }
         }
 
-        // Ürün varsa stok hareketi oluştur (yalnız kredi_karti_gider → giriş)
-        if (urunItems.length > 0 && newIslem?.id) {
+        // Ürün varsa stok hareketi oluştur — YALNIZ kredi_karti_gider → giriş.
+        // urunItems başka tipe geçilince state'te kalabildiği için tip guard'ı şart:
+        // ödeme/ekstre kaydında yanlışlıkla stok hareketi oluşmasını engeller.
+        if (urunItems.length > 0 && newIslem?.id && type === 'kredi_karti_gider') {
           try {
             await createUrunHareketlerKK(newIslem.id, description.trim());
           } catch (urunError) {
