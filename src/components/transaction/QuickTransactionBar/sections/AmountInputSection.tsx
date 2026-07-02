@@ -160,6 +160,10 @@ export function AmountInputSection({
     inputRef.current?.focus();
   };
 
+  // Hero tutar: uzun sayılarda fontu yumuşat (RN TextInput otomatik küçültmez)
+  const amtLen = amount.length;
+  const amtFontSize = amtLen > 12 ? 22 : amtLen > 9 ? 26 : 30;
+
   return (
     <>
       {/* Category Picker - tüm işlem tiplerinde */}
@@ -180,22 +184,63 @@ export function AmountInputSection({
         </View>
       )}
 
-      {/* Description */}
-      <TextInput
-        style={styles.descriptionInput}
-        placeholder={t('common:placeholders.enterNote')}
-        placeholderTextColor={colors.textMuted}
-        value={description}
-        onChangeText={onDescriptionChange}
-        maxLength={500}
-        multiline
-        numberOfLines={2}
-        textAlignVertical="top"
-      />
+      {/* Not/Açıklama + ikincil aksiyonlar (foto + ürün). Tutar satırını ferahlatmak için
+          foto/ürün buraya (Not satırının atıl sağ boşluğuna) taşındı → +0 dikey yükseklik. */}
+      <View style={localStyles.noteRow}>
+        <TextInput
+          style={[styles.descriptionInput, localStyles.noteInput]}
+          placeholder={t('common:placeholders.enterNote')}
+          placeholderTextColor={colors.textMuted}
+          value={description}
+          onChangeText={onDescriptionChange}
+          maxLength={500}
+          multiline
+          numberOfLines={2}
+          textAlignVertical="top"
+        />
 
-      {/* Amount + Save */}
+        <View style={localStyles.noteActions}>
+          <PhotoButton
+            hasPhoto={hasPhoto}
+            onPickImage={onPickImage}
+            onTakePhoto={onTakePhoto}
+            onRemovePhoto={onRemovePhoto}
+            onViewPhoto={onViewPhoto}
+            loading={photoLoading}
+            disabled={isSaving}
+            size="small"
+          />
+
+          {/* Ürün butonu — sadece alış/satış türlerinde; ikon-only (kutu + adet rozeti) */}
+          {showUrunButton && onUrunButtonPress && (
+            <TouchableOpacity
+              style={localStyles.urunButton}
+              onPress={onUrunButtonPress}
+              disabled={isSaving}
+              accessibilityRole="button"
+              accessibilityLabel={t('transactions:stock.stockButton')}
+            >
+              <Package size={20} color={colors.primary} />
+              {urunItemCount > 0 && (
+                <View style={localStyles.urunBadge}>
+                  <Text style={localStyles.urunBadgeText}>{urunItemCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+
+      {/* Amount + Save — HERO tutar (sağa hizalı + adaptif font). Solda zil (ileri-tarihli) +
+          hesap makinesi ikonu; sağda tek başına Kaydet CTA. Foto/ürün yukarı taşındı. */}
       <View style={styles.amountRow}>
-        {/* Hızlı hesap makinesi aç/kapa ikonu */}
+        {isScheduled && (
+          <View style={styles.scheduledBellIcon}>
+            <Bell size={20} color={colors.warning} />
+          </View>
+        )}
+
+        {/* Hızlı hesap makinesi aç/kapa ikonu — tutara bitişik */}
         <TouchableOpacity
           style={[localStyles.calcToggle, calcOpen && localStyles.calcToggleActive]}
           onPress={toggleCalc}
@@ -208,7 +253,7 @@ export function AmountInputSection({
 
         <TextInput
           ref={inputRef}
-          style={styles.amountInput}
+          style={[styles.amountInput, { textAlign: 'right', fontSize: amtFontSize }]}
           placeholder="0"
           placeholderTextColor={colors.textMuted}
           value={amount}
@@ -216,42 +261,6 @@ export function AmountInputSection({
           keyboardType="decimal-pad"
           maxLength={15}
         />
-
-        {isScheduled && (
-          <View style={styles.scheduledBellIcon}>
-            <Bell size={20} color={colors.warning} />
-          </View>
-        )}
-
-        <PhotoButton
-          hasPhoto={hasPhoto}
-          onPickImage={onPickImage}
-          onTakePhoto={onTakePhoto}
-          onRemovePhoto={onRemovePhoto}
-          onViewPhoto={onViewPhoto}
-          loading={photoLoading}
-          disabled={isSaving}
-          size="small"
-        />
-
-        {/* Urun Button - only show when hasUrunler and type is alis/satis/alis_iade/satis_iade */}
-        {showUrunButton && onUrunButtonPress && (
-          <TouchableOpacity
-            style={localStyles.urunButton}
-            onPress={onUrunButtonPress}
-            disabled={isSaving}
-          >
-            <Package size={18} color={colors.primary} />
-            <Text style={localStyles.urunButtonText}>
-              {t('transactions:stock.stockButton')}
-            </Text>
-            {urunItemCount > 0 && (
-              <View style={localStyles.urunBadge}>
-                <Text style={localStyles.urunBadgeText}>{urunItemCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
 
         <TouchableOpacity
           style={[
@@ -324,6 +333,21 @@ export function AmountInputSection({
 }
 
 const localStyles = StyleSheet.create({
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  noteInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  noteActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   calcToggle: {
     padding: 6,
     borderRadius: 8,
@@ -371,18 +395,15 @@ const localStyles = StyleSheet.create({
   urunButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingVertical: 10,
+    justifyContent: 'center',
+    gap: 3,
+    minWidth: 40,
+    height: 40,
     paddingHorizontal: 8,
     backgroundColor: colors.primaryLight,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.primary,
-  },
-  urunButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
   },
   urunBadge: {
     backgroundColor: colors.primary,
