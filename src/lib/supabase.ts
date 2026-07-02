@@ -62,8 +62,11 @@ export async function checkNetworkConnectivity(): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
-    await fetch(`${supabaseUrl}/rest/v1/`, {
-      method: 'HEAD',
+    // /rest/v1/ kök path'i legacy JWT anon key ile 401 (UNAUTHORIZED_INVALID_API_KEY_TYPE)
+    // döndürüyor; auth health endpoint'i GET+apikey ile 200 döner ve log gürültüsü yaratmaz
+    // (HEAD bu endpoint'te 405 döndürdüğü için GET kullanılıyor).
+    await fetch(`${supabaseUrl}/auth/v1/health`, {
+      method: 'GET',
       signal: controller.signal,
       headers: { apikey: supabaseAnonKey },
     });
