@@ -24,6 +24,7 @@ import {
   Wallet,
   CreditCard,
   ArrowRight,
+  Package,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
@@ -32,8 +33,8 @@ import { Text, CategoryPicker } from '@/components/ui';
 import { TransactionTypeTabs, TransactionType, getTransactionTypeColor } from '../TransactionTypeTabs';
 import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
-import { Hesap, IslemType, IslemInsert, IleriTarihliIslemInsert } from '@/types/database';
-import { parseCurrency, formatCurrency, isValidAmount } from '@/lib/currency';
+import { Hesap, IslemType, IslemInsert, IleriTarihliIslemInsert, Urun, Currency } from '@/types/database';
+import { parseCurrency, formatCurrency, isValidAmount, roundCurrency } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -46,6 +47,11 @@ import { usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIsle
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PhotoButton } from '../PhotoButton';
 import { PhotoViewerModal } from '../PhotoViewerModal';
+import { UrunPickerModal } from '../QuickTransactionBar/components';
+import type { UrunItem } from '../QuickTransactionBar/types';
+import { useUrunler, useCreateUrun } from '@/hooks/useUrunler';
+import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
+import { useSettings } from '@/hooks/useSettings';
 
 import { CreditCardDatePicker } from './CreditCardDatePicker';
 import { HesapPickerSheet, CariPickerSheet, PersonelPickerSheet, OdemeHedefTypePicker } from './CreditCardPickerSheets';
@@ -80,6 +86,10 @@ export function CreditCardTransactionBar({
   const [isSaving, setIsSaving] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+  // Ürün (yalnız kredi kartı HARCAMA'da) — ana bar ile aynı UrunPickerModal reuse
+  const [urunItems, setUrunItems] = useState<UrunItem[]>([]);
+  const [showUrunPicker, setShowUrunPicker] = useState(false);
+  const [urunSearchQuery, setUrunSearchQuery] = useState('');
 
   const [sourceHesapId, setSourceHesapId] = useState<string | null>(null);
   const [cariId, setCariId] = useState<string | null>(null);
@@ -140,6 +150,54 @@ export function CreditCardTransactionBar({
     if (photoUri) setShowPhotoViewer(true);
   }, [photoUri]);
 
+  // Ürün — ana bar ile aynı hook'lar (reuse)
+  const { data: urunler } = useUrunler();
+  const createUrun = useCreateUrun();
+  const createUrunHareket = useCreateUrunHareket();
+  const { currency: userCurrency } = useSettings();
+
+  // Inline ürün oluşturma (aranan ürün yoksa oluştur + otomatik seç). Tam ekran /urunler/ekle
+  // yolu (onAddFullProduct) burada VERİLMEZ — bu bar'da navigasyon/veri-kaybı karmaşasına
+  // girmemek için; kullanıcı yeni ürünü inline oluşturur ya da mevcut ürünü seçer.
+  const handleUrunCreateNew = useCallback(
+    async (name: string): Promise<Urun | undefined> => {
+      try {
+        return await createUrun.mutateAsync({
+          ad: name.trim(),
+          birim: 'adet',
+          kdv_orani: 0,
+          alis_fiyati: 0,
+          satis_fiyati: 0,
+          currency: userCurrency as Currency,
+        });
+      } catch {
+        return undefined;
+      }
+    },
+    [createUrun, userCurrency]
+  );
+
+  // Kredi kartı harcaması = mal alımı → ürün GİRİŞİ (stok artışı)
+  const createUrunHareketlerKK = useCallback(
+    async (islemId: string, desc: string) => {
+      if (urunItems.length === 0) return;
+      await Promise.all(
+        urunItems.map((item) =>
+          createUrunHareket.mutateAsync({
+            urun_id: item.urunId,
+            islem_id: islemId,
+            hareket_tipi: 'giris',
+            miktar: item.miktar,
+            birim_fiyat: item.birimFiyat,
+            kdv_orani: item.kdvOrani,
+            aciklama: desc || undefined,
+          })
+        )
+      );
+    },
+    [urunItems, createUrunHareket]
+  );
+
   const amountInputRef = useRef<TextInput>(null);
 
   const nakitHesaplar = useMemo(() => {
@@ -195,6 +253,9 @@ export function CreditCardTransactionBar({
         setSelectedCategoryType(null);
         setPhotoUri(null);
         setShowPhotoViewer(false);
+        setUrunItems([]);
+        setShowUrunPicker(false);
+        setUrunSearchQuery('');
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -211,6 +272,7 @@ export function CreditCardTransactionBar({
     setCariId(null);
     setPersonelId(null);
     setOdemeHedefType('tedarikci');
+    setUrunItems([]); // tür değişince ürünleri temizle (ürün yalnız harcamada geçerli)
   }, [type]);
 
   // Keyboard listeners
@@ -321,7 +383,7 @@ export function CreditCardTransactionBar({
       return;
     }
 
-    if ((type === 'kredi_karti_gider' || type === 'kredi_karti_odeme') && !kategoriId && !categorySkipped) {
+    if ((type === 'kredi_karti_gider' || type === 'kredi_karti_odeme') && !kategoriId && !categorySkipped && urunItems.length === 0) {
       setCategoryPickerOpen(true);
       return;
     }
@@ -424,6 +486,16 @@ export function CreditCardTransactionBar({
             Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
           }
         }
+
+        // Ürün varsa stok hareketi oluştur (yalnız kredi_karti_gider → giriş)
+        if (urunItems.length > 0 && newIslem?.id) {
+          try {
+            await createUrunHareketlerKK(newIslem.id, description.trim());
+          } catch (urunError) {
+            if (__DEV__) console.error('[UrunHareket] Error:', urunError);
+            Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
+          }
+        }
       }
 
       if (Platform.OS !== 'web') {
@@ -447,6 +519,7 @@ export function CreditCardTransactionBar({
     isScheduled, sourceHesapId, cariId, personelId, odemeHedefType,
     creditCard, createIslem, createIleriTarihliIslem, onSuccess, handleDismiss,
     photoUri, uploadPhoto, updateIslem, isletme,
+    urunItems, createUrunHareketlerKK,
   ]);
 
   const handleAmountChange = useCallback((text: string) => {
@@ -516,6 +589,10 @@ export function CreditCardTransactionBar({
 
   // Hero tutar: uzun sayılarda fontu yumuşat (RN TextInput otomatik küçültmez)
   const amtFontSize = amount.length > 12 ? 22 : amount.length > 9 ? 26 : 30;
+
+  // Ürün butonu: yalnızca ürün varsa VE kredi kartı HARCAMA tipinde (mal alımı)
+  const hasUrunler = (urunler?.length ?? 0) > 0;
+  const showUrunButton = hasUrunler && type === 'kredi_karti_gider';
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
@@ -668,7 +745,9 @@ export function CreditCardTransactionBar({
         {categoryType && (
           <View style={styles.categoryWrapper}>
             <CategoryPicker
-              value={kategoriId}
+              value={urunItems.length > 0 ? null : kategoriId}
+              disabled={urunItems.length > 0}
+              disabledMessage={t('transactions:stock.categoryDisabledByProducts')}
               onChange={(newKategoriId) => {
                 setKategoriId(newKategoriId);
                 if (newKategoriId) {
@@ -717,6 +796,24 @@ export function CreditCardTransactionBar({
               disabled={isSaving}
               size="small"
             />
+
+            {/* Ürün butonu — yalnız kredi kartı harcamasında (ikon + adet rozeti) */}
+            {showUrunButton && (
+              <TouchableOpacity
+                style={localStyles.urunButton}
+                onPress={() => setShowUrunPicker(true)}
+                disabled={isSaving}
+                accessibilityRole="button"
+                accessibilityLabel={t('transactions:stock.stockButton')}
+              >
+                <Package size={20} color={colors.primary} />
+                {urunItems.length > 0 && (
+                  <View style={localStyles.urunBadge}>
+                    <Text style={localStyles.urunBadgeText}>{urunItems.length}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
           </View>
         </View>
 
@@ -813,6 +910,27 @@ export function CreditCardTransactionBar({
         t={t}
       />
 
+      {/* Ürün seçici — yalnız kredi kartı harcamasında; ana bar ile aynı bileşen (reuse) */}
+      <UrunPickerModal
+        visible={showUrunPicker}
+        onDismiss={() => {
+          setShowUrunPicker(false);
+          setUrunSearchQuery('');
+        }}
+        urunler={urunler || []}
+        urunItems={urunItems}
+        onUrunItemsChange={setUrunItems}
+        searchQuery={urunSearchQuery}
+        onSearchQueryChange={setUrunSearchQuery}
+        onTotalChange={(total) => {
+          if (total > 0) setAmount(roundCurrency(total).toString());
+        }}
+        currency={userCurrency}
+        islemYonu="alis"
+        onCreateNew={handleUrunCreateNew}
+        creating={createUrun.isPending}
+      />
+
       {/* Foto önizleme */}
       <PhotoViewerModal
         visible={showPhotoViewer}
@@ -838,5 +956,32 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  urunButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+    minWidth: 40,
+    height: 40,
+    paddingHorizontal: 8,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  urunBadge: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  urunBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
