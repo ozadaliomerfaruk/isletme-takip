@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Button, UndoSnackbar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, roundCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useHaptics } from '@/hooks/useHaptics';
 import { textIncludes } from '@/lib/turkishTextUtils';
@@ -94,8 +94,6 @@ export function UrunPickerModal({
   // Eklenen ürünler paneli (footer'da, YUKARI açılır): varsayılan KAPALI. 300 kalemlik
   // listeye scroll etmeden, alttaki toplam satırına dokunup eklenenler açılıp görülür.
   const [addedExpanded, setAddedExpanded] = useState(false);
-  // Fatura mutabakatı: kullanıcının girdiği fatura toplamı (KDV dahil) — canlı fark için
-  const [faturaToplami, setFaturaToplami] = useState('');
   // Silme geri-al: son silinen kalem + orijinal index; süreli otomatik kapanır
   const [lastRemoved, setLastRemoved] = useState<{ item: UrunItem; index: number } | null>(null);
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -132,7 +130,6 @@ export function UrunPickerModal({
     onSearchQueryChange('');
     setAddingProduct(null);
     setEditingUrunId(null);
-    setFaturaToplami('');
     setLastRemoved(null);
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     onDismiss();
@@ -609,43 +606,6 @@ export function UrunPickerModal({
                     )}
                   </View>
                 )}
-
-                {/* Fatura mutabakatı — faturadaki KDV dahil toplamı gir, hesaplananla farkı
-                    canlı gör. ScrollView içinde (klavye-güvenli); tarama modunda gösterilir. */}
-                {!addingProduct && urunItems.length > 0 && (
-                  <View style={styles.reconcileCard}>
-                    <View style={styles.reconcileRow}>
-                      <Text style={styles.reconcileLabel}>
-                        {t('transactions:stock.invoiceTotal')}
-                      </Text>
-                      <TextInput
-                        style={styles.reconcileInput}
-                        value={faturaToplami}
-                        onChangeText={setFaturaToplami}
-                        keyboardType="decimal-pad"
-                        placeholder={formatCurrency(totals.grandTotal, currency)}
-                        placeholderTextColor={colors.textMuted}
-                        selectTextOnFocus
-                        returnKeyType="done"
-                      />
-                    </View>
-                    {(() => {
-                      const girilen = parseCurrency(faturaToplami);
-                      if (!faturaToplami.trim() || girilen <= 0) return null;
-                      const fark = roundCurrency(girilen - totals.grandTotal);
-                      const esit = Math.abs(fark) < 0.01;
-                      return (
-                        <View style={styles.reconcileDiffRow}>
-                          <Text style={esit ? styles.reconcileMatchText : styles.reconcileMismatchText}>
-                            {esit
-                              ? `✓ ${t('transactions:stock.invoiceMatch')}`
-                              : `${t('transactions:stock.invoiceDiff')}: ${fark > 0 ? '+' : ''}${formatCurrency(fark, currency)}`}
-                          </Text>
-                        </View>
-                      );
-                    })()}
-                  </View>
-                )}
               </ScrollView>
 
               {/* Footer: YUKARI açılan "Eklenen Ürünler" paneli + KDV Dahil özet satırı (tıkla-aç)
@@ -812,54 +772,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
-  },
-  reconcileCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  reconcileRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  reconcileLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    flexShrink: 1,
-  },
-  reconcileInput: {
-    minWidth: 120,
-    textAlign: 'right',
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    paddingVertical: 4,
-    paddingHorizontal: spacing.xs,
-  },
-  reconcileDiffRow: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    alignItems: 'flex-end',
-  },
-  reconcileMatchText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.success,
-  },
-  reconcileMismatchText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.error,
   },
   currencyWarnRow: {
     marginBottom: spacing.sm,
