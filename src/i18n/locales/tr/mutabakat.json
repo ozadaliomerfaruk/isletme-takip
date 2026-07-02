@@ -1,0 +1,114 @@
+{
+  "title": "Mutabakat",
+  "menu": {
+    "action": "Mutabakat Yap"
+  },
+  "select": {
+    "heading": "Ekstre Dosyası Seç",
+    "hint": "Karşı tarafın gönderdiği cari hesap ekstresini seçin (.xlsx, .xls veya .csv). PDF ve fotoğraf bu sürümde desteklenmiyor — Excel dosyası isteyin.",
+    "currencyNote": "Karşılaştırma {{currency}} üzerinden yapılır. Ekstre farklı para birimindeyse sonuçlar yanıltıcı olur.",
+    "pickFile": "Dosya Seç",
+    "invalidExtension": "Desteklenmeyen dosya türü. Lütfen .xlsx, .xls veya .csv dosyası seçin.",
+    "balanceLabel": "Güncel bakiye",
+    "notLinked": "Bağlantılı (paylaşımlı) carilerde mutabakat henüz desteklenmiyor."
+  },
+  "processing": "Ekstre karşılaştırılıyor…",
+  "errors": {
+    "title": "Ekstre okunamadı",
+    "HEADER_NOT_FOUND": "Ekstrede Tarih/Borç/Alacak sütun başlıkları bulunamadı. Dosyayı Excel'de .xlsx olarak kaydedip tekrar deneyin.",
+    "EMPTY_FILE": "Dosyada okunabilir hareket satırı yok.",
+    "READ_ERROR": "Dosya okunamadı ya da bozuk.",
+    "retry": "Farklı Dosya Seç",
+    "cancel": "Vazgeç"
+  },
+  "verdict": {
+    "mutabik": "Mutabıkız",
+    "mutabikDesc": "Tüm kalemler eşleşti, devir ve kapanış bakiyeleri doğrulandı.",
+    "bakiye_teyitsiz": "Hareketler uyumlu — bakiye teyit edilemedi",
+    "bakiye_teyitsizDesc": "Dönem içi kalemler eşleşti ancak devir/kapanış bakiyesi tam doğrulanamadı. Uyarıları inceleyin.",
+    "mutabik_degil": "Mutabık değiliz",
+    "closingDiff": "Kapanış farkı: {{amount}}"
+  },
+  "openingDiff": {
+    "title": "Dönem başı (devir) farkı: {{amount}}",
+    "desc": "Bu fark bu ekstreden önceki dönemden geliyor. Önceki dönem ekstresiyle ayrıca mutabakat yapın."
+  },
+  "summary": {
+    "period": "Dönem",
+    "opening": "Devir",
+    "closing": "Kapanış",
+    "ours": "Bizde",
+    "theirs": "Ekstrede",
+    "matched": "Eşleşen kalem: {{count}}",
+    "matchedDetail": "{{exact}} birebir · {{close}} yakın tarihli",
+    "roundingDiff": "Yuvarlama farkları toplamı: {{amount}}",
+    "notCompared": "karşılaştırılamadı",
+    "checksumTotals": "Dip toplam kontrolü",
+    "checksumChain": "Bakiye zinciri kontrolü",
+    "checksumSelf": "Fark doğrulaması",
+    "postPeriodInfo": "Ekstre döneminden sonra {{count}} işlem daha var; bugünkü bakiye ekstre kapanışından farklıdır. Güncel bakiye: {{amount}}"
+  },
+  "groups": {
+    "missingInOurs": "Bizde işlenmemiş",
+    "missingInTheirs": "Onlarda görünmeyen",
+    "amountMismatch": "Tutar farklı",
+    "matchedItems": "Eşleşen kalemler",
+    "sectionCount": "{{count}} kalem · {{amount}}"
+  },
+  "rowHint": {
+    "musteri": {
+      "credit": "Sizin faturanız — onların alış kaydı (satış girin)",
+      "debit": "Onların ödemesi (tahsilat girin)"
+    },
+    "tedarikci": {
+      "debit": "Size kestikleri fatura (alış girin)",
+      "credit": "Onlara yaptığınız ödeme (ödeme girin)"
+    },
+    "missingInTheirs": "Bizim kaydımız — onların ekstresinde görünmüyor"
+  },
+  "mismatchRow": {
+    "theirs": "Onlarda",
+    "ours": "Bizde",
+    "diff": "Fark"
+  },
+  "badges": {
+    "bekleyen_cek": "Bekleyen çek olabilir: {{no}}",
+    "olasi_kdv": "Olası KDV farkı (×{{rate}})",
+    "olasi_parcali": "Olası parçalı ödeme",
+    "aciklama_ipucu": "Kur/vade/fiyat farkı kaydı olabilir"
+  },
+  "warnings": {
+    "title": "Uyarılar",
+    "atlanan_satirlar": "{{count}} satır okunamadı ve atlandı — sonuç eksik olabilir",
+    "karma_satir_netlendi": "{{count}} satırda borç ve alacak birlikteydi; net tutara indirildi",
+    "negatif_tutar_cevrildi": "{{count}} negatif tutar karşı sütuna çevrildi",
+    "tip_uyumsuz_islemler": "{{count}} işlem cari tipine aykırı türde (yine de hesaba katıldı)",
+    "devir_satiri_yok": "Ekstrede devir satırı yok — dönem başı bakiyesi doğrulanamadı",
+    "bakiye_isareti_cozulemedi": "Bakiye sütununun yönü (B/A) çözülemedi; bakiye kolonu dikkate alınmadı",
+    "aynasiz_yon": "Bu ekstre sizin perspektifinizden düzenlenmiş görünüyor; karşılaştırma ona göre yapıldı",
+    "dusuk_eslesme": "Eşleşme oranı çok düşük — borç/alacak yönü veya para birimi uyumsuz olabilir",
+    "ekstre_ici_tutarsiz": "Ekstre kendi içinde tutarsız görünüyor (toplam/bakiye kontrolleri tutmadı)",
+    "fark_aciklanamiyor": "Fark listesi kapanış farkını tam açıklamıyor — sonuçları dikkatle inceleyin",
+    "donem_sonrasi_islemler": "Ekstre döneminden sonra {{count}} işlem var"
+  },
+  "share": {
+    "button": "Özeti Paylaş",
+    "header": "{{cari}} — Mutabakat Özeti ({{start}} – {{end}})",
+    "verdictLine": "Sonuç: {{verdict}}",
+    "openingLine": "Devir — Bizde: {{ours}} / Ekstrede: {{theirs}}",
+    "closingLine": "Kapanış — Bizde: {{ours}} / Ekstrede: {{theirs}}",
+    "missingInOursLine": "Bizde işlenmemiş {{count}} kalem (toplam {{amount}})",
+    "missingInTheirsLine": "Karşı tarafta görünmeyen {{count}} kalem (toplam {{amount}})",
+    "mismatchLine": "Tutarı farklı {{count}} kalem (net fark {{amount}})",
+    "itemLine": "• {{date}} {{desc}} — {{amount}}"
+  },
+  "queue": {
+    "addMissing": "Eksikleri Ekle ({{count}})",
+    "progress": "{{done}}/{{total}} tamamlandı",
+    "skip": "Atla",
+    "added": "eklendi",
+    "skipped": "atlandı",
+    "doneToast": "{{count}} işlem eklendi",
+    "itemLabel": "Kalem {{current}}/{{total}}"
+  }
+}

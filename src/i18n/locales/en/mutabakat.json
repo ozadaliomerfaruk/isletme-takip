@@ -1,0 +1,114 @@
+{
+  "title": "Reconciliation",
+  "menu": {
+    "action": "Reconcile"
+  },
+  "select": {
+    "heading": "Select Statement File",
+    "hint": "Select the account statement sent by the other party (.xlsx, .xls or .csv). PDF and photos are not supported in this version — ask for an Excel file.",
+    "currencyNote": "Comparison is done in {{currency}}. Results will be misleading if the statement uses a different currency.",
+    "pickFile": "Select File",
+    "invalidExtension": "Unsupported file type. Please select an .xlsx, .xls or .csv file.",
+    "balanceLabel": "Current balance",
+    "notLinked": "Reconciliation is not yet supported for linked (shared) accounts."
+  },
+  "processing": "Comparing statement…",
+  "errors": {
+    "title": "Could not read statement",
+    "HEADER_NOT_FOUND": "Date/Debit/Credit column headers were not found. Save the file as .xlsx in Excel and try again.",
+    "EMPTY_FILE": "No readable transaction rows in the file.",
+    "READ_ERROR": "The file could not be read or is corrupted.",
+    "retry": "Select Another File",
+    "cancel": "Cancel"
+  },
+  "verdict": {
+    "mutabik": "Reconciled",
+    "mutabikDesc": "All items matched; opening and closing balances verified.",
+    "bakiye_teyitsiz": "Transactions match — balance not verified",
+    "bakiye_teyitsizDesc": "Period items matched but the opening/closing balance could not be fully verified. Check the warnings.",
+    "mutabik_degil": "Not reconciled",
+    "closingDiff": "Closing difference: {{amount}}"
+  },
+  "openingDiff": {
+    "title": "Opening (carried-forward) difference: {{amount}}",
+    "desc": "This difference comes from before this statement's period. Reconcile the previous period separately."
+  },
+  "summary": {
+    "period": "Period",
+    "opening": "Opening",
+    "closing": "Closing",
+    "ours": "Ours",
+    "theirs": "Statement",
+    "matched": "Matched items: {{count}}",
+    "matchedDetail": "{{exact}} exact · {{close}} near-date",
+    "roundingDiff": "Total rounding differences: {{amount}}",
+    "notCompared": "not compared",
+    "checksumTotals": "Totals check",
+    "checksumChain": "Balance chain check",
+    "checksumSelf": "Difference verification",
+    "postPeriodInfo": "{{count}} more transactions after the statement period; today's balance differs from the statement closing. Current balance: {{amount}}"
+  },
+  "groups": {
+    "missingInOurs": "Not recorded on our side",
+    "missingInTheirs": "Missing on their side",
+    "amountMismatch": "Amount differs",
+    "matchedItems": "Matched items",
+    "sectionCount": "{{count}} items · {{amount}}"
+  },
+  "rowHint": {
+    "musteri": {
+      "credit": "Your invoice — their purchase record (enter a sale)",
+      "debit": "Their payment (enter a collection)"
+    },
+    "tedarikci": {
+      "debit": "Invoice they issued to you (enter a purchase)",
+      "credit": "Your payment to them (enter a payment)"
+    },
+    "missingInTheirs": "Our record — not visible in their statement"
+  },
+  "mismatchRow": {
+    "theirs": "Theirs",
+    "ours": "Ours",
+    "diff": "Difference"
+  },
+  "badges": {
+    "bekleyen_cek": "May be a pending cheque: {{no}}",
+    "olasi_kdv": "Possible VAT difference (×{{rate}})",
+    "olasi_parcali": "Possible split payment",
+    "aciklama_ipucu": "May be an FX/due-date/price difference entry"
+  },
+  "warnings": {
+    "title": "Warnings",
+    "atlanan_satirlar": "{{count}} rows could not be read and were skipped — results may be incomplete",
+    "karma_satir_netlendi": "{{count}} rows had both debit and credit; reduced to net amount",
+    "negatif_tutar_cevrildi": "{{count}} negative amounts were moved to the opposite column",
+    "tip_uyumsuz_islemler": "{{count}} transactions have a type inconsistent with this contact (still included)",
+    "devir_satiri_yok": "No opening-balance row in the statement — opening balance could not be verified",
+    "bakiye_isareti_cozulemedi": "Balance column direction (D/C) could not be resolved; the column was ignored",
+    "aynasiz_yon": "This statement appears to be written from your perspective; the comparison was adjusted accordingly",
+    "dusuk_eslesme": "Very low match rate — debit/credit direction or currency may not match",
+    "ekstre_ici_tutarsiz": "The statement appears internally inconsistent (totals/balance checks failed)",
+    "fark_aciklanamiyor": "The listed differences do not fully explain the closing difference — review carefully",
+    "donem_sonrasi_islemler": "{{count}} transactions exist after the statement period"
+  },
+  "share": {
+    "button": "Share Summary",
+    "header": "{{cari}} — Reconciliation Summary ({{start}} – {{end}})",
+    "verdictLine": "Result: {{verdict}}",
+    "openingLine": "Opening — Ours: {{ours}} / Statement: {{theirs}}",
+    "closingLine": "Closing — Ours: {{ours}} / Statement: {{theirs}}",
+    "missingInOursLine": "{{count}} items not recorded on our side (total {{amount}})",
+    "missingInTheirsLine": "{{count}} items missing on their side (total {{amount}})",
+    "mismatchLine": "{{count}} items with different amounts (net difference {{amount}})",
+    "itemLine": "• {{date}} {{desc}} — {{amount}}"
+  },
+  "queue": {
+    "addMissing": "Add Missing ({{count}})",
+    "progress": "{{done}}/{{total}} completed",
+    "skip": "Skip",
+    "added": "added",
+    "skipped": "skipped",
+    "doneToast": "{{count}} transactions added",
+    "itemLabel": "Item {{current}}/{{total}}"
+  }
+}

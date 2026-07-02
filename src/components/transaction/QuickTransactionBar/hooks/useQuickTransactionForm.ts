@@ -23,6 +23,10 @@ interface UseQuickTransactionFormOptions {
   defaultCariId?: string;
   defaultCariType?: CariType;
   defaultPersonelId?: string;
+  // Dışarıdan ön-doldurma (mutabakat kuyruğu vb.) — yalnız create modda
+  defaultAmount?: number;
+  defaultDate?: Date;
+  defaultDescription?: string;
   hesaplar: Hesap[] | undefined;
   resetModalStates: () => void;
   // Edit mode options
@@ -115,6 +119,9 @@ export function useQuickTransactionForm({
   defaultCariId,
   defaultCariType,
   defaultPersonelId,
+  defaultAmount,
+  defaultDate,
+  defaultDescription,
   hesaplar,
   resetModalStates,
   mode = 'create',
@@ -370,12 +377,26 @@ export function useQuickTransactionForm({
     urunHareketler,
   ]);
 
+  // Prefill (defaultAmount/Date/Description) açılış başına BİR KEZ uygulanır:
+  // parent re-render'ında yeni Date objesi gelse bile kullanıcının düzenlemesi ezilmez
+  const prefillAppliedRef = useRef(false);
+  useEffect(() => {
+    if (!visible) prefillAppliedRef.current = false;
+  }, [visible]);
+
   // Update type and cari/personel when modal opens (only in create mode)
   useEffect(() => {
     // Skip in edit mode - data will be loaded from transaction
     if (isEditMode) return;
 
     if (visible) {
+      // Dışarıdan ön-doldurma — copy modda uygulanmaz (kaynak işlem yüklemesi ezilmesin)
+      if (!isCopyMode && !prefillAppliedRef.current) {
+        prefillAppliedRef.current = true;
+        if (defaultAmount != null) setAmount(roundCurrency(defaultAmount).toString());
+        if (defaultDate) setDate(ensureValidDate(defaultDate));
+        if (defaultDescription) setDescription(defaultDescription);
+      }
       // Personel mode
       if (isPersonelMode && defaultPersonelId) {
         setPersonelId(defaultPersonelId);
@@ -403,12 +424,16 @@ export function useQuickTransactionForm({
   }, [
     visible,
     isEditMode,
+    isCopyMode,
     isPersonelMode,
     defaultPersonelId,
     isCariMode,
     defaultCariId,
     defaultCariType,
     defaultType,
+    defaultAmount,
+    defaultDate,
+    defaultDescription,
     hesaplar,
     defaultHesapId,
   ]);

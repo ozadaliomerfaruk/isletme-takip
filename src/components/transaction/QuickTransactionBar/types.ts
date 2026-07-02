@@ -72,6 +72,11 @@ export interface QuickTransactionBarProps {
   defaultCariId?: string;
   defaultCariType?: CariType;
   defaultPersonelId?: string;
+  // Dışarıdan ön-doldurma (örn. mutabakat "eksikleri ekle" kuyruğu):
+  // yalnız create modda uygulanır; copy/edit yüklemesini ezmez
+  defaultAmount?: number;
+  defaultDate?: Date;
+  defaultDescription?: string;
   onSuccess?: () => void;
   // Viewer mode: linked cari viewer (hides ödeme/tahsilat tabs)
   isViewer?: boolean;

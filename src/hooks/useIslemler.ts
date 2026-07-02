@@ -634,7 +634,9 @@ export function useAllLeaveByPersonel(personelId: string) {
 }
 
 // Cari işlemleri - rapor için tüm işlemler (pagination yok)
-export function useAllIslemlerByCari(cariId: string) {
+// enabled=false: mutabakat raporu snapshot alındıktan sonra kuyruktan eklenen her
+// işlemin invalidation'ı tüm geçmişi yeniden indirmesin diye kapatılabilir.
+export function useAllIslemlerByCari(cariId: string, enabled: boolean = true) {
   const { isletme } = useAuthContext();
 
   return useQuery({
@@ -657,7 +659,7 @@ export function useAllIslemlerByCari(cariId: string) {
       );
       return data;
     },
-    enabled: !!isletme && !!cariId,
+    enabled: !!isletme && !!cariId && enabled,
   });
 }
 

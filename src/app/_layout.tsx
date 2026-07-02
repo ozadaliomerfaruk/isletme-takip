@@ -768,6 +768,18 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        {/* Mutabakat */}
+        <Stack.Screen
+          name="mutabakat/[cariId]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('mutabakat:title'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Arşiv */}
         <Stack.Screen
           name="arsiv/index"

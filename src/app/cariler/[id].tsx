@@ -14,6 +14,7 @@ import {
   Zap,
   MoreVertical,
   FileCheck,
+  Scale,
   X,
   Share2,
   Unlink,
@@ -1033,6 +1034,9 @@ export default function CariHareketleriPage() {
           onClose={() => setShowMenu(false)}
           actions={[
             { icon: Pencil, label: t('common:buttons.edit'), visible: canUpdate('cariler', cari?.created_by ?? null), onPress: () => { setShowMenu(false); router.push({ pathname: '/cariler/duzenle/[id]', params: { id: id } }); } },
+            // Mutabakat: linked cari'de gizli — viewer işlemleri isletme_id filtresine
+            // takıldığından motor yanlış devir üretir (bkz. src/lib/mutabakat)
+            { icon: Scale, label: t('mutabakat:menu.action'), visible: !isViewer && !linkStatus?.is_linked && !cari?.is_archived, onPress: () => { setShowMenu(false); router.push({ pathname: '/mutabakat/[cariId]', params: { cariId: id } }); } },
             { icon: Unlink, label: t('clients:sharing.removeLink'), visible: !!(linkStatus?.is_linked && linkStatus?.is_owner), iconColor: colors.warning, onPress: handleUnlink },
             { icon: Trash2, label: t('common:buttons.delete'), visible: canDelete('cariler', cari?.created_by ?? null), danger: true, onPress: handleDeleteCari },
           ]}

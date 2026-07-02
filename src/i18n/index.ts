@@ -30,6 +30,7 @@ import trAnalytics from './locales/tr/analytics.json';
 import trProducts from './locales/tr/products.json';
 import trOcrImport from './locales/tr/ocrImport.json';
 import trMultiUser from './locales/tr/multiUser.json';
+import trMutabakat from './locales/tr/mutabakat.json';
 
 // Import English locales
 import enCommon from './locales/en/common.json';
@@ -49,6 +50,7 @@ import enAnalytics from './locales/en/analytics.json';
 import enProducts from './locales/en/products.json';
 import enOcrImport from './locales/en/ocrImport.json';
 import enMultiUser from './locales/en/multiUser.json';
+import enMutabakat from './locales/en/mutabakat.json';
 
 // Resource bundle
 export const resources = {
@@ -70,6 +72,7 @@ export const resources = {
     products: trProducts,
     ocrImport: trOcrImport,
     multiUser: trMultiUser,
+    mutabakat: trMutabakat,
   },
   en: {
     common: enCommon,
@@ -89,6 +92,7 @@ export const resources = {
     products: enProducts,
     ocrImport: enOcrImport,
     multiUser: enMultiUser,
+    mutabakat: enMutabakat,
   },
 } as const;
 
@@ -121,6 +125,7 @@ export const namespaces = [
   'products',
   'ocrImport',
   'multiUser',
+  'mutabakat',
 ] as const;
 
 export type Namespace = (typeof namespaces)[number];
