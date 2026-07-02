@@ -11,6 +11,7 @@ import {
   KeyboardEvent,
   Easing,
   Alert,
+  StyleSheet,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -38,9 +39,13 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
-import { useCreateIslem } from '@/hooks/useIslemler';
+import { useCreateIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { textIncludes } from '@/lib/turkishTextUtils';
+import { usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { PhotoButton } from '../PhotoButton';
+import { PhotoViewerModal } from '../PhotoViewerModal';
 
 import { CreditCardDatePicker } from './CreditCardDatePicker';
 import { HesapPickerSheet, CariPickerSheet, PersonelPickerSheet, OdemeHedefTypePicker } from './CreditCardPickerSheets';
@@ -73,6 +78,8 @@ export function CreditCardTransactionBar({
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [isScheduled, setIsScheduled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
 
   const [sourceHesapId, setSourceHesapId] = useState<string | null>(null);
   const [cariId, setCariId] = useState<string | null>(null);
@@ -111,7 +118,27 @@ export function CreditCardTransactionBar({
   const { data: tedarikciCariler } = useCariler('tedarikci');
   const { data: personelList } = usePersonelList();
   const createIslem = useCreateIslem();
+  const updateIslem = useUpdateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
+
+  // Foto (fiş/makbuz) — ana bar ile aynı hook'lar
+  const pickImage = usePickImage();
+  const takePhoto = useTakePhoto();
+  const uploadPhoto = useUploadIslemPhoto();
+  const { isletme } = useAuthContext();
+
+  const handlePickImage = useCallback(async () => {
+    const uri = await pickImage.mutateAsync();
+    if (uri) setPhotoUri(uri);
+  }, [pickImage]);
+  const handleTakePhoto = useCallback(async () => {
+    const uri = await takePhoto.mutateAsync();
+    if (uri) setPhotoUri(uri);
+  }, [takePhoto]);
+  const handleRemovePhoto = useCallback(() => setPhotoUri(null), []);
+  const handleViewPhoto = useCallback(() => {
+    if (photoUri) setShowPhotoViewer(true);
+  }, [photoUri]);
 
   const amountInputRef = useRef<TextInput>(null);
 
@@ -166,6 +193,8 @@ export function CreditCardTransactionBar({
         setCategoryPickerOpen(false);
         setCategorySkipped(false);
         setSelectedCategoryType(null);
+        setPhotoUri(null);
+        setShowPhotoViewer(false);
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -379,7 +408,22 @@ export function CreditCardTransactionBar({
           personel_id: personelIdValue,
           date: formatDateTimeForDB(date),
         };
-        await createIslem.mutateAsync(islemData);
+        const newIslem = await createIslem.mutateAsync(islemData);
+
+        // Foto varsa yükle → photo_path set et (ana bar ile aynı akış; scheduled hariç)
+        if (photoUri && isletme?.id && newIslem?.id) {
+          try {
+            const photoPath = await uploadPhoto.mutateAsync({
+              uri: photoUri,
+              isletmeId: isletme.id,
+              islemId: newIslem.id,
+            });
+            await updateIslem.mutateAsync({ id: newIslem.id, updates: { photo_path: photoPath } });
+          } catch (photoError) {
+            if (__DEV__) console.error('[PhotoUpload] Error:', photoError);
+            Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
+          }
+        }
       }
 
       if (Platform.OS !== 'web') {
@@ -402,6 +446,7 @@ export function CreditCardTransactionBar({
     t, amount, type, description, date, kategoriId, categorySkipped,
     isScheduled, sourceHesapId, cariId, personelId, odemeHedefType,
     creditCard, createIslem, createIleriTarihliIslem, onSuccess, handleDismiss,
+    photoUri, uploadPhoto, updateIslem, isletme,
   ]);
 
   const handleAmountChange = useCallback((text: string) => {
@@ -468,6 +513,9 @@ export function CreditCardTransactionBar({
   const cardBottom = keyboardHeight > 0
     ? keyboardHeight
     : insets.bottom + TAB_BAR_HEIGHT + 10;
+
+  // Hero tutar: uzun sayılarda fontu yumuşat (RN TextInput otomatik küçültmez)
+  const amtFontSize = amount.length > 12 ? 22 : amount.length > 9 ? 26 : 30;
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
@@ -644,24 +692,45 @@ export function CreditCardTransactionBar({
           </View>
         )}
 
-        {/* Description */}
-        <TextInput
-          style={styles.descriptionInput}
-          placeholder={t('common:placeholders.enterNote')}
-          placeholderTextColor={colors.textMuted}
-          value={description}
-          onChangeText={setDescription}
-          maxLength={500}
-          multiline
-          numberOfLines={2}
-          textAlignVertical="top"
-        />
+        {/* Not/Açıklama + foto (fiş/makbuz) — tutar satırını ferahlatmak için foto sağa alındı */}
+        <View style={localStyles.noteRow}>
+          <TextInput
+            style={[styles.descriptionInput, localStyles.noteInput]}
+            placeholder={t('common:placeholders.enterNote')}
+            placeholderTextColor={colors.textMuted}
+            value={description}
+            onChangeText={setDescription}
+            maxLength={500}
+            multiline
+            numberOfLines={2}
+            textAlignVertical="top"
+          />
 
-        {/* Amount + Save */}
+          <View style={localStyles.noteActions}>
+            <PhotoButton
+              hasPhoto={!!photoUri}
+              onPickImage={handlePickImage}
+              onTakePhoto={handleTakePhoto}
+              onRemovePhoto={handleRemovePhoto}
+              onViewPhoto={handleViewPhoto}
+              loading={pickImage.isPending || takePhoto.isPending}
+              disabled={isSaving}
+              size="small"
+            />
+          </View>
+        </View>
+
+        {/* Amount + Save — HERO tutar (sağa hizalı + adaptif font) */}
         <View style={styles.amountRow}>
+          {isScheduled && (
+            <View style={styles.scheduledBellIcon}>
+              <Bell size={20} color={colors.warning} />
+            </View>
+          )}
+
           <TextInput
             ref={amountInputRef}
-            style={styles.amountInput}
+            style={[styles.amountInput, { textAlign: 'right', fontSize: amtFontSize }]}
             placeholder="0"
             placeholderTextColor={colors.textMuted}
             value={amount}
@@ -669,12 +738,6 @@ export function CreditCardTransactionBar({
             keyboardType="decimal-pad"
             maxLength={15}
           />
-
-          {isScheduled && (
-            <View style={styles.scheduledBellIcon}>
-              <Bell size={20} color={colors.warning} />
-            </View>
-          )}
 
           <TouchableOpacity
             style={[
@@ -749,6 +812,31 @@ export function CreditCardTransactionBar({
         onSelect={handleOdemeHedefTypeSelect}
         t={t}
       />
+
+      {/* Foto önizleme */}
+      <PhotoViewerModal
+        visible={showPhotoViewer}
+        photoPath={photoUri}
+        onClose={() => setShowPhotoViewer(false)}
+      />
     </Modal>
   );
 }
+
+const localStyles = StyleSheet.create({
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  noteInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  noteActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+});
