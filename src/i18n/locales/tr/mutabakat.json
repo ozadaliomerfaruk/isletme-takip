@@ -1,11 +1,17 @@
 {
-  "title": "Mutabakat",
+  "title": "Mutabakat Asistanı",
   "menu": {
-    "action": "Mutabakat Yap"
+    "action": "Mutabakat Asistanı"
   },
   "select": {
-    "heading": "Ekstre Dosyası Seç",
-    "hint": "Karşı tarafın gönderdiği cari hesap ekstresini seçin (.xlsx, .xls veya .csv). PDF ve fotoğraf bu sürümde desteklenmiyor — Excel dosyası isteyin.",
+    "heading": "Ekstreyi Karşılaştırın",
+    "subtitle": "Karşı tarafın ekstresini yükleyin; asistan defterinizle satır satır karşılaştırıp farkları ve sebeplerini çıkarsın.",
+    "step1": "Karşı taraftan gelen ekstre dosyasını seçin",
+    "step2": "Asistan kayıtlarınızla karşılaştırsın",
+    "step3": "Eksik kalemleri tek dokunuşla deftere ekleyin",
+    "uploadTitle": "Ekstre dosyasını seçin",
+    "uploadHint": "Excel veya CSV — karşı taraftaki muhasebeciden \"Excel olarak\" isteyin",
+    "formats": "PDF ve fotoğraf bu sürümde desteklenmiyor",
     "currencyNote": "Karşılaştırma {{currency}} üzerinden yapılır. Ekstre farklı para birimindeyse sonuçlar yanıltıcı olur.",
     "pickFile": "Dosya Seç",
     "invalidExtension": "Desteklenmeyen dosya türü. Lütfen .xlsx, .xls veya .csv dosyası seçin.",
@@ -75,7 +81,37 @@
     "bekleyen_cek": "Bekleyen çek olabilir: {{no}}",
     "olasi_kdv": "Olası KDV farkı (×{{rate}})",
     "olasi_parcali": "Olası parçalı ödeme",
-    "aciklama_ipucu": "Kur/vade/fiyat farkı kaydı olabilir"
+    "aciklama_ipucu": "Kur/vade/fiyat farkı kaydı olabilir",
+    "olasi_mukerrer": "Olası mükerrer kayıt — ya da karşı taraf bu teslimatı işlememiş; irsaliyeden kontrol edin"
+  },
+  "insights": {
+    "title": "Asistan Özeti",
+    "fark_aleyhinize": "Kapanışta {{amount}} fark var — karşı tarafın defterinde bakiye ALEYHİNİZE görünüyor (alacağınız daha düşük ya da borcunuz daha yüksek).",
+    "fark_lehinize": "Kapanışta {{amount}} fark var — karşı tarafın defterinde bakiye LEHİNİZE görünüyor (alacağınız daha yüksek ya da borcunuz daha düşük).",
+    "devir_lehinize": "Dönem başı devrinde {{amount}} fark LEHİNİZE: geçmiş dönemde kendinizi fazla borçlu taşımış olabilirsiniz ya da karşı taraf geçmiş dönemden bir kaydı işlememiş olabilir.",
+    "devir_aleyhinize": "Dönem başı devrinde {{amount}} fark ALEYHİNİZE: geçmiş dönemde sizde bir kayıt eksik olabilir ya da karşı taraf devri fazla yazmış olabilir.",
+    "eski_donem_ekstresi": "Devir farkı bu ekstreden önceki dönemden geliyor — karşı taraftan önceki dönemin ekstresini isteyin.",
+    "fatura_tamam": "Fatura tarafı birebir tutuyor ({{count}} kalem) ✓",
+    "odeme_tamam": "Ödeme/tahsilat tarafı birebir tutuyor ({{count}} kalem) ✓",
+    "mukerrer_suphe": "{{date}} tarihli {{amount}} kaydı defterinizde iki kez görünüyor, ekstrede bir kez var — mükerrer olabilir ya da karşı taraf ikinci teslimatı işlememiş olabilir; irsaliyeden kontrol edin.",
+    "kurus_farki": "{{count}} kalemde net {{amount}} yuvarlama farkı var — tek düzeltme kaydıyla kapatılabilir.",
+    "donem_sonrasi": "Ekstre döneminden sonra defterinizde {{count}} işlem daha var; karşılaştırma ekstrenin bittiği tarihteki bakiyelerle yapıldı."
+  },
+  "koprusu": {
+    "title": "Farkın dökümü",
+    "bizdeEksik": "Bizde işlenmemiş kalemler",
+    "onlardaEksik": "Onlarda görünmeyen kalemler",
+    "tutarFark": "Tutar farkları",
+    "devirFark": "Devir farkı",
+    "devirBilinmiyor": "Devir farkı: doğrulanamadı (ekstrede devir satırı yok)",
+    "yuvarlama": "Yuvarlama farkları",
+    "toplam": "Kapanış farkı",
+    "isaretNotu": "+ lehinize · − aleyhinize",
+    "dogrulandi": "Denklem tutuyor — fark tamamen açıklandı ✓",
+    "dogrulanamadi": "Dikkat: listelenen kalemler farkı tam açıklamıyor"
+  },
+  "rowTap": {
+    "add": "Eklemek için dokun"
   },
   "warnings": {
     "title": "Uyarılar",

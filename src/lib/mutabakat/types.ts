@@ -124,7 +124,7 @@ export interface TutarFarki {
   farkKurus: number;
 }
 
-export type RozetTur = 'bekleyen_cek' | 'olasi_kdv' | 'olasi_parcali' | 'aciklama_ipucu';
+export type RozetTur = 'bekleyen_cek' | 'olasi_kdv' | 'olasi_parcali' | 'aciklama_ipucu' | 'olasi_mukerrer';
 
 export interface Rozet {
   tur: RozetTur;

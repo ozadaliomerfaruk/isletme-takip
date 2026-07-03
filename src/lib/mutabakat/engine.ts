@@ -21,6 +21,7 @@ import type {
   OnlardaEksikKalem,
   ParsedEkstre,
   ReconcileInput,
+  Rozet,
   TutarFarki,
 } from './types';
 import { descriptionIncludes, isUsableBelgeNo } from './helpers';
@@ -339,7 +340,7 @@ function rozetle(
 }
 
 interface ParcaliAday {
-  item: { rozetler: { tur: 'bekleyen_cek' | 'olasi_kdv' | 'olasi_parcali' | 'aciklama_ipucu'; detay?: string }[] };
+  item: { rozetler: Rozet[] };
   v: number;
   day: number;
 }

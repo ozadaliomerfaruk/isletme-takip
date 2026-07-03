@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, InteractionManager, Share, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,7 @@ import { parseDateFromDB } from '@/lib/date';
 import {
   buildBekleyenCekler,
   buildDefterKalemleri,
+  generateAsistanOzeti,
   parseEkstreFile,
   reconcile,
   toKurus,
@@ -215,6 +216,22 @@ export default function MutabakatPage() {
     setQueueBarVisible(true);
   }, [sonuc, addedRows, skippedRows]);
 
+  // Satıra dokunarak TEK kalem ekleme: tek elemanlı kuyruk olarak aynı akıştan geçer
+  const handleAddRow = useCallback(
+    (item: BizdeEksikSatir) => {
+      if (addedRows.has(item.satir.rowIndex)) return;
+      setQueue([item]);
+      setQueueIndex(0);
+      setQueueBarVisible(true);
+    },
+    [addedRows],
+  );
+
+  const ozet = useMemo(
+    () => (sonuc && cari ? generateAsistanOzeti(sonuc, cari.type) : null),
+    [sonuc, cari],
+  );
+
   // DİKKAT: render varlığı visible'a BAĞLANMAZ — visible=false olduğu render'da
   // unmount etmek "öksüz native modal" donmasına yol açar (bkz. 3802bac).
   // Bar mount'ta kalır, yalnız visible kontrol edilir; kalem geçişi key-remount ile
@@ -223,7 +240,16 @@ export default function MutabakatPage() {
 
   const advanceQueue = useCallback(() => {
     const item = queue[queueIndex];
-    if (item) setAddedRows((prev) => new Set(prev).add(item.satir.rowIndex));
+    if (item) {
+      setAddedRows((prev) => new Set(prev).add(item.satir.rowIndex));
+      // Daha önce "atlandı" işaretlenip sonradan eklendiyse çift sayım olmasın
+      setSkippedRows((prev) => {
+        if (!prev.has(item.satir.rowIndex)) return prev;
+        const next = new Set(prev);
+        next.delete(item.satir.rowIndex);
+        return next;
+      });
+    }
     setQueueBarVisible(false);
     if (queueIndex + 1 < queue.length) {
       // 300 ms'lik resetForm gecikmesini (useQuickTransactionForm) güvenle geçmek için
@@ -232,7 +258,8 @@ export default function MutabakatPage() {
         setQueueBarVisible(true);
       }, 350);
     } else {
-      const total = addedRows.size + 1;
+      // Tek-kalem (satıra dokunma) modunda kümülatif sayı yanıltıcı olur
+      const total = queue.length === 1 ? 1 : addedRows.size + 1;
       showToast(t('mutabakat:queue.doneToast', { count: total }), 'success');
     }
   }, [queue, queueIndex, addedRows.size, showToast, t]);
@@ -293,14 +320,16 @@ export default function MutabakatPage() {
           </Text>
         </View>
       )}
-      {step === 'report' && sonuc && (
+      {step === 'report' && sonuc && ozet && (
         <ReportStep
           sonuc={sonuc}
+          ozet={ozet}
           cariType={cari.type}
           currency={cari.currency}
           guncelBakiyeKurus={toKurus(balance)}
           formatDate={formatDateShort}
           onShare={handleShare}
+          onAddRow={handleAddRow}
           addedRows={addedRows}
           skippedRows={skippedRows}
           queueTotal={sonuc.bizdeEksik.length}
@@ -312,7 +341,9 @@ export default function MutabakatPage() {
           prefill prop'lu 4. instance. key=remount → her kalem temiz formla açılır. */}
       {currentQueueItem && (
         <QuickTransactionBar
-          key={`queue-${queueIndex}`}
+          // rowIndex key'de ŞART: iki farklı tek-kalem ekleme arasında queueIndex hep 0
+          // kalır; remount olmazsa önceki kalemin kategori/ürün state'i sızar
+          key={`queue-${queueIndex}-${currentQueueItem.satir.rowIndex}`}
           visible={queueBarVisible}
           onDismiss={pauseQueue}
           onSuccess={advanceQueue}

@@ -1,6 +1,7 @@
 import { memo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { CheckCircle2, PlusCircle } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
@@ -36,7 +37,14 @@ function Badges({ rozetler }: { rozetler: Rozet[] }) {
   return (
     <View style={styles.badgeRow}>
       {rozetler.map((r, i) => (
-        <View key={i} style={[styles.badge, r.tur === 'bekleyen_cek' && styles.badgeInfo]}>
+        <View
+          key={i}
+          style={[
+            styles.badge,
+            r.tur === 'bekleyen_cek' && styles.badgeInfo,
+            r.tur === 'olasi_mukerrer' && styles.badgeError,
+          ]}
+        >
           <Text style={styles.badgeText}>
             {r.tur === 'bekleyen_cek'
               ? t('badges.bekleyen_cek', { no: r.detay })
@@ -50,48 +58,8 @@ function Badges({ rozetler }: { rozetler: Rozet[] }) {
   );
 }
 
-interface RowShellProps {
-  date: string;
-  title: string;
-  hint?: string;
-  amountKurus: number;
-  amountColor: string;
-  currency?: string;
-  rozetler?: Rozet[];
-  stateLabel?: string | null;
-}
-
-function RowShell({ date, title, hint, amountKurus, amountColor, currency, rozetler, stateLabel }: RowShellProps) {
-  return (
-    <View style={styles.row}>
-      <View style={styles.rowMain}>
-        <View style={styles.rowLeft}>
-          <Text variant="bodySmall" numberOfLines={2}>
-            {title}
-          </Text>
-          <Text variant="caption" color="muted">
-            {date}
-            {hint ? ` · ${hint}` : ''}
-          </Text>
-        </View>
-        <View style={styles.rowRight}>
-          <Text variant="bodySmall" bold style={{ color: amountColor }}>
-            {formatCurrency(Math.abs(amountKurus) / 100, currency)}
-          </Text>
-          {stateLabel ? (
-            <Text variant="caption" color="success">
-              {stateLabel}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-      {rozetler ? <Badges rozetler={rozetler} /> : null}
-    </View>
-  );
-}
-
 // ============================================================================
-// GRUP (a): bizde işlenmemiş (onların ekstresinde var)
+// GRUP (a): bizde işlenmemiş — satıra dokununca deftere ekleme akışı açılır
 // ============================================================================
 
 interface MissingInOursRowProps {
@@ -100,12 +68,14 @@ interface MissingInOursRowProps {
   cariType: CariType;
   currency?: string;
   formatDate: (dateStr: string) => string;
-  /** Kuyruktan eklendi/atlandı durumu */
-  stateLabel?: string | null;
+  /** Kuyruktan/dokunuştan eklendi mi (eklendiyse satır pasifleşir) */
+  added: boolean;
+  skipped: boolean;
+  onPress: () => void;
 }
 
 export const MissingInOursRow = memo(function MissingInOursRow({
-  item, yon, cariType, currency, formatDate, stateLabel,
+  item, yon, cariType, currency, formatDate, added, skipped, onPress,
 }: MissingInOursRowProps) {
   const { t } = useTranslation('mutabakat');
   const mirror = mirrorOf(item.satir, yon);
@@ -114,17 +84,48 @@ export const MissingInOursRow = memo(function MissingInOursRow({
       ? mirror > 0 ? 'rowHint.musteri.credit' : 'rowHint.musteri.debit'
       : mirror < 0 ? 'rowHint.tedarikci.debit' : 'rowHint.tedarikci.credit';
   const title = item.satir.description || item.satir.belgeNo || '—';
+
   return (
-    <RowShell
-      date={formatDate(item.satir.date)}
-      title={item.satir.belgeNo && item.satir.description ? `${title} (${item.satir.belgeNo})` : title}
-      hint={t(hintKey)}
-      amountKurus={mirror}
-      amountColor={mirror > 0 ? colors.success : colors.error}
-      currency={currency}
-      rozetler={item.rozetler}
-      stateLabel={stateLabel}
-    />
+    <TouchableOpacity
+      style={[styles.row, styles.rowTappable, added && styles.rowAdded]}
+      onPress={onPress}
+      disabled={added}
+      activeOpacity={0.6}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: added }}
+    >
+      <View style={styles.rowMain}>
+        <View style={styles.rowLeft}>
+          <Text variant="body" numberOfLines={2}>
+            {item.satir.belgeNo && item.satir.description ? `${title} (${item.satir.belgeNo})` : title}
+          </Text>
+          <Text variant="bodySmall" color="muted">
+            {formatDate(item.satir.date)} · {t(hintKey)}
+          </Text>
+        </View>
+        <View style={styles.rowRight}>
+          <Text variant="body" bold style={{ color: mirror > 0 ? colors.success : colors.error }}>
+            {formatCurrency(Math.abs(mirror) / 100, currency)}
+          </Text>
+          {added ? (
+            <View style={styles.addHint}>
+              <CheckCircle2 size={14} color={colors.success} />
+              <Text variant="bodySmall" color="success">
+                {t('queue.added')}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.addHint}>
+              <PlusCircle size={14} color={colors.primary} />
+              <Text variant="bodySmall" style={{ color: colors.primary }}>
+                {skipped ? t('queue.skipped') : t('rowTap.add')}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+      <Badges rozetler={item.rozetler} />
+    </TouchableOpacity>
   );
 });
 
@@ -136,24 +137,36 @@ interface MissingInTheirsRowProps {
   item: OnlardaEksikKalem;
   currency?: string;
   formatDate: (dateStr: string) => string;
+  /** insights.ts mükerrer tespiti — ekstra rozet olarak eklenir */
+  mukerrer?: boolean;
 }
 
 export const MissingInTheirsRow = memo(function MissingInTheirsRow({
-  item, currency, formatDate,
+  item, currency, formatDate, mukerrer,
 }: MissingInTheirsRowProps) {
   const { t } = useTranslation(['mutabakat', 'clients']);
   const tipLabel = t(CARI_TIP_LABEL_KEY[item.kalem.type] ?? '');
   const title = item.kalem.description || tipLabel;
+  const rozetler: Rozet[] = mukerrer
+    ? [...item.rozetler, { tur: 'olasi_mukerrer' as const }]
+    : item.rozetler;
   return (
-    <RowShell
-      date={formatDate(item.kalem.date)}
-      title={item.kalem.description ? `${tipLabel} · ${item.kalem.description}` : title}
-      hint={t('mutabakat:rowHint.missingInTheirs')}
-      amountKurus={item.kalem.signedKurus}
-      amountColor={item.kalem.signedKurus > 0 ? colors.success : colors.error}
-      currency={currency}
-      rozetler={item.rozetler}
-    />
+    <View style={styles.row}>
+      <View style={styles.rowMain}>
+        <View style={styles.rowLeft}>
+          <Text variant="body" numberOfLines={2}>
+            {item.kalem.description ? `${tipLabel} · ${item.kalem.description}` : title}
+          </Text>
+          <Text variant="bodySmall" color="muted">
+            {formatDate(item.kalem.date)} · {t('mutabakat:rowHint.missingInTheirs')}
+          </Text>
+        </View>
+        <Text variant="body" bold style={{ color: item.kalem.signedKurus > 0 ? colors.success : colors.error }}>
+          {formatCurrency(Math.abs(item.kalem.signedKurus) / 100, currency)}
+        </Text>
+      </View>
+      <Badges rozetler={rozetler} />
+    </View>
   );
 });
 
@@ -178,21 +191,21 @@ export const MismatchRow = memo(function MismatchRow({ item, yon, currency, form
     <View style={styles.row}>
       <View style={styles.rowMain}>
         <View style={styles.rowLeft}>
-          <Text variant="bodySmall" numberOfLines={2}>
+          <Text variant="body" numberOfLines={2}>
             {title}
           </Text>
-          <Text variant="caption" color="muted">
+          <Text variant="bodySmall" color="muted">
             {formatDate(item.ekstre.date)}
           </Text>
         </View>
         <View style={styles.rowRight}>
-          <Text variant="caption" color="muted">
+          <Text variant="bodySmall" color="secondary">
             {t('mismatchRow.theirs')}: {formatCurrency(Math.abs(theirs) / 100, currency)}
           </Text>
-          <Text variant="caption" color="muted">
+          <Text variant="bodySmall" color="secondary">
             {t('mismatchRow.ours')}: {formatCurrency(Math.abs(item.defter.signedKurus) / 100, currency)}
           </Text>
-          <Text variant="caption" bold color="error">
+          <Text variant="bodySmall" bold color="error">
             {t('mismatchRow.diff')}: {formatCurrency(Math.abs(item.farkKurus) / 100, currency)}
           </Text>
         </View>
@@ -217,7 +230,7 @@ export const MatchedRow = memo(function MatchedRow({ item, currency, formatDate 
     <View style={[styles.row, styles.rowMuted]}>
       <View style={styles.rowMain}>
         <View style={styles.rowLeft}>
-          <Text variant="caption" numberOfLines={1} color="secondary">
+          <Text variant="bodySmall" numberOfLines={1} color="secondary">
             {title}
           </Text>
           <Text variant="caption" color="muted">
@@ -225,7 +238,7 @@ export const MatchedRow = memo(function MatchedRow({ item, currency, formatDate 
             {item.gunFarki !== 0 ? ` (±${Math.abs(item.gunFarki)}g)` : ''}
           </Text>
         </View>
-        <Text variant="caption" color="secondary">
+        <Text variant="bodySmall" color="secondary">
           {formatCurrency(Math.abs(item.defter.signedKurus) / 100, currency)}
         </Text>
       </View>
@@ -237,14 +250,22 @@ const styles = StyleSheet.create({
   row: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     marginHorizontal: spacing.md,
     marginBottom: spacing.xs,
     gap: spacing.xs,
   },
+  rowTappable: {
+    borderWidth: 1,
+    borderColor: colors.primaryLight,
+  },
+  rowAdded: {
+    opacity: 0.55,
+  },
   rowMuted: {
     backgroundColor: colors.surfaceLight,
+    paddingVertical: spacing.sm,
   },
   rowMain: {
     flexDirection: 'row',
@@ -258,6 +279,11 @@ const styles = StyleSheet.create({
   rowRight: {
     alignItems: 'flex-end',
     gap: 2,
+  },
+  addHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -273,8 +299,11 @@ const styles = StyleSheet.create({
   badgeInfo: {
     backgroundColor: colors.infoLight,
   },
+  badgeError: {
+    backgroundColor: colors.errorLight,
+  },
   badgeText: {
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
 });

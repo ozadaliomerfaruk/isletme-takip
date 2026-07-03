@@ -123,7 +123,9 @@
       "Bash(npm test:*)",
       "Bash(supabase --version)",
       "Bash(adb devices *)",
-      "Bash(adb logcat *)"
+      "Bash(adb logcat *)",
+      "Bash(git push *)",
+      "Bash(npx eas-cli *)"
     ]
   }
 }

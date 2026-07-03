@@ -1,11 +1,17 @@
 {
-  "title": "Reconciliation",
+  "title": "Reconciliation Assistant",
   "menu": {
-    "action": "Reconcile"
+    "action": "Reconciliation Assistant"
   },
   "select": {
-    "heading": "Select Statement File",
-    "hint": "Select the account statement sent by the other party (.xlsx, .xls or .csv). PDF and photos are not supported in this version — ask for an Excel file.",
+    "heading": "Compare the Statement",
+    "subtitle": "Upload the other party's statement; the assistant compares it line by line with your ledger and explains the differences.",
+    "step1": "Select the statement file from the other party",
+    "step2": "Let the assistant compare it with your records",
+    "step3": "Add missing items to your ledger with one tap",
+    "uploadTitle": "Select statement file",
+    "uploadHint": "Excel or CSV — ask the other party's accountant for an \"Excel export\"",
+    "formats": "PDF and photos are not supported in this version",
     "currencyNote": "Comparison is done in {{currency}}. Results will be misleading if the statement uses a different currency.",
     "pickFile": "Select File",
     "invalidExtension": "Unsupported file type. Please select an .xlsx, .xls or .csv file.",
@@ -75,7 +81,37 @@
     "bekleyen_cek": "May be a pending cheque: {{no}}",
     "olasi_kdv": "Possible VAT difference (×{{rate}})",
     "olasi_parcali": "Possible split payment",
-    "aciklama_ipucu": "May be an FX/due-date/price difference entry"
+    "aciklama_ipucu": "May be an FX/due-date/price difference entry",
+    "olasi_mukerrer": "Possible duplicate — or the other party missed this delivery; check the delivery note"
+  },
+  "insights": {
+    "title": "Assistant Summary",
+    "fark_aleyhinize": "There is a {{amount}} closing difference — their ledger shows the balance AGAINST YOU (you are owed less, or owe more, than your records show).",
+    "fark_lehinize": "There is a {{amount}} closing difference — their ledger shows the balance IN YOUR FAVOR (you are owed more, or owe less, than your records show).",
+    "devir_lehinize": "The opening balance differs by {{amount}} IN YOUR FAVOR: you may have carried too much debt from the previous period, or the other party may have missed a prior-period entry.",
+    "devir_aleyhinize": "The opening balance differs by {{amount}} AGAINST YOU: you may be missing a prior-period entry, or the other party may have overstated the carried balance.",
+    "eski_donem_ekstresi": "The opening difference comes from before this statement — ask the other party for the previous period's statement.",
+    "fatura_tamam": "Invoice side matches exactly ({{count}} items) ✓",
+    "odeme_tamam": "Payment/collection side matches exactly ({{count}} items) ✓",
+    "mukerrer_suphe": "The {{amount}} entry dated {{date}} appears twice in your ledger but once in the statement — it may be a duplicate, or the other party may have missed the second delivery; check the delivery note.",
+    "kurus_farki": "{{count}} items have a net {{amount}} rounding difference — this can be settled with a single adjustment entry.",
+    "donem_sonrasi": "Your ledger has {{count}} more transactions after the statement period; the comparison uses balances as of the statement's end date."
+  },
+  "koprusu": {
+    "title": "Difference breakdown",
+    "bizdeEksik": "Items missing on our side",
+    "onlardaEksik": "Items missing on their side",
+    "tutarFark": "Amount differences",
+    "devirFark": "Opening difference",
+    "devirBilinmiyor": "Opening difference: could not be verified (no opening row in statement)",
+    "yuvarlama": "Rounding differences",
+    "toplam": "Closing difference",
+    "isaretNotu": "+ in your favor · − against you",
+    "dogrulandi": "The equation balances — the difference is fully explained ✓",
+    "dogrulanamadi": "Warning: the listed items do not fully explain the difference"
+  },
+  "rowTap": {
+    "add": "Tap to add"
   },
   "warnings": {
     "title": "Warnings",
