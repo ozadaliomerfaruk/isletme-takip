@@ -1,0 +1,27 @@
+{
+  "model": "claude-opus-4-7",
+  "enabledPlugins": {
+    "github@claude-plugins-official": true,
+    "supabase@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "agent-sdk-dev@claude-plugins-official": true,
+    "huggingface-skills@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "playwright@claude-plugins-official": true,
+    "commit-commands@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": false,
+    "claude-mem@thedotmack": true
+  },
+  "effortLevel": "max",
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "unityMCP"
+  ],
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  }
+}

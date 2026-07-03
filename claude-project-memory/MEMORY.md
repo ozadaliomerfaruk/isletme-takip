@@ -1,0 +1,1 @@
+- [Solo founder — realistic scope](feedback_solo_founder_realistic_scope.md) — marketing/growth plans must fit one person, few hours/week, $0-100/mo

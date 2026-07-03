@@ -1,0 +1,14 @@
+{
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "workbench.iconTheme": "material-icon-theme",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.wordWrap": "on",
+  "python.defaultInterpreterPath": "c:\\Users\\ozada\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe",
+  "gitlens.ai.model": "vscode",
+  "gitlens.ai.vscode.model": "copilot:gpt-4.1",
+  "redhat.telemetry.enabled": true,
+  "claudeCode.preferredLocation": "panel",
+  "files.autoSave": "afterDelay",
+  "claudeCode.allowDangerouslySkipPermissions": true,
+}
