@@ -1,14 +1,12 @@
-import { useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, Dimensions, type ViewToken } from 'react-native';
+import { useRef, useState, useCallback, useEffect } from 'react';
+import { View, StyleSheet, FlatList, useWindowDimensions, type ViewToken } from 'react-native';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { HeroCard } from './HeroCard';
 import { IncomeExpenseCard } from './IncomeExpenseCard';
 import { CashFlowCard } from './CashFlowCard';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_PADDING = spacing.lg;
-const CARD_WIDTH = SCREEN_WIDTH - CARD_PADDING * 2;
 
 interface DashboardCarouselProps {
   // HeroCard
@@ -48,20 +46,38 @@ export function DashboardCarousel({
   periodBadge,
 }: DashboardCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
+  const activeIndexRef = useRef(0);
+  const listRef = useRef<FlatList<number>>(null);
+
+  // Genişlik pencereyle birlikte güncellenmeli: iPad Split View / Mac penceresi
+  // yeniden boyutlanınca modül-kapsamı Dimensions değeri bayat kalıyordu ve
+  // kart viewport'tan sapıp içerik yana kaymış görünüyordu.
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = windowWidth - CARD_PADDING * 2;
+  const snapInterval = cardWidth + spacing.sm;
 
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (viewableItems.length > 0 && viewableItems[0].index != null) {
         setActiveIndex(viewableItems[0].index);
+        activeIndexRef.current = viewableItems[0].index;
       }
     }
   ).current;
 
   const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
 
+  // Pencere genişliği değişince aktif kartın snap hizasını koru
+  useEffect(() => {
+    listRef.current?.scrollToOffset({
+      offset: activeIndexRef.current * snapInterval,
+      animated: false,
+    });
+  }, [snapInterval]);
+
   const renderItem = useCallback(({ index }: { index: number }) => {
     return (
-      <View style={styles.cardContainer}>
+      <View style={{ width: cardWidth }}>
         {index === 0 && (
           <HeroCard
             generalStatus={generalStatus}
@@ -90,27 +106,29 @@ export function DashboardCarousel({
         )}
       </View>
     );
-  }, [generalStatus, assets, receivables, payables, onHeroPress, income, expense, onIncomeExpensePress, totalInflow, totalOutflow, netCashFlow, onCashFlowPress, periodBadge]);
+  }, [generalStatus, assets, receivables, payables, onHeroPress, income, expense, onIncomeExpensePress, totalInflow, totalOutflow, netCashFlow, onCashFlowPress, periodBadge, cardWidth]);
 
   const data = useRef(Array.from({ length: CARD_COUNT }, (_, i) => i)).current;
 
   return (
     <View>
       <FlatList
+        ref={listRef}
         data={data}
         renderItem={renderItem}
         keyExtractor={(item) => String(item)}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        snapToInterval={CARD_WIDTH + spacing.sm}
+        snapToInterval={snapInterval}
         decelerationRate="fast"
         contentContainerStyle={styles.listContent}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
+        extraData={cardWidth}
         getItemLayout={(_, index) => ({
-          length: CARD_WIDTH + spacing.sm,
-          offset: (CARD_WIDTH + spacing.sm) * index,
+          length: snapInterval,
+          offset: snapInterval * index,
           index,
         })}
       />
@@ -135,9 +153,6 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: CARD_PADDING,
     gap: spacing.sm,
-  },
-  cardContainer: {
-    width: CARD_WIDTH,
   },
   dots: {
     flexDirection: 'row',
