@@ -274,38 +274,28 @@ export function calculateHesapOpeningBalance(
 
 /**
  * Cari için borç/alacak belirleme (standart muhasebe kuralları)
- * Müşteri (Alıcı hesabı): Satış = Borç (alacağımız arttı), Tahsilat = Alacak (alacağımız azaldı)
- * Tedarikçi (Satıcı hesabı): Alış = Alacak (borcumuz arttı), Ödeme = Borç (borcumuzu ödedik)
+ * DB konvansiyonuyla aynı yön ağı: pozitif bakiye = bize borçlu.
+ * Bakiyeyi arttıran tipler BORÇ, azaltanlar ALACAK. Cari tipinden bağımsız
+ * tek eşleme: bir cari her iki yönde de işlem taşıyabildiğinden (örn. müşteri
+ * tipli caride Alış sekmesi) tip dallanması satırları sessizce boş düşürüyordu.
  */
 export function getCariDebitCredit(
   islem: IslemWithRelations,
-  cariType: 'musteri' | 'tedarikci'
+  _cariType: 'musteri' | 'tedarikci'
 ): { debit: number | null; credit: number | null } {
   const amount = toNumber(islem.amount);
 
-  if (cariType === 'tedarikci') {
-    switch (islem.type) {
-      case 'cari_alis':
-        return { debit: null, credit: amount }; // Borcumuz arttı → ALACAK
-      case 'cari_odeme':
-        return { debit: amount, credit: null }; // Borcumuzu ödedik → BORÇ
-      case 'cari_alis_iade':
-        return { debit: amount, credit: null }; // Borcumuz azaldı → BORÇ
-      default:
-        return { debit: null, credit: null };
-    }
-  } else {
-    // Müşteri
-    switch (islem.type) {
-      case 'cari_satis':
-        return { debit: amount, credit: null }; // Alacağımız arttı → BORÇ
-      case 'cari_tahsilat':
-        return { debit: null, credit: amount }; // Alacağımızı tahsil ettik → ALACAK
-      case 'cari_satis_iade':
-        return { debit: null, credit: amount }; // Alacağımız azaldı → ALACAK
-      default:
-        return { debit: null, credit: null };
-    }
+  switch (islem.type) {
+    case 'cari_satis':      // Alacağımız arttı
+    case 'cari_odeme':      // Borcumuzu ödedik
+    case 'cari_alis_iade':  // Borcumuz azaldı
+      return { debit: amount, credit: null };
+    case 'cari_alis':       // Borcumuz arttı
+    case 'cari_tahsilat':   // Alacağımızı tahsil ettik
+    case 'cari_satis_iade': // Alacağımız azaldı
+      return { debit: null, credit: amount };
+    default:
+      return { debit: null, credit: null };
   }
 }
 
