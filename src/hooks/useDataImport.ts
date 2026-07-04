@@ -18,6 +18,7 @@ import {
   chunkArray,
 } from '@/lib/excelImport';
 import { IslemInsert, IslemType } from '@/types/database';
+import { CARI_ISLEM_TYPES, PERSONEL_ISLEM_TYPES } from '@/constants/islemTypes';
 
 import i18n from '@/i18n';
 import {
@@ -218,15 +219,24 @@ export function useDataImport() {
             }
           }
 
-          // ID lookups
-          const hedefHesapId = tx.karsiHesap ? idMaps.accounts.get(tx.karsiHesap.toLowerCase()) || null : null;
+          // ID lookups — entity bağları yalnız ilgili tip ailesine yazılır.
+          // Kolonu dolu diye körlemesine bağlamak, gelir/gider/transfer
+          // satırlarına cari/personel/hedef-hesap iliştirip ekstrelerde
+          // yabancı-tip ve hayalet satırlar üretiyordu.
+          const islemType: IslemType = tx.mappedType as IslemType;
+          const hedefHesapId = islemType === 'transfer' && tx.karsiHesap
+            ? idMaps.accounts.get(tx.karsiHesap.toLowerCase()) || null
+            : null;
           let cariId: string | null = null;
-          if (tx.tedarikci) cariId = idMaps.clients.get(tx.tedarikci.toLowerCase()) || null;
-          else if (tx.musteri) cariId = idMaps.clients.get(tx.musteri.toLowerCase()) || null;
-          const personelId = tx.personel ? idMaps.personel.get(tx.personel.toLowerCase()) || null : null;
+          if (CARI_ISLEM_TYPES.includes(islemType)) {
+            if (tx.tedarikci) cariId = idMaps.clients.get(tx.tedarikci.toLowerCase()) || null;
+            else if (tx.musteri) cariId = idMaps.clients.get(tx.musteri.toLowerCase()) || null;
+          }
+          const personelId = PERSONEL_ISLEM_TYPES.includes(islemType) && tx.personel
+            ? idMaps.personel.get(tx.personel.toLowerCase()) || null
+            : null;
           const kategoriId = tx.category ? idMaps.categories.get(tx.category.toLowerCase()) || null : null;
 
-          const islemType: IslemType = tx.mappedType as IslemType;
           const finalAmount = Math.round(tx.amount * 100) / 100;
 
           if (finalAmount <= 0) {
