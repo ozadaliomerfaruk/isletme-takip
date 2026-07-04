@@ -30,8 +30,7 @@ export interface MutabakatUyari {
     | 'aynasiz_yon'               // ekstre bizim perspektifimizden düzenlenmiş görünüyor
     | 'dusuk_eslesme'             // yön/para birimi uyumsuz olabilir
     | 'ekstre_ici_tutarsiz'       // dip toplam veya zincir kendi içinde tutmuyor
-    | 'fark_aciklanamiyor'        // motor öz-doğrulaması tutmadı
-    | 'donem_sonrasi_islemler';   // {count} — ekstre döneminden sonra işlem var
+    | 'fark_aciklanamiyor';       // motor öz-doğrulaması tutmadı
   params?: Record<string, string | number>;
 }
 
@@ -142,7 +141,13 @@ export interface OnlardaEksikKalem {
   rozetler: Rozet[];
 }
 
-export type MutabakatDurum = 'mutabik' | 'bakiye_teyitsiz' | 'mutabik_degil';
+/**
+ * mutabik        → 🟢 fark yok, devir+kapanış doğrulandı
+ * fark_aciklandi → 🟠 fark VAR ama köprü denklemi tutuyor: kaynağı belli, adımlarla kapanır
+ * bakiye_teyitsiz→ 🟡 hareketler uyumlu ama devir/kapanış doğrulanamadı
+ * mutabik_degil  → 🔴 açıklanamayan fark (köprü tutmuyor / yön şüphesi / veri kaybı)
+ */
+export type MutabakatDurum = 'mutabik' | 'fark_aciklandi' | 'bakiye_teyitsiz' | 'mutabik_degil';
 
 export interface MutabakatSonucu {
   durum: MutabakatDurum;

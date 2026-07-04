@@ -404,9 +404,8 @@ export function reconcile(input: ReconcileInput): MutabakatSonucu {
     uyarilar.push({ code: 'tip_uyumsuz_islemler', params: { count: tipUyumsuzCount } });
   }
   if (!ekstre.devir) uyarilar.push({ code: 'devir_satiri_yok' });
-  if (res.donemSonrasiKalemSayisi > 0) {
-    uyarilar.push({ code: 'donem_sonrasi_islemler', params: { count: res.donemSonrasiKalemSayisi } });
-  }
+  // Not: dönem-sonrası işlem bilgisi uyarı OLARAK basılmaz — asistan özeti + rapor
+  // detayında zaten var; üçüncü tekrar kullanıcıyı yoruyordu (SMMM geri bildirimi).
 
   // Checksum: dip toplam
   let dipToplamUyumlu: boolean | null = null;
@@ -465,7 +464,16 @@ export function reconcile(input: ReconcileInput): MutabakatSonucu {
 
   let durum: MutabakatSonucu['durum'];
   if (farkVar || devirSorun || kapanisSorun) {
-    durum = 'mutabik_degil';
+    // Fark var ama köprü denklemi tutuyorsa kaynağı BELLİ demektir: kırmızı alarm
+    // yerine turuncu "açıklandı" — kullanıcı korkmasın, adımları uygulasın.
+    durum =
+      farkAciklanabilir === true &&
+      dipToplamUyumlu !== false &&
+      res.bakiyeZinciriUyumlu !== false &&
+      ekstre.skippedDataRows === 0 &&
+      !yonSorunu
+        ? 'fark_aciklandi'
+        : 'mutabik_degil';
   } else if (
     devirUyumlu === true &&
     kapanisFark !== null &&

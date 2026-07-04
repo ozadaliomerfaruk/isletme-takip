@@ -1,6 +1,6 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, AlertTriangle, XCircle, Share2 } from 'lucide-react-native';
+import { CheckCircle2, AlertCircle, AlertTriangle, XCircle, Share2 } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -16,14 +16,26 @@ interface VerdictCardProps {
 
 const VERDICT_STYLE: Record<MutabakatDurum, { bg: string; fg: string }> = {
   mutabik: { bg: colors.successLight, fg: colors.success },
+  fark_aciklandi: { bg: colors.orangeLight, fg: colors.orange },
   bakiye_teyitsiz: { bg: colors.warningLight, fg: colors.warning },
   mutabik_degil: { bg: colors.errorLight, fg: colors.error },
+};
+
+const VERDICT_ICON: Record<MutabakatDurum, typeof CheckCircle2> = {
+  mutabik: CheckCircle2,
+  fark_aciklandi: AlertCircle,
+  bakiye_teyitsiz: AlertTriangle,
+  mutabik_degil: XCircle,
 };
 
 export function VerdictCard({ durum, kapanisFarkKurus, currency, onShare }: VerdictCardProps) {
   const { t } = useTranslation('mutabakat');
   const style = VERDICT_STYLE[durum];
-  const Icon = durum === 'mutabik' ? CheckCircle2 : durum === 'bakiye_teyitsiz' ? AlertTriangle : XCircle;
+  const Icon = VERDICT_ICON[durum];
+  const farkVar =
+    (durum === 'mutabik_degil' || durum === 'fark_aciklandi') &&
+    kapanisFarkKurus !== null &&
+    kapanisFarkKurus !== 0;
 
   return (
     <View style={[styles.card, { backgroundColor: style.bg }]}>
@@ -33,17 +45,16 @@ export function VerdictCard({ durum, kapanisFarkKurus, currency, onShare }: Verd
           <Text variant="h3" style={{ color: style.fg }}>
             {t(`verdict.${durum}`)}
           </Text>
-          {durum === 'mutabik_degil' && kapanisFarkKurus !== null && kapanisFarkKurus !== 0 ? (
+          {farkVar ? (
             <Text variant="bodySmall" color="secondary">
               {t('verdict.closingDiff', {
                 amount: formatCurrency(Math.abs(kapanisFarkKurus) / 100, currency),
               })}
             </Text>
-          ) : durum !== 'mutabik_degil' ? (
-            <Text variant="bodySmall" color="secondary">
-              {t(`verdict.${durum}Desc`)}
-            </Text>
           ) : null}
+          <Text variant="bodySmall" color="secondary">
+            {t(`verdict.${durum}Desc`)}
+          </Text>
         </View>
       </View>
       <TouchableOpacity style={styles.shareButton} onPress={onShare}>

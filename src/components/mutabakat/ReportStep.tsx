@@ -23,6 +23,7 @@ import { MatchedRow, MismatchRow, MissingInOursRow, MissingInTheirsRow, mirrorOf
 type ReportItem =
   | { kind: 'verdict' }
   | { kind: 'insights' }
+  | { kind: 'actions' }
   | { kind: 'openingDiff' }
   | { kind: 'summary' }
   | { kind: 'warnings' }
@@ -37,10 +38,17 @@ export interface ReportStepProps {
   sonuc: MutabakatSonucu;
   ozet: AsistanOzeti;
   cariType: CariType;
+  /** Kişiselleştirilmiş manşet cümleleri için ("{{cari}}, borcunuzu ... gösteriyor") */
+  cariName: string;
   currency?: string;
   guncelBakiyeKurus: number;
+  /** Denetim izi: kaynak dosya adı + ekstre satır sayısı */
+  fileName?: string;
+  ekstreSatirSayisi: number;
   formatDate: (dateStr: string) => string;
   onShare: () => void;
+  /** "Önceki dönem ekstresini iste" hazır mesajını paylaşır */
+  onRequestPrevStatement: () => void;
   /** Satıra dokununca tek kalem ekleme akışı */
   onAddRow: (item: BizdeEksikSatir) => void;
   addedRows: ReadonlySet<number>;
@@ -63,7 +71,8 @@ const TONE_DOT: Record<Insight['tone'], string> = {
 };
 
 export function ReportStep({
-  sonuc, ozet, cariType, currency, guncelBakiyeKurus, formatDate, onShare,
+  sonuc, ozet, cariType, cariName, currency, guncelBakiyeKurus, fileName, ekstreSatirSayisi,
+  formatDate, onShare, onRequestPrevStatement,
   onAddRow, addedRows, skippedRows, queueTotal, onStartQueue,
 }: ReportStepProps) {
   const { t } = useTranslation('mutabakat');
@@ -72,6 +81,13 @@ export function ReportStep({
   const fmt = useCallback(
     (kurus: number) => formatCurrency(Math.abs(kurus) / 100, currency),
     [currency],
+  );
+
+  // Esnaf dili: eksi işaret yerine Borç/Alacak etiketi (kendi Excel exportuyla aynı dil)
+  const fmtBakiye = useCallback(
+    (kurus: number) =>
+      `${t(kurus < 0 ? 'summary.borc' : 'summary.alacak')} ${formatCurrency(Math.abs(kurus) / 100, currency)}`,
+    [t, currency],
   );
 
   const mukerrerIds = useMemo(() => new Set(ozet.mukerrerIslemIds), [ozet.mukerrerIslemIds]);
@@ -86,9 +102,29 @@ export function ReportStep({
     );
   }, [ozet.koprusu]);
 
+  // "Şimdi ne yapmalı" aksiyonları — bulgu/aksiyon ayrımı (SMMM geri bildirimi)
+  const actionList = useMemo(() => {
+    const acts: { key: 'oncekiDonem' | 'eksikEkle' | 'yuvarlama' | 'paylas'; params?: Record<string, string | number>; onPress?: () => void; btnKey?: string }[] = [];
+    if (sonuc.devir.uyumlu === false) {
+      acts.push({ key: 'oncekiDonem', onPress: onRequestPrevStatement, btnKey: 'oncekiDonemBtn' });
+    }
+    if (sonuc.bizdeEksik.length > 0) {
+      acts.push({ key: 'eksikEkle', params: { count: sonuc.bizdeEksik.length }, onPress: onStartQueue, btnKey: 'eksikEkleBtn' });
+    }
+    const kurusInsight = ozet.insights.find((i) => i.code === 'kurus_farki');
+    if (kurusInsight?.amountKurus) {
+      acts.push({ key: 'yuvarlama', params: { amount: fmt(kurusInsight.amountKurus) } });
+    }
+    if (sonuc.durum !== 'mutabik') {
+      acts.push({ key: 'paylas', onPress: onShare, btnKey: 'paylasBtn' });
+    }
+    return acts;
+  }, [sonuc, ozet.insights, fmt, onRequestPrevStatement, onStartQueue, onShare]);
+
   const items = useMemo<ReportItem[]>(() => {
     const list: ReportItem[] = [{ kind: 'verdict' }];
     if (ozet.insights.length > 0 || kopruGorunur) list.push({ kind: 'insights' });
+    if (actionList.length > 0) list.push({ kind: 'actions' });
     if (sonuc.devir.uyumlu === false) list.push({ kind: 'openingDiff' });
     list.push({ kind: 'summary' });
     if (sonuc.uyarilar.length > 0) list.push({ kind: 'warnings' });
@@ -128,7 +164,7 @@ export function ReportStep({
       }
     }
     return list;
-  }, [sonuc, ozet, kopruGorunur, matchedOpen]);
+  }, [sonuc, ozet, kopruGorunur, actionList.length, matchedOpen]);
 
   const insightText = useCallback(
     (ins: Insight) =>
@@ -136,8 +172,10 @@ export function ReportStep({
         amount: ins.amountKurus !== undefined ? fmt(ins.amountKurus) : undefined,
         count: ins.count,
         date: ins.date ? formatDate(ins.date) : undefined,
+        cari: cariName,
+        detay: ins.detay ? ` ("${ins.detay}")` : '',
       }),
-    [t, fmt, formatDate],
+    [t, fmt, formatDate, cariName],
   );
 
   const renderInsights = () => {
@@ -205,15 +243,18 @@ export function ReportStep({
     );
   };
 
+  const eslesmeyenSayisi =
+    sonuc.bizdeEksik.length + sonuc.onlardaEksik.length + sonuc.tutarFarkli.length;
+
   const renderSummary = () => (
     <View style={styles.summaryCard}>
       <SummaryRow label={t('summary.period')} value={`${formatDate(sonuc.donem.start)} – ${formatDate(sonuc.donem.end)}`} />
       <SummaryRow
         label={t('summary.opening')}
         value={
-          `${t('summary.ours')}: ${fmtSigned(sonuc.devir.bizimKurus, fmt)}` +
+          `${t('summary.ours')}: ${fmtBakiye(sonuc.devir.bizimKurus)}` +
           (sonuc.devir.onlarinAynaKurus !== null
-            ? ` · ${t('summary.theirs')}: ${fmtSigned(sonuc.devir.onlarinAynaKurus, fmt)}`
+            ? ` · ${t('summary.theirs')}: ${fmtBakiye(sonuc.devir.onlarinAynaKurus)}`
             : ` · ${t('summary.theirs')}: ${t('summary.notCompared')}`)
         }
         status={sonuc.devir.uyumlu}
@@ -221,9 +262,9 @@ export function ReportStep({
       <SummaryRow
         label={t('summary.closing')}
         value={
-          `${t('summary.ours')}: ${fmtSigned(sonuc.kapanis.bizimKurus, fmt)}` +
+          `${t('summary.ours')}: ${fmtBakiye(sonuc.kapanis.bizimKurus)}` +
           (sonuc.kapanis.onlarinAynaKurus !== null
-            ? ` · ${t('summary.theirs')}: ${fmtSigned(sonuc.kapanis.onlarinAynaKurus, fmt)}`
+            ? ` · ${t('summary.theirs')}: ${fmtBakiye(sonuc.kapanis.onlarinAynaKurus)}`
             : ` · ${t('summary.theirs')}: ${t('summary.notCompared')}`)
         }
         status={sonuc.kapanis.farkKurus === null ? null : Math.abs(sonuc.kapanis.farkKurus) <= 100}
@@ -235,20 +276,68 @@ export function ReportStep({
           close: sonuc.asamaKirilimi.yakinTarih,
         })}
       />
+      {/* En güven veren rakam açıkça yazılır: eşleşmeyen 0 ise ✓ */}
+      <SummaryRow
+        label={t('summary.unmatched', { count: eslesmeyenSayisi })}
+        value=""
+        status={eslesmeyenSayisi === 0 ? true : undefined}
+      />
       {sonuc.yuvarlamaFarkiKurus !== 0 && (
         <SummaryRow label={t('summary.roundingDiff', { amount: fmt(sonuc.yuvarlamaFarkiKurus) })} value="" />
       )}
-      <SummaryRow label={t('summary.checksumTotals')} value="" status={sonuc.checksum.dipToplamUyumlu} />
-      <SummaryRow label={t('summary.checksumChain')} value="" status={sonuc.checksum.bakiyeZinciriUyumlu} />
+      {/* '—' yerine NEDEN yapılamadığını söyle (belirsizlik güven kırar) */}
+      <SummaryRow
+        label={t('summary.checksumTotals')}
+        value={sonuc.checksum.dipToplamUyumlu === null ? t('summary.checksumTotalsYok') : ''}
+        status={sonuc.checksum.dipToplamUyumlu}
+      />
+      <SummaryRow
+        label={t('summary.checksumChain')}
+        value={sonuc.checksum.bakiyeZinciriUyumlu === null ? t('summary.checksumChainYok') : ''}
+        status={sonuc.checksum.bakiyeZinciriUyumlu}
+      />
       <SummaryRow label={t('summary.checksumSelf')} value="" status={sonuc.checksum.farkAciklanabilir} />
       {sonuc.donemSonrasiKalemSayisi > 0 && (
         <Text variant="bodySmall" color="secondary" style={styles.postPeriodNote}>
           {t('summary.postPeriodInfo', {
             count: sonuc.donemSonrasiKalemSayisi,
-            amount: fmtSigned(guncelBakiyeKurus, fmt),
+            amount: fmtBakiye(guncelBakiyeKurus),
           })}
         </Text>
       )}
+      {/* Denetim izi: bir ay sonra açan muhasebeci "hangi dosyayla" sorusunun cevabını bulsun */}
+      <Text variant="caption" color="muted" style={styles.postPeriodNote}>
+        {t('summary.kaynak', {
+          file: fileName ?? '—',
+          rows: ekstreSatirSayisi,
+          date: formatDate(bugunKey()),
+        })}
+      </Text>
+    </View>
+  );
+
+  const renderActions = () => (
+    <View style={styles.actionsCard}>
+      <Text variant="h3">{t('actions.title')}</Text>
+      {actionList.map((act, i) => (
+        <View key={act.key} style={styles.actionRow}>
+          <View style={styles.actionNumber}>
+            <Text variant="label" style={{ color: colors.primary }}>
+              {i + 1}
+            </Text>
+          </View>
+          <View style={styles.actionBody}>
+            <Text variant="body">{t(`actions.${act.key}`, act.params)}</Text>
+            {act.onPress && act.btnKey ? (
+              <TouchableOpacity style={styles.actionButton} onPress={act.onPress} accessibilityRole="button">
+                <Text variant="label" style={{ color: colors.white }}>
+                  {t(`actions.${act.btnKey}`)}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      ))}
     </View>
   );
 
@@ -265,6 +354,8 @@ export function ReportStep({
         );
       case 'insights':
         return renderInsights();
+      case 'actions':
+        return renderActions();
       case 'openingDiff':
         return (
           <View style={styles.openingDiffCard}>
@@ -371,8 +462,10 @@ export function ReportStep({
   );
 }
 
-function fmtSigned(kurus: number, fmt: (k: number) => string): string {
-  return `${kurus < 0 ? '−' : ''}${fmt(kurus)}`;
+/** Bugünün YYYY-MM-DD anahtarı (denetim izi satırı için) */
+function bugunKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function SummaryRow({ label, value, status }: { label: string; value: string; status?: boolean | null }) {
@@ -466,6 +559,39 @@ const styles = StyleSheet.create({
   },
   postPeriodNote: {
     marginTop: spacing.xs,
+  },
+  actionsCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.md,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+  },
+  actionNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.primaryLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  actionBody: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  actionButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   openingDiffCard: {
     backgroundColor: colors.errorLight,

@@ -57,8 +57,11 @@ export default function MutabakatPage() {
   const [step, setStep] = useState<Step>('select');
   const [picking, setPicking] = useState(false);
   const [parsed, setParsed] = useState<ParsedEkstre | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   // Rapor SNAPSHOT'tır: kuyruktan işlem eklenince yeniden hesaplanmaz
   const [sonuc, setSonuc] = useState<MutabakatSonucu | null>(null);
+  // Tek-kalem avı için kalem snapshot'ı (raporla aynı anda dondurulur)
+  const [kalemSnapshot, setKalemSnapshot] = useState<ReturnType<typeof buildDefterKalemleri> | null>(null);
 
   const { data: cari } = useCari(cariId!);
   const { data: linkStatus } = useCariLinkStatus(cariId);
@@ -95,6 +98,7 @@ export default function MutabakatPage() {
         Alert.alert(t('mutabakat:errors.title'), t('mutabakat:select.invalidExtension'));
         return;
       }
+      setFileName(file.name);
       const fileContent = await FileSystem.readAsStringAsync(file.uri, { encoding: 'base64' });
       const binaryString = atob(fileContent);
       const bytes = new Uint8Array(binaryString.length);
@@ -133,6 +137,7 @@ export default function MutabakatPage() {
         cariBalanceKurus: toKurus(toNumber(cari.balance)),
         bekleyenCekler: cari.type === 'tedarikci' ? buildBekleyenCekler(cekler ?? []) : [],
       });
+      setKalemSnapshot(kalemler);
       setSonuc(result);
       setStep('report');
     });
@@ -144,6 +149,9 @@ export default function MutabakatPage() {
     if (!sonuc || !cari) return;
     const fmt = (kurus: number) =>
       `${kurus < 0 ? '-' : ''}${formatCurrency(Math.abs(kurus) / 100, cari.currency)}`;
+    // Bakiyeler esnaf diliyle: eksi işaret yerine Borç/Alacak etiketi
+    const bak = (kurus: number) =>
+      `${t(kurus < 0 ? 'mutabakat:summary.borc' : 'mutabakat:summary.alacak')} ${formatCurrency(Math.abs(kurus) / 100, cari.currency)}`;
     const lines: string[] = [
       t('mutabakat:share.header', {
         cari: cari.name,
@@ -152,12 +160,12 @@ export default function MutabakatPage() {
       }),
       t('mutabakat:share.verdictLine', { verdict: t(`mutabakat:verdict.${sonuc.durum}`) }),
       t('mutabakat:share.openingLine', {
-        ours: fmt(sonuc.devir.bizimKurus),
-        theirs: sonuc.devir.onlarinAynaKurus !== null ? fmt(sonuc.devir.onlarinAynaKurus) : '—',
+        ours: bak(sonuc.devir.bizimKurus),
+        theirs: sonuc.devir.onlarinAynaKurus !== null ? bak(sonuc.devir.onlarinAynaKurus) : '—',
       }),
       t('mutabakat:share.closingLine', {
-        ours: fmt(sonuc.kapanis.bizimKurus),
-        theirs: sonuc.kapanis.onlarinAynaKurus !== null ? fmt(sonuc.kapanis.onlarinAynaKurus) : '—',
+        ours: bak(sonuc.kapanis.bizimKurus),
+        theirs: sonuc.kapanis.onlarinAynaKurus !== null ? bak(sonuc.kapanis.onlarinAynaKurus) : '—',
       }),
     ];
     if (sonuc.bizdeEksik.length > 0) {
@@ -241,9 +249,17 @@ export default function MutabakatPage() {
   );
 
   const ozet = useMemo(
-    () => (sonuc && cari ? generateAsistanOzeti(sonuc, cari.type) : null),
-    [sonuc, cari],
+    () => (sonuc && cari ? generateAsistanOzeti(sonuc, cari.type, { kalemler: kalemSnapshot ?? undefined }) : null),
+    [sonuc, cari, kalemSnapshot],
   );
+
+  // "Önceki dönem ekstresini iste" — hazır WhatsApp mesajı paylaş
+  const handleRequestPrevStatement = useCallback(() => {
+    if (!sonuc) return;
+    Share.share({
+      message: t('mutabakat:actions.oncekiDonemMesaj', { start: formatDateShort(sonuc.donem.start) }),
+    });
+  }, [sonuc, t, formatDateShort]);
 
   // DİKKAT: render varlığı visible'a BAĞLANMAZ — visible=false olduğu render'da
   // unmount etmek "öksüz native modal" donmasına yol açar (bkz. 3802bac).
@@ -338,10 +354,14 @@ export default function MutabakatPage() {
           sonuc={sonuc}
           ozet={ozet}
           cariType={cari.type}
+          cariName={cari.name}
           currency={cari.currency}
           guncelBakiyeKurus={toKurus(balance)}
+          fileName={fileName ?? undefined}
+          ekstreSatirSayisi={parsed?.rows.length ?? 0}
           formatDate={formatDateShort}
           onShare={handleShare}
+          onRequestPrevStatement={handleRequestPrevStatement}
           onAddRow={handleAddRow}
           addedRows={addedRows}
           skippedRows={skippedRows}

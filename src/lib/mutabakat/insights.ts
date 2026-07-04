@@ -6,27 +6,35 @@
  * ve i18n çevirisi UI'da yapılır (kod → mutabakat:insights.{code}).
  */
 
-import type { CariType, MutabakatSonucu } from './types';
+import { epochDayOf } from './helpers';
+import type { CariType, DefterKalemi, MutabakatSonucu } from './types';
 
 export type InsightTone = 'ok' | 'info' | 'warn';
 
 export interface Insight {
   code:
-    | 'fark_aleyhinize'        // {amount} — onların defterinde bakiye aleyhimize
-    | 'fark_lehinize'          // {amount} — onların defterinde bakiye lehimize
-    | 'devir_lehinize'         // {amount} — geçmiş dönem devrinde lehimize fark
+    // Manşet — duruma özel TEK cümle (jenerik parantezli metin yerine):
+    | 'fark_devirden'          // {count, amount} — dönem uyumlu, fark tamamen devirden
+    | 'fark_borc_lehinize'     // {amount, cari} — borcunuzu daha düşük gösteriyor
+    | 'fark_borc_aleyhinize'   // {amount, cari} — borcunuzu daha yüksek gösteriyor
+    | 'fark_alacak_lehinize'   // {amount, cari} — alacağınızı daha yüksek gösteriyor
+    | 'fark_alacak_aleyhinize' // {amount, cari} — alacağınızı daha düşük gösteriyor
+    | 'devir_lehinize'         // {amount}
     | 'devir_aleyhinize'       // {amount}
-    | 'fatura_tamam'           // {count} — fatura tarafı birebir tutuyor
-    | 'odeme_tamam'            // {count} — ödeme/tahsilat tarafı birebir tutuyor
-    | 'mukerrer_suphe'         // {date, amount} — defterde çift kayıt şüphesi
-    | 'kurus_farki'            // {count, amount} — küçük yuvarlama farklarının NET toplamı
-    | 'donem_sonrasi'          // {count} — ekstre bitiminden sonra işlem var
+    | 'devir_tek_kalem'        // {amount, date, detay} — devir farkı tek kayıtla birebir
+    | 'fatura_tamam'           // {count}
+    | 'odeme_tamam'            // {count}
+    | 'mukerrer_suphe'         // {date, amount}
+    | 'kurus_farki'            // {count, amount} — NET toplam
+    | 'donem_sonrasi'          // {count}
     | 'eski_donem_ekstresi';   // devir farkı için önceki dönem ekstresi istenmeli
   tone: InsightTone;
   amountKurus?: number;
   count?: number;
   /** YYYY-MM-DD */
   date?: string;
+  /** Serbest ek bilgi (örn. tek-kalem avında kaydın açıklaması) */
+  detay?: string;
 }
 
 /** Kapanış farkının kalem kalem dökümü (fark denklemi) */
@@ -51,7 +59,16 @@ export interface AsistanOzeti {
   mukerrerIslemIds: string[];
 }
 
-export function generateAsistanOzeti(sonuc: MutabakatSonucu, cariType: CariType): AsistanOzeti {
+export interface AsistanOzetiOptions {
+  /** Devir farkı tek-kalem avı için carinin TÜM kalemleri */
+  kalemler?: DefterKalemi[];
+}
+
+export function generateAsistanOzeti(
+  sonuc: MutabakatSonucu,
+  cariType: CariType,
+  opts?: AsistanOzetiOptions,
+): AsistanOzeti {
   const insights: Insight[] = [];
 
   const mirror = (satir: { debitKurus: number | null; creditKurus: number | null }) =>
@@ -59,17 +76,40 @@ export function generateAsistanOzeti(sonuc: MutabakatSonucu, cariType: CariType)
       ? (satir.creditKurus ?? 0) - (satir.debitKurus ?? 0)
       : (satir.debitKurus ?? 0) - (satir.creditKurus ?? 0);
 
-  // ---- Kapanış farkı yönü (leh/aleyh dili) ----
+  // ---- Manşet: kapanış farkı, duruma özel cümleyle ----
   // kapanis.farkKurus = onlarınAyna − bizim (bizim perspektif, pozitif = alacağımız).
-  // fark < 0 → onların defteri alacağımızı daha DÜŞÜK / borcumuzu daha YÜKSEK
-  // gösteriyor → ALEYHİMİZE. fark > 0 → LEHİMİZE.
+  // fark < 0 → ALEYHİMİZE, fark > 0 → LEHİMİZE.
   const fark = sonuc.kapanis.farkKurus;
+  const devirFark = sonuc.devir.farkKurus;
+  // Farkın ≥%90'ı devirden geliyorsa asıl hikaye "dönem uyumlu, sorun geçmişte" —
+  // jenerik fark cümlesi yerine rahatlatan manşet (SMMM geri bildirimi).
+  const devirBaskin =
+    fark !== null &&
+    devirFark !== null &&
+    Math.abs(fark) > 100 &&
+    Math.abs(devirFark) / Math.abs(fark) >= 0.9 &&
+    Math.abs(devirFark) <= Math.abs(fark) * 1.1;
   if (fark !== null && Math.abs(fark) > 100) {
-    insights.push({
-      code: fark < 0 ? 'fark_aleyhinize' : 'fark_lehinize',
-      tone: 'warn',
-      amountKurus: Math.abs(fark),
-    });
+    if (devirBaskin) {
+      insights.push({
+        code: 'fark_devirden',
+        tone: 'info',
+        count: sonuc.eslesmeler.length,
+        amountKurus: Math.abs(devirFark!),
+      });
+    } else {
+      // Kişisel cümle: bizim bakiye borç mu alacak mı + fark yönü → 4 net varyant
+      const borcMu = sonuc.kapanis.bizimKurus < 0;
+      const lehimize = fark > 0;
+      // Cari adı UI'da eklenir ({{cari}} parametresi) — motor saf kalır
+      insights.push({
+        code: borcMu
+          ? lehimize ? 'fark_borc_lehinize' : 'fark_borc_aleyhinize'
+          : lehimize ? 'fark_alacak_lehinize' : 'fark_alacak_aleyhinize',
+        tone: 'warn',
+        amountKurus: Math.abs(fark),
+      });
+    }
   }
 
   // ---- Fark köprüsü (denklem) ----
@@ -87,8 +127,7 @@ export function generateAsistanOzeti(sonuc: MutabakatSonucu, cariType: CariType)
     };
   }
 
-  // ---- Devir farkı yönü ----
-  const devirFark = sonuc.devir.farkKurus;
+  // ---- Devir farkı yönü + tek kalem avı ----
   if (devirFark !== null && Math.abs(devirFark) > 100) {
     // devirFark = onlarınAyna − bizim: pozitif → onların devri bize daha çok alacak
     // yazıyor → LEHİMİZE (kendimizi fazla borçlu/eksik alacaklı taşımışız).
@@ -97,7 +136,28 @@ export function generateAsistanOzeti(sonuc: MutabakatSonucu, cariType: CariType)
       tone: 'warn',
       amountKurus: Math.abs(devirFark),
     });
-    insights.push({ code: 'eski_donem_ekstresi', tone: 'info' });
+    // Tek kalem avı: devir farkı, defterdeki TEK bir kaydın tutarıyla birebir aynıysa
+    // muhtemel suçlu odur — kullanıcıyı haftalarca uğraştıracak işi saniyede çözer.
+    // Önce dönem-öncesi kayıtlarda aranır (devir oradan gelir), yoksa tüm defterde.
+    let tekKalem: DefterKalemi | null = null;
+    if (opts?.kalemler?.length) {
+      const hedef = Math.abs(devirFark);
+      const startDay = epochDayOf(sonuc.donem.start);
+      const oncesi = opts.kalemler.filter((k) => k.amountKurus === hedef && k.epochDay < startDay);
+      const hepsi = oncesi.length > 0 ? oncesi : opts.kalemler.filter((k) => k.amountKurus === hedef);
+      if (hepsi.length === 1) tekKalem = hepsi[0];
+    }
+    if (tekKalem) {
+      insights.push({
+        code: 'devir_tek_kalem',
+        tone: 'warn',
+        amountKurus: tekKalem.amountKurus,
+        date: tekKalem.date,
+        detay: tekKalem.description || undefined,
+      });
+    } else {
+      insights.push({ code: 'eski_donem_ekstresi', tone: 'info' });
+    }
   }
 
   // ---- Taraf kırılımı: fatura tarafı / ödeme tarafı birebir mi? ----
