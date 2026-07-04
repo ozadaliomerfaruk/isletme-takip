@@ -144,6 +144,16 @@ function fmt(amount: number | null, currency?: Currency | string): string {
   return formatCurrency(Math.abs(amount), currency);
 }
 
+// Kullanıcı girdisi HTML'e gömülüyor (expo-print WebKit ile parse eder);
+// '<' içeren açıklama/isim satırı bozmasın
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 export function generatePdfHtml(options: PdfExportOptions): string {
   const { entityType, entityName, isletmeName, startDate, endDate, entityCurrency, cariType, phone, translations } = options;
   const data = prepareStatementData(options);
@@ -175,8 +185,8 @@ export function generatePdfHtml(options: PdfExportOptions): string {
   const transactionRows = data.rows.map((row) => `
     <tr>
       <td>${row.date}</td>
-      <td>${row.type}</td>
-      <td class="desc">${row.description}</td>
+      <td>${escapeHtml(row.type)}</td>
+      <td class="desc">${escapeHtml(row.description)}</td>
       <td class="amount">${fmt(row.debit, entityCurrency)}</td>
       <td class="amount">${fmt(row.credit, entityCurrency)}</td>
       <td class="amount">${fmt(row.debitBalance, entityCurrency)}</td>
@@ -219,11 +229,11 @@ export function generatePdfHtml(options: PdfExportOptions): string {
 <body>
   <div class="header">
     <h1>${translations.statementTitle}</h1>
-    <h2>${isletmeName}</h2>
+    <h2>${escapeHtml(isletmeName)}</h2>
     <div class="header-divider"></div>
     <div class="meta">
-      <div class="meta-item"><span class="meta-label">${translations.entityLabel}:</span><span class="meta-value">${entityName}</span></div>
-      ${phone ? `<div class="meta-item"><span class="meta-label">${translations.phone}:</span><span class="meta-value">${phone}</span></div>` : ''}
+      <div class="meta-item"><span class="meta-label">${translations.entityLabel}:</span><span class="meta-value">${escapeHtml(entityName)}</span></div>
+      ${phone ? `<div class="meta-item"><span class="meta-label">${translations.phone}:</span><span class="meta-value">${escapeHtml(phone)}</span></div>` : ''}
       <div class="meta-item"><span class="meta-label">${translations.date}:</span><span class="meta-value">${dateStr}</span></div>
       <div class="meta-item"><span class="meta-label">${translations.time}:</span><span class="meta-value">${timeStr}</span></div>
       <div class="meta-item"><span class="meta-label">${translations.period}:</span><span class="meta-value">${startFmt} - ${endFmt}</span></div>

@@ -13,7 +13,7 @@ import { logEvent } from '@/lib/appEvents';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
-import { LEAVE_TYPES } from '@/constants/islemTypes';
+import { LEAVE_TYPES, CARI_ISLEM_TYPES, PERSONEL_ISLEM_TYPES } from '@/constants/islemTypes';
 import { toErrorMessage } from '@/lib/errors';
 
 // Büyük veri uyarısı için eşik değer
@@ -98,6 +98,22 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
         noDataError: t('common:export.noDataToExport'),
       };
 
+      // Ekstreye girecek satırlar: izinler hariç; cari/personel ekstresi
+      // yalnız ilgili tip ailesini içerir (import yabancı tiplere entity
+      // bağlayabiliyordu → boş satır + donmuş bakiye); hesap ekstresinde
+      // transfer dışı işlemler yalnız kaynak-hesap tarafında sayılır
+      // (import her tipte hedef_hesap_id yazabildiğinden hayalet satır önleme)
+      const keepInStatement = (islem: IslemWithRelations) => {
+        if (LEAVE_TYPES.includes(islem.type)) return false;
+        if (entityType === 'cari') return CARI_ISLEM_TYPES.includes(islem.type);
+        if (entityType === 'personel') return PERSONEL_ISLEM_TYPES.includes(islem.type);
+        if (entityType === 'hesap') {
+          return islem.hesap_id === entityId
+            || (islem.type === 'transfer' && islem.hedef_hesap_id === entityId);
+        }
+        return true;
+      };
+
       // Export işlemini gerçekleştiren fonksiyon
       const performExport = async () => {
         setIsExporting(true);
@@ -122,7 +138,10 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
               `)
               .gte('date', startDate)
               .lt('date', endDateNextDay)
-              .order('date', { ascending: true });
+              // İkincil unique sıralama şart: fetchAllPages offset'li sayfalar
+              // çeker, eşit tarihli satırlar sayfa sınırında kaybolabilir
+              .order('date', { ascending: true })
+              .order('id', { ascending: true });
 
             // Cari için isletme_id filtresi koymuyoruz çünkü paylaşılan carilerde
             // A ve B farklı isletme_id'lere sahip — RLS yeterli
@@ -141,8 +160,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
           };
 
           const rawTransactions = await fetchAllPages<IslemWithRelations>(buildTransactionsQuery);
-          // İzin işlemlerini export'tan hariç tut (para hareketi değil, gün bazlı)
-          const transactions = rawTransactions.filter(t => !LEAVE_TYPES.includes(t.type));
+          const transactions = rawTransactions.filter(keepInStatement);
 
           // Tüm işlemleri getir (başlangıç bakiyesi hesabı için) - paginated
           const buildAllQuery = () => {
@@ -156,7 +174,10 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
                 cari:cariler(id,name,type),
                 personel:personel(id,first_name,last_name)
               `)
-              .order('date', { ascending: true });
+              // İkincil unique sıralama şart: fetchAllPages offset'li sayfalar
+              // çeker, eşit tarihli satırlar sayfa sınırında kaybolabilir
+              .order('date', { ascending: true })
+              .order('id', { ascending: true });
 
             if (entityType !== 'cari') {
               q = q.eq('isletme_id', isletme.id);
@@ -173,8 +194,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
           };
 
           const rawAllTransactions = await fetchAllPages<IslemWithRelations>(buildAllQuery);
-          // İzin işlemlerini export'tan hariç tut
-          const allTransactions = rawAllTransactions.filter(t => !LEAVE_TYPES.includes(t.type));
+          const allTransactions = rawAllTransactions.filter(keepInStatement);
 
           // Export et
           await exportToExcel({

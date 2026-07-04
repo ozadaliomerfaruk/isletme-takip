@@ -166,6 +166,16 @@ export function PdfExportSheet({
   const dateStr = now.toLocaleDateString(pdfLocale, { day: '2-digit', month: '2-digit', year: 'numeric' });
   const timeStr = now.toLocaleTimeString(pdfLocale, { hour: '2-digit', minute: '2-digit' });
 
+  // Açılış/kapanış bakiyesi kolon eşlemesi generatePdfHtml ile aynı olmalı:
+  // cari + personel borç-bakiyeli (pozitif = bize borçlu → Borç kolonu),
+  // hesap alacak-bakiyeli. Sabit "negatif→Borç" eşlemesi cari/personelde
+  // bakiyeyi yanlış kolonda gösteriyordu.
+  const isDebitNormal = entityType === 'cari' || entityType === 'personel';
+  const balanceDebit = (v: number) =>
+    (isDebitNormal ? v > 0 : v < 0) ? formatCurrency(Math.abs(v), entityCurrency) : '';
+  const balanceCredit = (v: number) =>
+    (isDebitNormal ? v < 0 : v >= 0) ? formatCurrency(Math.abs(v), entityCurrency) : '';
+
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onDismiss}>
       <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -303,10 +313,10 @@ export function PdfExportSheet({
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryText, { flex: 1 }]}>{t('export.excel.openingBalance')}</Text>
                 <Text style={[styles.summaryAmount, styles.thAmount]}>
-                  {previewData.openingBalance < 0 ? formatCurrency(Math.abs(previewData.openingBalance), entityCurrency) : ''}
+                  {balanceDebit(previewData.openingBalance)}
                 </Text>
                 <Text style={[styles.summaryAmount, styles.thAmount]}>
-                  {previewData.openingBalance >= 0 ? formatCurrency(previewData.openingBalance, entityCurrency) : ''}
+                  {balanceCredit(previewData.openingBalance)}
                 </Text>
               </View>
 
@@ -340,10 +350,10 @@ export function PdfExportSheet({
               <View style={styles.summaryRow}>
                 <Text style={[styles.summaryText, { flex: 1 }]}>{t('export.excel.closingBalance')}</Text>
                 <Text style={[styles.summaryAmount, styles.thAmount]}>
-                  {previewData.closingBalance < 0 ? formatCurrency(Math.abs(previewData.closingBalance), entityCurrency) : ''}
+                  {balanceDebit(previewData.closingBalance)}
                 </Text>
                 <Text style={[styles.summaryAmount, styles.thAmount]}>
-                  {previewData.closingBalance >= 0 ? formatCurrency(previewData.closingBalance, entityCurrency) : ''}
+                  {balanceCredit(previewData.closingBalance)}
                 </Text>
               </View>
 

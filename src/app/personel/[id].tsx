@@ -866,7 +866,9 @@ export default function PersonelHareketleriPage() {
           entityType="personel"
           entityId={id!}
           entityName={fullName}
+          entityCurrency={personel.currency}
           currentBalance={Number(personel.balance)}
+          phone={personel.phone ?? undefined}
         />
 
         <BalanceEditorModal

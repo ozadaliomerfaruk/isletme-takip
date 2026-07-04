@@ -8,7 +8,7 @@ import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, toNumber } from './currency';
+import { formatCurrency, toNumber, calculateTargetAmount } from './currency';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { IslemWithRelations, Currency, UrunHareket } from '@/types/database';
 import { invertCariTransactionType, shouldInvertTransaction } from '@/lib/cariTransactionMapper';
@@ -273,6 +273,24 @@ export function calculateHesapOpeningBalance(
 // ============================================================================
 
 /**
+ * Ödeme/tahsilat hesap-bacaklıdır: islem.amount HESAP para birimindedir.
+ * Cari/personel ekstresi entity para biriminde döküldüğünden, DB bakiye
+ * güncellemesiyle (useIslemler updateBalances) aynı dönüşüm uygulanır.
+ * Kur bilgisi eksik/geçersizse ham tutara düşer (eski davranış).
+ */
+function toEntityAmount(islem: IslemWithRelations): number {
+  const amount = toNumber(islem.amount);
+  const source = islem.source_currency || 'TRY';
+  const target = islem.target_currency || 'TRY';
+  if (source === target) return amount;
+  try {
+    return calculateTargetAmount(amount, toNumber(islem.exchange_rate), source, target);
+  } catch {
+    return amount;
+  }
+}
+
+/**
  * Cari için borç/alacak belirleme (standart muhasebe kuralları)
  * DB konvansiyonuyla aynı yön ağı: pozitif bakiye = bize borçlu.
  * Bakiyeyi arttıran tipler BORÇ, azaltanlar ALACAK. Cari tipinden bağımsız
@@ -287,13 +305,15 @@ export function getCariDebitCredit(
 
   switch (islem.type) {
     case 'cari_satis':      // Alacağımız arttı
-    case 'cari_odeme':      // Borcumuzu ödedik
     case 'cari_alis_iade':  // Borcumuz azaldı
       return { debit: amount, credit: null };
+    case 'cari_odeme':      // Borcumuzu ödedik (hesap-bacaklı → kur dönüşümü)
+      return { debit: toEntityAmount(islem), credit: null };
     case 'cari_alis':       // Borcumuz arttı
-    case 'cari_tahsilat':   // Alacağımızı tahsil ettik
     case 'cari_satis_iade': // Alacağımız azaldı
       return { debit: null, credit: amount };
+    case 'cari_tahsilat':   // Alacağımızı tahsil ettik (hesap-bacaklı → kur dönüşümü)
+      return { debit: null, credit: toEntityAmount(islem) };
     default:
       return { debit: null, credit: null };
   }
@@ -369,9 +389,9 @@ export function getPersonelDebitCredit(
     case 'personel_gider':
       return { debit: null, credit: amount }; // Biz borçlandık
     case 'personel_odeme':
-      return { debit: amount, credit: null }; // Ödedik
+      return { debit: toEntityAmount(islem), credit: null }; // Ödedik (hesap-bacaklı → kur dönüşümü)
     case 'personel_tahsilat':
-      return { debit: null, credit: amount }; // Personelden alacak (avans geri ödeme)
+      return { debit: null, credit: toEntityAmount(islem) }; // Personelden alacak (hesap-bacaklı → kur dönüşümü)
     case 'personel_satis':
       return { debit: amount, credit: null }; // Personele satış (personel bize borçlandı)
     default:

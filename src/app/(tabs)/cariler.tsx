@@ -45,6 +45,8 @@ import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { DetailExportSection } from '@/components/detail';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { hasTypeMismatch } from '@/lib/cariTransactionMapper';
 
 // Merged cari type: own cari + optional link metadata
 type MergedCari = Cari & {
@@ -120,6 +122,9 @@ export default function CarilerPage() {
   // Toast ve Haptics
   const { showToast } = useToast();
   const haptics = useHaptics();
+
+  // Export için işletme + link metadata (detay ekranıyla aynı ekstre için)
+  const { isletme } = useAuthContext();
 
   // Permissions
   const { canUpdate, canDelete } = usePermissions();
@@ -848,6 +853,11 @@ export default function CarilerPage() {
           entityCurrency={exportCari.currency}
           currentBalance={Number(exportCari.balance)}
           cariType={exportCari.type as 'musteri' | 'tedarikci'}
+          currentIsletmeId={isletme?.id}
+          typeMismatch={hasTypeMismatch(
+            exportCari.type,
+            allCariLinks.find((l) => l.cari_id === exportCari.id)?.viewer_type
+          )}
           phone={exportCari.phone ?? undefined}
           onSharePress={() => {
             setExportSectionVisible(false);

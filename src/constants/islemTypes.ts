@@ -75,6 +75,20 @@ export const EXPENSE_RETURN_TYPES: IslemType[] = ['cari_alis_iade'];
 export const LEAVE_TYPES: IslemType[] = ['personel_izin_hakki', 'personel_izin_kullanimi'];
 
 /**
+ * Cari bakiyesini etkileyen işlem tipleri (cari ekstresine giren aile)
+ */
+export const CARI_ISLEM_TYPES: IslemType[] = [
+  'cari_alis', 'cari_satis', 'cari_odeme', 'cari_tahsilat', 'cari_alis_iade', 'cari_satis_iade',
+];
+
+/**
+ * Personel bakiyesini etkileyen işlem tipleri (personel ekstresine giren aile)
+ */
+export const PERSONEL_ISLEM_TYPES: IslemType[] = [
+  'personel_gider', 'personel_odeme', 'personel_tahsilat', 'personel_satis',
+];
+
+/**
  * Verilen işlem tipinin izin mi olduğunu kontrol eder
  */
 export function isLeaveType(type: IslemType): boolean {

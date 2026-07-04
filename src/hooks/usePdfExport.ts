@@ -3,13 +3,14 @@ import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { logEvent } from '@/lib/appEvents';
 import { IslemWithRelations, Currency } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
-import { LEAVE_TYPES } from '@/constants/islemTypes';
+import { LEAVE_TYPES, CARI_ISLEM_TYPES, PERSONEL_ISLEM_TYPES } from '@/constants/islemTypes';
 import { toErrorMessage } from '@/lib/errors';
 import { EntityType } from '@/lib/excelExport';
 import { generatePdfHtml, prepareStatementData, PdfExportOptions, PdfStatementData } from '@/lib/pdfExport';
@@ -107,7 +108,11 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
           cari:cariler(id,name,type),
           personel:personel(id,first_name,last_name)
         `)
-        .order('date', { ascending: true });
+        // İkincil unique sıralama şart: fetchAllPages offset'li sayfalar
+        // çeker, eşit tarihli satırlar tek başına 'date' ile sayfa sınırında
+        // kaybolabilir/yinelenebilir
+        .order('date', { ascending: true })
+        .order('id', { ascending: true });
 
       if (withDateFilter) {
         q = q.gte('date', startDate).lt('date', endDateNextDay);
@@ -132,9 +137,23 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
       fetchAllPages<IslemWithRelations>(() => buildQuery(false)),
     ]);
 
+    // Ekstre satır filtresi — useExcelExport.keepInStatement ile aynı kurallar:
+    // izinler hariç; cari/personel yalnız kendi tip ailesi; hesapta transfer
+    // dışı işlemler yalnız kaynak-hesap tarafında (hayalet satır önleme)
+    const keepInStatement = (islem: IslemWithRelations) => {
+      if (LEAVE_TYPES.includes(islem.type)) return false;
+      if (entityType === 'cari') return CARI_ISLEM_TYPES.includes(islem.type);
+      if (entityType === 'personel') return PERSONEL_ISLEM_TYPES.includes(islem.type);
+      if (entityType === 'hesap') {
+        return islem.hesap_id === entityId
+          || (islem.type === 'transfer' && islem.hedef_hesap_id === entityId);
+      }
+      return true;
+    };
+
     return {
-      transactions: rawTransactions.filter(t => !LEAVE_TYPES.includes(t.type)),
-      allTransactions: rawAllTransactions.filter(t => !LEAVE_TYPES.includes(t.type)),
+      transactions: rawTransactions.filter(keepInStatement),
+      allTransactions: rawAllTransactions.filter(keepInStatement),
     };
   }, [entityType, entityId, isletme]);
 
@@ -188,12 +207,23 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
       const { uri } = await Print.printToFileAsync({ html });
       logEvent('export_completed', { format: 'pdf' });
 
+      // expo-print rastgele temp ada yazar; paylaşmadan önce anlamlı ada
+      // kopyala ki karşı tarafa "Print-<uuid>.pdf" yerine cari adı gitsin
       const safeName = entityName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\s-]/g, '').replace(/\s+/g, '_');
-      const newUri = uri.replace(/\.pdf$/, `_${safeName}.pdf`);
+      let shareUri = uri;
+      if (safeName) {
+        const namedUri = `${FileSystem.cacheDirectory}${safeName}_${startDate}_${endDate}.pdf`;
+        try {
+          await FileSystem.copyAsync({ from: uri, to: namedUri });
+          shareUri = namedUri;
+        } catch {
+          // kopyalama başarısızsa orijinal geçici dosyayla paylaş
+        }
+      }
 
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
-        await Sharing.shareAsync(newUri.includes(safeName) ? uri : uri, {
+        await Sharing.shareAsync(shareUri, {
           mimeType: 'application/pdf',
           dialogTitle: `${entityName} - PDF`,
           UTI: 'com.adobe.pdf',
