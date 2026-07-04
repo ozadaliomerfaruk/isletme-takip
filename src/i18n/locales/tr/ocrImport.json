@@ -43,7 +43,9 @@
     "tip1": "Faturayı düz bir yüzeye koyun",
     "tip2": "Tüm metni çerçeveye alın",
     "tip3": "İyi aydınlatma sağlayın",
-    "tip4": "Flash kullanabilirsiniz"
+    "tip4": "Flash kullanabilirsiniz",
+    "quotaExhausted": "Günlük tarama limitine ulaştınız ({{limit}}/{{limit}})",
+    "quotaRemaining": "{{remaining}}/{{limit}} tarama hakkı"
   },
   "processing": {
     "title": "Fatura Okunuyor...",

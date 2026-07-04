@@ -43,7 +43,9 @@
     "tip1": "Place the invoice on a flat surface",
     "tip2": "Frame all text within the photo",
     "tip3": "Ensure good lighting",
-    "tip4": "You can use flash"
+    "tip4": "You can use flash",
+    "quotaExhausted": "Daily scan limit reached ({{limit}}/{{limit}})",
+    "quotaRemaining": "{{remaining}}/{{limit}} scans left"
   },
   "processing": {
     "title": "Reading Invoice...",

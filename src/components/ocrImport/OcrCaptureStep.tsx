@@ -66,8 +66,8 @@ export function OcrCaptureStep({
           )}
           <Text variant="caption" style={{ color: quotaBannerColor, fontWeight: '600', flex: 1 }}>
             {isExhausted
-              ? `Günlük tarama limitine ulaştınız (${dailyLimit}/${dailyLimit})`
-              : `${remainingUsage}/${dailyLimit} tarama hakkı`
+              ? t('capture.quotaExhausted', { limit: dailyLimit })
+              : t('capture.quotaRemaining', { remaining: remainingUsage, limit: dailyLimit })
             }
           </Text>
         </View>
