@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import {
   View,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
   FlatList,
   Animated,
   TouchableOpacity,
@@ -25,8 +25,6 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { getNeedsSetupSync } from '@/lib/setupFlow';
 
-const { width } = Dimensions.get('window');
-
 const ONBOARDING_KEY = '@defter_onboarding_completed';
 
 interface OnboardingSlide {
@@ -42,6 +40,8 @@ export default function OnboardingScreen() {
   const { t } = useTranslation(['auth', 'common']);
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
+  // Slide genişliği pencereyle güncellenmeli (küçük pencerede açılış / yeniden boyutlanma)
+  const { width } = useWindowDimensions();
 
   const slides: OnboardingSlide[] = [
     {

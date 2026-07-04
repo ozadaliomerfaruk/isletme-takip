@@ -12,7 +12,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
   Alert,
   StatusBar,
   Share,
@@ -40,7 +40,6 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useGetPhotoUrl } from '@/hooks/useIslemPhoto';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 150;
 
 interface PhotoViewerModalProps {
@@ -71,6 +70,10 @@ export function PhotoViewerModal({
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const getPhotoUrl = useGetPhotoUrl();
+  // Pencereyle güncellenen boyutlar: donmuş değerler foto kırpma, yanlış
+  // zoom merkezi ve bayat pan sınırı üretiyordu (gesture'lar render
+  // kapsamında tanımlı olduğundan güncel değeri kapatırlar)
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   // Zoom state
   const scale = useSharedValue(1);
@@ -255,8 +258,8 @@ export function PhotoViewerModal({
         savedTranslateY.value = translateY.value;
 
         // Bound check - prevent image from going too far
-        const maxX = (SCREEN_WIDTH * (savedScale.value - 1)) / 2;
-        const maxY = (SCREEN_HEIGHT * (savedScale.value - 1)) / 2;
+        const maxX = (screenWidth * (savedScale.value - 1)) / 2;
+        const maxY = (screenHeight * (savedScale.value - 1)) / 2;
 
         if (Math.abs(translateX.value) > maxX) {
           const boundedX = translateX.value > 0 ? maxX : -maxX;
@@ -304,8 +307,8 @@ export function PhotoViewerModal({
         savedScale.value = targetScale;
 
         // Calculate offset to center zoom on tap point
-        const centerX = SCREEN_WIDTH / 2;
-        const centerY = SCREEN_HEIGHT / 2;
+        const centerX = screenWidth / 2;
+        const centerY = screenHeight / 2;
         const offsetX = (centerX - e.x) * (targetScale - 1);
         const offsetY = (centerY - e.y) * (targetScale - 1);
 
@@ -395,7 +398,7 @@ export function PhotoViewerModal({
               </View>
             ) : (
               <GestureDetector gesture={composedGesture}>
-                <Animated.View style={[styles.imageWrapper, imageAnimatedStyle]}>
+                <Animated.View style={[styles.imageWrapper, { width: screenWidth, height: screenHeight * 0.7 }, imageAnimatedStyle]}>
                   <Image
                     source={{ uri: imageUrl }}
                     style={styles.image}
@@ -501,8 +504,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   imageWrapper: {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.7,
     justifyContent: 'center',
     alignItems: 'center',
   },

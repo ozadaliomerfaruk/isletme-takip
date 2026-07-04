@@ -7,7 +7,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { BarChart } from 'react-native-gifted-charts';
 import { Filter, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -34,6 +34,9 @@ export function TrendChartWidget({ period, dateRange }: WidgetProps) {
 
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('net');
 
+  // Pencere genişliğiyle güncellenmeli (iPad/Mac yeniden boyutlanınca grafik taşmasın)
+  const { width: windowWidth } = useWindowDimensions();
+
   if (trend.isLoading) {
     return (
       <View style={styles.container}>
@@ -46,7 +49,7 @@ export function TrendChartWidget({ period, dateRange }: WidgetProps) {
   }
 
   // Prepare bar data based on selected metric
-  const chartWidth = Dimensions.get('window').width - spacing.lg * 4;
+  const chartWidth = windowWidth - spacing.lg * 4;
   const barWidth = Math.max(20, (chartWidth / trend.data.length) - 12);
 
   const getBarColor = (value: number, metric: MetricType): string => {

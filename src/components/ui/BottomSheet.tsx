@@ -5,7 +5,7 @@ import {
   Modal,
   Animated,
   PanResponder,
-  Dimensions,
+  useWindowDimensions,
   TouchableWithoutFeedback,
   Platform,
   Keyboard,
@@ -16,7 +16,6 @@ import { colors } from '@/constants/colors';
 import { borderRadius } from '@/constants/spacing';
 import * as Haptics from 'expo-haptics';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 150;
 const VELOCITY_THRESHOLD = 500;
 
@@ -42,7 +41,13 @@ export function BottomSheet({
   enableBackdropDismiss = true,
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
+  // Yükseklik pencereyle güncellenmeli: modül kapsamında donmuş değer, iPad
+  // Split View / Mac penceresi yeniden boyutlanınca sheet'i görünür alanın
+  // dışına konumlandırıyordu. Callback'ler ve PanResponder ref üzerinden okur.
+  const { height: screenHeight } = useWindowDimensions();
+  const screenHeightRef = useRef(screenHeight);
+  screenHeightRef.current = screenHeight;
+  const translateY = useRef(new Animated.Value(screenHeight)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const lastGestureDy = useRef(0);
   const currentSnapIndexRef = useRef(currentSnapIndex);
@@ -74,7 +79,7 @@ export function BottomSheet({
   const getHeightForSnap = useCallback(
     (index: number) => {
       const sp = snapPointsRef.current[index] ?? snapPointsRef.current[0];
-      return SCREEN_HEIGHT * sp;
+      return screenHeightRef.current * sp;
     },
     []
   );
@@ -83,7 +88,7 @@ export function BottomSheet({
   const getTargetY = useCallback(
     (snapIndex: number, kbHeight: number) => {
       const height = getHeightForSnap(snapIndex);
-      return SCREEN_HEIGHT - height - kbHeight;
+      return screenHeightRef.current - height - kbHeight;
     },
     [getHeightForSnap]
   );
@@ -125,7 +130,7 @@ export function BottomSheet({
   const close = useCallback(() => {
     Keyboard.dismiss();
     Animated.spring(translateY, {
-      toValue: SCREEN_HEIGHT,
+      toValue: screenHeightRef.current,
       damping: 32,
       stiffness: 300,
       mass: 0.8,
@@ -204,8 +209,8 @@ export function BottomSheet({
       },
       onPanResponderMove: (_, gestureState) => {
         const snapPt = snapPointsRef.current[currentSnapIndexRef.current] ?? snapPointsRef.current[0];
-        const currentHeight = SCREEN_HEIGHT * snapPt;
-        const baseY = SCREEN_HEIGHT - currentHeight;
+        const currentHeight = screenHeightRef.current * snapPt;
+        const baseY = screenHeightRef.current - currentHeight;
 
         if (gestureState.dy < 0) {
           const resistance = 0.3;
@@ -248,13 +253,24 @@ export function BottomSheet({
   useEffect(() => {
     if (visible && !hasOpenedRef.current) {
       hasOpenedRef.current = true;
-      translateY.setValue(SCREEN_HEIGHT);
+      translateY.setValue(screenHeightRef.current);
       animateToSnap(currentSnapIndex, 0, 0);
       animateBackdrop(0.5);
     } else if (!visible) {
       hasOpenedRef.current = false;
     }
   }, [visible, animateToSnap, animateBackdrop, currentSnapIndex, translateY]);
+
+  // Sheet açıkken pencere yüksekliği değişirse (iPad Split View / Mac
+  // penceresi) aktif snap noktasına yeniden hizala
+  const prevHeightRef = useRef(screenHeight);
+  useEffect(() => {
+    if (prevHeightRef.current === screenHeight) return;
+    prevHeightRef.current = screenHeight;
+    if (visible && hasOpenedRef.current) {
+      animateToSnap(currentSnapIndexRef.current);
+    }
+  }, [screenHeight, visible, animateToSnap]);
 
   // Handle snap index changes from parent
   useEffect(() => {
@@ -287,6 +303,7 @@ export function BottomSheet({
           styles.sheet,
           {
             height: sheetHeight,
+            maxHeight: screenHeight * 0.92,
             paddingBottom: kbVisible ? 0 : insets.bottom,
             transform: [{ translateY }],
           },
@@ -319,7 +336,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: borderRadius['2xl'],
     borderTopRightRadius: borderRadius['2xl'],
     minHeight: 200,
-    maxHeight: SCREEN_HEIGHT * 0.92,
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
