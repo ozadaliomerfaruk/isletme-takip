@@ -227,6 +227,7 @@
     "vatIncluded": "Incl. VAT",
     "refPurchase": "Purchase price",
     "refSale": "Sale price",
+    "lastPrice": "Last transaction",
     "currencyMismatch": "This product is in {{productCurrency}}; transaction is {{txnCurrency}}. Added without conversion.",
     "itemRemoved": "{{name}} removed",
     "undo": "Undo",

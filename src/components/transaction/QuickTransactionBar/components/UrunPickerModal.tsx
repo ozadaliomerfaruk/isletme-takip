@@ -22,6 +22,8 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
+import { useSonUrunFiyati } from '@/hooks/useUrunHareketler';
+import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { textIncludes } from '@/lib/turkishTextUtils';
 import { styles as sharedStyles } from '../styles';
@@ -91,6 +93,25 @@ export function UrunPickerModal({
   const [addingProduct, setAddingProduct] = useState<AddingProduct | null>(null);
   // Düzenleme modunda olan ürün ID'si (null ise yeni ekleme)
   const [editingUrunId, setEditingUrunId] = useState<string | null>(null);
+  // Kullanıcı fiyat alanına dokunduysa son-fiyat otomatik doldurması devre dışı kalır
+  const priceTouchedRef = useRef(false);
+  const { formatDateShort } = useDateFormat();
+  // Son işlem fiyatı (yalnız YENİ eklemede; düzenlemede kullanıcının fiyatı korunur)
+  const addingUrunId = addingProduct && editingUrunId === null ? addingProduct.urun.id : undefined;
+  const { data: sonFiyat } = useSonUrunFiyati(addingUrunId, islemYonu);
+
+  // Son fiyat yüklendiğinde, kullanıcı fiyata dokunmadıysa alanı onunla doldur.
+  // Ürün kartındaki sabit fiyat işlemlerle güncellenmediğinden bayat kalabiliyor;
+  // güncel piyasa fiyatı son işlemdir (kullanıcı isteği, 4 Tem).
+  useEffect(() => {
+    if (!sonFiyat || !addingUrunId || priceTouchedRef.current) return;
+    const yeni = formatAmountForInput(sonFiyat.fiyat);
+    setAddingProduct((prev) =>
+      prev && prev.urun.id === addingUrunId && prev.birimFiyat !== yeni
+        ? { ...prev, birimFiyat: yeni }
+        : prev,
+    );
+  }, [sonFiyat, addingUrunId]);
   // Eklenen ürünler paneli (footer'da, YUKARI açılır): varsayılan KAPALI. 300 kalemlik
   // listeye scroll etmeden, alttaki toplam satırına dokunup eklenenler açılıp görülür.
   const [addedExpanded, setAddedExpanded] = useState(false);
@@ -140,6 +161,7 @@ export function UrunPickerModal({
     // Zaten eklenmişse seçme
     if (urunItems.some((item) => item.urunId === urun.id)) return;
 
+    priceTouchedRef.current = false; // yeni üründe son-fiyat otomatik doldurması aktif
     setEditingUrunId(null); // Yeni ekleme
     setAddingProduct({
       urun,
@@ -193,6 +215,7 @@ export function UrunPickerModal({
     const urun = urunler.find(u => u.id === item.urunId);
     if (!urun) return;
 
+    priceTouchedRef.current = true; // düzenlemede kullanıcının fiyatı asla ezilmez
     setEditingUrunId(item.urunId);
     setAddingProduct({
       urun,
@@ -449,9 +472,10 @@ export function UrunPickerModal({
                         <TextInput
                           style={styles.numberInput}
                           value={addingProduct.birimFiyat}
-                          onChangeText={(text) =>
-                            setAddingProduct({ ...addingProduct, birimFiyat: text })
-                          }
+                          onChangeText={(text) => {
+                            priceTouchedRef.current = true;
+                            setAddingProduct({ ...addingProduct, birimFiyat: text });
+                          }}
                           keyboardType="decimal-pad"
                           placeholder="0"
                           placeholderTextColor={colors.textMuted}
@@ -461,23 +485,48 @@ export function UrunPickerModal({
                       </View>
                     </View>
 
-                    {/* Referans fiyat rozeti — ürünün alış/satış fiyatı; dokununca doldurur */}
+                    {/* Referans fiyat rozetleri — dokununca doldurur.
+                        1) Son işlem fiyatı (yön bazlı, urun_hareketleri'nden — güncel piyasa)
+                        2) Ürün kartındaki sabit alış/satış fiyatı */}
                     {(() => {
                       const refFiyat = islemYonu === 'satis'
                         ? addingProduct.urun.satis_fiyati
                         : addingProduct.urun.alis_fiyati;
-                      if (!refFiyat || refFiyat <= 0) return null;
+                      const sonVar = editingUrunId === null && sonFiyat && sonFiyat.fiyat > 0;
+                      if (!sonVar && (!refFiyat || refFiyat <= 0)) return null;
                       return (
-                        <TouchableOpacity
-                          style={styles.priceHintRow}
-                          onPress={() => setAddingProduct({ ...addingProduct, birimFiyat: formatAmountForInput(refFiyat) })}
-                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={styles.priceHintText}>
-                            {islemYonu === 'satis' ? t('transactions:stock.refSale') : t('transactions:stock.refPurchase')}: {formatCurrency(refFiyat, currency)}
-                          </Text>
-                        </TouchableOpacity>
+                        <View style={styles.priceHintsContainer}>
+                          {sonVar ? (
+                            <TouchableOpacity
+                              style={styles.priceHintRow}
+                              onPress={() => {
+                                priceTouchedRef.current = true;
+                                setAddingProduct({ ...addingProduct, birimFiyat: formatAmountForInput(sonFiyat.fiyat) });
+                              }}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={styles.priceHintText}>
+                                {t('transactions:stock.lastPrice')}: {formatCurrency(sonFiyat.fiyat, currency)} · {formatDateShort(sonFiyat.tarih)}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+                          {refFiyat && refFiyat > 0 ? (
+                            <TouchableOpacity
+                              style={styles.priceHintRow}
+                              onPress={() => {
+                                priceTouchedRef.current = true;
+                                setAddingProduct({ ...addingProduct, birimFiyat: formatAmountForInput(refFiyat) });
+                              }}
+                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={styles.priceHintText}>
+                                {islemYonu === 'satis' ? t('transactions:stock.refSale') : t('transactions:stock.refPurchase')}: {formatCurrency(refFiyat, currency)}
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
                       );
                     })()}
 
@@ -758,10 +807,15 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
   },
-  priceHintRow: {
-    alignSelf: 'flex-start',
+  priceHintsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
+  },
+  priceHintRow: {
+    alignSelf: 'flex-start',
     paddingVertical: 3,
     paddingHorizontal: spacing.sm,
     borderRadius: 6,

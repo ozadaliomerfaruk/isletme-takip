@@ -5,6 +5,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, HesapType } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
+import { toNumber } from '@/lib/currency';
 import i18n from '@/i18n';
 
 /**
@@ -41,6 +42,45 @@ export interface UrunHareketWithSource extends UrunHareket {
 
 /** Geriye uyumluluk: eski ad korunur (artık kaynak alanlarını da taşır). */
 export type UrunHareketWithCari = UrunHareketWithSource;
+
+/**
+ * Ürünün SON işlem birim fiyatı (yön bazlı: alış → giriş, satış → çıkış).
+ * Ürün seçicide fiyat alanını güncel piyasa fiyatıyla doldurmak için —
+ * ürün kartındaki alis_fiyati/satis_fiyati işlemlerle güncellenmediğinden bayatlar.
+ */
+export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'satis') {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: [...queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''), 'son-fiyat', yon],
+    queryFn: async (): Promise<{ fiyat: number; tarih: string } | null> => {
+      if (!isletme || !urunId) return null;
+      const { data, error } = await supabase
+        .from('urun_hareketler')
+        .select('birim_fiyat, created_at, islem:islemler(date)')
+        .eq('isletme_id', isletme.id)
+        .eq('urun_id', urunId)
+        .eq('hareket_tipi', yon === 'satis' ? 'cikis' : 'giris')
+        .not('birim_fiyat', 'is', null)
+        .gt('birim_fiyat', 0)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      if (!data || data.length === 0) return null;
+      // created_at düzenleme/reapply'da NOW()'a kayar (bkz. islemDate notu yukarıda);
+      // gerçek iş tarihi islem.date'tir → son 5 aday içinden iş tarihine göre seç.
+      const adaylar = data.map((h) => {
+        const islemRaw = Array.isArray(h.islem) ? h.islem[0] : h.islem;
+        const tarih = (islemRaw as { date?: string } | null)?.date ?? h.created_at;
+        return { fiyat: toNumber(h.birim_fiyat), tarih: String(tarih).slice(0, 10) };
+      });
+      adaylar.sort((a, b) => (a.tarih < b.tarih ? 1 : -1));
+      return adaylar[0];
+    },
+    enabled: !!isletme && !!urunId,
+    staleTime: 30_000,
+  });
+}
 
 /**
  * Bir ürüne ait urun hareketlerini getir (cari bilgisi dahil)

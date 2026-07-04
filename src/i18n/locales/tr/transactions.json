@@ -227,6 +227,7 @@
     "vatIncluded": "KDV Dahil",
     "refPurchase": "Alış fiyatı",
     "refSale": "Satış fiyatı",
+    "lastPrice": "Son işlem",
     "currencyMismatch": "Bu ürün {{productCurrency}} cinsinden; işlem {{txnCurrency}}. Tutar çevrilmeden eklenir.",
     "itemRemoved": "{{name}} silindi",
     "undo": "Geri Al",
