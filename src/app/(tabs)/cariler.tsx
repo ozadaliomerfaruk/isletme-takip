@@ -835,8 +835,12 @@ export default function CarilerPage() {
         <DetailExportSection
           visible={exportSectionVisible}
           onDismiss={() => {
+            // setExportCari(null) BURADA ÇAĞRILMAMALI: ShareOptionsSheet
+            // seçenekleri asıl işi 300ms setTimeout ile erteliyor; null'lamak
+            // DetailExportSection'ı (PDF/Excel sheet'leriyle) unmount edip
+            // ertelenen açılışı sessizce yutuyordu. exportCari bir sonraki
+            // seçimde zaten üzerine yazılıyor.
             setExportSectionVisible(false);
-            setExportCari(null);
           }}
           entityType="cari"
           entityId={exportCari.id}
