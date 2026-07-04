@@ -6,7 +6,7 @@
       "en": "./src/i18n/locales/en/app.json",
       "tr": "./src/i18n/locales/tr/app.json"
     },
-    "version": "1.5.5",
+    "version": "1.5.6",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -127,8 +127,14 @@
           "ios": {
             "deploymentTarget": "15.1",
             "extraPods": [
-              { "name": "GoogleUtilities", "modular_headers": true },
-              { "name": "RecaptchaInterop", "modular_headers": true }
+              {
+                "name": "GoogleUtilities",
+                "modular_headers": true
+              },
+              {
+                "name": "RecaptchaInterop",
+                "modular_headers": true
+              }
             ]
           },
           "android": {
@@ -139,9 +145,12 @@
         }
       ],
       "@react-native-community/datetimepicker",
-      ["@react-native-google-signin/google-signin", {
-        "iosUrlScheme": "com.googleusercontent.apps.831070684290-pbth4tdbeepa1udu859cinh8cunrh6ba"
-      }]
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.831070684290-pbth4tdbeepa1udu859cinh8cunrh6ba"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
