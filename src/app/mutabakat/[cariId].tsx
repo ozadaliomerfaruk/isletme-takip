@@ -205,26 +205,39 @@ export default function MutabakatPage() {
   }, [sonuc, cari, t, formatDateShort]);
 
   // ---- Kuyruk akışı ----
+  // Yeni kuyruk kurulmadan önce bekleyen ilerleme timer'ı iptal edilmeli:
+  // eski timer tetiklenirse queueIndex yeni kuyruğun dışına taşar,
+  // currentQueueItem null olur ve bar görünürken unmount edilir
+  // ("öksüz native modal" donması, bkz. 3802bac ve aşağıdaki DİKKAT notu).
+  const clearAdvanceTimer = useCallback(() => {
+    if (advanceTimer.current) {
+      clearTimeout(advanceTimer.current);
+      advanceTimer.current = null;
+    }
+  }, []);
+
   const startQueue = useCallback(() => {
     if (!sonuc) return;
     const remaining = sonuc.bizdeEksik.filter(
       (i) => !addedRows.has(i.satir.rowIndex) && !skippedRows.has(i.satir.rowIndex),
     );
     if (remaining.length === 0) return;
+    clearAdvanceTimer();
     setQueue(remaining);
     setQueueIndex(0);
     setQueueBarVisible(true);
-  }, [sonuc, addedRows, skippedRows]);
+  }, [sonuc, addedRows, skippedRows, clearAdvanceTimer]);
 
   // Satıra dokunarak TEK kalem ekleme: tek elemanlı kuyruk olarak aynı akıştan geçer
   const handleAddRow = useCallback(
     (item: BizdeEksikSatir) => {
       if (addedRows.has(item.satir.rowIndex)) return;
+      clearAdvanceTimer();
       setQueue([item]);
       setQueueIndex(0);
       setQueueBarVisible(true);
     },
-    [addedRows],
+    [addedRows, clearAdvanceTimer],
   );
 
   const ozet = useMemo(
