@@ -247,16 +247,6 @@ export function useDeleteKategori() {
 
       if (urunError) throw urunError;
 
-      // Bağlı nakit avansların kategori bağını da temizle (urunler ile aynı idempotent desen;
-      // soft-delete olduğu için FK'nin SET NULL'ı tetiklenmez, stale referans kalmasın).
-      const { error: avansKatError } = await supabase
-        .from('nakit_avanslar')
-        .update({ kategori_id: null })
-        .eq('kategori_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (avansKatError) throw avansKatError;
-
       // Bu kategoriyi alt kategori olarak kullanan kategorilerin parent bağını da temizle
       // (silinen kategoriye işaret eden yetim parent_id kalmasın → üst seviyeye taşınırlar).
       const { error: childError } = await supabase

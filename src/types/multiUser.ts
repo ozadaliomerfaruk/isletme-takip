@@ -17,7 +17,6 @@ export type ModuleName =
   | 'kategoriler'
   | 'raporlar'
   | 'cekler'
-  | 'nakit_avans'
   | 'ileri_tarihli'
   | 'urunler'
   | 'notlar'

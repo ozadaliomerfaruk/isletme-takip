@@ -87,7 +87,6 @@
     "hasTransactions": "Bu hesaba ait işlemler var. Önce işlemleri silin.",
     "hasFutureTransactions": "Bu hesaba ait ileri tarihli işlemler var. Önce ileri tarihli işlemleri silin.",
     "hasChecks": "Bu hesaba ait çekler var. Önce çekleri silin.",
-    "hasCashAdvances": "Bu hesaba ait nakit avans var. Önce nakit avansı silin.",
     "duplicateName": "Bu isimde bir hesap zaten var",
     "selectAccount": "Hesap seçin",
     "selectSourceAccount": "Kaynak hesap seçin",

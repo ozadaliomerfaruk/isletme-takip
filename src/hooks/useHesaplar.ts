@@ -180,18 +180,6 @@ export function useDeleteHesap() {
         throw new Error(i18n.t('errors:account.hasChecks'));
       }
 
-      // Bağlı nakit avans kontrolü: hedef/kredi kartı hesabı silinince nakit_avanslar +
-      // taksitler CASCADE ile silinir, bakiye reversal'ı atlanır (fantom borç kalır).
-      const { count: avansCount } = await supabase
-        .from('nakit_avanslar')
-        .select('id', { count: 'exact', head: true })
-        .eq('isletme_id', isletme.id)
-        .or(`kredi_karti_id.eq.${id},hedef_hesap_id.eq.${id}`);
-
-      if (avansCount && avansCount > 0) {
-        throw new Error(i18n.t('errors:account.hasCashAdvances'));
-      }
-
       // Bu hesaba iliştirilmiş notları genel nota çevir (yetim not kalmasın)
       const { error: notlarError } = await supabase
         .from('notlar')

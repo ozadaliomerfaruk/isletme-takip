@@ -616,11 +616,6 @@ async function updateBalancesForIslem(islem: IslemInsert) {
       }
       break;
 
-    case 'nakit_avans_taksit':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
-      break;
   }
 }
 

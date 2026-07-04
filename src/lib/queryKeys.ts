@@ -153,14 +153,6 @@ export const queryKeys = {
       ['cekler', 'today', isletmeId] as const,
   },
 
-  // Nakit Avanslar
-  nakitAvanslar: {
-    all: () => ['nakit-avanslar'] as const,
-    byKrediKarti: (krediKartiId: string, isletmeId: string) =>
-      ['nakit-avanslar', 'kredi-karti', krediKartiId, isletmeId] as const,
-    detail: (id: string) => ['nakit-avans', id] as const,
-  },
-
   // Ürünler (Ürün Yönetimi)
   urunler: {
     all: () => ['urunler'] as const,
@@ -353,21 +345,6 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'hesap',
     ],
     deferred: [],
-  },
-
-  // Nakit avans değişikliği
-  nakitAvans: {
-    immediate: [
-      'nakit-avanslar',
-      'nakit-avans',
-      'hesaplar',
-      'hesap',
-      'islemler',
-    ],
-    deferred: [
-      'month-summary',
-      'dashboard',
-    ],
   },
 
   // Hesap değişikliği
@@ -678,11 +655,6 @@ export const createInvalidators = (queryClient: QueryClient) => ({
    * Çek mutation'ları için
    */
   onCekMutation: () => invalidateRelatedQueries(queryClient, 'cek'),
-
-  /**
-   * Nakit avans mutation'ları için
-   */
-  onNakitAvansMutation: () => invalidateRelatedQueries(queryClient, 'nakitAvans'),
 
   /**
    * Ürün mutation'ları için

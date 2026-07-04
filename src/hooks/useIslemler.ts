@@ -424,12 +424,6 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
       }
       break;
 
-    case 'nakit_avans_taksit':
-      // Nakit avans taksit ödemesi - hesap bakiyesini azalt
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
-      break;
   }
 }
 
@@ -990,12 +984,6 @@ async function reverseBalances(islem: Islem) {
       }
       break;
 
-    case 'nakit_avans_taksit':
-      // Nakit avans taksit geri al - hesap bakiyesini artır
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-      }
-      break;
   }
 }
 

@@ -209,7 +209,6 @@ function getHareketLabelKey(type: string): string {
     case 'personel_gider': return 'accounts:transactionLabels.personelGider';
     case 'personel_tahsilat': return 'accounts:transactionLabels.personelTahsilat';
     case 'personel_satis': return 'accounts:transactionLabels.personelSatis';
-    case 'nakit_avans_taksit': return 'accounts:transactionLabels.nakitAvansTaksit';
     case 'personel_izin_hakki': return 'accounts:transactionLabels.izinHakki';
     case 'personel_izin_kullanimi': return 'accounts:transactionLabels.izinKullanimi';
     default: return '';

@@ -42,7 +42,6 @@ export function getTransactionColor(type: IslemType): string {
     case 'cari_odeme':
     case 'personel_gider':
     case 'personel_odeme':
-    case 'nakit_avans_taksit':
       return COLOR_OUT;
 
     // Nötr (transfer, iade, izin kullanımı)
@@ -80,7 +79,6 @@ export function getTransactionPrefix(type: IslemType): string {
     case 'cari_odeme':
     case 'personel_gider':
     case 'personel_odeme':
-    case 'nakit_avans_taksit':
     case 'personel_izin_kullanimi':
       return '-';
 
@@ -127,7 +125,6 @@ export function getEntityPerspectiveColor(type: IslemType): string {
     // Bakiye azaltan / gider → kırmızı
     case 'cari_alis':
     case 'personel_gider':
-    case 'nakit_avans_taksit':
     case 'personel_izin_kullanimi':
       return COLOR_OUT;
 
@@ -159,7 +156,6 @@ export function getEntityPerspectivePrefix(type: IslemType): string {
     case 'cari_tahsilat':
     case 'personel_gider':
     case 'personel_tahsilat':
-    case 'nakit_avans_taksit':
     case 'personel_izin_kullanimi':
       return '-';
 

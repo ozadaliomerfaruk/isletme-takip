@@ -37,7 +37,6 @@ const VALID_ISLEM_TYPES: IslemType[] = [
   'personel_odeme',
   'personel_tahsilat',
   'personel_satis',
-  'nakit_avans_taksit',
 ];
 
 /**
@@ -130,10 +129,6 @@ function buildBalanceOps(islem: Omit<IslemInsert, 'isletme_id'>): BalanceOp[] {
     }
     case 'personel_satis':
       if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: amount });
-      break;
-    case 'nakit_avans_taksit':
-      // Nakit avans taksiti - kredi kartı borcunu azaltır
-      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
       break;
   }
   return ops;

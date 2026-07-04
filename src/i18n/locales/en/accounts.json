@@ -126,7 +126,6 @@
     "personelGider": "Staff Expense",
     "personelTahsilat": "Staff Collection",
     "personelSatis": "Staff Sale",
-    "nakitAvansTaksit": "Cash Advance Installment",
     "izinHakki": "Leave Entitlement",
     "izinKullanimi": "Leave Used"
   },
@@ -153,76 +152,5 @@
     "GBP": "British Pound",
     "XAU": "Gold (gram)",
     "XAG": "Silver (gram)"
-  },
-  "nakitAvans": {
-    "title": "Cash Advances",
-    "addTitle": "Add Cash Advance",
-    "editTitle": "Edit Cash Advance",
-    "amount": "Advance Amount",
-    "amountPlaceholder": "Enter cash advance amount",
-    "repaymentAmount": "Repayment Amount",
-    "repaymentAmountPlaceholder": "Total repayment amount",
-    "repaymentAmountRequired": "Please enter repayment amount",
-    "targetAccount": "Target Account",
-    "targetAccountPlaceholder": "Select account to transfer to",
-    "category": "Category",
-    "categoryPlaceholder": "Select category (optional)",
-    "date": "Date",
-    "description": "Description",
-    "descriptionPlaceholder": "Note about advance...",
-    "simpleMode": "Simple",
-    "advancedMode": "Advanced",
-    "installmentPayment": "Installment Payment",
-    "installmentCount": "Number of Installments",
-    "installment": "Installment",
-    "installmentNo": "Installment {{no}}",
-    "installmentAmount": "Installment Amount",
-    "installmentDate": "Payment Date",
-    "totalInstallments": "{{count}} installments total",
-    "reminder": "Reminder",
-    "reminderEnabled": "Reminder Enabled",
-    "reminderDaysBefore": "Days Before",
-    "reminderTime": "Reminder Time",
-    "status": {
-      "active": "Active",
-      "completed": "Completed",
-      "cancelled": "Cancelled"
-    },
-    "taksitStatus": {
-      "pending": "Pending",
-      "paid": "Paid",
-      "overdue": "Overdue"
-    },
-    "actions": {
-      "add": "Add Cash Advance",
-      "pay": "Pay",
-      "payNow": "Pay Now",
-      "payInstallment": "Pay Installment",
-      "markAsPaid": "Mark as Paid",
-      "viewDetails": "View Details"
-    },
-    "messages": {
-      "createSuccess": "Cash advance added",
-      "updateSuccess": "Cash advance updated",
-      "deleteSuccess": "Cash advance deleted",
-      "deleteConfirm": "Are you sure you want to delete this cash advance?",
-      "installmentPaid": "Installment paid",
-      "noAvans": "No cash advances yet",
-      "addFirst": "Add your first cash advance",
-      "creditLimitExceeded": "Credit limit exceeded",
-      "insufficientLimit": "Insufficient credit limit",
-      "congratulations": "Congratulations!",
-      "allInstallmentsPaid": "Your cash advance has been fully paid!"
-    },
-    "installmentDescription": "Cash Advance Installment ({{current}}/{{total}})",
-    "summary": {
-      "totalAvans": "Total Advance",
-      "totalRepayment": "Total Repayment",
-      "paidInstallments": "Paid Installments",
-      "remainingInstallments": "Remaining Installments",
-      "nextInstallment": "Next Installment"
-    },
-    "selectPaymentAccount": "Select Payment Account",
-    "paymentAccountDescription": "Select account to pay installment from"
   }
 }

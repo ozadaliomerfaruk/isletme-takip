@@ -19,7 +19,6 @@ export type IslemType =
   | 'personel_odeme'
   | 'personel_tahsilat'
   | 'personel_satis'
-  | 'nakit_avans_taksit'
   | 'personel_izin_hakki'
   | 'personel_izin_kullanimi';
 
@@ -474,102 +473,6 @@ export interface IleriTarihliIslemWithRelations extends IleriTarihliIslem {
   kategori?: Kategori | null;
   cari?: Cari | null;
   personel?: Personel | null;
-}
-
-// Nakit Avans
-export type NakitAvansStatus = 'active' | 'completed' | 'cancelled';
-export type TaksitStatus = 'pending' | 'paid' | 'overdue';
-
-export interface NakitAvans {
-  id: string;
-  isletme_id: string;
-  kredi_karti_id: string;
-  hedef_hesap_id: string;
-  tutar: number;
-  geri_odeme_tutari: number;
-  kategori_id: string | null;
-  aciklama: string | null;
-  tarih: string;
-  is_taksitli: boolean;
-  taksit_sayisi: number;
-  status: NakitAvansStatus;
-  created_by: string | null;
-  updated_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface NakitAvansInsert {
-  id?: string;
-  isletme_id: string;
-  kredi_karti_id: string;
-  hedef_hesap_id: string;
-  tutar: number;
-  geri_odeme_tutari: number;
-  kategori_id?: string | null;
-  aciklama?: string | null;
-  tarih?: string;
-  is_taksitli?: boolean;
-  taksit_sayisi?: number;
-  status?: NakitAvansStatus;
-}
-
-export interface NakitAvansUpdate {
-  tutar?: number;
-  geri_odeme_tutari?: number;
-  kategori_id?: string | null;
-  aciklama?: string | null;
-  tarih?: string;
-  is_taksitli?: boolean;
-  taksit_sayisi?: number;
-  status?: NakitAvansStatus;
-}
-
-// Nakit Avans Taksit
-export interface NakitAvansTaksit {
-  id: string;
-  nakit_avans_id: string;
-  sira_no: number;
-  tutar: number;
-  odeme_tarihi: string;
-  odenen_tarih: string | null;
-  reminder_enabled: boolean;
-  reminder_days_before: number;
-  reminder_time: string;
-  status: TaksitStatus;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface NakitAvansTaksitInsert {
-  id?: string;
-  nakit_avans_id: string;
-  sira_no: number;
-  tutar: number;
-  odeme_tarihi: string;
-  odenen_tarih?: string | null;
-  reminder_enabled?: boolean;
-  reminder_days_before?: number;
-  reminder_time?: string;
-  status?: TaksitStatus;
-}
-
-export interface NakitAvansTaksitUpdate {
-  tutar?: number;
-  odeme_tarihi?: string;
-  odenen_tarih?: string | null;
-  reminder_enabled?: boolean;
-  reminder_days_before?: number;
-  reminder_time?: string;
-  status?: TaksitStatus;
-}
-
-// İlişkili verilerle birlikte Nakit Avans
-export interface NakitAvansWithRelations extends NakitAvans {
-  kredi_karti?: Hesap | null;
-  hedef_hesap?: Hesap | null;
-  kategori?: Kategori | null;
-  taksitler?: NakitAvansTaksit[];
 }
 
 // Çek (Verilen Çekler)

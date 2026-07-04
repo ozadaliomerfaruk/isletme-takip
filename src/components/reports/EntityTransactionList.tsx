@@ -47,7 +47,6 @@ const getTransactionStyle = (type: string, t: (key: string) => string) => {
     personel_odeme: { Icon: CreditCard, color: colors.info },
     personel_tahsilat: { Icon: ArrowDownLeft, color: colors.warning },
     personel_satis: { Icon: TrendingUp, color: colors.success },
-    nakit_avans_taksit: { Icon: Banknote, color: colors.error },
     personel_izin_hakki: { Icon: CalendarPlus, color: colors.success },
     personel_izin_kullanimi: { Icon: CalendarMinus, color: colors.warning },
   };

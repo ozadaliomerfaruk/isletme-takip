@@ -31,7 +31,6 @@ const TYPE_STYLES: Record<string, { bg: string; icon: string }> = {
   cari_odeme: { bg: '#FEE2E2', icon: '#DC2626' },
   personel_gider: { bg: '#FEE2E2', icon: '#DC2626' },
   personel_odeme: { bg: '#FEE2E2', icon: '#DC2626' },
-  nakit_avans_taksit: { bg: '#FEE2E2', icon: '#DC2626' },
 
   // Nötr (gri/mavi)
   transfer: { bg: '#DBEAFE', icon: '#2563EB' },
@@ -62,8 +61,6 @@ function getIconComponent(type: IslemType) {
     case 'personel_odeme':
       return Coins;
     case 'personel_gider':
-      return Receipt;
-    case 'nakit_avans_taksit':
       return Receipt;
     case 'cari_alis_iade':
     case 'cari_satis_iade':

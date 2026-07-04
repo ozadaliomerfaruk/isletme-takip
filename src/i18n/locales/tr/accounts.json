@@ -126,7 +126,6 @@
     "personelGider": "Personel Gider",
     "personelTahsilat": "Personel Tahsilat",
     "personelSatis": "Personel Satış",
-    "nakitAvansTaksit": "Nakit Avans Taksit",
     "izinHakki": "İzin Hak Edişi",
     "izinKullanimi": "İzin Kullanımı"
   },
@@ -153,76 +152,5 @@
     "GBP": "Ingiliz Sterlini",
     "XAU": "Altin (gram)",
     "XAG": "Gumus (gram)"
-  },
-  "nakitAvans": {
-    "title": "Nakit Avanslar",
-    "addTitle": "Nakit Avans Ekle",
-    "editTitle": "Nakit Avans Düzenle",
-    "amount": "Avans Tutarı",
-    "amountPlaceholder": "Nakit avans tutarını girin",
-    "repaymentAmount": "Geri Ödeme Tutarı",
-    "repaymentAmountPlaceholder": "Toplam geri ödeme tutarı",
-    "repaymentAmountRequired": "Geri ödeme tutarı giriniz",
-    "targetAccount": "Hedef Hesap",
-    "targetAccountPlaceholder": "Paranın aktarılacağı hesabı seçin",
-    "category": "Kategori",
-    "categoryPlaceholder": "Kategori seçin (opsiyonel)",
-    "date": "Tarih",
-    "description": "Açıklama",
-    "descriptionPlaceholder": "Avans hakkında not...",
-    "simpleMode": "Basit",
-    "advancedMode": "Gelişmiş",
-    "installmentPayment": "Taksitli Ödeme",
-    "installmentCount": "Taksit Sayısı",
-    "installment": "Taksit",
-    "installmentNo": "{{no}}. Taksit",
-    "installmentAmount": "Taksit Tutarı",
-    "installmentDate": "Ödeme Tarihi",
-    "totalInstallments": "Toplam {{count}} taksit",
-    "reminder": "Hatırlatıcı",
-    "reminderEnabled": "Hatırlatıcı Aktif",
-    "reminderDaysBefore": "Gün Önce",
-    "reminderTime": "Hatırlatma Saati",
-    "status": {
-      "active": "Aktif",
-      "completed": "Tamamlandı",
-      "cancelled": "İptal Edildi"
-    },
-    "taksitStatus": {
-      "pending": "Bekliyor",
-      "paid": "Ödendi",
-      "overdue": "Gecikmiş"
-    },
-    "actions": {
-      "add": "Nakit Avans Ekle",
-      "pay": "Öde",
-      "payNow": "Şimdi Öde",
-      "payInstallment": "Taksit Öde",
-      "markAsPaid": "Ödendi Olarak İşaretle",
-      "viewDetails": "Detayları Gör"
-    },
-    "messages": {
-      "createSuccess": "Nakit avans eklendi",
-      "updateSuccess": "Nakit avans güncellendi",
-      "deleteSuccess": "Nakit avans silindi",
-      "deleteConfirm": "Bu nakit avansı silmek istediğinize emin misiniz?",
-      "installmentPaid": "Taksit ödendi",
-      "noAvans": "Henüz nakit avans yok",
-      "addFirst": "İlk nakit avansınızı ekleyin",
-      "creditLimitExceeded": "Kredi limiti aşılıyor",
-      "insufficientLimit": "Yeterli kredi limiti yok",
-      "congratulations": "Tebrikler!",
-      "allInstallmentsPaid": "Nakit avans borcunuz tamamen ödendi!"
-    },
-    "installmentDescription": "Nakit Avans Taksit ({{current}}/{{total}})",
-    "summary": {
-      "totalAvans": "Toplam Avans",
-      "totalRepayment": "Toplam Geri Ödeme",
-      "paidInstallments": "Ödenen Taksitler",
-      "remainingInstallments": "Kalan Taksitler",
-      "nextInstallment": "Sonraki Taksit"
-    },
-    "selectPaymentAccount": "Ödeme Hesabı Seçin",
-    "paymentAccountDescription": "Taksit ödemesi yapılacak hesabı seçin"
   }
 }

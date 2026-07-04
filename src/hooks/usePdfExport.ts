@@ -85,7 +85,6 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
       personel_odeme: t('transactions:types.personel_odeme'),
       personel_tahsilat: t('transactions:types.personel_tahsilat'),
       personel_satis: t('transactions:types.personel_satis'),
-      nakit_avans_taksit: t('transactions:types.nakit_avans_taksit'),
       kredi_karti_harcama: t('transactions:types.kredi_karti_harcama'),
     },
   }), [entityType, t]);

@@ -199,7 +199,6 @@ export function getHesapDebitCredit(
     case 'gider':
     case 'cari_odeme':
     case 'personel_odeme':
-    case 'nakit_avans_taksit':
     case 'cari_alis':
     case 'cari_satis_iade':
     case 'personel_gider':

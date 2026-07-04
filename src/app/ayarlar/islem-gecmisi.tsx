@@ -50,7 +50,7 @@ export default function IslemGecmisiPage() {
         case 'cariler':
           return type.startsWith('cari_');
         case 'personel':
-          return type.startsWith('personel_') || type === 'nakit_avans_taksit';
+          return type.startsWith('personel_');
         case 'hesaplar':
           return ['gelir', 'gider', 'transfer', 'kredi_karti_gider'].includes(type);
         case 'urunler':
