@@ -3,7 +3,11 @@ import { colors } from '@/constants/colors';
 import { fontSize, fontWeight } from '@/constants/spacing';
 
 type TextVariant = 'h1' | 'h2' | 'h3' | 'body' | 'bodySmall' | 'caption' | 'label';
-type TextColor = 'primary' | 'secondary' | 'muted' | 'success' | 'error' | 'warning' | 'info';
+type TextColor =
+  | 'primary' | 'secondary' | 'muted'
+  | 'success' | 'error' | 'warning' | 'info'
+  // Açık (…Light) zeminler üzerinde okunur metin tonları
+  | 'successDark' | 'errorDark' | 'warningDark' | 'infoDark' | 'orangeDark';
 
 interface TextProps extends RNTextProps {
   variant?: TextVariant;
@@ -30,6 +34,11 @@ const colorStyles = {
   error: colors.error,
   warning: colors.warning,
   info: colors.info,
+  successDark: colors.successDark,
+  errorDark: colors.errorDark,
+  warningDark: colors.warningDark,
+  infoDark: colors.infoDark,
+  orangeDark: colors.orangeDark,
 };
 
 export function Text({

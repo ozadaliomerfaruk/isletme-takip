@@ -27,6 +27,15 @@ export const colors = {
   orange: '#F97316',
   orangeLight: '#FFEDD5',
 
+  // Koyu vurgu tonları — açık (…Light) zeminler ÜZERİNDE metin için.
+  // warning/orange gibi parlak tonlar açık zeminde okunmuyordu (sarı-üstü-sarı);
+  // metinde bu koyu ton, ikon/nokta/çizgide parlak ton kullanılır.
+  successDark: '#065F46',
+  errorDark: '#991B1B',
+  warningDark: '#854D0E',
+  infoDark: '#1E40AF',
+  orangeDark: '#9A3412',
+
   // Gelir/Gider renkleri
   income: '#10B981',
   incomeLight: '#D1FAE5',

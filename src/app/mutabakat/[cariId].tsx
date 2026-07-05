@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Scale } from 'lucide-react-native';
+import { AlertTriangle, Scale } from 'lucide-react-native';
 import { EmptyState, Text } from '@/components/ui';
 import { ReportStep, SelectStep } from '@/components/mutabakat';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -167,6 +167,9 @@ export default function MutabakatPage() {
   }, [step, parsed, cari, cekler, islemlerQuery.data, islemlerQuery.isLoading, islemlerQuery.isError, t]);
 
   // ---- Özet paylaşımı ----
+  // Senaryo-özel, esnafın karşı tarafa doğrudan gönderebileceği açıklayıcı metin:
+  // ham "Devir/Kapanış — Bizde/Ekstrede" satırları yerine "ne yapılmalı" dili +
+  // tarih-çapalı bakiye + uygulama tanıtımı.
   const handleShare = useCallback(() => {
     if (!sonuc || !cari) return;
     const fmt = (kurus: number) =>
@@ -174,29 +177,33 @@ export default function MutabakatPage() {
     // Bakiyeler esnaf diliyle: eksi işaret yerine Borç/Alacak etiketi
     const bak = (kurus: number) =>
       `${t(kurus < 0 ? 'mutabakat:summary.borc' : 'mutabakat:summary.alacak')} ${formatCurrency(Math.abs(kurus) / 100, cari.currency)}`;
+    const startD = formatDateShort(sonuc.donem.start);
+    const endD = formatDateShort(sonuc.donem.end);
+
     const lines: string[] = [
-      t('mutabakat:share.header', {
-        cari: cari.name,
-        start: formatDateShort(sonuc.donem.start),
-        end: formatDateShort(sonuc.donem.end),
-      }),
-      t('mutabakat:share.verdictLine', { verdict: t(`mutabakat:verdict.${sonuc.durum}`) }),
-      t('mutabakat:share.openingLine', {
-        ours: bak(sonuc.devir.bizimKurus),
-        theirs: sonuc.devir.onlarinAynaKurus !== null ? bak(sonuc.devir.onlarinAynaKurus) : '—',
-      }),
-      t('mutabakat:share.closingLine', {
-        ours: bak(sonuc.kapanis.bizimKurus),
-        theirs: sonuc.kapanis.onlarinAynaKurus !== null ? bak(sonuc.kapanis.onlarinAynaKurus) : '—',
-      }),
+      t('mutabakat:share.header', { cari: cari.name, start: startD, end: endD }),
+      '',
+      t(`mutabakat:share.sonuc.${sonuc.durum}`),
     ];
+
+    // Devir/başlangıç farkı → tarih-çapalı bakiye karşılaştırması + eski ekstre isteği
+    if (sonuc.devir.uyumlu === false && sonuc.devir.onlarinAynaKurus !== null) {
+      lines.push(
+        '',
+        t('mutabakat:share.devirBaslik', { date: startD }),
+        t('mutabakat:share.devirBiz', { ours: bak(sonuc.devir.bizimKurus) }),
+        t('mutabakat:share.devirSiz', { theirs: bak(sonuc.devir.onlarinAynaKurus) }),
+        sonuc.sinirTipi === 'baslangic'
+          ? t('mutabakat:share.baslangicIste', { amount: fmt(sonuc.devir.farkKurus ?? 0) })
+          : t('mutabakat:share.devirIste', { date: startD, amount: fmt(sonuc.devir.farkKurus ?? 0) }),
+      );
+    }
+
+    // Bizde işlenmemiş (onların ekstresinde var, bizde yok) → biz kontrol edeceğiz
     if (sonuc.bizdeEksik.length > 0) {
       lines.push(
         '',
-        t('mutabakat:share.missingInOursLine', {
-          count: sonuc.bizdeEksik.length,
-          amount: fmt(sonuc.bizdeEksik.reduce((s, i) => s + mirrorOf(i.satir, sonuc.yon), 0)),
-        }),
+        t('mutabakat:share.bizdeEksikBaslik', { count: sonuc.bizdeEksik.length }),
         ...sonuc.bizdeEksik.map((i) =>
           t('mutabakat:share.itemLine', {
             date: formatDateShort(i.satir.date),
@@ -206,13 +213,12 @@ export default function MutabakatPage() {
         ),
       );
     }
+
+    // Bizde olup onların ekstresinde görünmeyen → lütfen kontrol edin
     if (sonuc.onlardaEksik.length > 0) {
       lines.push(
         '',
-        t('mutabakat:share.missingInTheirsLine', {
-          count: sonuc.onlardaEksik.length,
-          amount: fmt(sonuc.onlardaEksik.reduce((s, i) => s + i.kalem.signedKurus, 0)),
-        }),
+        t('mutabakat:share.onlardaEksikBaslik', { count: sonuc.onlardaEksik.length }),
         ...sonuc.onlardaEksik.map((i) =>
           t('mutabakat:share.itemLine', {
             date: formatDateShort(i.kalem.date),
@@ -222,15 +228,45 @@ export default function MutabakatPage() {
         ),
       );
     }
+
+    // İki tarafta farklı tutar → belge belge
     if (sonuc.tutarFarkli.length > 0) {
       lines.push(
         '',
-        t('mutabakat:share.mismatchLine', {
-          count: sonuc.tutarFarkli.length,
-          amount: fmt(sonuc.tutarFarkli.reduce((s, i) => s + i.farkKurus, 0)),
-        }),
+        t('mutabakat:share.tutarBaslik', { count: sonuc.tutarFarkli.length }),
+        ...sonuc.tutarFarkli.map((i) =>
+          t('mutabakat:share.tutarItem', {
+            desc: i.ekstre.description || i.ekstre.belgeNo || '—',
+            theirs: fmt(mirrorOf(i.ekstre, sonuc.yon)),
+            ours: fmt(i.defter.signedKurus),
+          }),
+        ),
       );
     }
+
+    // Fark bu ekstrede bulunamadıysa (görünmeyen eski dönem) — insights.ts ile aynı koşul
+    const fark = sonuc.kapanis.farkKurus;
+    const df = sonuc.devir.farkKurus;
+    const devirBaskin =
+      sonuc.eslesmeler.length > 0 && fark !== null && df !== null && Math.abs(fark) > 100 &&
+      Math.abs(df) / Math.abs(fark) >= 0.9 && Math.abs(df) <= Math.abs(fark) * 1.1;
+    const donemIciFarkYok =
+      sonuc.bizdeEksik.length === 0 && sonuc.onlardaEksik.length === 0 && sonuc.tutarFarkli.length === 0;
+    if (
+      donemIciFarkYok && sonuc.eslesmeler.length > 0 && fark !== null && Math.abs(fark) > 100 &&
+      !devirBaskin && sonuc.checksum.farkAciklanabilir !== true
+    ) {
+      lines.push('', t('mutabakat:share.gorunmeyenDonem', { amount: fmt(fark) }));
+    }
+
+    // Kapanış referansı (ekstrenin bittiği tarihteki bizdeki bakiye) + uygulama tanıtımı
+    lines.push(
+      '',
+      t('mutabakat:share.bakiyeReferans', { date: endD, ours: bak(sonuc.kapanis.bizimKurus) }),
+      '',
+      t('mutabakat:share.footer'),
+    );
+
     Share.share({ message: lines.join('\n') });
   }, [sonuc, cari, t, formatDateShort]);
 
@@ -405,6 +441,20 @@ export default function MutabakatPage() {
   const balance = toNumber(cari.balance);
   const balanceLabel = balance < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe');
 
+  // Şüpheli dosya (blok + kart) için duruma özel olası nedenler
+  const supheliNedenler: string[] = dogrulama
+    ? [
+        ...(dogrulama.tamDisinda && dogrulama.kayitBaslangic
+          ? [t('mutabakat:supheli.nedenEski', { date: formatDateShort(dogrulama.kayitBaslangic) })]
+          : []),
+        t('mutabakat:supheli.nedenBaskaCari'),
+        t('mutabakat:supheli.nedenBaslangic'),
+        ...(dogrulama.oran !== null
+          ? [t('mutabakat:supheli.nedenOran', { eslesen: dogrulama.eslesen, toplam: dogrulama.toplamEkstreSatir })]
+          : []),
+      ]
+    : [];
+
   return (
     <View style={styles.container}>
       {step === 'select' && (
@@ -429,17 +479,31 @@ export default function MutabakatPage() {
           tek tuşla 90 fatura basmak asıl felaket senaryosudur (spec 5.3) */}
       {step === 'report' && sonuc && dogrulama?.seviye === 'kirmizi' && !kirmiziDevam && (
         <View style={styles.blokContainer}>
-          <Scale size={40} color={colors.error} />
-          <Text variant="h3" center>
-            {t('mutabakat:dogrulama.kirmiziBaslik', { cari: cari.name })}
+          <AlertTriangle size={44} color={colors.warning} />
+          <Text variant="h2" bold center>
+            {t('mutabakat:supheli.baslik', { cari: cari.name })}
           </Text>
           <Text variant="body" color="secondary" center>
-            {t('mutabakat:dogrulama.kirmiziGovde', {
-              toplam: dogrulama.bolgeB,
-              eslesen: dogrulama.eslesen,
-              oran: dogrulama.oran !== null ? Math.round(dogrulama.oran * 100) : 0,
-            })}
+            {dogrulama.oran !== null
+              ? t('mutabakat:dogrulama.kirmiziGovde', {
+                  toplam: dogrulama.bolgeB,
+                  eslesen: dogrulama.eslesen,
+                  oran: Math.round(dogrulama.oran * 100),
+                })
+              : t('mutabakat:supheli.govde', { count: dogrulama.toplamEkstreSatir })}
           </Text>
+          <View style={styles.blokNedenler}>
+            {supheliNedenler.map((n, i) => (
+              <View key={i} style={styles.blokNedenRow}>
+                <Text variant="body" color="warningDark">
+                  •
+                </Text>
+                <Text variant="body" color="secondary" style={styles.blokNedenText}>
+                  {n}
+                </Text>
+              </View>
+            ))}
+          </View>
           {/* Ara ekransız: doğrudan dosya seçici açılır */}
           <TouchableOpacity style={styles.blokBirincil} onPress={handlePickFile} accessibilityRole="button">
             <Text variant="body" bold style={{ color: colors.white }}>
@@ -447,8 +511,8 @@ export default function MutabakatPage() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setKirmiziDevam(true)} accessibilityRole="button">
-            <Text variant="bodySmall" color="muted">
-              {t('mutabakat:dogrulama.yineDeDevam')}
+            <Text variant="body" color="secondary">
+              {t('mutabakat:supheli.yineDeGoster')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -532,5 +596,17 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     paddingHorizontal: spacing['2xl'],
     marginTop: spacing.md,
+  },
+  blokNedenler: {
+    alignSelf: 'stretch',
+    gap: spacing.sm,
+  },
+  blokNedenRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  blokNedenText: {
+    flex: 1,
   },
 });

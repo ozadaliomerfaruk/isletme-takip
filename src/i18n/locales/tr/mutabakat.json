@@ -28,21 +28,44 @@
     "cancel": "Vazgeç"
   },
   "verdict": {
-    "mutabik": "Mutabıkız",
-    "mutabikDesc": "Tüm kalemler eşleşti, devir ve kapanış bakiyeleri doğrulandı.",
-    "fark_aciklandi": "Fark var — kaynağı belli",
-    "fark_aciklandiDesc": "Farkın tamamı aşağıdaki dökümle açıklanıyor; \"Şimdi ne yapmalı\" adımlarıyla kapatabilirsiniz.",
-    "bakiye_teyitsiz": "Hareketler uyumlu — bakiye teyit edilemedi",
-    "bakiye_teyitsizDesc": "Dönem içi kalemler eşleşti ancak devir/kapanış bakiyesi tam doğrulanamadı. Uyarıları inceleyin.",
-    "mutabik_degil": "Mutabık değiliz",
-    "mutabik_degilDesc": "Fark, listelenen kalemlerle tam açıklanamıyor — uyarıları ve kalemleri inceleyin.",
+    "mutabik": "Mutabakat sağlandı",
+    "mutabikDesc": "Bu dönemdeki bütün kayıtlarınız birebir uyuşuyor; devir ve kapanış bakiyeleri de tuttu. Bütün taşlar yerli yerinde.",
+    "fark_aciklandi": "Fark var ama nedeni belli",
+    "fark_aciklandiDesc": "Aşağıdaki dökümde farkın nereden geldiği tek tek çıkarıldı. \"Şimdi ne yapmalı\" adımlarını uygulayınca kapanır.",
+    "bakiye_teyitsiz": "Bakiye teyit edilemedi",
+    "bakiye_teyitsizDesc": "Devir ya da kapanış bakiyesi tam doğrulanamadı. Aşağıdaki uyarıları ve dosyanın doğru cariye ait olduğunu kontrol edin.",
+    "mutabik_degil": "Mutabık değilsiniz",
+    "mutabik_degilDesc": "Fark yalnızca listelenen kalemlerle açıklanamıyor. Aşağıdaki uyuşmazlıkları ve olası nedenleri inceleyin; sorun bu ekstrenin kapsamadığı daha eski dönemlerde de olabilir.",
     "closingDiff": "Kapanış farkı: {{amount}}"
   },
   "openingDiff": {
-    "title": "Dönem başı (devir) farkı: {{amount}}",
-    "desc": "Bu fark bu ekstreden önceki dönemden geliyor. Önceki dönem ekstresiyle ayrıca mutabakat yapın.",
+    "title": "Devir farkı: {{amount}}",
+    "desc": "{{date}} tarihindeki devir bakiyenizde fark var: sizde {{ours}}, karşı tarafta {{theirs}} görünüyor — aradaki fark {{yon}}. Bu fark {{date}} tarihinden önceki dönemden geliyor. Karşı taraftan o dönemin ekstresini isteyip önce orayı netleştirin.",
     "baslangicTitle": "Başlangıç bakiyesi farkı: {{amount}}",
-    "baslangicDesc": "Karşı tarafın kayıt başlangıcınızdaki bakiyesi, sizin başlangıç bakiyenizle uyuşmuyor. Farkın kaynağını araştırın (unutulan ödeme, işlenmemiş fatura) — farkı kapatmak için uydurma kayıt GİRMEYİN, gelir-gider raporlarınızı bozar. Hiç işleminiz yoksa başlangıç bakiyenizi cari detayından güncelleyebilirsiniz."
+    "baslangicDesc": "{{date}} tarihinde girdiğiniz başlangıç bakiyeniz ({{ours}}) ile karşı tarafın o tarihteki bakiyesi ({{theirs}}) uyuşmuyor — fark {{yon}}. Ya başlangıç bakiyenizi kontrol edin ya da {{date}} öncesi hareketlerde eksik/fazla bir kayıt olup olmadığına bakın. Farkı kapatmak için uydurma kayıt GİRMEYİN, gelir-gider raporlarınızı bozar. Hiç işleminiz yoksa başlangıç bakiyenizi cari detayından güncelleyebilirsiniz.",
+    "lehinize": "lehinize",
+    "aleyhinize": "aleyhinize"
+  },
+  "supheli": {
+    "baslik": "Bu ekstre {{cari}} carisine ait olmayabilir",
+    "govde": "Yüklediğiniz ekstredeki {{count}} hareketin hiçbiri kayıtlarınızla eşleşmedi.",
+    "nedenBaslik": "Olası nedenler:",
+    "nedenEski": "Çok eski bir döneme ait olabilir (kayıtlarınız {{date}} tarihinde başlıyor)",
+    "nedenBaskaCari": "Ekstre başka bir cariye ait olabilir",
+    "nedenBaslangic": "Başlangıç bakiyeniz karşı tarafınkiyle farklı olabilir",
+    "nedenOran": "{{toplam}} satırdan yalnızca {{eslesen}} tanesi eşleşti",
+    "yineDeGoster": "Yine de raporu göster"
+  },
+  "causes": {
+    "title": "Fark neden olabilir?",
+    "items": [
+      "Bir fatura ya da ödeme taraflardan birinde işlenmemiş olabilir",
+      "Bir tutara fazladan sıfır eklenmiş ya da virgül yanlış yere konmuş olabilir (örn. 500 yerine 5.000)",
+      "Bir kaydın tarihi yanlış yıla girilmiş olabilir (örn. 2025 yerine 2026)",
+      "İade faturaları taraflardan birinde işlenmemiş olabilir",
+      "Aynı kayıt iki kez (mükerrer) girilmiş olabilir",
+      "Fark, bu ekstrenin kapsamadığı daha eski bir dönemden geliyor olabilir"
+    ]
   },
   "mini": {
     "baslik": "Bakiye Kontrolü",
@@ -99,11 +122,11 @@
     "matchedDetail": "{{exact}} birebir · {{close}} yakın tarihli (±3 gün)",
     "roundingDiff": "Yuvarlama farkları toplamı: {{amount}}",
     "notCompared": "karşılaştırılamadı",
-    "checksumTotals": "Dip toplam kontrolü",
-    "checksumTotalsYok": "Karşı ekstrede toplam satırı bulunmadığı için yapılamadı",
-    "checksumChain": "Bakiye zinciri kontrolü",
-    "checksumChainYok": "Bakiye kolonu yok ya da yönü (B/A) çözülemediği için yapılamadı",
-    "checksumSelf": "Fark doğrulaması",
+    "checksumTotals": "Ekstrenin kendi toplamı tutuyor",
+    "checksumTotalsYok": "Ekstrede toplam satırı olmadığı için kontrol edilemedi",
+    "checksumChain": "Ekstrenin yürüyen bakiyesi tutuyor",
+    "checksumChainYok": "Ekstrede bakiye kolonu olmadığı (ya da yönü okunamadığı) için kontrol edilemedi",
+    "checksumSelf": "Farkın kaynağı bulundu",
     "postPeriodInfo": "Ekstre döneminden sonra {{count}} işlem daha var; bugünkü bakiye ekstre kapanışından farklıdır. Güncel bakiye: {{amount}}",
     "kaynak": "Kaynak: {{file}} · {{rows}} ekstre satırı · Rapor: {{date}}"
   },
@@ -124,7 +147,8 @@
     "missingInTheirs": "Onlarda görünmeyen",
     "amountMismatch": "Tutar farklı",
     "matchedItems": "Eşleşen kalemler",
-    "sectionCount": "{{count}} kalem · {{amount}}"
+    "sectionCount": "{{count}} kalem · {{amount}}",
+    "bizdeEksikVerifyNot": "Eklemeden önce kontrol edin: bu faturalar gerçekten kesildi mi, mal/hizmet gerçekten alınıp verildi mi? Emin değilseniz karşı taraftan dayanağını (fatura/irsaliye) isteyin — karşı taraf hatalı ya da fazladan işlemiş olabilir."
   },
   "rowHint": {
     "musteri": {
@@ -151,19 +175,21 @@
   },
   "insights": {
     "title": "Asistan Özeti",
-    "fark_devirden": "Bu dönemin kayıtları uyumlu ({{count}} kalem eşleşti); {{amount}} tutarındaki farkın tamamı geçmiş dönem devrinden geliyor.",
+    "hic_eslesme": "Bu ekstredeki hiçbir hareket kayıtlarınızla eşleşmedi. Dosyanın doğru cariye ait olduğundan ve dönemi kapsadığından emin olun.",
+    "fark_devirden": "Bu ekstredeki işlemleriniz mutabık; {{amount}} tutarındaki fark ise önceki dönemin devrinden geliyor — yani sorun bu ekstreden önceki dönemde.",
     "fark_borc_lehinize": "{{cari}}, borcunuzu sizin kaydınızdan {{amount}} daha DÜŞÜK gösteriyor — fark lehinize.",
     "fark_borc_aleyhinize": "{{cari}}, borcunuzu sizin kaydınızdan {{amount}} daha YÜKSEK gösteriyor — fark aleyhinize.",
     "fark_alacak_lehinize": "{{cari}}, alacağınızı sizin kaydınızdan {{amount}} daha YÜKSEK gösteriyor — fark lehinize.",
     "fark_alacak_aleyhinize": "{{cari}}, alacağınızı sizin kaydınızdan {{amount}} daha DÜŞÜK gösteriyor — fark aleyhinize.",
-    "devir_lehinize": "Dönem başı devrinde {{amount}} fark LEHİNİZE: geçmişte bir ödemeniz karşı tarafça işlenmemiş ya da sizde bir fatura iki kez girilmiş olabilir.",
-    "devir_aleyhinize": "Dönem başı devrinde {{amount}} fark ALEYHİNİZE: geçmişte sizde bir kayıt eksik ya da karşı tarafta fazladan bir kayıt olabilir.",
+    "fark_gorunmeyen_donem": "Bu ekstredeki bütün işlemleriniz mutabık; ama yine de {{amount}} fark kalıyor — bu fark, ekstrenin kapsamadığı daha eski bir dönemden geliyor olabilir. O dönemleri kontrol edin ya da karşı taraftan tam/eski ekstre isteyin.",
     "devir_tek_kalem": "Devir farkı, {{date}} tarihli {{amount}} tutarındaki kaydınızla{{detay}} birebir aynı — karşı taraf bu kaydı işlememiş olabilir; önce bunu sorun.",
-    "eski_donem_ekstresi": "Devir farkı bu ekstreden önceki dönemden geliyor — karşı taraftan önceki dönemin ekstresini isteyin.",
     "fatura_tamam": "Fatura tarafı birebir tutuyor ({{count}} kalem) ✓",
     "odeme_tamam": "Ödeme/tahsilat tarafı birebir tutuyor ({{count}} kalem) ✓",
     "mukerrer_suphe": "{{date}} tarihli {{amount}} kaydı defterinizde iki kez görünüyor, ekstrede bir kez var — mükerrer olabilir ya da karşı taraf ikinci teslimatı işlememiş olabilir; irsaliyeden kontrol edin.",
     "kurus_farki": "{{count}} kalemde net {{amount}} yuvarlama farkı var — tek düzeltme kaydıyla kapatılabilir.",
+    "olasi_ters_taraf": "{{date}} tarihli {{amount}} tutarı iki tarafta da ZIT yönde görünüyor (birinde borç, diğerinde alacak). Bu işlemi ters tarafa işlemiş olabilirsiniz — iadeyi satış, ödemeyi tahsilat gibi. Kontrol edin.",
+    "olasi_katsayi": "İki tarafta {{count}} kat farklı görünen bir kayıt var{{detay}} — bir tutara fazladan sıfır eklenmiş ya da virgül yanlış yere konmuş olabilir.",
+    "olasi_yil_hatasi": "{{date}} tarihli {{amount}} tutarındaki kaydınızın, ekstrede tam bir yıl önce/sonra bir ikizi var — kaydın yılını yanlış girmiş olabilirsiniz.",
     "donem_sonrasi": "Ekstre döneminden sonra defterinizde {{count}} işlem daha var; karşılaştırma ekstrenin bittiği tarihteki bakiyelerle yapıldı."
   },
   "koprusu": {
@@ -199,12 +225,24 @@
   "share": {
     "button": "Özeti Paylaş",
     "header": "{{cari}} — Mutabakat Özeti ({{start}} – {{end}})",
-    "verdictLine": "Sonuç: {{verdict}}",
-    "openingLine": "Devir — Bizde: {{ours}} / Ekstrede: {{theirs}}",
-    "closingLine": "Kapanış — Bizde: {{ours}} / Ekstrede: {{theirs}}",
-    "missingInOursLine": "Bizde işlenmemiş {{count}} kalem (toplam {{amount}})",
-    "missingInTheirsLine": "Karşı tarafta görünmeyen {{count}} kalem (toplam {{amount}})",
-    "mismatchLine": "Tutarı farklı {{count}} kalem (net fark {{amount}})",
+    "sonuc": {
+      "mutabik": "Sonuç: Mutabıkız ✓ Kayıtlarımız birebir uyuşuyor.",
+      "fark_aciklandi": "Sonuç: Aramızda fark var ve kaynağı belli — aşağıda açıkladım.",
+      "bakiye_teyitsiz": "Sonuç: Ekstreyi karşılaştırdım ama bakiyeyi netleştiremedim; aşağıdakileri birlikte kontrol edelim.",
+      "mutabik_degil": "Sonuç: Mutabık değiliz — aşağıdaki farkları birlikte gözden geçirelim."
+    },
+    "devirBaslik": "{{date}} tarihindeki bakiyeler:",
+    "devirBiz": "  • Bizde: {{ours}}",
+    "devirSiz": "  • Sizde: {{theirs}}",
+    "devirIste": "Aradaki {{amount}} fark {{date}} öncesinden geliyor. {{date}} tarihinden önceki dönemin ekstresini rica ederim.",
+    "baslangicIste": "Aradaki {{amount}} farkı araştırıyorum; en eski dönemden başlayarak birlikte kontrol edelim.",
+    "bizdeEksikBaslik": "Sizin ekstrenizde olan ama bende görünmeyen {{count}} kayıt (dayanağını/faturasını paylaşırsanız kontrol edip işleyeceğim):",
+    "onlardaEksikBaslik": "Bende kayıtlı olan ama sizin ekstrenizde görünmeyen {{count}} işlem — muhtemelen işlemeyi atladığınız faturalar ya da tahsilat/ödemeler. Kontrol eder misiniz?",
+    "tutarBaslik": "İki tarafta farklı tutarda görünen {{count}} kayıt:",
+    "tutarItem": "• {{desc}} — sizde {{theirs}}, bende {{ours}}",
+    "gorunmeyenDonem": "Bu ekstredeki hareketler tutuyor ama {{amount}} fark kalıyor; sanırım daha eski bir dönemde sorun var. Mümkünse tam/eski ekstre paylaşır mısınız?",
+    "bakiyeReferans": "{{date}} itibarıyla bende görünen bakiye: {{ours}}",
+    "footer": "— İşletme Takip uygulamasıyla hazırlandı 📘",
     "itemLine": "• {{date}} {{desc}} — {{amount}}"
   },
   "queue": {

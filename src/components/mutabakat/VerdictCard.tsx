@@ -14,11 +14,12 @@ interface VerdictCardProps {
   onShare: () => void;
 }
 
-const VERDICT_STYLE: Record<MutabakatDurum, { bg: string; fg: string }> = {
-  mutabik: { bg: colors.successLight, fg: colors.success },
-  fark_aciklandi: { bg: colors.orangeLight, fg: colors.orange },
-  bakiye_teyitsiz: { bg: colors.warningLight, fg: colors.warning },
-  mutabik_degil: { bg: colors.errorLight, fg: colors.error },
+// bg: açık zemin · icon: parlak vurgu (ikon) · text: KOYU ton (başlık, açık zeminde okunur)
+const VERDICT_STYLE: Record<MutabakatDurum, { bg: string; icon: string; text: string }> = {
+  mutabik: { bg: colors.successLight, icon: colors.success, text: colors.successDark },
+  fark_aciklandi: { bg: colors.orangeLight, icon: colors.orange, text: colors.orangeDark },
+  bakiye_teyitsiz: { bg: colors.warningLight, icon: colors.warning, text: colors.warningDark },
+  mutabik_degil: { bg: colors.errorLight, icon: colors.error, text: colors.errorDark },
 };
 
 const VERDICT_ICON: Record<MutabakatDurum, typeof CheckCircle2> = {
@@ -40,26 +41,26 @@ export function VerdictCard({ durum, kapanisFarkKurus, currency, onShare }: Verd
   return (
     <View style={[styles.card, { backgroundColor: style.bg }]}>
       <View style={styles.headerRow}>
-        <Icon size={28} color={style.fg} />
+        <Icon size={34} color={style.icon} />
         <View style={styles.headerText}>
-          <Text variant="h3" style={{ color: style.fg }}>
+          <Text variant="h2" bold style={{ color: style.text }}>
             {t(`verdict.${durum}`)}
           </Text>
           {farkVar ? (
-            <Text variant="bodySmall" color="secondary">
+            <Text variant="body" bold style={{ color: style.text }}>
               {t('verdict.closingDiff', {
                 amount: formatCurrency(Math.abs(kapanisFarkKurus) / 100, currency),
               })}
             </Text>
           ) : null}
-          <Text variant="bodySmall" color="secondary">
+          <Text variant="body" color="secondary">
             {t(`verdict.${durum}Desc`)}
           </Text>
         </View>
       </View>
       <TouchableOpacity style={styles.shareButton} onPress={onShare}>
-        <Share2 size={16} color={colors.primary} />
-        <Text variant="label" style={{ color: colors.primary }}>
+        <Share2 size={18} color={colors.primary} />
+        <Text variant="body" bold style={{ color: colors.primary }}>
           {t('share.button')}
         </Text>
       </TouchableOpacity>

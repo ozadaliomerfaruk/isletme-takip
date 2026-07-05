@@ -13,6 +13,8 @@ import type { MutabakatSonucu } from './types';
 export const MIN_ITEMS_FOR_RATIO = 10;
 export const RATIO_GREEN = 0.7;
 export const RATIO_RED = 0.3;
+/** "Ekstre penceremizin tamamen dışında" şüphesinin tetiklenmesi için asgari satır */
+export const MIN_ROWS_FOR_SUSPICION = 6;
 
 export type DogrulamaSeviye = 'yesil' | 'sari' | 'kirmizi';
 
@@ -21,11 +23,20 @@ export interface DogrulamaSonucu {
   /** Eşleşme oranı (0..1); alarm için yeterli veri yoksa null (yeni kullanıcı istisnası) */
   oran: number | null;
   eslesen: number;
+  /** Karşılaştırılabilir ekstre satırı (Bölge B): eşleşen + bizde eksik + tutar farklı */
   bolgeB: number;
+  /** Ekstredeki TÜM satır (Bölge A dahil) — "N hareket" ifadesi için */
+  toplamEkstreSatir: number;
+  /** Kayıt penceremizden önceki (kilitli) ekstre satırı sayısı */
+  bolgeA: number;
+  /** Ekstrenin hiçbir satırı karşılaştırılamadı (hepsi Bölge A) — yanlış/çok eski sinyali */
+  tamDisinda: boolean;
   /** Antette bulunan ad (cari ya da işletme); bulunamadıysa null. Antet boşsa 'antet_yok'. */
   isim: { bulunan: string | null; antetVar: boolean };
   /** Ekstre dönemi ile kayıtlarımızın kesişimi var mı; kayıt yoksa null */
   donemOrtusuyor: boolean | null;
+  /** İlk kayıt tarihimiz (YYYY-MM-DD) — "kayıtlarınız X'te başlıyor" mesajı için */
+  kayitBaslangic: string | null;
 }
 
 /** Türkçe-katlamalı, noktalama-bağışık kelime kümesi */
@@ -76,6 +87,8 @@ export function dosyaDogrula(input: DogrulamaInput): DogrulamaSonucu {
   const eslesen = sonuc.eslesmeler.length;
   const bolgeB = sonuc.bizdeEksik.length + sonuc.tutarFarkli.length + eslesen;
   const bolgeBBiz = sonuc.onlardaEksik.length + sonuc.tutarFarkli.length + eslesen;
+  const bolgeA = sonuc.bolgeA.length;
+  const toplamEkstreSatir = bolgeB + bolgeA;
   // Yeni kullanıcı istisnası: iki tarafta da yeterli kalem yoksa oran alarmı PASİF —
   // yeni kullanıcıya salt orandan dolayı asla "yanlış dosya!" denmez.
   const oranAktif = Math.min(bolgeB, bolgeBBiz) >= MIN_ITEMS_FOR_RATIO;
@@ -89,11 +102,22 @@ export function dosyaDogrula(input: DogrulamaInput): DogrulamaSonucu {
     donemOrtusuyor = !(sonuc.donem.end < kayitAraligi.start || sonuc.donem.start > kayitAraligi.end);
   }
 
+  // Ekstre penceremizin TAMAMEN dışında: hiçbir satır karşılaştırılamadı (hepsi Bölge A).
+  // Bu, oran dedektörünün kör noktasıdır (Bölge B boş → oran hesaplanamaz) ve
+  // "yanlış cari / çok eski ekstre" senaryosunun asıl imzasıdır (bkz. C02 vakası).
+  const tamDisinda = bolgeB === 0 && bolgeA > 0;
+  const cokSatir = toplamEkstreSatir >= MIN_ROWS_FOR_SUSPICION;
+
+  // ŞİDDETE GÖRE: kesin şüphe → tam ekran blok (kirmizi); kısmi şüphe → kart (sari).
   let seviye: DogrulamaSeviye = 'yesil';
-  if (oranAktif && oran !== null && oran < RATIO_RED) {
+  if (
+    (oranAktif && oran !== null && oran < RATIO_RED) || // örtüşen kalem var ama neredeyse hiçbiri tutmuyor
+    (tamDisinda && cokSatir && donemOrtusuyor === false) // ekstre tamamen dışarıda + çok satır + dönem örtüşmüyor
+  ) {
     seviye = 'kirmizi';
   } else if (
     (oranAktif && oran !== null && oran < RATIO_GREEN) ||
+    (tamDisinda && cokSatir) || // dışarıda ama dönem belirsiz olabilir → yumuşak uyarı
     (!oranAktif && antetVar && bulunan === null && donemOrtusuyor === false)
   ) {
     seviye = 'sari';
@@ -104,7 +128,11 @@ export function dosyaDogrula(input: DogrulamaInput): DogrulamaSonucu {
     oran: oranAktif ? oran : null,
     eslesen,
     bolgeB,
+    toplamEkstreSatir,
+    bolgeA,
+    tamDisinda,
     isim: { bulunan, antetVar },
     donemOrtusuyor,
+    kayitBaslangic: kayitAraligi?.start ?? null,
   };
 }

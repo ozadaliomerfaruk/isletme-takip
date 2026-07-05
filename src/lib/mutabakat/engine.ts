@@ -512,20 +512,34 @@ export function reconcile(input: ReconcileInput): MutabakatSonucu {
   const yonSorunu = uyarilar.some((u) => u.code === 'aynasiz_yon' || u.code === 'dusuk_eslesme');
   const checksumSorunu =
     dipToplamUyumlu === false || res.bakiyeZinciriUyumlu === false || farkAciklanabilir === false;
+  // GÜVEN EŞİĞİ: hiçbir kalem eşleşmediyse köprü denklemi trivial olarak "tutar"
+  // (0 kalem → devir farkı = tüm fark). Bu, yanlış/çok eski ekstrede sahte
+  // "kaynağı belli / mutabıkız" verdiktine yol açıyordu (C02 vakası: 138 satır,
+  // 0 eşleşme, "denklem tutuyor ✓"). En az bir gerçek eşleşme yoksa bu iki
+  // güven-veren verdikt VERİLMEZ — bakiye_teyitsiz'e düşer, kullanıcı dosyayı sorgular.
+  // Belge-no eşleşmeleri (tutarFarkli, Aşama 3) de gerçek eşleşmedir: her belge
+  // tanındıysa köprü denklemi ANLAMLI çapalıdır (tutarFarkli.farkKurus'u içerir),
+  // bu yüzden onları da say — yoksa sistematik KDV/yuvarlama farkı olan (ama her
+  // belgesi eşleşen) cari yanlışlıkla "bakiye teyitsiz" görünürdü (SMMM senaryosu).
+  const eslesmeGuveni = res.eslesmeler.length > 0 || res.tutarFarkli.length > 0;
 
   let durum: MutabakatSonucu['durum'];
   if (farkVar || devirSorun || kapanisSorun) {
     // Fark var ama köprü denklemi tutuyorsa kaynağı BELLİ demektir: kırmızı alarm
     // yerine turuncu "açıklandı" — kullanıcı korkmasın, adımları uygulasın.
     durum =
+      eslesmeGuveni &&
       farkAciklanabilir === true &&
       dipToplamUyumlu !== false &&
       res.bakiyeZinciriUyumlu !== false &&
       ekstre.skippedDataRows === 0 &&
       !yonSorunu
         ? 'fark_aciklandi'
-        : 'mutabik_degil';
+        : eslesmeGuveni
+          ? 'mutabik_degil'
+          : 'bakiye_teyitsiz';
   } else if (
+    eslesmeGuveni &&
     devirUyumlu === true &&
     kapanisFark !== null &&
     !checksumSorunu &&

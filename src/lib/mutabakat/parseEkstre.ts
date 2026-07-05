@@ -38,6 +38,11 @@ const COLUMN_SYNONYMS: Record<string, string[]> = {
   borc: ['BORC', 'BORCTUTARI', 'BORCTL', 'DEBIT', 'BOR'],
   alacak: ['ALACAK', 'ALACAKTUTARI', 'ALACAKTL', 'CREDIT'],
   bakiye: ['BAKIYE', 'KALAN', 'BALANCE', 'KUMULATIFBAKIYE', 'YURUYENBAKIYE'],
+  // Bölünmüş yürüyen bakiye (Logo/Mikro/Netsis standardı): "Borç Bak." / "Alacak Bak."
+  // Yalnız biri dolu gelir; net = borçBak − alacakBak (borç-pozitif, onların perspektifi).
+  // Eşleşme TAM olduğundan (normalized === syn) "BORCBAK", "BORC"a kapılmaz.
+  borcBakiye: ['BORCBAK', 'BORCBAKIYE', 'BORCBAKIYESI', 'BORCKALAN', 'BORCBAKI'],
+  alacakBakiye: ['ALACAKBAK', 'ALACAKBAKIYE', 'ALACAKBAKIYESI', 'ALACAKKALAN', 'ALACAKBAKI'],
   // Ayrı borç/alacak gösterge kolonu ("B/A")
   baGosterge: ['B/A', 'BA', 'BORCALACAK'],
 };
@@ -53,12 +58,15 @@ interface ColumnIndices {
   borc: number;
   alacak: number;
   bakiye: number;
+  borcBakiye: number;
+  alacakBakiye: number;
   baGosterge: number;
 }
 
 function findColumns(row: CellValue[]): ColumnIndices | null {
   const indices: ColumnIndices = {
-    tarih: -1, aciklama: -1, belgeNo: -1, borc: -1, alacak: -1, bakiye: -1, baGosterge: -1,
+    tarih: -1, aciklama: -1, belgeNo: -1, borc: -1, alacak: -1,
+    bakiye: -1, borcBakiye: -1, alacakBakiye: -1, baGosterge: -1,
   };
   for (let i = 0; i < row.length; i++) {
     const cell = row[i];
@@ -142,6 +150,35 @@ export function parseAmountCell(cell: CellValue): AmountParse {
   const value = parseFloat(s);
   if (isNaN(value)) return { kurus: null, suffix: null };
   return { kurus: toKurus(negative ? -value : value), suffix };
+}
+
+/**
+ * Bir satırın bakiye hücresini işaretli kuruşa çevirir (borç-pozitif, onların
+ * perspektifi). İki format desteklenir:
+ *  - Bölünmüş: "Borç Bak." / "Alacak Bak." → net = borçBak − alacakBak (işaret kesin)
+ *  - Tek kolon: "Bakiye" + B/A eki ya da ayrı B/A gösterge kolonu (işaret çözülürse)
+ * resolved=true ise işaret güvenilirdir (zincir/sınır kontrolü kullanabilir).
+ */
+function readBalanceCell(raw: CellValue[], cols: ColumnIndices): { kurus: number | null; resolved: boolean } {
+  if (cols.borcBakiye !== -1 || cols.alacakBakiye !== -1) {
+    const b = cols.borcBakiye !== -1 ? parseAmountCell(raw[cols.borcBakiye]).kurus : null;
+    const a = cols.alacakBakiye !== -1 ? parseAmountCell(raw[cols.alacakBakiye]).kurus : null;
+    if (b === null && a === null) return { kurus: null, resolved: false };
+    // Kolonlar magnitüd tutar; borç bakiye +, alacak bakiye − (borç-pozitif konvansiyon)
+    return { kurus: Math.abs(b ?? 0) - Math.abs(a ?? 0), resolved: true };
+  }
+  if (cols.bakiye !== -1) {
+    const bak = parseAmountCell(raw[cols.bakiye]);
+    if (bak.kurus === null) return { kurus: null, resolved: false };
+    let suffix = bak.suffix;
+    if (!suffix && cols.baGosterge !== -1) {
+      const g = normalizeHeader(cellText(raw[cols.baGosterge]));
+      if (g === 'B' || g === 'A') suffix = g;
+    }
+    if (suffix) return { kurus: suffix === 'B' ? Math.abs(bak.kurus) : -Math.abs(bak.kurus), resolved: true };
+    return { kurus: bak.kurus, resolved: false };
+  }
+  return { kurus: null, resolved: false };
 }
 
 function parseDateValue(cell: CellValue): string | null {
@@ -284,12 +321,11 @@ export function parseEkstreFile(fileBuffer: ArrayBuffer): ParsedEkstre {
         // net'i motor alır. Yalnız bakiye kolonu doluysa B/A ekinden yön çıkar.
         let d = Math.max(debitKurus ?? 0, 0);
         let c = Math.max(creditKurus ?? 0, 0);
-        if (d === 0 && c === 0 && cols.bakiye !== -1) {
-          const bak = parseAmountCell(raw[cols.bakiye]);
+        if (d === 0 && c === 0) {
+          const bak = readBalanceCell(raw, cols);
           if (bak.kurus !== null) {
-            const signed = bak.suffix === 'A' ? -Math.abs(bak.kurus) : bak.suffix === 'B' ? Math.abs(bak.kurus) : bak.kurus;
-            if (signed >= 0) d = signed;
-            else c = -signed;
+            if (bak.kurus >= 0) d = bak.kurus;
+            else c = -bak.kurus;
           }
         }
         devir = { debitKurus: d, creditKurus: c };
@@ -332,25 +368,11 @@ export function parseEkstreFile(fileBuffer: ArrayBuffer): ParsedEkstre {
       if (net === 0) continue;
     }
 
-    // Bakiye: B/A eki işarete çevrilir (B=+, A=−; onların perspektifi)
-    let balanceKurus: number | null = null;
-    let balanceSignResolved = false;
-    if (cols.bakiye !== -1) {
-      const bak = parseAmountCell(raw[cols.bakiye]);
-      if (bak.kurus !== null) {
-        let suffix = bak.suffix;
-        if (!suffix && cols.baGosterge !== -1) {
-          const g = normalizeHeader(cellText(raw[cols.baGosterge]));
-          if (g === 'B' || g === 'A') suffix = g;
-        }
-        if (suffix) {
-          balanceKurus = suffix === 'B' ? Math.abs(bak.kurus) : -Math.abs(bak.kurus);
-          balanceSignResolved = true;
-        } else {
-          balanceKurus = bak.kurus;
-        }
-      }
-    }
+    // Bakiye: bölünmüş (Borç Bak./Alacak Bak.) ya da tek kolon + B/A eki.
+    // İşaret çözülürse (B=+, A=−; onların perspektifi) zincir/sınır kontrolü kullanır.
+    const bakiye = readBalanceCell(raw, cols);
+    const balanceKurus = bakiye.kurus;
+    const balanceSignResolved = bakiye.resolved;
 
     rows.push({
       rowIndex,
@@ -376,7 +398,9 @@ export function parseEkstreFile(fileBuffer: ArrayBuffer): ParsedEkstre {
     headerRowIndex,
     onBaslikMetni,
     hasBelgeNo: cols.belgeNo !== -1 && rows.some((r) => r.belgeNo !== null),
-    hasBalance: cols.bakiye !== -1 && rows.some((r) => r.balanceKurus !== null),
+    hasBalance:
+      (cols.bakiye !== -1 || cols.borcBakiye !== -1 || cols.alacakBakiye !== -1) &&
+      rows.some((r) => r.balanceKurus !== null),
     devir,
     dipToplam,
     uyarilar,

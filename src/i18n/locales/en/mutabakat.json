@@ -29,20 +29,43 @@
   },
   "verdict": {
     "mutabik": "Reconciled",
-    "mutabikDesc": "All items matched; opening and closing balances verified.",
-    "fark_aciklandi": "Difference found — source identified",
-    "fark_aciklandiDesc": "The difference is fully explained by the breakdown below; close it with the \"What to do now\" steps.",
-    "bakiye_teyitsiz": "Transactions match — balance not verified",
-    "bakiye_teyitsizDesc": "Period items matched but the opening/closing balance could not be fully verified. Check the warnings.",
+    "mutabikDesc": "Every record in this period matches exactly; opening and closing balances checked out too. Everything is in its place.",
+    "fark_aciklandi": "There's a difference, but the cause is clear",
+    "fark_aciklandiDesc": "The breakdown below pinpoints where the difference comes from. Follow the \"What to do now\" steps to close it.",
+    "bakiye_teyitsiz": "Balance could not be verified",
+    "bakiye_teyitsizDesc": "The opening or closing balance could not be fully verified. Check the warnings below and make sure the file belongs to this contact.",
     "mutabik_degil": "Not reconciled",
-    "mutabik_degilDesc": "The difference cannot be fully explained by the listed items — review the warnings and items.",
+    "mutabik_degilDesc": "The difference isn't fully explained by the listed items. Review the mismatches and possible causes below; the problem may also be in older periods this statement doesn't cover.",
     "closingDiff": "Closing difference: {{amount}}"
   },
   "openingDiff": {
-    "title": "Opening (carried-forward) difference: {{amount}}",
-    "desc": "This difference comes from before this statement's period. Reconcile the previous period separately.",
+    "title": "Opening difference: {{amount}}",
+    "desc": "There's a difference in your opening balance on {{date}}: you show {{ours}}, the other party shows {{theirs}} — the difference is {{yon}}. It comes from the period before {{date}}. Ask the other party for that period's statement and clear it up first.",
     "baslangicTitle": "Opening balance difference: {{amount}}",
-    "baslangicDesc": "The other party's balance at your record start doesn't match your opening balance. Investigate the cause (a forgotten payment, an unrecorded invoice) — do NOT enter a made-up entry to close the gap, it would pollute your income-expense reports. If you have no transactions yet, update the opening balance from the contact's detail page."
+    "baslangicDesc": "The opening balance you entered on {{date}} ({{ours}}) doesn't match the other party's balance on that date ({{theirs}}) — the difference is {{yon}}. Either check your opening balance or look for a missing/extra entry before {{date}}. Do NOT enter a made-up entry to close the gap, it would pollute your income-expense reports. If you have no transactions yet, update the opening balance from the contact's detail page.",
+    "lehinize": "in your favor",
+    "aleyhinize": "against you"
+  },
+  "supheli": {
+    "baslik": "This statement may not belong to {{cari}}",
+    "govde": "None of the {{count}} transactions in the uploaded statement matched your records.",
+    "nedenBaslik": "Possible reasons:",
+    "nedenEski": "It may be from a much older period (your records start on {{date}})",
+    "nedenBaskaCari": "The statement may belong to a different contact",
+    "nedenBaslangic": "Your opening balance may differ from theirs",
+    "nedenOran": "Only {{eslesen}} of {{toplam}} rows matched",
+    "yineDeGoster": "Show the report anyway"
+  },
+  "causes": {
+    "title": "What could cause the difference?",
+    "items": [
+      "An invoice or payment may be unrecorded on one side",
+      "A number may have an extra zero or a misplaced decimal (e.g. 5,000 instead of 500)",
+      "An entry's date may have the wrong year (e.g. 2026 instead of 2025)",
+      "Return invoices may be unrecorded on one side",
+      "The same entry may have been recorded twice (duplicate)",
+      "The difference may come from an older period this statement doesn't cover"
+    ]
   },
   "mini": {
     "baslik": "Balance Check",
@@ -99,11 +122,11 @@
     "matchedDetail": "{{exact}} exact · {{close}} near-date (±3 days)",
     "roundingDiff": "Total rounding differences: {{amount}}",
     "notCompared": "not compared",
-    "checksumTotals": "Totals check",
-    "checksumTotalsYok": "Not possible — their statement has no totals row",
-    "checksumChain": "Balance chain check",
-    "checksumChainYok": "Not possible — no balance column or its direction (D/C) could not be resolved",
-    "checksumSelf": "Difference verification",
+    "checksumTotals": "Statement's own total adds up",
+    "checksumTotalsYok": "Couldn't check — the statement has no totals row",
+    "checksumChain": "Statement's running balance adds up",
+    "checksumChainYok": "Couldn't check — the statement has no balance column (or its direction was unreadable)",
+    "checksumSelf": "Source of the difference found",
     "postPeriodInfo": "{{count}} more transactions after the statement period; today's balance differs from the statement closing. Current balance: {{amount}}",
     "kaynak": "Source: {{file}} · {{rows}} statement rows · Report: {{date}}"
   },
@@ -124,7 +147,8 @@
     "missingInTheirs": "Missing on their side",
     "amountMismatch": "Amount differs",
     "matchedItems": "Matched items",
-    "sectionCount": "{{count}} items · {{amount}}"
+    "sectionCount": "{{count}} items · {{amount}}",
+    "bizdeEksikVerifyNot": "Before adding, verify: were these invoices actually issued, and were the goods/services actually delivered? If unsure, ask the other party for proof (invoice/delivery note) — they may have recorded them by mistake or added extra ones."
   },
   "rowHint": {
     "musteri": {
@@ -151,19 +175,21 @@
   },
   "insights": {
     "title": "Assistant Summary",
-    "fark_devirden": "This period's records are consistent ({{count}} items matched); the entire {{amount}} difference comes from the prior-period opening balance.",
+    "hic_eslesme": "None of the transactions in this statement matched your records. Make sure the file belongs to the right contact and covers the period.",
+    "fark_devirden": "The transactions in this statement reconcile; the {{amount}} difference comes from the prior-period opening balance — so the problem is in the period before this statement.",
     "fark_borc_lehinize": "{{cari}} shows your payable {{amount}} LOWER than your records — in your favor.",
     "fark_borc_aleyhinize": "{{cari}} shows your payable {{amount}} HIGHER than your records — against you.",
     "fark_alacak_lehinize": "{{cari}} shows your receivable {{amount}} HIGHER than your records — in your favor.",
     "fark_alacak_aleyhinize": "{{cari}} shows your receivable {{amount}} LOWER than your records — against you.",
-    "devir_lehinize": "The opening balance differs by {{amount}} IN YOUR FAVOR: a past payment of yours may not have been recorded by them, or an invoice may have been entered twice on your side.",
-    "devir_aleyhinize": "The opening balance differs by {{amount}} AGAINST YOU: you may be missing a past entry, or they may have an extra one.",
+    "fark_gorunmeyen_donem": "All transactions in this statement reconcile; yet a {{amount}} difference remains — it likely comes from an older period this statement doesn't cover. Check those periods, or ask the other party for a full/older statement.",
     "devir_tek_kalem": "The opening difference exactly matches your {{amount}} entry dated {{date}}{{detay}} — the other party may not have recorded it; ask about this first.",
-    "eski_donem_ekstresi": "The opening difference comes from before this statement — ask the other party for the previous period's statement.",
     "fatura_tamam": "Invoice side matches exactly ({{count}} items) ✓",
     "odeme_tamam": "Payment/collection side matches exactly ({{count}} items) ✓",
     "mukerrer_suphe": "The {{amount}} entry dated {{date}} appears twice in your ledger but once in the statement — it may be a duplicate, or the other party may have missed the second delivery; check the delivery note.",
     "kurus_farki": "{{count}} items have a net {{amount}} rounding difference — this can be settled with a single adjustment entry.",
+    "olasi_ters_taraf": "The {{amount}} entry dated {{date}} appears on both sides with OPPOSITE signs (debit on one, credit on the other). You may have booked it on the wrong side — e.g. a return as a sale, a payment as a collection. Check it.",
+    "olasi_katsayi": "One entry differs by {{count}}× between the two sides{{detay}} — a number may have an extra zero or a misplaced decimal.",
+    "olasi_yil_hatasi": "Your {{amount}} entry dated {{date}} has a twin exactly one year earlier/later in the statement — you may have entered the wrong year.",
     "donem_sonrasi": "Your ledger has {{count}} more transactions after the statement period; the comparison uses balances as of the statement's end date."
   },
   "koprusu": {
@@ -199,12 +225,24 @@
   "share": {
     "button": "Share Summary",
     "header": "{{cari}} — Reconciliation Summary ({{start}} – {{end}})",
-    "verdictLine": "Result: {{verdict}}",
-    "openingLine": "Opening — Ours: {{ours}} / Statement: {{theirs}}",
-    "closingLine": "Closing — Ours: {{ours}} / Statement: {{theirs}}",
-    "missingInOursLine": "{{count}} items not recorded on our side (total {{amount}})",
-    "missingInTheirsLine": "{{count}} items missing on their side (total {{amount}})",
-    "mismatchLine": "{{count}} items with different amounts (net difference {{amount}})",
+    "sonuc": {
+      "mutabik": "Result: We're reconciled ✓ Our records match exactly.",
+      "fark_aciklandi": "Result: There's a difference and the cause is clear — explained below.",
+      "bakiye_teyitsiz": "Result: I compared the statement but couldn't pin down the balance; let's check the items below together.",
+      "mutabik_degil": "Result: We're not reconciled — let's review the differences below together."
+    },
+    "devirBaslik": "Balances on {{date}}:",
+    "devirBiz": "  • Mine: {{ours}}",
+    "devirSiz": "  • Yours: {{theirs}}",
+    "devirIste": "The {{amount}} difference comes from before {{date}}. Could you send the statement for the period before {{date}}?",
+    "baslangicIste": "I'm looking into the {{amount}} difference; let's check together starting from the earliest period.",
+    "bizdeEksikBaslik": "{{count}} entries on your statement I don't have (if you share the proof/invoice I'll check and record them):",
+    "onlardaEksikBaslik": "{{count}} entries I have that aren't on your statement — likely invoices or payments/collections you missed. Could you check?",
+    "tutarBaslik": "{{count}} entries showing a different amount on each side:",
+    "tutarItem": "• {{desc}} — yours {{theirs}}, mine {{ours}}",
+    "gorunmeyenDonem": "The transactions in this statement line up but a {{amount}} difference remains; I think the issue is in an older period. Could you share a full/older statement if possible?",
+    "bakiyeReferans": "As of {{date}}, the balance on my side: {{ours}}",
+    "footer": "— Prepared with the İşletme Takip app 📘",
     "itemLine": "• {{date}} {{desc}} — {{amount}}"
   },
   "queue": {

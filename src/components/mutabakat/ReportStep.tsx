@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, ListPlus, Lock, Sparkles } from 'lucide-react-native';
+import { AlertTriangle, ChevronDown, ChevronRight, HelpCircle, ListPlus, Lock, Sparkles } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -27,12 +27,14 @@ type ReportItem =
   | { kind: 'dogrulama' }
   | { kind: 'bant'; seviye: 'sari' | 'kirmizi' }
   | { kind: 'insights' }
+  | { kind: 'causes' }
   | { kind: 'actions' }
   | { kind: 'openingDiff' }
   | { kind: 'summary' }
   | { kind: 'warnings' }
   | { kind: 'queueButton' }
   | { kind: 'header'; group: 'a' | 'b' | 'c' | 'matched' | 'kilitli'; count: number; totalKurus: number }
+  | { kind: 'bizdeEksikNot' }
   | { kind: 'rowA'; item: BizdeEksikSatir }
   | { kind: 'rowB'; item: OnlardaEksikKalem }
   | { kind: 'rowC'; item: TutarFarki }
@@ -153,6 +155,10 @@ export function ReportStep({
     if (ozet.insights.length > 0 || kopruGorunur) list.push({ kind: 'insights' });
     if (actionList.length > 0) list.push({ kind: 'actions' });
     if (sonuc.devir.uyumlu === false) list.push({ kind: 'openingDiff' });
+    // "Fark neden olabilir?" — mutabık değilse ve gerçekten uyuşmazlık/açıklanamayan fark varsa
+    const eslesmeyen = sonuc.bizdeEksik.length + sonuc.onlardaEksik.length + sonuc.tutarFarkli.length;
+    const gorunmeyenDonem = ozet.insights.some((i) => i.code === 'fark_gorunmeyen_donem');
+    if (sonuc.durum !== 'mutabik' && (eslesmeyen > 0 || gorunmeyenDonem)) list.push({ kind: 'causes' });
     list.push({ kind: 'summary' });
     if (sonuc.uyarilar.length > 0) list.push({ kind: 'warnings' });
 
@@ -164,6 +170,7 @@ export function ReportStep({
         count: sonuc.bizdeEksik.length,
         totalKurus: sonuc.bizdeEksik.reduce((s, i) => s + mirrorOf(i.satir, sonuc.yon), 0),
       });
+      list.push({ kind: 'bizdeEksikNot' });
       for (const item of sonuc.bizdeEksik) list.push({ kind: 'rowA', item });
     }
     if (sonuc.onlardaEksik.length > 0) {
@@ -228,8 +235,8 @@ export function ReportStep({
     return (
       <View style={styles.insightsCard}>
         <View style={styles.insightsHeader}>
-          <Sparkles size={18} color={colors.primary} />
-          <Text variant="h3">{t('insights.title')}</Text>
+          <Sparkles size={20} color={colors.primary} />
+          <Text variant="h3" bold>{t('insights.title')}</Text>
         </View>
         {ozet.insights.map((ins, i) => (
           <View key={i} style={styles.insightRow}>
@@ -255,7 +262,7 @@ export function ReportStep({
               </View>
             ))}
             {k.devirBilinmiyor && (
-              <Text variant="bodySmall" color="warning">
+              <Text variant="bodySmall" color="warningDark">
                 {t('koprusu.devirBilinmiyor')}
               </Text>
             )}
@@ -353,11 +360,12 @@ export function ReportStep({
           close: sonuc.asamaKirilimi.yakinTarih,
         })}
       />
-      {/* En güven veren rakam açıkça yazılır: eşleşmeyen 0 ise ✓ */}
+      {/* En güven veren rakam açıkça yazılır: eşleşmeyen 0 ise ✓ — AMA yalnız
+          gerçekten eşleşme varsa (0 eşleşen + 0 eşleşmeyen sahte yeşil tik verirdi) */}
       <SummaryRow
         label={t('summary.unmatched', { count: eslesmeyenSayisi })}
         value=""
-        status={eslesmeyenSayisi === 0 ? true : undefined}
+        status={eslesmeyenSayisi === 0 && sonuc.eslesmeler.length > 0 ? true : undefined}
       />
       {sonuc.yuvarlamaFarkiKurus !== 0 && (
         <SummaryRow label={t('summary.roundingDiff', { amount: fmt(sonuc.yuvarlamaFarkiKurus) })} value="" />
@@ -395,7 +403,7 @@ export function ReportStep({
 
   const renderActions = () => (
     <View style={styles.actionsCard}>
-      <Text variant="h3">{t('actions.title')}</Text>
+      <Text variant="h3" bold>{t('actions.title')}</Text>
       {actionList.map((act, i) => (
         <View key={act.key} style={styles.actionRow}>
           <View style={styles.actionNumber}>
@@ -418,6 +426,72 @@ export function ReportStep({
     </View>
   );
 
+  // Şüpheli dosya kartı: "bu ekstre bu cariye ait olmayabilir" + duruma özel olası nedenler.
+  // kirmizi (tam ekran blok) yerine kullanıcı "yine de göster" dediğinde ya da sarı şüphede basılır.
+  const renderSupheli = (seviye: 'sari' | 'kirmizi') => {
+    const nedenler: string[] = [];
+    if (dogrulama.tamDisinda && dogrulama.kayitBaslangic) {
+      nedenler.push(t('supheli.nedenEski', { date: formatDate(dogrulama.kayitBaslangic) }));
+    }
+    nedenler.push(t('supheli.nedenBaskaCari'));
+    nedenler.push(t('supheli.nedenBaslangic'));
+    if (dogrulama.oran !== null) {
+      nedenler.push(t('supheli.nedenOran', { eslesen: dogrulama.eslesen, toplam: dogrulama.toplamEkstreSatir }));
+    }
+    return (
+      <View style={[styles.supheliCard, seviye === 'kirmizi' && styles.supheliCardKirmizi]}>
+        <View style={styles.supheliHeader}>
+          <AlertTriangle size={24} color={colors.warning} />
+          <Text variant="h3" bold color="warningDark" style={styles.supheliBaslik}>
+            {t('supheli.baslik', { cari: cariName })}
+          </Text>
+        </View>
+        <Text variant="body" color="secondary">
+          {t('supheli.govde', { count: dogrulama.toplamEkstreSatir })}
+        </Text>
+        <Text variant="label" color="warningDark">
+          {t('supheli.nedenBaslik')}
+        </Text>
+        {nedenler.map((n, i) => (
+          <View key={i} style={styles.causeRow}>
+            <Text variant="body" color="warningDark">
+              •
+            </Text>
+            <Text variant="body" color="secondary" style={styles.causeText}>
+              {n}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
+  // "Fark neden olabilir?" — genel olası-neden kontrol listesi (esnaf diliyle).
+  const renderCauses = () => {
+    const raw = t('causes.items', { returnObjects: true });
+    const list = Array.isArray(raw) ? (raw as string[]) : [];
+    return (
+      <View style={styles.causesCard}>
+        <View style={styles.insightsHeader}>
+          <HelpCircle size={18} color={colors.textSecondary} />
+          <Text variant="h3" bold>
+            {t('causes.title')}
+          </Text>
+        </View>
+        {list.map((c, i) => (
+          <View key={i} style={styles.causeRow}>
+            <Text variant="body" color="muted">
+              •
+            </Text>
+            <Text variant="body" color="secondary" style={styles.causeText}>
+              {c}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderItem = ({ item }: { item: ReportItem }) => {
     switch (item.kind) {
       case 'verdict':
@@ -432,30 +506,32 @@ export function ReportStep({
       case 'dogrulama':
         return renderDogrulama();
       case 'bant':
-        return (
-          <View style={[styles.bant, item.seviye === 'kirmizi' ? styles.bantKirmizi : styles.bantSari]}>
-            <Text variant="bodySmall" color={item.seviye === 'kirmizi' ? 'error' : 'warning'}>
-              {item.seviye === 'kirmizi'
-                ? t('dogrulama.kirmiziBant')
-                : t('dogrulama.sariBant', { oran: dogrulama.oran !== null ? Math.round(dogrulama.oran * 100) : '—' })}
-            </Text>
-          </View>
-        );
+        return renderSupheli(item.seviye);
       case 'insights':
         return renderInsights();
+      case 'causes':
+        return renderCauses();
       case 'actions':
         return renderActions();
       case 'openingDiff': {
         const baslangic = sonuc.sinirTipi === 'baslangic';
+        const df = sonuc.devir.farkKurus ?? 0;
+        const yon = df > 0 ? t('openingDiff.lehinize') : t('openingDiff.aleyhinize');
         return (
           <View style={styles.openingDiffCard}>
-            <Text variant="body" bold color="error">
-              {t(baslangic ? 'openingDiff.baslangicTitle' : 'openingDiff.title', {
-                amount: fmt(sonuc.devir.farkKurus ?? 0),
-              })}
+            <Text variant="h3" bold color="orangeDark">
+              {t(baslangic ? 'openingDiff.baslangicTitle' : 'openingDiff.title', { amount: fmt(df) })}
             </Text>
-            <Text variant="bodySmall" color="secondary">
-              {t(baslangic ? 'openingDiff.baslangicDesc' : 'openingDiff.desc')}
+            <Text variant="body" color="secondary">
+              {t(baslangic ? 'openingDiff.baslangicDesc' : 'openingDiff.desc', {
+                date: formatDate(sonuc.donem.start),
+                ours: fmtBakiye(sonuc.devir.bizimKurus),
+                theirs:
+                  sonuc.devir.onlarinAynaKurus !== null
+                    ? fmtBakiye(sonuc.devir.onlarinAynaKurus)
+                    : t('summary.notCompared'),
+                yon,
+              })}
             </Text>
           </View>
         );
@@ -465,7 +541,7 @@ export function ReportStep({
       case 'warnings':
         return (
           <View style={styles.warningsCard}>
-            <Text variant="label" color="warning">
+            <Text variant="label" color="warningDark">
               {t('warnings.title')}
             </Text>
             {sonuc.uyarilar.map((u, i) => (
@@ -519,6 +595,15 @@ export function ReportStep({
           </TouchableOpacity>
         );
       }
+      case 'bizdeEksikNot':
+        return (
+          <View style={styles.bizdeEksikNot}>
+            <AlertTriangle size={16} color={colors.warning} />
+            <Text variant="bodySmall" color="warningDark" style={styles.causeText}>
+              {t('groups.bizdeEksikVerifyNot')}
+            </Text>
+          </View>
+        );
       case 'kilitliNot':
         return (
           <Text variant="caption" color="muted" style={styles.kilitliNot}>
@@ -589,11 +674,11 @@ export function ReportStep({
             { backgroundColor: yapilamadi ? colors.warningLight : uyumlu ? colors.successLight : colors.orangeLight },
           ]}
         >
-          <Text variant="h3">{t('mini.baslik')}</Text>
+          <Text variant="h3" bold>{t('mini.baslik')}</Text>
           <Text
             variant="body"
             bold
-            color={yapilamadi ? 'warning' : uyumlu ? 'success' : 'warning'}
+            color={yapilamadi ? 'warningDark' : uyumlu ? 'successDark' : 'orangeDark'}
           >
             {yapilamadi
               ? t('mini.yapilamadi')
@@ -652,10 +737,10 @@ function SummaryRow({ label, value, status }: { label: string; value: string; st
   return (
     <View style={styles.summaryRow}>
       <View style={styles.summaryLeft}>
-        <Text variant="bodySmall" color="secondary">
+        <Text variant="body" color="secondary">
           {label}
         </Text>
-        {value ? <Text variant="body">{value}</Text> : null}
+        {value ? <Text variant="body" bold>{value}</Text> : null}
       </View>
       {status !== undefined && (
         <Text
@@ -756,21 +841,20 @@ const styles = StyleSheet.create({
   dogrulamaText: {
     flex: 1,
   },
-  bant: {
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-  },
-  bantSari: {
-    backgroundColor: colors.warningLight,
-  },
-  bantKirmizi: {
-    backgroundColor: colors.errorLight,
-  },
   kilitliNot: {
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
+  },
+  bizdeEksikNot: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+    backgroundColor: colors.warningLight,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
   },
   miniContainer: {
     flex: 1,
@@ -847,12 +931,50 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   openingDiffCard: {
-    backgroundColor: colors.errorLight,
+    backgroundColor: colors.orangeLight,
     borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    padding: spacing.lg,
     marginHorizontal: spacing.md,
     marginTop: spacing.md,
-    gap: spacing.xs,
+    gap: spacing.sm,
+  },
+  supheliCard: {
+    backgroundColor: colors.warningLight,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.warning,
+  },
+  supheliCardKirmizi: {
+    backgroundColor: colors.errorLight,
+    borderColor: colors.error,
+  },
+  supheliHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  supheliBaslik: {
+    flex: 1,
+  },
+  causesCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  causeRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  causeText: {
+    flex: 1,
   },
   warningsCard: {
     backgroundColor: colors.warningLight,
