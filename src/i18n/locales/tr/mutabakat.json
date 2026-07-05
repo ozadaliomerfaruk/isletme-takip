@@ -42,7 +42,16 @@
     "title": "Dönem başı (devir) farkı: {{amount}}",
     "desc": "Bu fark bu ekstreden önceki dönemden geliyor. Önceki dönem ekstresiyle ayrıca mutabakat yapın.",
     "baslangicTitle": "Başlangıç bakiyesi farkı: {{amount}}",
-    "baslangicDesc": "Karşı tarafın kayıt başlangıcınızdaki bakiyesi, sizin başlangıç bakiyenizle uyuşmuyor. Kaynağını biliyorsanız (unutulan ödeme, işlenmemiş fatura) ilgili kaydı ekleyin; hiç işleminiz yoksa başlangıç bakiyenizi cari detayından güncelleyebilirsiniz."
+    "baslangicDesc": "Karşı tarafın kayıt başlangıcınızdaki bakiyesi, sizin başlangıç bakiyenizle uyuşmuyor. Farkın kaynağını araştırın (unutulan ödeme, işlenmemiş fatura) — farkı kapatmak için uydurma kayıt GİRMEYİN, gelir-gider raporlarınızı bozar. Hiç işleminiz yoksa başlangıç bakiyenizi cari detayından güncelleyebilirsiniz."
+  },
+  "mini": {
+    "baslik": "Bakiye Kontrolü",
+    "uyumlu": "Bakiyeler uyuşuyor",
+    "uyumsuz": "Bakiyeler arasında {{amount}} fark var",
+    "yapilamadi": "Ekstre bakiyesi doğrulanamadı (devir satırı ve bakiye kolonu yok)",
+    "gecmisKalem": "Ekstredeki {{count}} kalem, başlangıç bakiyenizin kapsamında olduğu için deftere eklenmez.",
+    "duzelt": "Bakiyeyi Düzelt",
+    "duzeltYonlendirme": "Cari detayında \"Başlangıç Bakiyesi\" kartındaki kalem simgesinden güncelleyebilirsiniz."
   },
   "sinir": {
     "devir": "Devir",
@@ -52,8 +61,7 @@
   "kilit": {
     "grupBaslik": "Başlangıç öncesi",
     "grupNot": "başlangıç bakiyenizin kapsamında — eklenemez",
-    "tooltipTitle": "Kilitli kalem",
-    "tooltip": "Bu işlem, kayıt başlangıcınızdan ({{tarih}}) önce — başlangıç bakiyenizin kapsamında. Eklerseniz bakiyeniz iki kez etkilenir. Bakiyeler uyuşmuyorsa başlangıç bakiyenizi düzeltin."
+    "tooltip": "Bu kalemler kayıt başlangıcınızdan önce — başlangıç bakiyenizin kapsamında. Eklenirlerse bakiyeniz iki kez etkilenir; bakiyeler uyuşmuyorsa başlangıç bakiyenizi düzeltin."
   },
   "dogrulama": {
     "kartBaslik": "Dosya doğrulama",
@@ -101,7 +109,7 @@
   },
   "actions": {
     "title": "Şimdi ne yapmalı",
-    "baslangicDuzelt": "Başlangıç bakiyenizi kontrol edin — farkın kaynağını biliyorsanız ilgili kaydı ekleyin, hiç işleminiz yoksa cari detayından bakiyeyi güncelleyin",
+    "baslangicDuzelt": "Farkın kaynağını araştırın (unutulan ödeme, işlenmemiş fatura) — farkı kapatmak için uydurma kayıt girmeyin; hiç işleminiz yoksa başlangıç bakiyenizi cari detayından güncelleyin",
     "oncekiDonem": "Karşı taraftan önceki dönemin ekstresini isteyin",
     "oncekiDonemBtn": "Hazır mesajı paylaş",
     "oncekiDonemMesaj": "Merhaba, cari hesap mutabakatı için {{start}} tarihinden önceki dönemin ekstresini rica ederiz. Şimdiden teşekkürler.",

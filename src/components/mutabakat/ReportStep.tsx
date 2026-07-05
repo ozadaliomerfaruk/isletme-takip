@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
-import { Alert } from 'react-native';
 import { ChevronDown, ChevronRight, ListPlus, Lock, Sparkles } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -37,6 +36,7 @@ type ReportItem =
   | { kind: 'rowA'; item: BizdeEksikSatir }
   | { kind: 'rowB'; item: OnlardaEksikKalem }
   | { kind: 'rowC'; item: TutarFarki }
+  | { kind: 'kilitliNot' }
   | { kind: 'rowKilitli'; item: EkstreSatiri }
   | { kind: 'rowMatched'; item: Eslesme };
 
@@ -55,6 +55,10 @@ export interface ReportStepProps {
   /** Denetim izi: kaynak dosya adı + ekstre satır sayısı */
   fileName?: string;
   ekstreSatirSayisi: number;
+  /** Hiç işlem yok (yeni kullanıcı): koca rapor iskeleti yerine tek kartlık mini görünüm */
+  hicIslemYok: boolean;
+  /** Mini görünümde "Bakiyeyi Düzelt" — cari detayındaki başlangıç bakiyesi editörüne yönlendirir */
+  onFixBalance: () => void;
   formatDate: (dateStr: string) => string;
   onShare: () => void;
   /** "Önceki dönem ekstresini iste" hazır mesajını paylaşır */
@@ -82,6 +86,7 @@ const TONE_DOT: Record<Insight['tone'], string> = {
 
 export function ReportStep({
   sonuc, ozet, dogrulama, kirmiziDevam, cariType, cariName, currency, guncelBakiyeKurus, fileName, ekstreSatirSayisi,
+  hicIslemYok, onFixBalance,
   formatDate, onShare, onRequestPrevStatement,
   onAddRow, addedRows, skippedRows, queueTotal, onStartQueue,
 }: ReportStepProps) {
@@ -179,10 +184,12 @@ export function ReportStep({
       });
       for (const item of sonuc.tutarFarkli) list.push({ kind: 'rowC', item });
     }
-    // Bölge A: başlangıç öncesi kilitli kalemler (varsayılan kapalı grup)
+    // Bölge A: başlangıç öncesi kilitli kalemler (varsayılan kapalı grup —
+    // gerçek dosyalar 300+ satır olabiliyor, listeyi boğmasın)
     if (sonuc.bolgeA.length > 0) {
       list.push({ kind: 'header', group: 'kilitli', count: sonuc.bolgeA.length, totalKurus: 0 });
       if (kilitliOpen) {
+        list.push({ kind: 'kilitliNot' });
         for (const item of sonuc.bolgeA) list.push({ kind: 'rowKilitli', item });
       }
     }
@@ -512,19 +519,16 @@ export function ReportStep({
           </TouchableOpacity>
         );
       }
-      case 'rowKilitli':
+      case 'kilitliNot':
         return (
-          <TouchableOpacity
-            style={[styles.kilitliRow]}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            onPress={() =>
-              Alert.alert(
-                t('kilit.tooltipTitle'),
-                t('kilit.tooltip', { tarih: formatDate(sonuc.donem.start) }),
-              )
-            }
-          >
+          <Text variant="caption" color="muted" style={styles.kilitliNot}>
+            {t('kilit.tooltip')}
+          </Text>
+        );
+      case 'rowKilitli':
+        // Kilit açıklaması grubun BAŞINDA bir kez durur; satırlar pasiftir
+        return (
+          <View style={styles.kilitliRow}>
             <Lock size={14} color={colors.textMuted} />
             <View style={styles.rowLeftKilitli}>
               <Text variant="bodySmall" color="muted" numberOfLines={1}>
@@ -540,7 +544,7 @@ export function ReportStep({
                 currency,
               )}
             </Text>
-          </TouchableOpacity>
+          </View>
         );
       case 'rowA':
         return (
@@ -571,13 +575,68 @@ export function ReportStep({
     }
   };
 
+  // YENİ KULLANICI MİNİ RAPORU: hiç işlem yokken boş rapor iskeleti (sıfırlı
+  // tablolar, pasif kontroller) göstermek yerine tek kartlık bakiye kontrolü.
+  if (hicIslemYok) {
+    const uyumlu = sonuc.devir.uyumlu === true && (sonuc.kapanis.farkKurus ?? 1) <= 100 && (sonuc.kapanis.farkKurus ?? -1) >= -100;
+    const yapilamadi = sonuc.kapanis.farkKurus === null;
+    const fark = sonuc.kapanis.farkKurus ?? 0;
+    return (
+      <View style={styles.miniContainer}>
+        <View
+          style={[
+            styles.miniCard,
+            { backgroundColor: yapilamadi ? colors.warningLight : uyumlu ? colors.successLight : colors.orangeLight },
+          ]}
+        >
+          <Text variant="h3">{t('mini.baslik')}</Text>
+          <Text
+            variant="body"
+            bold
+            color={yapilamadi ? 'warning' : uyumlu ? 'success' : 'warning'}
+          >
+            {yapilamadi
+              ? t('mini.yapilamadi')
+              : uyumlu
+                ? `${t('mini.uyumlu')} ✓`
+                : t('mini.uyumsuz', { amount: fmt(fark) })}
+          </Text>
+          <SummaryRow label={t('summary.ours')} value={fmtBakiye(guncelBakiyeKurus)} />
+          {sonuc.kapanis.onlarinAynaKurus !== null && (
+            <SummaryRow label={t('summary.theirs')} value={fmtBakiye(sonuc.kapanis.onlarinAynaKurus)} />
+          )}
+          {!uyumlu && !yapilamadi && (
+            <TouchableOpacity style={styles.miniDuzeltBtn} onPress={onFixBalance} accessibilityRole="button">
+              <Text variant="body" bold style={{ color: colors.white }}>
+                {t('mini.duzelt')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text variant="bodySmall" color="secondary" center style={styles.miniNot}>
+          {t('mini.gecmisKalem', { count: sonuc.bolgeA.length })}
+        </Text>
+        {dogrulama.isim.bulunan ? (
+          <Text variant="caption" color="muted" center>
+            ✓ {t('dogrulama.isimOk', { bulunan: dogrulama.isim.bulunan })}
+          </Text>
+        ) : null}
+        <TouchableOpacity style={styles.miniPaylas} onPress={onShare} accessibilityRole="button">
+          <Text variant="label" style={{ color: colors.primary }}>
+            {t('share.button')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <FlashList
       data={items}
       renderItem={renderItem}
       getItemType={(item) => item.kind}
       // Savunmacı: renderItem ileride useCallback'lenirse satır durumları donmasın
-      extraData={{ addedRows, skippedRows, matchedOpen }}
+      extraData={{ addedRows, skippedRows, matchedOpen, kilitliOpen }}
       contentContainerStyle={styles.listContent}
     />
   );
@@ -708,6 +767,35 @@ const styles = StyleSheet.create({
   },
   bantKirmizi: {
     backgroundColor: colors.errorLight,
+  },
+  kilitliNot: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  miniContainer: {
+    flex: 1,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  miniCard: {
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  miniDuzeltBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  miniNot: {
+    paddingHorizontal: spacing.md,
+  },
+  miniPaylas: {
+    alignSelf: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
   kilitliRow: {
     flexDirection: 'row',

@@ -42,7 +42,16 @@
     "title": "Opening (carried-forward) difference: {{amount}}",
     "desc": "This difference comes from before this statement's period. Reconcile the previous period separately.",
     "baslangicTitle": "Opening balance difference: {{amount}}",
-    "baslangicDesc": "The other party's balance at your record start doesn't match your opening balance. If you know the cause (a forgotten payment, an unrecorded invoice) add that entry; if you have no transactions yet, you can update the opening balance from the contact's detail page."
+    "baslangicDesc": "The other party's balance at your record start doesn't match your opening balance. Investigate the cause (a forgotten payment, an unrecorded invoice) — do NOT enter a made-up entry to close the gap, it would pollute your income-expense reports. If you have no transactions yet, update the opening balance from the contact's detail page."
+  },
+  "mini": {
+    "baslik": "Balance Check",
+    "uyumlu": "Balances match",
+    "uyumsuz": "Balances differ by {{amount}}",
+    "yapilamadi": "Statement balance could not be verified (no opening row or balance column)",
+    "gecmisKalem": "The {{count}} statement items are covered by your opening balance, so they are not added to your ledger.",
+    "duzelt": "Fix Balance",
+    "duzeltYonlendirme": "You can update it via the pencil icon on the \"Opening Balance\" card in the contact detail."
   },
   "sinir": {
     "devir": "Opening",
@@ -52,8 +61,7 @@
   "kilit": {
     "grupBaslik": "Before your records began",
     "grupNot": "covered by your opening balance — cannot be added",
-    "tooltipTitle": "Locked item",
-    "tooltip": "This entry predates your record start ({{tarih}}) — it is covered by your opening balance. Adding it would double-count your balance. If balances don't match, fix the opening balance instead."
+    "tooltip": "These items predate your record start — they are covered by your opening balance. Adding them would double-count your balance; if balances don't match, fix the opening balance instead."
   },
   "dogrulama": {
     "kartBaslik": "File validation",
@@ -101,7 +109,7 @@
   },
   "actions": {
     "title": "What to do now",
-    "baslangicDuzelt": "Check your opening balance — if you know the cause of the difference add that entry; if you have no transactions yet, update the balance from the contact's detail page",
+    "baslangicDuzelt": "Investigate the cause of the difference (a forgotten payment, an unrecorded invoice) — do not enter a made-up entry to close the gap; if you have no transactions yet, update the opening balance from the contact's detail page",
     "oncekiDonem": "Request the previous period's statement from the other party",
     "oncekiDonemBtn": "Share ready-made message",
     "oncekiDonemMesaj": "Hello, for the account reconciliation could you please send us the statement for the period before {{start}}? Thank you.",

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, InteractionManager, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -34,6 +34,7 @@ import { useAllIslemlerByCari } from '@/hooks/useIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useToast } from '@/contexts/ToastContext';
+import { logEvent } from '@/lib/appEvents';
 
 type Step = 'select' | 'processing' | 'report';
 
@@ -52,6 +53,7 @@ const ACCEPTED_MIME_TYPES = [
 
 export default function MutabakatPage() {
   const { cariId } = useLocalSearchParams<{ cariId: string }>();
+  const router = useRouter();
   const { t } = useTranslation(['mutabakat', 'clients', 'common']);
   const { formatDateShort } = useDateFormat();
   const { showToast } = useToast();
@@ -146,6 +148,20 @@ export default function MutabakatPage() {
       setKalemSnapshot(kalemler);
       setSonuc(result);
       setStep('report');
+      // Tripwire telemetri: "devir düzeltme kaydı gerekir mi?" kararı veriyle verilecek —
+      // sınır sonucu + doğrulama profili tek event (bkz. spec v1.2 kesim notu)
+      logEvent('mutabakat_tamamlandi', {
+        durum: result.durum,
+        sinir_tipi: result.sinirTipi,
+        sinir_sonuc:
+          result.devir.uyumlu === null ? 'yapilamadi' : result.devir.uyumlu ? 'uyumlu' : 'farkli',
+        devir_kaynak: result.devir.kaynak,
+        eslesen: result.eslesmeler.length,
+        bizde_eksik: result.bizdeEksik.length,
+        onlarda_eksik: result.onlardaEksik.length,
+        bolge_a: result.bolgeA.length,
+        islem_sayisi: kalemler.length,
+      });
     });
     return () => task.cancel();
   }, [step, parsed, cari, cekler, islemlerQuery.data, islemlerQuery.isLoading, islemlerQuery.isError, t]);
@@ -305,17 +321,13 @@ export default function MutabakatPage() {
     });
   }, [sonuc, cari, kalemSnapshot, parsed?.onBaslikMetni, fileName, isletme?.name]);
 
-  // "Doğru dosyayı seç": rapor durumunu sıfırla, seçime dön
-  const handleResetToSelect = useCallback(() => {
-    setStep('select');
-    setParsed(null);
-    setSonuc(null);
-    setKalemSnapshot(null);
-    setKirmiziDevam(false);
-    setQueue([]);
-    setQueueIndex(0);
-    setQueueBarVisible(false);
-  }, []);
+
+  // Mini rapor "Bakiyeyi Düzelt": başlangıç bakiyesi editörü cari detayında —
+  // geri dön + yol tarifi (işlemsiz caride kart zaten düzenlenebilir)
+  const handleFixBalance = useCallback(() => {
+    showToast(t('mutabakat:mini.duzeltYonlendirme'), 'info', 4000);
+    router.back();
+  }, [router, showToast, t]);
 
   // "Önceki dönem ekstresini iste" — hazır WhatsApp mesajı paylaş
   const handleRequestPrevStatement = useCallback(() => {
@@ -428,7 +440,8 @@ export default function MutabakatPage() {
               oran: dogrulama.oran !== null ? Math.round(dogrulama.oran * 100) : 0,
             })}
           </Text>
-          <TouchableOpacity style={styles.blokBirincil} onPress={handleResetToSelect} accessibilityRole="button">
+          {/* Ara ekransız: doğrudan dosya seçici açılır */}
+          <TouchableOpacity style={styles.blokBirincil} onPress={handlePickFile} accessibilityRole="button">
             <Text variant="body" bold style={{ color: colors.white }}>
               {t('mutabakat:dogrulama.dogruDosya')}
             </Text>
@@ -452,6 +465,8 @@ export default function MutabakatPage() {
           guncelBakiyeKurus={toKurus(balance)}
           fileName={fileName ?? undefined}
           ekstreSatirSayisi={parsed?.rows.length ?? 0}
+          hicIslemYok={(kalemSnapshot?.length ?? 0) === 0}
+          onFixBalance={handleFixBalance}
           formatDate={formatDateShort}
           onShare={handleShare}
           onRequestPrevStatement={handleRequestPrevStatement}
