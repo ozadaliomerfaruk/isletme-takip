@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, ListPlus, Sparkles } from 'lucide-react-native';
+import { Alert } from 'react-native';
+import { ChevronDown, ChevronRight, ListPlus, Lock, Sparkles } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -11,6 +12,8 @@ import type {
   AsistanOzeti,
   BizdeEksikSatir,
   CariType,
+  DogrulamaSonucu,
+  EkstreSatiri,
   Eslesme,
   Insight,
   MutabakatSonucu,
@@ -22,21 +25,28 @@ import { MatchedRow, MismatchRow, MissingInOursRow, MissingInTheirsRow, mirrorOf
 
 type ReportItem =
   | { kind: 'verdict' }
+  | { kind: 'dogrulama' }
+  | { kind: 'bant'; seviye: 'sari' | 'kirmizi' }
   | { kind: 'insights' }
   | { kind: 'actions' }
   | { kind: 'openingDiff' }
   | { kind: 'summary' }
   | { kind: 'warnings' }
   | { kind: 'queueButton' }
-  | { kind: 'header'; group: 'a' | 'b' | 'c' | 'matched'; count: number; totalKurus: number }
+  | { kind: 'header'; group: 'a' | 'b' | 'c' | 'matched' | 'kilitli'; count: number; totalKurus: number }
   | { kind: 'rowA'; item: BizdeEksikSatir }
   | { kind: 'rowB'; item: OnlardaEksikKalem }
   | { kind: 'rowC'; item: TutarFarki }
+  | { kind: 'rowKilitli'; item: EkstreSatiri }
   | { kind: 'rowMatched'; item: Eslesme };
 
 export interface ReportStepProps {
   sonuc: MutabakatSonucu;
   ozet: AsistanOzeti;
+  /** Dosya doğrulama sinyalleri (oran/isim/dönem) */
+  dogrulama: DogrulamaSonucu;
+  /** KIRMIZI doğrulamada kullanıcı "yine de devam" dediyse true — kalıcı bant + toplu ekleme kapalı */
+  kirmiziDevam: boolean;
   cariType: CariType;
   /** Kişiselleştirilmiş manşet cümleleri için ("{{cari}}, borcunuzu ... gösteriyor") */
   cariName: string;
@@ -71,12 +81,16 @@ const TONE_DOT: Record<Insight['tone'], string> = {
 };
 
 export function ReportStep({
-  sonuc, ozet, cariType, cariName, currency, guncelBakiyeKurus, fileName, ekstreSatirSayisi,
+  sonuc, ozet, dogrulama, kirmiziDevam, cariType, cariName, currency, guncelBakiyeKurus, fileName, ekstreSatirSayisi,
   formatDate, onShare, onRequestPrevStatement,
   onAddRow, addedRows, skippedRows, queueTotal, onStartQueue,
 }: ReportStepProps) {
   const { t } = useTranslation('mutabakat');
   const [matchedOpen, setMatchedOpen] = useState(false);
+  const [kilitliOpen, setKilitliOpen] = useState(false);
+  // Toplu ekleme kırmızı-devam durumunda KAPALI (spec 5.3 — asıl felaket senaryosu
+  // yanlış ekstre + tek tuşla 90 fatura basmak)
+  const topluKapali = kirmiziDevam;
 
   const fmt = useCallback(
     (kurus: number) => formatCurrency(Math.abs(kurus) / 100, currency),
@@ -104,11 +118,16 @@ export function ReportStep({
 
   // "Şimdi ne yapmalı" aksiyonları — bulgu/aksiyon ayrımı (SMMM geri bildirimi)
   const actionList = useMemo(() => {
-    const acts: { key: 'oncekiDonem' | 'eksikEkle' | 'yuvarlama' | 'paylas'; params?: Record<string, string | number>; onPress?: () => void; btnKey?: string }[] = [];
+    const acts: { key: 'baslangicDuzelt' | 'oncekiDonem' | 'eksikEkle' | 'yuvarlama' | 'paylas'; params?: Record<string, string | number>; onPress?: () => void; btnKey?: string }[] = [];
     if (sonuc.devir.uyumlu === false) {
-      acts.push({ key: 'oncekiDonem', onPress: onRequestPrevStatement, btnKey: 'oncekiDonemBtn' });
+      // Sınır tipi başlangıçsa sorun geçmiş ekstre değil, bizim açılış bakiyemizdir
+      if (sonuc.sinirTipi === 'baslangic') {
+        acts.push({ key: 'baslangicDuzelt' });
+      } else {
+        acts.push({ key: 'oncekiDonem', onPress: onRequestPrevStatement, btnKey: 'oncekiDonemBtn' });
+      }
     }
-    if (sonuc.bizdeEksik.length > 0) {
+    if (sonuc.bizdeEksik.length > 0 && !topluKapali) {
       acts.push({ key: 'eksikEkle', params: { count: sonuc.bizdeEksik.length }, onPress: onStartQueue, btnKey: 'eksikEkleBtn' });
     }
     const kurusInsight = ozet.insights.find((i) => i.code === 'kurus_farki');
@@ -119,10 +138,13 @@ export function ReportStep({
       acts.push({ key: 'paylas', onPress: onShare, btnKey: 'paylasBtn' });
     }
     return acts;
-  }, [sonuc, ozet.insights, fmt, onRequestPrevStatement, onStartQueue, onShare]);
+  }, [sonuc, ozet.insights, fmt, onRequestPrevStatement, onStartQueue, onShare, topluKapali]);
 
   const items = useMemo<ReportItem[]>(() => {
     const list: ReportItem[] = [{ kind: 'verdict' }];
+    if (kirmiziDevam) list.push({ kind: 'bant', seviye: 'kirmizi' });
+    else if (dogrulama.seviye === 'sari') list.push({ kind: 'bant', seviye: 'sari' });
+    list.push({ kind: 'dogrulama' });
     if (ozet.insights.length > 0 || kopruGorunur) list.push({ kind: 'insights' });
     if (actionList.length > 0) list.push({ kind: 'actions' });
     if (sonuc.devir.uyumlu === false) list.push({ kind: 'openingDiff' });
@@ -130,7 +152,7 @@ export function ReportStep({
     if (sonuc.uyarilar.length > 0) list.push({ kind: 'warnings' });
 
     if (sonuc.bizdeEksik.length > 0) {
-      list.push({ kind: 'queueButton' });
+      if (!topluKapali) list.push({ kind: 'queueButton' });
       list.push({
         kind: 'header',
         group: 'a',
@@ -157,6 +179,13 @@ export function ReportStep({
       });
       for (const item of sonuc.tutarFarkli) list.push({ kind: 'rowC', item });
     }
+    // Bölge A: başlangıç öncesi kilitli kalemler (varsayılan kapalı grup)
+    if (sonuc.bolgeA.length > 0) {
+      list.push({ kind: 'header', group: 'kilitli', count: sonuc.bolgeA.length, totalKurus: 0 });
+      if (kilitliOpen) {
+        for (const item of sonuc.bolgeA) list.push({ kind: 'rowKilitli', item });
+      }
+    }
     if (sonuc.eslesmeler.length > 0) {
       list.push({ kind: 'header', group: 'matched', count: sonuc.eslesmeler.length, totalKurus: 0 });
       if (matchedOpen) {
@@ -164,7 +193,7 @@ export function ReportStep({
       }
     }
     return list;
-  }, [sonuc, ozet, kopruGorunur, actionList.length, matchedOpen]);
+  }, [sonuc, ozet, dogrulama.seviye, kirmiziDevam, topluKapali, kopruGorunur, actionList.length, matchedOpen, kilitliOpen]);
 
   const insightText = useCallback(
     (ins: Insight) =>
@@ -246,16 +275,57 @@ export function ReportStep({
   const eslesmeyenSayisi =
     sonuc.bizdeEksik.length + sonuc.onlardaEksik.length + sonuc.tutarFarkli.length;
 
+  // Doğrulama kartı: 3 satır, her biri ✓ / ✗ / nedenli — (spec 5.4)
+  const renderDogrulama = () => {
+    const oranYuzde = dogrulama.oran !== null ? Math.round(dogrulama.oran * 100) : null;
+    const satirlar: { text: string; status: boolean | null }[] = [
+      dogrulama.isim.bulunan
+        ? { text: t('dogrulama.isimOk', { bulunan: dogrulama.isim.bulunan }), status: true }
+        : dogrulama.isim.antetVar
+          ? { text: t('dogrulama.isimYok'), status: null }
+          : { text: t('dogrulama.antetYok'), status: null },
+      dogrulama.donemOrtusuyor === null
+        ? { text: t('dogrulama.donemPasif'), status: null }
+        : dogrulama.donemOrtusuyor
+          ? { text: t('dogrulama.donemOk'), status: true }
+          : { text: t('dogrulama.donemYok'), status: false },
+      oranYuzde === null
+        ? { text: t('dogrulama.oranPasif'), status: null }
+        : {
+            text: t('dogrulama.oranOk', { oran: oranYuzde, eslesen: dogrulama.eslesen, toplam: dogrulama.bolgeB }),
+            status: dogrulama.seviye === 'yesil' ? true : dogrulama.seviye === 'sari' ? null : false,
+          },
+    ];
+    return (
+      <View style={styles.dogrulamaCard}>
+        <Text variant="label" color="secondary">
+          {t('dogrulama.kartBaslik')}
+        </Text>
+        {satirlar.map((s, i) => (
+          <View key={i} style={styles.dogrulamaRow}>
+            <Text variant="bodySmall" bold color={s.status === null ? 'muted' : s.status ? 'success' : 'error'}>
+              {s.status === null ? '—' : s.status ? '✓' : '✗'}
+            </Text>
+            <Text variant="bodySmall" color="secondary" style={styles.dogrulamaText}>
+              {s.text}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  };
+
   const renderSummary = () => (
     <View style={styles.summaryCard}>
       <SummaryRow label={t('summary.period')} value={`${formatDate(sonuc.donem.start)} – ${formatDate(sonuc.donem.end)}`} />
       <SummaryRow
-        label={t('summary.opening')}
+        label={t(sonuc.sinirTipi === 'baslangic' ? 'sinir.baslangic' : 'sinir.devir')}
         value={
           `${t('summary.ours')}: ${fmtBakiye(sonuc.devir.bizimKurus)}` +
           (sonuc.devir.onlarinAynaKurus !== null
             ? ` · ${t('summary.theirs')}: ${fmtBakiye(sonuc.devir.onlarinAynaKurus)}`
-            : ` · ${t('summary.theirs')}: ${t('summary.notCompared')}`)
+            : ` · ${t('summary.theirs')}: ${t('summary.notCompared')}`) +
+          (sonuc.devir.kaynak === 'zincir' ? ` (${t('sinir.zincirNot')})` : '')
         }
         status={sonuc.devir.uyumlu}
       />
@@ -352,21 +422,37 @@ export function ReportStep({
             onShare={onShare}
           />
         );
+      case 'dogrulama':
+        return renderDogrulama();
+      case 'bant':
+        return (
+          <View style={[styles.bant, item.seviye === 'kirmizi' ? styles.bantKirmizi : styles.bantSari]}>
+            <Text variant="bodySmall" color={item.seviye === 'kirmizi' ? 'error' : 'warning'}>
+              {item.seviye === 'kirmizi'
+                ? t('dogrulama.kirmiziBant')
+                : t('dogrulama.sariBant', { oran: dogrulama.oran !== null ? Math.round(dogrulama.oran * 100) : '—' })}
+            </Text>
+          </View>
+        );
       case 'insights':
         return renderInsights();
       case 'actions':
         return renderActions();
-      case 'openingDiff':
+      case 'openingDiff': {
+        const baslangic = sonuc.sinirTipi === 'baslangic';
         return (
           <View style={styles.openingDiffCard}>
             <Text variant="body" bold color="error">
-              {t('openingDiff.title', { amount: fmt(sonuc.devir.farkKurus ?? 0) })}
+              {t(baslangic ? 'openingDiff.baslangicTitle' : 'openingDiff.title', {
+                amount: fmt(sonuc.devir.farkKurus ?? 0),
+              })}
             </Text>
             <Text variant="bodySmall" color="secondary">
-              {t('openingDiff.desc')}
+              {t(baslangic ? 'openingDiff.baslangicDesc' : 'openingDiff.desc')}
             </Text>
           </View>
         );
+      }
       case 'summary':
         return renderSummary();
       case 'warnings':
@@ -396,31 +482,66 @@ export function ReportStep({
         );
       }
       case 'header': {
-        const isMatched = item.group === 'matched';
+        const isCollapsible = item.group === 'matched' || item.group === 'kilitli';
+        const open = item.group === 'matched' ? matchedOpen : kilitliOpen;
+        const toggle = item.group === 'matched' ? setMatchedOpen : setKilitliOpen;
         return (
           <TouchableOpacity
             style={styles.sectionHeader}
-            disabled={!isMatched}
-            onPress={() => setMatchedOpen((o) => !o)}
+            disabled={!isCollapsible}
+            onPress={() => toggle((o) => !o)}
           >
-            {isMatched ? (
-              matchedOpen ? (
+            {isCollapsible ? (
+              open ? (
                 <ChevronDown size={16} color={colors.textSecondary} />
               ) : (
                 <ChevronRight size={16} color={colors.textSecondary} />
               )
             ) : null}
+            {item.group === 'kilitli' ? <Lock size={14} color={colors.textMuted} /> : null}
             <Text variant="body" bold color="secondary">
-              {t(GROUP_TITLE_KEY[item.group])}
+              {item.group === 'kilitli' ? t('kilit.grupBaslik') : t(GROUP_TITLE_KEY[item.group])}
             </Text>
             <Text variant="bodySmall" color="muted">
-              {isMatched
-                ? String(item.count)
-                : t('groups.sectionCount', { count: item.count, amount: fmt(item.totalKurus) })}
+              {item.group === 'kilitli'
+                ? `${item.count} · ${t('kilit.grupNot')}`
+                : isCollapsible
+                  ? String(item.count)
+                  : t('groups.sectionCount', { count: item.count, amount: fmt(item.totalKurus) })}
             </Text>
           </TouchableOpacity>
         );
       }
+      case 'rowKilitli':
+        return (
+          <TouchableOpacity
+            style={[styles.kilitliRow]}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            onPress={() =>
+              Alert.alert(
+                t('kilit.tooltipTitle'),
+                t('kilit.tooltip', { tarih: formatDate(sonuc.donem.start) }),
+              )
+            }
+          >
+            <Lock size={14} color={colors.textMuted} />
+            <View style={styles.rowLeftKilitli}>
+              <Text variant="bodySmall" color="muted" numberOfLines={1}>
+                {item.item.description || item.item.belgeNo || '—'}
+              </Text>
+              <Text variant="caption" color="muted">
+                {formatDate(item.item.date)}
+              </Text>
+            </View>
+            <Text variant="bodySmall" color="muted">
+              {formatCurrency(
+                Math.abs((item.item.creditKurus ?? 0) - (item.item.debitKurus ?? 0)) / 100,
+                currency,
+              )}
+            </Text>
+          </TouchableOpacity>
+        );
       case 'rowA':
         return (
           <MissingInOursRow
@@ -559,6 +680,50 @@ const styles = StyleSheet.create({
   },
   postPeriodNote: {
     marginTop: spacing.xs,
+  },
+  dogrulamaCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.xs,
+  },
+  dogrulamaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+  },
+  dogrulamaText: {
+    flex: 1,
+  },
+  bant: {
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+  },
+  bantSari: {
+    backgroundColor: colors.warningLight,
+  },
+  bantKirmizi: {
+    backgroundColor: colors.errorLight,
+  },
+  kilitliRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceLighter,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.xs,
+    opacity: 0.75,
+  },
+  rowLeftKilitli: {
+    flex: 1,
+    gap: 2,
   },
   actionsCard: {
     backgroundColor: colors.surface,

@@ -58,12 +58,15 @@ function devirSigned(devir: { debitKurus: number; creditKurus: number }, yon: Yo
 
 interface OrientedResult {
   yon: Yon;
+  sinirTipi: 'devir' | 'baslangic';
+  bolgeA: EkstreSatiri[];
   eslesmeler: Eslesme[];
   tutarFarkli: TutarFarki[];
   bizdeEksikRows: EkstreSatiri[];
   onlardaEksikKalemler: DefterKalemi[];
   devirBizim: number;
   devirOnlarAyna: number | null;
+  devirKaynak: 'satir' | 'zincir' | null;
   kapanisBizim: number;
   kapanisOnlarAyna: number | null;
   donemSonrasiKalemSayisi: number;
@@ -71,6 +74,8 @@ interface OrientedResult {
   bakiyeZinciriUyumlu: boolean | null;
   /** Eşleşme oranı: eşleşen / min(aday satır, aday kalem); veri azsa null */
   eslesmeOrani: number | null;
+  /** Bölge B'deki ekstre satırı sayısı (doğrulama oranı paydası) */
+  bolgeBSatirSayisi: number;
 }
 
 function reconcileOriented(
@@ -81,24 +86,43 @@ function reconcileOriented(
   dateTol: number,
   amountTol: number,
 ): OrientedResult {
-  const rows = ekstre.rows;
-  const startDay = Math.min(...rows.map((r) => r.epochDay));
-  const endDay = Math.max(...rows.map((r) => r.epochDay));
+  const tumRows = ekstre.rows;
+  const ekstreBasi = Math.min(...tumRows.map((r) => r.epochDay));
+  const endDay = Math.max(...tumRows.map((r) => r.epochDay));
 
   const allSigned = kalemler.reduce((sum, k) => sum + k.signedKurus, 0);
   const allTimeOpening = cariBalanceKurus - allSigned;
+
+  // PENCERE MODELİ — sol kenar: kayıt başlangıcımız (ilk işlem). Başlangıç
+  // bakiyesi öncesindeki her şeyi net olarak İÇERDİĞİNDEN, ondan eski ekstre
+  // satırları (Bölge A) kalem kalem eşleştirilmez — eklenirse çift sayım olur.
+  // Hiç işlem yoksa T tanımsızdır: TÜM ekstre Bölge A'dır ve mutabakat salt
+  // bakiye karşılaştırmasına döner (yeni kullanıcı senaryosu).
+  const kayitBaslangici = kalemler.length > 0 ? Math.min(...kalemler.map((k) => k.epochDay)) : null;
+  const sinirTipi: 'devir' | 'baslangic' =
+    kayitBaslangici === null || kayitBaslangici > ekstreBasi ? 'baslangic' : 'devir';
+  const startDay = sinirTipi === 'baslangic' && kayitBaslangici !== null ? kayitBaslangici : ekstreBasi;
+  const bolgeA =
+    sinirTipi === 'baslangic'
+      ? tumRows.filter((r) => (kayitBaslangici === null ? true : r.epochDay < kayitBaslangici))
+      : [];
+  const bolgeASet = new Set(bolgeA);
+  const rows = tumRows.filter((r) => !bolgeASet.has(r));
 
   const preKalemler: DefterKalemi[] = [];
   const inKalemler: DefterKalemi[] = [];
   const postKalemler: DefterKalemi[] = [];
   // Aday penceresi dönemden ±dateTol gün geniştir: dönem sınırındaki kayıt
-  // farkları (onlar 30/6'da biz 2/7'de) eşleşebilsin diye.
+  // farkları (onlar 30/6'da biz 2/7'de) eşleşebilsin diye. Sol kenarda
+  // Bölge A kesin kesimdir (çift-sayım güvenliği — spec v1.2 §1.2).
   const adaylar: DefterKalemi[] = [];
   for (const k of kalemler) {
     if (k.epochDay < startDay) preKalemler.push(k);
     else if (k.epochDay > endDay) postKalemler.push(k);
     else inKalemler.push(k);
-    if (k.epochDay >= startDay - dateTol && k.epochDay <= endDay + dateTol) adaylar.push(k);
+    if (k.epochDay >= startDay - (sinirTipi === 'devir' ? dateTol : 0) && k.epochDay <= endDay + dateTol) {
+      adaylar.push(k);
+    }
   }
 
   // Kovalar: işaretli kuruş → tarih sıralı kalemler
@@ -195,27 +219,22 @@ function reconcileOriented(
   );
   const kapanisBizim = devirBizim + preMatchedSigned + inSigned + postMatchedSigned;
 
-  const devirOnlarAyna = ekstre.devir ? devirSigned(ekstre.devir, yon) : null;
-
-  // Bakiye zinciri: balance[i] ≈ balance[i-1] + c·(debit−credit); c ∈ {+1,−1}
-  // otomatik tespit. Zincir doğrulanırsa son bakiye kapanış aynası olarak kullanılabilir.
+  // Bakiye zinciri TÜM satırlar (A+B) üzerinde doğrulanır: balance[i] ≈
+  // balance[i-1] + c·(debit−credit); c ∈ {+1,−1} otomatik tespit.
   let bakiyeZinciriUyumlu: boolean | null = null;
   let zincirKonvansiyon: 1 | -1 | null = null;
-  const balanceRows = rows.filter((r) => r.balanceKurus !== null);
+  const balanceRows = tumRows.filter((r) => r.balanceKurus !== null);
   if (balanceRows.length >= 2) {
     for (const c of [1, -1] as const) {
       let ok = true;
       for (let i = 1; i < balanceRows.length; i++) {
         const prev = balanceRows[i - 1];
         const cur = balanceRows[i];
-        // Aynı bakiye-koluna sahip ardışık satırlar arasındaki TÜM veri satırlarının
-        // net etkisi zincire dahil olmalı; basitleştirme: rows sıralı geldiğinden
-        // aradaki satırlar bakiyesizse etkilerini topla.
-        const iPrev = rows.indexOf(prev);
-        const iCur = rows.indexOf(cur);
+        const iPrev = tumRows.indexOf(prev);
+        const iCur = tumRows.indexOf(cur);
         let net = 0;
         for (let j = iPrev + 1; j <= iCur; j++) {
-          net += (rows[j].debitKurus ?? 0) - (rows[j].creditKurus ?? 0);
+          net += (tumRows[j].debitKurus ?? 0) - (tumRows[j].creditKurus ?? 0);
         }
         if (Math.abs(cur.balanceKurus! - prev.balanceKurus! - c * net) > 1) {
           ok = false;
@@ -230,13 +249,39 @@ function reconcileOriented(
     bakiyeZinciriUyumlu = zincirKonvansiyon !== null;
   }
 
-  // Kapanış aynası: öncelik devir satırı; yoksa zincir-doğrulanmış son bakiye.
-  let kapanisOnlarAyna: number | null = null;
-  if (devirOnlarAyna !== null) {
-    const rowsSigned = rows.reduce((sum, r) => sum + mirrorSigned(r, yon), 0);
-    kapanisOnlarAyna = devirOnlarAyna + rowsSigned;
+  // Ekstre açılış aynası (ekstre başı itibarıyla): öncelik DEVİR satırı;
+  // yoksa ZİNCİR-KAPILI türetme — işaret konvansiyonu kanıtlanmadan asla
+  // türetilmez (yanlış işaretli devir uydurma fark üretir, SMMM bulgu #6).
+  let acilisAyna: number | null = null;
+  let devirKaynak: 'satir' | 'zincir' | null = null;
+  if (ekstre.devir) {
+    acilisAyna = devirSigned(ekstre.devir, yon);
+    devirKaynak = 'satir';
   } else if (zincirKonvansiyon !== null && balanceRows.length > 0) {
-    // c=+1 → bakiye onların borç-pozitif konvansiyonunda; ayna = −bakiye
+    // Onların borç-pozitif açılışı = c·bakiye(ilk bakiyeli satır) − ilk satırlara
+    // kadarki net hareket; ayna yönüne çevrilir.
+    const ilk = balanceRows[0];
+    const iIlk = tumRows.indexOf(ilk);
+    let netOnce = 0;
+    for (let j = 0; j <= iIlk; j++) {
+      netOnce += (tumRows[j].debitKurus ?? 0) - (tumRows[j].creditKurus ?? 0);
+    }
+    const theirOpeningDebitPos = zincirKonvansiyon * ilk.balanceKurus! - netOnce;
+    acilisAyna = yon === 'ayna' ? -theirOpeningDebitPos : theirOpeningDebitPos;
+    devirKaynak = 'zincir';
+  }
+
+  // Sınır aynası (T itibarıyla): açılış + Bölge A hareketleri. 'devir' modunda
+  // A boş olduğundan bu, mevcut devir davranışıyla birebir aynıdır.
+  const bolgeAToplam = bolgeA.reduce((sum, r) => sum + mirrorSigned(r, yon), 0);
+  const devirOnlarAyna = acilisAyna !== null ? acilisAyna + bolgeAToplam : null;
+
+  // Kapanış aynası: açılış + TÜM satırlar; açılış türetilemediyse zincirli son bakiye.
+  let kapanisOnlarAyna: number | null = null;
+  if (acilisAyna !== null) {
+    const tumSigned = tumRows.reduce((sum, r) => sum + mirrorSigned(r, yon), 0);
+    kapanisOnlarAyna = acilisAyna + tumSigned;
+  } else if (zincirKonvansiyon !== null && balanceRows.length > 0) {
     const last = balanceRows[balanceRows.length - 1];
     const theirDebitPositive = zincirKonvansiyon * last.balanceKurus!;
     kapanisOnlarAyna = yon === 'ayna' ? -theirDebitPositive : theirDebitPositive;
@@ -249,18 +294,22 @@ function reconcileOriented(
 
   return {
     yon,
+    sinirTipi,
+    bolgeA,
     eslesmeler,
     tutarFarkli,
     bizdeEksikRows,
     onlardaEksikKalemler,
     devirBizim,
     devirOnlarAyna,
+    devirKaynak,
     kapanisBizim,
     kapanisOnlarAyna,
     donemSonrasiKalemSayisi: postKalemler.filter((k) => !matchedKalem.has(k)).length,
     yuvarlamaFarkiKurus,
     bakiyeZinciriUyumlu,
     eslesmeOrani,
+    bolgeBSatirSayisi: rows.length,
   };
 }
 
@@ -403,7 +452,9 @@ export function reconcile(input: ReconcileInput): MutabakatSonucu {
   if (tipUyumsuzCount > 0) {
     uyarilar.push({ code: 'tip_uyumsuz_islemler', params: { count: tipUyumsuzCount } });
   }
-  if (!ekstre.devir) uyarilar.push({ code: 'devir_satiri_yok' });
+  // Devir uyarısı yalnız TÜRETİLEMEDİYSE basılır (satır yoksa ama zincir-kapılı
+  // türetme başardıysa sınır kontrolü çalışıyordur).
+  if (res.devirOnlarAyna === null) uyarilar.push({ code: 'devir_satiri_yok' });
   // Not: dönem-sonrası işlem bilgisi uyarı OLARAK basılmaz — asistan özeti + rapor
   // detayında zaten var; üçüncü tekrar kullanıcıyı yoruyordu (SMMM geri bildirimi).
 
@@ -497,11 +548,14 @@ export function reconcile(input: ReconcileInput): MutabakatSonucu {
     durum,
     yon: res.yon,
     donem: { start, end },
+    sinirTipi: res.sinirTipi,
+    bolgeA: res.bolgeA,
     devir: {
       bizimKurus: res.devirBizim,
       onlarinAynaKurus: res.devirOnlarAyna,
       farkKurus: devirFark,
       uyumlu: devirUyumlu,
+      kaynak: res.devirKaynak,
     },
     kapanis: {
       bizimKurus: res.kapanisBizim,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, InteractionManager, Share, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, InteractionManager, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
@@ -16,6 +16,7 @@ import { parseDateFromDB } from '@/lib/date';
 import {
   buildBekleyenCekler,
   buildDefterKalemleri,
+  dosyaDogrula,
   generateAsistanOzeti,
   parseEkstreFile,
   reconcile,
@@ -28,6 +29,7 @@ import {
 import { mirrorOf } from '@/components/mutabakat';
 import { useCari } from '@/hooks/useCariler';
 import { useCariLinkStatus } from '@/hooks/useCariSharing';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { useAllIslemlerByCari } from '@/hooks/useIslemler';
 import { useCeklerByCari } from '@/hooks/useCekler';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -62,9 +64,12 @@ export default function MutabakatPage() {
   const [sonuc, setSonuc] = useState<MutabakatSonucu | null>(null);
   // Tek-kalem avı için kalem snapshot'ı (raporla aynı anda dondurulur)
   const [kalemSnapshot, setKalemSnapshot] = useState<ReturnType<typeof buildDefterKalemleri> | null>(null);
+  // KIRMIZI dosya doğrulamasında "yine de devam" seçildi mi
+  const [kirmiziDevam, setKirmiziDevam] = useState(false);
 
   const { data: cari } = useCari(cariId!);
   const { data: linkStatus } = useCariLinkStatus(cariId);
+  const { isletme } = useAuthContext();
   // Rapor alındıktan sonra sorgu kapatılır: kuyruk mutasyonlarının invalidation'ı
   // binlerce satırlık tam geçmişi her kayıtta yeniden indirmesin.
   const islemlerQuery = useAllIslemlerByCari(cariId!, step !== 'report');
@@ -108,6 +113,7 @@ export default function MutabakatPage() {
       const ekstre = parseEkstreFile(bytes.buffer);
       setParsed(ekstre);
       setSonuc(null);
+      setKirmiziDevam(false);
       setStep('processing');
     } catch (error) {
       const code = error instanceof MutabakatParseError ? error.code : 'READ_ERROR';
@@ -225,33 +231,91 @@ export default function MutabakatPage() {
   }, []);
 
   const startQueue = useCallback(() => {
-    if (!sonuc) return;
+    if (!sonuc || !cari) return;
     const remaining = sonuc.bizdeEksik.filter(
       (i) => !addedRows.has(i.satir.rowIndex) && !skippedRows.has(i.satir.rowIndex),
     );
     if (remaining.length === 0) return;
-    clearAdvanceTimer();
-    setQueue(remaining);
-    setQueueIndex(0);
-    setQueueBarVisible(true);
-  }, [sonuc, addedRows, skippedRows, clearAdvanceTimer]);
+    // Toplu ekleme ONAY diyaloğu: kalem sayısı + toplam tutar (spec 5.3)
+    const toplamKurus = remaining.reduce((s, i) => s + Math.abs(mirrorOf(i.satir, sonuc.yon)), 0);
+    Alert.alert(
+      t('mutabakat:topluOnay.baslik'),
+      t('mutabakat:topluOnay.govde', {
+        count: remaining.length,
+        amount: formatCurrency(toplamKurus / 100, cari.currency),
+      }),
+      [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: t('mutabakat:topluOnay.ekle'),
+          onPress: () => {
+            clearAdvanceTimer();
+            setQueue(remaining);
+            setQueueIndex(0);
+            setQueueBarVisible(true);
+          },
+        },
+      ],
+    );
+  }, [sonuc, cari, addedRows, skippedRows, clearAdvanceTimer, t]);
 
   // Satıra dokunarak TEK kalem ekleme: tek elemanlı kuyruk olarak aynı akıştan geçer
   const handleAddRow = useCallback(
     (item: BizdeEksikSatir) => {
       if (addedRows.has(item.satir.rowIndex)) return;
-      clearAdvanceTimer();
-      setQueue([item]);
-      setQueueIndex(0);
-      setQueueBarVisible(true);
+      const ac = () => {
+        clearAdvanceTimer();
+        setQueue([item]);
+        setQueueIndex(0);
+        setQueueBarVisible(true);
+      };
+      // Kırmızı-devam durumunda kalem başına ek onay (spec 5.3)
+      if (kirmiziDevam) {
+        Alert.alert(t('mutabakat:dogrulama.kirmiziBant'), t('mutabakat:topluOnay.tekilKirmizi'), [
+          { text: t('common:buttons.cancel'), style: 'cancel' },
+          { text: t('mutabakat:topluOnay.ekle'), onPress: ac },
+        ]);
+      } else {
+        ac();
+      }
     },
-    [addedRows, clearAdvanceTimer],
+    [addedRows, clearAdvanceTimer, kirmiziDevam, t],
   );
 
   const ozet = useMemo(
     () => (sonuc && cari ? generateAsistanOzeti(sonuc, cari.type, { kalemler: kalemSnapshot ?? undefined }) : null),
     [sonuc, cari, kalemSnapshot],
   );
+
+  // Dosya doğrulama: oran (motordan) + isim (antet+dosya adı) + dönem örtüşmesi
+  const dogrulama = useMemo(() => {
+    if (!sonuc || !cari) return null;
+    const kayitAraligi =
+      kalemSnapshot && kalemSnapshot.length > 0
+        ? {
+            start: kalemSnapshot.reduce((min, k) => (k.date < min ? k.date : min), kalemSnapshot[0].date),
+            end: kalemSnapshot.reduce((max, k) => (k.date > max ? k.date : max), kalemSnapshot[0].date),
+          }
+        : null;
+    return dosyaDogrula({
+      sonuc,
+      antetMetni: `${parsed?.onBaslikMetni ?? ''} ${fileName ?? ''}`,
+      adlar: [cari.name, isletme?.name ?? ''],
+      kayitAraligi,
+    });
+  }, [sonuc, cari, kalemSnapshot, parsed?.onBaslikMetni, fileName, isletme?.name]);
+
+  // "Doğru dosyayı seç": rapor durumunu sıfırla, seçime dön
+  const handleResetToSelect = useCallback(() => {
+    setStep('select');
+    setParsed(null);
+    setSonuc(null);
+    setKalemSnapshot(null);
+    setKirmiziDevam(false);
+    setQueue([]);
+    setQueueIndex(0);
+    setQueueBarVisible(false);
+  }, []);
 
   // "Önceki dönem ekstresini iste" — hazır WhatsApp mesajı paylaş
   const handleRequestPrevStatement = useCallback(() => {
@@ -349,10 +413,39 @@ export default function MutabakatPage() {
           </Text>
         </View>
       )}
-      {step === 'report' && sonuc && ozet && (
+      {/* KIRMIZI dosya doğrulaması: rapor yerine tam ekran blok — yanlış ekstre +
+          tek tuşla 90 fatura basmak asıl felaket senaryosudur (spec 5.3) */}
+      {step === 'report' && sonuc && dogrulama?.seviye === 'kirmizi' && !kirmiziDevam && (
+        <View style={styles.blokContainer}>
+          <Scale size={40} color={colors.error} />
+          <Text variant="h3" center>
+            {t('mutabakat:dogrulama.kirmiziBaslik', { cari: cari.name })}
+          </Text>
+          <Text variant="body" color="secondary" center>
+            {t('mutabakat:dogrulama.kirmiziGovde', {
+              toplam: dogrulama.bolgeB,
+              eslesen: dogrulama.eslesen,
+              oran: dogrulama.oran !== null ? Math.round(dogrulama.oran * 100) : 0,
+            })}
+          </Text>
+          <TouchableOpacity style={styles.blokBirincil} onPress={handleResetToSelect} accessibilityRole="button">
+            <Text variant="body" bold style={{ color: colors.white }}>
+              {t('mutabakat:dogrulama.dogruDosya')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setKirmiziDevam(true)} accessibilityRole="button">
+            <Text variant="bodySmall" color="muted">
+              {t('mutabakat:dogrulama.yineDeDevam')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      {step === 'report' && sonuc && ozet && dogrulama && !(dogrulama.seviye === 'kirmizi' && !kirmiziDevam) && (
         <ReportStep
           sonuc={sonuc}
           ozet={ozet}
+          dogrulama={dogrulama}
+          kirmiziDevam={kirmiziDevam}
           cariType={cari.type}
           cariName={cari.name}
           currency={cari.currency}
@@ -409,5 +502,20 @@ const styles = StyleSheet.create({
   },
   processingText: {
     marginTop: spacing.sm,
+  },
+  blokContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    padding: spacing['2xl'],
+    backgroundColor: colors.background,
+  },
+  blokBirincil: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing['2xl'],
+    marginTop: spacing.md,
   },
 });

@@ -243,6 +243,14 @@ export function parseEkstreFile(fileBuffer: ArrayBuffer): ParsedEkstre {
     throw new MutabakatParseError('HEADER_NOT_FOUND', taranan);
   }
 
+  // Başlık öncesi antet metni (unvan/işletme adı — dosya doğrulama isim sinyali).
+  // İlk 10 satırla sınırlı; sayısal hücreler atlanır.
+  const onBaslikMetni = rawData
+    .slice(0, Math.min(headerRowIndex, 10))
+    .flatMap((r) => (r ?? []).filter((c) => typeof c === 'string').map((c) => String(c).trim()))
+    .filter(Boolean)
+    .join(' ');
+
   const rows: EkstreSatiri[] = [];
   const uyarilar: MutabakatUyari[] = [];
   let skippedDataRows = 0;
@@ -366,6 +374,7 @@ export function parseEkstreFile(fileBuffer: ArrayBuffer): ParsedEkstre {
   return {
     rows,
     headerRowIndex,
+    onBaslikMetni,
     hasBelgeNo: cols.belgeNo !== -1 && rows.some((r) => r.belgeNo !== null),
     hasBalance: cols.bakiye !== -1 && rows.some((r) => r.balanceKurus !== null),
     devir,

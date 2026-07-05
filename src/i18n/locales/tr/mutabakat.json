@@ -40,7 +40,43 @@
   },
   "openingDiff": {
     "title": "Dönem başı (devir) farkı: {{amount}}",
-    "desc": "Bu fark bu ekstreden önceki dönemden geliyor. Önceki dönem ekstresiyle ayrıca mutabakat yapın."
+    "desc": "Bu fark bu ekstreden önceki dönemden geliyor. Önceki dönem ekstresiyle ayrıca mutabakat yapın.",
+    "baslangicTitle": "Başlangıç bakiyesi farkı: {{amount}}",
+    "baslangicDesc": "Karşı tarafın kayıt başlangıcınızdaki bakiyesi, sizin başlangıç bakiyenizle uyuşmuyor. Kaynağını biliyorsanız (unutulan ödeme, işlenmemiş fatura) ilgili kaydı ekleyin; hiç işleminiz yoksa başlangıç bakiyenizi cari detayından güncelleyebilirsiniz."
+  },
+  "sinir": {
+    "devir": "Devir",
+    "baslangic": "Başlangıç bakiyesi",
+    "zincirNot": "devir, doğrulanmış bakiye zincirinden türetildi"
+  },
+  "kilit": {
+    "grupBaslik": "Başlangıç öncesi",
+    "grupNot": "başlangıç bakiyenizin kapsamında — eklenemez",
+    "tooltipTitle": "Kilitli kalem",
+    "tooltip": "Bu işlem, kayıt başlangıcınızdan ({{tarih}}) önce — başlangıç bakiyenizin kapsamında. Eklerseniz bakiyeniz iki kez etkilenir. Bakiyeler uyuşmuyorsa başlangıç bakiyenizi düzeltin."
+  },
+  "dogrulama": {
+    "kartBaslik": "Dosya doğrulama",
+    "isimOk": "Cari adı: dosyada \"{{bulunan}}\" bulundu",
+    "isimYok": "Cari adı: dosya antetinde rastlanmadı",
+    "antetYok": "Cari adı: dosyada antet metni yok — kontrol atlandı",
+    "oranOk": "Kalem eşleşmesi: %{{oran}} ({{eslesen}}/{{toplam}})",
+    "oranPasif": "Kalem eşleşmesi: yeterli kayıt yok — atlandı",
+    "donemOk": "Dönem: kayıtlarınızla örtüşüyor",
+    "donemYok": "Dönem: kayıtlarınızla örtüşmüyor",
+    "donemPasif": "Dönem: henüz kaydınız yok — atlandı",
+    "kirmiziBaslik": "Bu dosya {{cari}} carisine ait olmayabilir",
+    "kirmiziGovde": "{{toplam}} kalemden yalnızca {{eslesen}} tanesi kayıtlarınızla eşleşti (%{{oran}}). Yanlış dosya seçmiş olabilirsiniz.",
+    "dogruDosya": "Doğru dosyayı seç",
+    "yineDeDevam": "Yine de devam et",
+    "kirmiziBant": "Düşük eşleşme oranıyla devam ediyorsunuz — toplu ekleme kapalı.",
+    "sariBant": "Eşleşme oranı beklenenden düşük (%{{oran}}). Dosyanın doğru cariye ait olduğundan emin olun."
+  },
+  "topluOnay": {
+    "baslik": "Toplu ekleme",
+    "govde": "{{count}} kayıt, toplam {{amount}} defterinize eklenecek. Başlangıç öncesi kalemler dahil edilmedi.",
+    "ekle": "Ekle",
+    "tekilKirmizi": "Düşük eşleşmeli dosyadan kalem ekliyorsunuz — tutarı ve cariyi iki kez kontrol edin. Devam edilsin mi?"
   },
   "summary": {
     "period": "Dönem",
@@ -65,6 +101,7 @@
   },
   "actions": {
     "title": "Şimdi ne yapmalı",
+    "baslangicDuzelt": "Başlangıç bakiyenizi kontrol edin — farkın kaynağını biliyorsanız ilgili kaydı ekleyin, hiç işleminiz yoksa cari detayından bakiyeyi güncelleyin",
     "oncekiDonem": "Karşı taraftan önceki dönemin ekstresini isteyin",
     "oncekiDonemBtn": "Hazır mesajı paylaş",
     "oncekiDonemMesaj": "Merhaba, cari hesap mutabakatı için {{start}} tarihinden önceki dönemin ekstresini rica ederiz. Şimdiden teşekkürler.",

@@ -55,6 +55,8 @@ export interface EkstreSatiri {
 export interface ParsedEkstre {
   rows: EkstreSatiri[];
   headerRowIndex: number;
+  /** Başlık satırından ÖNCEKİ metin hücreleri (unvan/antet — isim sinyali için) */
+  onBaslikMetni: string;
   hasBelgeNo: boolean;
   hasBalance: boolean;
   /** DEVİR/AÇILIŞ satırı — onların perspektifinde ham borç/alacak */
@@ -154,11 +156,27 @@ export interface MutabakatSonucu {
   /** 'ayna' = ekstre karşı tarafın defteri (normal); 'aynasiz' = ekstre bizim perspektifimizden düzenlenmiş */
   yon: 'ayna' | 'aynasiz';
   donem: { start: string; end: string };
+  /**
+   * Sınır kontrolü tipi (pencere modeli):
+   * 'devir'     → ekstre bizim kayıt başlangıcımızdan sonra başlıyor (mevcut davranış)
+   * 'baslangic' → ekstre kayıt başlangıcımızdan öncesini kapsıyor; sınır T = ilk işlem
+   *               tarihimiz, öncesi Bölge A'da kilitli, devir alanı "başlangıç bakiyesi
+   *               kontrolü" anlamı taşır
+   */
+  sinirTipi: 'devir' | 'baslangic';
+  /**
+   * Bölge A: kayıt başlangıcımızdan ÖNCEKİ ekstre satırları. Başlangıç bakiyesinin
+   * kapsamındadırlar — eşleştirmeye girmez, "bizde eksik" sayılmaz, deftere EKLENEMEZ
+   * (çift sayım). UI kilitli grup olarak gösterir.
+   */
+  bolgeA: EkstreSatiri[];
   devir: {
     bizimKurus: number;
     onlarinAynaKurus: number | null;
     farkKurus: number | null;
     uyumlu: boolean | null;
+    /** 'satir' = ekstredeki DEVİR satırından · 'zincir' = doğrulanmış bakiye zincirinden türetildi */
+    kaynak: 'satir' | 'zincir' | null;
   };
   kapanis: {
     bizimKurus: number;
