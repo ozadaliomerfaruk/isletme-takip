@@ -39,7 +39,7 @@ import { useSettings, type CurrencyCode, type DateFormatType } from '@/hooks/use
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePermissions } from '@/hooks/usePermissions';
-import * as StoreReview from 'expo-store-review';
+import { useReview } from '@/contexts/ReviewContext';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, savePushToken, removePushToken } from '@/lib/notifications';
 
@@ -89,6 +89,7 @@ export default function DahaPage() {
   const { signOut, user, isletme, isOwner } = useAuthContext();
   const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser']);
   const { canAccessModule } = usePermissions();
+  const { openWriteReview } = useReview();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
   const [dateFormatModalVisible, setDateFormatModalVisible] = useState(false);
@@ -389,12 +390,7 @@ export default function DahaPage() {
             <MenuItem
               icon={<Star size={22} color={colors.warning} />}
               label={t('settings:about.rateApp')}
-              onPress={async () => {
-                const isAvailable = await StoreReview.isAvailableAsync();
-                if (isAvailable) {
-                  await StoreReview.requestReview();
-                }
-              }}
+              onPress={openWriteReview}
             />
           </Card>
         </View>

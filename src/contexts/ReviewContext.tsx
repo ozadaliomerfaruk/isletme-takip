@@ -25,6 +25,12 @@ const ANDROID_PACKAGE_NAME = 'com.defterapp.isletmetakip';
 interface ReviewContextValue {
   /** Trigger review flow if eligible (checks transaction count internally) */
   triggerReviewIfEligible: () => Promise<void>;
+  /**
+   * Open the store's write-review page directly.
+   * Use this for explicit user-tapped "Rate app" buttons — unlike the native
+   * in-app prompt, this always opens the store even if the user already reviewed.
+   */
+  openWriteReview: () => Promise<void>;
 }
 
 const ReviewContext = createContext<ReviewContextValue | null>(null);
@@ -138,7 +144,7 @@ export function ReviewProvider({ children }: ReviewProviderProps) {
   }, [queryClient, isletme?.id]);
 
   return (
-    <ReviewContext.Provider value={{ triggerReviewIfEligible }}>
+    <ReviewContext.Provider value={{ triggerReviewIfEligible, openWriteReview }}>
       {children}
       <ActionSheet
         visible={showActionSheet}
