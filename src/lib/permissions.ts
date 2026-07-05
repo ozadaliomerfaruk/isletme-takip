@@ -26,8 +26,10 @@ export function deriveLevel(p: Permissions | null | undefined): PermissionLevel 
  */
 // İşlevsel çekirdek modüller: editörde ayrı toggle olarak GÖSTERİLMEZ, her izinde
 // (dashboard gibi) otomatik AÇIK tutulur. Böylece 'Özel' rol de işlem / kategori /
-// ileri-tarihli / çek akışını kullanabilir; sade UI korunur.
-const CORE_MODULES: ModuleName[] = ['islemler', 'kategoriler', 'ileri_tarihli', 'cekler'];
+// ileri-tarihli akışını kullanabilir; sade UI korunur.
+// Not: 'cekler' modülü kaldırıldı (çek özelliği çıkarıldı); tip değeri eski izin
+// verisiyle uyum için ModuleName'de duruyor.
+const CORE_MODULES: ModuleName[] = ['islemler', 'kategoriler', 'ileri_tarihli'];
 
 export function buildPermissions(
   modules: Record<ModuleName, boolean>,
@@ -58,7 +60,7 @@ export function buildPermissions(
 // Tüm modüller (sıralı). dashboard her zaman açık; ayarlar owner-only.
 export const ALL_MODULES: ModuleName[] = [
   'dashboard', 'hesaplar', 'birikim', 'cariler', 'personel', 'islemler',
-  'kategoriler', 'raporlar', 'cekler', 'ileri_tarihli',
+  'kategoriler', 'raporlar', 'ileri_tarihli',
   'urunler', 'notlar', 'arsiv', 'ayarlar',
 ];
 

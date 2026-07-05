@@ -25,7 +25,6 @@ import trReports from './locales/tr/reports.json';
 import trSettings from './locales/tr/settings.json';
 import trCategories from './locales/tr/categories.json';
 import trLegal from './locales/tr/legal.json';
-import trChecks from './locales/tr/checks.json';
 import trAnalytics from './locales/tr/analytics.json';
 import trProducts from './locales/tr/products.json';
 import trOcrImport from './locales/tr/ocrImport.json';
@@ -45,7 +44,6 @@ import enReports from './locales/en/reports.json';
 import enSettings from './locales/en/settings.json';
 import enCategories from './locales/en/categories.json';
 import enLegal from './locales/en/legal.json';
-import enChecks from './locales/en/checks.json';
 import enAnalytics from './locales/en/analytics.json';
 import enProducts from './locales/en/products.json';
 import enOcrImport from './locales/en/ocrImport.json';
@@ -67,7 +65,6 @@ export const resources = {
     settings: trSettings,
     categories: trCategories,
     legal: trLegal,
-    checks: trChecks,
     analytics: trAnalytics,
     products: trProducts,
     ocrImport: trOcrImport,
@@ -87,7 +84,6 @@ export const resources = {
     settings: enSettings,
     categories: enCategories,
     legal: enLegal,
-    checks: enChecks,
     analytics: enAnalytics,
     products: enProducts,
     ocrImport: enOcrImport,
@@ -120,7 +116,6 @@ export const namespaces = [
   'settings',
   'categories',
   'legal',
-  'checks',
   'analytics',
   'products',
   'ocrImport',

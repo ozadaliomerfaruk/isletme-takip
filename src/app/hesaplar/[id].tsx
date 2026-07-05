@@ -22,7 +22,6 @@ import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRo
 import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
-import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoViewerModal, ProductDetailModal } from '@/components/transaction';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
@@ -41,7 +40,6 @@ import { useIslemlerByHesap, useDeleteIslem, useUpdateIslem } from '@/hooks/useI
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
-import { useCeklerByHesap } from '@/hooks/useCekler';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useSettings } from '@/hooks/useSettings';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
@@ -306,7 +304,6 @@ export default function HesapHareketleriPage() {
   const islemIdList = useMemo(() => (islemler || []).map((i) => i.id), [islemler]);
   const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
-  const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByHesap(id!);
   const { data: entityNotes } = useNotlarByEntity('hesap', id!);
   const { canUpdate, canDelete } = usePermissions();
   const deleteIslem = useDeleteIslem();
@@ -343,7 +340,6 @@ export default function HesapHareketleriPage() {
   const [showTransactionBar, setShowTransactionBar] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
   const [showMenu, setShowMenu] = useState(false);
-  const [showCekKesSheet, setShowCekKesSheet] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
@@ -796,15 +792,6 @@ export default function HesapHareketleriPage() {
             isLoading={ileriTarihliLoading}
           />
 
-          {/* Bekleyen Çekler - Sadece banka hesapları için */}
-          {hesap?.type === 'banka' && (
-            <BekleyenCeklerSection
-              cekler={bekleyenCekler}
-              isLoading={ceklerLoading}
-              hesapId={id}
-            />
-          )}
-
           {/* Hareketler */}
           <Text variant="h3" style={styles.sectionTitle}>
             {t('accounts:details.transactions')}
@@ -816,7 +803,7 @@ export default function HesapHareketleriPage() {
         </View>
       </View>
     );
-  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleUnarchive, unarchiveHesap.isPending, paymentDueDayInfo]);
+  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleUnarchive, unarchiveHesap.isPending, paymentDueDayInfo]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -984,14 +971,6 @@ export default function HesapHareketleriPage() {
           setShowCopyBar(false);
           setCopySourceId(null);
         }}
-      />
-
-      {/* Çek Kes Sheet */}
-      <CekKesSheet
-        visible={showCekKesSheet}
-        onDismiss={() => setShowCekKesSheet(false)}
-        defaultHesapId={id}
-        defaultCurrency={hesap?.currency}
       />
 
       <DetailExportSection

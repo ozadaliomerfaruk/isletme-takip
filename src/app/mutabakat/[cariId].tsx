@@ -14,7 +14,6 @@ import { spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { parseDateFromDB } from '@/lib/date';
 import {
-  buildBekleyenCekler,
   buildDefterKalemleri,
   dosyaDogrula,
   generateAsistanOzeti,
@@ -31,7 +30,6 @@ import { useCari } from '@/hooks/useCariler';
 import { useCariLinkStatus } from '@/hooks/useCariSharing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useAllIslemlerByCari } from '@/hooks/useIslemler';
-import { useCeklerByCari } from '@/hooks/useCekler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useToast } from '@/contexts/ToastContext';
 import { logEvent } from '@/lib/appEvents';
@@ -75,7 +73,6 @@ export default function MutabakatPage() {
   // Rapor alındıktan sonra sorgu kapatılır: kuyruk mutasyonlarının invalidation'ı
   // binlerce satırlık tam geçmişi her kayıtta yeniden indirmesin.
   const islemlerQuery = useAllIslemlerByCari(cariId!, step !== 'report');
-  const { data: cekler } = useCeklerByCari(cariId!);
 
   // ---- Kuyruk (Faz 2) ----
   const [queue, setQueue] = useState<BizdeEksikSatir[]>([]);
@@ -143,7 +140,7 @@ export default function MutabakatPage() {
         ekstre: parsed,
         kalemler,
         cariBalanceKurus: toKurus(toNumber(cari.balance)),
-        bekleyenCekler: cari.type === 'tedarikci' ? buildBekleyenCekler(cekler ?? []) : [],
+        bekleyenCekler: [],
       });
       setKalemSnapshot(kalemler);
       setSonuc(result);
@@ -164,7 +161,7 @@ export default function MutabakatPage() {
       });
     });
     return () => task.cancel();
-  }, [step, parsed, cari, cekler, islemlerQuery.data, islemlerQuery.isLoading, islemlerQuery.isError, t]);
+  }, [step, parsed, cari, islemlerQuery.data, islemlerQuery.isLoading, islemlerQuery.isError, t]);
 
   // ---- Özet paylaşımı ----
   // Senaryo-özel, esnafın karşı tarafa doğrudan gönderebileceği açıklayıcı metin:

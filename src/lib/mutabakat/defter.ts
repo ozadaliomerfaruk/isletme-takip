@@ -1,14 +1,12 @@
 /**
  * Mutabakat — uygulama adaptörü (modülün RN/uygulama tarafına bağlanan TEK dosyası).
- * islemler satırlarını cari para birimindeki işaretli kalemlere,
- * çek kayıtlarını motorun beklediği yalın forma çevirir.
+ * islemler satırlarını cari para birimindeki işaretli kalemlere çevirir.
  */
 
 import { calculateTargetAmount, toNumber } from '@/lib/currency';
-import type { Cek } from '@/types/database';
 import { CARI_SIGN } from './engine';
 import { epochDayOf, toKurus } from './helpers';
-import type { BekleyenCek, CariIslemTipi, CariType, DefterKalemi } from './types';
+import type { CariIslemTipi, CariType, DefterKalemi } from './types';
 
 /** Motorun ihtiyaç duyduğu asgari işlem alanları (IslemWithRelations uyumlu) */
 export interface IslemSatiri {
@@ -67,16 +65,4 @@ export function buildDefterKalemleri(islemler: IslemSatiri[], cariType: CariType
   }
 
   return kalemler;
-}
-
-/** Bekleyen çekleri motor formuna çevirir (durum filtresi BURADA — hook filtrelemez) */
-export function buildBekleyenCekler(cekler: Cek[]): BekleyenCek[] {
-  return cekler
-    .filter((c) => c.durum === 'beklemede')
-    .map((c) => ({
-      cekNo: c.cek_no,
-      tutarKurus: Math.abs(toKurus(toNumber(c.tutar))),
-      kesimEpochDay: epochDayOf(c.kesim_tarihi.slice(0, 10)),
-      vadeEpochDay: epochDayOf(c.vade_tarihi.slice(0, 10)),
-    }));
 }

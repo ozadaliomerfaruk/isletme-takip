@@ -13,7 +13,6 @@ import {
   Trash2,
   Zap,
   MoreVertical,
-  FileCheck,
   Scale,
   X,
   Share2,
@@ -32,7 +31,6 @@ import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/com
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
-import { BekleyenCeklerSection, CekKesSheet } from '@/components/cek';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
@@ -53,7 +51,6 @@ import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
-import { useCeklerByCari } from '@/hooks/useCekler';
 import { IslemWithRelations, IslemType, Not } from '@/types/database';
 import { useCariLinkStatus, useRemoveCariLink } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
@@ -405,7 +402,6 @@ export default function CariHareketleriPage() {
   // (view_linked_islemler) yalnız bağlı cari ile sınırlar → güvenli, RLS'e dokunulmaz.
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByCari(id!, !!isViewer);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
-  const { data: bekleyenCekler, isLoading: ceklerLoading } = useCeklerByCari(id!);
   const { data: entityNotes } = useNotlarByEntity('cari', id!);
   const { canUpdate, canDelete } = usePermissions();
   const { user, isletme } = useAuthContext();
@@ -443,7 +439,6 @@ export default function CariHareketleriPage() {
 
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [showCekKesSheet, setShowCekKesSheet] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [showShareCodeModal, setShowShareCodeModal] = useState(false);
   const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
@@ -910,13 +905,6 @@ export default function CariHareketleriPage() {
             isLoading={ileriTarihliLoading}
           />
 
-          {effectiveType === 'tedarikci' && (
-            <BekleyenCeklerSection
-              cekler={bekleyenCekler}
-              isLoading={ceklerLoading}
-            />
-          )}
-
           <Text variant="h3" style={styles.sectionTitle}>
             {t('clients:details.transactions')}
           </Text>
@@ -927,7 +915,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, bekleyenCekler, ceklerLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -1087,14 +1075,6 @@ export default function CariHareketleriPage() {
           }}
         />
 
-        {/* Çek Kes Sheet */}
-        <CekKesSheet
-          visible={showCekKesSheet}
-          onDismiss={() => setShowCekKesSheet(false)}
-          defaultCariId={cari?.id}
-          defaultCurrency={cari?.currency}
-        />
-
         <DetailExportSection
           visible={showShareOptions}
           onDismiss={() => setShowShareOptions(false)}
@@ -1164,18 +1144,9 @@ export default function CariHareketleriPage() {
           onClose={() => setNotePhotoPath(null)}
         />
 
-        {/* Floating FAB'lar: Çek Kes + Not Ekle + Yeni İşlem */}
+        {/* Floating FAB'lar: Not Ekle + Yeni İşlem */}
         {!cari.is_archived && !(isViewerViewOnly) && (
           <>
-            {effectiveType === 'tedarikci' && (
-              <TouchableOpacity
-                style={[styles.fab, styles.fabSmall, { bottom: spacing.lg + insets.bottom + 140 }]}
-                onPress={() => setShowCekKesSheet(true)}
-                activeOpacity={0.8}
-              >
-                <FileCheck size={20} color={colors.surface} />
-              </TouchableOpacity>
-            )}
             <AddNoteButton
               entityType="cari"
               entityId={id!}

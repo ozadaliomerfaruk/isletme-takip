@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Bell, CalendarClock, X, FileCheck } from 'lucide-react-native';
+import { Bell, CalendarClock, X } from 'lucide-react-native';
 import { Text } from './Text';
 import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
@@ -20,8 +20,7 @@ import { useIleriTarihliIslemler } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency } from '@/lib/currency';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { IleriTarihliIslemWithRelations, CekWithRelations } from '@/types/database';
-import { useBekleyenCekler } from '@/hooks/useCekler';
+import { IleriTarihliIslemWithRelations } from '@/types/database';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -44,7 +43,7 @@ function getEntityText(item: IleriTarihliIslemWithRelations): string | null {
 
 export function NotificationBell() {
   const router = useRouter();
-  const { t } = useTranslation(['transactions', 'common', 'checks']);
+  const { t } = useTranslation(['transactions', 'common']);
   const { monthsShort } = useDateFormat();
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -52,14 +51,11 @@ export function NotificationBell() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const { data: ileriTarihliIslemler, isLoading: islemlerLoading } = useIleriTarihliIslemler();
-  const { data: bekleyenCekler, isLoading: ceklerLoading } = useBekleyenCekler();
 
-  const isLoading = islemlerLoading || ceklerLoading;
+  const isLoading = islemlerLoading;
 
-  // Birleşik notification item tipi
-  type NotificationItem =
-    | { itemType: 'islem'; data: IleriTarihliIslemWithRelations }
-    | { itemType: 'cek'; data: CekWithRelations };
+  // Notification item tipi (yalnızca ileri tarihli işlemler)
+  type NotificationItem = { itemType: 'islem'; data: IleriTarihliIslemWithRelations };
 
   const combinedItems = useMemo(() => {
     const items: NotificationItem[] = [];
@@ -69,20 +65,11 @@ export function NotificationBell() {
       items.push({ itemType: 'islem', data: islem });
     });
 
-    // Bekleyen çekleri ekle
-    bekleyenCekler?.forEach(cek => {
-      items.push({ itemType: 'cek', data: cek });
-    });
-
     // Tarihe göre sırala (en yakın önce)
-    items.sort((a, b) => {
-      const dateA = a.itemType === 'islem' ? a.data.scheduled_date : a.data.vade_tarihi;
-      const dateB = b.itemType === 'islem' ? b.data.scheduled_date : b.data.vade_tarihi;
-      return dateA.localeCompare(dateB);
-    });
+    items.sort((a, b) => a.data.scheduled_date.localeCompare(b.data.scheduled_date));
 
     return items;
-  }, [ileriTarihliIslemler, bekleyenCekler]);
+  }, [ileriTarihliIslemler]);
 
   const count = combinedItems.length;
 
@@ -92,7 +79,7 @@ export function NotificationBell() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return combinedItems.some((item) => {
-      const dateStr = item.itemType === 'islem' ? item.data.scheduled_date : item.data.vade_tarihi;
+      const dateStr = item.data.scheduled_date;
       if (!dateStr) return false;
       const d = new Date(dateStr + 'T00:00:00');
       d.setHours(0, 0, 0, 0);
@@ -147,19 +134,14 @@ export function NotificationBell() {
   const handleItemPress = (item: NotificationItem) => {
     closeModal();
 
-    if (item.itemType === 'islem') {
-      const islem = item.data;
-      // İlgili detay sayfasına yönlendir
-      if (islem.hesap_id) {
-        router.push(`/hesaplar/${islem.hesap_id}`);
-      } else if (islem.cari_id) {
-        router.push(`/cariler/${islem.cari_id}`);
-      } else if (islem.personel_id) {
-        router.push(`/personel/${islem.personel_id}`);
-      }
-    } else {
-      // Çek için hesap sayfasına yönlendir
-      router.push(`/hesaplar/${item.data.hesap_id}`);
+    const islem = item.data;
+    // İlgili detay sayfasına yönlendir
+    if (islem.hesap_id) {
+      router.push(`/hesaplar/${islem.hesap_id}`);
+    } else if (islem.cari_id) {
+      router.push(`/cariler/${islem.cari_id}`);
+    } else if (islem.personel_id) {
+      router.push(`/personel/${islem.personel_id}`);
     }
   };
 
@@ -280,39 +262,8 @@ export function NotificationBell() {
                 </View>
               ) : (
                 combinedItems.map((item, index) => {
-                  const isCek = item.itemType === 'cek';
-                  const date = isCek ? item.data.vade_tarihi : item.data.scheduled_date;
+                  const date = item.data.scheduled_date;
                   const isLast = index === combinedItems.length - 1;
-
-                  if (isCek) {
-                    const cek = item.data;
-                    return (
-                      <TouchableOpacity
-                        key={`cek-${cek.id}`}
-                        style={[styles.dropdownItem, isLast && styles.dropdownItemLast]}
-                        onPress={() => handleItemPress(item)}
-                        activeOpacity={0.6}
-                      >
-                        <View style={[styles.itemIcon, { backgroundColor: colors.info + '15' }]}>
-                          <FileCheck size={18} color={colors.info} />
-                        </View>
-                        <View style={styles.itemContent}>
-                          <Text style={styles.itemTitle} numberOfLines={1}>
-                            {cek.cari?.name || cek.hesap?.name}
-                          </Text>
-                          <Text style={styles.itemSubtitle} numberOfLines={1}>
-                            {t('checks:labels.check')} · {cek.cek_no}
-                          </Text>
-                        </View>
-                        <View style={styles.itemRight}>
-                          <Text style={[styles.itemAmount, { color: colors.error }]}>
-                            -{formatCurrency(cek.tutar, cek.hesap?.currency)}
-                          </Text>
-                          {renderDateLabel(date)}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  }
 
                   // İleri tarihli işlem render
                   const islem = item.data;
