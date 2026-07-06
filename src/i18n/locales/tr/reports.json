@@ -171,7 +171,13 @@
     "noSelectedCategoryTransactions": "Seçili kategorilerde işlem bulunmuyor",
     "selectCategories": "Lütfen görmek istediğiniz kategorileri seçin",
     "selectPeriod": "Dönem seçerek başlayın",
-    "dataLoadError": "Veriler yüklenirken bir hata oluştu"
+    "dataLoadError": "Veriler yüklenirken bir hata oluştu",
+    "noAccountIncome": "Bu dönemde hesaba düşen gelir bulunmuyor",
+    "noAccountExpense": "Bu dönemde hesaba düşen gider bulunmuyor"
+  },
+  "groupBy": {
+    "category": "Kategori",
+    "account": "Hesap"
   },
   "comparison": {
     "vsLastPeriod": "Önceki döneme göre",

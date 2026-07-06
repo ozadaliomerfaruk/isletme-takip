@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, CategoryReportCard, Button } from '@/components/ui';
+import { Text, TabFilter, CategoryReportCard, AccountReportCard, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
@@ -12,6 +12,7 @@ import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useReportExcelExport } from '@/hooks/useReportExcelExport';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
+import { useAccountReport } from '@/hooks/useAccountReport';
 import { PeriodType } from '@/hooks/useIslemler';
 import { formatCurrency } from '@/lib/currency';
 import { colors } from '@/constants/colors';
@@ -27,6 +28,8 @@ export default function GelirGiderRaporPage() {
   const { t } = useTranslation(['reports', 'common']);
   const state = useReportRouteState();
   const [selectedType, setSelectedType] = useState<ReportType>('gider');
+  // Kırılım: kategoriye göre (mevcut) ↔ hesaba göre (hangi hesap ne kadar)
+  const [groupBy, setGroupBy] = useState<'kategori' | 'hesap'>('kategori');
 
   const { isExporting, exportReport } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
 
@@ -51,7 +54,17 @@ export default function GelirGiderRaporPage() {
 
   const activeReport = selectedType === 'gelir' ? gelirRaporu : giderRaporu;
 
-  const { refreshing, onRefresh } = usePullToRefresh(gelirRaporu.refetch, giderRaporu.refetch);
+  // Hesap bazlı kırılım (seçili yön için) — aynı dönem, hesaba göre gruplu
+  const hesapRaporu = useAccountReport(selectedType, {
+    startDate: state.dateRange.startDate,
+    endDate: state.dateRange.endDate,
+  });
+
+  const { refreshing, onRefresh } = usePullToRefresh(
+    gelirRaporu.refetch,
+    giderRaporu.refetch,
+    hesapRaporu.refetch,
+  );
 
   const handleCategoryPress = (kategoriId: string | null) => {
     const id = kategoriId || 'uncategorized';
@@ -190,40 +203,81 @@ export default function GelirGiderRaporPage() {
             </View>
           </View>
 
-          {/* Category List */}
+          {/* Kırılım geçişi: Kategori ↔ Hesap (hangi hesap ne kadar) */}
+          <View style={styles.groupByBar}>
+            <TabFilter
+              options={[
+                { label: t('reports:groupBy.category'), value: 'kategori' },
+                { label: t('reports:groupBy.account'), value: 'hesap' },
+              ]}
+              value={groupBy}
+              onChange={(v) => setGroupBy(v as 'kategori' | 'hesap')}
+            />
+          </View>
+
+          {/* Liste: kategori ya da hesap kırılımı */}
           <View style={styles.categoryList}>
-            {activeReport.error ? (
+            {groupBy === 'kategori' ? (
+              activeReport.error ? (
+                <View style={styles.emptyContainer}>
+                  <Text variant="body" color="error" style={styles.emptyText}>
+                    {t('reports:empty.dataLoadError')}
+                  </Text>
+                  <Button variant="ghost" onPress={() => activeReport.refetch()}>
+                    {t('common:buttons.retry')}
+                  </Button>
+                </View>
+              ) : activeReport.isLoading ? (
+                <View style={styles.loadingContainer}>
+                  <SkeletonListItem />
+                  <SkeletonListItem />
+                  <SkeletonListItem />
+                </View>
+              ) : activeReport.items.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Text variant="body" color="secondary" style={styles.emptyText}>
+                    {selectedType === 'gelir'
+                      ? t('reports:empty.noIncomeTransactions')
+                      : t('reports:empty.noExpenseTransactions')}
+                  </Text>
+                </View>
+              ) : (
+                activeReport.items.map((item, index) => (
+                  <CategoryReportCard
+                    key={item.kategori?.id || 'uncategorized'}
+                    item={item}
+                    index={index}
+                    type={selectedType}
+                    onPress={() => handleCategoryPress(item.kategori?.id || null)}
+                  />
+                ))
+              )
+            ) : hesapRaporu.error ? (
               <View style={styles.emptyContainer}>
                 <Text variant="body" color="error" style={styles.emptyText}>
                   {t('reports:empty.dataLoadError')}
                 </Text>
-                <Button variant="ghost" onPress={() => activeReport.refetch()}>
+                <Button variant="ghost" onPress={() => hesapRaporu.refetch()}>
                   {t('common:buttons.retry')}
                 </Button>
               </View>
-            ) : activeReport.isLoading ? (
+            ) : hesapRaporu.isLoading ? (
               <View style={styles.loadingContainer}>
                 <SkeletonListItem />
                 <SkeletonListItem />
                 <SkeletonListItem />
               </View>
-            ) : activeReport.items.length === 0 ? (
+            ) : hesapRaporu.items.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Text variant="body" color="secondary" style={styles.emptyText}>
                   {selectedType === 'gelir'
-                    ? t('reports:empty.noIncomeTransactions')
-                    : t('reports:empty.noExpenseTransactions')}
+                    ? t('reports:empty.noAccountIncome')
+                    : t('reports:empty.noAccountExpense')}
                 </Text>
               </View>
             ) : (
-              activeReport.items.map((item, index) => (
-                <CategoryReportCard
-                  key={item.kategori?.id || 'uncategorized'}
-                  item={item}
-                  index={index}
-                  type={selectedType}
-                  onPress={() => handleCategoryPress(item.kategori?.id || null)}
-                />
+              hesapRaporu.items.map((item) => (
+                <AccountReportCard key={item.hesap.id} item={item} type={selectedType} />
               ))
             )}
           </View>
@@ -245,6 +299,10 @@ const styles = StyleSheet.create({
   summaryBar: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  groupByBar: {
+    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
   dateNav: {

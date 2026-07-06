@@ -171,7 +171,13 @@
     "noSelectedCategoryTransactions": "No transactions in selected categories",
     "selectCategories": "Please select the categories you want to see",
     "selectPeriod": "Start by selecting a period",
-    "dataLoadError": "An error occurred while loading data"
+    "dataLoadError": "An error occurred while loading data",
+    "noAccountIncome": "No account-linked income in this period",
+    "noAccountExpense": "No account-linked expense in this period"
+  },
+  "groupBy": {
+    "category": "Category",
+    "account": "Account"
   },
   "comparison": {
     "vsLastPeriod": "vs previous period",

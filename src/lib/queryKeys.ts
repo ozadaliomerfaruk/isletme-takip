@@ -85,6 +85,8 @@ export const queryKeys = {
       ['all-kategoriler', isletmeId, type] as const,
     categoryReport: (isletmeId: string, type: string, source: string, startDate: string, endDate: string) =>
       ['category-report', isletmeId, type, source, startDate, endDate] as const,
+    accountReport: (isletmeId: string, type: string, startDate: string, endDate: string) =>
+      ['account-report', isletmeId, type, startDate, endDate] as const,
     categoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
       ['category-report-returns', isletmeId, type, startDate, endDate] as const,
     hierarchicalCategoryReport: (isletmeId: string, type: string, source: string, startDate: string, endDate: string) =>
