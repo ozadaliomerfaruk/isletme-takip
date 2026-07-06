@@ -1,4 +1,7 @@
 import { QueryClient, type QueryCacheNotifyEvent } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import Constants from 'expo-constants';
 import {
   enqueueSample,
   type ClientRQSample,
@@ -10,7 +13,9 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 dakika - veri "taze" kabul edilir
-      gcTime: 1000 * 60 * 30, // 30 dakika - cache'te tutulur
+      // gcTime: persist ile uyum için ≥ maxAge (24s) olmalı; aksi halde bellekten
+      // düşen sorgu dehydrate edilmez ve soğuk açılışta cache eksik kalırdı.
+      gcTime: 1000 * 60 * 60 * 24, // 24 saat
       refetchOnWindowFocus: false, // Mobilde gereksiz, pil ve data tasarrufu
       refetchOnMount: true, // Taze ise cache'ten anında göster; yalnızca stale ise fetch (her navigasyonda tüm sorguları yeniden çekmeyi önler). Güncellik mutasyonların invalidateRelatedQueries (refetchType:'active') ile sağlanır.
       refetchOnReconnect: true, // İnternet geldiğinde yenile
@@ -24,6 +29,41 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+// ============================================================================
+// DİSK PERSISTER (read-cache) — React Query cache'ini AsyncStorage'a yazar.
+// Soğuk açılışta son görülen veri ANINDA gösterilir, arkada sessizce tazelenir.
+// FİNANSAL GUARDRAIL'ler:
+//  • CACHE_BUSTER: uygulama sürümü değişince eski cache geçersiz (şema kayması yok)
+//  • maxAge (provider'da): çok eski cache gösterilmez
+//  • logout/kullanıcı değişimi: wipePersistedCache() ile TEMİZLENİR (veri sızmaz)
+//  • Kritik finansal karar (mutabakat / işlem yazma) öncesi HER ZAMAN taze çekilir
+// Not: AsyncStorage şifreli DEĞİLDİR; hassas veri diskte açıktır (Faz 3'te şifreleme).
+// ============================================================================
+export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}`;
+
+const PERSIST_KEY = 'ISLETME_TAKIP_RQ_CACHE_V1';
+
+export const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: PERSIST_KEY,
+  throttleTime: 1500,
+});
+
+/** Logout / kullanıcı değişiminde: bellekteki VE diskteki cache'i tamamen sil. */
+export async function wipePersistedCache(): Promise<void> {
+  queryClient.clear();
+  try {
+    await asyncStoragePersister.removeClient();
+  } catch {
+    // removeClient başarısız olsa da bellek temizlendi; anahtarı elle de dene
+    try {
+      await AsyncStorage.removeItem(PERSIST_KEY);
+    } catch {
+      /* swallow */
+    }
+  }
+}
 
 // Passive QueryCache subscription — tracks trigger reasons (mount / refetch / invalidation).
 // Hard rule: any throw inside the subscriber is swallowed; React Query cannot observe it.

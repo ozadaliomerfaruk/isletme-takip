@@ -128,14 +128,28 @@ export default function MutabakatPage() {
 
   // ---- Karşılaştırma (veri hazır olunca) ----
   useEffect(() => {
-    if (step !== 'processing' || !parsed || !cari || islemlerQuery.isLoading) return;
-    if (islemlerQuery.isError) {
-      Alert.alert(t('common:status.error'), t('mutabakat:errors.READ_ERROR'));
-      setStep('select');
-      return;
-    }
-    const task = InteractionManager.runAfterInteractions(() => {
-      const kalemler = buildDefterKalemleri(islemlerQuery.data ?? [], cari.type);
+    if (step !== 'processing' || !parsed || !cari) return;
+    let cancelled = false;
+    const task = InteractionManager.runAfterInteractions(async () => {
+      // GUARDRAIL (persist read-cache): mutabakat FİNANSAL karardır — diske kaydedilmiş
+      // BAYAT işlem verisiyle hesaplama yapma; her zaman taze çek. Offline/hata olursa
+      // eldeki (cache) veriyle devam et (bloklamaktan iyidir), ama önce tazelemeyi dene.
+      let veri = islemlerQuery.data;
+      let hata = islemlerQuery.isError;
+      try {
+        const fresh = await islemlerQuery.refetch();
+        if (fresh.data) veri = fresh.data;
+        hata = fresh.isError;
+      } catch {
+        /* offline/hata: eldeki veriyle devam */
+      }
+      if (cancelled) return;
+      if (!veri && hata) {
+        Alert.alert(t('common:status.error'), t('mutabakat:errors.READ_ERROR'));
+        setStep('select');
+        return;
+      }
+      const kalemler = buildDefterKalemleri(veri ?? [], cari.type);
       const result = reconcile({
         ekstre: parsed,
         kalemler,
@@ -160,8 +174,14 @@ export default function MutabakatPage() {
         islem_sayisi: kalemler.length,
       });
     });
-    return () => task.cancel();
-  }, [step, parsed, cari, islemlerQuery.data, islemlerQuery.isLoading, islemlerQuery.isError, t]);
+    return () => {
+      cancelled = true;
+      task.cancel();
+    };
+    // islemlerQuery kasıtlı olarak deps'te değil: effect yalnız 'processing'e geçince
+    // BİR KEZ çalışmalı ve içinde taze veriyi kendisi çeker (refetch).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, parsed, cari, t]);
 
   // ---- Özet paylaşımı ----
   // Senaryo-özel, esnafın karşı tarafa doğrudan gönderebileceği açıklayıcı metin:

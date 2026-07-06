@@ -6,6 +6,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import type * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
+import { wipePersistedCache } from '@/lib/queryClient';
 import { logEvent, setEventContext } from '@/lib/appEvents';
 import { markNeedsSetup } from '@/lib/setupFlow';
 import { Isletme } from '@/types/database';
@@ -654,8 +655,10 @@ export function useAuth() {
       throw error;
     }
 
-    // Önceki kullanıcının verilerinin sızmaması için query cache'i temizle
-    queryClient.clear();
+    // Önceki kullanıcının verilerinin sızmaması için query cache'i BELLEKTEN VE
+    // DİSKTEN temizle (persist read-cache açık; disk temizlenmezse sonraki
+    // kullanıcı soğuk açılışta öncekinin verisini görürdü).
+    await wipePersistedCache();
 
     setState({
       session: null,
@@ -801,6 +804,9 @@ export function useAuth() {
 
       // Kullanıcıyı çıkış yaptır
       await supabase.auth.signOut();
+
+      // Persist read-cache'i bellek + diskten sil (veri sızmasın)
+      await wipePersistedCache();
 
       setState({
         session: null,

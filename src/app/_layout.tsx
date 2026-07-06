@@ -1,13 +1,13 @@
 import { useEffect, useState, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
 import { Stack, useRouter, useSegments, Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider, SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, asyncStoragePersister, CACHE_BUSTER } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ReviewProvider } from '@/contexts/ReviewContext';
@@ -895,7 +895,20 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider
+          client={queryClient}
+          persistOptions={{
+            persister: asyncStoragePersister,
+            // Çok eski cache'i gösterme (24s'ten eskiyse baştan çek). gcTime ile eşit.
+            maxAge: 1000 * 60 * 60 * 24,
+            // Uygulama sürümü değişince cache'i geçersiz kıl (şema kayması güvenliği)
+            buster: CACHE_BUSTER,
+            dehydrateOptions: {
+              // Yalnız başarılı sorguları diske yaz (hata/loading durumlarını değil)
+              shouldDehydrateQuery: (query) => query.state.status === 'success',
+            },
+          }}
+        >
           <AuthProvider>
             <ToastProvider>
               <ReviewProvider>
@@ -903,7 +916,7 @@ export default function RootLayout() {
               </ReviewProvider>
             </ToastProvider>
           </AuthProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

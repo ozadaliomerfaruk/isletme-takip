@@ -96,9 +96,21 @@ export default function HomePage() {
   // Gerçek veriler - pasif hesapları da dahil et
   const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } = useHesaplar(true);
 
-  // Cariler (FAB cari işlem için)
-  const { data: musteriCariler } = useCariler('musteri');
-  const { data: tedarikciCariler } = useCariler('tedarikci');
+  // Cariler (FAB cari işlem için) — TEK sorgu (aktif tüm cariler) çekilip tipe göre
+  // bellekte ayrılır. Önceden musteri + tedarikci ayrı çekiliyordu; useFinancialSummary
+  // de aktif tüm carileri ayrı bir key'le çekiyordu → 3 cari sorgusu. Bu çağrı
+  // useFinancialSummary ile AYNI query-key'i (undefined,false,false) paylaştığından
+  // React Query otomatik dedup eder → 3 sorgu 1'e iner. (Sonuç birebir aynı: client
+  // tip filtresi = sunucu .eq('type',...) aktif set üzerinde.)
+  const { data: tumCariler } = useCariler();
+  const musteriCariler = useMemo(
+    () => (tumCariler ?? []).filter((c) => c.type === 'musteri'),
+    [tumCariler],
+  );
+  const tedarikciCariler = useMemo(
+    () => (tumCariler ?? []).filter((c) => c.type === 'tedarikci'),
+    [tumCariler],
+  );
 
   // Kurulumu bitir kartı (yarım-kurulum işletmeler)
   const setup = useSetupProgress();
