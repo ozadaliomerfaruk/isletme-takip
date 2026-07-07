@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
-import { KategoriType, HesapType } from '@/types/database';
+import { KategoriType, HesapType, IslemWithRelations } from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES } from '@/constants/islemTypes';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
@@ -138,4 +138,46 @@ export function useAccountReport(
     refetch,
     error: error as Error | null,
   };
+}
+
+/**
+ * Bir hesabın dönem içi GELİR (ya da gider) işlemleri — hesap kartı drill-down'ı için.
+ * useAccountReport ile AYNI tip kümesi (INCOME_TYPES) + hesap filtresi → get_account_report'un
+ * saydığı satırlarla tutarlı. İşlemler doğrudan islemler'den (ilişkilerle) çekilir.
+ */
+export function useAccountTransactions(
+  hesapId: string,
+  type: KategoriType,
+  options: UseAccountReportOptions
+) {
+  const { isletme } = useAuthContext();
+  const { startDate, endDate } = options;
+  const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
+  const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+
+  return useQuery({
+    queryKey: queryKeys.reports.accountTransactions(isletme?.id ?? '', hesapId, type, startDateTime, endDateTime),
+    queryFn: async () => {
+      if (!isletme || !hesapId) return [] as IslemWithRelations[];
+      const { data, error } = await supabase
+        .from('islemler')
+        .select(`
+          *,
+          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+          kategori:kategoriler(id,name),
+          cari:cariler(id,name,type),
+          personel:personel(id,first_name,last_name)
+        `)
+        .eq('isletme_id', isletme.id)
+        .eq('hesap_id', hesapId)
+        .in('type', islemTypes as string[])
+        .gte('date', startDateTime)
+        .lte('date', endDateTime)
+        .order('date', { ascending: false });
+      if (error) throw error;
+      return (data || []) as unknown as IslemWithRelations[];
+    },
+    enabled: !!isletme && !!hesapId && !!startDate && !!endDate,
+    meta: { query_purpose: 'reports:account-transactions' },
+  });
 }

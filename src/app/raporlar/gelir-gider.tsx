@@ -29,8 +29,6 @@ export default function GelirGiderRaporPage() {
   const { t } = useTranslation(['reports', 'common']);
   const state = useReportRouteState();
   const [selectedType, setSelectedType] = useState<ReportType>('gider');
-  // Kırılım: kategoriye göre (mevcut) ↔ hesaba göre (hangi hesap ne kadar)
-  const [groupBy, setGroupBy] = useState<'kategori' | 'hesap'>('kategori');
 
   const { isExporting, exportReport } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
 
@@ -53,10 +51,9 @@ export default function GelirGiderRaporPage() {
     percentageReferenceTotal: gelirRaporu.totalAmount,
   });
 
-  const activeReport = selectedType === 'gelir' ? gelirRaporu : giderRaporu;
-
-  // Hesap bazlı kırılım (seçili yön için) — aynı dönem, hesaba göre gruplu
-  const hesapRaporu = useAccountReport(selectedType, {
+  // Hesap bazlı GELİR kırılımı (hangi banka/nakit ne kadar gelir getirdi) — yalnız
+  // Gelir görünümünde gösterilir; gider tarafında kategori kırılımı yeterli.
+  const hesapRaporu = useAccountReport('gelir', {
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
   });
@@ -78,6 +75,20 @@ export default function GelirGiderRaporPage() {
       params: {
         id,
         type: selectedType,
+        startDate: state.dateRange.startDate,
+        endDate: state.dateRange.endDate,
+      },
+    });
+  };
+
+  // Hesap kartına tıklayınca: o hesabın dönem GELİR işlemleri (drill-down)
+  const handleAccountPress = (hesapId: string, hesapName: string) => {
+    router.push({
+      pathname: '/raporlar/hesap/[id]',
+      params: {
+        id: hesapId,
+        hesapName,
+        type: 'gelir',
         startDate: state.dateRange.startDate,
         endDate: state.dateRange.endDate,
       },
@@ -208,51 +219,38 @@ export default function GelirGiderRaporPage() {
             </View>
           </View>
 
-          {/* Kırılım geçişi: Kategori ↔ Hesap (hangi hesap ne kadar) */}
-          <View style={styles.groupByBar}>
-            <TabFilter
-              options={[
-                { label: t('reports:groupBy.category'), value: 'kategori' },
-                { label: t('reports:groupBy.account'), value: 'hesap' },
-              ]}
-              value={groupBy}
-              onChange={(v) => setGroupBy(v as 'kategori' | 'hesap')}
-            />
-          </View>
-
-          {/* Liste: kategori ya da hesap kırılımı */}
+          {/* GİDER → kategori kırılımı · GELİR → hesap kırılımı (hangi banka/nakit ne kadar
+              gelir getirdi; hesaba tıklayınca o hesabın dönem gelir işlemleri açılır). */}
           <View style={styles.categoryList}>
-            {groupBy === 'kategori' ? (
-              activeReport.error ? (
+            {selectedType === 'gider' ? (
+              giderRaporu.error ? (
                 <View style={styles.emptyContainer}>
                   <Text variant="body" color="error" style={styles.emptyText}>
                     {t('reports:empty.dataLoadError')}
                   </Text>
-                  <Button variant="ghost" onPress={() => activeReport.refetch()}>
+                  <Button variant="ghost" onPress={() => giderRaporu.refetch()}>
                     {t('common:buttons.retry')}
                   </Button>
                 </View>
-              ) : activeReport.isLoading ? (
+              ) : giderRaporu.isLoading ? (
                 <View style={styles.loadingContainer}>
                   <SkeletonListItem />
                   <SkeletonListItem />
                   <SkeletonListItem />
                 </View>
-              ) : activeReport.items.length === 0 ? (
+              ) : giderRaporu.items.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Text variant="body" color="secondary" style={styles.emptyText}>
-                    {selectedType === 'gelir'
-                      ? t('reports:empty.noIncomeTransactions')
-                      : t('reports:empty.noExpenseTransactions')}
+                    {t('reports:empty.noExpenseTransactions')}
                   </Text>
                 </View>
               ) : (
-                activeReport.items.map((item, index) => (
+                giderRaporu.items.map((item, index) => (
                   <CategoryReportCard
                     key={item.kategori?.id || 'uncategorized'}
                     item={item}
                     index={index}
-                    type={selectedType}
+                    type="gider"
                     onPress={() => handleCategoryPress(item.kategori?.id || null)}
                   />
                 ))
@@ -275,14 +273,17 @@ export default function GelirGiderRaporPage() {
             ) : hesapRaporu.items.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Text variant="body" color="secondary" style={styles.emptyText}>
-                  {selectedType === 'gelir'
-                    ? t('reports:empty.noAccountIncome')
-                    : t('reports:empty.noAccountExpense')}
+                  {t('reports:empty.noAccountIncome')}
                 </Text>
               </View>
             ) : (
               hesapRaporu.items.map((item) => (
-                <AccountReportCard key={item.hesap.id} item={item} type={selectedType} />
+                <AccountReportCard
+                  key={item.hesap.id}
+                  item={item}
+                  type="gelir"
+                  onPress={() => handleAccountPress(item.hesap.id, item.hesap.name)}
+                />
               ))
             )}
           </View>
@@ -304,10 +305,6 @@ const styles = StyleSheet.create({
   summaryBar: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  groupByBar: {
-    paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
   },
   dateNav: {

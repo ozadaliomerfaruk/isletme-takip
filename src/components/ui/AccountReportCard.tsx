@@ -1,5 +1,5 @@
-import { View, StyleSheet } from 'react-native';
-import { Banknote, Landmark, CreditCard, PiggyBank, Wallet } from 'lucide-react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Banknote, Landmark, CreditCard, PiggyBank, Wallet, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
@@ -20,16 +20,23 @@ interface AccountReportCardProps {
   item: AccountReportItem;
   type: 'gelir' | 'gider';
   currency?: string;
+  /** Verilirse kart tıklanabilir olur (ör. hesabın dönem işlemlerine drill-down). */
+  onPress?: () => void;
 }
 
-export function AccountReportCard({ item, type, currency }: AccountReportCardProps) {
+export function AccountReportCard({ item, type, currency, onPress }: AccountReportCardProps) {
   const { t } = useTranslation(['reports']);
   const meta = TYPE_META[item.hesap.type] ?? TYPE_META.diger;
   const Icon = meta.icon;
   const barColor = meta.color;
 
   return (
-    <View style={styles.container}>
+    <TouchableOpacity
+      style={styles.container}
+      onPress={onPress}
+      disabled={!onPress}
+      activeOpacity={0.7}
+    >
       <View style={styles.header}>
         <View style={styles.leftSection}>
           <View style={[styles.iconContainer, { backgroundColor: barColor + '20' }]}>
@@ -56,6 +63,7 @@ export function AccountReportCard({ item, type, currency }: AccountReportCardPro
               </Text>
             </View>
           </View>
+          {onPress && <ChevronRight size={18} color={colors.textMuted} />}
         </View>
       </View>
 
@@ -67,7 +75,7 @@ export function AccountReportCard({ item, type, currency }: AccountReportCardPro
           ]}
         />
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
