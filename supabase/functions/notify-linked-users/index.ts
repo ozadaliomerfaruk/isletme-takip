@@ -309,7 +309,10 @@ Deno.serve(withFnTelemetry({ name: "notify-linked-users" }, async (req) => {
           channelId: "default",
         };
 
-        console.log(`[notify-linked-users] Sending push notification: ${pushTokenRecord.token}`);
+        // Push token'i uretim logunda ACIK yazma (hassas): yalniz son 6 karakteri maskele.
+        console.log(
+          `[notify-linked-users] Sending push notification: ...${String(pushTokenRecord.token).slice(-6)}`
+        );
 
         const pushResponse = await measuredFetch("https://exp.host/--/api/v2/push/send", {
           method: "POST",
