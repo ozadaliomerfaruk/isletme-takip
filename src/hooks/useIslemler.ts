@@ -7,7 +7,8 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
 import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType, LEAVE_TYPES } from '@/constants/islemTypes';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
-import { safeParseAmount, safeParseExchangeRate, calculateTargetAmount, roundCurrency } from '@/lib/currency';
+import { roundCurrency } from '@/lib/currency';
+import { computeBalanceOps } from '@/lib/islemBalanceOps';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import { invertCariTransactionType } from '@/lib/cariTransactionMapper';
@@ -260,170 +261,11 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
   }
 }
 
-// Bakiye güncelleme yardımcı fonksiyonu
+// Bakiye güncelleme (APPLY): işlemin bakiye etkisini uygular.
+// Matematik computeBalanceOps'ta (tek kaynak, birim-testli); burası yalnız executor.
 async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
-  // Güvenli tutar parse etme - NaN kontrolü
-  const amount = safeParseAmount(islem.amount, 'işlem tutarı');
-
-  // Exchange rate güvenli parse etme - 0 ve negatif değer kontrolü
-  const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
-
-  switch (islem.type) {
-    case 'gelir':
-      // Hesap bakiyesini artır
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-      }
-      break;
-
-    case 'gider':
-      // Hesap bakiyesini azalt
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
-      break;
-
-    case 'transfer':
-      // Kaynak hesaptan düş, hedef hesaba ekle
-      // Cross-currency transfer: exchange_rate varsa dönüşüm uygula
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
-      if (islem.hedef_hesap_id) {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-
-        const targetAmount = calculateTargetAmount(
-          amount,
-          exchangeRate,
-          sourceCurrency,
-          targetCurrency
-        );
-
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, targetAmount);
-      }
-      break;
-
-    case 'cari_alis':
-      // Tedarikçiden alış - cari bakiyesi azalır (borcumuz artar)
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      break;
-
-    case 'cari_satis':
-      // Müşteriye satış - cari bakiyesi artar (alacağımız artar)
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      break;
-
-    case 'cari_odeme':
-      // Tedarikçiye ödeme - cari bakiyesi artar, hesap bakiyesi azalır
-      // Cross-currency: Hesap farklı para biriminde ise, cari para birimine dönüştür
-      {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-
-        // Cari bakiyesi kendi para birimi cinsinden
-        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-
-        if (islem.cari_id) {
-          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
-        }
-        if (islem.hesap_id) {
-          // Hesap bakiyesi kendi para birimi cinsinden
-          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-        }
-      }
-      break;
-
-    case 'cari_tahsilat':
-      // Müşteriden tahsilat - cari bakiyesi azalır, hesap bakiyesi artar
-      // Cross-currency: Hesap farklı para biriminde ise, cari para birimine dönüştür
-      {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-
-        // Cari bakiyesi kendi para birimi cinsinden
-        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-
-        if (islem.cari_id) {
-          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
-        }
-        if (islem.hesap_id) {
-          // Hesap bakiyesi kendi para birimi cinsinden
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-      }
-      break;
-
-    case 'personel_gider':
-      // Personel gideri - personel bakiyesi azalır (borcumuz artar), hesap değişmez
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
-      break;
-
-    case 'personel_odeme':
-      // Personel borcunu ödeme - personel bakiyesi artar, hesap azalır
-      // Cross-currency: Hesap farklı para biriminde ise, personel para birimine dönüştür
-      {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-
-        // Personel bakiyesi kendi para birimi cinsinden
-        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-
-        if (islem.personel_id) {
-          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-        }
-      }
-      break;
-
-    case 'cari_alis_iade':
-      // Tedarikçiye alış iadesi - cari bakiyesi artar (borcumuz azalır), hesap değişmez
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      break;
-
-    case 'cari_satis_iade':
-      // Müşteriden satış iadesi - cari bakiyesi azalır (alacağımız azalır), hesap değişmez
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      break;
-
-    case 'personel_tahsilat':
-      // Personelden tahsilat - personel bakiyesi azalır (alacağımız azalır), hesap bakiyesi artar
-      // Cross-currency: Hesap farklı para biriminde ise, personel para birimine dönüştür
-      {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-
-        // Personel bakiyesi kendi para birimi cinsinden
-        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-
-        if (islem.personel_id) {
-          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-      }
-      break;
-
-    case 'personel_satis':
-      // Personele satış - personel bakiyesi artar (personelden alacağımız artar), hesap değişmez
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
-      break;
-
+  for (const op of computeBalanceOps(islem)) {
+    await safeIncrementBalance(op.t, op.id, op.d);
   }
 }
 
@@ -760,76 +602,32 @@ export function useDeleteIslem() {
       // Linked cari inversiyonu: viewer perspektifinden owner perspektifine çevir
       const balanceIslem = await applyLinkedCariInversion(islem, isletme.id);
 
-      // Önce bakiyeleri geri al (silme başarısız olursa geri alınabilir)
-      await reverseBalances(balanceIslem);
+      // ATOMİK SİLME: bakiye geri-alma + stok geri-alma + urun_hareketler sil + islem
+      // sil — hepsi TEK transaction'da (delete_islem_atomik RPC). Eski akış bunları
+      // ayrı ağ çağrılarıyla yapıyordu; kısmi hatada (2. increment patlar / islem
+      // silme RLS'e sessiz takılır) bakiye/stok telafisiz DESYNC olabiliyordu. Artık
+      // herhangi bir adım hata verirse tüm değişiklikler geri sarılır.
+      // Bakiye delta'ları app'te hesaplanır (computeBalanceOps → cross-currency dahil),
+      // reverse (negatif) edilip RPC'ye verilir; RPC mevcut increment_balance +
+      // update_urun_miktar'ı aynı transaction içinde çağırır (davranış birebir aynı).
+      const reverseOps = computeBalanceOps(balanceIslem).map((op) => ({ t: op.t, id: op.id, d: -op.d }));
 
-      // Bağlı ürün hareketlerini geri al ve sil
-      const { data: urunHareketler } = await supabase
-        .from('urun_hareketler')
-        .select('*')
-        .eq('islem_id', id)
-        .eq('isletme_id', isletme.id);
+      const { error: delError } = await supabase.rpc('delete_islem_atomik', {
+        p_isletme_id: isletme.id,
+        p_islem_id: id,
+        p_balance_ops: reverseOps,
+      });
 
-      if (urunHareketler && urunHareketler.length > 0) {
-        for (const hareket of urunHareketler) {
-          // Stok miktarını geri al
-          let miktarDegisim: number;
-          if (hareket.hareket_tipi === 'giris') {
-            miktarDegisim = -Math.abs(hareket.miktar);
-          } else if (hareket.hareket_tipi === 'cikis') {
-            miktarDegisim = Math.abs(hareket.miktar);
-          } else {
-            miktarDegisim = -hareket.miktar;
-          }
-
-          await supabase.rpc('update_urun_miktar', {
-            p_urun_id: hareket.urun_id,
-            p_miktar_degisim: miktarDegisim,
-            p_isletme_id: isletme.id,
-          });
-        }
-
-        // Ürün hareketlerini sil
-        await supabase
-          .from('urun_hareketler')
-          .delete()
-          .eq('islem_id', id)
-          .eq('isletme_id', isletme.id);
-      }
-
-      // Sonra işlemi sil - ownership kontrolü ile
-      const { error, count } = await supabase
-        .from('islemler')
-        .delete({ count: 'exact' })
-        .eq('id', id)
-        .eq('isletme_id', isletme.id);
-
-      // RLS sessiz reject: 0 satır etkilendi ama hata dönmedi
-      if (!error && count === 0) {
-        try {
-          await updateBalances(balanceIslem);
-        } catch (rollbackError) {
-          if (__DEV__) {
-            console.error('Bakiye geri yükleme hatası:', rollbackError);
-          }
-        }
-        throw new Error(i18n.t('common:errors.permissionDenied'));
-      }
-
-      if (error) {
-        // Silme başarısız olursa bakiyeleri geri yükle
-        try {
-          await updateBalances(balanceIslem);
-        } catch (rollbackError) {
-          if (__DEV__) {
-            console.error('Bakiye geri yükleme hatası:', rollbackError);
-          }
-        }
-        // RLS policy hatası ise daha açıklayıcı mesaj ver
-        if (error.code === '42501' || error.message?.includes('policy')) {
+      if (delError) {
+        // RLS/guard hatası ise daha açıklayıcı mesaj
+        if (
+          delError.code === '42501' ||
+          delError.message?.includes('policy') ||
+          delError.message?.includes('Yetkisiz')
+        ) {
           throw new Error(i18n.t('common:errors.permissionDenied'));
         }
-        throw error;
+        throw delError;
       }
     },
     onSuccess: () => {
@@ -840,150 +638,11 @@ export function useDeleteIslem() {
   });
 }
 
-// Bakiyeleri geri alma (silme için)
+// Bakiyeleri geri alma (silme/düzeltme için): APPLY delta'larının negatifi.
+// Matematik computeBalanceOps'ta (tek kaynak, birim-testli); burası yalnız executor.
 async function reverseBalances(islem: Islem) {
-  // Güvenli tutar parse etme - NaN kontrolü
-  const amount = safeParseAmount(islem.amount, 'işlem tutarı');
-
-  // Exchange rate güvenli parse etme - 0 ve negatif değer kontrolü
-  const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
-
-  switch (islem.type) {
-    case 'gelir':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-      }
-      break;
-
-    case 'gider':
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-      }
-      break;
-
-    case 'transfer':
-      // Cross-currency transfer geri alma
-      if (islem.hesap_id) {
-        await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-      }
-      if (islem.hedef_hesap_id) {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-
-        const targetAmount = calculateTargetAmount(
-          amount,
-          exchangeRate,
-          sourceCurrency,
-          targetCurrency
-        );
-
-        await safeIncrementBalance('hesaplar', islem.hedef_hesap_id, -targetAmount);
-      }
-      break;
-
-    case 'cari_alis':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      break;
-
-    case 'cari_satis':
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      break;
-
-    case 'cari_odeme':
-      // Cross-currency cari_odeme geri alma
-      {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-
-        if (islem.cari_id) {
-          await safeIncrementBalance('cariler', islem.cari_id, -cariAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-      }
-      break;
-
-    case 'cari_tahsilat':
-      // Cross-currency cari_tahsilat geri alma
-      {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-        const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-
-        if (islem.cari_id) {
-          await safeIncrementBalance('cariler', islem.cari_id, cariAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-        }
-      }
-      break;
-
-    case 'personel_gider':
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, amount);
-      }
-      break;
-
-    case 'personel_odeme':
-      // Cross-currency personel_odeme geri alma
-      {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-
-        if (islem.personel_id) {
-          await safeIncrementBalance('personel', islem.personel_id, -personelAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, amount);
-        }
-      }
-      break;
-
-    case 'cari_alis_iade':
-      // Alış iadesi geri al - cari bakiyesi azalır (borcumuz geri artar)
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, -amount);
-      }
-      break;
-
-    case 'cari_satis_iade':
-      // Satış iadesi geri al - cari bakiyesi artar (alacağımız geri artar)
-      if (islem.cari_id) {
-        await safeIncrementBalance('cariler', islem.cari_id, amount);
-      }
-      break;
-
-    case 'personel_tahsilat':
-      // Cross-currency personel_tahsilat geri alma
-      {
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-        const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-
-        if (islem.personel_id) {
-          await safeIncrementBalance('personel', islem.personel_id, personelAmount);
-        }
-        if (islem.hesap_id) {
-          await safeIncrementBalance('hesaplar', islem.hesap_id, -amount);
-        }
-      }
-      break;
-
-    case 'personel_satis':
-      // Personele satış geri al - personel bakiyesi azalır (alacağımız azalır)
-      if (islem.personel_id) {
-        await safeIncrementBalance('personel', islem.personel_id, -amount);
-      }
-      break;
-
+  for (const op of computeBalanceOps(islem)) {
+    await safeIncrementBalance(op.t, op.id, -op.d);
   }
 }
 
