@@ -15,11 +15,13 @@ import {
   CalendarMinus,
   Wallet,
   Banknote,
+  Package,
 } from 'lucide-react-native';
 import { IslemWithRelations } from '@/types/database';
 import { formatCurrency, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useIslemlerWithUrun } from '@/hooks/useUrunHareketler';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -72,6 +74,10 @@ export function EntityTransactionList({
   const displayTransactions = maxItems > 0 ? transactions.slice(0, maxItems) : transactions;
   const hasMore = transactions.length > maxItems;
 
+  // Ürünlü işlem göstergesi (kutu ikonu): satırda ürün kalemi varsa Package rozeti.
+  // Tek batch sorgu (islem_id → adet); early-return'den ÖNCE çağrılmalı (hooks kuralı).
+  const { hasUrun, getUrunCount } = useIslemlerWithUrun(displayTransactions.map((tr) => tr.id));
+
   const handleTransactionPress = (transaction: IslemWithRelations) => {
     if (onTransactionPressExternal) {
       onTransactionPressExternal(transaction);
@@ -115,9 +121,19 @@ export function EntityTransactionList({
               </View>
               <View style={styles.transactionContent}>
                 <View style={styles.transactionHeader}>
-                  <Text variant="body" style={styles.transactionLabel}>
-                    {t(`transactions:types.${transaction.type}`, { defaultValue: label })}
-                  </Text>
+                  <View style={styles.transactionLabelRow}>
+                    <Text variant="body" style={styles.transactionLabel} numberOfLines={1}>
+                      {t(`transactions:types.${transaction.type}`, { defaultValue: label })}
+                    </Text>
+                    {hasUrun(transaction.id) && (
+                      <View style={styles.urunBadge}>
+                        <Package size={15} color={colors.primary} />
+                        {getUrunCount(transaction.id) > 0 && (
+                          <Text style={styles.urunCountText}>{getUrunCount(transaction.id)}</Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
                   <Text
                     variant="body"
                     style={[styles.transactionAmount, { color }]}
@@ -201,8 +217,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  transactionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flexShrink: 1,
+    marginRight: spacing.sm,
+  },
   transactionLabel: {
     fontWeight: '500',
+    flexShrink: 1,
+  },
+  urunBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  urunCountText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   transactionAmount: {
     fontWeight: '600',
