@@ -32,7 +32,7 @@ export default function GelirGiderRaporPage() {
   const [selectedType, setSelectedType] = useState<ReportType>('gider');
   // Yalnız GELİR görünümünde kırılım seçimi: kategoriye göre ↔ hesaba göre.
   // Gider tarafında her zaman kategori (hesap kırılımına ihtiyaç yok).
-  const [gelirGroupBy, setGelirGroupBy] = useState<'kategori' | 'hesap'>('hesap');
+  const [gelirGroupBy, setGelirGroupBy] = useState<'kategori' | 'hesap'>('kategori');
 
   const { isExporting, exportReport } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
 

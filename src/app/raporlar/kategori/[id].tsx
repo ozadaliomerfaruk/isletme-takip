@@ -34,6 +34,7 @@ import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
 import { IslemWithRelations, KategoriType } from '@/types/database';
+import { isReturnType } from '@/constants/islemTypes';
 import { useTranslation } from 'react-i18next';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -103,7 +104,7 @@ export default function KategoriDetayPage() {
   } = useCategoryTransactions(
     null, // null = kategorisiz
     type!,
-    { startDate: startDate!, endDate: endDate!, source }
+    { startDate: startDate!, endDate: endDate!, source, includeReturns: true }
   );
 
   // Alt kategori raporunu çek (sadece normal kategoriler için).
@@ -112,7 +113,7 @@ export default function KategoriDetayPage() {
   const subCategoryReport = useSubCategoryReport(
     isUncategorized ? null : kategoriId,
     type!,
-    { startDate: startDate!, endDate: endDate!, source }
+    { startDate: startDate!, endDate: endDate!, source, includeReturns: true }
   );
 
   // Seçili alt kategoriler (checkbox için) - başlangıçta tümü seçili
@@ -168,7 +169,7 @@ export default function KategoriDetayPage() {
   const { data: filteredIslemler, isLoading: islemlerLoading } = useMultiCategoryTransactions(
     isUncategorized ? [] : selectedKategoriIds,
     type!,
-    { startDate: startDate!, endDate: endDate!, source }
+    { startDate: startDate!, endDate: endDate!, source, includeReturns: true }
   );
 
   // Alt kategori seçimini toggle et
@@ -208,7 +209,9 @@ export default function KategoriDetayPage() {
       ? (islem as { _categoryAmount: number })._categoryAmount
       : Number(islem.amount);
     const cur = islem.hesap?.currency ?? baseCurrency;
-    return acc + (convertCurrency(amount, cur, baseCurrency, rates) ?? amount);
+    const converted = convertCurrency(amount, cur, baseCurrency, rates) ?? amount;
+    // İade tutarı yönü AZALTIR → net'ten düş.
+    return acc + (isReturnType(islem.type) ? -converted : converted);
   }, 0) ?? 0;
   const filteredCount = filteredIslemler?.length ?? 0;
 
@@ -273,6 +276,10 @@ export default function KategoriDetayPage() {
   // İşlem kartı render
   const renderIslemItem = ({ item }: { item: IslemWithRelations & { _categoryAmount?: number } }) => {
     const isGelir = type === 'gelir';
+    // İade, yönü AZALTIR → kartta yönün TERSİ gösterilir: gelir iadesi kırmızı/eksi,
+    // gider iadesi (para geri) yeşil/artı. (isGelir XOR iade)
+    const isRet = isReturnType(item.type);
+    const showsPositive = isGelir !== isRet;
     // If _categoryAmount exists, show it as the main amount and full invoice as sub-text
     const hasCategoryAmount = item._categoryAmount !== undefined && item._categoryAmount !== Number(item.amount);
     const displayAmount = hasCategoryAmount ? item._categoryAmount! : Number(item.amount);
@@ -287,9 +294,9 @@ export default function KategoriDetayPage() {
           <View style={styles.islemLeft}>
             <View style={[
               styles.islemIconContainer,
-              { backgroundColor: isGelir ? colors.successLight : colors.errorLight }
+              { backgroundColor: showsPositive ? colors.successLight : colors.errorLight }
             ]}>
-              {isGelir ? (
+              {showsPositive ? (
                 <TrendingUp size={16} color={colors.success} />
               ) : (
                 <TrendingDown size={16} color={colors.error} />
@@ -321,10 +328,10 @@ export default function KategoriDetayPage() {
             <View style={styles.islemAmountContainer}>
               <Text
                 variant="label"
-                color={isGelir ? 'success' : 'error'}
+                color={showsPositive ? 'success' : 'error'}
                 style={styles.islemAmount}
               >
-                {isGelir ? '+' : '-'}{formatCurrency(displayAmount, item.hesap?.currency)}
+                {showsPositive ? '+' : '-'}{formatCurrency(displayAmount, item.hesap?.currency)}
               </Text>
               {hasCategoryAmount && (
                 <Text variant="caption" color="secondary" style={styles.islemSubAmount}>
@@ -503,7 +510,9 @@ export default function KategoriDetayPage() {
   const uncategorizedTotal = uncategorizedIslemler?.reduce((acc, islem) => {
     const amount = Number(islem.amount);
     const cur = islem.hesap?.currency ?? baseCurrency;
-    return acc + (convertCurrency(amount, cur, baseCurrency, rates) ?? amount);
+    const converted = convertCurrency(amount, cur, baseCurrency, rates) ?? amount;
+    // İade tutarı yönü AZALTIR → net'ten düş.
+    return acc + (isReturnType(islem.type) ? -converted : converted);
   }, 0) ?? 0;
   const uncategorizedCount = uncategorizedIslemler?.length ?? 0;
 

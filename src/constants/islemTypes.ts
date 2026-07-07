@@ -125,6 +125,13 @@ export function isExpenseReturnType(type: IslemType): boolean {
 }
 
 /**
+ * Verilen işlem tipinin iade (gelir ya da gider iadesi) olup olmadığını kontrol eder
+ */
+export function isReturnType(type: IslemType): boolean {
+  return isIncomeReturnType(type) || isExpenseReturnType(type);
+}
+
+/**
  * İşlem listesinden gelir/gider özeti hesaplar
  * İadeler ilgili kategoriden düşülür:
  * - cari_satis_iade → gelirden düşülür

@@ -99,14 +99,16 @@ export const queryKeys = {
       ['hierarchical-category-report', isletmeId, type, source, startDate, endDate] as const,
     hierarchicalCategoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
       ['hierarchical-category-report-returns', isletmeId, type, startDate, endDate] as const,
-    categoryTransactions: (isletmeId: string, kategoriId: string, type: string, source: string, startDate: string, endDate: string) =>
-      ['category-transactions', isletmeId, kategoriId, type, source, startDate, endDate] as const,
-    multiCategoryTransactions: (isletmeId: string, kategoriIds: string, type: string, source: string, startDate: string, endDate: string) =>
-      ['multi-category-transactions', isletmeId, kategoriIds, type, source, startDate, endDate] as const,
+    categoryTransactions: (isletmeId: string, kategoriId: string, type: string, source: string, startDate: string, endDate: string, includeReturns = false) =>
+      ['category-transactions', isletmeId, kategoriId, type, source, startDate, endDate, includeReturns] as const,
+    multiCategoryTransactions: (isletmeId: string, kategoriIds: string, type: string, source: string, startDate: string, endDate: string, includeReturns = false) =>
+      ['multi-category-transactions', isletmeId, kategoriIds, type, source, startDate, endDate, includeReturns] as const,
     subCategories: (isletmeId: string, parentKategoriId: string, type: string) =>
       ['sub-categories', isletmeId, parentKategoriId, type] as const,
     subCategoryReportRpc: (isletmeId: string, kategoriIds: string, type: string, source: string, startDate: string, endDate: string) =>
       ['sub-category-report-rpc', isletmeId, kategoriIds, type, source, startDate, endDate] as const,
+    subCategoryReportReturns: (isletmeId: string, kategoriIds: string, type: string, startDate: string, endDate: string) =>
+      ['sub-category-report-returns', isletmeId, kategoriIds, type, startDate, endDate] as const,
     cashFlowByCategory: (isletmeId: string, startDate: string, endDate: string) =>
       ['cash-flow-by-category', isletmeId, startDate, endDate] as const,
     productReport: (isletmeId: string, direction: string, startDate: string, endDate: string) =>

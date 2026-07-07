@@ -12,14 +12,24 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'birikim', 'diger'];
 
 /**
+ * Bir yönün İADE tiplerini döner (gider→cari_alis_iade, gelir→cari_satis_iade).
+ */
+function getReturnTypes(type: KategoriType) {
+  return type === 'gider' ? EXPENSE_RETURN_TYPES : INCOME_RETURN_TYPES;
+}
+
+/**
  * İşlem tiplerini kaynak ve tipe göre belirler
  * source='cash-flow' ise nakit akışı tiplerini kullan
+ * includeReturns=true ise iade tipleri de eklenir (drill-down'da iadeleri göstermek için;
+ * nakit akışında iade ayrı akış olduğundan uygulanmaz).
  */
-function getIslemTypes(type: KategoriType, source?: string) {
+function getIslemTypes(type: KategoriType, source?: string, includeReturns = false) {
   if (source === 'cash-flow') {
     return type === 'gider' ? CASH_OUTFLOW_TYPES : CASH_INFLOW_TYPES;
   }
-  return type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+  const base = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
+  return includeReturns ? [...base, ...getReturnTypes(type)] : base;
 }
 
 export interface CategoryReportItem {
@@ -64,6 +74,7 @@ interface UseCategoryReportOptions {
   endDate: string;
   source?: string; // 'cash-flow' ise nakit akışı tiplerini kullan
   percentageReferenceTotal?: number; // Yüzde hesabında payda olarak kullanılacak toplam (örn: giderlerin gelire oranı)
+  includeReturns?: boolean; // true ise işlem listesine iadeler de dahil edilir (drill-down)
 }
 
 /**
@@ -630,14 +641,14 @@ export function useCategoryTransactions(
   options: UseCategoryReportOptions
 ) {
   const { isletme } = useAuthContext();
-  const { startDate, endDate, source } = options;
+  const { startDate, endDate, source, includeReturns = false } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
-  // İşlem tiplerini belirle (source'a göre)
-  const islemTypes = getIslemTypes(type, source);
+  // İşlem tiplerini belirle (source'a göre) — includeReturns ise iadeler de dahil
+  const islemTypes = getIslemTypes(type, source, includeReturns);
 
   return useQuery({
-    queryKey: queryKeys.reports.categoryTransactions(isletme?.id ?? '', kategoriId ?? '', type, source ?? '', startDateTime, endDateTime),
+    queryKey: queryKeys.reports.categoryTransactions(isletme?.id ?? '', kategoriId ?? '', type, source ?? '', startDateTime, endDateTime, includeReturns),
     queryFn: async () => {
       if (!isletme) return [];
 
@@ -829,14 +840,14 @@ export function useMultiCategoryTransactions(
   options: UseCategoryReportOptions
 ) {
   const { isletme } = useAuthContext();
-  const { startDate, endDate, source } = options;
+  const { startDate, endDate, source, includeReturns = false } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
-  // İşlem tiplerini belirle (source'a göre)
-  const islemTypes = getIslemTypes(type, source);
+  // İşlem tiplerini belirle (source'a göre) — includeReturns ise iadeler de dahil
+  const islemTypes = getIslemTypes(type, source, includeReturns);
 
   return useQuery({
-    queryKey: queryKeys.reports.multiCategoryTransactions(isletme?.id ?? '', kategoriIds.sort().join(','), type, source ?? '', startDateTime, endDateTime),
+    queryKey: queryKeys.reports.multiCategoryTransactions(isletme?.id ?? '', kategoriIds.sort().join(','), type, source ?? '', startDateTime, endDateTime, includeReturns),
     queryFn: async () => {
       if (!isletme || kategoriIds.length === 0) return [];
 
@@ -1008,11 +1019,13 @@ export function useSubCategoryReport(
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
-  const { startDate, endDate, source } = options;
+  const { startDate, endDate, source, includeReturns = false } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle (source'a göre)
   const islemTypes = getIslemTypes(type, source);
+  // İade net'leme yalnız normal (cash-flow olmayan) drill-down'da.
+  const returnsEnabled = includeReturns && source !== 'cash-flow';
 
   // Ana kategoriyi ve alt kategorileri çek
   const {
@@ -1095,6 +1108,35 @@ export function useSubCategoryReport(
     enabled: !!isletme && !!startDate && !!endDate && allKategoriIds.length > 0,
   });
 
+  // İADE aggregate: includeReturns ise bu kategorilere düşen iadeler (aynı get_category_report,
+  // iade tipleriyle) → memo'da ilgili kategoriden DÜŞÜLÜR (özet toplam liste ile tutarlı olsun).
+  const {
+    data: returnsData,
+    isLoading: returnsLoading,
+  } = useQuery({
+    queryKey: queryKeys.reports.subCategoryReportReturns(isletme?.id ?? '', allKategoriIds.sort().join(','), type, startDateTime, endDateTime),
+    queryFn: async () => {
+      if (!isletme || allKategoriIds.length === 0) return [];
+
+      const { data, error } = await supabase.rpc('get_category_report', {
+        p_isletme_id: isletme.id,
+        p_types: getReturnTypes(type) as string[],
+        p_start_date: startDateTime,
+        p_end_date: endDateTime,
+      });
+
+      if (error) throw error;
+
+      const idSet = new Set(allKategoriIds);
+      return ((data || []) as Array<{
+        kategori_id: string | null;
+        islem_count: number;
+        total_amount: number;
+      }>).filter(row => row.kategori_id && idSet.has(row.kategori_id));
+    },
+    enabled: returnsEnabled && !!isletme && !!startDate && !!endDate && allKategoriIds.length > 0,
+  });
+
   // Sonuçları hesapla (RPC aggregate verisinden)
   const result = useMemo(() => {
     if (!kategoriler || !rpcData) {
@@ -1141,6 +1183,24 @@ export function useSubCategoryReport(
       }
     });
 
+    // İADE: ilgili kategoriden DÜŞ (tutar net'lenir). İade işlemi de listede görüneceğinden
+    // sayıya (count) DAHİL edilir → özet "İşlem Sayısı" liste satır sayısıyla tutar.
+    (returnsData || []).forEach((row) => {
+      const amount = conv(Number(row.total_amount) || 0);
+      const count = Number(row.islem_count) || 0;
+      totalAmount -= amount;
+      totalCount += count;
+
+      if (row.kategori_id === parentKategoriId) {
+        parentTotal -= amount;
+        parentCount += count;
+      } else if (row.kategori_id && subCategoryMap.has(row.kategori_id)) {
+        const existing = subCategoryMap.get(row.kategori_id)!;
+        existing.total -= amount;
+        existing.count += count;
+      }
+    });
+
     // Alt kategori rapor item'larını oluştur
     const subCategories: SubCategoryReportItem[] = (kategoriler.children || [])
       .map((child) => {
@@ -1163,14 +1223,14 @@ export function useSubCategoryReport(
       totalAmount,
       totalCount,
     };
-  }, [kategoriler, rpcData, parentKategoriId, baseCurrency, rates]);
+  }, [kategoriler, rpcData, returnsData, parentKategoriId, baseCurrency, rates]);
 
   // Combine errors - prefer rpc error as it's more critical
   const combinedError = rpcError || kategorilerError;
 
   return {
     ...result,
-    isLoading: kategorilerLoading || rpcLoading,
+    isLoading: kategorilerLoading || rpcLoading || (returnsEnabled && returnsLoading),
     error: combinedError as Error | null,
   };
 }
