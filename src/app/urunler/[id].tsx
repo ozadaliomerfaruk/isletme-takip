@@ -29,6 +29,7 @@ import {
   FileSpreadsheet,
   CreditCard,
   Wallet,
+  RotateCcw,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, ExpandableCard, EmptyState } from '@/components/ui';
@@ -52,6 +53,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
 import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketWithSource } from '@/hooks/useUrunHareketler';
+import { urunHareketYon, isAlisAilesi, isIadeYon } from '@/lib/urunHareket';
 import { BirimType } from '@/types/database';
 import { formatCurrency, formatQuantity } from '@/lib/currency';
 import { toErrorMessage } from '@/lib/errors';
@@ -219,7 +221,13 @@ export default function UrunDetayPage() {
 
   // Hareket satırı (FlatList renderItem) — .map'teki ExpandableCard JSX birebir korunuyor.
   // Yatay padding orijinaldeki styles.section ile aynı (paddingHorizontal: spacing.lg).
-  const renderHareket = useCallback(({ item: hareket }: ListRenderItemInfo<UrunHareketWithSource>) => (
+  const renderHareket = useCallback(({ item: hareket }: ListRenderItemInfo<UrunHareketWithSource>) => {
+    // Finansal yön (stok yönünden bağımsız): iadeler doğru aileye/etikete gider.
+    // Alış iadesi stok ÇIKIŞIdır ama "satış" DEĞİL; satış iadesi stok GİRİŞİdir ama "alış" DEĞİL.
+    const yon = urunHareketYon(hareket.hareket_tipi, hareket.islemType);
+    const alisAilesi = isAlisAilesi(yon);
+    const iade = isIadeYon(yon);
+    return (
     <View style={{ paddingHorizontal: spacing.lg }}>
       <ExpandableCard
         expanded={expandedHareketId === hareket.id}
@@ -231,20 +239,22 @@ export default function UrunDetayPage() {
                 styles.hareketIcon,
                 {
                   backgroundColor:
-                    hareket.hareket_tipi === 'giris'
+                    yon === 'duzeltme'
+                      ? colors.warningLight
+                      : alisAilesi
                       ? colors.errorLight
-                      : hareket.hareket_tipi === 'cikis'
-                      ? colors.successLight
-                      : colors.warningLight,
+                      : colors.successLight,
                 },
               ]}
             >
-              {hareket.hareket_tipi === 'giris' ? (
-                <TrendingUp size={14} color={colors.error} />
-              ) : hareket.hareket_tipi === 'cikis' ? (
-                <TrendingDown size={14} color={colors.success} />
-              ) : (
+              {yon === 'duzeltme' ? (
                 <Package size={14} color={colors.warning} />
+              ) : iade ? (
+                <RotateCcw size={14} color={alisAilesi ? colors.error : colors.success} />
+              ) : alisAilesi ? (
+                <TrendingUp size={14} color={colors.error} />
+              ) : (
+                <TrendingDown size={14} color={colors.success} />
               )}
             </View>
             <View style={styles.hareketInfo}>
@@ -288,10 +298,14 @@ export default function UrunDetayPage() {
                 ) : null}
               </View>
               <Text variant="body" color="secondary" style={{ fontSize: 14 }}>
-                {hareket.hareket_tipi === 'giris'
+                {yon === 'alis'
                   ? t('products:stock.stockIn')
-                  : hareket.hareket_tipi === 'cikis'
+                  : yon === 'alis_iade'
+                  ? t('products:stock.purchaseReturn')
+                  : yon === 'satis'
                   ? t('products:stock.stockOut')
+                  : yon === 'satis_iade'
+                  ? t('products:stock.salesReturn')
                   : t('products:stock.adjustment')}
               </Text>
               {hareket.birim_fiyat != null && hareket.birim_fiyat > 0 && (
@@ -302,12 +316,15 @@ export default function UrunDetayPage() {
             </View>
             <View style={{ alignItems: 'flex-end' }}>
               {(() => {
-                // Renk: alış (giriş) KIRMIZI, satış (çıkış) YEŞİL, düzeltme SARI
-                const renk = hareket.hareket_tipi === 'giris'
+                // Renk FİNANSAL AİLEYE göre: alış ailesi (alış + alış iadesi) KIRMIZI,
+                // satış ailesi (satış + satış iadesi) YEŞİL, düzeltme SARI. Böylece alış
+                // iadesi (stok çıkışı) yanlışça satış rengi/etiketi almaz.
+                const renk = yon === 'duzeltme'
+                  ? colors.warning
+                  : alisAilesi
                   ? colors.error
-                  : hareket.hareket_tipi === 'cikis'
-                  ? colors.success
-                  : colors.warning;
+                  : colors.success;
+                // İşaret STOK YÖNÜNDE (giriş +, çıkış −): alış iadesi malı çıkarır → "−".
                 const isaret = hareket.hareket_tipi === 'giris'
                   ? '+'
                   : hareket.hareket_tipi === 'cikis'
@@ -386,10 +403,11 @@ export default function UrunDetayPage() {
         </View>
       </ExpandableCard>
     </View>
+    );
     // handler'lar (handleDelete/Edit*) ve getBirimLabel stabil setter + hareket arg + t üzerinden çalışır;
     // eksik dep'ler fonksiyonel olarak güvenli (renderHareket her render yeniden üretilse de FlatList sanallaştırması korunur).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [expandedHareketId, urun, canEdit, canRemove, t, i18n, ozetMode]);
+  }, [expandedHareketId, urun, canEdit, canRemove, t, i18n, ozetMode]);
 
   if (urunLoading) {
     return (
@@ -558,11 +576,13 @@ export default function UrunDetayPage() {
                           <View style={styles.aylikValues}>
                             {ozetMode === 'miktar' ? (
                               <>
+                                {/* NET alış/satış (iade düşülmüş). İade fazlası varsa net
+                                    negatif olabilir → işareti değerden türet (sabit +/- değil). */}
                                 <View style={styles.aylikPillIn}>
-                                  <Text style={styles.aylikPillInText}>+{formatQuantity(ozet.giris)}</Text>
+                                  <Text style={styles.aylikPillInText}>{ozet.giris >= 0 ? '+' : '-'}{formatQuantity(Math.abs(ozet.giris))}</Text>
                                 </View>
                                 <View style={styles.aylikPillOut}>
-                                  <Text style={styles.aylikPillOutText}>-{formatQuantity(ozet.cikis)}</Text>
+                                  <Text style={styles.aylikPillOutText}>{ozet.cikis >= 0 ? '-' : '+'}{formatQuantity(Math.abs(ozet.cikis))}</Text>
                                 </View>
                                 {ozet.duzeltme !== 0 && (
                                   <View style={styles.aylikPillDuzeltme}>
@@ -574,7 +594,7 @@ export default function UrunDetayPage() {
                               </>
                             ) : (
                               <>
-                                {/* Tutar: giriş = toplam harcanan (alım), çıkış = toplam satılan */}
+                                {/* Tutar: sol = NET alım (alış − alış iadesi), sağ = NET satış (satış − satış iadesi) */}
                                 <View style={styles.aylikPillIn}>
                                   <Text style={styles.aylikPillInText}>{formatCurrency(ozet.girisTutar, urun.currency)}</Text>
                                 </View>

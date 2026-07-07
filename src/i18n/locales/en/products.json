@@ -55,6 +55,8 @@
     "currentStock": "Current Quantity",
     "stockIn": "Product Purchase",
     "stockOut": "Product Sale",
+    "purchaseReturn": "Purchase Return",
+    "salesReturn": "Sales Return",
     "adjustment": "Adjustment",
     "quantity": "Quantity",
     "amount": "Amount",

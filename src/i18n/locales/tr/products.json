@@ -55,6 +55,8 @@
     "currentStock": "Mevcut Miktar",
     "stockIn": "Ürün Alımı",
     "stockOut": "Ürün Satışı",
+    "purchaseReturn": "Alış İadesi",
+    "salesReturn": "Satış İadesi",
     "adjustment": "Düzeltme",
     "quantity": "Miktar",
     "amount": "Tutar",

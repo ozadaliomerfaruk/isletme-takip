@@ -6,6 +6,7 @@ import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, H
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { toNumber } from '@/lib/currency';
+import { urunHareketYon, aileNetIsaret, isAlisAilesi } from '@/lib/urunHareket';
 import i18n from '@/i18n';
 
 /**
@@ -204,11 +205,11 @@ export function useUrunHareketler(urunId: string | undefined) {
  */
 export interface AylikUrunOzet {
   ay: string; // YYYY-MM formatında
-  giris: number;
-  cikis: number;
+  giris: number; // NET ALIŞ miktarı (alış − alış iadesi). İade fazlaysa negatif olabilir.
+  cikis: number; // NET SATIŞ miktarı (satış − satış iadesi). İade fazlaysa negatif olabilir.
   duzeltme: number; // net düzeltme miktarı (pozitif veya negatif)
-  girisTutar: number; // giriş (alım) toplam tutarı — KDV dahil, ürünün para biriminde
-  cikisTutar: number; // çıkış (satış) toplam tutarı — KDV dahil
+  girisTutar: number; // NET ALIŞ tutarı (alış − alış iadesi) — KDV hariç, ürünün para biriminde
+  cikisTutar: number; // NET SATIŞ tutarı (satış − satış iadesi) — KDV hariç
 }
 
 export function useAylikUrunOzet(urunId: string | undefined) {
@@ -223,17 +224,19 @@ export function useAylikUrunOzet(urunId: string | undefined) {
       // göre yapılır — created_at düzenleme/yeniden-uygulamada NOW()'a kayıyor.
       const { data, error } = await supabase
         .from('urun_hareketler')
-        .select('hareket_tipi, miktar, birim_fiyat, kdv_orani, created_at, islem_id, islemler(date)')
+        .select('hareket_tipi, miktar, birim_fiyat, kdv_orani, created_at, islem_id, islemler(date, type)')
         .eq('isletme_id', isletme.id)
         .eq('urun_id', urunId)
         .gte('created_at', new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString());
 
       if (error) throw error;
 
-      // Aylara göre grupla
+      // Aylara göre grupla. giris/cikis artık ALIŞ/SATIŞ ailesinin NET'idir (stok yönü değil):
+      // alış iadesi ALIŞ'tan, satış iadesi SATIŞ'tan düşülür (bkz. urunHareketYon).
       const aylikMap = new Map<string, { giris: number; cikis: number; duzeltme: number; girisTutar: number; cikisTutar: number }>();
 
-      type AylikRow = UrunHareket & { islemler?: { date: string | null } | { date: string | null }[] | null };
+      type IslemRel = { date: string | null; type: IslemType | null };
+      type AylikRow = UrunHareket & { islemler?: IslemRel | IslemRel[] | null };
       (data as AylikRow[]).forEach((hareket) => {
         // İş tarihi: bağlı işlemin date'i; manuel hareket (islem_id NULL) ise created_at
         const islemRel = Array.isArray(hareket.islemler) ? hareket.islemler[0] : hareket.islemler;
@@ -245,15 +248,19 @@ export function useAylikUrunOzet(urunId: string | undefined) {
         // Tutar: KDV HARİÇ (net) — miktar × birim_fiyat. Para birimi ürünün currency'si
         // kabul edilir (per-satır gösterimle aynı; tek-para-birimi varsayımı).
         const tutar = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
+        const miktarAbs = Math.abs(hareket.miktar);
 
-        if (hareket.hareket_tipi === 'giris') {
-          mevcut.giris += Math.abs(hareket.miktar);
-          mevcut.girisTutar += tutar;
-        } else if (hareket.hareket_tipi === 'cikis') {
-          mevcut.cikis += Math.abs(hareket.miktar);
-          mevcut.cikisTutar += tutar;
-        } else if (hareket.hareket_tipi === 'duzeltme') {
+        const yon = urunHareketYon(hareket.hareket_tipi, islemRel?.type);
+        if (yon === 'duzeltme') {
           mevcut.duzeltme += hareket.miktar; // net düzeltme (pozitif = artış, negatif = azalış)
+        } else if (isAlisAilesi(yon)) {
+          const isaret = aileNetIsaret(yon); // +1 alış, -1 alış iadesi
+          mevcut.giris += isaret * miktarAbs;
+          mevcut.girisTutar += isaret * tutar;
+        } else {
+          const isaret = aileNetIsaret(yon); // +1 satış, -1 satış iadesi
+          mevcut.cikis += isaret * miktarAbs;
+          mevcut.cikisTutar += isaret * tutar;
         }
 
         aylikMap.set(ay, mevcut);
@@ -288,10 +295,10 @@ export function useAylikUrunOzet(urunId: string | undefined) {
  */
 export interface DonemUrunOzet {
   [urunId: string]: {
-    giris: number;
-    cikis: number;
-    girisTutar: number; // giriş (alım) net tutarı — KDV hariç, ürünün para biriminde
-    cikisTutar: number; // çıkış (satış) net tutarı — KDV hariç
+    giris: number; // NET ALIŞ miktarı (alış − alış iadesi)
+    cikis: number; // NET SATIŞ miktarı (satış − satış iadesi)
+    girisTutar: number; // NET ALIŞ tutarı (alış − alış iadesi) — KDV hariç, ürünün para biriminde
+    cikisTutar: number; // NET SATIŞ tutarı (satış − satış iadesi) — KDV hariç
   };
 }
 
@@ -313,7 +320,7 @@ export function useDonemUrunOzet(options: {
       const [linkedRes, manualRes] = await Promise.all([
         supabase
           .from('urun_hareketler')
-          .select('urun_id, hareket_tipi, miktar, birim_fiyat, islemler!inner(date)')
+          .select('urun_id, hareket_tipi, miktar, birim_fiyat, islemler!inner(date, type)')
           .eq('isletme_id', isletme.id)
           .gte('islemler.date', `${startDate}T00:00:00`)
           .lte('islemler.date', `${endDate}T23:59:59`),
@@ -329,32 +336,39 @@ export function useDonemUrunOzet(options: {
       if (linkedRes.error) throw linkedRes.error;
       if (manualRes.error) throw manualRes.error;
 
-      const data = [...(linkedRes.data ?? []), ...(manualRes.data ?? [])];
+      type DonemRow = UrunHareket & { islemler?: { type: IslemType | null } | { type: IslemType | null }[] | null };
+      const data = [...(linkedRes.data ?? []), ...(manualRes.data ?? [])] as DonemRow[];
 
-      // Ürün bazlı giriş/çıkış toplamları
+      // Ürün bazlı ALIŞ/SATIŞ net toplamları (stok yönü değil, finansal aile):
+      // alış iadesi ALIŞ'tan, satış iadesi SATIŞ'tan düşülür (bkz. urunHareketYon).
       const ozet: DonemUrunOzet = {};
 
-      (data as UrunHareket[]).forEach((hareket) => {
+      data.forEach((hareket) => {
         if (!ozet[hareket.urun_id]) {
           ozet[hareket.urun_id] = { giris: 0, cikis: 0, girisTutar: 0, cikisTutar: 0 };
         }
 
         // Tutar: KDV hariç (net) — miktar × birim_fiyat. Düzeltmenin fiyatı olmaz.
         const tutar = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
+        const islemRel = Array.isArray(hareket.islemler) ? hareket.islemler[0] : hareket.islemler;
+        const yon = urunHareketYon(hareket.hareket_tipi, islemRel?.type);
 
-        if (hareket.hareket_tipi === 'giris') {
-          ozet[hareket.urun_id].giris += Math.abs(hareket.miktar);
-          ozet[hareket.urun_id].girisTutar += tutar;
-        } else if (hareket.hareket_tipi === 'cikis') {
-          ozet[hareket.urun_id].cikis += Math.abs(hareket.miktar);
-          ozet[hareket.urun_id].cikisTutar += tutar;
-        } else if (hareket.hareket_tipi === 'duzeltme') {
-          // Düzeltme: pozitif ise giriş, negatif ise çıkış (yalnızca miktar; tutar yok)
+        if (yon === 'duzeltme') {
+          // Düzeltme: pozitif ise alış (giriş) tarafına, negatif ise satış (çıkış) tarafına
+          // yaz (yalnızca miktar; tutar yok) — mevcut davranışla aynı.
           if (hareket.miktar > 0) {
             ozet[hareket.urun_id].giris += hareket.miktar;
           } else {
             ozet[hareket.urun_id].cikis += Math.abs(hareket.miktar);
           }
+        } else if (isAlisAilesi(yon)) {
+          const isaret = aileNetIsaret(yon); // +1 alış, -1 alış iadesi
+          ozet[hareket.urun_id].giris += isaret * Math.abs(hareket.miktar);
+          ozet[hareket.urun_id].girisTutar += isaret * tutar;
+        } else {
+          const isaret = aileNetIsaret(yon); // +1 satış, -1 satış iadesi
+          ozet[hareket.urun_id].cikis += isaret * Math.abs(hareket.miktar);
+          ozet[hareket.urun_id].cikisTutar += isaret * tutar;
         }
       });
 
