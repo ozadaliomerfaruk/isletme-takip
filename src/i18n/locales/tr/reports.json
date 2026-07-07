@@ -179,6 +179,18 @@
     "category": "Kategori",
     "account": "Hesap"
   },
+  "incomeSource": {
+    "title": "GELİR KAYNAKLARI",
+    "groups": {
+      "banka": "Banka Hesapları",
+      "nakit": "Nakit",
+      "kredi_karti": "Kredi Kartı",
+      "birikim": "Birikim",
+      "diger": "Diğer Hesaplar",
+      "cari": "Müşteri Satışları",
+      "personel": "Personel Satışları"
+    }
+  },
   "comparison": {
     "vsLastPeriod": "Önceki döneme göre",
     "vsLastMonth": "Geçen aya göre",

@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, CategoryReportCard, AccountReportCard, Button } from '@/components/ui';
+import { ChevronUp, ChevronDown } from 'lucide-react-native';
+import { Text, TabFilter, CategoryReportCard, IncomeSourceCard, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
@@ -12,7 +13,7 @@ import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useReportExcelExport } from '@/hooks/useReportExcelExport';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
-import { useAccountReport } from '@/hooks/useAccountReport';
+import { useIncomeSourceReport, IncomeSourceItem } from '@/hooks/useAccountReport';
 import { PeriodType } from '@/hooks/useIslemler';
 import { formatCurrency } from '@/lib/currency';
 import { colors } from '@/constants/colors';
@@ -54,22 +55,31 @@ export default function GelirGiderRaporPage() {
     percentageReferenceTotal: gelirRaporu.totalAmount,
   });
 
-  // Hesap bazlı GELİR kırılımı (hangi banka/nakit ne kadar gelir getirdi) — yalnız
-  // Gelir görünümünde gösterilir; gider tarafında kategori kırılımı yeterli.
-  const hesapRaporu = useAccountReport('gelir', {
+  // GELİR KAYNAK kırılımı: hesaplar (banka/nakit/kk) + cari (kredili satış) + personel
+  // satışları, türe göre gruplu. Yalnız Gelir görünümünde; gider tarafı kategori.
+  const kaynakRaporu = useIncomeSourceReport({
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
   });
+  // Açık/kapalı gruplar (varsayılan hepsi açık)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const toggleGroup = (key: string) =>
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   const { refreshing, onRefresh } = usePullToRefresh(
     gelirRaporu.refetch,
     giderRaporu.refetch,
-    hesapRaporu.refetch,
+    kaynakRaporu.refetch,
   );
 
   // Rapora GERİ DÖNÜNCE anlık tazele (ör. başka ekranda ürün kategorisi/işlem değişince).
   // İlk odak atlanır (mount zaten çeker); sonraki odaklarda stale veri yenilenir.
-  useRefetchOnFocus([gelirRaporu.refetch, giderRaporu.refetch, hesapRaporu.refetch]);
+  useRefetchOnFocus([gelirRaporu.refetch, giderRaporu.refetch, kaynakRaporu.refetch]);
 
   const handleCategoryPress = (kategoriId: string | null) => {
     const id = kategoriId || 'uncategorized';
@@ -84,14 +94,15 @@ export default function GelirGiderRaporPage() {
     });
   };
 
-  // Hesap kartına tıklayınca: o hesabın dönem GELİR işlemleri (drill-down)
-  const handleAccountPress = (hesapId: string, hesapName: string, hesapCurrency: string) => {
+  // Kaynak kartına tıklayınca: o kaynağın (hesap/cari/personel) dönem gelir işlemleri
+  const handleSourcePress = (item: IncomeSourceItem) => {
     router.push({
       pathname: '/raporlar/hesap/[id]',
       params: {
-        id: hesapId,
-        hesapName,
-        hesapCurrency,
+        id: item.id,
+        hesapName: item.name,
+        hesapCurrency: item.currency,
+        kind: item.kind,
         type: 'gelir',
         startDate: state.dateRange.startDate,
         endDate: state.dateRange.endDate,
@@ -245,36 +256,72 @@ export default function GelirGiderRaporPage() {
           {/* Liste: hesap kırılımı (gelir+hesap) ya da kategori kırılımı */}
           <View style={styles.categoryList}>
             {showAccounts ? (
-              hesapRaporu.error ? (
+              kaynakRaporu.error ? (
                 <View style={styles.emptyContainer}>
                   <Text variant="body" color="error" style={styles.emptyText}>
                     {t('reports:empty.dataLoadError')}
                   </Text>
-                  <Button variant="ghost" onPress={() => hesapRaporu.refetch()}>
+                  <Button variant="ghost" onPress={() => kaynakRaporu.refetch()}>
                     {t('common:buttons.retry')}
                   </Button>
                 </View>
-              ) : hesapRaporu.isLoading ? (
+              ) : kaynakRaporu.isLoading ? (
                 <View style={styles.loadingContainer}>
                   <SkeletonListItem />
                   <SkeletonListItem />
                   <SkeletonListItem />
                 </View>
-              ) : hesapRaporu.items.length === 0 ? (
+              ) : kaynakRaporu.groups.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Text variant="body" color="secondary" style={styles.emptyText}>
                     {t('reports:empty.noAccountIncome')}
                   </Text>
                 </View>
               ) : (
-                hesapRaporu.items.map((item) => (
-                  <AccountReportCard
-                    key={item.hesap.id}
-                    item={item}
-                    type="gelir"
-                    onPress={() => handleAccountPress(item.hesap.id, item.hesap.name, item.currency)}
-                  />
-                ))
+                <>
+                  <View style={styles.sectionHeader}>
+                    <Text variant="caption" color="secondary" style={styles.sectionHeaderText}>
+                      {t('reports:incomeSource.title')}
+                    </Text>
+                    <Text variant="caption" color="secondary">
+                      {t('reports:counts.transaction', { count: kaynakRaporu.totalCount })}
+                    </Text>
+                  </View>
+                  {kaynakRaporu.groups.map((group) => {
+                    const collapsed = collapsedGroups.has(group.key);
+                    return (
+                      <View key={group.key}>
+                        <TouchableOpacity
+                          style={styles.groupHeader}
+                          onPress={() => toggleGroup(group.key)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.groupHeaderLeft}>
+                            {collapsed
+                              ? <ChevronDown size={16} color={colors.textSecondary} />
+                              : <ChevronUp size={16} color={colors.textSecondary} />}
+                            <Text variant="body" style={styles.groupHeaderText}>
+                              {t(`reports:incomeSource.groups.${group.key}`, { defaultValue: group.key })}
+                            </Text>
+                            <Text variant="caption" color="secondary">
+                              ({group.items.length})
+                            </Text>
+                          </View>
+                          <Text variant="body" style={styles.groupHeaderAmount}>
+                            {formatCurrency(group.total)}
+                          </Text>
+                        </TouchableOpacity>
+                        {!collapsed && group.items.map((item) => (
+                          <IncomeSourceCard
+                            key={`${item.kind}-${item.id}`}
+                            item={item}
+                            onPress={() => handleSourcePress(item)}
+                          />
+                        ))}
+                      </View>
+                    );
+                  })}
+                </>
               )
             ) : catReport.error ? (
               <View style={styles.emptyContainer}>
@@ -334,6 +381,37 @@ const styles = StyleSheet.create({
   groupByBar: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  sectionHeaderText: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    fontWeight: '600',
+  },
+  groupHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  groupHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  groupHeaderText: {
+    fontWeight: '600',
+  },
+  groupHeaderAmount: {
+    fontWeight: '700',
   },
   dateNav: {
     flexDirection: 'row',

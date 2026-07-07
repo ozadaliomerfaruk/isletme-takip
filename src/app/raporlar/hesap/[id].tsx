@@ -11,7 +11,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { useAccountTransactions } from '@/hooks/useAccountReport';
+import { useIncomeSourceTransactions, IncomeSourceKind } from '@/hooks/useAccountReport';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
@@ -29,13 +29,15 @@ export default function HesapRaporDetayPage() {
     id: string;
     hesapName?: string;
     hesapCurrency?: string;
+    kind?: string;
     type?: string;
     startDate?: string;
     endDate?: string;
   }>();
-  const hesapId = params.id;
+  const sourceId = params.id;
   const hesapName = params.hesapName || '—';
   const hesapCurrency = params.hesapCurrency || 'TRY';
+  const kind = (params.kind as IncomeSourceKind) || 'hesap';
   const type = (params.type as KategoriType) || 'gelir';
   const startDate = params.startDate || '';
   const endDate = params.endDate || '';
@@ -45,9 +47,9 @@ export default function HesapRaporDetayPage() {
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
 
-  const { data: islemler, isLoading, isFetching, error, refetch } = useAccountTransactions(
-    hesapId,
-    type,
+  const { data: islemler, isLoading, isFetching, error, refetch } = useIncomeSourceTransactions(
+    kind,
+    sourceId,
     { startDate, endDate }
   );
 

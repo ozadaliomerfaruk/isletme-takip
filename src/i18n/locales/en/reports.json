@@ -179,6 +179,18 @@
     "category": "Category",
     "account": "Account"
   },
+  "incomeSource": {
+    "title": "INCOME SOURCES",
+    "groups": {
+      "banka": "Bank Accounts",
+      "nakit": "Cash",
+      "kredi_karti": "Credit Card",
+      "birikim": "Savings",
+      "diger": "Other Accounts",
+      "cari": "Customer Sales",
+      "personel": "Staff Sales"
+    }
+  },
   "comparison": {
     "vsLastPeriod": "vs previous period",
     "vsLastMonth": "vs last month",

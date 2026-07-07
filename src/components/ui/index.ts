@@ -12,6 +12,7 @@ export { EmptyState } from './EmptyState';
 export { DateTimePicker } from './DateTimePicker';
 export { CategoryReportCard, HierarchicalCategoryReportCard } from './CategoryReportCard';
 export { AccountReportCard } from './AccountReportCard';
+export { IncomeSourceCard } from './IncomeSourceCard';
 export { IconPicker } from './IconPicker';
 export { ColorPicker } from './ColorPicker';
 export { ParentCategoryPicker } from './ParentCategoryPicker';

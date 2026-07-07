@@ -89,6 +89,10 @@ export const queryKeys = {
       ['account-report', isletmeId, type, startDate, endDate] as const,
     accountTransactions: (isletmeId: string, hesapId: string, type: string, startDate: string, endDate: string) =>
       ['account-transactions', isletmeId, hesapId, type, startDate, endDate] as const,
+    incomeBySource: (isletmeId: string, startDate: string, endDate: string) =>
+      ['income-by-source', isletmeId, startDate, endDate] as const,
+    incomeSourceTransactions: (isletmeId: string, kind: string, sourceId: string, startDate: string, endDate: string) =>
+      ['income-source-transactions', isletmeId, kind, sourceId, startDate, endDate] as const,
     categoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
       ['category-report-returns', isletmeId, type, startDate, endDate] as const,
     hierarchicalCategoryReport: (isletmeId: string, type: string, source: string, startDate: string, endDate: string) =>
