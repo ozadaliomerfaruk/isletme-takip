@@ -14,7 +14,8 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useUrunler, useArchiveUrun, usePermanentDeleteUrun } from '@/hooks/useUrunler';
+import { useUrunler, useArchiveUrun, usePermanentDeleteUrun, countUrunLinkedMovements } from '@/hooks/useUrunler';
+import { toErrorMessage } from '@/lib/errors';
 import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
 import { useToast } from '@/contexts/ToastContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
@@ -335,11 +336,26 @@ export default function UrunlerPage() {
     }
   }, [actionSheetUrun, archiveUrun, haptics, showToast, t]);
 
-  const handleDelete = useCallback(() => {
-    if (!actionSheetUrun) return;
+  const handleDelete = useCallback(async () => {
+    if (!actionSheetUrun || !isletme) return;
     setActionSheetVisible(false);
+    // GUARD (detay sayfasıyla tutarlı): işleme bağlı hareketi olan ürünü OPTIMISTIC
+    // silmeden ÖNCE engelle. Eskiden undo-delete guard hatasını yutuyor, kullanıcı
+    // "silinmiş" sanıyor, refetch'te ürün geri geliyordu.
+    try {
+      const linked = await countUrunLinkedMovements(actionSheetUrun.id, isletme.id);
+      if (linked > 0) {
+        Alert.alert(
+          t('common:errors.cannotDeleteTitle'),
+          t('common:errors.hasLinkedProductMovements', { count: linked })
+        );
+        return;
+      }
+    } catch {
+      // Sayım hatası → yine de undo-delete'e düş (commit'teki mutation guard'ı yakalar)
+    }
     requestDelete(actionSheetUrun.id, actionSheetUrun, actionSheetUrun.ad);
-  }, [actionSheetUrun, requestDelete]);
+  }, [actionSheetUrun, isletme, requestDelete, t]);
 
   const handleUnarchive = useCallback(async () => {
     if (!actionSheetUrun) return;
@@ -368,9 +384,11 @@ export default function UrunlerPage() {
               await permanentDeleteUrun.mutateAsync(actionSheetUrun.id);
               haptics.success();
               showToast(t('common:messages.deletedSuccessfully'), 'success');
-            } catch {
+            } catch (error) {
+              // Guard mesajını göster (ör. "…bağlı işlemler var, arşivleyin") — generic
+              // "işlem başarısız" yerine gerçek nedeni ilet.
               haptics.error();
-              showToast(t('common:messages.operationFailed'), 'error');
+              showToast(toErrorMessage(error, t('common:messages.operationFailed')), 'error');
             }
           },
         },
@@ -430,7 +448,6 @@ export default function UrunlerPage() {
     }
 
     return options;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actionSheetUrun, t, router, activeTab, handleArchive, handleDelete, handleUnarchive, handlePermanentDelete, canUpdate, canDelete]);
 
   // HÄ±zlÄ± dÃ¶nem seÃ§imi fonksiyonlarÄ±

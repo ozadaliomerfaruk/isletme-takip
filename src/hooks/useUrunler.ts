@@ -201,6 +201,22 @@ export function useDeleteUrun() {
 }
 
 /**
+ * Ürüne İŞLEME BAĞLI (islem_id dolu) kaç stok hareketi olduğunu döndürür.
+ * Kalıcı silme guard'ının OPTIMISTIC silmeden ÖNCE (liste undo-delete akışı) çağırması
+ * için — usePermanentDeleteUrun içindeki guard commit anında patlıyor ve undo-delete
+ * hatayı yuttuğu için kullanıcı "silinmiş" sanıyordu.
+ */
+export async function countUrunLinkedMovements(urunId: string, isletmeId: string): Promise<number> {
+  const { count } = await supabase
+    .from('urun_hareketler')
+    .select('id', { count: 'exact', head: true })
+    .eq('urun_id', urunId)
+    .eq('isletme_id', isletmeId)
+    .not('islem_id', 'is', null);
+  return count ?? 0;
+}
+
+/**
  * Ürünü kalıcı olarak sil (hard delete)
  * Önce ilişkili ürün hareketlerini siler, sonra ürünü siler
  */

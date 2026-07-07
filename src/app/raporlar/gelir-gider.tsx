@@ -19,6 +19,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
 type ReportType = 'gelir' | 'gider';
 
 export default function GelirGiderRaporPage() {
@@ -65,6 +66,10 @@ export default function GelirGiderRaporPage() {
     giderRaporu.refetch,
     hesapRaporu.refetch,
   );
+
+  // Rapora GERİ DÖNÜNCE anlık tazele (ör. başka ekranda ürün kategorisi/işlem değişince).
+  // İlk odak atlanır (mount zaten çeker); sonraki odaklarda stale veri yenilenir.
+  useRefetchOnFocus([gelirRaporu.refetch, giderRaporu.refetch, hesapRaporu.refetch]);
 
   const handleCategoryPress = (kategoriId: string | null) => {
     const id = kategoriId || 'uncategorized';
