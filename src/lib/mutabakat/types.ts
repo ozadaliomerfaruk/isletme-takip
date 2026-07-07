@@ -99,13 +99,6 @@ export interface DefterKalemi {
   tipUyumsuz: boolean;
 }
 
-export interface BekleyenCek {
-  cekNo: string;
-  tutarKurus: number;
-  kesimEpochDay: number;
-  vadeEpochDay: number;
-}
-
 export type EslesmeAsamasi = 'exact' | 'yakin_tarih';
 
 export interface Eslesme {
@@ -125,11 +118,11 @@ export interface TutarFarki {
   farkKurus: number;
 }
 
-export type RozetTur = 'bekleyen_cek' | 'olasi_kdv' | 'olasi_parcali' | 'aciklama_ipucu' | 'olasi_mukerrer';
+export type RozetTur = 'olasi_kdv' | 'olasi_parcali' | 'aciklama_ipucu' | 'olasi_mukerrer';
 
 export interface Rozet {
   tur: RozetTur;
-  /** bekleyen_cek: çek no · olasi_kdv: oran ("1.20") · aciklama_ipucu: yakalanan kalıp */
+  /** olasi_kdv: oran ("1.20") · aciklama_ipucu: yakalanan kalıp */
   detay?: string;
 }
 
@@ -213,7 +206,5 @@ export interface ReconcileInput {
   kalemler: DefterKalemi[];
   /** cariler.balance (kuruş) — açılış devri bundan türetilir */
   cariBalanceKurus: number;
-  /** durum='beklemede' filtreli (yalnız tedarikçi carilerde dolu gelir) */
-  bekleyenCekler: BekleyenCek[];
   options?: ReconcileOptions;
 }

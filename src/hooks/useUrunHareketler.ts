@@ -4,7 +4,6 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, HesapType } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
-import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { toNumber } from '@/lib/currency';
 import { urunHareketYon, aileNetIsaret, isAlisAilesi } from '@/lib/urunHareket';
 import i18n from '@/i18n';
@@ -504,60 +503,6 @@ export function useIslemlerWithUrun(islemIds: string[]) {
     enabled: !!isletme && islemIds.length > 0,
     // Keep previous data while refetching with new islemIds to prevent icon flicker
     placeholderData: (previousData) => previousData,
-  });
-
-  return {
-    ...result,
-    isLoading: result.isLoading || isletmeLoading,
-    hasUrun: (islemId: string) => (result.data?.get(islemId) ?? 0) > 0,
-    getUrunCount: (islemId: string) => result.data?.get(islemId) ?? 0,
-  };
-}
-
-/**
- * Bir carinin işlemleri için ürün sayılarını getir
- * Cari ID ile doğrudan sorgular - islemler yüklenmeden önce bile çalışır
- */
-export function useIslemlerWithUrunByCari(cariId: string | undefined) {
-  const { isletme, isletmeLoading } = useAuthContext();
-
-  const result = useQuery({
-    queryKey: queryKeys.urunHareketler.islemlerWithUrunByCari(cariId || '', isletme?.id || ''),
-    queryFn: async () => {
-      if (!isletme || !cariId) return new Map<string, number>();
-
-      // Carinin TÜM işlem id'lerini sayfalı çek — PostgREST'in ~1000 satır varsayılan
-      // limiti yüzünden çok işlemli carilerde id'ler eksik kalıp küp ikonu kaybolmasın.
-      const islemlerData = await fetchAllPages<{ id: string }>(() =>
-        supabase.from('islemler').select('id').eq('cari_id', cariId)
-      );
-      if (!islemlerData || islemlerData.length === 0) return new Map<string, number>();
-
-      const islemIds = islemlerData.map(i => i.id);
-
-      // .in() listesini parçalara böl — yüzlerce/binlerce UUID URL uzunluk limitini aşmasın.
-      const CHUNK = 200;
-      const islemUrunCountMap = new Map<string, number>();
-      for (let i = 0; i < islemIds.length; i += CHUNK) {
-        const chunk = islemIds.slice(i, i + CHUNK);
-        const { data, error } = await supabase
-          .from('urun_hareketler')
-          .select('islem_id')
-          .in('islem_id', chunk)
-          .not('islem_id', 'is', null);
-
-        if (error) throw error;
-
-        data?.forEach(row => {
-          if (row.islem_id) {
-            islemUrunCountMap.set(row.islem_id, (islemUrunCountMap.get(row.islem_id) || 0) + 1);
-          }
-        });
-      }
-
-      return islemUrunCountMap;
-    },
-    enabled: !!isletme && !!cariId,
   });
 
   return {

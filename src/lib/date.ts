@@ -156,12 +156,6 @@ export function formatDateTimeForDB(date: Date): string {
 }
 
 /**
- * @deprecated formatDateTimeForDB artık timezone içeriyor, bu fonksiyonu kullanmaya gerek yok
- * Geriye uyumluluk için alias olarak tutuluyor
- */
-export const formatDateTimeWithTzForDB = formatDateTimeForDB;
-
-/**
  * Veritabanı tarih string'ini Date objesine çevir
  * Timezone-safe: Gün kayması olmaz
  * ISO timestamp formatını da destekler (created_at gibi alanlar için)

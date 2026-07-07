@@ -167,7 +167,6 @@
     "diff": "Fark"
   },
   "badges": {
-    "bekleyen_cek": "Bekleyen çek olabilir: {{no}}",
     "olasi_kdv": "Olası KDV farkı (×{{rate}})",
     "olasi_parcali": "Olası parçalı ödeme",
     "aciklama_ipucu": "Kur/vade/fiyat farkı kaydı olabilir",

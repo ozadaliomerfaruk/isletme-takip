@@ -154,7 +154,6 @@ export default function MutabakatPage() {
         ekstre: parsed,
         kalemler,
         cariBalanceKurus: toKurus(toNumber(cari.balance)),
-        bekleyenCekler: [],
       });
       setKalemSnapshot(kalemler);
       setSonuc(result);

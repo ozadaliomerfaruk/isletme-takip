@@ -167,7 +167,6 @@
     "diff": "Difference"
   },
   "badges": {
-    "bekleyen_cek": "May be a pending cheque: {{no}}",
     "olasi_kdv": "Possible VAT difference (×{{rate}})",
     "olasi_parcali": "Possible split payment",
     "aciklama_ipucu": "May be an FX/due-date/price difference entry",

@@ -11,7 +11,6 @@
  */
 
 import type {
-  BekleyenCek,
   BizdeEksikSatir,
   DefterKalemi,
   EkstreSatiri,
@@ -319,7 +318,6 @@ function reconcileOriented(
 
 function rozetle(
   res: OrientedResult,
-  bekleyenCekler: BekleyenCek[],
   amountTol: number,
 ): { bizdeEksik: BizdeEksikSatir[]; onlardaEksik: OnlardaEksikKalem[] } {
   const bizdeEksik: BizdeEksikSatir[] = res.bizdeEksikRows.map((satir) => ({ satir, rozetler: [] }));
@@ -330,19 +328,6 @@ function rozetle(
 
   for (const item of bizdeEksik) {
     const row = item.satir;
-
-    // Bekleyen çek: verdiğimiz çek onların defterinde ALACAK'tır ve teslim
-    // (kesim) gününde işlenir — pencere [kesim−7, vade+7]. Yalnız ayna yönünde
-    // anlamlı (aynasiz ekstre bizim perspektifimiz olduğundan çek zaten bizde olurdu).
-    if (res.yon === 'ayna' && row.creditKurus) {
-      const cek = bekleyenCekler.find(
-        (c) =>
-          Math.abs(c.tutarKurus - row.creditKurus!) <= amountTol &&
-          row.epochDay >= c.kesimEpochDay - 7 &&
-          row.epochDay <= c.vadeEpochDay + 7,
-      );
-      if (cek) item.rozetler.push({ tur: 'bekleyen_cek', detay: cek.cekNo });
-    }
 
     // Açıklama ipucu (kur/vade/fiyat farkı faturaları)
     const normalized = row.description
@@ -423,7 +408,7 @@ function markParcali(targets: ParcaliAday[], sources: ParcaliAday[], amountTol: 
 // ============================================================================
 
 export function reconcile(input: ReconcileInput): MutabakatSonucu {
-  const { ekstre, kalemler, cariBalanceKurus, bekleyenCekler } = input;
+  const { ekstre, kalemler, cariBalanceKurus } = input;
   const dateTol = input.options?.dateToleranceDays ?? DEFAULT_DATE_TOL;
   const amountTol = input.options?.amountToleranceKurus ?? DEFAULT_AMOUNT_TOL;
 
@@ -446,7 +431,7 @@ export function reconcile(input: ReconcileInput): MutabakatSonucu {
     }
   }
 
-  const { bizdeEksik, onlardaEksik } = rozetle(res, bekleyenCekler, amountTol);
+  const { bizdeEksik, onlardaEksik } = rozetle(res, amountTol);
 
   const tipUyumsuzCount = kalemler.filter((k) => k.tipUyumsuz).length;
   if (tipUyumsuzCount > 0) {

@@ -1,6 +1,5 @@
 import { Tabs } from 'expo-router';
 import { View, TouchableOpacity, Platform, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
@@ -52,8 +51,6 @@ const tabIconStyles = StyleSheet.create({
 
 export default function TabsLayout() {
   const { t } = useTranslation('navigation');
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const insets = useSafeAreaInsets();
   const { canAccessModule } = usePermissions();
 
   return (

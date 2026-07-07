@@ -95,7 +95,7 @@ describe('Hata A — bölünmüş bakiye kolonu (Borç Bak./Alacak Bak.)', () =>
     const ekstre = mkEkstre(rows, { debitKurus: 100000, creditKurus: 0 });
     const kalemler = [kalem('a', '2025-03-10', 500, -1), kalem('b', '2025-03-20', 200, 1)];
     // acilis(ayna) = -1000; kapanış = -1000 + (-500) + 200 = -1300
-    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: -130000, bekleyenCekler: [] });
+    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: -130000 });
     expect(sonuc.checksum.bakiyeZinciriUyumlu).toBe(true);
     expect(sonuc.durum).toBe('mutabik');
     expect(sonuc.eslesmeler).toHaveLength(2);
@@ -107,7 +107,7 @@ describe('Hata B — yanlış cari ekstresi (hepsi Bölge A)', () => {
   const ekstre = mkEkstre(rows, { debitKurus: 100000, creditKurus: 0 });
   // Kayıtlarımız ekstrenin bittiği tarihten (2025-08-10) SONRA
   const kalemler = [kalem('y1', '2026-06-01', 1000, 1), kalem('y2', '2026-06-15', 500, -1)];
-  const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: 50000, bekleyenCekler: [] });
+  const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: 50000 });
 
   it('tüm ekstre Bölge A, sıfır eşleşme', () => {
     expect(sonuc.bolgeA).toHaveLength(8);
@@ -155,7 +155,7 @@ describe('Güven eşiği — belge-no eşleşmeleri de sayılır (inceleme bulgu
       kalem('k2', '2025-02-20', 1000, -1, 'FAT200 alis'),
     ];
     // devirBizim=0 için cariBalance = tüm signed toplamı = -2000
-    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: -200000, bekleyenCekler: [] });
+    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: -200000 });
     expect(sonuc.eslesmeler).toHaveLength(0);
     expect(sonuc.tutarFarkli).toHaveLength(2);
     // Bug: eslesmeGuveni yalnız eslesmeler'e bakınca 'bakiye_teyitsiz' oluyordu.
@@ -171,7 +171,7 @@ describe('Akıllı ipuçları', () => {
     const rows = [satir(2, '2025-05-10', 5000, 0, undefined, 'FAT123')];
     const ekstre = mkEkstre(rows, undefined, true);
     const kalemler = [kalem('k1', '2025-05-10', 500, -1, 'FAT123 alis')];
-    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: -50000, bekleyenCekler: [] });
+    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: -50000 });
     expect(sonuc.tutarFarkli).toHaveLength(1);
     const ozet = generateAsistanOzeti(sonuc, 'tedarikci', { kalemler });
     const katsayi = ozet.insights.find((i) => i.code === 'olasi_katsayi');
@@ -185,7 +185,7 @@ describe('Akıllı ipuçları', () => {
     const rows = [satir(2, '2025-03-10', 5000, 0)];
     const ekstre = mkEkstre(rows, { debitKurus: 0, creditKurus: 0 });
     const kalemler = [kalem('ters', '2025-03-10', 5000, 1, 'yanlış tarafa işlenmiş')];
-    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: 500000, bekleyenCekler: [] });
+    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: 500000 });
     expect(sonuc.bizdeEksik).toHaveLength(1);
     expect(sonuc.onlardaEksik).toHaveLength(1);
     const ozet = generateAsistanOzeti(sonuc, 'musteri', { kalemler });
@@ -202,7 +202,7 @@ describe('Akıllı ipuçları', () => {
       kalem('anchor', '2025-01-01', 999, -1),
       kalem('yanlisYil', '2026-01-04', 800, -1), // 4 Oca 2025 yerine 2026 girilmiş
     ];
-    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: -179900, bekleyenCekler: [] });
+    const sonuc = reconcile({ ekstre, kalemler, cariBalanceKurus: -179900 });
     expect(sonuc.bizdeEksik.some((i) => i.satir.epochDay === epochDayOf('2025-01-04'))).toBe(true);
     const ozet = generateAsistanOzeti(sonuc, 'tedarikci', { kalemler });
     const yil = ozet.insights.find((i) => i.code === 'olasi_yil_hatasi');

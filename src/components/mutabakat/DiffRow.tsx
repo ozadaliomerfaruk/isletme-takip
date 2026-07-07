@@ -41,16 +41,13 @@ function Badges({ rozetler }: { rozetler: Rozet[] }) {
           key={i}
           style={[
             styles.badge,
-            r.tur === 'bekleyen_cek' && styles.badgeInfo,
             r.tur === 'olasi_mukerrer' && styles.badgeError,
           ]}
         >
           <Text style={styles.badgeText}>
-            {r.tur === 'bekleyen_cek'
-              ? t('badges.bekleyen_cek', { no: r.detay })
-              : r.tur === 'olasi_kdv'
-                ? t('badges.olasi_kdv', { rate: r.detay })
-                : t(`badges.${r.tur}`)}
+            {r.tur === 'olasi_kdv'
+              ? t('badges.olasi_kdv', { rate: r.detay })
+              : t(`badges.${r.tur}`)}
           </Text>
         </View>
       ))}
@@ -295,9 +292,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-  },
-  badgeInfo: {
-    backgroundColor: colors.infoLight,
   },
   badgeError: {
     backgroundColor: colors.errorLight,
