@@ -29,7 +29,7 @@ import {
 import { Text, Card } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
@@ -908,7 +908,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   islemAmount: {
-    fontWeight: '600',
+    fontWeight: '700',
+    fontSize: fontSize.lg,
   },
   islemSubAmount: {
     fontSize: 10,

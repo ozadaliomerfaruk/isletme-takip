@@ -19,7 +19,7 @@ import { Text, Button, Card } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useIncomeSourceTransactions, IncomeSourceKind } from '@/hooks/useAccountReport';
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   islemInfo: { flex: 1 },
   islemTitle: { fontWeight: '500', marginBottom: 2 },
   islemRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
-  islemAmount: { fontWeight: '600' },
+  islemAmount: { fontWeight: '700', fontSize: fontSize.lg },
 
   stateBox: { padding: spacing.xl, alignItems: 'center', gap: spacing.sm },
   stateText: { textAlign: 'center' },

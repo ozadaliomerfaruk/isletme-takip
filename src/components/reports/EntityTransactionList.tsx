@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Card } from '@/components/ui';
+import { ProductDetailModal } from '@/components/transaction';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import {
@@ -78,7 +80,10 @@ export function EntityTransactionList({
   // Tek batch sorgu (islem_id → adet); early-return'den ÖNCE çağrılmalı (hooks kuralı).
   const { hasUrun, getUrunCount } = useIslemlerWithUrun(displayTransactions.map((tr) => tr.id));
 
-  const handleTransactionPress = (transaction: IslemWithRelations) => {
+  // Ürün detay modalı (kutu ikonu standart davranışı — cari detay sayfasıyla AYNI).
+  const [productModalIslemId, setProductModalIslemId] = useState<string | null>(null);
+
+  const openEdit = (transaction: IslemWithRelations) => {
     if (onTransactionPressExternal) {
       onTransactionPressExternal(transaction);
     } else {
@@ -87,6 +92,22 @@ export function EntityTransactionList({
         params: { id: transaction.id },
       });
     }
+  };
+
+  // Ürünlü işlem → önce alttan ürün detay modalı; ürünsüz → doğrudan düzenleme.
+  const handleTransactionPress = (transaction: IslemWithRelations) => {
+    if (hasUrun(transaction.id)) {
+      setProductModalIslemId(transaction.id);
+    } else {
+      openEdit(transaction);
+    }
+  };
+
+  // Modaldaki "Düzenle": modalı kapat, işlemi düzenlemeye aç (satır tıklamasıyla aynı akış).
+  const handleProductEdit = (islemId: string) => {
+    const tx = transactions.find((tr) => tr.id === islemId);
+    setProductModalIslemId(null);
+    if (tx) openEdit(tx);
   };
 
   if (transactions.length === 0) {
@@ -183,6 +204,13 @@ export function EntityTransactionList({
           </Text>
         </TouchableOpacity>
       )}
+
+      {/* Ürünlü işleme tıklanınca alttan ürün detay modalı (paylaşılan, tek standart) */}
+      <ProductDetailModal
+        islemId={productModalIslemId}
+        onDismiss={() => setProductModalIslemId(null)}
+        onEdit={handleProductEdit}
+      />
     </View>
   );
 }
