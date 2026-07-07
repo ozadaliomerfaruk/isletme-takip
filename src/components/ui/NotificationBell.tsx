@@ -8,6 +8,7 @@ import {
   Dimensions,
   ScrollView,
   Pressable,
+  AppState,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -50,9 +51,22 @@ export function NotificationBell() {
   const slideAnim = useRef(new Animated.Value(-300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const { data: ileriTarihliIslemler, isLoading: islemlerLoading } = useIleriTarihliIslemler();
+  const { data: ileriTarihliIslemler, isLoading: islemlerLoading, refetch: refetchIleri } = useIleriTarihliIslemler();
 
   const isLoading = islemlerLoading;
+
+  // Bildirim çanı GÜNCEL olmalı. refetchOnWindowFocus global olarak KAPALI (pil/veri
+  // tasarrufu) ve iOS uygulamayı sıcak tutunca ekran remount olmaz → başka oturum/cihazda
+  // ya da arka planda değişen bekleyen kalemler burada bayat kalıp GÖRÜNMEYEBİLİR.
+  // Çözüm: uygulama ön plana her gelişinde ileri-tarihli listeyi sessizce tazele.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        refetchIleri();
+      }
+    });
+    return () => sub.remove();
+  }, [refetchIleri]);
 
   // Notification item tipi (yalnızca ileri tarihli işlemler)
   type NotificationItem = { itemType: 'islem'; data: IleriTarihliIslemWithRelations };
@@ -88,6 +102,7 @@ export function NotificationBell() {
   }, [combinedItems]);
 
   const openModal = () => {
+    refetchIleri(); // çanı açarken en güncel listeyi getir
     setIsVisible(true);
     setIsOpen(true);
   };
