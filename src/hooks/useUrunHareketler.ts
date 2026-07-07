@@ -539,11 +539,14 @@ export function useIslemlerWithUrun(islemIds: string[]) {
     placeholderData: (previousData) => previousData,
   });
 
+  // Persist güvenliği: Map JSON'a serileşmediğinden eski disk cache düz obje ({}) olarak
+  // hydrate olabilir → .get patlar. Map değilse yok say (refetch gerçek Map'i getirir).
+  const dataMap = result.data instanceof Map ? result.data : undefined;
   return {
     ...result,
     isLoading: result.isLoading || isletmeLoading,
-    hasUrun: (islemId: string) => (result.data?.get(islemId) ?? 0) > 0,
-    getUrunCount: (islemId: string) => result.data?.get(islemId) ?? 0,
+    hasUrun: (islemId: string) => (dataMap?.get(islemId) ?? 0) > 0,
+    getUrunCount: (islemId: string) => dataMap?.get(islemId) ?? 0,
   };
 }
 
@@ -618,9 +621,12 @@ export function useUrunKalemlerByIslemIds(islemIds: string[]) {
   // (referans karşılaştırması) gereksiz yere kırılıp tüm görünür satırlar yeniden render olmaz.
   // İçerik değişirse yeni referans döner → satır doğru güncellenir (stale-UI riski yok).
   const stableItemsRef = useRef<Map<string, UrunKalemOzet[]>>(new Map());
+  // Persist güvenliği: Map JSON'a serileşmediğinden eski disk cache düz obje ({}) olarak
+  // hydrate olabilir → .get patlar. Map değilse yok say (refetch gerçek Map'i getirir).
+  const dataMap = result.data instanceof Map ? result.data : undefined;
   const getUrunItems = useCallback(
     (islemId: string): UrunKalemOzet[] => {
-      const next = result.data?.get(islemId);
+      const next = dataMap?.get(islemId);
       if (!next || next.length === 0) return EMPTY_KALEMLER;
       const prev = stableItemsRef.current.get(islemId);
       const same =
@@ -636,7 +642,7 @@ export function useUrunKalemlerByIslemIds(islemIds: string[]) {
       stableItemsRef.current.set(islemId, next);
       return next;
     },
-    [result.data]
+    [dataMap]
   );
 
   return {

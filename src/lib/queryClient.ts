@@ -40,7 +40,10 @@ export const queryClient = new QueryClient({
 //  • Kritik finansal karar (mutabakat / işlem yazma) öncesi HER ZAMAN taze çekilir
 // Not: AsyncStorage şifreli DEĞİLDİR; hassas veri diskte açıktır (Faz 3'te şifreleme).
 // ============================================================================
-export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}`;
+// '-s2' = serileştirme şema revizyonu: Map/Set artık persist EDİLMİYOR (JSON'a
+// serileşmiyor). Bu son ek, eski (Map'leri {} olarak zehirlenmiş) disk cache'ini bir
+// kez süpürmek için buster'ı değiştirir; sonraki sürüm bump'ları normal çalışır.
+export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}-s2`;
 
 const PERSIST_KEY = 'ISLETME_TAKIP_RQ_CACHE_V1';
 

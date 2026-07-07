@@ -916,8 +916,15 @@ export default function RootLayout() {
             // Uygulama sürümü değişince cache'i geçersiz kıl (şema kayması güvenliği)
             buster: CACHE_BUSTER,
             dehydrateOptions: {
-              // Yalnız başarılı sorguları diske yaz (hata/loading durumlarını değil)
-              shouldDehydrateQuery: (query) => query.state.status === 'success',
+              // Yalnız BAŞARILI sorguları diske yaz; ayrıca Map/Set gibi JSON'a
+              // serileşMEYEN verileri DIŞLA — persist edilirse JSON.stringify onları {}
+              // yapar, rehydrate'te .get/.has fonksiyon olmadığından render crash eder.
+              shouldDehydrateQuery: (query) => {
+                if (query.state.status !== 'success') return false;
+                const data = query.state.data;
+                if (data instanceof Map || data instanceof Set) return false;
+                return true;
+              },
             },
           }}
         >
