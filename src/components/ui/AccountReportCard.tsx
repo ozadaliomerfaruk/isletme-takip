@@ -5,6 +5,7 @@ import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
+import { useSettings } from '@/hooks/useSettings';
 import type { AccountReportItem } from '@/hooks/useAccountReport';
 
 // Hesap tipine göre ikon + renk
@@ -19,16 +20,18 @@ const TYPE_META: Record<string, { icon: typeof Banknote; color: string }> = {
 interface AccountReportCardProps {
   item: AccountReportItem;
   type: 'gelir' | 'gider';
-  currency?: string;
   /** Verilirse kart tıklanabilir olur (ör. hesabın dönem işlemlerine drill-down). */
   onPress?: () => void;
 }
 
-export function AccountReportCard({ item, type, currency, onPress }: AccountReportCardProps) {
+export function AccountReportCard({ item, type, onPress }: AccountReportCardProps) {
   const { t } = useTranslation(['reports']);
+  const { currency: baseCurrency } = useSettings();
   const meta = TYPE_META[item.hesap.type] ?? TYPE_META.diger;
   const Icon = meta.icon;
   const barColor = meta.color;
+  // Hesabın KENDİ para biriminde göster; farklıysa ana para birimi karşılığı altta.
+  const showBase = item.currency !== baseCurrency;
 
   return (
     <TouchableOpacity
@@ -55,8 +58,13 @@ export function AccountReportCard({ item, type, currency, onPress }: AccountRepo
         <View style={styles.rightSection}>
           <View style={styles.amountContainer}>
             <Text color={type === 'gelir' ? 'success' : 'error'} style={styles.amount}>
-              {formatCurrency(item.total, currency)}
+              {formatCurrency(item.totalNative, item.currency)}
             </Text>
+            {showBase && (
+              <Text variant="caption" color="secondary" style={styles.baseAmount}>
+                ≈ {formatCurrency(item.total, baseCurrency)}
+              </Text>
+            )}
             <View style={[styles.percentageBadge, { backgroundColor: barColor + '18' }]}>
               <Text style={[styles.percentageText, { color: barColor }]}>
                 %{(item.percentage ?? 0).toFixed(1)}
@@ -124,6 +132,10 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 16,
     fontWeight: '700',
+  },
+  baseAmount: {
+    fontSize: 11,
+    marginTop: 1,
   },
   percentageBadge: {
     borderRadius: borderRadius.sm,

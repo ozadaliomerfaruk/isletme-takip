@@ -497,6 +497,18 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
+          name="raporlar/hesap/[id]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+          }}
+        />
+        <Stack.Screen
           name="raporlar/genel"
           options={{
             presentation: 'card',

@@ -13,6 +13,8 @@ import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useAccountTransactions } from '@/hooks/useAccountReport';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { useSettings } from '@/hooks/useSettings';
+import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { IslemWithRelations, KategoriType } from '@/types/database';
 
 /**
@@ -26,16 +28,22 @@ export default function HesapRaporDetayPage() {
   const params = useLocalSearchParams<{
     id: string;
     hesapName?: string;
+    hesapCurrency?: string;
     type?: string;
     startDate?: string;
     endDate?: string;
   }>();
   const hesapId = params.id;
   const hesapName = params.hesapName || '—';
+  const hesapCurrency = params.hesapCurrency || 'TRY';
   const type = (params.type as KategoriType) || 'gelir';
   const startDate = params.startDate || '';
   const endDate = params.endDate || '';
   const isGelir = type !== 'gider';
+
+  const { currency: baseCurrency } = useSettings();
+  const { data: ratesData } = useExchangeRates();
+  const rates = ratesData?.rates;
 
   const { data: islemler, isLoading, isFetching, error, refetch } = useAccountTransactions(
     hesapId,
@@ -54,9 +62,15 @@ export default function HesapRaporDetayPage() {
     setEditTransactionId(null);
   }, []);
 
+  // Toplam hesabın KENDİ para biriminde (işlem tutarları o para birimindedir).
   const total = useMemo(
     () => (islemler || []).reduce((sum, i) => sum + Number(i.amount || 0), 0),
     [islemler]
+  );
+  // Hesap para birimi ana para biriminden farklıysa altında ana para birimi karşılığı.
+  const baseTotal = useMemo(
+    () => (hesapCurrency === baseCurrency ? null : convertCurrency(total, hesapCurrency, baseCurrency, rates) ?? null),
+    [total, hesapCurrency, baseCurrency, rates]
   );
 
   const renderItem = useCallback(
@@ -86,11 +100,11 @@ export default function HesapRaporDetayPage() {
           )}
         </View>
         <Text style={[styles.amount, { color: isGelir ? colors.success : colors.error }]} numberOfLines={1}>
-          {formatCurrency(Number(item.amount))}
+          {formatCurrency(Number(item.amount), item.hesap?.currency || hesapCurrency)}
         </Text>
       </TouchableOpacity>
     ),
-    [handleEdit, isGelir, t, formatDateMedium]
+    [handleEdit, isGelir, t, formatDateMedium, hesapCurrency]
   );
 
   return (
@@ -103,8 +117,13 @@ export default function HesapRaporDetayPage() {
           {isGelir ? t('reports:summary.totalIncome') : t('reports:summary.totalExpense')}
         </Text>
         <Text style={styles.summaryAmount} color={isGelir ? 'success' : 'error'}>
-          {formatCurrency(total)}
+          {formatCurrency(total, hesapCurrency)}
         </Text>
+        {baseTotal !== null && (
+          <Text variant="caption" color="secondary">
+            ≈ {formatCurrency(baseTotal, baseCurrency)}
+          </Text>
+        )}
       </View>
 
       {isLoading ? (

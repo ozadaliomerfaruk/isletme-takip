@@ -20,7 +20,12 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
  */
 export interface AccountReportItem {
   hesap: { id: string; name: string; type: HesapType };
+  /** Hesabın kendi para birimi (ör. USD). */
+  currency: string;
+  /** Ana para birimine çevrilmiş toplam — yüzde/sıralama/kıyaslama için. */
   total: number;
+  /** Hesabın KENDİ para biriminde toplam (dönüşümsuz) — birincil gösterim. */
+  totalNative: number;
   count: number;
   percentage: number;
 }
@@ -87,8 +92,10 @@ export function useAccountReport(
         hesap_id: string;
         hesap_adi: string | null;
         hesap_type: string | null;
+        hesap_currency: string | null;
         islem_count: number;
         total_amount: number;
+        total_native: number;
       }>;
     },
     enabled: !!isletme && !!startDate && !!endDate,
@@ -116,7 +123,9 @@ export function useAccountReport(
             name: r.hesap_adi || '—',
             type: (r.hesap_type || 'diger') as HesapType,
           },
+          currency: r.hesap_currency || 'TRY',
           total,
+          totalNative: Number(r.total_native) || 0,
           count: Number(r.islem_count) || 0,
         };
       });
