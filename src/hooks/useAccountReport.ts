@@ -340,12 +340,13 @@ export function useIncomeSourceTransactions(
   const { startDate, endDate } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
+  // cari: satış + satış İADESİ (iade net'e dahil → drill-down toplamı kartla tutar).
   const config =
     kind === 'cari'
-      ? { islemType: 'cari_satis', field: 'cari_id' }
+      ? { islemTypes: ['cari_satis', 'cari_satis_iade'], field: 'cari_id' }
       : kind === 'personel'
-      ? { islemType: 'personel_satis', field: 'personel_id' }
-      : { islemType: 'gelir', field: 'hesap_id' };
+      ? { islemTypes: ['personel_satis'], field: 'personel_id' }
+      : { islemTypes: ['gelir'], field: 'hesap_id' };
 
   return useQuery({
     queryKey: queryKeys.reports.incomeSourceTransactions(isletme?.id ?? '', kind, sourceId, startDateTime, endDateTime),
@@ -362,7 +363,7 @@ export function useIncomeSourceTransactions(
         `)
         .eq('isletme_id', isletme.id)
         .eq(config.field, sourceId)
-        .eq('type', config.islemType)
+        .in('type', config.islemTypes)
         .gte('date', startDateTime)
         .lte('date', endDateTime)
         .order('date', { ascending: false });

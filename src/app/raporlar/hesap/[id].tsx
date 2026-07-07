@@ -16,6 +16,7 @@ import { usePagePermission } from '@/hooks/usePagePermission';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { IslemWithRelations, KategoriType } from '@/types/database';
+import { isIncomeReturnType } from '@/constants/islemTypes';
 
 /**
  * Hesap raporu drill-down: bir banka/nakit hesabının dönem içi GELİR işlemleri.
@@ -64,9 +65,13 @@ export default function HesapRaporDetayPage() {
     setEditTransactionId(null);
   }, []);
 
-  // Toplam hesabın KENDİ para biriminde (işlem tutarları o para birimindedir).
+  // Toplam hesabın KENDİ para biriminde; iadeler (cari_satis_iade) DÜŞÜLÜR → net.
   const total = useMemo(
-    () => (islemler || []).reduce((sum, i) => sum + Number(i.amount || 0), 0),
+    () =>
+      (islemler || []).reduce(
+        (sum, i) => sum + Number(i.amount || 0) * (isIncomeReturnType(i.type) ? -1 : 1),
+        0
+      ),
     [islemler]
   );
   // Hesap para birimi ana para biriminden farklıysa altında ana para birimi karşılığı.
@@ -76,10 +81,14 @@ export default function HesapRaporDetayPage() {
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: IslemWithRelations }) => (
+    ({ item }: { item: IslemWithRelations }) => {
+      // İade (cari_satis_iade): geliri AZALTIR → kırmızı + eksi işaret.
+      const isReturn = isIncomeReturnType(item.type);
+      const positive = isGelir && !isReturn;
+      return (
       <TouchableOpacity style={styles.card} onPress={() => handleEdit(item.id)} activeOpacity={0.7}>
-        <View style={[styles.icon, { backgroundColor: isGelir ? colors.successLight : colors.errorLight }]}>
-          {isGelir ? (
+        <View style={[styles.icon, { backgroundColor: positive ? colors.successLight : colors.errorLight }]}>
+          {positive ? (
             <TrendingUp size={16} color={colors.success} />
           ) : (
             <TrendingDown size={16} color={colors.error} />
@@ -101,11 +110,12 @@ export default function HesapRaporDetayPage() {
             </Text>
           )}
         </View>
-        <Text style={[styles.amount, { color: isGelir ? colors.success : colors.error }]} numberOfLines={1}>
-          {formatCurrency(Number(item.amount), item.hesap?.currency || hesapCurrency)}
+        <Text style={[styles.amount, { color: positive ? colors.success : colors.error }]} numberOfLines={1}>
+          {isReturn ? '−' : ''}{formatCurrency(Number(item.amount), item.hesap?.currency || hesapCurrency)}
         </Text>
       </TouchableOpacity>
-    ),
+      );
+    },
     [handleEdit, isGelir, t, formatDateMedium, hesapCurrency]
   );
 

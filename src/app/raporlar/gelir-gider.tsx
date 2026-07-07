@@ -118,6 +118,8 @@ export default function GelirGiderRaporPage() {
   // (gider→giderRaporu; gelir+kategori→gelirRaporu).
   const showAccounts = selectedType === 'gelir' && gelirGroupBy === 'hesap';
   const catReport = selectedType === 'gider' ? giderRaporu : gelirRaporu;
+  // Seçili yönün dönem İADE toplamı (net'ten düşülmüştür; şeffaflık için ayrı satırda).
+  const activeReturnTotal = selectedType === 'gelir' ? gelirRaporu.returnTotal : giderRaporu.returnTotal;
 
   return (
     <>
@@ -238,6 +240,15 @@ export default function GelirGiderRaporPage() {
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* İade satırı: iadeler yukarıdaki net toplamdan zaten DÜŞÜLDÜ; şeffaflık için göster. */}
+          {activeReturnTotal > 0 && (
+            <View style={styles.iadeRow}>
+              <Text variant="caption" color="secondary">
+                {t('reports:purchaseSales.returns')}: −{formatCurrency(activeReturnTotal)}
+              </Text>
+            </View>
+          )}
 
           {/* GELİR görünümünde kırılım seçimi (Kategori ↔ Hesap). Gider hep kategori. */}
           {selectedType === 'gelir' && (
@@ -381,6 +392,11 @@ const styles = StyleSheet.create({
   groupByBar: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
+  },
+  iadeRow: {
+    paddingHorizontal: spacing.lg,
+    alignItems: 'flex-end',
+    marginBottom: spacing.xs,
   },
   sectionHeader: {
     flexDirection: 'row',

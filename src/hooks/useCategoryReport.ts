@@ -158,15 +158,15 @@ export function useCategoryReport(
     enabled: !!isletme && !!startDate && !!endDate,
   });
 
-  // İade işlemlerinin toplamını çek (dashboard ile tutarlılık için)
-  // Dashboard: gelir -= iade tutarı, gider -= iade tutarı
+  // İade işlemlerini KATEGORİ bazlı çek (per-kategori net'leme + toplam İade satırı).
+  // Gelir: cari_satis_iade, Gider: cari_alis_iade → ilgili kategoriden düşülür.
   const {
-    data: returnTotal,
+    data: returnRows,
     isLoading: returnLoading,
   } = useQuery({
     queryKey: queryKeys.reports.categoryReportReturns(isletme?.id ?? '', type, startDateTime, endDateTime),
     queryFn: async () => {
-      if (!isletme || returnTypes.length === 0) return 0;
+      if (!isletme || returnTypes.length === 0) return [] as Array<{ kategori_id: string | null; parent_id: string | null; total_amount: number }>;
 
       const { data, error } = await supabase.rpc('get_category_report', {
         p_isletme_id: isletme.id,
@@ -177,14 +177,9 @@ export function useCategoryReport(
 
       if (error) {
         if (__DEV__) console.error('[useCategoryReport] returns RPC error:', error.message);
-        return 0;
+        return [];
       }
-
-      // Sum all return amounts
-      const total = (data || []).reduce((sum: number, row: { total_amount?: number | string }) =>
-        sum + (Number(row.total_amount) || 0), 0);
-      if (__DEV__) console.log('[useCategoryReport]', type, 'returns total:', total);
-      return total;
+      return (data || []) as Array<{ kategori_id: string | null; parent_id: string | null; total_amount: number }>;
     },
     enabled: !!isletme && !!startDate && !!endDate && returnTypes.length > 0,
   });
@@ -195,7 +190,10 @@ export function useCategoryReport(
     // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
     const conv = (v: number) =>
       baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
-    const convertedReturnTotal = conv(returnTotal || 0);
+    const convertedReturnTotal = (returnRows || []).reduce(
+      (sum, r) => sum + conv(Number(r.total_amount) || 0),
+      0
+    );
 
     if (!islemler || islemler.length === 0) {
       return {
@@ -288,6 +286,23 @@ export function useCategoryReport(
       }
     });
 
+    // Per-kategori NET'leme: her iadeyi gelirdeki AYNI hedef kategoriden düş → kartlar
+    // net gösterir (kart toplamları başlıktaki net toplamla tutarlı olur).
+    (returnRows || []).forEach((row) => {
+      const amount = conv(Number(row.total_amount) || 0);
+      if (!row.kategori_id) {
+        uncategorizedAmount -= amount;
+        return;
+      }
+      const kat = kategoriMap.get(row.kategori_id);
+      const parentId = kat?.parent_id ?? row.parent_id;
+      const targetId = parentId || row.kategori_id;
+      const entry = parentCategoryMap.get(targetId);
+      if (entry) entry.total -= amount;
+      // Hedef kategori gelir/gider'de yoksa (yalnız iade olan kategori) karta yansımaz;
+      // ama adjustedTotalAmount = totalAmount − convertedReturnTotal ile net'ten düşülür.
+    });
+
     // İade tutarını toplam tutardan çıkar (dashboard ile tutarlılık) — başlıkta gösterilen net toplam
     const adjustedTotalAmount = totalAmount - convertedReturnTotal;
 
@@ -324,7 +339,7 @@ export function useCategoryReport(
       uncategorizedAmount,
       uncategorizedCount,
     };
-  }, [islemler, allKategoriler, returnTotal, options.percentageReferenceTotal, baseCurrency, rates]);
+  }, [islemler, allKategoriler, returnRows, options.percentageReferenceTotal, baseCurrency, rates]);
 
   // Combine errors - prefer islemler error as it's more critical
   const combinedError = islemlerError || kategorilerError;
