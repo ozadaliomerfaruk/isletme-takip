@@ -311,18 +311,23 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'personel-detail',
       'personel-leave-quotas',
       'month-summary',
-      // Raporlar: işlem değişimi tüm kategori/ürün raporlarını etkiler. raporlar/kategori/[id]
-      // ekranı QuickTransactionBar'ı gömülü barındırdığı için işlem o ekran MOUNTED iken
-      // düzenlenebiliyor; deferred (refetchType:'none') mounted ekranı yenilemediğinden bu
-      // rapor key'leri immediate olmalı (urun/kategori bloklarıyla tutarlı).
+      // Raporlar: işlem değişimi tüm kategori/hesap/gelir-kaynak/ürün raporlarını etkiler.
+      // raporlar/kategori/[id] VE raporlar/hesap/[id] ekranları QuickTransactionBar'ı gömülü
+      // barındırdığı için işlem o ekran MOUNTED iken düzenlenebiliyor; deferred
+      // (refetchType:'none') mounted ekranı yenilemediğinden bu rapor key'leri (drill-down
+      // işlem listeleri dahil) immediate olmalı (urun/kategori bloklarıyla tutarlı).
       'category-report',
       'account-report',
+      'account-transactions',
+      'income-by-source',
+      'income-source-transactions',
       'hierarchical-category-report',
       'category-report-returns',
       'hierarchical-category-report-returns',
       'category-transactions',
       'multi-category-transactions',
       'sub-category-report-rpc',
+      'sub-category-report-returns',
       'cash-flow-by-category',
       'urun-hareketler',
       'product-report',
@@ -367,6 +372,9 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       // Hesap bazlı gelir/gider raporu hesaba göre gruplar → hesap adı/aktiflik değişince
       // AÇIK rapor ekranı anında güncellensin (category-report ile aynı immediate mantığı).
       'account-report',
+      'account-transactions',
+      'income-by-source',
+      'income-source-transactions',
       // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
       'archive',
     ],
@@ -392,6 +400,9 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'dashboard',
       'category-report',
       'account-report',
+      'account-transactions',
+      'income-by-source',
+      'income-source-transactions',
       'category-transactions',
       'cash-flow-by-category',
       'analytics-periods',
@@ -414,6 +425,9 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'dashboard',
       'category-report',
       'account-report',
+      'account-transactions',
+      'income-by-source',
+      'income-source-transactions',
       'category-transactions',
       'cash-flow-by-category',
       'analytics-periods',
@@ -438,10 +452,14 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       // mounted rapor ekranları kategori değişiminde anında güncellensin (deferred mounted observer'ı yenilemiyor).
       'category-report',
       'account-report',
+      'account-transactions',
+      'income-by-source',
+      'income-source-transactions',
       'hierarchical-category-report',
       'category-transactions',
       'multi-category-transactions',
       'sub-category-report-rpc',
+      'sub-category-report-returns',
       'cash-flow-by-category',
       'product-report',
       'product-report-returns',
@@ -465,6 +483,9 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'month-summary',
       'category-report',
       'account-report',
+      'account-transactions',
+      'income-by-source',
+      'income-source-transactions',
       'category-transactions',
       'cash-flow-by-category',
       'analytics-periods',
@@ -488,10 +509,14 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       // hiçbir şey çekmez → maliyetsiz. (Aynı mantık kategori bloğundaki 'islemler' #8 notu ile birebir.)
       'category-report',
       'account-report',
+      'account-transactions',
+      'income-by-source',
+      'income-source-transactions',
       'hierarchical-category-report',
       'category-transactions',
       'multi-category-transactions',
       'sub-category-report-rpc',
+      'sub-category-report-returns',
       'cash-flow-by-category',
       'product-report',
       'product-report-returns',
