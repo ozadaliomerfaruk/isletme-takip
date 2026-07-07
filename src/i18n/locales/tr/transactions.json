@@ -189,7 +189,9 @@
   },
   "validation": {
     "selectTargetAccount": "Hedef hesap seçin",
-    "invalidAmount": "Geçerli bir tutar girin"
+    "invalidAmount": "Geçerli bir tutar girin",
+    "scheduledNoProductsTitle": "İleri tarihli işleme ürün eklenemez",
+    "scheduledNoProductsMessage": "İleri tarihli (planlanmış) işlemlere ürün/stok eklenemiyor. Ürünleri kaldırın ya da işlem tarihini bugüne alın."
   },
   "exchangeRate": {
     "title": "Kur Girişi",

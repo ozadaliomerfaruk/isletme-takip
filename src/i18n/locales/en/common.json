@@ -606,6 +606,8 @@
     "transactionLinkedToCheck": "This transaction is linked to a check collection and cannot be deleted.",
     "hasLinkedScheduledTransactions": "You need to delete linked scheduled transactions before deleting this record. There are {{count}} linked scheduled transactions.",
     "hasLinkedRecords": "You need to delete linked records before deleting this record.",
+    "hasLinkedProductMovements": "To permanently delete this product, first delete its linked transactions. It has {{count}} transaction-linked movement(s). You can archive the product instead.",
+    "hasSharedCari": "This client is shared and can't be deleted. Remove the share first; otherwise the party you shared with will lose access.",
     "cannotDeleteTitle": "Cannot Delete"
   },
   "notes": {

@@ -182,6 +182,19 @@ export function useDeleteCari() {
         throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedChecks', { count: cekCount }));
       }
 
+      // Bağlı paylaşım kontrolü: bu cari başka bir işletmeyle paylaşılmışsa (cari_links),
+      // silinince FK CASCADE ile paylaşım kalkar ve karşı (viewer) taraf erişimini SESSİZCE
+      // kaybeder. Silmeyi engelle; kullanıcı önce paylaşımı kaldırmalı.
+      const { count: sharedCount } = await supabase
+        .from('cari_links')
+        .select('id', { count: 'exact', head: true })
+        .eq('cari_id', id)
+        .eq('owner_isletme_id', isletme.id);
+
+      if (sharedCount && sharedCount > 0) {
+        throw new LinkedRecordsError(i18n.t('common:errors.hasSharedCari'));
+      }
+
       // Bu cariye iliştirilmiş notları genel nota çevir (yetim not kalmasın)
       const { error: notlarError } = await supabase
         .from('notlar')

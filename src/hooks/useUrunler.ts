@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Urun, UrunInsert, UrunUpdate } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
+import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
 
 /**
@@ -211,7 +212,24 @@ export function usePermanentDeleteUrun() {
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
-      // Önce ilişkili urun hareketlerini sil
+      // GUARD: İşleme bağlı (islem_id dolu) ürün hareketi varsa kalıcı silmeyi ENGELLE.
+      // Aksi halde gerçek satış/alış işlemlerinin altındaki ürün dökümü sessizce silinir
+      // (işlem "ürünlü" görünmez olur, ürün-bazlı rapor ile geçmiş çelişir). Kullanıcı
+      // bunun yerine ürünü arşivlemeli. (Tekli hareket silme de aynı korumayı yapıyor.)
+      const { count: linkedCount } = await supabase
+        .from('urun_hareketler')
+        .select('id', { count: 'exact', head: true })
+        .eq('urun_id', id)
+        .eq('isletme_id', isletme.id)
+        .not('islem_id', 'is', null);
+
+      if (linkedCount && linkedCount > 0) {
+        throw new LinkedRecordsError(
+          i18n.t('common:errors.hasLinkedProductMovements', { count: linkedCount })
+        );
+      }
+
+      // Önce ilişkili (yalnızca manuel, islem_id NULL) urun hareketlerini sil
       const { error: hareketError } = await supabase
         .from('urun_hareketler')
         .delete()

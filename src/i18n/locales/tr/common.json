@@ -606,6 +606,8 @@
     "transactionLinkedToCheck": "Bu işlem bir çek tahsilatına bağlı olduğu için silinemez.",
     "hasLinkedScheduledTransactions": "Bu kaydı silmek için önce bağlı ileri tarihli işlemleri silmeniz gerekiyor. {{count}} adet ileri tarihli işlem bulunuyor.",
     "hasLinkedRecords": "Bu kaydı silmek için önce bağlı kayıtları silmeniz gerekiyor.",
+    "hasLinkedProductMovements": "Bu ürünü kalıcı silmek için önce bağlı işlemleri silmeniz gerekiyor. {{count}} adet işleme bağlı hareketi var. Bunun yerine ürünü arşivleyebilirsiniz.",
+    "hasSharedCari": "Bu cari paylaşımda olduğu için silinemez. Önce paylaşımı kaldırın; aksi halde paylaştığınız taraf erişimini kaybeder.",
     "cannotDeleteTitle": "Silinemez"
   },
   "notes": {

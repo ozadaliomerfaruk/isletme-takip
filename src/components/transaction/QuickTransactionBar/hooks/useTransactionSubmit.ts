@@ -422,6 +422,20 @@ export function useTransactionSubmit({
       return;
     }
 
+    // GUARD: İleri tarihli işleme ürün/stok EKLENEMEZ. Scheduled dalı urun_hareketler
+    // oluşturmaz ve edge function tetiklendiğinde de ürün/stok işlenmez → ürünler
+    // SESSİZCE kaybolurdu. Sessiz veri kaybı yerine kullanıcıyı açıkça uyar.
+    if (isScheduled && urunItems.length > 0) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      Alert.alert(
+        t('transactions:validation.scheduledNoProductsTitle'),
+        t('transactions:validation.scheduledNoProductsMessage')
+      );
+      return;
+    }
+
     // Auto-open modals for missing required data
     // Skip in edit mode — all data was already loaded from the transaction
     if (isEditMode) {

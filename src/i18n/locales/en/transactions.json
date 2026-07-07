@@ -189,7 +189,9 @@
   },
   "validation": {
     "selectTargetAccount": "Select target account",
-    "invalidAmount": "Please enter a valid amount"
+    "invalidAmount": "Please enter a valid amount",
+    "scheduledNoProductsTitle": "Products not allowed on scheduled transactions",
+    "scheduledNoProductsMessage": "Products/stock can't be added to scheduled (future-dated) transactions. Remove the products or set the date to today."
   },
   "exchangeRate": {
     "title": "Exchange Rate",
