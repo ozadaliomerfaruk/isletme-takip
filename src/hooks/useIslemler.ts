@@ -519,43 +519,38 @@ export function useUpdateIslem() {
       if (fetchError) throw fetchError;
       if (!oldIslem) throw new Error(i18n.t('common:errors.transactionNotFound'));
 
-      // 1. Önce işlemi güncelle
-      const { data, error } = await supabase
-        .from('islemler')
-        .update(updates)
-        .eq('id', id)
-        .eq('isletme_id', isletme.id)
-        .select()
-        .single();
+      // ATOMİK GÜNCELLEME: net bakiye değişimi + islem satırı güncelleme TEK
+      // transaction'da (update_islem_atomik RPC). Eski akış satır update + reverse(old)
+      // + apply(new)'i ayrı çağrılarla yapıyordu; kısmi hatada satır YENİ ama bakiye
+      // ESKİ'ye göre yarım kalıp kasa/cari sessizce DESYNC olabiliyordu.
+      //
+      // Bakiye NET ops = reverse(old) ++ apply(new). Bakiye hesabı linked-cari
+      // inversiyonlu perspektiften (computeBalanceOps); satır ise NON-inverted
+      // gerçek değerlerle ({...oldIslem, ...updates}) saklanır — eski davranışla aynı.
+      const oldBalanceIslem = await applyLinkedCariInversion(oldIslem, isletme.id);
+      const mergedRow = { ...oldIslem, ...updates };
+      const newBalanceInput = await applyLinkedCariInversion(mergedRow, isletme.id);
+      const netOps = [
+        ...computeBalanceOps(oldBalanceIslem).map((op) => ({ t: op.t, id: op.id, d: -op.d })), // reverse old
+        ...computeBalanceOps(newBalanceInput).map((op) => ({ t: op.t, id: op.id, d: op.d })), //  apply new
+      ];
 
-      if (error) throw error;
+      const { data, error } = await supabase.rpc('update_islem_atomik', {
+        p_isletme_id: isletme.id,
+        p_islem_id: id,
+        p_balance_ops: netOps,
+        p_new_row: mergedRow,
+      });
 
-      // 2. Güncelleme başarılı olduysa bakiyeleri güncelle
-      // Linked cari inversiyonu: viewer perspektifinden owner perspektifine çevir
-      try {
-        const oldBalanceIslem = await applyLinkedCariInversion(oldIslem, isletme.id);
-        const newBalanceInput = await applyLinkedCariInversion({ ...oldIslem, ...updates }, isletme.id);
-        // Eski bakiyeleri geri al
-        await reverseBalances(oldBalanceIslem);
-        // Yeni bakiyeleri uygula
-        await updateBalances(newBalanceInput);
-      } catch (balanceError) {
-        // Bakiye güncellemesi başarısız olursa işlemi geri al
-        if (__DEV__) {
-          console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
+      if (error) {
+        if (
+          error.code === '42501' ||
+          error.message?.includes('policy') ||
+          error.message?.includes('Yetkisiz')
+        ) {
+          throw new Error(i18n.t('common:errors.permissionDenied'));
         }
-        try {
-          await supabase
-            .from('islemler')
-            .update(oldIslem)
-            .eq('id', id)
-            .eq('isletme_id', isletme.id);
-        } catch (rollbackError) {
-          if (__DEV__) {
-            console.error('İşlem geri alma hatası:', rollbackError);
-          }
-        }
-        throw balanceError;
+        throw error;
       }
 
       return data as Islem;
@@ -636,14 +631,6 @@ export function useDeleteIslem() {
       invalidateRelatedQueries(queryClient, 'urunHareket');
     },
   });
-}
-
-// Bakiyeleri geri alma (silme/düzeltme için): APPLY delta'larının negatifi.
-// Matematik computeBalanceOps'ta (tek kaynak, birim-testli); burası yalnız executor.
-async function reverseBalances(islem: Islem) {
-  for (const op of computeBalanceOps(islem)) {
-    await safeIncrementBalance(op.t, op.id, -op.d);
-  }
 }
 
 // Dönem tiplerini tanımla
