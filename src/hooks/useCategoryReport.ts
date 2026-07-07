@@ -190,7 +190,10 @@ export function useCategoryReport(
     // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
     const conv = (v: number) =>
       baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
-    const convertedReturnTotal = (returnRows || []).reduce(
+    // Persist cache güvenliği: eski sürümde bu sorgu NUMBER dönüyordu; diskteki eski
+    // cache hydrate olursa returnRows number olabilir → array'e normalize et (crash fix).
+    const safeReturnRows = Array.isArray(returnRows) ? returnRows : [];
+    const convertedReturnTotal = safeReturnRows.reduce(
       (sum, r) => sum + conv(Number(r.total_amount) || 0),
       0
     );
@@ -288,7 +291,7 @@ export function useCategoryReport(
 
     // Per-kategori NET'leme: her iadeyi gelirdeki AYNI hedef kategoriden düş → kartlar
     // net gösterir (kart toplamları başlıktaki net toplamla tutarlı olur).
-    (returnRows || []).forEach((row) => {
+    safeReturnRows.forEach((row) => {
       const amount = conv(Number(row.total_amount) || 0);
       if (!row.kategori_id) {
         uncategorizedAmount -= amount;
