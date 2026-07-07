@@ -308,6 +308,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       // düzenlenebiliyor; deferred (refetchType:'none') mounted ekranı yenilemediğinden bu
       // rapor key'leri immediate olmalı (urun/kategori bloklarıyla tutarlı).
       'category-report',
+      'account-report',
       'hierarchical-category-report',
       'category-report-returns',
       'hierarchical-category-report-returns',
@@ -355,6 +356,11 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'hesaplar',
       'hesap',
       'islemler',
+      // Hesap bazlı gelir/gider raporu hesaba göre gruplar → hesap adı/aktiflik değişince
+      // AÇIK rapor ekranı anında güncellensin (category-report ile aynı immediate mantığı).
+      'account-report',
+      // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
+      'archive',
     ],
     deferred: [
       'month-summary',
@@ -370,11 +376,14 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'cariler',
       'cari',
       'islemler',
+      // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
+      'archive',
     ],
     deferred: [
       'month-summary',
       'dashboard',
       'category-report',
+      'account-report',
       'category-transactions',
       'cash-flow-by-category',
       'analytics-periods',
@@ -389,11 +398,14 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'personel-detail',
       'personel-leave-quotas',
       'islemler',
+      // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
+      'archive',
     ],
     deferred: [
       'month-summary',
       'dashboard',
       'category-report',
+      'account-report',
       'category-transactions',
       'cash-flow-by-category',
       'analytics-periods',
@@ -417,6 +429,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       // Aynı "açık ekran eski adı/rengi gösteriyor" sorunu raporlar için de geçerli:
       // mounted rapor ekranları kategori değişiminde anında güncellensin (deferred mounted observer'ı yenilemiyor).
       'category-report',
+      'account-report',
       'hierarchical-category-report',
       'category-transactions',
       'multi-category-transactions',
@@ -443,6 +456,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'dashboard',
       'month-summary',
       'category-report',
+      'account-report',
       'category-transactions',
       'cash-flow-by-category',
       'analytics-periods',
@@ -465,6 +479,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       // 'active' (immediate) ile mounted rapor anında yenilenir; rapor kapalıyken refetchType:'active'
       // hiçbir şey çekmez → maliyetsiz. (Aynı mantık kategori bloğundaki 'islemler' #8 notu ile birebir.)
       'category-report',
+      'account-report',
       'hierarchical-category-report',
       'category-transactions',
       'multi-category-transactions',
