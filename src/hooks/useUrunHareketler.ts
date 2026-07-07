@@ -467,6 +467,40 @@ export function useCreateUrunHareket() {
 }
 
 /**
+ * Stok DÜZELTME — mutlak hedef miktarı ata (cache-güvenli).
+ *
+ * QuickUrunBar'daki eski akış delta'yı BAYAT cache'ten (hedef − urun.miktar)
+ * hesaplayıp update_urun_miktar'a gönderiyordu → çok-cihaz senaryosunda stok yanlışa
+ * kayabiliyordu. Bu hook set_urun_miktar_hedef RPC'sini çağırır: delta DB'de
+ * FOR UPDATE ile güncel değerden hesaplanır, miktar hedefe atanır ve 'duzeltme'
+ * hareketi tek transaction'da yazılır. Döndürdüğü değer yeni (uygulanmış) miktardır.
+ */
+export function useSetUrunMiktarHedef() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async (input: { urun_id: string; hedef: number; created_at?: string; aciklama?: string | null }) => {
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+
+      const { data, error } = await supabase.rpc('set_urun_miktar_hedef', {
+        p_isletme_id: isletme.id,
+        p_urun_id: input.urun_id,
+        p_hedef: input.hedef,
+        p_created_at: input.created_at ?? null,
+        p_aciklama: input.aciklama ?? null,
+      });
+
+      if (error) throw error;
+      return data as number;
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'urunHareket');
+    },
+  });
+}
+
+/**
  * Birden fazla işlem için ürünlü olup olmadığını kontrol et
  * Returns: Set of islem_ids that have urun movements
  */

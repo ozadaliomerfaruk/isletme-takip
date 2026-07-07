@@ -23,7 +23,7 @@ import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { X, Package, Calendar } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT } from '@/constants/spacing';
-import { useCreateUrunHareket, useUpdateUrunHareket, useCreateUrunHareketWithCari } from '@/hooks/useUrunHareketler';
+import { useCreateUrunHareket, useUpdateUrunHareket, useCreateUrunHareketWithCari, useSetUrunMiktarHedef } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { styles } from './styles';
@@ -69,6 +69,7 @@ export function QuickUrunBar({
   const createUrunHareket = useCreateUrunHareket();
   const updateUrunHareket = useUpdateUrunHareket();
   const createUrunHareketWithCari = useCreateUrunHareketWithCari();
+  const setUrunMiktarHedef = useSetUrunMiktarHedef();
   const isEditMode = mode === 'edit' && editHareketId;
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
@@ -247,25 +248,20 @@ export function QuickUrunBar({
     const miktarNum = parseQuantity(miktar);
 
     if (urunType === 'duzeltme') {
-      // For adjustment, miktar is the new target stock (can be 0 or positive)
+      // Düzeltmede miktar = yeni MUTLAK hedef stok (0 veya pozitif olabilir)
       if (!miktar || isNaN(miktarNum) || miktarNum < 0) {
         Alert.alert(t('common:status.error'), t('products:validation.quantityRequired'));
         return;
       }
-      // Calculate the delta from current stock
-      const delta = miktarNum - urun.miktar;
-      if (delta === 0) {
-        handleDismiss();
-        return;
-      }
       try {
-        await createUrunHareket.mutateAsync({
+        // Delta'yı BAYAT cache'ten (hedef − urun.miktar) hesaplamak yerine DB'de
+        // FOR UPDATE ile hesapla → çok-cihaz senaryosunda stok yanlışa kaymasın.
+        // Hedef zaten güncelse RPC hareket yazmadan mevcut değeri döner.
+        await setUrunMiktarHedef.mutateAsync({
           urun_id: urun.id,
-          hareket_tipi: 'duzeltme',
-          miktar: delta,
-          birim_fiyat: null,
-          aciklama: null,
+          hedef: miktarNum,
           created_at: formatDateTimeForDB(tarih),
+          aciklama: null,
         });
         handleDismiss();
         Alert.alert(t('common:status.success'), t('products:messages.stockAdjustmentSuccess'));
