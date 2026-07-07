@@ -106,9 +106,11 @@ export default function KategoriDetayPage() {
     { startDate: startDate!, endDate: endDate!, source }
   );
 
-  // Alt kategori raporunu çek (sadece normal kategoriler için)
+  // Alt kategori raporunu çek (sadece normal kategoriler için).
+  // Kategorisizde alt-kategori yok → null geç (hook devre dışı). (Eskiden 'skip'
+  // geçiliyordu; hook onu UUID sanıp `.eq('id','skip')` ile 22P02 hatası veriyordu.)
   const subCategoryReport = useSubCategoryReport(
-    isUncategorized ? 'skip' : kategoriId, // 'skip' ile hook'u devre dışı bırak
+    isUncategorized ? null : kategoriId,
     type!,
     { startDate: startDate!, endDate: endDate!, source }
   );

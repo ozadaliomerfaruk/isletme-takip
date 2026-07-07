@@ -976,10 +976,16 @@ export interface SubCategoryReportResult {
 }
 
 export function useSubCategoryReport(
-  parentKategoriId: string | null,
+  parentKategoriIdRaw: string | null,
   type: KategoriType,
   options: UseCategoryReportOptions
 ): SubCategoryReportResult {
+  // 'skip' (ve UUID olmayan) sentinel → null: hook'u DEVRE DIŞI bırakır. Eskiden çağıran
+  // (raporlar/kategori/[id] kategorisiz drill-down'da) 'skip' geçiyordu; 'skip' truthy
+  // olduğundan `!parentKategoriId` guard'ı geçilip `kategoriler.eq('id','skip')` çalışıyor
+  // ve Postgres 22P02 "invalid input syntax for type uuid: skip" hatası veriyordu.
+  const parentKategoriId =
+    parentKategoriIdRaw && parentKategoriIdRaw !== 'skip' ? parentKategoriIdRaw : null;
   const { isletme } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
