@@ -46,6 +46,25 @@
     "dragHint": "Basılı tutup kaydır",
     "today": "bugün",
     "monthEnd": "ay sonu",
+    "lensNominal": "Nominal ₺",
+    "lensReal": "Reel ₺",
+    "lensGold": "Gram Altın",
+    "shortNominal": "Nominal",
+    "shortReal": "Reel",
+    "shortGold": "Altın",
+    "realSubtitle": "bugünkü lirayla",
+    "noData": "Bu görünüm için henüz veri yok",
+    "basis": {
+      "reel": "enflasyon",
+      "usd": "dolar",
+      "eur": "euro",
+      "altin": "altın"
+    },
+    "insight": {
+      "realUp": "{{lens}} bazında son {{months}} ayda net varlığın reel olarak %{{pct}} arttı (nominal %{{nom}}).",
+      "realDown": "Nominal %{{nom}} olsa da, {{lens}} karşısında net varlığın reel olarak %{{pct}} eridi.",
+      "debtLighter": "Nominal borcun ~sabit görünse de, {{lens}} karşısında reel yükü %{{pct}} hafifledi."
+    },
     "tableTitle": "AY AY GENEL DURUM",
     "colMonth": "Ay",
     "colNet": "Net Varlık",

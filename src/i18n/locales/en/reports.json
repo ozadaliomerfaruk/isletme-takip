@@ -46,6 +46,25 @@
     "dragHint": "Press & drag",
     "today": "today",
     "monthEnd": "month end",
+    "lensNominal": "Nominal ₺",
+    "lensReal": "Real ₺",
+    "lensGold": "Gold (g)",
+    "shortNominal": "Nominal",
+    "shortReal": "Real",
+    "shortGold": "Gold",
+    "realSubtitle": "in today's lira",
+    "noData": "No data yet for this view",
+    "basis": {
+      "reel": "inflation",
+      "usd": "the dollar",
+      "eur": "the euro",
+      "altin": "gold"
+    },
+    "insight": {
+      "realUp": "In {{lens}} terms, your net worth rose {{pct}}% in real terms over the last {{months}} months (nominal {{nom}}%).",
+      "realDown": "Nominal {{nom}}%, but against {{lens}} your net worth eroded {{pct}}% in real terms.",
+      "debtLighter": "Your debt looks flat nominally, but against {{lens}} its real burden eased by {{pct}}%."
+    },
     "tableTitle": "MONTH-BY-MONTH NET WORTH",
     "colMonth": "Month",
     "colNet": "Net Worth",

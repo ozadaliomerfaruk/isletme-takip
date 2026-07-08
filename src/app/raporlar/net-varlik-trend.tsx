@@ -10,27 +10,38 @@ import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { logEvent } from '@/lib/appEvents';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize } from '@/constants/spacing';
-import { formatCurrency, formatCurrencyCompact } from '@/lib/currency';
-import { useSettings } from '@/hooks/useSettings';
+import { formatCurrency, formatCurrencyCompact, formatQuantity } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
-import { useNetWorthTrend, NetWorthTrendPoint } from '@/hooks/useNetWorthTrend';
+import { useNetWorthLenses, LensMode, LensUnit } from '@/hooks/useNetWorthLenses';
 
 /**
- * AYLIK NET-VARLIK (GENEL DURUM) TREND RAPORU.
- * Her ay-sonundaki genel durum (varlıklar + alacaklar − borçlar) — çizgi grafik + tablo.
- * Son nokta canlı "genel durum" değerine demirlidir (bkz. useNetWorthTrend).
+ * AYLIK NET-VARLIK (GENEL DURUM) TREND RAPORU — çoklu lens (Nominal ₺ / Reel ₺ / USD / EUR /
+ * Gram Altın). Reel = enflasyona göre bugünün lirası; döviz/altın = o ayki kur. Amaç: paranın
+ * zaman değerini göstermek. Son nokta canlı "genel durum"a demirlidir.
  */
+const CCY: Record<Exclude<LensUnit, 'gram'>, string> = { try: 'TRY', usd: 'USD', eur: 'EUR' };
+function fmtValue(v: number, unit: LensUnit): string {
+  return unit === 'gram' ? `${formatQuantity(v)} gr` : formatCurrency(v, CCY[unit]);
+}
+function fmtCompact(v: number, unit: LensUnit): string {
+  return unit === 'gram' ? `${formatQuantity(v)}` : formatCurrencyCompact(v, CCY[unit]);
+}
+function zeroLabel(unit: LensUnit): string {
+  return unit === 'gram' ? '0 gr' : fmtValue(0, unit);
+}
+
 export default function NetVarlikTrendPage() {
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'net_worth_trend' }); }, []);
   const { t } = useTranslation(['reports', 'common']);
-  const { currency: baseCurrency } = useSettings();
   const { width: windowWidth } = useWindowDimensions();
 
   const [monthsBack, setMonthsBack] = useState(12);
-  const { points, isLoading, isFetching, error, refetch } = useNetWorthTrend(monthsBack);
+  const [mode, setMode] = useState<LensMode>('nominal');
+  const { byMode, isLoading, isFetching, refetch } = useNetWorthLenses(monthsBack);
+  const lens = byMode[mode];
 
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   useRefetchOnFocus([refetch]);
@@ -40,53 +51,64 @@ export default function NetVarlikTrendPage() {
     { label: t('reports:netWorthTrend.range12'), value: '12' },
     { label: t('reports:netWorthTrend.range24'), value: '24' },
   ];
-
-  // Özet: bugün (son) + pencere başına göre değişim.
-  const summary = useMemo(() => {
-    if (points.length === 0) return null;
-    const last = points[points.length - 1];
-    const first = points[0];
-    const diff = last.netWorth - first.netWorth;
-    const pct = first.netWorth !== 0 ? (diff / Math.abs(first.netWorth)) * 100 : null;
-    const dir: 'up' | 'down' | 'flat' = diff > 0.005 ? 'up' : diff < -0.005 ? 'down' : 'flat';
-    return { last, first, diff, pct, dir };
-  }, [points]);
+  const LENS_OPTIONS = [
+    { label: t('reports:netWorthTrend.lensNominal'), value: 'nominal' },
+    { label: t('reports:netWorthTrend.lensReal'), value: 'reel' },
+    { label: 'USD', value: 'usd' },
+    { label: 'EUR', value: 'eur' },
+    { label: t('reports:netWorthTrend.lensGold'), value: 'altin' },
+  ];
+  const shortLabel: Record<LensMode, string> = {
+    nominal: t('reports:netWorthTrend.shortNominal'),
+    reel: t('reports:netWorthTrend.shortReal'),
+    usd: 'USD', eur: 'EUR',
+    altin: t('reports:netWorthTrend.shortGold'),
+  };
 
   const chartWidth = windowWidth - spacing.lg * 4;
+  const unit = lens.unit;
 
-  // Grafik verisi + ARALIĞA-GÖRE ÖLÇEK (sıfırdan değil → tek ekrana sığar, trend belirgin).
-  // Yöntem: veriyi shift ile pozitife kaydır (böylece negatif "below-axis" mekanizması —
-  // grafiği 2 ekran yapan sebep — DEVREYE GİRMEZ), formatYLabel'da shift'i geri ekle.
-  // X eksenini seyreltme: ~6 etiket; yalnız son (bugünkü) nokta vurgulu.
+  // Grafik: seçili lensin değerleriyle, aralığa-göre ölçek (shift ile pozitife kaydır → tek
+  // ekran, negatif "below-axis" şişmesi yok). Null (eksik gösterge) noktalar hariç.
   const chart = useMemo(() => {
-    const n = points.length;
-    if (n === 0) return null;
-    const vals = points.map((p) => p.netWorth);
+    const pts = lens.points.filter((p) => p.value != null) as Array<{ value: number; label: string; labelFull: string; isCurrent: boolean }>;
+    const n = pts.length;
+    if (n < 2) return null;
+    const vals = pts.map((p) => p.value);
     const minV = Math.min(...vals);
     const maxV = Math.max(...vals);
     let span = maxV - minV;
-    if (span < 1) span = Math.max(Math.abs(maxV), Math.abs(minV), 1); // düz seri → biraz aralık
-    const pad = span * 0.18; // overshoot + nefes payı
-    const shift = minV - pad; // grafiğin en altındaki gerçek değer
-    const maxValue = maxV + pad - shift; // toplam aralık (span + 2*pad)
+    if (span < 1) span = Math.max(Math.abs(maxV), Math.abs(minV), 1);
+    const pad = span * 0.18;
+    const shift = minV - pad;
+    const maxValue = maxV + pad - shift;
     const step = Math.max(1, Math.round(n / 6));
-    const data = points.map((p, i) => ({
-      value: p.netWorth - shift, // pozitife kaydır (negatif "below-axis" şişmesini önle)
-      label: i % step === 0 || i === n - 1 ? p.label : '', // X ekseni seyrek (kısa 'Tem'26)
-      monthLabel: p.labelFull, // imleç balonu için net etiket ('Temmuz 2026')
-      isCurrent: p.isCurrent, // bu ay mı (bugün vs ay sonu)
-      trueValue: p.netWorth, // imleç balonu için gerçek değer
-      hideDataPoint: i !== n - 1, // yalnız son (bugünkü) nokta
+    const data = pts.map((p, i) => ({
+      value: p.value - shift,
+      label: i % step === 0 || i === n - 1 ? p.label : '',
+      monthLabel: p.labelFull,
+      isCurrent: p.isCurrent,
+      trueValue: p.value,
+      hideDataPoint: i !== n - 1,
       dataPointColor: colors.primary,
       dataPointRadius: 4,
     }));
-    // Sıfır çizgisi: yalnız veri sıfırı GEÇİYORSA anlamlı (aksi halde renk/değer yeterli).
     const crossesZero = minV < 0 && maxV > 0;
-    const zeroPos = -shift; // kaydırılmış uzayda gerçek-sıfırın konumu (değer)
-    return { data, shift, maxValue, crossesZero, zeroPos };
-  }, [points]);
+    return { data, shift, maxValue, crossesZero, zeroPos: -shift };
+  }, [lens]);
 
-  const renderDelta = (change: number) => {
+  // Tabloda gösterilecek satırlar: değer (lens birimi) + önceki geçerli aya göre değişim.
+  const tableRows = useMemo(() => {
+    const pts = lens.points;
+    return pts.map((p, i) => {
+      let change: number | null = null;
+      if (p.value != null && i > 0 && pts[i - 1].value != null) change = p.value - (pts[i - 1].value as number);
+      return { month: p.month, label: p.label, value: p.value, change };
+    });
+  }, [lens]);
+
+  const renderDelta = (change: number | null) => {
+    if (change == null) return <Text variant="caption" color="secondary" style={styles.deltaText}>—</Text>;
     const up = change > 0.005;
     const down = change < -0.005;
     const color = up ? colors.success : down ? colors.error : colors.textMuted;
@@ -95,7 +117,7 @@ export default function NetVarlikTrendPage() {
       <View style={styles.deltaCell}>
         <Icon size={14} color={color} />
         <Text style={[styles.deltaText, { color }]} numberOfLines={1}>
-          {up ? '+' : ''}{formatCurrency(change, baseCurrency)}
+          {up ? '+' : ''}{fmtValue(change, unit)}
         </Text>
       </View>
     );
@@ -110,13 +132,12 @@ export default function NetVarlikTrendPage() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
-        {/* Aralık seçici */}
+        {/* Aralık + Lens seçiciler */}
         <View style={styles.rangeBar}>
-          <TabFilter
-            options={RANGE_OPTIONS}
-            value={String(monthsBack)}
-            onChange={(v) => setMonthsBack(Number(v))}
-          />
+          <TabFilter options={RANGE_OPTIONS} value={String(monthsBack)} onChange={(v) => setMonthsBack(Number(v))} />
+        </View>
+        <View style={styles.rangeBar}>
+          <TabFilter options={LENS_OPTIONS} value={mode} onChange={(v) => setMode(v as LensMode)} />
         </View>
 
         {isLoading ? (
@@ -125,52 +146,73 @@ export default function NetVarlikTrendPage() {
             <SkeletonListItem />
             <SkeletonListItem />
           </View>
-        ) : error ? (
+        ) : lens.current == null && !lens.available ? (
           <Card style={styles.card}>
-            <Text color="error" style={styles.centerText}>{t('reports:empty.dataLoadError')}</Text>
+            <Text color="secondary" style={styles.centerText}>{t('reports:netWorthTrend.noData')}</Text>
           </Card>
         ) : (
           <>
             {/* Özet şerit */}
-            {summary && (
-              <Card style={styles.card}>
-                <Text variant="caption" color="secondary" style={styles.summaryLabel}>
-                  {t('reports:netWorthTrend.currentStatus')}
-                </Text>
-                <Text
-                  style={[styles.bigValue, { color: summary.last.netWorth >= 0 ? colors.success : colors.error }]}
-                >
-                  {formatCurrency(summary.last.netWorth, baseCurrency)}
-                </Text>
-                <View style={styles.summaryCompareRow}>
-                  {summary.dir === 'up' ? (
-                    <TrendingUp size={16} color={colors.success} />
-                  ) : summary.dir === 'down' ? (
-                    <TrendingDown size={16} color={colors.error} />
-                  ) : (
-                    <Minus size={16} color={colors.textMuted} />
-                  )}
-                  <Text
-                    variant="body"
-                    style={{ color: summary.dir === 'up' ? colors.success : summary.dir === 'down' ? colors.error : colors.textMuted }}
-                  >
-                    {summary.diff >= 0 ? '+' : ''}{formatCurrency(summary.diff, baseCurrency)}
-                    {summary.pct !== null ? ` (${summary.pct >= 0 ? '+' : ''}${summary.pct.toFixed(1)}%)` : ''}
-                  </Text>
-                </View>
-                <Text variant="caption" color="secondary">
-                  {t('reports:netWorthTrend.sinceLabel', { period: summary.first.label, months: monthsBack })}
-                </Text>
-              </Card>
-            )}
+            <Card style={styles.card}>
+              <Text variant="caption" color="secondary" style={styles.summaryLabel}>
+                {t('reports:netWorthTrend.currentStatus')}
+                {mode === 'reel' ? ` · ${t('reports:netWorthTrend.realSubtitle')}` : ''}
+              </Text>
+              <Text style={[styles.bigValue, { color: (lens.current ?? 0) >= 0 ? colors.success : colors.error }]}>
+                {lens.current != null ? fmtValue(lens.current, unit) : '—'}
+              </Text>
 
-            {/* Çizgi grafik — sabit yükseklik, aralığa-göre ölçekli (tek ekran) */}
-            {chart && chart.data.length > 1 && (
+              {mode === 'nominal' ? (
+                lens.lensPct != null && (
+                  <View style={styles.summaryCompareRow}>
+                    {lens.lensPct >= 0 ? <TrendingUp size={16} color={colors.success} /> : <TrendingDown size={16} color={colors.error} />}
+                    <Text variant="body" style={{ color: lens.lensPct >= 0 ? colors.success : colors.error }}>
+                      {lens.lensPct >= 0 ? '+' : ''}{lens.lensPct.toFixed(1)}%
+                    </Text>
+                  </View>
+                )
+              ) : (
+                // Çift metrik: Nominal % vs lens %
+                lens.available && lens.lensPct != null && lens.nominalPct != null && (
+                  <View style={styles.dualRow}>
+                    <View style={styles.dualItem}>
+                      <Text variant="caption" color="secondary">{t('reports:netWorthTrend.shortNominal')}</Text>
+                      <Text variant="body" style={[styles.dualPct, { color: lens.nominalPct >= 0 ? colors.success : colors.error }]}>
+                        {lens.nominalPct >= 0 ? '+' : ''}{lens.nominalPct.toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View style={styles.dualDivider} />
+                    <View style={styles.dualItem}>
+                      <Text variant="caption" color="secondary">{shortLabel[mode]}</Text>
+                      <Text variant="body" style={[styles.dualPct, { color: lens.lensPct >= 0 ? colors.success : colors.error }]}>
+                        {lens.lensPct >= 0 ? '+' : ''}{lens.lensPct.toFixed(1)}%
+                      </Text>
+                    </View>
+                  </View>
+                )
+              )}
+
+              {/* İçgörü cümlesi (borç/varlık × enflasyon çerçevesi) */}
+              {lens.insight && (
+                <Text
+                  variant="caption"
+                  style={[styles.insight, { color: lens.insight.tone === 'up' ? colors.success : colors.error }]}
+                >
+                  {t(`reports:netWorthTrend.insight.${lens.insight.kind}`, {
+                    lens: t(`reports:netWorthTrend.basis.${mode}`),
+                    pct: Math.abs(lens.insight.lensPct),
+                    nom: lens.insight.nominalPct,
+                    months: monthsBack,
+                  })}
+                </Text>
+              )}
+            </Card>
+
+            {/* Çizgi grafik */}
+            {chart && chart.data.length > 1 ? (
               <Card style={styles.card}>
                 <View style={styles.chartHeaderRow}>
-                  <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                    {t('reports:netWorthTrend.chartTitle')}
-                  </Text>
+                  <Text variant="label" color="secondary" style={styles.sectionTitle}>{t('reports:netWorthTrend.chartTitle')}</Text>
                   <Text variant="caption" color="secondary">{t('reports:netWorthTrend.dragHint')}</Text>
                 </View>
                 <View style={styles.chartWrap}>
@@ -200,15 +242,13 @@ export default function NetVarlikTrendPage() {
                     rulesColor={colors.borderLight}
                     dashWidth={3}
                     dashGap={6}
-                    // Veri shift ile pozitife kaydırıldı → gerçek değeri geri ekleyip göster.
-                    formatYLabel={(val) => formatCurrencyCompact(Number(val) + chart.shift, baseCurrency)}
+                    formatYLabel={(val) => fmtCompact(Number(val) + chart.shift, unit)}
                     overflowTop={12}
                     initialSpacing={10}
                     endSpacing={10}
                     isAnimated
                     animationDuration={400}
                     adjustToWidth
-                    // ₺0 referans çizgisi — yalnız veri sıfırı geçiyorsa (artı/eksi sınırı belli olsun).
                     showReferenceLine1={chart.crossesZero}
                     referenceLine1Position={chart.zeroPos}
                     referenceLine1Config={{
@@ -216,11 +256,9 @@ export default function NetVarlikTrendPage() {
                       color: colors.textMuted,
                       dashWidth: 4,
                       dashGap: 4,
-                      labelText: '₺0',
+                      labelText: zeroLabel(unit),
                       labelTextStyle: { color: colors.textMuted, fontSize: 10 },
                     }}
-                    // SÜRÜKLE-GÖR imleç: basılı tutup kaydır → o ayın değeri + tarihi.
-                    // Uzun basış (kısa gecikme) → dikey sayfa kaydırma korunur.
                     pointerConfig={{
                       activatePointersOnLongPress: true,
                       activatePointersDelay: 120,
@@ -243,7 +281,7 @@ export default function NetVarlikTrendPage() {
                               {it.monthLabel} · {it.isCurrent ? t('reports:netWorthTrend.today') : t('reports:netWorthTrend.monthEnd')}
                             </Text>
                             <Text style={[styles.pointerValue, { color: v >= 0 ? colors.success : colors.error }]} numberOfLines={1}>
-                              {formatCurrency(v, baseCurrency)}
+                              {fmtValue(v, unit)}
                             </Text>
                           </View>
                         );
@@ -252,29 +290,31 @@ export default function NetVarlikTrendPage() {
                   />
                 </View>
               </Card>
-            )}
+            ) : mode !== 'nominal' ? (
+              <Card style={styles.card}>
+                <Text color="secondary" style={styles.centerText}>{t('reports:netWorthTrend.noData')}</Text>
+              </Card>
+            ) : null}
 
             {/* Aylık tablo */}
             <Card style={styles.card}>
-              <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                {t('reports:netWorthTrend.tableTitle')}
-              </Text>
+              <Text variant="label" color="secondary" style={styles.sectionTitle}>{t('reports:netWorthTrend.tableTitle')}</Text>
               <View style={styles.tableHeader}>
                 <Text variant="caption" color="secondary" style={styles.colMonth}>{t('reports:netWorthTrend.colMonth')}</Text>
                 <Text variant="caption" color="secondary" style={styles.colNet}>{t('reports:netWorthTrend.colNet')}</Text>
                 <Text variant="caption" color="secondary" style={styles.colDelta}>{t('reports:netWorthTrend.colChange')}</Text>
               </View>
-              {[...points].reverse().map((p: NetWorthTrendPoint, idx) => (
-                <View key={p.month} style={[styles.tableRow, idx < points.length - 1 && styles.tableRowBorder]}>
-                  <Text variant="body" style={styles.colMonth}>{p.label}</Text>
+              {[...tableRows].reverse().map((r, idx) => (
+                <View key={r.month} style={[styles.tableRow, idx < tableRows.length - 1 && styles.tableRowBorder]}>
+                  <Text variant="body" style={styles.colMonth}>{r.label}</Text>
                   <Text
                     variant="body"
-                    style={[styles.colNet, styles.netValue, { color: p.netWorth >= 0 ? colors.text : colors.error }]}
+                    style={[styles.colNet, styles.netValue, { color: r.value == null ? colors.textMuted : r.value >= 0 ? colors.text : colors.error }]}
                     numberOfLines={1}
                   >
-                    {formatCurrency(p.netWorth, baseCurrency)}
+                    {r.value != null ? fmtValue(r.value, unit) : '—'}
                   </Text>
-                  <View style={styles.colDelta}>{renderDelta(p.change)}</View>
+                  <View style={styles.colDelta}>{renderDelta(r.change)}</View>
                 </View>
               ))}
             </Card>
@@ -305,6 +345,11 @@ const styles = StyleSheet.create({
   summaryLabel: { textTransform: 'uppercase', letterSpacing: 0.5 },
   bigValue: { fontSize: 30, fontWeight: '700', marginTop: 2 },
   summaryCompareRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs, marginBottom: 2 },
+  dualRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm },
+  dualItem: { flex: 1, alignItems: 'center', gap: 2 },
+  dualDivider: { width: 1, height: 32, backgroundColor: colors.border },
+  dualPct: { fontWeight: '700', fontSize: fontSize.lg },
+  insight: { marginTop: spacing.sm, lineHeight: 17 },
 
   sectionTitle: { marginBottom: spacing.md },
   chartHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
