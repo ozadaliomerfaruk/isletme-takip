@@ -53,15 +53,32 @@ export default function NetVarlikTrendPage() {
   }, [points]);
 
   const chartWidth = windowWidth - spacing.lg * 4;
-  const chartData = useMemo(
-    () =>
-      points.map((p) => ({
-        value: p.netWorth,
-        label: p.label,
-        dataPointColor: colors.primary,
-      })),
-    [points]
-  );
+
+  // Grafik verisi + ARALIĞA-GÖRE ÖLÇEK (sıfırdan değil → tek ekrana sığar, trend belirgin).
+  // Yöntem: veriyi shift ile pozitife kaydır (böylece negatif "below-axis" mekanizması —
+  // grafiği 2 ekran yapan sebep — DEVREYE GİRMEZ), formatYLabel'da shift'i geri ekle.
+  // X eksenini seyreltme: ~6 etiket; yalnız son (bugünkü) nokta vurgulu.
+  const chart = useMemo(() => {
+    const n = points.length;
+    if (n === 0) return null;
+    const vals = points.map((p) => p.netWorth);
+    const minV = Math.min(...vals);
+    const maxV = Math.max(...vals);
+    let span = maxV - minV;
+    if (span < 1) span = Math.max(Math.abs(maxV), Math.abs(minV), 1); // düz seri → biraz aralık
+    const pad = span * 0.18; // overshoot + nefes payı
+    const shift = minV - pad; // grafiğin en altındaki gerçek değer
+    const maxValue = maxV + pad - shift; // toplam aralık (span + 2*pad)
+    const step = Math.max(1, Math.round(n / 6));
+    const data = points.map((p, i) => ({
+      value: p.netWorth - shift, // pozitife kaydır
+      label: i % step === 0 || i === n - 1 ? p.label : '',
+      hideDataPoint: i !== n - 1,
+      dataPointColor: colors.primary,
+      dataPointRadius: 4,
+    }));
+    return { data, shift, maxValue };
+  }, [points]);
 
   const renderDelta = (change: number) => {
     const up = change > 0.005;
@@ -141,35 +158,44 @@ export default function NetVarlikTrendPage() {
               </Card>
             )}
 
-            {/* Çizgi grafik */}
-            {chartData.length > 1 && (
+            {/* Çizgi grafik — sabit yükseklik, aralığa-göre ölçekli (tek ekran) */}
+            {chart && chart.data.length > 1 && (
               <Card style={styles.card}>
                 <Text variant="label" color="secondary" style={styles.sectionTitle}>
                   {t('reports:netWorthTrend.chartTitle')}
                 </Text>
                 <View style={styles.chartWrap}>
                   <LineChart
-                    data={chartData}
+                    data={chart.data}
                     width={chartWidth}
-                    height={180}
+                    height={190}
+                    maxValue={chart.maxValue}
+                    noOfSections={4}
                     thickness={2.5}
                     color={colors.primary}
+                    hideDataPoints={false}
                     dataPointsColor={colors.primary}
-                    dataPointsRadius={3}
                     areaChart
                     startFillColor={colors.primary}
-                    startOpacity={0.18}
+                    startOpacity={0.16}
                     endFillColor={colors.primary}
-                    endOpacity={0.02}
+                    endOpacity={0.01}
+                    curved
+                    curvature={0.18}
                     yAxisThickness={0}
                     xAxisThickness={1}
                     xAxisColor={colors.border}
                     yAxisTextStyle={styles.axisText}
                     xAxisLabelTextStyle={styles.axisText}
-                    hideRules
-                    noOfSections={4}
-                    formatYLabel={(val) => formatCurrencyCompact(Number(val), baseCurrency)}
-                    curved
+                    rulesType="dashed"
+                    rulesColor={colors.borderLight}
+                    dashWidth={3}
+                    dashGap={6}
+                    // Veri shift ile pozitife kaydırıldı → gerçek değeri geri ekleyip göster.
+                    formatYLabel={(val) => formatCurrencyCompact(Number(val) + chart.shift, baseCurrency)}
+                    overflowTop={10}
+                    initialSpacing={10}
+                    endSpacing={10}
                     isAnimated
                     animationDuration={400}
                     adjustToWidth
