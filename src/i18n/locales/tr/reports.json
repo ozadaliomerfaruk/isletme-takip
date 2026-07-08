@@ -25,6 +25,7 @@
   },
   "explore": {
     "genel": "Genel Durum",
+    "netWorthTrend": "Net Varlık Trendi",
     "gider": "Gider Analizi",
     "gelir": "Gelir Analizi",
     "nakit": "Nakit Akışı",
@@ -33,6 +34,21 @@
     "karsilastirma": "Karşılaştır",
     "kategoriDagilimi": "Gelir-Gider Dağılımı",
     "alisSatis": "Alış-Satış"
+  },
+  "netWorthTrend": {
+    "title": "Net Varlık Trendi",
+    "range6": "6 Ay",
+    "range12": "12 Ay",
+    "range24": "24 Ay",
+    "currentStatus": "GÜNCEL GENEL DURUM",
+    "sinceLabel": "{{months}} ayda ({{period}}'dan bugüne)",
+    "chartTitle": "Aylık net varlık",
+    "tableTitle": "AY AY GENEL DURUM",
+    "colMonth": "Ay",
+    "colNet": "Net Varlık",
+    "colChange": "Değişim",
+    "footnote": "Geçmiş aylar bugünkü kayıtlardan yeniden hesaplanır; sonradan silinen işlemler ve tarihsiz açılış bakiyeleri geçmişe birebir yansımayabilir.",
+    "footnoteFx": "Farklı para birimleri güncel kurla çevrilir; farklı dövizli hesaplar arası ödeme/transfer varsa geçmiş eğri kur dalgalanmasından etkilenebilir."
   },
   "tabs": {
     "general": "Genel",

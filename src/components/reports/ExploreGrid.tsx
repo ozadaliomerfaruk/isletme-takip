@@ -8,6 +8,7 @@ import {
   Users,
   GitCompareArrows,
   ShoppingCart,
+  TrendingUp,
 } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -19,6 +20,7 @@ interface ExploreGridProps {
 
 const REPORT_CARDS = [
   { id: 'genel', icon: BarChart3, labelKey: 'reports:explore.genel', route: '/raporlar/genel', color: colors.primary },
+  { id: 'net-varlik-trend', icon: TrendingUp, labelKey: 'reports:explore.netWorthTrend', route: '/raporlar/net-varlik-trend', color: colors.success },
   { id: 'kategori-dagilimi', icon: PieChart, labelKey: 'reports:explore.kategoriDagilimi', route: '/raporlar/gelir-gider', color: colors.info },
   { id: 'nakit', icon: Wallet, labelKey: 'reports:explore.nakit', route: '/nakit-akisi', color: colors.success },
   { id: 'cari', icon: Building2, labelKey: 'reports:explore.cari', route: '/raporlar/cari', color: colors.warning },

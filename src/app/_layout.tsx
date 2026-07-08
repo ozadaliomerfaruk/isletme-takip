@@ -586,6 +586,19 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen
+          name="raporlar/net-varlik-trend"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerBackVisible: true,
+            gestureEnabled: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('reports:netWorthTrend.title'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Nakit Akışı */}
         <Stack.Screen
           name="nakit-akisi/index"

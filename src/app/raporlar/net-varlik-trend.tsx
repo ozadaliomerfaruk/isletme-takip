@@ -1,0 +1,254 @@
+import { useState, useMemo, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, RefreshControl, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Stack } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { LineChart } from 'react-native-gifted-charts';
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
+import { Text, Card, TabFilter } from '@/components/ui';
+import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { logEvent } from '@/lib/appEvents';
+import { colors } from '@/constants/colors';
+import { spacing, fontSize } from '@/constants/spacing';
+import { formatCurrency, formatCurrencyCompact } from '@/lib/currency';
+import { useSettings } from '@/hooks/useSettings';
+import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
+import { useNetWorthTrend, NetWorthTrendPoint } from '@/hooks/useNetWorthTrend';
+
+/**
+ * AYLIK NET-VARLIK (GENEL DURUM) TREND RAPORU.
+ * Her ay-sonundaki genel durum (varlıklar + alacaklar − borçlar) — çizgi grafik + tablo.
+ * Son nokta canlı "genel durum" değerine demirlidir (bkz. useNetWorthTrend).
+ */
+export default function NetVarlikTrendPage() {
+  usePagePermission({ module: 'raporlar' });
+  useEffect(() => { logEvent('report_viewed', { report_type: 'net_worth_trend' }); }, []);
+  const { t } = useTranslation(['reports', 'common']);
+  const { currency: baseCurrency } = useSettings();
+  const { width: windowWidth } = useWindowDimensions();
+
+  const [monthsBack, setMonthsBack] = useState(12);
+  const { points, isLoading, isFetching, error, refetch } = useNetWorthTrend(monthsBack);
+
+  const { refreshing, onRefresh } = usePullToRefresh(refetch);
+  useRefetchOnFocus([refetch]);
+
+  const RANGE_OPTIONS = [
+    { label: t('reports:netWorthTrend.range6'), value: '6' },
+    { label: t('reports:netWorthTrend.range12'), value: '12' },
+    { label: t('reports:netWorthTrend.range24'), value: '24' },
+  ];
+
+  // Özet: bugün (son) + pencere başına göre değişim.
+  const summary = useMemo(() => {
+    if (points.length === 0) return null;
+    const last = points[points.length - 1];
+    const first = points[0];
+    const diff = last.netWorth - first.netWorth;
+    const pct = first.netWorth !== 0 ? (diff / Math.abs(first.netWorth)) * 100 : null;
+    const dir: 'up' | 'down' | 'flat' = diff > 0.005 ? 'up' : diff < -0.005 ? 'down' : 'flat';
+    return { last, first, diff, pct, dir };
+  }, [points]);
+
+  const chartWidth = windowWidth - spacing.lg * 4;
+  const chartData = useMemo(
+    () =>
+      points.map((p) => ({
+        value: p.netWorth,
+        label: p.label,
+        dataPointColor: colors.primary,
+      })),
+    [points]
+  );
+
+  const renderDelta = (change: number) => {
+    const up = change > 0.005;
+    const down = change < -0.005;
+    const color = up ? colors.success : down ? colors.error : colors.textMuted;
+    const Icon = up ? TrendingUp : down ? TrendingDown : Minus;
+    return (
+      <View style={styles.deltaCell}>
+        <Icon size={14} color={color} />
+        <Text style={[styles.deltaText, { color }]} numberOfLines={1}>
+          {up ? '+' : ''}{formatCurrency(change, baseCurrency)}
+        </Text>
+      </View>
+    );
+  };
+
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Stack.Screen options={{ headerTitle: t('reports:netWorthTrend.title') }} />
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+      >
+        {/* Aralık seçici */}
+        <View style={styles.rangeBar}>
+          <TabFilter
+            options={RANGE_OPTIONS}
+            value={String(monthsBack)}
+            onChange={(v) => setMonthsBack(Number(v))}
+          />
+        </View>
+
+        {isLoading ? (
+          <View style={styles.stateBox}>
+            <SkeletonListItem />
+            <SkeletonListItem />
+            <SkeletonListItem />
+          </View>
+        ) : error ? (
+          <Card style={styles.card}>
+            <Text color="error" style={styles.centerText}>{t('reports:empty.dataLoadError')}</Text>
+          </Card>
+        ) : (
+          <>
+            {/* Özet şerit */}
+            {summary && (
+              <Card style={styles.card}>
+                <Text variant="caption" color="secondary" style={styles.summaryLabel}>
+                  {t('reports:netWorthTrend.currentStatus')}
+                </Text>
+                <Text
+                  style={[styles.bigValue, { color: summary.last.netWorth >= 0 ? colors.success : colors.error }]}
+                >
+                  {formatCurrency(summary.last.netWorth, baseCurrency)}
+                </Text>
+                <View style={styles.summaryCompareRow}>
+                  {summary.dir === 'up' ? (
+                    <TrendingUp size={16} color={colors.success} />
+                  ) : summary.dir === 'down' ? (
+                    <TrendingDown size={16} color={colors.error} />
+                  ) : (
+                    <Minus size={16} color={colors.textMuted} />
+                  )}
+                  <Text
+                    variant="body"
+                    style={{ color: summary.dir === 'up' ? colors.success : summary.dir === 'down' ? colors.error : colors.textMuted }}
+                  >
+                    {summary.diff >= 0 ? '+' : ''}{formatCurrency(summary.diff, baseCurrency)}
+                    {summary.pct !== null ? ` (${summary.pct >= 0 ? '+' : ''}${summary.pct.toFixed(1)}%)` : ''}
+                  </Text>
+                </View>
+                <Text variant="caption" color="secondary">
+                  {t('reports:netWorthTrend.sinceLabel', { period: summary.first.label, months: monthsBack })}
+                </Text>
+              </Card>
+            )}
+
+            {/* Çizgi grafik */}
+            {chartData.length > 1 && (
+              <Card style={styles.card}>
+                <Text variant="label" color="secondary" style={styles.sectionTitle}>
+                  {t('reports:netWorthTrend.chartTitle')}
+                </Text>
+                <View style={styles.chartWrap}>
+                  <LineChart
+                    data={chartData}
+                    width={chartWidth}
+                    height={180}
+                    thickness={2.5}
+                    color={colors.primary}
+                    dataPointsColor={colors.primary}
+                    dataPointsRadius={3}
+                    areaChart
+                    startFillColor={colors.primary}
+                    startOpacity={0.18}
+                    endFillColor={colors.primary}
+                    endOpacity={0.02}
+                    yAxisThickness={0}
+                    xAxisThickness={1}
+                    xAxisColor={colors.border}
+                    yAxisTextStyle={styles.axisText}
+                    xAxisLabelTextStyle={styles.axisText}
+                    hideRules
+                    noOfSections={4}
+                    formatYLabel={(val) => formatCurrencyCompact(Number(val), baseCurrency)}
+                    curved
+                    isAnimated
+                    animationDuration={400}
+                    adjustToWidth
+                  />
+                </View>
+              </Card>
+            )}
+
+            {/* Aylık tablo */}
+            <Card style={styles.card}>
+              <Text variant="label" color="secondary" style={styles.sectionTitle}>
+                {t('reports:netWorthTrend.tableTitle')}
+              </Text>
+              <View style={styles.tableHeader}>
+                <Text variant="caption" color="secondary" style={styles.colMonth}>{t('reports:netWorthTrend.colMonth')}</Text>
+                <Text variant="caption" color="secondary" style={styles.colNet}>{t('reports:netWorthTrend.colNet')}</Text>
+                <Text variant="caption" color="secondary" style={styles.colDelta}>{t('reports:netWorthTrend.colChange')}</Text>
+              </View>
+              {[...points].reverse().map((p: NetWorthTrendPoint, idx) => (
+                <View key={p.month} style={[styles.tableRow, idx < points.length - 1 && styles.tableRowBorder]}>
+                  <Text variant="body" style={styles.colMonth}>{p.label}</Text>
+                  <Text
+                    variant="body"
+                    style={[styles.colNet, styles.netValue, { color: p.netWorth >= 0 ? colors.text : colors.error }]}
+                    numberOfLines={1}
+                  >
+                    {formatCurrency(p.netWorth, baseCurrency)}
+                  </Text>
+                  <View style={styles.colDelta}>{renderDelta(p.change)}</View>
+                </View>
+              ))}
+            </Card>
+
+            {/* Şeffaflık dipnotu */}
+            <Text variant="caption" color="secondary" style={styles.footnote}>
+              {t('reports:netWorthTrend.footnote')} {t('reports:netWorthTrend.footnoteFx')}
+            </Text>
+          </>
+        )}
+
+        {isFetching && !isLoading ? (
+          <Text variant="caption" color="secondary" style={styles.centerText}>{t('common:status.loading')}</Text>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.lg, paddingBottom: spacing['3xl'], gap: spacing.md },
+  rangeBar: { marginBottom: spacing.xs },
+  card: { padding: spacing.lg },
+  stateBox: { gap: spacing.sm },
+  centerText: { textAlign: 'center' },
+
+  summaryLabel: { textTransform: 'uppercase', letterSpacing: 0.5 },
+  bigValue: { fontSize: 30, fontWeight: '700', marginTop: 2 },
+  summaryCompareRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs, marginBottom: 2 },
+
+  sectionTitle: { marginBottom: spacing.md },
+  chartWrap: { marginLeft: -spacing.sm },
+  axisText: { fontSize: 10, color: colors.textMuted },
+
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm },
+  tableRowBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  colMonth: { flex: 1.1 },
+  colNet: { flex: 1.6, textAlign: 'right' },
+  colDelta: { flex: 1.6, alignItems: 'flex-end' },
+  netValue: { fontWeight: '700', fontSize: fontSize.lg },
+  deltaCell: { flexDirection: 'row', alignItems: 'center', gap: 3, justifyContent: 'flex-end' },
+  deltaText: { fontWeight: '600', fontSize: fontSize.sm },
+
+  footnote: { lineHeight: 16, paddingHorizontal: spacing.xs },
+});

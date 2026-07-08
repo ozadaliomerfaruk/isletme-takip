@@ -25,6 +25,7 @@
   },
   "explore": {
     "genel": "Overview",
+    "netWorthTrend": "Net Worth Trend",
     "gider": "Expense Analysis",
     "gelir": "Income Analysis",
     "nakit": "Cash Flow",
@@ -33,6 +34,21 @@
     "karsilastirma": "Compare",
     "kategoriDagilimi": "Income-Expense Distribution",
     "alisSatis": "Purchases"
+  },
+  "netWorthTrend": {
+    "title": "Net Worth Trend",
+    "range6": "6 Months",
+    "range12": "12 Months",
+    "range24": "24 Months",
+    "currentStatus": "CURRENT NET WORTH",
+    "sinceLabel": "over {{months}} months (since {{period}})",
+    "chartTitle": "Monthly net worth",
+    "tableTitle": "MONTH-BY-MONTH NET WORTH",
+    "colMonth": "Month",
+    "colNet": "Net Worth",
+    "colChange": "Change",
+    "footnote": "Past months are recalculated from today's records; deleted transactions and undated opening balances may not reflect exactly in history.",
+    "footnoteFx": "Different currencies are converted at current rates; cross-currency payments or transfers between accounts can distort the historical curve as rates move."
   },
   "tabs": {
     "general": "General",

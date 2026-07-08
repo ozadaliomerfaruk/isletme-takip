@@ -91,6 +91,8 @@ export const queryKeys = {
       ['account-transactions', isletmeId, hesapId, type, startDate, endDate] as const,
     incomeBySource: (isletmeId: string, startDate: string, endDate: string) =>
       ['income-by-source', isletmeId, startDate, endDate] as const,
+    networthTrend: (isletmeId: string, monthsBack: number) =>
+      ['networth-trend', isletmeId, monthsBack] as const,
     incomeSourceTransactions: (isletmeId: string, kind: string, sourceId: string, startDate: string, endDate: string) =>
       ['income-source-transactions', isletmeId, kind, sourceId, startDate, endDate] as const,
     categoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
@@ -321,6 +323,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'account-transactions',
       'income-by-source',
       'income-source-transactions',
+      'networth-trend',
       'hierarchical-category-report',
       'category-report-returns',
       'hierarchical-category-report-returns',
@@ -455,6 +458,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'account-transactions',
       'income-by-source',
       'income-source-transactions',
+      'networth-trend',
       'hierarchical-category-report',
       'category-transactions',
       'multi-category-transactions',
@@ -512,6 +516,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'account-transactions',
       'income-by-source',
       'income-source-transactions',
+      'networth-trend',
       'hierarchical-category-report',
       'category-transactions',
       'multi-category-transactions',
