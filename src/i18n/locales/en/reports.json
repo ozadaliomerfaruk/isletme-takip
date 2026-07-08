@@ -43,6 +43,7 @@
     "currentStatus": "CURRENT NET WORTH",
     "sinceLabel": "over {{months}} months (since {{period}})",
     "chartTitle": "Monthly net worth",
+    "dragHint": "Press & drag",
     "tableTitle": "MONTH-BY-MONTH NET WORTH",
     "colMonth": "Month",
     "colNet": "Net Worth",

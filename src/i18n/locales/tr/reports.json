@@ -43,6 +43,7 @@
     "currentStatus": "GÜNCEL GENEL DURUM",
     "sinceLabel": "{{months}} ayda ({{period}}'dan bugüne)",
     "chartTitle": "Aylık net varlık",
+    "dragHint": "Basılı tutup kaydır",
     "tableTitle": "AY AY GENEL DURUM",
     "colMonth": "Ay",
     "colNet": "Net Varlık",

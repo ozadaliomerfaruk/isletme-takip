@@ -71,13 +71,18 @@ export default function NetVarlikTrendPage() {
     const maxValue = maxV + pad - shift; // toplam aralık (span + 2*pad)
     const step = Math.max(1, Math.round(n / 6));
     const data = points.map((p, i) => ({
-      value: p.netWorth - shift, // pozitife kaydır
-      label: i % step === 0 || i === n - 1 ? p.label : '',
-      hideDataPoint: i !== n - 1,
+      value: p.netWorth - shift, // pozitife kaydır (negatif "below-axis" şişmesini önle)
+      label: i % step === 0 || i === n - 1 ? p.label : '', // X ekseni seyrek
+      monthLabel: p.label, // imleç balonu için (her nokta)
+      trueValue: p.netWorth, // imleç balonu için gerçek değer
+      hideDataPoint: i !== n - 1, // yalnız son (bugünkü) nokta
       dataPointColor: colors.primary,
       dataPointRadius: 4,
     }));
-    return { data, shift, maxValue };
+    // Sıfır çizgisi: yalnız veri sıfırı GEÇİYORSA anlamlı (aksi halde renk/değer yeterli).
+    const crossesZero = minV < 0 && maxV > 0;
+    const zeroPos = -shift; // kaydırılmış uzayda gerçek-sıfırın konumu (değer)
+    return { data, shift, maxValue, crossesZero, zeroPos };
   }, [points]);
 
   const renderDelta = (change: number) => {
@@ -161,9 +166,12 @@ export default function NetVarlikTrendPage() {
             {/* Çizgi grafik — sabit yükseklik, aralığa-göre ölçekli (tek ekran) */}
             {chart && chart.data.length > 1 && (
               <Card style={styles.card}>
-                <Text variant="label" color="secondary" style={styles.sectionTitle}>
-                  {t('reports:netWorthTrend.chartTitle')}
-                </Text>
+                <View style={styles.chartHeaderRow}>
+                  <Text variant="label" color="secondary" style={styles.sectionTitle}>
+                    {t('reports:netWorthTrend.chartTitle')}
+                  </Text>
+                  <Text variant="caption" color="secondary">{t('reports:netWorthTrend.dragHint')}</Text>
+                </View>
                 <View style={styles.chartWrap}>
                   <LineChart
                     data={chart.data}
@@ -193,12 +201,51 @@ export default function NetVarlikTrendPage() {
                     dashGap={6}
                     // Veri shift ile pozitife kaydırıldı → gerçek değeri geri ekleyip göster.
                     formatYLabel={(val) => formatCurrencyCompact(Number(val) + chart.shift, baseCurrency)}
-                    overflowTop={10}
+                    overflowTop={12}
                     initialSpacing={10}
                     endSpacing={10}
                     isAnimated
                     animationDuration={400}
                     adjustToWidth
+                    // ₺0 referans çizgisi — yalnız veri sıfırı geçiyorsa (artı/eksi sınırı belli olsun).
+                    showReferenceLine1={chart.crossesZero}
+                    referenceLine1Position={chart.zeroPos}
+                    referenceLine1Config={{
+                      thickness: 1,
+                      color: colors.textMuted,
+                      dashWidth: 4,
+                      dashGap: 4,
+                      labelText: '₺0',
+                      labelTextStyle: { color: colors.textMuted, fontSize: 10 },
+                    }}
+                    // SÜRÜKLE-GÖR imleç: basılı tutup kaydır → o ayın değeri + tarihi.
+                    // Uzun basış (kısa gecikme) → dikey sayfa kaydırma korunur.
+                    pointerConfig={{
+                      activatePointersOnLongPress: true,
+                      activatePointersDelay: 120,
+                      pointerVanishDelay: 2500,
+                      autoAdjustPointerLabelPosition: true,
+                      pointerColor: colors.primary,
+                      radius: 5,
+                      pointerStripColor: colors.border,
+                      pointerStripWidth: 1,
+                      strokeDashArray: [3, 4],
+                      pointerLabelWidth: 130,
+                      pointerLabelHeight: 52,
+                      pointerLabelComponent: (items: Array<{ trueValue?: number; monthLabel?: string }>) => {
+                        const it = items?.[0];
+                        if (!it) return null;
+                        const v = it.trueValue ?? 0;
+                        return (
+                          <View style={styles.pointerLabel}>
+                            <Text style={styles.pointerMonth} numberOfLines={1}>{it.monthLabel}</Text>
+                            <Text style={[styles.pointerValue, { color: v >= 0 ? colors.success : colors.error }]} numberOfLines={1}>
+                              {formatCurrency(v, baseCurrency)}
+                            </Text>
+                          </View>
+                        );
+                      },
+                    }}
                   />
                 </View>
               </Card>
@@ -257,8 +304,25 @@ const styles = StyleSheet.create({
   summaryCompareRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs, marginBottom: 2 },
 
   sectionTitle: { marginBottom: spacing.md },
+  chartHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   chartWrap: { marginLeft: -spacing.sm },
   axisText: { fontSize: 10, color: colors.textMuted },
+  pointerLabel: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  pointerMonth: { fontSize: 11, color: colors.textMuted, marginBottom: 1 },
+  pointerValue: { fontSize: 14, fontWeight: '700' },
 
   tableHeader: {
     flexDirection: 'row',
