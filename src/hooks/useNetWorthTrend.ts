@@ -21,8 +21,10 @@ import { useExchangeRates, convertCurrency } from './useExchangeRates';
  * işlemler ve tarihsiz açılış bakiyeleri geçmişe birebir yansımayabilir; kurlar günceldir.
  */
 export interface NetWorthTrendPoint {
-  month: string;    // 'YYYY-MM'
-  label: string;    // 'Tem 26'
+  month: string;     // 'YYYY-MM'
+  label: string;     // X ekseni (kısa) 'Tem'26'
+  labelFull: string; // imleç balonu (net) 'Temmuz 2026'
+  isCurrent: boolean;// bu ay mı (değer "bugüne", geçmiş aylar "ay sonu"na kadar)
   netWorth: number; // ay-sonu net varlık (ana para birimi)
   change: number;   // önceki aya göre değişim = o ayın P&L neti (ana para birimi)
   income: number;
@@ -50,6 +52,13 @@ export function useNetWorthTrend(monthsBack: number) {
     return Array.isArray(m) && m.every((x) => typeof x === 'string')
       ? (m as string[])
       : ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+  }, [t]);
+
+  const monthsFull = useMemo(() => {
+    const m = t('date.months', { returnObjects: true });
+    return Array.isArray(m) && m.every((x) => typeof x === 'string')
+      ? (m as string[])
+      : ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'];
   }, [t]);
 
   // Pencere: (monthsBack-1) ay öncesinden bu ayın sonuna kadar (cihaz-yerel takvim ayları).
@@ -153,14 +162,16 @@ export function useNetWorthTrend(monthsBack: number) {
 
     return asc.map((mo, i) => ({
       month: mo.key,
-      label: `${monthsShort[mo.m]} ${String(mo.y).slice(-2)}`,
+      label: `${monthsShort[mo.m]}'${String(mo.y).slice(-2)}`, // 'Tem'26 (kısa, yıl apostroflu)
+      labelFull: `${monthsFull[mo.m]} ${mo.y}`, // 'Temmuz 2026' (imleç için net)
+      isCurrent: i === asc.length - 1, // pencerenin son ayı = bu ay
       netWorth: nw[i],
       // Aylık değişim = o ayın P&L neti + o ay eklenen açılışlar (= NW_end[i] − NW_end[i-1]).
       change: roundCurrency(mo.net + mo.opening),
       income: roundCurrency(mo.income),
       expense: roundCurrency(mo.expense),
     }));
-  }, [query.data, openingQuery.data, window.months, generalStatus, baseCurrency, rates, monthsShort]);
+  }, [query.data, openingQuery.data, window.months, generalStatus, baseCurrency, rates, monthsShort, monthsFull]);
 
   const refetch = useCallback(async () => {
     await Promise.all([query.refetch(), openingQuery.refetch()]);

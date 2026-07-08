@@ -44,6 +44,8 @@
     "sinceLabel": "{{months}} ayda ({{period}}'dan bugüne)",
     "chartTitle": "Aylık net varlık",
     "dragHint": "Basılı tutup kaydır",
+    "today": "bugün",
+    "monthEnd": "ay sonu",
     "tableTitle": "AY AY GENEL DURUM",
     "colMonth": "Ay",
     "colNet": "Net Varlık",

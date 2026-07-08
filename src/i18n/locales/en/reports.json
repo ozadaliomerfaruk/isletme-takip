@@ -44,6 +44,8 @@
     "sinceLabel": "over {{months}} months (since {{period}})",
     "chartTitle": "Monthly net worth",
     "dragHint": "Press & drag",
+    "today": "today",
+    "monthEnd": "month end",
     "tableTitle": "MONTH-BY-MONTH NET WORTH",
     "colMonth": "Month",
     "colNet": "Net Worth",

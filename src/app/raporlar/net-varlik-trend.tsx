@@ -72,8 +72,9 @@ export default function NetVarlikTrendPage() {
     const step = Math.max(1, Math.round(n / 6));
     const data = points.map((p, i) => ({
       value: p.netWorth - shift, // pozitife kaydır (negatif "below-axis" şişmesini önle)
-      label: i % step === 0 || i === n - 1 ? p.label : '', // X ekseni seyrek
-      monthLabel: p.label, // imleç balonu için (her nokta)
+      label: i % step === 0 || i === n - 1 ? p.label : '', // X ekseni seyrek (kısa 'Tem'26)
+      monthLabel: p.labelFull, // imleç balonu için net etiket ('Temmuz 2026')
+      isCurrent: p.isCurrent, // bu ay mı (bugün vs ay sonu)
       trueValue: p.netWorth, // imleç balonu için gerçek değer
       hideDataPoint: i !== n - 1, // yalnız son (bugünkü) nokta
       dataPointColor: colors.primary,
@@ -230,15 +231,17 @@ export default function NetVarlikTrendPage() {
                       pointerStripColor: colors.border,
                       pointerStripWidth: 1,
                       strokeDashArray: [3, 4],
-                      pointerLabelWidth: 130,
+                      pointerLabelWidth: 150,
                       pointerLabelHeight: 52,
-                      pointerLabelComponent: (items: Array<{ trueValue?: number; monthLabel?: string }>) => {
+                      pointerLabelComponent: (items: Array<{ trueValue?: number; monthLabel?: string; isCurrent?: boolean }>) => {
                         const it = items?.[0];
                         if (!it) return null;
                         const v = it.trueValue ?? 0;
                         return (
                           <View style={styles.pointerLabel}>
-                            <Text style={styles.pointerMonth} numberOfLines={1}>{it.monthLabel}</Text>
+                            <Text style={styles.pointerMonth} numberOfLines={1}>
+                              {it.monthLabel} · {it.isCurrent ? t('reports:netWorthTrend.today') : t('reports:netWorthTrend.monthEnd')}
+                            </Text>
                             <Text style={[styles.pointerValue, { color: v >= 0 ? colors.success : colors.error }]} numberOfLines={1}>
                               {formatCurrency(v, baseCurrency)}
                             </Text>
