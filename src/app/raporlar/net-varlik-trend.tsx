@@ -14,22 +14,22 @@ import { formatCurrency, formatCurrencyCompact, formatQuantity } from '@/lib/cur
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
-import { useNetWorthLenses, LensMode, LensUnit } from '@/hooks/useNetWorthLenses';
+import { useNetWorthLenses, LensMode } from '@/hooks/useNetWorthLenses';
 
 /**
  * AYLIK NET-VARLIK (GENEL DURUM) TREND RAPORU — çoklu lens (Nominal ₺ / Reel ₺ / USD / EUR /
  * Gram Altın). Reel = enflasyona göre bugünün lirası; döviz/altın = o ayki kur. Amaç: paranın
  * zaman değerini göstermek. Son nokta canlı "genel durum"a demirlidir.
  */
-const CCY: Record<Exclude<LensUnit, 'gram'>, string> = { try: 'TRY', usd: 'USD', eur: 'EUR' };
-function fmtValue(v: number, unit: LensUnit): string {
-  return unit === 'gram' ? `${formatQuantity(v)} gr` : formatCurrency(v, CCY[unit]);
+// ccy: para birimi kodu ('TRY'|'USD'|'EUR'|'GBP'...) ya da 'gram' (altın).
+function fmtValue(v: number, ccy: string): string {
+  return ccy === 'gram' ? `${formatQuantity(v)} gr` : formatCurrency(v, ccy);
 }
-function fmtCompact(v: number, unit: LensUnit): string {
-  return unit === 'gram' ? `${formatQuantity(v)}` : formatCurrencyCompact(v, CCY[unit]);
+function fmtCompact(v: number, ccy: string): string {
+  return ccy === 'gram' ? `${formatQuantity(v)}` : formatCurrencyCompact(v, ccy);
 }
-function zeroLabel(unit: LensUnit): string {
-  return unit === 'gram' ? '0 gr' : fmtValue(0, unit);
+function zeroLabel(ccy: string): string {
+  return ccy === 'gram' ? '0 gr' : fmtValue(0, ccy);
 }
 
 export default function NetVarlikTrendPage() {
@@ -40,8 +40,13 @@ export default function NetVarlikTrendPage() {
 
   const [monthsBack, setMonthsBack] = useState(12);
   const [mode, setMode] = useState<LensMode>('nominal');
-  const { byMode, isLoading, isFetching, refetch } = useNetWorthLenses(monthsBack);
+  const { byMode, baseCurrency, repricingSupported, isLoading, isFetching, refetch } = useNetWorthLenses(monthsBack);
   const lens = byMode[mode];
+
+  // TRY-base değilse repricing lensleri desteklenmez → yalnız Nominal; başka moda geçilmişse geri al.
+  useEffect(() => {
+    if (!repricingSupported && mode !== 'nominal') setMode('nominal');
+  }, [repricingSupported, mode]);
 
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   useRefetchOnFocus([refetch]);
@@ -51,13 +56,15 @@ export default function NetVarlikTrendPage() {
     { label: t('reports:netWorthTrend.range12'), value: '12' },
     { label: t('reports:netWorthTrend.range24'), value: '24' },
   ];
-  const LENS_OPTIONS = [
-    { label: t('reports:netWorthTrend.lensNominal'), value: 'nominal' },
-    { label: t('reports:netWorthTrend.lensReal'), value: 'reel' },
-    { label: 'USD', value: 'usd' },
-    { label: 'EUR', value: 'eur' },
-    { label: t('reports:netWorthTrend.lensGold'), value: 'altin' },
-  ];
+  const LENS_OPTIONS = repricingSupported
+    ? [
+        { label: t('reports:netWorthTrend.lensNominal'), value: 'nominal' },
+        { label: t('reports:netWorthTrend.lensReal'), value: 'reel' },
+        { label: 'USD', value: 'usd' },
+        { label: 'EUR', value: 'eur' },
+        { label: t('reports:netWorthTrend.lensGold'), value: 'altin' },
+      ]
+    : [{ label: t('reports:netWorthTrend.lensNominal'), value: 'nominal' }];
   const shortLabel: Record<LensMode, string> = {
     nominal: t('reports:netWorthTrend.shortNominal'),
     reel: t('reports:netWorthTrend.shortReal'),
@@ -66,7 +73,9 @@ export default function NetVarlikTrendPage() {
   };
 
   const chartWidth = windowWidth - spacing.lg * 4;
-  const unit = lens.unit;
+  // Gösterim para birimi: nominal → ana para birimi (TRY/USD/EUR/GBP); reel → TRY; usd/eur → USD/EUR;
+  // altın → gram. (Repricing yalnız TRY-base'de aktif olduğundan reel her zaman TRY'dir.)
+  const dispCcy = mode === 'nominal' ? baseCurrency : mode === 'reel' ? 'TRY' : mode === 'usd' ? 'USD' : mode === 'eur' ? 'EUR' : 'gram';
 
   // Grafik: seçili lensin değerleriyle, aralığa-göre ölçek (shift ile pozitife kaydır → tek
   // ekran, negatif "below-axis" şişmesi yok). Null (eksik gösterge) noktalar hariç.
@@ -117,7 +126,7 @@ export default function NetVarlikTrendPage() {
       <View style={styles.deltaCell}>
         <Icon size={14} color={color} />
         <Text style={[styles.deltaText, { color }]} numberOfLines={1}>
-          {up ? '+' : ''}{fmtValue(change, unit)}
+          {up ? '+' : ''}{fmtValue(change, dispCcy)}
         </Text>
       </View>
     );
@@ -159,7 +168,7 @@ export default function NetVarlikTrendPage() {
                 {mode === 'reel' ? ` · ${t('reports:netWorthTrend.realSubtitle')}` : ''}
               </Text>
               <Text style={[styles.bigValue, { color: (lens.current ?? 0) >= 0 ? colors.success : colors.error }]}>
-                {lens.current != null ? fmtValue(lens.current, unit) : '—'}
+                {lens.current != null ? fmtValue(lens.current, dispCcy) : '—'}
               </Text>
 
               {mode === 'nominal' ? (
@@ -242,7 +251,7 @@ export default function NetVarlikTrendPage() {
                     rulesColor={colors.borderLight}
                     dashWidth={3}
                     dashGap={6}
-                    formatYLabel={(val) => fmtCompact(Number(val) + chart.shift, unit)}
+                    formatYLabel={(val) => fmtCompact(Number(val) + chart.shift, dispCcy)}
                     overflowTop={12}
                     initialSpacing={10}
                     endSpacing={10}
@@ -256,7 +265,7 @@ export default function NetVarlikTrendPage() {
                       color: colors.textMuted,
                       dashWidth: 4,
                       dashGap: 4,
-                      labelText: zeroLabel(unit),
+                      labelText: zeroLabel(dispCcy),
                       labelTextStyle: { color: colors.textMuted, fontSize: 10 },
                     }}
                     pointerConfig={{
@@ -281,7 +290,7 @@ export default function NetVarlikTrendPage() {
                               {it.monthLabel} · {it.isCurrent ? t('reports:netWorthTrend.today') : t('reports:netWorthTrend.monthEnd')}
                             </Text>
                             <Text style={[styles.pointerValue, { color: v >= 0 ? colors.success : colors.error }]} numberOfLines={1}>
-                              {fmtValue(v, unit)}
+                              {fmtValue(v, dispCcy)}
                             </Text>
                           </View>
                         );
@@ -312,7 +321,7 @@ export default function NetVarlikTrendPage() {
                     style={[styles.colNet, styles.netValue, { color: r.value == null ? colors.textMuted : r.value >= 0 ? colors.text : colors.error }]}
                     numberOfLines={1}
                   >
-                    {r.value != null ? fmtValue(r.value, unit) : '—'}
+                    {r.value != null ? fmtValue(r.value, dispCcy) : '—'}
                   </Text>
                   <View style={styles.colDelta}>{renderDelta(r.change)}</View>
                 </View>

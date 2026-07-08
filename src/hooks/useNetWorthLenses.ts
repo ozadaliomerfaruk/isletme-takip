@@ -3,6 +3,7 @@ import { roundCurrency } from '@/lib/currency';
 import { useNetWorthTrend, NetWorthTrendPoint } from './useNetWorthTrend';
 import { useEconomicIndicators } from './useEconomicIndicators';
 import { useExchangeRates } from './useExchangeRates';
+import { useSettings } from './useSettings';
 
 /**
  * NET-VARLIK LENSLERİ: nominal TRY seriyi (useNetWorthTrend) farklı "gerçek değer"
@@ -48,6 +49,11 @@ export interface LensResult {
 export function useNetWorthLenses(monthsBack: number) {
   const trend = useNetWorthTrend(monthsBack);
   const points = trend.points;
+  // Repricing (reel/usd/eur/altın) ekonomik_gostergeler'in TRY-referanslı olmasına + points'in
+  // TRY nominal olmasına dayanır. Ana para birimi TRY DEĞİLSE (useNetWorthTrend base'e çevirir)
+  // bu lensler yanlış olur (+ TÜFE Türk enflasyonu, dövizde anlamsız) → yalnız TRY-base'de sun.
+  const { currency: baseCurrency } = useSettings();
+  const repricingSupported = baseCurrency === 'TRY';
 
   const startMonth = points.length ? `${points[0].month}-01` : '';
   const endMonth = points.length ? `${points[points.length - 1].month}-01` : '';
@@ -82,8 +88,9 @@ export function useNetWorthLenses(monthsBack: number) {
     };
 
     const value = (p: NetWorthTrendPoint, mode: LensMode): number | null => {
-      const N = p.netWorth; // nominal TRY
+      const N = p.netWorth; // nominal (ana para birimi; TRY-base'de TRY)
       if (mode === 'nominal') return N;
+      if (!repricingSupported) return null; // TRY-base değilse repricing lensleri kapalı
       const ind = indFor(p);
       if (mode === 'reel') {
         const eff = effTufe.get(p.month);
@@ -142,10 +149,12 @@ export function useNetWorthLenses(monthsBack: number) {
       eur: build('eur'),
       altin: build('altin'),
     };
-  }, [points, indicators, live]);
+  }, [points, indicators, live, repricingSupported]);
 
   return {
     byMode,
+    baseCurrency,
+    repricingSupported,
     isLoading: trend.isLoading || indLoading,
     isFetching: trend.isFetching,
     refetch: trend.refetch,
