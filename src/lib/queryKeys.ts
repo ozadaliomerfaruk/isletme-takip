@@ -95,6 +95,8 @@ export const queryKeys = {
       ['networth-trend', isletmeId, monthsBack] as const,
     networthOpening: (isletmeId: string, monthsBack: number) =>
       ['networth-opening', isletmeId, monthsBack] as const,
+    economicIndicators: (startMonth: string, endMonth: string) =>
+      ['economic-indicators', startMonth, endMonth] as const,
     incomeSourceTransactions: (isletmeId: string, kind: string, sourceId: string, startDate: string, endDate: string) =>
       ['income-source-transactions', isletmeId, kind, sourceId, startDate, endDate] as const,
     categoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
