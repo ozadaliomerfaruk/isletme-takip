@@ -81,6 +81,18 @@ export function useNetWorthLenses(monthsBack: number) {
       if (lastT != null) effTufe.set(p.month, lastT);
     }
 
+    // Forward-fill gram altın (EVDS Kapalıçarşı, aylık ay-sonu). Altın merceği CARİ AY dahil
+    // TÜM aylarda bu tabloyu kullanır (canlı spot XAU DEĞİL) → kaynak-kopukluğu olmaz
+    // (geçmiş Kapalıçarşı ~%3.4 primli; canlı spot ile karışırsa son noktada kırık oluşurdu).
+    // Cari ay tablo satırı boşsa (EVDS henüz o ayı yayımlamadıysa) son bilinen değeri taşır.
+    const effGold = new Map<string, number>();
+    let lastG: number | null = null;
+    for (const p of points) {
+      const raw = indicators?.byMonth.get(p.month)?.gram_altin_try ?? null;
+      if (raw != null) lastG = raw;
+      if (lastG != null) effGold.set(p.month, lastG);
+    }
+
     const indFor = (p: NetWorthTrendPoint) => {
       if (p.isCurrent) return liveInd;
       const r = indicators?.byMonth.get(p.month);
@@ -96,10 +108,14 @@ export function useNetWorthLenses(monthsBack: number) {
         const eff = effTufe.get(p.month);
         return eff && latestTufe ? roundCurrency((N * latestTufe) / eff) : null;
       }
+      if (mode === 'altin') {
+        // Altın: canlı spot (ind.gram_altin_try) DEĞİL → forward-fill'li tablo (Kapalıçarşı) kullan.
+        const g = effGold.get(p.month);
+        return g ? Math.round((N / g) * 100) / 100 : null;
+      }
       if (!ind) return null;
       if (mode === 'usd') return ind.usd_try ? roundCurrency(N / ind.usd_try) : null;
       if (mode === 'eur') return ind.eur_try ? roundCurrency(N / ind.eur_try) : null;
-      if (mode === 'altin') return ind.gram_altin_try ? Math.round((N / ind.gram_altin_try) * 100) / 100 : null;
       return null;
     };
 

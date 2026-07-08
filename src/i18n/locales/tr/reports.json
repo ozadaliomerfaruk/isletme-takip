@@ -37,6 +37,15 @@
   },
   "netWorthTrend": {
     "title": "Net Varlık Trendi",
+    "intro": "İşletmenin genel durumunu (tüm varlıkların − borçların) her ayın sonundaki haliyle gösterir. Böylece zaman içinde büyüyor musun, tek bakışta görürsün.",
+    "introTabs": "Sekmelerle aynı net varlığı farklı gözle görebilirsin: enflasyona göre (reel), dolar, euro ya da gram altın olarak.",
+    "lensDesc": {
+      "nominal": "TL cinsinden birebir tutar.",
+      "reel": "Enflasyondan arındırılmış: bugünün lirasıyla gerçek alım gücü. Rakam aynı kalsa bile alım gücü değişmiş olabilir.",
+      "usd": "Net varlığın kaç ABD dolarına denk geliyor.",
+      "eur": "Net varlığın kaç euroya denk geliyor.",
+      "altin": "Net varlığın kaç gram altına denk geliyor."
+    },
     "range6": "6 Ay",
     "range12": "12 Ay",
     "range24": "24 Ay",

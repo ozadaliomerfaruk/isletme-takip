@@ -141,6 +141,16 @@ export default function NetVarlikTrendPage() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
+        {/* Bu sayfa ne işe yarar? — esnaf için sade açıklama */}
+        <Card style={styles.introCard}>
+          <Text variant="bodySmall" style={styles.introLead}>{t('reports:netWorthTrend.intro')}</Text>
+          {repricingSupported && (
+            <Text variant="bodySmall" color="secondary" style={styles.introText}>
+              {t('reports:netWorthTrend.introTabs')}
+            </Text>
+          )}
+        </Card>
+
         {/* Aralık + Lens seçiciler */}
         <View style={styles.rangeBar}>
           <TabFilter options={RANGE_OPTIONS} value={String(monthsBack)} onChange={(v) => setMonthsBack(Number(v))} />
@@ -148,6 +158,10 @@ export default function NetVarlikTrendPage() {
         <View style={styles.rangeBar}>
           <TabFilter options={LENS_OPTIONS} value={mode} onChange={(v) => setMode(v as LensMode)} />
         </View>
+        {/* Seçili sekmenin ne gösterdiğini sade anlat */}
+        <Text variant="bodySmall" color="secondary" style={styles.lensDesc}>
+          {t(`reports:netWorthTrend.lensDesc.${mode}`)}
+        </Text>
 
         {isLoading ? (
           <View style={styles.stateBox}>
@@ -204,7 +218,7 @@ export default function NetVarlikTrendPage() {
               {/* İçgörü cümlesi (borç/varlık × enflasyon çerçevesi) */}
               {lens.insight && (
                 <Text
-                  variant="caption"
+                  variant="bodySmall"
                   style={[styles.insight, { color: lens.insight.tone === 'up' ? colors.success : colors.error }]}
                 >
                   {t(`reports:netWorthTrend.insight.${lens.insight.kind}`, {
@@ -351,6 +365,11 @@ const styles = StyleSheet.create({
   stateBox: { gap: spacing.sm },
   centerText: { textAlign: 'center' },
 
+  introCard: { padding: spacing.md, gap: spacing.xs },
+  introLead: { lineHeight: 20 },
+  introText: { lineHeight: 20 },
+  lensDesc: { marginTop: -2, marginBottom: spacing.xs, lineHeight: 19, paddingHorizontal: spacing.xs },
+
   summaryLabel: { textTransform: 'uppercase', letterSpacing: 0.5 },
   bigValue: { fontSize: 30, fontWeight: '700', marginTop: 2 },
   summaryCompareRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs, marginBottom: 2 },
@@ -358,7 +377,7 @@ const styles = StyleSheet.create({
   dualItem: { flex: 1, alignItems: 'center', gap: 2 },
   dualDivider: { width: 1, height: 32, backgroundColor: colors.border },
   dualPct: { fontWeight: '700', fontSize: fontSize.lg },
-  insight: { marginTop: spacing.sm, lineHeight: 17 },
+  insight: { marginTop: spacing.sm, lineHeight: 20 },
 
   sectionTitle: { marginBottom: spacing.md },
   chartHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },

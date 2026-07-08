@@ -37,6 +37,15 @@
   },
   "netWorthTrend": {
     "title": "Net Worth Trend",
+    "intro": "Shows your business's net worth (all assets − debts) as of each month-end, so you can see at a glance whether you're growing over time.",
+    "introTabs": "Use the tabs to view the same net worth through a different lens: inflation-adjusted (real), US dollars, euros, or grams of gold.",
+    "lensDesc": {
+      "nominal": "The plain amount in Turkish lira.",
+      "reel": "Inflation-adjusted: real purchasing power in today's lira. Even if the number stays the same, its buying power may have changed.",
+      "usd": "How many US dollars your net worth is worth.",
+      "eur": "How many euros your net worth is worth.",
+      "altin": "How many grams of gold your net worth is worth."
+    },
     "range6": "6 Months",
     "range12": "12 Months",
     "range24": "24 Months",
