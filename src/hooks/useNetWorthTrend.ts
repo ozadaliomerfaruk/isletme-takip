@@ -172,12 +172,14 @@ export function useNetWorthTrend(monthsBack: number) {
       expense: roundCurrency(mo.expense),
     }));
 
-    // Veri-ÖNCESİ boş ayları baştan kırp: kullanıcı henüz hiçbir şey girmemişken (değişim 0 +
-    // net varlık ~0) geçmişe uzanan düz-sıfır kuyruğu gösterme → trend ilk aktivite ayından başlar.
-    // ("Tümü" için şart; geniş pencerede yüzlerce boş ay olmaz. Ortadaki gerçek düz dönemler
-    //  (net varlık ≠ 0) KIRPILMAZ. Son ay (bu ay) her zaman korunur.)
+    // İLK aktiviteden ÖNCEKİ ayları baştan kırp: hiçbir hareket olmayan (change===0) baştaki
+    // ayları atla → trend ilk gerçek işlem/açılış ayından başlar. ("Tümü"=120 ay penceresinde
+    // veri-öncesi yüzlerce ay olur; onları gösterme.) NOT: baseline sıfır OLMAYABİLİR (ör. pasif
+    // yapılmış bir cariye yapılan ödeme, genel-durumla reconstruction arasında sabit bir kayma
+    // bırakır) — bu yüzden net-varlık değerine DEĞİL, yalnız "o ay hareket var mı"ya (change) bakılır.
+    // İlk aktiviteden SONRAKİ durgun (change===0) aylar KIRPILMAZ. Son ay her zaman korunur.
     let firstReal = 0;
-    while (firstReal < built.length - 1 && built[firstReal].change === 0 && Math.abs(built[firstReal].netWorth) < 1) {
+    while (firstReal < built.length - 1 && built[firstReal].change === 0) {
       firstReal++;
     }
     return built.slice(firstReal);
