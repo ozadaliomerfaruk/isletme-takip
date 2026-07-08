@@ -57,7 +57,10 @@ export function usePagePermission({
         i18n.t('multiUser:permissions.denied'),
         i18n.t('multiUser:permissions.noActionAccess'),
       );
-      router.back();
+      // Geri-yığın boşsa (deep-link / shared-mode geçişi) back() işlenmeyip navigasyonu
+      // bozabilir → güvenli route'a düş.
+      if (router.canGoBack()) router.back();
+      else router.replace('/(tabs)');
     }
   }, [isOwner, module, action, createdBy, canAccessModule, canCreate, canUpdate, canDelete, router]);
 }
@@ -76,7 +79,8 @@ export function useRequireOwner() {
         i18n.t('multiUser:permissions.denied'),
         i18n.t('multiUser:permissions.ownerOnly'),
       );
-      router.back();
+      if (router.canGoBack()) router.back();
+      else router.replace('/(tabs)');
     }
   }, [isOwner, router]);
 }

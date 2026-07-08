@@ -105,15 +105,12 @@ export function PersistentTabBar() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    // (tabs) içindeyken sekme-arası geçiş → replace (stack birikmez, mevcut davranış).
-    // DIŞINDA (Ayarlar/Raporlar/Notlar gibi kök ekranlar) → navigate; aksi halde
-    // expo-router replace'i göreli çözmeye çalışıp "route 'daha' yok" uyarısı veriyor
-    // ve o basışta navigasyon hiç olmuyordu.
-    if (segments[0] === '(tabs)') {
-      router.replace(tab.route);
-    } else {
-      router.navigate(tab.route);
-    }
+    // HER durumda navigate. Bottom-tab router `navigate`'i doğru işler: (tabs) İÇİNDE
+    // sekme geçişi (JUMP_TO — stack birikmez), (tabs) DIŞINDA ise ilgili (tabs) route'una
+    // NAVIGATE (kök ekran pop'lanır). `router.replace` ise bottom-tab router tarafından
+    // İŞLENMEZ (REPLACE case yok) → aksiyon kök Stack'e sıçrar, "route 'daha' yok" uyarısı
+    // verir, sekme geçişi sessizce başarısız olur VE geri-yığını (back-stack) bozar.
+    router.navigate(tab.route);
   };
 
   return (
