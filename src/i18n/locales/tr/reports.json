@@ -46,8 +46,9 @@
       "eur": "Net varlığın kaç euroya denk geliyor.",
       "altin": "Net varlığın kaç gram altına denk geliyor."
     },
+    "allTime": "Tümü",
     "range6": "6 Ay",
-    "range12": "12 Ay",
+    "range12": "Son 12 Ay",
     "range24": "24 Ay",
     "currentStatus": "GÜNCEL GENEL DURUM",
     "sinceLabel": "{{months}} ayda ({{period}}'dan bugüne)",

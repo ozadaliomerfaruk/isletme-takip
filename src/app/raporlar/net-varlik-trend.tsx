@@ -38,7 +38,10 @@ export default function NetVarlikTrendPage() {
   const { t } = useTranslation(['reports', 'common']);
   const { width: windowWidth } = useWindowDimensions();
 
-  const [monthsBack, setMonthsBack] = useState(12);
+  // Tarih aralığı: 'all' = veri girilen ilk aydan bugüne (hook veri-öncesi boş ayları kırpar),
+  // '12' = son 12 ay (çok verisi olan için yakınlaşma). Varsayılan 'all' (esnaf tüm yolculuğu görür).
+  const [rangeMode, setRangeMode] = useState<'all' | '12'>('all');
+  const monthsBack = rangeMode === 'all' ? 120 : 12; // 120 = güvenli üst sınır; kırpma gerçeği belirler
   const [mode, setMode] = useState<LensMode>('nominal');
   const { byMode, baseCurrency, repricingSupported, isLoading, isFetching, refetch } = useNetWorthLenses(monthsBack);
   const lens = byMode[mode];
@@ -52,9 +55,8 @@ export default function NetVarlikTrendPage() {
   useRefetchOnFocus([refetch]);
 
   const RANGE_OPTIONS = [
-    { label: t('reports:netWorthTrend.range6'), value: '6' },
+    { label: t('reports:netWorthTrend.allTime'), value: 'all' },
     { label: t('reports:netWorthTrend.range12'), value: '12' },
-    { label: t('reports:netWorthTrend.range24'), value: '24' },
   ];
   const LENS_OPTIONS = repricingSupported
     ? [
@@ -153,7 +155,7 @@ export default function NetVarlikTrendPage() {
 
         {/* Aralık + Lens seçiciler */}
         <View style={styles.rangeBar}>
-          <TabFilter options={RANGE_OPTIONS} value={String(monthsBack)} onChange={(v) => setMonthsBack(Number(v))} />
+          <TabFilter options={RANGE_OPTIONS} value={rangeMode} onChange={(v) => setRangeMode(v as 'all' | '12')} />
         </View>
         <View style={styles.rangeBar}>
           <TabFilter options={LENS_OPTIONS} value={mode} onChange={(v) => setMode(v as LensMode)} />

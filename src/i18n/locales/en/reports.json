@@ -46,8 +46,9 @@
       "eur": "How many euros your net worth is worth.",
       "altin": "How many grams of gold your net worth is worth."
     },
+    "allTime": "All",
     "range6": "6 Months",
-    "range12": "12 Months",
+    "range12": "Last 12 Months",
     "range24": "24 Months",
     "currentStatus": "CURRENT NET WORTH",
     "sinceLabel": "over {{months}} months (since {{period}})",

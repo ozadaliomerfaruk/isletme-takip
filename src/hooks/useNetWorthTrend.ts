@@ -160,7 +160,7 @@ export function useNetWorthTrend(monthsBack: number) {
       afterOpening += asc[i].opening;
     }
 
-    return asc.map((mo, i) => ({
+    const built = asc.map((mo, i) => ({
       month: mo.key,
       label: `${monthsShort[mo.m]}'${String(mo.y).slice(-2)}`, // 'Tem'26 (kısa, yıl apostroflu)
       labelFull: `${monthsFull[mo.m]} ${mo.y}`, // 'Temmuz 2026' (imleç için net)
@@ -171,6 +171,16 @@ export function useNetWorthTrend(monthsBack: number) {
       income: roundCurrency(mo.income),
       expense: roundCurrency(mo.expense),
     }));
+
+    // Veri-ÖNCESİ boş ayları baştan kırp: kullanıcı henüz hiçbir şey girmemişken (değişim 0 +
+    // net varlık ~0) geçmişe uzanan düz-sıfır kuyruğu gösterme → trend ilk aktivite ayından başlar.
+    // ("Tümü" için şart; geniş pencerede yüzlerce boş ay olmaz. Ortadaki gerçek düz dönemler
+    //  (net varlık ≠ 0) KIRPILMAZ. Son ay (bu ay) her zaman korunur.)
+    let firstReal = 0;
+    while (firstReal < built.length - 1 && built[firstReal].change === 0 && Math.abs(built[firstReal].netWorth) < 1) {
+      firstReal++;
+    }
+    return built.slice(firstReal);
   }, [query.data, openingQuery.data, window.months, generalStatus, baseCurrency, rates, monthsShort, monthsFull]);
 
   const refetch = useCallback(async () => {
