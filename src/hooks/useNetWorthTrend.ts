@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
@@ -89,6 +89,30 @@ export function useNetWorthTrend(monthsBack: number) {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Açılış bakiyeleri: her entity'nin açılışı, oluşturulduğu (created_at) aya bağlı.
+  // Walk-back'te "M'den SONRA oluşturulan entity'lerin açılışı" M ayından düşülür.
+  const openingQuery = useQuery({
+    queryKey: [
+      ...queryKeys.reports.networthOpening(isletme?.id ?? '', monthsBack),
+      baseCurrency,
+      ratesVersion,
+      window.startDate,
+      window.endDate,
+    ],
+    queryFn: async () => {
+      if (!isletme) return [] as { ay: string; opening: number }[];
+      const { data, error } = await supabase.rpc('get_networth_opening_by_month', {
+        p_isletme_id: isletme.id,
+        p_start_date: `${window.startDate}T00:00:00`,
+        p_end_date: `${window.endDate}T23:59:59`,
+      });
+      if (error) throw error;
+      return (data ?? []) as { ay: string; opening: number }[];
+    },
+    enabled: !!isletme,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const points = useMemo<NetWorthTrendPoint[]>(() => {
     const rows = query.data ?? [];
     // RPC tutarları TRY; ana para birimine çevir (TR için no-op).
@@ -102,36 +126,52 @@ export function useNetWorthTrend(monthsBack: number) {
       byMonth.set(key, { income, expense, net: income - expense });
     }
 
+    // Açılış bakiyeleri, oluşturulma (created_at) ayına göre (base'e çevrili).
+    const openingByMonth = new Map<string, number>();
+    for (const r of openingQuery.data ?? []) {
+      const key = String(r.ay).slice(0, 7);
+      openingByMonth.set(key, (openingByMonth.get(key) ?? 0) + toBase(Number(r.opening) || 0));
+    }
+
     // Artan sıralı pencere; işlemi olmayan aylar 0.
     const asc = window.months.map((mo) => {
       const v = byMonth.get(mo.key) ?? { income: 0, expense: 0, net: 0 };
-      return { ...mo, ...v };
+      return { ...mo, ...v, opening: openingByMonth.get(mo.key) ?? 0 };
     });
 
-    // Canlı generalStatus'tan geriye yürüt: NW_end[i] = generalStatus − Σ net(j>i).
+    // Canlı generalStatus'tan geriye yürüt:
+    //   NW_end[i] = generalStatus − Σ net(j>i) − Σ acilis(created ayı j>i)
+    // Böylece i ayından SONRA oluşturulan entity'lerin açılışı i'de sayılmaz.
     const nw = new Array<number>(asc.length);
-    let after = 0;
+    let afterNet = 0;
+    let afterOpening = 0;
     for (let i = asc.length - 1; i >= 0; i--) {
-      nw[i] = roundCurrency(generalStatus - after);
-      after += asc[i].net;
+      nw[i] = roundCurrency(generalStatus - afterNet - afterOpening);
+      afterNet += asc[i].net;
+      afterOpening += asc[i].opening;
     }
 
     return asc.map((mo, i) => ({
       month: mo.key,
       label: `${monthsShort[mo.m]} ${String(mo.y).slice(-2)}`,
       netWorth: nw[i],
-      change: roundCurrency(mo.net), // = NW_end[i] − NW_end[i-1]
+      // Aylık değişim = o ayın P&L neti + o ay eklenen açılışlar (= NW_end[i] − NW_end[i-1]).
+      change: roundCurrency(mo.net + mo.opening),
       income: roundCurrency(mo.income),
       expense: roundCurrency(mo.expense),
     }));
-  }, [query.data, window.months, generalStatus, baseCurrency, rates, monthsShort]);
+  }, [query.data, openingQuery.data, window.months, generalStatus, baseCurrency, rates, monthsShort]);
+
+  const refetch = useCallback(async () => {
+    await Promise.all([query.refetch(), openingQuery.refetch()]);
+  }, [query, openingQuery]);
 
   return {
     points,
-    isLoading: query.isLoading || summaryLoading,
-    isFetching: query.isFetching,
-    error: query.error as Error | null,
-    refetch: query.refetch,
+    isLoading: query.isLoading || openingQuery.isLoading || summaryLoading,
+    isFetching: query.isFetching || openingQuery.isFetching,
+    error: (query.error || openingQuery.error) as Error | null,
+    refetch,
     generalStatus,
     conversionIncomplete,
   };
