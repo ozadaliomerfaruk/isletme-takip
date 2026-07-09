@@ -42,9 +42,9 @@
     "lensDesc": {
       "nominal": "The plain amount in Turkish lira.",
       "reel": "Inflation-adjusted: real purchasing power in today's lira. Even if the number stays the same, its buying power may have changed.",
-      "usd": "How many US dollars your net worth is worth.",
-      "eur": "How many euros your net worth is worth.",
-      "altin": "How many grams of gold your net worth is worth."
+      "usd": "How many US dollars your net worth is worth (at that month's rate).",
+      "eur": "How many euros your net worth is worth (at that month's rate).",
+      "altin": "How many grams of gold your net worth is worth (at that month's gold price)."
     },
     "allTime": "All",
     "range6": "6 Months",
@@ -77,7 +77,7 @@
     },
     "tableTitle": "MONTH-BY-MONTH NET WORTH",
     "colMonth": "Month",
-    "colNet": "Net Worth",
+    "colNet": "Net Worth (month-end)",
     "colChange": "Change",
     "footnote": "Past months are recalculated from today's records; deleted transactions, movements of contacts/accounts you made inactive, and undated opening balances may not reflect exactly in history. Today's value matches your current net worth exactly.",
     "footnoteFx": "Different currencies are converted at current rates; cross-currency payments or transfers between accounts can distort the historical curve as rates move."

@@ -42,9 +42,9 @@
     "lensDesc": {
       "nominal": "TL cinsinden birebir tutar.",
       "reel": "Enflasyondan arındırılmış: bugünün lirasıyla gerçek alım gücü. Rakam aynı kalsa bile alım gücü değişmiş olabilir.",
-      "usd": "Net varlığın kaç ABD dolarına denk geliyor.",
-      "eur": "Net varlığın kaç euroya denk geliyor.",
-      "altin": "Net varlığın kaç gram altına denk geliyor."
+      "usd": "Net varlığın kaç ABD dolarına denk geliyor (o ayki kur kullanılmıştır).",
+      "eur": "Net varlığın kaç euroya denk geliyor (o ayki kur kullanılmıştır).",
+      "altin": "Net varlığın kaç gram altına denk geliyor (o ayki altın fiyatı kullanılmıştır)."
     },
     "allTime": "Tümü",
     "range6": "6 Ay",
@@ -77,7 +77,7 @@
     },
     "tableTitle": "AY AY GENEL DURUM",
     "colMonth": "Ay",
-    "colNet": "Net Varlık",
+    "colNet": "Net Varlık (ay sonu)",
     "colChange": "Değişim",
     "footnote": "Geçmiş aylar bugünkü kayıtlardan yeniden hesaplanır; sonradan silinen işlemler, pasif yapılan cari/hesap hareketleri ve tarihsiz açılış bakiyeleri geçmişe birebir yansımayabilir. Bugünkü değer güncel genel durumunla birebir aynıdır.",
     "footnoteFx": "Farklı para birimleri güncel kurla çevrilir; farklı dövizli hesaplar arası ödeme/transfer varsa geçmiş eğri kur dalgalanmasından etkilenebilir."
