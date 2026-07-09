@@ -82,7 +82,7 @@ export default function NetVarlikTrendPage() {
   // Grafik: seçili lensin değerleriyle, aralığa-göre ölçek (shift ile pozitife kaydır → tek
   // ekran, negatif "below-axis" şişmesi yok). Null (eksik gösterge) noktalar hariç.
   const chart = useMemo(() => {
-    const pts = lens.points.filter((p) => p.value != null) as Array<{ value: number; label: string; labelFull: string; isCurrent: boolean }>;
+    const pts = lens.points.filter((p) => p.value != null) as Array<{ value: number; label: string; labelFull: string; isCurrent: boolean; rate: number | null }>;
     const n = pts.length;
     if (n < 2) return null;
     const vals = pts.map((p) => p.value);
@@ -100,6 +100,7 @@ export default function NetVarlikTrendPage() {
       monthLabel: p.labelFull,
       isCurrent: p.isCurrent,
       trueValue: p.value,
+      rate: p.rate,
       hideDataPoint: i !== n - 1,
       dataPointColor: colors.primary,
       dataPointRadius: 4,
@@ -294,12 +295,14 @@ export default function NetVarlikTrendPage() {
                       pointerStripColor: colors.border,
                       pointerStripWidth: 1,
                       strokeDashArray: [3, 4],
-                      pointerLabelWidth: 150,
-                      pointerLabelHeight: 52,
-                      pointerLabelComponent: (items: Array<{ trueValue?: number; monthLabel?: string; isCurrent?: boolean }>) => {
+                      pointerLabelWidth: 160,
+                      pointerLabelHeight: 68,
+                      pointerLabelComponent: (items: Array<{ trueValue?: number; monthLabel?: string; isCurrent?: boolean; rate?: number | null }>) => {
                         const it = items?.[0];
                         if (!it) return null;
                         const v = it.trueValue ?? 0;
+                        // Kur satırı yalnız döviz/altın merceğinde (o ay kullanılan gerçek kur/fiyat).
+                        const showRate = it.rate != null && (mode === 'usd' || mode === 'eur' || mode === 'altin');
                         return (
                           <View style={styles.pointerLabel}>
                             <Text style={styles.pointerMonth} numberOfLines={1}>
@@ -308,6 +311,11 @@ export default function NetVarlikTrendPage() {
                             <Text style={[styles.pointerValue, { color: v >= 0 ? colors.success : colors.error }]} numberOfLines={1}>
                               {fmtValue(v, dispCcy)}
                             </Text>
+                            {showRate && (
+                              <Text style={styles.pointerRate} numberOfLines={1}>
+                                {t(`reports:netWorthTrend.basis.${mode}`)} {formatCurrency(it.rate as number, 'TRY')}{mode === 'altin' ? '/gr' : ''}
+                              </Text>
+                            )}
                           </View>
                         );
                       },
@@ -407,6 +415,7 @@ const styles = StyleSheet.create({
   },
   pointerMonth: { fontSize: 11, color: colors.textMuted, marginBottom: 1 },
   pointerValue: { fontSize: 14, fontWeight: '700' },
+  pointerRate: { fontSize: 11, color: colors.textMuted, marginTop: 1 },
 
   tableHeader: {
     flexDirection: 'row',

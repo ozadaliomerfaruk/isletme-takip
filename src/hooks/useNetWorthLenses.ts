@@ -25,6 +25,7 @@ export interface LensPoint {
   labelFull: string;
   isCurrent: boolean;
   value: number | null; // lens biriminde (eksik göstergede null)
+  rate: number | null;  // o ay kullanılan kur/fiyat (TRY): usd/eur → kur, altın → gram fiyatı; nominal/reel → null
 }
 
 export interface LensInsight {
@@ -119,6 +120,15 @@ export function useNetWorthLenses(monthsBack: number) {
       return null;
     };
 
+    // O ay kullanılan kur/fiyat (baloncukta gösterim için): usd/eur → o ayki kur, altın → o ayki
+    // gram fiyatı (forward-fill'li tablo). nominal/reel → null (kur satırı gösterilmez).
+    const rateFor = (p: NetWorthTrendPoint, m: LensMode): number | null => {
+      if (m === 'altin') return effGold.get(p.month) ?? null;
+      if (m === 'usd') return indFor(p)?.usd_try ?? null;
+      if (m === 'eur') return indFor(p)?.eur_try ?? null;
+      return null;
+    };
+
     const build = (mode: LensMode): LensResult => {
       const lensPoints: LensPoint[] = points.map((p) => ({
         month: p.month,
@@ -126,6 +136,7 @@ export function useNetWorthLenses(monthsBack: number) {
         labelFull: p.labelFull,
         isCurrent: p.isCurrent,
         value: value(p, mode),
+        rate: rateFor(p, mode),
       }));
       const valid = lensPoints.filter((lp) => lp.value != null);
       const available = valid.length >= 2;
