@@ -80,7 +80,7 @@
     "colNet": "Net Varlık (ay sonu)",
     "colChange": "Değişim",
     "footnote": "Geçmiş aylar bugünkü kayıtlardan yeniden hesaplanır; sonradan silinen işlemler, pasif yapılan cari/hesap hareketleri ve tarihsiz açılış bakiyeleri geçmişe birebir yansımayabilir. Bugünkü değer güncel genel durumunla birebir aynıdır.",
-    "footnoteFx": "Farklı para birimleri güncel kurla çevrilir; farklı dövizli hesaplar arası ödeme/transfer varsa geçmiş eğri kur dalgalanmasından etkilenebilir."
+    "footnoteFx": "Enflasyon, dolar, euro ve altın verileri Merkez Bankası'ndan (TCMB / EVDS) alınır; her ay o ayki kur/fiyat kullanılır."
   },
   "tabs": {
     "general": "Genel",

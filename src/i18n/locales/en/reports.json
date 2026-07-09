@@ -80,7 +80,7 @@
     "colNet": "Net Worth (month-end)",
     "colChange": "Change",
     "footnote": "Past months are recalculated from today's records; deleted transactions, movements of contacts/accounts you made inactive, and undated opening balances may not reflect exactly in history. Today's value matches your current net worth exactly.",
-    "footnoteFx": "Different currencies are converted at current rates; cross-currency payments or transfers between accounts can distort the historical curve as rates move."
+    "footnoteFx": "Inflation, USD, EUR and gold data come from the Turkish Central Bank (TCMB / EVDS); each month uses its own period rate."
   },
   "tabs": {
     "general": "General",

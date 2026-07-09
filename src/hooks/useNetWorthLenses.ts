@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { roundCurrency } from '@/lib/currency';
 import { useNetWorthTrend, NetWorthTrendPoint } from './useNetWorthTrend';
 import { useEconomicIndicators } from './useEconomicIndicators';
-import { useExchangeRates } from './useExchangeRates';
 import { useSettings } from './useSettings';
 
 /**
@@ -59,19 +58,9 @@ export function useNetWorthLenses(monthsBack: number) {
   const startMonth = points.length ? `${points[0].month}-01` : '';
   const endMonth = points.length ? `${points[points.length - 1].month}-01` : '';
   const { data: indicators, isLoading: indLoading } = useEconomicIndicators(startMonth, endMonth);
-  const { data: ratesData } = useExchangeRates();
-  const live = ratesData?.rates;
 
   const byMode = useMemo<Record<LensMode, LensResult>>(() => {
     const latestTufe = indicators?.latestTufe ?? null;
-
-    // Cari (isCurrent) ay göstergesi: canlı kurlar + en son TÜFE (ay tablo satırı eksikse).
-    const liveInd = {
-      usd_try: (live?.USD as number) ?? null,
-      eur_try: (live?.EUR as number) ?? null,
-      gram_altin_try: (live?.XAU as number) ?? null,
-      tufe: latestTufe,
-    };
 
     // Forward-fill TÜFE (son yayımlanmayan aylar için son bilineni kullan → reel kesintisiz).
     const effTufe = new Map<string, number>();
@@ -94,29 +83,35 @@ export function useNetWorthLenses(monthsBack: number) {
       if (lastG != null) effGold.set(p.month, lastG);
     }
 
-    const indFor = (p: NetWorthTrendPoint) => {
-      if (p.isCurrent) return liveInd;
-      const r = indicators?.byMonth.get(p.month);
-      return r ? { usd_try: r.usd_try, eur_try: r.eur_try, gram_altin_try: r.gram_altin_try, tufe: r.tufe } : null;
-    };
+    // Forward-fill USD/EUR (EVDS döviz satış). Altın gibi CARİ AY dahil TÜM aylarda tablodan alınır
+    // (canlı kur DEĞİL) → 4 gösterge de tek kaynak (EVDS/TCMB), kaynak-kopukluğu olmaz.
+    const effUsd = new Map<string, number>();
+    const effEur = new Map<string, number>();
+    let lastU: number | null = null;
+    let lastE: number | null = null;
+    for (const p of points) {
+      const ru = indicators?.byMonth.get(p.month)?.usd_try ?? null;
+      const re = indicators?.byMonth.get(p.month)?.eur_try ?? null;
+      if (ru != null) lastU = ru;
+      if (re != null) lastE = re;
+      if (lastU != null) effUsd.set(p.month, lastU);
+      if (lastE != null) effEur.set(p.month, lastE);
+    }
 
     const value = (p: NetWorthTrendPoint, mode: LensMode): number | null => {
       const N = p.netWorth; // nominal (ana para birimi; TRY-base'de TRY)
       if (mode === 'nominal') return N;
       if (!repricingSupported) return null; // TRY-base değilse repricing lensleri kapalı
-      const ind = indFor(p);
       if (mode === 'reel') {
         const eff = effTufe.get(p.month);
         return eff && latestTufe ? roundCurrency((N * latestTufe) / eff) : null;
       }
       if (mode === 'altin') {
-        // Altın: canlı spot (ind.gram_altin_try) DEĞİL → forward-fill'li tablo (Kapalıçarşı) kullan.
         const g = effGold.get(p.month);
         return g ? Math.round((N / g) * 100) / 100 : null;
       }
-      if (!ind) return null;
-      if (mode === 'usd') return ind.usd_try ? roundCurrency(N / ind.usd_try) : null;
-      if (mode === 'eur') return ind.eur_try ? roundCurrency(N / ind.eur_try) : null;
+      if (mode === 'usd') { const r = effUsd.get(p.month); return r ? roundCurrency(N / r) : null; }
+      if (mode === 'eur') { const r = effEur.get(p.month); return r ? roundCurrency(N / r) : null; }
       return null;
     };
 
@@ -124,8 +119,8 @@ export function useNetWorthLenses(monthsBack: number) {
     // gram fiyatı (forward-fill'li tablo). nominal/reel → null (kur satırı gösterilmez).
     const rateFor = (p: NetWorthTrendPoint, m: LensMode): number | null => {
       if (m === 'altin') return effGold.get(p.month) ?? null;
-      if (m === 'usd') return indFor(p)?.usd_try ?? null;
-      if (m === 'eur') return indFor(p)?.eur_try ?? null;
+      if (m === 'usd') return effUsd.get(p.month) ?? null;
+      if (m === 'eur') return effEur.get(p.month) ?? null;
       return null;
     };
 
@@ -176,7 +171,7 @@ export function useNetWorthLenses(monthsBack: number) {
       eur: build('eur'),
       altin: build('altin'),
     };
-  }, [points, indicators, live, repricingSupported]);
+  }, [points, indicators, repricingSupported]);
 
   return {
     byMode,

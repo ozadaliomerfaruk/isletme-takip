@@ -8,8 +8,9 @@
 //                                   NOT: eski TP.FG.J0 (bie_tukfiy4) Oca-2026'da ARŞİV'e alındı
 //                                   (TÜİK 2025=100'e rebase). Ama 2003=100 TP.GENENDEKS.T1
 //                                   (bie_tukfiy2003) altında sürüyor → AYNI ÖLÇEK, drop-in, zincir yok.
-// çeker ve ekonomik_gostergeler'e upsert eder. USD/EUR'ya DOKUNMAZ (frankfurter+MetalpriceAPI
-// hattı korunur — gereksiz kaynak-kopukluğu yaratmamak için).
+//   - USD/EUR    = TP.DK.USD.S.YTL / TP.DK.EUR.S.YTL (döviz satış, TL — TCMB resmî)
+// çeker ve ekonomik_gostergeler'e upsert eder. Artık 4 göstergenin de TEK kaynağı EVDS/TCMB
+// (eski frankfurter+MetalpriceAPI spot-sync'i emekli edildi → net-varlık raporu tümüyle TCMB).
 //
 // EVDS NOTLARI (9 Tem 2026 doğrulandı):
 //   - Taban https://evds3.tcmb.gov.tr/igmevdsms-dis/  (eski evds2/service/evds TAMAMEN 302→evds3)
@@ -36,8 +37,10 @@ const BROWSER_UA =
 
 // EVDS seri kodu → ekonomik_gostergeler kolonu
 const SERIES: Record<string, string> = {
-  "TP.MK.KUL.YTL": "gram_altin_try",
-  "TP.GENENDEKS.T1": "tufe",
+  "TP.MK.KUL.YTL": "gram_altin_try", // Kapalıçarşı gram altın satış (TL)
+  "TP.GENENDEKS.T1": "tufe",          // TÜFE Genel Endeks 2003=100 (süren kod)
+  "TP.DK.USD.S.YTL": "usd_try",       // ABD Doları döviz satış (TL)
+  "TP.DK.EUR.S.YTL": "eur_try",       // Euro döviz satış (TL)
 };
 
 function fmtDate(d: Date): string {
