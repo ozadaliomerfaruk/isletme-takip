@@ -323,7 +323,11 @@ export default function NetVarlikTrendPage() {
 
             {/* Aylık tablo */}
             <Card style={styles.card}>
-              <Text variant="label" color="secondary" style={styles.sectionTitle}>{t('reports:netWorthTrend.tableTitle')}</Text>
+              <Text variant="label" color="secondary" style={styles.tableTitle}>{t('reports:netWorthTrend.tableTitle')}</Text>
+              {/* Bu merceğin satırları ne demek — esnaf için */}
+              <Text variant="caption" color="secondary" style={styles.tableSubtitle}>
+                {t(`reports:netWorthTrend.lensDesc.${mode}`)}
+              </Text>
               <View style={styles.tableHeader}>
                 <Text variant="caption" color="secondary" style={styles.colMonth}>{t('reports:netWorthTrend.colMonth')}</Text>
                 <Text variant="caption" color="secondary" style={styles.colNet}>{t('reports:netWorthTrend.colNet')}</Text>
@@ -382,6 +386,8 @@ const styles = StyleSheet.create({
   insight: { marginTop: spacing.sm, lineHeight: 20 },
 
   sectionTitle: { marginBottom: spacing.md },
+  tableTitle: { marginBottom: 2 },
+  tableSubtitle: { marginBottom: spacing.md, lineHeight: 17 },
   chartHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   chartWrap: { marginLeft: -spacing.sm },
   axisText: { fontSize: 10, color: colors.textMuted },
