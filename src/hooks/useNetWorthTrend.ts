@@ -29,6 +29,8 @@ export interface NetWorthTrendPoint {
   change: number;   // önceki aya göre değişim = o ayın P&L neti (ana para birimi)
   income: number;
   expense: number;
+  empty: boolean;   // o ay HİÇ hareket yok (gelir=gider=açılış=0) → tabloda "kayıt yok" göster
+  sparse: boolean;  // baştaki seyrek-kayıtlı aylardan biri → değer büyük ölçüde türetilmiş (soluk göster)
 }
 
 interface RpcRow {
@@ -170,6 +172,9 @@ export function useNetWorthTrend(monthsBack: number) {
       change: roundCurrency(mo.net + mo.opening),
       income: roundCurrency(mo.income),
       expense: roundCurrency(mo.expense),
+      // O ay hiç hareket yok mu (gelir=gider=açılış=0) → "kayıt yok" için (nominalde change de 0).
+      empty: Math.abs(mo.income) < 0.005 && Math.abs(mo.expense) < 0.005 && Math.abs(mo.opening) < 0.005,
+      sparse: false, // kırpma sonrası aşağıda hesaplanır
     }));
 
     // İLK aktiviteden ÖNCEKİ ayları baştan kırp: hiçbir hareket olmayan (change===0) baştaki
@@ -182,7 +187,21 @@ export function useNetWorthTrend(monthsBack: number) {
     while (firstReal < built.length - 1 && built[firstReal].change === 0) {
       firstReal++;
     }
-    return built.slice(firstReal);
+    const series = built.slice(firstReal);
+
+    // DÜRÜSTLÜK: baştaki seyrek-kayıtlı ayları işaretle. İşlem yoğunluğu (brüt gelir+gider) pencere
+    // medyanının %10'u altındaki BAŞTAKİ ayların değeri büyük ölçüde türetilmiş açılış/rekonstrüksiyondur
+    // (ör. tek bir açılış bakiyesinin düştüğü ilk ay). İlk "yoğun" aya gelince durur.
+    const activity = series.map((p) => Math.abs(p.income) + Math.abs(p.expense));
+    const nonZero = activity.filter((a) => a > 0.005).sort((a, b) => a - b);
+    if (nonZero.length) {
+      const threshold = nonZero[Math.floor(nonZero.length / 2)] * 0.1;
+      for (let i = 0; i < series.length - 1; i++) {
+        if (activity[i] < threshold) series[i].sparse = true;
+        else break;
+      }
+    }
+    return series;
   }, [query.data, openingQuery.data, window.months, generalStatus, baseCurrency, rates, monthsShort, monthsFull]);
 
   const refetch = useCallback(async () => {

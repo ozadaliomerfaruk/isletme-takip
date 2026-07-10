@@ -43,7 +43,7 @@ export default function NetVarlikTrendPage() {
   const [rangeMode, setRangeMode] = useState<'all' | '12'>('all');
   const monthsBack = rangeMode === 'all' ? 120 : 12; // 120 = güvenli üst sınır; kırpma gerçeği belirler
   const [mode, setMode] = useState<LensMode>('nominal');
-  const { byMode, baseCurrency, repricingSupported, isLoading, isFetching, refetch } = useNetWorthLenses(monthsBack);
+  const { byMode, baseCurrency, repricingSupported, isLoading, isFetching, refetch, conversionIncomplete } = useNetWorthLenses(monthsBack);
   const lens = byMode[mode];
 
   // TRY-base değilse repricing lensleri desteklenmez → yalnız Nominal; başka moda geçilmişse geri al.
@@ -115,7 +115,7 @@ export default function NetVarlikTrendPage() {
     return pts.map((p, i) => {
       let change: number | null = null;
       if (p.value != null && i > 0 && pts[i - 1].value != null) change = p.value - (pts[i - 1].value as number);
-      return { month: p.month, label: p.label, value: p.value, change };
+      return { month: p.month, label: p.label, value: p.value, change, empty: p.empty, sparse: p.sparse };
     });
   }, [lens]);
 
@@ -165,6 +165,13 @@ export default function NetVarlikTrendPage() {
         <Text variant="bodySmall" color="secondary" style={styles.lensDesc}>
           {t(`reports:netWorthTrend.lensDesc.${mode}`)}
         </Text>
+
+        {/* Kur bulunamadıysa: bazı döviz bakiyeleri hariç tutuldu → dürüstlük uyarısı */}
+        {conversionIncomplete && (
+          <Card style={styles.warnCard}>
+            <Text variant="bodySmall" style={styles.warnText}>{t('reports:netWorthTrend.conversionIncomplete')}</Text>
+          </Card>
+        )}
 
         {isLoading ? (
           <View style={styles.stateBox}>
@@ -336,13 +343,17 @@ export default function NetVarlikTrendPage() {
               <Text variant="caption" color="secondary" style={styles.tableSubtitle}>
                 {t(`reports:netWorthTrend.lensDesc.${mode}`)}
               </Text>
+              {/* Baştaki seyrek-kayıtlı aylar soluk gösterilir → dürüstlük notu */}
+              {tableRows.some((r) => r.sparse) && (
+                <Text variant="caption" color="secondary" style={styles.sparseNote}>{t('reports:netWorthTrend.sparseNote')}</Text>
+              )}
               <View style={styles.tableHeader}>
                 <Text variant="caption" color="secondary" style={styles.colMonth}>{t('reports:netWorthTrend.colMonth')}</Text>
                 <Text variant="caption" color="secondary" style={styles.colNet}>{t('reports:netWorthTrend.colNet')}</Text>
                 <Text variant="caption" color="secondary" style={styles.colDelta}>{t('reports:netWorthTrend.colChange')}</Text>
               </View>
               {[...tableRows].reverse().map((r, idx) => (
-                <View key={r.month} style={[styles.tableRow, idx < tableRows.length - 1 && styles.tableRowBorder]}>
+                <View key={r.month} style={[styles.tableRow, idx < tableRows.length - 1 && styles.tableRowBorder, r.sparse && styles.sparseRow]}>
                   <Text variant="body" style={styles.colMonth}>{r.label}</Text>
                   <Text
                     variant="body"
@@ -351,7 +362,12 @@ export default function NetVarlikTrendPage() {
                   >
                     {r.value != null ? fmtValue(r.value, dispCcy) : '—'}
                   </Text>
-                  <View style={styles.colDelta}>{renderDelta(r.change)}</View>
+                  <View style={styles.colDelta}>
+                    {/* O ay hiç işlem yoksa (nominalde) değişim yerine "kayıt yok" — 0,00 yanıltmasın */}
+                    {r.empty && mode === 'nominal'
+                      ? <Text variant="caption" color="secondary" style={styles.deltaText}>{t('reports:netWorthTrend.noRecord')}</Text>
+                      : renderDelta(r.change)}
+                  </View>
                 </View>
               ))}
             </Card>
@@ -363,8 +379,12 @@ export default function NetVarlikTrendPage() {
           </>
         )}
 
+        {/* Güncelleme penceresinde (yeni işlem sonrası) trend taze Genel Durum'a demirlenirken tüm seri
+            geçici kayabilir → kullanıcıya değerlerin tazelendiğini açıkça söyle. */}
         {isFetching && !isLoading ? (
-          <Text variant="caption" color="secondary" style={styles.centerText}>{t('common:status.loading')}</Text>
+          <View style={styles.updatingChip}>
+            <Text variant="caption" color="secondary">{t('reports:netWorthTrend.updating')}</Text>
+          </View>
         ) : null}
       </ScrollView>
     </SafeAreaView>
@@ -434,4 +454,18 @@ const styles = StyleSheet.create({
   deltaText: { fontWeight: '600', fontSize: fontSize.sm },
 
   footnote: { lineHeight: 16, paddingHorizontal: spacing.xs },
+
+  // §5 dürüstlük öğeleri
+  warnCard: { padding: spacing.md, backgroundColor: colors.warningLight, borderWidth: 1, borderColor: colors.warning },
+  warnText: { lineHeight: 18 },
+  sparseNote: { marginBottom: spacing.md, lineHeight: 16 },
+  sparseRow: { opacity: 0.5 }, // baştaki seyrek-kayıtlı aylar → değer türetilmiş, soluk
+  updatingChip: {
+    alignSelf: 'center',
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    marginTop: spacing.xs,
+  },
 });

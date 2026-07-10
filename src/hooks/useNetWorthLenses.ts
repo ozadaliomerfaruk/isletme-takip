@@ -25,6 +25,8 @@ export interface LensPoint {
   isCurrent: boolean;
   value: number | null; // lens biriminde (eksik göstergede null)
   rate: number | null;  // o ay kullanılan kur/fiyat (TRY): usd/eur → kur, altın → gram fiyatı; nominal/reel → null
+  empty: boolean;       // o ay hiç hareket yok (lensten bağımsız — nominal aktivite sıfır)
+  sparse: boolean;      // baştaki seyrek-kayıtlı aylardan biri (değer türetilmiş)
 }
 
 export interface LensInsight {
@@ -132,6 +134,8 @@ export function useNetWorthLenses(monthsBack: number) {
         isCurrent: p.isCurrent,
         value: value(p, mode),
         rate: rateFor(p, mode),
+        empty: p.empty,
+        sparse: p.sparse,
       }));
       const valid = lensPoints.filter((lp) => lp.value != null);
       const available = valid.length >= 2;
@@ -181,5 +185,6 @@ export function useNetWorthLenses(monthsBack: number) {
     isFetching: trend.isFetching,
     refetch: trend.refetch,
     generalStatus: trend.generalStatus,
+    conversionIncomplete: trend.conversionIncomplete, // kur yoksa bazı bakiyeler hariç → ekranda uyar
   };
 }

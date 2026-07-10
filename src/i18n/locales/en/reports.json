@@ -79,7 +79,11 @@
     "colMonth": "Month",
     "colNet": "Net Worth (month-end)",
     "colChange": "Change",
-    "footnote": "Past months are recalculated from today's records; deleted transactions, movements of contacts/accounts you made inactive, and undated opening balances may not reflect exactly in history. Today's value matches your current net worth exactly.",
+    "noRecord": "no records",
+    "sparseNote": "Records are sparse in the earliest months; these values are reconstructed backward from today (derived).",
+    "conversionIncomplete": "Exchange rates could not be loaded; balances without a rate were excluded. Values may be incomplete.",
+    "updating": "Updating…",
+    "footnote": "Past months are recalculated backward from today's records. Balances of inactive/archived contacts, personnel and accounts, as well as inventory/fixed-asset value, are NOT included in net worth; only the cash effect of payments/collections to them is counted. Deleted transactions and undated openings may not reflect exactly in history. Today's value matches your current net worth exactly.",
     "footnoteFx": "Inflation, USD, EUR and gold data come from the Turkish Central Bank (TCMB / EVDS); each month uses its own period rate."
   },
   "tabs": {

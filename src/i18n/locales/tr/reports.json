@@ -79,7 +79,11 @@
     "colMonth": "Ay",
     "colNet": "Net Varlık (ay sonu)",
     "colChange": "Değişim",
-    "footnote": "Geçmiş aylar bugünkü kayıtlardan yeniden hesaplanır; sonradan silinen işlemler, pasif yapılan cari/hesap hareketleri ve tarihsiz açılış bakiyeleri geçmişe birebir yansımayabilir. Bugünkü değer güncel genel durumunla birebir aynıdır.",
+    "noRecord": "kayıt yok",
+    "sparseNote": "Baş aylarda kayıt seyrek; bu değerler bugünden geriye hesaplanmıştır (türetilmiş).",
+    "conversionIncomplete": "Döviz kurları yüklenemedi; kuru bulunamayan bakiyeler hesaba katılmadı. Değerler eksik olabilir.",
+    "updating": "Güncelleniyor…",
+    "footnote": "Geçmiş aylar bugünkü kayıtlardan geriye hesaplanır. Pasif/arşivli cari, personel ve hesapların bakiyeleri ile stok/demirbaş değeri net varlığa DAHİL EDİLMEZ; yalnız bunlara yapılan ödeme/tahsilatın nakit etkisi sayılır. Sonradan silinen işlemler ve tarihsiz açılışlar geçmişe birebir yansımayabilir. Bugünkü değer güncel Genel Durum'la birebir aynıdır.",
     "footnoteFx": "Enflasyon, dolar, euro ve altın verileri Merkez Bankası'ndan (TCMB / EVDS) alınır; her ay o ayki kur/fiyat kullanılır."
   },
   "tabs": {
