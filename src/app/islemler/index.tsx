@@ -526,8 +526,12 @@ export default function IslemlerPage() {
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={ListEmpty}
           ListFooterComponent={ListFooter}
-          onEndReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
-          onEndReachedThreshold={0.5}
+          // NOT: onEndReached (oto-sayfalama) BİLİNÇLİ KALDIRILDI. Bu liste sunucuda FİLTRESİZ 50/sayfa
+          // sayfalanıp CLIENT-SIDE filtreleniyor (filteredIslemler); izin_hakki/izin_kullanimi gibi seyrek
+          // filtrede filtreli liste viewport'tan kısa kaldığından onEndReached kaydırma olmadan tetikleniyor
+          // ve her sayfa çoğu izin-dışı satır ekleyip listeyi kısa bıraktığından TÜM sayfaları zincirleme
+          // yüklüyordu → "Daha Fazla Göster" butonu atlanıyordu. Tek pagination tetikleyicisi artık ListFooter
+          // butonu (cariler/[id] & hesaplar ile aynı buton-tabanlı standart).
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.flatListContent}
         />
