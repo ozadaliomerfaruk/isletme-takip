@@ -163,3 +163,26 @@ try {
 } catch {
   /* swallow */
 }
+
+// DEV-ONLY invalidation fan-out ölçer (perf "item 1 = focus-aware subscribed" ölçüm-kapısı).
+// Bir mutasyon sonrası kaç query REFETCH (ağ isteği) attığını sayar. Tabs navigator 5 tab ekranını
+// kalıcı mounted tutar; freeze RENDER'ı keser ama React Query abonelikleri yaşar → refetchType:'active'
+// invalidation'ı yine tüm mounted ekranlara fetch attırır. Uygulama telemetrisi KAPALI (telemetry_enabled
+// false) olduğundan bunu ölçmenin başka kolay yolu yok. KULLANIM: ana sayfada 1 işlem kaydet → konsolda
+// [rq-fanout] burst sayısına bak. FABLE EŞİĞİ: ≥15 → item 1 (yalnız 5 tab hook'una subscribed) değerli;
+// ≤8 → kalıcı atla. __DEV__ statik false olduğundan production bundle'ında tamamen elenir.
+if (__DEV__) {
+  let burst = 0;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  queryClient.getQueryCache().subscribe((event: QueryCacheNotifyEvent) => {
+    const action = event.type === 'updated' ? (event.action as { type?: string }) : undefined;
+    if (action?.type !== 'fetch') return;
+    burst += 1;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      console.log(`[rq-fanout] burst=${burst} refetch (Fable esigi: >=15 -> item1 degerli, <=8 -> atla)`);
+      burst = 0;
+      timer = null;
+    }, 1500);
+  });
+}
