@@ -17,6 +17,7 @@ import { ChangePasswordModal } from '@/components/auth';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { WifiOff } from 'lucide-react-native';
 import { PersistentTabBar } from '@/components/ui/PersistentTabBar';
+import { goToTab } from '@/lib/tabNav';
 import { colors } from '@/constants/colors';
 import {
   registerForPushNotificationsAsync,
@@ -53,10 +54,13 @@ function NavDepthLogger() {
     if (!routes) return;
     const names = routes.map((r) => r.name);
     const tabsCount = names.filter((n) => n === '(tabs)').length;
-    const warn = names.length > 3 || tabsCount > 1;
+    // GERÇEK kırmızı bayrak: (tabs) kopyası >1 (birikim). Derinlik >6 yalnızca "aşırı derin" uyarısı —
+    // meşru derin akış (Cariler → cari detay → mutabakat → işlem düzenle = 4-5 giriş) SAĞLIKLIDIR,
+    // eşik 3 olsaydı 50-sayfa turunda yanlış alarm gürültüsü gerçek sinyali gizlerdi.
+    const ghost = tabsCount > 1;
     console.log(
-      `[nav-depth] kök Stack derinliği=${names.length} (${names.join(' › ')})` +
-        (warn ? `  ⚠️ HAYALET EKRAN BİRİKİMİ — beklenen ≤3, (tabs) kopyası=${tabsCount}` : '')
+      `[nav-depth] derinlik=${names.length} · (tabs)=${tabsCount} (${names.join(' › ')})` +
+        (ghost ? '  ⚠️ HAYALET (tabs) KOPYASI — BİRİKİM!' : names.length > 6 ? '  ⚠️ aşırı derin (>6)' : '')
     );
   }, [routes]);
   return null;
@@ -65,6 +69,10 @@ function NavDepthLogger() {
 function RootLayoutNav() {
   const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
   const segments = useSegments();
+  // Bildirim listener'ı [router] bağımlılıklı effect closure'ında yaşıyor; segments'i doğrudan okursa
+  // BAYAT değer yakalar. Her render'da güncellenen ref üzerinden okunur (goToTab için güncel bağlam).
+  const segmentsRef = useRef(segments);
+  segmentsRef.current = segments;
   const router = useRouter();
   const { t } = useTranslation(['navigation', 'common', 'transactions', 'accounts', 'clients', 'staff', 'reports', 'categories', 'settings', 'products', 'ocrImport', 'errors']);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
@@ -196,10 +204,11 @@ function RootLayoutNav() {
           } else if (data.personel_id) {
             router.push(`/personel/${data.personel_id}` as Href);
           } else {
-            // Varsayılan olarak ana sayfaya git — dismissTo (POP_TO): kök Stack'i mevcut (tabs)'a
-            // collapse eder. push YENİ (tabs) kopyası yığardı (RN7 navigate/push var-olan (tabs)'a dönmez).
-            // Hedef stack'te yoksa (soğuk açılış/deep-link) mevcut ekranı hedefle değiştirir → güvenli.
-            router.dismissTo('/(tabs)' as Href);
+            // Varsayılan olarak ana sayfaya git. goToTab: (tabs) DIŞINDAYKEN dismissTo (POP_TO → collapse),
+            // İÇİNDEYKEN navigate (JUMP_TO). Koşulsuz dismissTo kullanırsak, kullanıcı zaten (tabs) içinde
+            // başka bir sekmedeyken (ör. Cariler) TabRouter'da POP_TO case'i olmadığından action işlenmez →
+            // ana sayfaya geçmezdi. segmentsRef güncel bağlamı verir (bayat closure değil).
+            goToTab(router, segmentsRef.current as string[], '/(tabs)' as Href);
           }
         } else if (data?.screen) {
           router.push(data.screen as Href);

@@ -49,7 +49,9 @@ export default function PaylasilanIsletmelerPage() {
       }
 
       await switchToSharedIsletme(item.isletme, freshData.permissions, freshData.role);
-      router.replace('/(tabs)' as never);
+      // dismissTo (POP_TO): kök Stack'i mevcut (tabs)'a collapse eder. Bu ekran her zaman (tabs)
+      // DIŞINDA (ayarlar detayı) olduğundan koşulsuz. replace YENİ (tabs) kopyası yığardı (RN7).
+      router.dismissTo('/(tabs)');
     } catch {
       Alert.alert(t('common:status.error'), t('multiUser:errors.switchFailed'));
     }
