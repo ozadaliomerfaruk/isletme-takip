@@ -58,6 +58,7 @@ export default function TabsLayout() {
       screenOptions={{
         tabBarButton: HapticTabButton,
         headerShown: false,
+        freezeOnBlur: true, // PERF (P0-3): aktif olmayan sekme ekranlarını dondur
         tabBarStyle: {
           display: 'none' as const,
         },

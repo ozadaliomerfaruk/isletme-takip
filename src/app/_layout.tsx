@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments, useRootNavigationState, Href } from 'exp
 import { StatusBar } from 'expo-status-bar';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { enableFreeze } from 'react-native-screens';
 import { SafeAreaProvider, SafeAreaInsetsContext, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -31,6 +32,13 @@ import { loadSavedLanguage } from '@/i18n';
 import { subscribeNeedsSetup, getNeedsSetupSync, loadNeedsSetup } from '@/lib/setupFlow';
 
 const ONBOARDING_KEY = '@defter_onboarding_completed';
+
+// PERF (P0-3): ekran-dışı (blur olmuş) native ekranları DONDUR. freezeOnBlur ile birlikte, kök Stack'te
+// biriken ekranların render'ı + reanimated/FlashList işi arka planda durur → JS-thread yükü stack
+// derinliğinden BAĞIMSIZ, düz kalır. NOT: React Query abonelikleri (useSyncExternalStore) yaşamaya devam
+// eder; ağ tarafını da kesmek için P2'deki focus-aware `subscribed` gerekir — ama nav-fix hayalet ekranı
+// ~0'a indirdiği için pratikte fırtına zaten sönüyor. Modül-init'te bir kez çağrılır.
+enableFreeze(true);
 
 /**
  * DEV-ONLY navigasyon derinlik nöbetçisi (P3 regresyon bekçisi). Kök Stack'in derinliğini ve
@@ -266,6 +274,7 @@ function RootLayoutNav() {
           contentStyle: { backgroundColor: colors.background },
           animation: 'slide_from_right',
           gestureEnabled: true,
+          freezeOnBlur: true, // PERF (P0-3): üstüne ekran gelen kök-Stack ekranlarını dondur (bkz. enableFreeze)
           headerBackTitle: t('common:buttons.back'),
           headerBackVisible: true,
           headerBackButtonDisplayMode: 'minimal',
