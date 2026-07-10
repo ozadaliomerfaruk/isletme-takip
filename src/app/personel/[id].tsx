@@ -362,7 +362,8 @@ export default function PersonelHareketleriPage() {
           onPress: async () => {
             try {
               await deletePersonel.mutateAsync(id!);
-              router.replace('/(tabs)/personel');
+              // dismissTo (POP_TO): kök Stack'i collapse eder; replace YENİ (tabs) kopyası yığardı (RN7).
+              router.dismissTo('/(tabs)/personel');
             } catch (error) {
               Alert.alert(
                 isLinkedRecordsError(error) ? t('common:errors.cannotDeleteTitle') : t('common:status.error'),

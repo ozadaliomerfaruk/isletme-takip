@@ -627,7 +627,9 @@ export default function CariHareketleriPage() {
           onPress: async () => {
             try {
               await deleteCari.mutateAsync(id!);
-              router.replace('/(tabs)/cariler');
+              // dismissTo (POP_TO): kök Stack'i mevcut (tabs)'a collapse eder. replace/push YENİ (tabs)
+              // kopyası yığardı (RN7 navigate/replace var-olan (tabs)'a dönmez) → sonsuz swipe-back.
+              router.dismissTo('/(tabs)/cariler');
             } catch (error) {
               Alert.alert(
                 isLinkedRecordsError(error) ? t('common:errors.cannotDeleteTitle') : t('common:status.error'),

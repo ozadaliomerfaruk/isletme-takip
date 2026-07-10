@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback, useMemo, useSyncExternalStore } from 'react';
-import { Stack, useRouter, useSegments, Href } from 'expo-router';
+import { Stack, useRouter, useSegments, useRootNavigationState, Href } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -31,6 +31,28 @@ import { loadSavedLanguage } from '@/i18n';
 import { subscribeNeedsSetup, getNeedsSetupSync, loadNeedsSetup } from '@/lib/setupFlow';
 
 const ONBOARDING_KEY = '@defter_onboarding_completed';
+
+/**
+ * DEV-ONLY navigasyon derinlik nöbetçisi (P3 regresyon bekçisi). Kök Stack'in derinliğini ve
+ * mükerrer (tabs) kopyalarını her navigasyonda loglar. Sağlıklı: derinlik ≤3, (tabs) tek.
+ * Derinlik büyüyor / (tabs) çoğalıyorsa → bir yerde (tabs) route'u push/replace ediliyor demektir.
+ * __DEV__ statik false olduğundan production bundle'ında tamamen elenir (sıfır maliyet).
+ */
+function NavDepthLogger() {
+  const navState = useRootNavigationState();
+  const routes = navState?.routes;
+  useEffect(() => {
+    if (!routes) return;
+    const names = routes.map((r) => r.name);
+    const tabsCount = names.filter((n) => n === '(tabs)').length;
+    const warn = names.length > 3 || tabsCount > 1;
+    console.log(
+      `[nav-depth] kök Stack derinliği=${names.length} (${names.join(' › ')})` +
+        (warn ? `  ⚠️ HAYALET EKRAN BİRİKİMİ — beklenen ≤3, (tabs) kopyası=${tabsCount}` : '')
+    );
+  }, [routes]);
+  return null;
+}
 
 function RootLayoutNav() {
   const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
@@ -166,8 +188,10 @@ function RootLayoutNav() {
           } else if (data.personel_id) {
             router.push(`/personel/${data.personel_id}` as Href);
           } else {
-            // Varsayılan olarak ana sayfaya git
-            router.push('/(tabs)' as Href);
+            // Varsayılan olarak ana sayfaya git — dismissTo (POP_TO): kök Stack'i mevcut (tabs)'a
+            // collapse eder. push YENİ (tabs) kopyası yığardı (RN7 navigate/push var-olan (tabs)'a dönmez).
+            // Hedef stack'te yoksa (soğuk açılış/deep-link) mevcut ekranı hedefle değiştirir → güvenli.
+            router.dismissTo('/(tabs)' as Href);
           }
         } else if (data?.screen) {
           router.push(data.screen as Href);
@@ -903,6 +927,7 @@ function RootLayoutNav() {
       </Stack>
       </SafeAreaInsetsContext.Provider>
       <PersistentTabBar />
+      {__DEV__ && <NavDepthLogger />}
       </View>
 
       {/* Şifre değiştirme modal'ı - şifremi unuttum akışı sonrası gösterilir */}

@@ -6,6 +6,7 @@ import { Home, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } fro
 import * as Haptics from 'expo-haptics';
 import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
+import { goToTab } from '@/lib/tabNav';
 import type { ModuleName } from '@/types/multiUser';
 
 type TabConfig = {
@@ -105,12 +106,11 @@ export function PersistentTabBar() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    // HER durumda navigate. Bottom-tab router `navigate`'i doğru işler: (tabs) İÇİNDE
-    // sekme geçişi (JUMP_TO — stack birikmez), (tabs) DIŞINDA ise ilgili (tabs) route'una
-    // NAVIGATE (kök ekran pop'lanır). `router.replace` ise bottom-tab router tarafından
-    // İŞLENMEZ (REPLACE case yok) → aksiyon kök Stack'e sıçrar, "route 'daha' yok" uyarısı
-    // verir, sekme geçişi sessizce başarısız olur VE geri-yığını (back-stack) bozar.
-    router.navigate(tab.route);
+    // (tabs) DIŞINDAKİ bir ekrandan (detay/rapor/form) sekmeye basınca kök Stack'i mevcut (tabs)'a
+    // COLLAPSE et (dismissTo/POP_TO); İÇİNDEYKEN sekme geçişi (navigate/JUMP_TO). Detay: src/lib/tabNav.ts.
+    // ⚠️ Eski kod düz `router.navigate` kullanıyordu — RN7'de navigate var-olan (tabs)'a POP'lamadığı
+    // için her basışta YENİ (tabs) kopyası yığıyordu (sonsuz swipe-back + gezindikçe yavaşlama).
+    goToTab(router, segments as string[], tab.route);
   };
 
   return (

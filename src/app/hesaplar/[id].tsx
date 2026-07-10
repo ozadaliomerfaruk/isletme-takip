@@ -523,7 +523,8 @@ export default function HesapHareketleriPage() {
           onPress: async () => {
             try {
               await deleteHesap.mutateAsync(id!);
-              router.replace('/(tabs)');
+              // dismissTo (POP_TO): kök Stack'i collapse eder; replace YENİ (tabs) kopyası yığardı (RN7).
+              router.dismissTo('/(tabs)');
             } catch (error) {
               Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.deleteFailed'));
             }

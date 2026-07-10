@@ -7,7 +7,8 @@ import {
   CreditCard,
   AlertTriangle,
 } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useSegments } from 'expo-router';
+import { goToTab } from '@/lib/tabNav';
 import { useTranslation } from 'react-i18next';
 
 import { Text, Card } from '@/components/ui';
@@ -26,6 +27,7 @@ import type { TabContentProps } from './types';
 
 export function GenelTabContent(_props: TabContentProps) {
   const router = useRouter();
+  const segments = useSegments();
   const { t } = useTranslation(['reports', 'common']);
   const { currency: baseCurrency } = useSettings();
 
@@ -254,7 +256,7 @@ export function GenelTabContent(_props: TabContentProps) {
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
           {t('reports:sections.clientStatus')}
         </Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/(tabs)/cariler')}>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => goToTab(router, segments, '/(tabs)/cariler')}>
           <Card>
             <View style={styles.accountHeader}>
               <Building2 size={20} color={colors.warning} />
@@ -298,7 +300,7 @@ export function GenelTabContent(_props: TabContentProps) {
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
           {t('reports:sections.personnelStatus')}
         </Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => router.push('/(tabs)/personel')}>
+        <TouchableOpacity activeOpacity={0.8} onPress={() => goToTab(router, segments, '/(tabs)/personel')}>
           <Card>
             <View style={styles.accountHeader}>
               <Users size={20} color={colors.info} />
