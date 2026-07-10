@@ -43,26 +43,47 @@ enableFreeze(true);
 
 /**
  * DEV-ONLY navigasyon derinlik nöbetçisi (P3 regresyon bekçisi). Kök Stack'in derinliğini ve
- * mükerrer (tabs) kopyalarını her navigasyonda loglar. Sağlıklı: derinlik ≤3, (tabs) tek.
- * Derinlik büyüyor / (tabs) çoğalıyorsa → bir yerde (tabs) route'u push/replace ediliyor demektir.
+ * mükerrer (tabs) kopyalarını her navigasyonda loglar. Sağlıklı: kök-stack ≤3, (tabs) tek.
+ * Kök-stack büyüyor / (tabs) çoğalıyorsa → bir yerde (tabs) route'u push/replace ediliyor demektir.
  * __DEV__ statik false olduğundan production bundle'ında tamamen elenir (sıfır maliyet).
+ *
+ * ⚠️ ÖNEMLİ (v2 düzeltmesi): useRootNavigationState() EN DIŞ sarmalayıcıyı (`__root`) döndürür —
+ * gerçek kök Stack ve olası (tabs) kopyaları bir seviye İÇERİDE (routes[0].state) yaşar. Eski sürüm
+ * yalnız `__root`'a bakıp HER durumda `derinlik=1 · (tabs)=0` raporluyordu (kör ölçüm — birikim olsa
+ * bile göremezdi). Bu sürüm ağacı gezip (tabs)'ı BARINDIRAN navigator'ı bulur; birikim orada olur.
  */
+type NavNode = { routes?: Array<{ name: string; state?: NavNode }> };
 function NavDepthLogger() {
   const navState = useRootNavigationState();
-  const routes = navState?.routes;
   useEffect(() => {
-    if (!routes) return;
-    const names = routes.map((r) => r.name);
-    const tabsCount = names.filter((n) => n === '(tabs)').length;
-    // GERÇEK kırmızı bayrak: (tabs) kopyası >1 (birikim). Derinlik >6 yalnızca "aşırı derin" uyarısı —
+    if (!navState) return;
+    // (tabs)'ı doğrudan barındıran navigator = asıl kök Stack. Ağacı gezip onu bul ve ÖLÇ.
+    let stackLen = 0;
+    let tabsCount = 0;
+    let names: string[] = [];
+    const walk = (state: NavNode | undefined) => {
+      const routes = state?.routes;
+      if (!Array.isArray(routes)) return;
+      const here = routes.filter((r) => r.name === '(tabs)').length;
+      if (here > 0) {
+        stackLen = routes.length;
+        tabsCount = here;
+        names = routes.map((r) => r.name);
+      }
+      for (const r of routes) {
+        if (r.state) walk(r.state);
+      }
+    };
+    walk(navState as NavNode);
+    // GERÇEK kırmızı bayrak: (tabs) kopyası >1 (birikim). Kök-stack >6 yalnızca "aşırı derin" uyarısı —
     // meşru derin akış (Cariler → cari detay → mutabakat → işlem düzenle = 4-5 giriş) SAĞLIKLIDIR,
     // eşik 3 olsaydı 50-sayfa turunda yanlış alarm gürültüsü gerçek sinyali gizlerdi.
     const ghost = tabsCount > 1;
     console.log(
-      `[nav-depth] derinlik=${names.length} · (tabs)=${tabsCount} (${names.join(' › ')})` +
-        (ghost ? '  ⚠️ HAYALET (tabs) KOPYASI — BİRİKİM!' : names.length > 6 ? '  ⚠️ aşırı derin (>6)' : '')
+      `[nav-depth] kök-stack=${stackLen} · (tabs)=${tabsCount} (${names.join(' › ')})` +
+        (ghost ? '  ⚠️ HAYALET (tabs) KOPYASI — BİRİKİM!' : stackLen > 6 ? '  ⚠️ aşırı derin (>6)' : '')
     );
-  }, [routes]);
+  }, [navState]);
   return null;
 }
 
