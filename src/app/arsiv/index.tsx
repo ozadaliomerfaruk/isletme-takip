@@ -1,6 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo, memo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import {
   Archive,
@@ -29,18 +30,193 @@ import {
   useUnarchiveCari,
   useUnarchivePersonel,
   useUnarchiveUrun,
-  useArchiveCounts,
 } from '@/hooks/useArchive';
 import { useDeleteHesap } from '@/hooks/useHesaplar';
 import { useDeleteCari } from '@/hooks/useCariler';
 import { useDeletePersonel } from '@/hooks/usePersonel';
 import { usePermanentDeleteUrun } from '@/hooks/useUrunler';
-import type { Hesap, Cari, Personel, Urun, BirimType } from '@/types/database';
+import type { Hesap, Cari, Personel, Urun } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 type TabType = 'hepsi' | 'hesaplar' | 'tedarikci' | 'musteri' | 'personel' | 'urunler';
+type ArchiveKind = 'hesap' | 'cari' | 'personel' | 'urun';
+
+// Tek FlashList için normalize edilmiş satır tipi (tür başına ayrı liste yerine tek virtualize liste).
+type ArchiveRow =
+  | { kind: 'hesap'; data: Hesap }
+  | { kind: 'cari'; data: Cari; cariType: 'tedarikci' | 'musteri' }
+  | { kind: 'personel'; data: Personel }
+  | { kind: 'urun'; data: Urun };
+
+type RowCallbacks = {
+  onOpen: (kind: ArchiveKind, id: string) => void;
+  onMore: (id: string, type: TabType, name: string, created_by?: string | null) => void;
+};
+
+// ============================================================================
+// Satır bileşenleri — React.memo + stabil callback'ler (onOpen/onMore useCallback'li).
+// FlashList yalnız görünen ~10 satırı mount eder; memo, arama tuşuna basışta görünen
+// satırların gereksiz yeniden render'ını da keser (data referansı RQ cache'inden stabil).
+// ============================================================================
+
+const HesapRow = memo(function HesapRow({ data, onOpen, onMore }: { data: Hesap } & RowCallbacks) {
+  const { t } = useTranslation(['accounts']);
+  const isPassive = data.is_active === false;
+  return (
+    <Card style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+      <TouchableOpacity style={styles.itemContent} onPress={() => onOpen('hesap', data.id)} activeOpacity={0.7}>
+        <View style={[styles.itemIcon, isPassive && styles.itemIconPassive]}>
+          <Wallet size={20} color={isPassive ? colors.textMuted : colors.primary} />
+        </View>
+        <View style={styles.itemInfo}>
+          <View style={styles.itemNameRow}>
+            <Text variant="body" style={isPassive && styles.textPassive}>{data.name}</Text>
+            {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
+          </View>
+          <Text variant="caption" color="secondary">
+            {t(`accounts:typeLabels.${data.type}`)}
+          </Text>
+        </View>
+        <View style={styles.itemBalance}>
+          <Text variant="body" color={toNumber(data.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
+            {formatCurrency(toNumber(data.balance), data.currency)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.moreButton}
+        onPress={() => onMore(data.id, 'hesaplar', data.name, data.created_by)}
+      >
+        <MoreVertical size={20} color={colors.textMuted} />
+      </TouchableOpacity>
+    </Card>
+  );
+});
+
+const CariRow = memo(function CariRow({
+  data,
+  cariType,
+  onOpen,
+  onMore,
+}: { data: Cari; cariType: 'tedarikci' | 'musteri' } & RowCallbacks) {
+  const isPassive = data.is_active === false;
+  const iconColor = cariType === 'tedarikci' ? colors.warning : colors.success;
+  const iconBgColor = cariType === 'tedarikci' ? colors.warningLight : colors.successLight;
+  return (
+    <Card style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+      <TouchableOpacity style={styles.itemContent} onPress={() => onOpen('cari', data.id)} activeOpacity={0.7}>
+        <View style={[styles.itemIcon, { backgroundColor: isPassive ? colors.surfaceLight : iconBgColor }, isPassive && styles.itemIconPassive]}>
+          {cariType === 'tedarikci' ? (
+            <Truck size={20} color={isPassive ? colors.textMuted : iconColor} />
+          ) : (
+            <Users size={20} color={isPassive ? colors.textMuted : iconColor} />
+          )}
+        </View>
+        <View style={styles.itemInfo}>
+          <View style={styles.itemNameRow}>
+            <Text variant="body" style={isPassive && styles.textPassive}>{data.name}</Text>
+            {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
+          </View>
+          {data.phone && (
+            <Text variant="caption" color="secondary">
+              {data.phone}
+            </Text>
+          )}
+        </View>
+        <View style={styles.itemBalance}>
+          <Text variant="body" color={toNumber(data.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
+            {formatCurrency(Math.abs(toNumber(data.balance)), data.currency)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.moreButton}
+        onPress={() => onMore(data.id, cariType, data.name, data.created_by)}
+      >
+        <MoreVertical size={20} color={colors.textMuted} />
+      </TouchableOpacity>
+    </Card>
+  );
+});
+
+const PersonelRow = memo(function PersonelRow({ data, onOpen, onMore }: { data: Personel } & RowCallbacks) {
+  const isPassive = data.is_active === false;
+  const fullName = `${data.first_name} ${data.last_name ?? ''}`;
+  return (
+    <Card style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+      <TouchableOpacity style={styles.itemContent} onPress={() => onOpen('personel', data.id)} activeOpacity={0.7}>
+        <View style={[styles.avatar, isPassive && styles.avatarPassive]}>
+          <Text variant="caption" style={{ color: isPassive ? colors.textMuted : colors.primary }}>
+            {getInitials(fullName)}
+          </Text>
+        </View>
+        <View style={styles.itemInfo}>
+          <View style={styles.itemNameRow}>
+            <Text variant="body" style={isPassive && styles.textPassive}>
+              {data.first_name} {data.last_name ?? ''}
+            </Text>
+            {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
+          </View>
+          {data.position && (
+            <Text variant="caption" color="secondary">
+              {data.position}
+            </Text>
+          )}
+        </View>
+        <View style={styles.itemBalance}>
+          <Text variant="body" color={toNumber(data.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
+            {formatCurrency(Math.abs(toNumber(data.balance)), data.currency)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.moreButton}
+        onPress={() => onMore(data.id, 'personel', fullName, data.created_by)}
+      >
+        <MoreVertical size={20} color={colors.textMuted} />
+      </TouchableOpacity>
+    </Card>
+  );
+});
+
+const UrunRow = memo(function UrunRow({ data, onOpen, onMore }: { data: Urun } & RowCallbacks) {
+  const { t } = useTranslation(['products']);
+  const isPassive = data.is_active === false;
+  return (
+    <Card style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+      <TouchableOpacity style={styles.itemContent} onPress={() => onOpen('urun', data.id)} activeOpacity={0.7}>
+        <View style={[styles.itemIcon, { backgroundColor: isPassive ? colors.surfaceLight : colors.primaryLight }, isPassive && styles.itemIconPassive]}>
+          <Package size={20} color={isPassive ? colors.textMuted : colors.primary} />
+        </View>
+        <View style={styles.itemInfo}>
+          <View style={styles.itemNameRow}>
+            <Text variant="body" style={isPassive && styles.textPassive}>{data.ad}</Text>
+            {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
+          </View>
+          <Text variant="caption" color="secondary">
+            {formatQuantity(data.miktar)} {t(`products:units.${data.birim}`)}
+            {data.kod && ` • ${data.kod}`}
+          </Text>
+        </View>
+        <View style={styles.itemBalance}>
+          {data.satis_fiyati > 0 && (
+            <Text variant="body" color="primary" style={isPassive && styles.textPassive}>
+              {formatCurrency(data.satis_fiyati, data.currency)}
+            </Text>
+          )}
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.moreButton}
+        onPress={() => onMore(data.id, 'urunler', data.ad, data.created_by)}
+      >
+        <MoreVertical size={20} color={colors.textMuted} />
+      </TouchableOpacity>
+    </Card>
+  );
+});
 
 export default function ArsivPage() {
   const router = useRouter();
@@ -51,10 +227,8 @@ export default function ArsivPage() {
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; type: TabType; name: string; created_by?: string | null } | null>(null);
 
-  // Archive counts
-  const { data: counts } = useArchiveCounts();
-
-  // Data queries
+  // Data queries (koşulsuz — sayaçlar bu dizilerin uzunluğundan türetiliyor, ayrı useArchiveCounts
+  // fan-out'u YOK: eskiden her açılışta 5 ekstra HEAD count isteği atıyordu, kaldırıldı).
   const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } = useArchivedHesaplar();
   const { data: tedarikciler, isLoading: tedarikciLoading, refetch: refetchTedarikciler } = useArchivedCariler('tedarikci');
   const { data: musteriler, isLoading: musteriLoading, refetch: refetchMusteriler } = useArchivedCariler('musteri');
@@ -72,16 +246,30 @@ export default function ArsivPage() {
   const deletePersonel = useDeletePersonel();
   const permanentDeleteUrun = usePermanentDeleteUrun();
 
-  const totalArchived = (counts?.hesaplar || 0) + (counts?.tedarikci || 0) + (counts?.musteri || 0) + (counts?.personel || 0) + (counts?.urunler || 0);
+  // Sayaçlar zaten çekilmiş dizilerden türetiliyor (ekstra ağ isteği yok).
+  const counts = useMemo(
+    () => ({
+      hesaplar: hesaplar?.length ?? 0,
+      tedarikci: tedarikciler?.length ?? 0,
+      musteri: musteriler?.length ?? 0,
+      personel: personelList?.length ?? 0,
+      urunler: urunler?.length ?? 0,
+    }),
+    [hesaplar, tedarikciler, musteriler, personelList, urunler]
+  );
+  const totalArchived = counts.hesaplar + counts.tedarikci + counts.musteri + counts.personel + counts.urunler;
 
-  const tabs = [
-    { key: 'hepsi' as TabType, label: t('common:archive.tabs.all'), count: totalArchived },
-    { key: 'hesaplar' as TabType, label: t('common:archive.tabs.accounts'), count: counts?.hesaplar || 0 },
-    { key: 'tedarikci' as TabType, label: t('common:archive.tabs.suppliers'), count: counts?.tedarikci || 0 },
-    { key: 'musteri' as TabType, label: t('common:archive.tabs.customers'), count: counts?.musteri || 0 },
-    { key: 'personel' as TabType, label: t('common:archive.tabs.staff'), count: counts?.personel || 0 },
-    { key: 'urunler' as TabType, label: t('common:archive.tabs.products'), count: counts?.urunler || 0 },
-  ];
+  const tabs = useMemo(
+    () => [
+      { key: 'hepsi' as TabType, label: t('common:archive.tabs.all'), count: totalArchived },
+      { key: 'hesaplar' as TabType, label: t('common:archive.tabs.accounts'), count: counts.hesaplar },
+      { key: 'tedarikci' as TabType, label: t('common:archive.tabs.suppliers'), count: counts.tedarikci },
+      { key: 'musteri' as TabType, label: t('common:archive.tabs.customers'), count: counts.musteri },
+      { key: 'personel' as TabType, label: t('common:archive.tabs.staff'), count: counts.personel },
+      { key: 'urunler' as TabType, label: t('common:archive.tabs.products'), count: counts.urunler },
+    ],
+    [t, totalArchived, counts]
+  );
 
   const isLoading =
     (activeTab === 'hepsi' && (hesaplarLoading || tedarikciLoading || musteriLoading || personelLoading || urunlerLoading)) ||
@@ -91,28 +279,52 @@ export default function ArsivPage() {
     (activeTab === 'personel' && personelLoading) ||
     (activeTab === 'urunler' && urunlerLoading);
 
-  // Filtered data based on search
-  const filteredHesaplar = hesaplar?.filter((h) =>
-    textIncludes(h.name, searchQuery)
+  // Arama filtresi — her tuşta 5 diziyi yeniden filtrelemek yerine memoize (kaydırma/yazma akıcılığı).
+  const filteredHesaplar = useMemo(
+    () => hesaplar?.filter((h) => textIncludes(h.name, searchQuery)),
+    [hesaplar, searchQuery]
   );
-  const filteredTedarikciler = tedarikciler?.filter((c) =>
-    textIncludes(c.name, searchQuery)
+  const filteredTedarikciler = useMemo(
+    () => tedarikciler?.filter((c) => textIncludes(c.name, searchQuery)),
+    [tedarikciler, searchQuery]
   );
-  const filteredMusteriler = musteriler?.filter((c) =>
-    textIncludes(c.name, searchQuery)
+  const filteredMusteriler = useMemo(
+    () => musteriler?.filter((c) => textIncludes(c.name, searchQuery)),
+    [musteriler, searchQuery]
   );
-  const filteredPersonel = personelList?.filter((p) =>
-    textIncludes(`${p.first_name} ${p.last_name}`, searchQuery)
+  const filteredPersonel = useMemo(
+    () => personelList?.filter((p) => textIncludes(`${p.first_name} ${p.last_name}`, searchQuery)),
+    [personelList, searchQuery]
   );
-  const filteredUrunler = urunler?.filter((u) =>
-    textIncludes(u.ad, searchQuery) ||
-    (u.kod && textIncludes(u.kod, searchQuery))
+  const filteredUrunler = useMemo(
+    () => urunler?.filter((u) => textIncludes(u.ad, searchQuery) || (u.kod && textIncludes(u.kod, searchQuery))),
+    [urunler, searchQuery]
   );
 
   const handleItemPress = useCallback((id: string, type: TabType, name: string, created_by?: string | null) => {
     setSelectedItem({ id, type, name, created_by });
     setActionSheetVisible(true);
   }, []);
+
+  const handleOpen = useCallback(
+    (kind: ArchiveKind, id: string) => {
+      switch (kind) {
+        case 'hesap':
+          router.push(`/hesaplar/${id}`);
+          break;
+        case 'cari':
+          router.push(`/cariler/${id}`);
+          break;
+        case 'personel':
+          router.push(`/personel/${id}`);
+          break;
+        case 'urun':
+          router.push(`/urunler/${id}`);
+          break;
+      }
+    },
+    [router]
+  );
 
   const handleUnarchive = useCallback(async () => {
     if (!selectedItem) return;
@@ -201,238 +413,67 @@ export default function ArsivPage() {
     return options;
   })();
 
-  const renderHesapItem = (hesap: Hesap) => {
-    const isPassive = hesap.is_active === false;
-    return (
-      <Card key={hesap.id} style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
-        <TouchableOpacity
-          style={styles.itemContent}
-          onPress={() => router.push(`/hesaplar/${hesap.id}`)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.itemIcon, isPassive && styles.itemIconPassive]}>
-            <Wallet size={20} color={isPassive ? colors.textMuted : colors.primary} />
-          </View>
-          <View style={styles.itemInfo}>
-            <View style={styles.itemNameRow}>
-              <Text variant="body" style={isPassive && styles.textPassive}>{hesap.name}</Text>
-              {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
-            </View>
-            <Text variant="caption" color="secondary">
-              {t(`accounts:typeLabels.${hesap.type}`)}
-            </Text>
-          </View>
-          <View style={styles.itemBalance}>
-            <Text variant="body" color={toNumber(hesap.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
-              {formatCurrency(toNumber(hesap.balance), hesap.currency)}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.moreButton}
-          onPress={() => handleItemPress(hesap.id, 'hesaplar', hesap.name, hesap.created_by)}
-        >
-          <MoreVertical size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-      </Card>
-    );
-  };
-
-  const renderCariItem = (cari: Cari, type: 'tedarikci' | 'musteri') => {
-    const isPassive = cari.is_active === false;
-    const iconColor = type === 'tedarikci' ? colors.warning : colors.success;
-    const iconBgColor = type === 'tedarikci' ? colors.warningLight : colors.successLight;
-    return (
-      <Card key={cari.id} style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
-        <TouchableOpacity
-          style={styles.itemContent}
-          onPress={() => router.push(`/cariler/${cari.id}`)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.itemIcon, { backgroundColor: isPassive ? colors.surfaceLight : iconBgColor }, isPassive && styles.itemIconPassive]}>
-            {type === 'tedarikci' ? (
-              <Truck size={20} color={isPassive ? colors.textMuted : iconColor} />
-            ) : (
-              <Users size={20} color={isPassive ? colors.textMuted : iconColor} />
-            )}
-          </View>
-          <View style={styles.itemInfo}>
-            <View style={styles.itemNameRow}>
-              <Text variant="body" style={isPassive && styles.textPassive}>{cari.name}</Text>
-              {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
-            </View>
-            {cari.phone && (
-              <Text variant="caption" color="secondary">
-                {cari.phone}
-              </Text>
-            )}
-          </View>
-          <View style={styles.itemBalance}>
-            <Text variant="body" color={toNumber(cari.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
-              {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.moreButton}
-          onPress={() => handleItemPress(cari.id, type, cari.name, cari.created_by)}
-        >
-          <MoreVertical size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-      </Card>
-    );
-  };
-
-  const renderPersonelItem = (personel: Personel) => {
-    const isPassive = personel.is_active === false;
-    return (
-      <Card key={personel.id} style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
-        <TouchableOpacity
-          style={styles.itemContent}
-          onPress={() => router.push(`/personel/${personel.id}`)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.avatar, isPassive && styles.avatarPassive]}>
-            <Text variant="caption" style={{ color: isPassive ? colors.textMuted : colors.primary }}>
-              {getInitials(`${personel.first_name} ${personel.last_name ?? ''}`)}
-            </Text>
-          </View>
-          <View style={styles.itemInfo}>
-            <View style={styles.itemNameRow}>
-              <Text variant="body" style={isPassive && styles.textPassive}>
-                {personel.first_name} {personel.last_name ?? ''}
-              </Text>
-              {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
-            </View>
-            {personel.position && (
-              <Text variant="caption" color="secondary">
-                {personel.position}
-              </Text>
-            )}
-          </View>
-          <View style={styles.itemBalance}>
-            <Text variant="body" color={toNumber(personel.balance) >= 0 ? 'success' : 'error'} style={isPassive && styles.textPassive}>
-              {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
-            </Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.moreButton}
-          onPress={() => handleItemPress(personel.id, 'personel', `${personel.first_name} ${personel.last_name ?? ''}`, personel.created_by)}
-        >
-          <MoreVertical size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-      </Card>
-    );
-  };
-
-  const getBirimLabel = (birim: BirimType) => {
-    return t(`products:units.${birim}`);
-  };
-
-  const renderUrunItem = (urun: Urun) => {
-    const isPassive = urun.is_active === false;
-    return (
-      <Card key={urun.id} style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
-        <TouchableOpacity
-          style={styles.itemContent}
-          onPress={() => router.push(`/urunler/${urun.id}`)}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.itemIcon, { backgroundColor: isPassive ? colors.surfaceLight : colors.primaryLight }, isPassive && styles.itemIconPassive]}>
-            <Package size={20} color={isPassive ? colors.textMuted : colors.primary} />
-          </View>
-          <View style={styles.itemInfo}>
-            <View style={styles.itemNameRow}>
-              <Text variant="body" style={isPassive && styles.textPassive}>{urun.ad}</Text>
-              {isPassive && <EyeOff size={14} color={colors.textMuted} style={styles.passiveIcon} />}
-            </View>
-            <Text variant="caption" color="secondary">
-              {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
-              {urun.kod && ` • ${urun.kod}`}
-            </Text>
-          </View>
-          <View style={styles.itemBalance}>
-            {urun.satis_fiyati > 0 && (
-              <Text variant="body" color="primary" style={isPassive && styles.textPassive}>
-                {formatCurrency(urun.satis_fiyati, urun.currency)}
-              </Text>
-            )}
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.moreButton}
-          onPress={() => handleItemPress(urun.id, 'urunler', urun.ad, urun.created_by)}
-        >
-          <MoreVertical size={20} color={colors.textMuted} />
-        </TouchableOpacity>
-      </Card>
-    );
-  };
-
-  const renderContent = () => {
-    if (isLoading) {
-      return <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />;
-    }
-
-    let items: React.ReactNode[] = [];
-    let isEmpty = false;
+  // Aktif sekmeye göre tek normalize diziyi kur (FlashList tek liste; tür başına ayrı ScrollView yok).
+  const listData = useMemo<ArchiveRow[]>(() => {
+    const rows: ArchiveRow[] = [];
+    const addHesaplar = () => filteredHesaplar?.forEach((d) => rows.push({ kind: 'hesap', data: d }));
+    const addTedarikci = () => filteredTedarikciler?.forEach((d) => rows.push({ kind: 'cari', data: d, cariType: 'tedarikci' }));
+    const addMusteri = () => filteredMusteriler?.forEach((d) => rows.push({ kind: 'cari', data: d, cariType: 'musteri' }));
+    const addPersonel = () => filteredPersonel?.forEach((d) => rows.push({ kind: 'personel', data: d }));
+    const addUrun = () => filteredUrunler?.forEach((d) => rows.push({ kind: 'urun', data: d }));
 
     switch (activeTab) {
       case 'hepsi':
-        items = [
-          ...(filteredHesaplar?.map(renderHesapItem) || []),
-          ...(filteredTedarikciler?.map((c) => renderCariItem(c, 'tedarikci')) || []),
-          ...(filteredMusteriler?.map((c) => renderCariItem(c, 'musteri')) || []),
-          ...(filteredPersonel?.map(renderPersonelItem) || []),
-          ...(filteredUrunler?.map(renderUrunItem) || []),
-        ];
-        isEmpty = items.length === 0;
+        addHesaplar();
+        addTedarikci();
+        addMusteri();
+        addPersonel();
+        addUrun();
         break;
       case 'hesaplar':
-        items = filteredHesaplar?.map(renderHesapItem) || [];
-        isEmpty = !filteredHesaplar || filteredHesaplar.length === 0;
+        addHesaplar();
         break;
       case 'tedarikci':
-        items = filteredTedarikciler?.map((c) => renderCariItem(c, 'tedarikci')) || [];
-        isEmpty = !filteredTedarikciler || filteredTedarikciler.length === 0;
+        addTedarikci();
         break;
       case 'musteri':
-        items = filteredMusteriler?.map((c) => renderCariItem(c, 'musteri')) || [];
-        isEmpty = !filteredMusteriler || filteredMusteriler.length === 0;
+        addMusteri();
         break;
       case 'personel':
-        items = filteredPersonel?.map(renderPersonelItem) || [];
-        isEmpty = !filteredPersonel || filteredPersonel.length === 0;
+        addPersonel();
         break;
       case 'urunler':
-        items = filteredUrunler?.map(renderUrunItem) || [];
-        isEmpty = !filteredUrunler || filteredUrunler.length === 0;
+        addUrun();
         break;
     }
+    return rows;
+  }, [activeTab, filteredHesaplar, filteredTedarikciler, filteredMusteriler, filteredPersonel, filteredUrunler]);
 
-    if (isEmpty) {
-      return (
-        <EmptyState
-          icon={<Archive size={48} color={colors.textMuted} />}
-          title={t('common:archive.messages.emptyArchive')}
-        />
-      );
-    }
+  const keyExtractor = useCallback((item: ArchiveRow) => `${item.kind}-${item.data.id}`, []);
+  // Farklı satır tipleri karışık listede — recycling'in yanlış yükseklik/görsel bozulmasını önler.
+  const getItemType = useCallback((item: ArchiveRow) => item.kind, []);
 
-    return <View style={styles.listContainer}>{items}</View>;
-  };
+  const renderItem = useCallback(
+    ({ item }: { item: ArchiveRow }) => {
+      switch (item.kind) {
+        case 'hesap':
+          return <HesapRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} />;
+        case 'cari':
+          return <CariRow data={item.data} cariType={item.cariType} onOpen={handleOpen} onMore={handleItemPress} />;
+        case 'personel':
+          return <PersonelRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} />;
+        case 'urun':
+          return <UrunRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} />;
+      }
+    },
+    [handleOpen, handleItemPress]
+  );
 
-  return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
-        }
-      >
-        {/* Search */}
+  // Header (arama + sekmeler) — memoize'lı ELEMENT (islemler deseni): aynı tip aynı konumda
+  // reconcile edildiğinden SearchInput yazarken focus'unu KAYBETMEZ.
+  const ListHeader = useMemo(
+    () => (
+      <View>
         <View style={styles.searchContainer}>
           <SearchInput
             value={searchQuery}
@@ -440,8 +481,6 @@ export default function ArsivPage() {
             placeholder={t('common:archive.search.placeholder')}
           />
         </View>
-
-        {/* Tabs */}
         <View style={styles.tabsContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {tabs.map((tab) => (
@@ -450,10 +489,7 @@ export default function ArsivPage() {
                 style={[styles.tab, activeTab === tab.key && styles.tabActive]}
                 onPress={() => setActiveTab(tab.key)}
               >
-                <Text
-                  variant="label"
-                  style={activeTab === tab.key ? styles.tabTextActive : styles.tabText}
-                >
+                <Text variant="label" style={activeTab === tab.key ? styles.tabTextActive : styles.tabText}>
                   {tab.label}
                 </Text>
                 {tab.count > 0 && (
@@ -467,19 +503,51 @@ export default function ArsivPage() {
             ))}
           </ScrollView>
         </View>
+      </View>
+    ),
+    [searchQuery, tabs, activeTab, t]
+  );
 
-        {/* Content */}
-        {renderContent()}
+  const ListEmpty = useMemo(() => {
+    if (isLoading) {
+      return <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />;
+    }
+    return (
+      <EmptyState
+        icon={<Archive size={48} color={colors.textMuted} />}
+        title={t('common:archive.messages.emptyArchive')}
+      />
+    );
+  }, [isLoading, t]);
 
-        {/* Footer */}
-        {totalArchived > 0 && (
-          <View style={styles.footer}>
-            <Text variant="caption" color="secondary">
-              {t('common:archive.messages.itemCount', { count: totalArchived })}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+  const ListFooter = useMemo(
+    () =>
+      totalArchived > 0 ? (
+        <View style={styles.footer}>
+          <Text variant="caption" color="secondary">
+            {t('common:archive.messages.itemCount', { count: totalArchived })}
+          </Text>
+        </View>
+      ) : null,
+    [totalArchived, t]
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <FlashList
+        data={listData}
+        keyExtractor={keyExtractor}
+        getItemType={getItemType}
+        renderItem={renderItem}
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        ListFooterComponent={ListFooter}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
+      />
 
       {/* Action Sheet */}
       <ActionSheet
@@ -501,8 +569,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
-    flex: 1,
+  listContent: {
+    paddingBottom: spacing.xl,
   },
   searchContainer: {
     paddingHorizontal: spacing.lg,
@@ -550,14 +618,12 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 11,
   },
-  listContainer: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
   },
   itemContent: {
     flex: 1,
