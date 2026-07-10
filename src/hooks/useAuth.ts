@@ -409,14 +409,15 @@ export function useAuth() {
         // Aşağıdaki kod bloğu session/user güncellemesini yapacak
       }
 
-      // TOKEN_REFRESHED eventinde sadece session'ı güncelle, isletme'yi tekrar çekme
+      // TOKEN_REFRESHED: token yenilenir ama user KİMLİĞİ değişmez (aynı user, yalnız yeni erişim token'ı).
+      // PERF (P1 — kimlik koruma): state'i GÜNCELLEMİYORUZ. Gerekçe: (a) context'ten session/token OKUYAN
+      // tüketici YOK (grep doğrulandı — API çağrıları supabase client'ının kendi tazelenmiş token'ını kullanır,
+      // iç effect'ler yalnız session TRUTHINESS'ine bakar); (b) güncellersek her yenilemede (2 dk'da bir +
+      // her foreground'da refreshSession sonrası) YENİ user/session nesnesi → useAuthContext'in 75 tüketicisi
+      // gereksiz re-render + AppState/token-check effect'leri gereksiz re-subscribe olurdu. Gerçek user
+      // değişiklikleri (metadata/e-posta) ayrı bir event'tir (USER_UPDATED → aşağıdaki dal user'ı günceller).
       if (event === 'TOKEN_REFRESHED') {
         lastRefreshTime.current = Date.now();
-        setState((prev) => ({
-          ...prev,
-          session,
-          user: session?.user ?? null,
-        }));
         return;
       }
 
