@@ -165,23 +165,39 @@ try {
 }
 
 // DEV-ONLY invalidation fan-out ölçer (perf "item 1 = focus-aware subscribed" ölçüm-kapısı).
-// Bir mutasyon sonrası kaç query REFETCH (ağ isteği) attığını sayar. Tabs navigator 5 tab ekranını
-// kalıcı mounted tutar; freeze RENDER'ı keser ama React Query abonelikleri yaşar → refetchType:'active'
-// invalidation'ı yine tüm mounted ekranlara fetch attırır. Uygulama telemetrisi KAPALI (telemetry_enabled
-// false) olduğundan bunu ölçmenin başka kolay yolu yok. KULLANIM: ana sayfada 1 işlem kaydet → konsolda
-// [rq-fanout] burst sayısına bak. FABLE EŞİĞİ: ≥15 → item 1 (yalnız 5 tab hook'una subscribed) değerli;
-// ≤8 → kalıcı atla. __DEV__ statik false olduğundan production bundle'ında tamamen elenir.
+// Bir mutasyon/navigasyon sonrası kaç query REFETCH (ağ isteği) attığını + HANGİ sorguların olduğunu sayar.
+// Tabs navigator 5 tab ekranını (index/cariler/personel/urunler/daha) kalıcı mounted tutar; freeze RENDER'ı
+// keser ama React Query abonelikleri yaşar → refetchType:'active' invalidation'ı yine tüm mounted ekranlara
+// fetch attırır. Uygulama telemetrisi KAPALI (telemetry_enabled false) olduğundan başka kolay ölçüm yok.
+//
+// v2: Sadece SAYI yetmiyor — burst=17'nin ARKA-PLAN sekme sorgusu (→ item 1/subscribed çözer) mi yoksa
+// ODAKTAKİ ekranın kendi yükü (→ item 1 çözmez) mi olduğunu ayırmak için her burst'te sorgu-kimliği dökümü
+// basar (queryHash ilk parçası). Okuma: aynı 4-5 sekme anahtarı tekrar tekrar görünüyorsa = arka-plan fan-out,
+// item 1 DEĞERLİ; tek ekranın (ör. personel detay) çok farklı anahtarı görünüyorsa = odak yükü, item 1 atla.
+// FABLE EŞİĞİ: burst ≥15 → item 1 aday; ≤8 → atla. __DEV__ statik false → production bundle'ında elenir.
 if (__DEV__) {
   let burst = 0;
+  const byKey = new Map<string, number>();
   let timer: ReturnType<typeof setTimeout> | null = null;
   queryClient.getQueryCache().subscribe((event: QueryCacheNotifyEvent) => {
-    const action = event.type === 'updated' ? (event.action as { type?: string }) : undefined;
+    if (event.type !== 'updated') return;
+    const action = event.action as { type?: string };
     if (action?.type !== 'fetch') return;
     burst += 1;
+    // Sorgu kimliği: purpose meta'sı varsa onu, yoksa queryHash'in ilk 44 karakteri (anahtar tipini gösterir).
+    const meta = (event.query.meta ?? {}) as { query_purpose?: string };
+    const id = meta.query_purpose ?? event.query.queryHash.slice(0, 44);
+    byKey.set(id, (byKey.get(id) ?? 0) + 1);
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
-      console.log(`[rq-fanout] burst=${burst} refetch (Fable esigi: >=15 -> item1 degerli, <=8 -> atla)`);
+      const dokum = [...byKey.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([k, v]) => `${v}x ${k}`)
+        .join(' | ');
+      console.log(`[rq-fanout] burst=${burst} (>=15 item1 aday) → ${dokum}`);
       burst = 0;
+      byKey.clear();
       timer = null;
     }, 1500);
   });
