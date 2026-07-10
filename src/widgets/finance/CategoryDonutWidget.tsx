@@ -29,7 +29,8 @@ const CHART_COLORS = [
   '#84CC16', // Lime
 ];
 
-export function CategoryDonutWidget({
+// React.memo: dashboard'da ilgisiz bir re-render bu SVG donut'u yeniden çizmesin (chartData zaten useMemo'lu).
+export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
   dateRange,
   onNavigate,
 }: WidgetProps) {
@@ -190,7 +191,7 @@ export function CategoryDonutWidget({
       )}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

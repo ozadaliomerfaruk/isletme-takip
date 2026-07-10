@@ -18,6 +18,9 @@ import i18n from '@/i18n';
 WebBrowser.maybeCompleteAuthSession();
 
 interface AuthState {
+  // ⚠️ BİLİNÇLİ BAYAT olabilir: sign-in anındaki session. TOKEN_REFRESHED'te GÜNCELLENMEZ (perf — bkz.
+  // onAuthStateChange handler). Yalnız truthiness (giriş var mı) için güvenli; TAZE erişim token'ı için
+  // supabase.auth.getSession() kullan (supabase client zaten tazelenmiş token'ı içeride yönetir).
   session: Session | null;
   user: User | null;
   isletme: Isletme | null;

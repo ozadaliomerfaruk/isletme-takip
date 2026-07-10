@@ -21,7 +21,9 @@ import type { WidgetProps, TrendFilter } from '@/types/analytics';
 
 type MetricType = 'income' | 'expense' | 'net';
 
-export function TrendChartWidget({ period, dateRange }: WidgetProps) {
+// React.memo: dashboard'da İLGİSİZ bir re-render (başka widget'ın verisi değişince parent yeniden
+// render) bu SVG bar-grafiği yeniden çizmesin. Kendi verisi (useAnalyticsTrend) değişirse yine güncellenir.
+export const TrendChartWidget = React.memo(function TrendChartWidget({ period, dateRange }: WidgetProps) {
   const { t } = useTranslation('analytics');
   const { currency } = useSettings();
 
@@ -217,7 +219,7 @@ export function TrendChartWidget({ period, dateRange }: WidgetProps) {
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
