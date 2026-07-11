@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -63,6 +64,9 @@ export default function CarilerPage() {
   const { t } = useTranslation(['clients', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  // A2: SearchInput value'su anlık searchQuery'ye bağlı; filtre/sıralama debouncedSearch
+  // kullanır ve useMemo ile sarılır → binlerce caride her tuşta filter+sort tekrarlanmaz.
+  const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');
   // Multi-select state
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -447,13 +451,14 @@ export default function CarilerPage() {
     return [...ownItems, ...linkedItems];
   }, [cariler, linkedCariler, sharedOwnCariIds]);
 
-  // Arama filtresi ve sıralama (aktif önce)
-  const filteredCariler = mergedCariler
+  // Arama filtresi ve sıralama (aktif önce). A2: useMemo + debouncedSearch → her tuşta değil,
+  // yalnız arama 250ms durunca (veya diğer girdiler değişince) filter+sort tekrar çalışır.
+  const filteredCariler = useMemo(() => mergedCariler
     .filter((cari) => {
       // Type filter
       if (filter !== 'all' && cari.type !== filter) return false;
       // Search filter
-      if (searchQuery && !textIncludes(cari.name, searchQuery)) return false;
+      if (debouncedSearch && !textIncludes(cari.name, debouncedSearch)) return false;
       return true;
     })
     .sort((a, b) => {
@@ -488,7 +493,8 @@ export default function CarilerPage() {
       }
       // Default: alphabetical
       return a.name.localeCompare(b.name, 'tr');
-    });
+    }),
+  [mergedCariler, filter, debouncedSearch, sortBy]);
 
   // #11: "Tümünü seç" durumunu sayı eşitliği yerine ÜYELİK ile belirle. Filtre/arama
   // değişince selectedIds bayat id'ler tutabiliyor; saf sayı karşılaştırması yanlış
@@ -750,17 +756,17 @@ export default function CarilerPage() {
     return (
       <EmptyState
         icon={<Users size={48} color={colors.textMuted} />}
-        title={searchQuery ? t('clients:search.noResults') : t('clients:messages.noClients')}
+        title={debouncedSearch ? t('clients:search.noResults') : t('clients:messages.noClients')}
         description={
-          searchQuery
+          debouncedSearch
             ? t('common:search.tryDifferent')
             : t('clients:messages.addFirstClient')
         }
-        actionLabel={searchQuery ? undefined : t('clients:titles.addClient')}
-        onAction={searchQuery ? undefined : () => router.push('/cariler/ekle')}
+        actionLabel={debouncedSearch ? undefined : t('clients:titles.addClient')}
+        onAction={debouncedSearch ? undefined : () => router.push('/cariler/ekle')}
       />
     );
-  }, [isLoading, searchQuery, t, router]);
+  }, [isLoading, debouncedSearch, t, router]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

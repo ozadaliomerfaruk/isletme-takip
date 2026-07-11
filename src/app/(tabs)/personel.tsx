@@ -27,6 +27,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -49,6 +50,8 @@ export default function PersonelPage() {
   const insets = useSafeAreaInsets();
   const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
+  // A2: input anlık searchQuery'ye bağlı; filtre/sıralama debouncedSearch + useMemo ile.
+  const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(null);
@@ -300,10 +303,11 @@ export default function PersonelPage() {
     return options;
   }, [actionSheetPersonel, t, handleEnterSelectMode, handleArchive, handleDelete, canUpdate, canDelete, router]);
 
-  // Arama ve sıralama (aktif önce)
-  const filteredPersonel = (personelList ?? [])
+  // Arama ve sıralama (aktif önce). A2: useMemo + debouncedSearch → her tuşta değil, arama
+  // durunca (veya liste/sıralama değişince) filter+sort tekrar çalışır.
+  const filteredPersonel = useMemo(() => (personelList ?? [])
     .filter((p) =>
-      textIncludes(`${p.first_name} ${p.last_name}`, searchQuery)
+      textIncludes(`${p.first_name} ${p.last_name}`, debouncedSearch)
     )
     .sort((a, b) => {
       // Aktif olanlar önce
@@ -333,7 +337,8 @@ export default function PersonelPage() {
       }
       // Default: alphabetical
       return a.first_name.localeCompare(b.first_name, 'tr');
-    });
+    }),
+  [personelList, debouncedSearch, sortBy]);
 
   // #11: "Tümünü seç" durumunu sayı eşitliği yerine ÜYELİK ile belirle + filtre/arama
   // değişince bayat seçimleri buda (yanlış etiket / hayalet seçim önlenir).
@@ -585,17 +590,17 @@ export default function PersonelPage() {
     return (
       <EmptyState
         icon={<UserCircle size={48} color={colors.textMuted} />}
-        title={searchQuery ? t('staff:search.noResults') : t('staff:messages.noPersonnel')}
+        title={debouncedSearch ? t('staff:search.noResults') : t('staff:messages.noPersonnel')}
         description={
-          searchQuery
+          debouncedSearch
             ? t('common:search.tryDifferent')
             : t('staff:messages.addFirstPersonnel')
         }
-        actionLabel={searchQuery ? undefined : t('staff:titles.addPersonnel')}
-        onAction={searchQuery ? undefined : () => router.push('/personel/ekle')}
+        actionLabel={debouncedSearch ? undefined : t('staff:titles.addPersonnel')}
+        onAction={debouncedSearch ? undefined : () => router.push('/personel/ekle')}
       />
     );
-  }, [isLoading, searchQuery, t, router]);
+  }, [isLoading, debouncedSearch, t, router]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>

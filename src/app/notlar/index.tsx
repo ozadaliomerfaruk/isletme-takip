@@ -35,6 +35,7 @@ import { useToast } from '@/contexts/ToastContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { textIncludes } from '@/lib/turkishTextUtils';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -86,6 +87,8 @@ export default function NotlarPage() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'done'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  // A2: input anlık searchQuery'ye bağlı; filtreleme debouncedSearch'ü kullanır.
+  const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingNote, setEditingNote] = useState<Not | null>(null);
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
@@ -165,11 +168,11 @@ export default function NotlarPage() {
         result = result.filter(n => !!n.completed_at);
       }
     }
-    if (searchQuery.trim()) {
-      result = result.filter(n => textIncludes(n.content, searchQuery));
+    if (debouncedSearch.trim()) {
+      result = result.filter(n => textIncludes(n.content, debouncedSearch));
     }
     return result;
-  }, [notlar, searchQuery, filter, taskFilter, pendingDeleteIds]);
+  }, [notlar, debouncedSearch, filter, taskFilter, pendingDeleteIds]);
 
   const handleCreate = async (data: NoteFormData) => {
     try {

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, FilterChips, SearchInput, EmptyState } from '@/components/ui';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import type { FilterChipItem } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
@@ -165,6 +166,9 @@ export default function IslemlerPage() {
   const { canDelete } = usePermissions();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  // A2: SearchInput value'su searchQuery'ye (anlık) bağlı kalır; yalnız filtreleme/gruplama
+  // debouncedSearch'ü kullanır → binlerce işlemde her tuşta tüm liste yeniden filtrelenmez.
+  const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [showLongLoadingMessage, setShowLongLoadingMessage] = useState(false);
   // Edit mode state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
@@ -250,21 +254,21 @@ export default function IslemlerPage() {
       if (filter === 'izin_hakki') matchesFilter = islem.type === 'personel_izin_hakki';
       if (filter === 'izin_kullanimi') matchesFilter = islem.type === 'personel_izin_kullanimi';
 
-      if (!searchQuery) return matchesFilter;
+      if (!debouncedSearch) return matchesFilter;
 
       const personelName = islem.personel
         ? `${islem.personel.first_name || ''} ${islem.personel.last_name || ''}`.trim()
         : '';
       const matchesSearch =
-        textIncludes(islem.description, searchQuery) ||
-        textIncludes(islem.hesap?.name, searchQuery) ||
-        textIncludes(islem.cari?.name, searchQuery) ||
-        textIncludes(islem.kategori?.name, searchQuery) ||
-        textIncludes(personelName, searchQuery);
+        textIncludes(islem.description, debouncedSearch) ||
+        textIncludes(islem.hesap?.name, debouncedSearch) ||
+        textIncludes(islem.cari?.name, debouncedSearch) ||
+        textIncludes(islem.kategori?.name, debouncedSearch) ||
+        textIncludes(personelName, debouncedSearch);
 
       return matchesFilter && matchesSearch;
     });
-  }, [islemler, filter, searchQuery, pendingDeleteIds]);
+  }, [islemler, filter, debouncedSearch, pendingDeleteIds]);
 
   // ============================================================================
   // DATE GROUPING
@@ -487,12 +491,12 @@ export default function IslemlerPage() {
       <EmptyState
         icon={<Receipt size={48} color={colors.textMuted} />}
         title={t('common:search.noResults')}
-        description={searchQuery || filter !== 'all'
+        description={debouncedSearch || filter !== 'all'
           ? t('transactions:messages.noTransactionsInPeriod')
           : t('transactions:messages.noTransactions')}
       />
     );
-  }, [isLoading, showLongLoadingMessage, searchQuery, filter, t]);
+  }, [isLoading, showLongLoadingMessage, debouncedSearch, filter, t]);
 
   // ============================================================================
   // FlatList Footer ("daha fazla göster") — useMemo ile stabil (cariler/hesaplar ile aynı standart)
