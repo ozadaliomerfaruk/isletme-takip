@@ -49,8 +49,11 @@ import {
   useQuickTransactionForm,
   useQuickTransactionEntities,
   useTransactionSubmit,
+  useLastUsedSelections,
 } from './hooks';
+import { getCategoryType as resolveCategoryFamily } from './utils/categoryTypeMapper';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { useKategoriler } from '@/hooks/useKategoriler';
 import { usePickImage, useTakePhoto } from '@/hooks/useIslemPhoto';
 import { useCreateCari } from '@/hooks/useCariler';
 import { useCreateUrun } from '@/hooks/useUrunler';
@@ -86,6 +89,9 @@ export function QuickTransactionBar({
 
   // Modals hook
   const modals = useQuickTransactionModals();
+
+  // A1: son-kullanılan hesap/kategori belleği (aktif isletme.id ile namespace'li)
+  const lastUsed = useLastUsedSelections();
 
   // Form hook - needs modals.resetModalStates and hesaplar
   // We need to get hesaplar first for form initialization
@@ -124,6 +130,8 @@ export function QuickTransactionBar({
     transactionId,
     isScheduledTransaction,
     copySourceId,
+    // A1: son-kullanılan hesap ön-doldurma getter'ı (doğrulama form hook'unda)
+    getLastUsedHesapId: lastUsed.getHesapId,
   });
 
   // Tab mode
@@ -296,6 +304,92 @@ export function QuickTransactionBar({
     onSuccess,
     handleDismiss,
   });
+
+  // ── A1: son-kullanılan hesap/kategori ön-doldurma ──────────────────────────
+  // Bar her açılışında belleği diskten tazele (aynı oturumda yapılan kayıtlar yansısın;
+  // kayıt useTransactionSubmit içinde fire-and-forget diske yazılır).
+  useEffect(() => {
+    if (visible) lastUsed.reload();
+  }, [visible, lastUsed.reload]);
+
+  // Mevcut işlem tipinin kategori ailesi (gelir/gider) — doğrulama + prefill anahtarı.
+  const currentCategoryFamily = resolveCategoryFamily(form.type);
+  // Doğrulama listesi: CategoryPicker ile AYNI sorgu anahtarı → cache isabeti (ek ağ yok).
+  const { data: kategorilerForFamily } = useKategoriler(currentCategoryFamily);
+
+  // selectedCategoryType override'ını mevcut aileyle senkron tut → tip değişince bayat
+  // override CategoryPicker'ı yanlış ailede göstermesin (mis-tag guard; latent bug fix).
+  useEffect(() => {
+    if (modals.selectedCategoryType && modals.selectedCategoryType !== currentCategoryFamily) {
+      modals.setSelectedCategoryType(currentCategoryFamily ?? null);
+    }
+  }, [currentCategoryFamily, modals.selectedCategoryType, modals.setSelectedCategoryType]);
+
+  // Kategori ön-doldurma: açılışta/aile değişiminde son-kullanılan kategoriyi (canlı listeye
+  // karşı DOĞRULANMIŞ) uygula. Yalnız create modda, kategori boşken, ürün seçili değilken.
+  // Prefill kategoriyi truthy yaptığı için save-anı kategori modalı istisnaya düşer.
+  // Ön-doldurulan kategori ailelerini AÇILIŞ BAŞINA izler (Set). Tek-değer ref yerine Set:
+  // kullanıcı gelir→gider→gelir turu attığında ilk kez ele alınan aile TEKRAR prefill EDİLMEZ.
+  // Böylece aile-değişimi temizliğiyle boşalan (ör. elle seçilmiş "Kira") seçim, dönüşte son-
+  // kullanılan "Yemek" ile SESSİZCE değiştirilmez; kategori boş kalır ve save-gate kullanıcıya
+  // bilinçli seçtirir.
+  const categoryPrefilledFamiliesRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!visible) {
+      categoryPrefilledFamiliesRef.current = new Set();
+      return;
+    }
+    if (form.isEditMode || form.isCopyMode) return; // edit/copy: kategori kaynaktan gelir
+    if (form.isCariMode || form.isPersonelMode) return; // A1 v1: yalnız normal mod (cari/personel değil)
+    if (form.urunItems.length > 0) return; // ürünler kategoriyi devre dışı bırakır
+    if (currentCategoryFamily !== 'gelir' && currentCategoryFamily !== 'gider') return;
+    if (categoryPrefilledFamiliesRef.current.has(currentCategoryFamily)) return; // bu aile bu açılışta ele alındı
+    if (!kategorilerForFamily) return; // doğrulama listesi yüklenmeden karar verme (işaretleme)
+    // Kullanıcının MEVCUT AİLE İÇİN GEÇERLİ bir kategorisi varsa dokunma. Sadece truthy
+    // bakmak yetmez: gelir↔gider sekme geçişinde bayat (yanlış-aile) bir id kısa süre truthy
+    // kalır; form hook onu temizlemeden önce bu effect çalışırsa (aynı commit, hook sırası)
+    // aileyi "ele alındı" işaretleyip prefill'i kalıcı baltalardı.
+    if (form.kategoriId && kategorilerForFamily.some((k) => k.id === form.kategoriId)) {
+      categoryPrefilledFamiliesRef.current.add(currentCategoryFamily);
+      return;
+    }
+    // Boş veya bayat-geçersiz kategori: son-kullanılanı (doğrulanmış) uygula. Bayat id'nin
+    // null'lanmasını form hook'un aile-değişimi effect'i üstlenir (create modda).
+    const remembered = lastUsed.getKategoriId(currentCategoryFamily);
+    if (remembered && kategorilerForFamily.some((k) => k.id === remembered)) {
+      form.setKategoriId(remembered);
+      modals.setSelectedCategoryType(currentCategoryFamily);
+    }
+    categoryPrefilledFamiliesRef.current.add(currentCategoryFamily);
+  }, [
+    visible,
+    form.isEditMode,
+    form.isCopyMode,
+    form.isCariMode,
+    form.isPersonelMode,
+    form.urunItems.length,
+    form.kategoriId,
+    currentCategoryFamily,
+    kategorilerForFamily,
+    lastUsed.getKategoriId,
+    form.setKategoriId,
+    modals.setSelectedCategoryType,
+  ]);
+
+  // A1: "son kullanılan" kategori chip'leri için çözümlenmiş liste (canlı listeye karşı
+  // doğrulanmış → silinmiş id'ler otomatik düşer; en fazla 3).
+  const recentKategoriIds = lastUsed.getRecentKategoriIds(currentCategoryFamily);
+  const recentCategories = useMemo(() => {
+    // A1 v1: chip satırı yalnız normal modda (cari/personel akışları belleğe yazmıyor,
+    // orada normal-mod recents'ini göstermek tutarsız olurdu).
+    if (form.isCariMode || form.isPersonelMode) return [];
+    if (!kategorilerForFamily || recentKategoriIds.length === 0) return [];
+    return recentKategoriIds
+      .map((id) => kategorilerForFamily.find((k) => k.id === id))
+      .filter((k): k is NonNullable<typeof k> => !!k)
+      .slice(0, 3)
+      .map((k) => ({ id: k.id, name: k.name, color: k.color }));
+  }, [form.isCariMode, form.isPersonelMode, kategorilerForFamily, recentKategoriIds]);
 
   // Handle hesap selection from picker
   const handleHesapSelect = useCallback(
@@ -624,6 +718,7 @@ export function QuickTransactionBar({
             }
           }}
           categoryType={categoryType ?? null}
+          recentCategories={recentCategories}
           categoryPickerOpen={modals.categoryPickerOpen && form.urunItems.length === 0}
           onCategoryPickerOpenChange={(open) => {
             // Prevent opening category picker when products are selected

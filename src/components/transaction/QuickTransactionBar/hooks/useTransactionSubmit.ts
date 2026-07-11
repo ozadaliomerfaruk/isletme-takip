@@ -15,6 +15,8 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
 import { supabase, checkNetworkConnectivity } from '@/lib/supabase';
 import { useToast } from '@/contexts/ToastContext';
+import { recordLastUsed } from '@/lib/lastUsedSelections';
+import { getCategoryType } from '../utils/categoryTypeMapper';
 
 interface Hesap {
   id: string;
@@ -225,6 +227,26 @@ export function useTransactionSubmit({
   // senkron olarak kurulur; yavaş ağda hızlı çift dokunuşun ikinci/üçüncüsü erkenden eler.
   const submitInFlightRef = useRef(false);
 
+  // A1: başarılı CREATE sonrası son-kullanılan hesap/kategoriyi diske yazar (fire-and-forget).
+  // Edit'te çağrılmaz — eski işlemi düzenlemek kullanıcının güncel varsayılanlarını ezmemeli.
+  // Anahtar isletme.id ile namespace'li; hesap RAW tipe, kategori gelir/gider ailesine göre.
+  const persistLastUsed = useCallback(() => {
+    if (!isletme?.id) return;
+    // A1 v1: YALNIZ normal mod (cari/personel dışı). Cari/personel akışları — özellikle
+    // mutabakat "eksikleri ekle" kuyruğu bar'ı her kalemde remount edip birçok farklı işlemi
+    // arka arkaya kaydeder — tek son-kullanılan kategoriyle toplu yanlış-etiketleyip belleği
+    // ezerdi. Hesap ön-doldurma zaten yalnız normal modda; kategori bellek de öyle olsun.
+    if (isCariMode || isPersonelMode) return;
+    // Ürün-taşıyan kayıtlarda kategori 'skip' sayılır → kategori yazma.
+    const kategoriToPersist = urunItems.length > 0 ? null : kategoriId;
+    void recordLastUsed(isletme.id, {
+      type,
+      family: getCategoryType(type),
+      hesapId: hesapId ?? null,
+      kategoriId: kategoriToPersist,
+    });
+  }, [isletme, type, hesapId, kategoriId, urunItems.length, isCariMode, isPersonelMode]);
+
   // Helper: Get urun movement type based on transaction type
   const getUrunHareketTipi = useCallback((txnType: TransactionType): UrunHareketTipi | null => {
     // alis: Tedarikçiden mal alındı → Ürün Girişi
@@ -279,7 +301,13 @@ export function useTransactionSubmit({
         amount: parsedAmount,
         description: description.trim() || null,
         hesap_id: needsHesap ? hesapId : null,
-        kategori_id: kategoriId,
+        // Ürün-taşıyan işlemlerde kategori ürünlerden türetilir ve UI'da devre dışıdır
+        // (value={urunItemCount>0 ? null : kategoriId}). Ön-doldurulmuş/manuel kategorinin
+        // ürün işlemine sızıp yanlış-etiketlemesini önlemek için CREATE'te null yaz.
+        // EDIT'te DOKUNMA: eski sürümlerde kategori+ürün birlikte kaydedilmiş legacy işlemler
+        // olabilir; salt tutar düzeltmesi bile kategoriyi sessizce null'larsa geçmiş dönem
+        // kategori raporları bir düzenlemeyle değişir (create-only guard).
+        kategori_id: !isEditMode && urunItems.length > 0 ? null : kategoriId,
       };
 
       // Exchange rate info
@@ -319,7 +347,7 @@ export function useTransactionSubmit({
 
       return data;
     },
-    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd]
+    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd, urunItems.length, isEditMode]
   );
 
   // Check cross-currency
@@ -817,6 +845,7 @@ export function useTransactionSubmit({
 
       // Trigger review prompt for new transactions (not edits)
       if (!isEditMode) {
+        persistLastUsed(); // A1: son-kullanılan hesap/kategoriyi hatırla (create-only)
         // Async call, don't await - we don't want to block the UI
         triggerReviewIfEligible().catch((err) => {
           console.log('[Review] Error triggering review:', err);
@@ -882,6 +911,7 @@ export function useTransactionSubmit({
     deleteIleriTarihliIslem,
     uploadPhoto,
     triggerReviewIfEligible,
+    persistLastUsed,
     showToast,
     onSuccess,
     handleDismiss,
@@ -978,6 +1008,7 @@ export function useTransactionSubmit({
 
         // Trigger review prompt for new transactions (not edits)
         if (!isEditMode) {
+          persistLastUsed(); // A1: son-kullanılan hesap/kategoriyi hatırla (çapraz-kur yolu da)
           triggerReviewIfEligible().catch((err) => {
             console.log('[Review] Error triggering review:', err);
           });
@@ -1017,6 +1048,7 @@ export function useTransactionSubmit({
       deleteIslem,
       deleteIleriTarihliIslem,
       triggerReviewIfEligible,
+      persistLastUsed,
       showToast,
       setPendingExchangeData,
       onSuccess,

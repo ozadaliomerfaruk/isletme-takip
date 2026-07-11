@@ -27,6 +27,8 @@ export interface AmountInputSectionProps {
   categoryPickerOpen: boolean;
   onCategoryPickerOpenChange: (open: boolean) => void;
   onNavigateAway: () => void;
+  // A1: "son kullanılan" kategoriler (doğrulanmış + çözümlenmiş, en fazla 3) — hızlı seçim chip'leri
+  recentCategories?: { id: string; name: string; color?: string | null }[];
   // Photo
   hasPhoto: boolean;
   onPickImage: () => void;
@@ -63,6 +65,7 @@ export function AmountInputSection({
   categoryPickerOpen,
   onCategoryPickerOpenChange,
   onNavigateAway,
+  recentCategories,
   hasPhoto,
   onPickImage,
   onTakePhoto,
@@ -181,6 +184,36 @@ export function AmountInputSection({
             open={categoryPickerOpen}
             onOpenChange={onCategoryPickerOpenChange}
           />
+        </View>
+      )}
+
+      {/* A1: "son kullanılan" kategori chip'leri — tek dokunuşla kategori seçimi, böylece
+          save-anı kategori modalı istisnaya düşer. Ürün seçiliyken kategori devre dışı → gizle. */}
+      {categoryType && urunItemCount === 0 && recentCategories && recentCategories.length > 0 && (
+        <View style={localStyles.recentChipsRow}>
+          {recentCategories.map((cat) => {
+            const isSelected = cat.id === kategoriId;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                style={[localStyles.recentChip, isSelected && localStyles.recentChipActive]}
+                onPress={() => onKategoriChange(cat.id)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={cat.name}
+              >
+                {cat.color ? (
+                  <View style={[localStyles.recentChipDot, { backgroundColor: cat.color }]} />
+                ) : null}
+                <Text
+                  style={[localStyles.recentChipText, isSelected && localStyles.recentChipTextActive]}
+                  numberOfLines={1}
+                >
+                  {cat.name}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       )}
 
@@ -333,6 +366,41 @@ export function AmountInputSection({
 }
 
 const localStyles = StyleSheet.create({
+  recentChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 8,
+  },
+  recentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: colors.surfaceLight,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  recentChipActive: {
+    backgroundColor: colors.primaryLight,
+    borderColor: colors.primary,
+  },
+  recentChipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  recentChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    maxWidth: 130,
+  },
+  recentChipTextActive: {
+    color: colors.primary,
+  },
   noteRow: {
     flexDirection: 'row',
     alignItems: 'center',

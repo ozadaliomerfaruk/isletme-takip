@@ -7,6 +7,7 @@ import { useIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
 import { mapApiTypeToFormState } from '../utils/reverseTypeMapper';
+import { getCategoryType } from '../utils/categoryTypeMapper';
 
 interface Hesap {
   id: string;
@@ -35,6 +36,9 @@ interface UseQuickTransactionFormOptions {
   isScheduledTransaction?: boolean;
   // Copy mode: load data from this transaction but create as new
   copySourceId?: string;
+  // A1: son-kullanılan hesap ön-doldurması. Ref-stabil getter; RAW işlem tipine göre
+  // saklanan ham id'yi döner (doğrulama burada, hesaplar listesine karşı yapılır).
+  getLastUsedHesapId?: (type: TransactionType) => string | undefined;
 }
 
 interface PendingExchangeData {
@@ -48,6 +52,7 @@ interface UseQuickTransactionFormReturn {
   isCariMode: boolean;
   isPersonelMode: boolean;
   isEditMode: boolean;
+  isCopyMode: boolean;
   isLoadingTransaction: boolean;
 
   // Form state
@@ -128,6 +133,7 @@ export function useQuickTransactionForm({
   transactionId,
   isScheduledTransaction = false,
   copySourceId,
+  getLastUsedHesapId,
 }: UseQuickTransactionFormOptions): UseQuickTransactionFormReturn {
   // Edit mode flag
   const isEditMode = mode === 'edit' && !!transactionId;
@@ -384,10 +390,14 @@ export function useQuickTransactionForm({
     if (!visible) prefillAppliedRef.current = false;
   }, [visible]);
 
-  // Update type and cari/personel when modal opens (only in create mode)
+  // Update type and cari/personel when modal opens (only in fresh create mode)
   useEffect(() => {
-    // Skip in edit mode - data will be loaded from transaction
-    if (isEditMode) return;
+    // Skip in edit AND copy mode — başlangıç tip/hesap/cari/personel durumu YALNIZ
+    // yükleme effect'inden gelmeli. Aksi halde copy modda kaynak işlem yüklenince
+    // isCariMode false→true olur, bu effect (isCariMode dep'i) yeniden tetiklenir ve
+    // defaultType'a (gelir) + hesaplar[0]/son-kullanılan hesaba düşerek yüklenen
+    // tipi ve cari/personel bağını EZER → sessiz veri bozulması (kopya yanlış tiple kaydolur).
+    if (isEditMode || isCopyMode) return;
 
     if (visible) {
       // Dışarıdan ön-doldurma — copy modda uygulanmaz (kaynak işlem yüklemesi ezilmesin)
@@ -416,7 +426,13 @@ export function useQuickTransactionForm({
       } else {
         // Normal mode
         if (hesaplar && hesaplar.length > 0) {
-          setSourceHesapId(defaultHesapId || hesaplar[0].id);
+          // A1: hesap ön-doldurma önceliği → açık defaultHesapId > son-kullanılan
+          // (canlı listeye karşı doğrulanmış) > ilk hesap. Silinmiş/arşivlenmiş
+          // son-kullanılan id asla uygulanmaz.
+          const remembered = getLastUsedHesapId?.(defaultType);
+          const validRemembered =
+            remembered && hesaplar.some((h) => h.id === remembered) ? remembered : undefined;
+          setSourceHesapId(defaultHesapId || validRemembered || hesaplar[0].id);
         }
         setType(defaultType);
       }
@@ -436,17 +452,36 @@ export function useQuickTransactionForm({
     defaultDescription,
     hesaplar,
     defaultHesapId,
+    getLastUsedHesapId,
   ]);
+
+  // A1: kategori ailesi (gelir/gider) takibi — aile değişince bayat kategori temizlenir
+  const prevCategoryFamilyRef = useRef<'gelir' | 'gider' | undefined>(getCategoryType(defaultType));
 
   // Reset cariId, personelId and sourceHesapId when type changes (only in normal mode, not during edit data loading)
   useEffect(() => {
     // Don't reset during edit mode data loading
     if (isEditMode && !editDataLoaded) return;
 
+    // A1: kategori ailesi (gelir/gider) değişince bayat kategoriyi temizle — ön-doldurulan
+    // veya seçilmiş bir gelir kategorisi gider formunda (ve tersi) asılı kalmasın. Bu,
+    // save-anı gate'inin yanlış-aile kategoriyle işlem kaydetmesini (mis-tag) engeller.
+    // Ref her modda güncellenir; temizleme yalnız saf create modda (edit/copy yüklenen
+    // kategoriyi korur).
+    const newFamily = getCategoryType(type);
+    if (newFamily !== prevCategoryFamilyRef.current) {
+      prevCategoryFamilyRef.current = newFamily;
+      if (!isEditMode && !isCopyMode) {
+        setKategoriId(null);
+      }
+    }
+
     // Reset account selection for odeme/tahsilat — keep defaultHesapId as source if available
-    // Skip in edit mode after data is loaded — accounts were set from the transaction
+    // Skip in edit AND copy mode after data is loaded — accounts were set from the transaction.
+    // (Copy modda yükleme, type'ı gelir→odeme'ye çevirir; bu reset load-tetikli değişimde
+    // çalışıp kopyalanan kaynak hesabı silerdi → recurring ödeme/tahsilat kopyası bozulurdu.)
     if (type === 'odeme' || type === 'tahsilat' || type === 'personel_odeme_tab' || type === 'personel_tahsilat_tab') {
-      if (!(isEditMode && editDataLoaded)) {
+      if (!((isEditMode || isCopyMode) && editDataLoaded)) {
         setSourceHesapId(defaultHesapId || null);
         setHedefHesapId(null);
       }
@@ -458,13 +493,14 @@ export function useQuickTransactionForm({
       setOdemeHedefType(null);
       setTahsilatHedefType(null);
     }
-  }, [type, isCariMode, isPersonelMode, isEditMode, editDataLoaded]);
+  }, [type, isCariMode, isPersonelMode, isEditMode, editDataLoaded, isCopyMode]);
 
   return {
     // Mode flags
     isCariMode,
     isPersonelMode,
     isEditMode,
+    isCopyMode,
     isLoadingTransaction,
 
     // Form state

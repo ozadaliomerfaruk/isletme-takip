@@ -7,6 +7,7 @@ import type * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '@/lib/supabase';
 import { wipePersistedCache } from '@/lib/queryClient';
+import { clearLastUsedSelections } from '@/lib/lastUsedSelections';
 import { logEvent, setEventContext } from '@/lib/appEvents';
 import { markNeedsSetup } from '@/lib/setupFlow';
 import { Isletme } from '@/types/database';
@@ -664,6 +665,13 @@ export function useAuth() {
     // kullanıcı soğuk açılışta öncekinin verisini görürdü).
     await wipePersistedCache();
 
+    // A1: son-kullanılan seçim belleğini de temizle (aktif + kendi işletme anahtarları).
+    // Anahtar zaten isletme_id namespace'li (sızıntı yok); bu ek hijyen amaçlı.
+    await clearLastUsedSelections(state.isletme?.id);
+    if (state.ownIsletme?.id && state.ownIsletme.id !== state.isletme?.id) {
+      await clearLastUsedSelections(state.ownIsletme.id);
+    }
+
     setState({
       session: null,
       user: null,
@@ -811,6 +819,12 @@ export function useAuth() {
 
       // Persist read-cache'i bellek + diskten sil (veri sızmasın)
       await wipePersistedCache();
+
+      // A1: son-kullanılan seçim belleğini de sil (hesap silindi → veri gitmeli).
+      await clearLastUsedSelections(isletmeId);
+      if (state.isletme?.id && state.isletme.id !== isletmeId) {
+        await clearLastUsedSelections(state.isletme.id);
+      }
 
       setState({
         session: null,

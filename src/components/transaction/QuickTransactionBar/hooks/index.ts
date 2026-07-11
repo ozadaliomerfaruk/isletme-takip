@@ -4,3 +4,4 @@ export { useQuickTransactionModals } from './useQuickTransactionModals';
 export { useQuickTransactionForm } from './useQuickTransactionForm';
 export { useQuickTransactionEntities } from './useQuickTransactionEntities';
 export { useTransactionSubmit } from './useTransactionSubmit';
+export { useLastUsedSelections } from './useLastUsedSelections';

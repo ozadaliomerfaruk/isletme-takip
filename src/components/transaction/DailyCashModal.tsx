@@ -31,12 +31,17 @@ import { formatDateTimeForDB, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { getHesapIconConfig } from '@/lib/icons';
 import { Hesap } from '@/types/database';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const HIDDEN_ACCOUNTS_KEY = '@defter_daily_cash_hidden_accounts';
+// Gizli-hesap tercihi isletme_id ile namespace'lenir (çapraz-kiracı sızıntı yok).
+// NOT: eski global anahtar (`@defter_daily_cash_hidden_accounts`) artık okunmaz;
+// mevcut kullanıcıların gizli-hesap tercihi bir defalık sıfırlanır (veri kaybı değil,
+// yalnız tercih; işletme değişiminde başka işletmenin gizli hesabını göstermemek için).
+const HIDDEN_ACCOUNTS_KEY_PREFIX = '@defter_daily_cash_hidden_accounts';
 
 interface DailyCashEntry {
   hesapId: string;
@@ -58,8 +63,14 @@ export function DailyCashModal({
 }: DailyCashModalProps) {
   const { t } = useTranslation(['transactions', 'common', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
+  const { isletme } = useAuthContext();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  // Gizli-hesap AsyncStorage anahtarı — aktif işletmeye göre namespace'li.
+  const hiddenAccountsKey = isletme?.id
+    ? `${HIDDEN_ACCOUNTS_KEY_PREFIX}_${isletme.id}`
+    : null;
   const windowHeight = Dimensions.get('window').height;
 
   // Date state - initialized with time 23:59
@@ -103,17 +114,23 @@ export function DailyCashModal({
     return filteredHesaplar.filter((h) => !hiddenAccountIds.has(h.id));
   }, [filteredHesaplar, hiddenAccountIds, showSettings]);
 
-  // Load hidden accounts from AsyncStorage
+  // Load hidden accounts from AsyncStorage (isletme değişince yeniden okur)
   useEffect(() => {
-    AsyncStorage.getItem(HIDDEN_ACCOUNTS_KEY).then((stored) => {
+    if (!hiddenAccountsKey) return;
+    let cancelled = false;
+    AsyncStorage.getItem(hiddenAccountsKey).then((stored) => {
+      if (cancelled) return;
       if (stored) {
         try {
           const ids: string[] = JSON.parse(stored);
           setHiddenAccountIds(new Set(ids));
         } catch { /* ignore parse errors */ }
+      } else {
+        setHiddenAccountIds(new Set());
       }
     });
-  }, []);
+    return () => { cancelled = true; };
+  }, [hiddenAccountsKey]);
 
   // Toggle account visibility
   const toggleAccountVisibility = useCallback(async (hesapId: string) => {
@@ -133,10 +150,12 @@ export function DailyCashModal({
         }
         next.add(hesapId);
       }
-      AsyncStorage.setItem(HIDDEN_ACCOUNTS_KEY, JSON.stringify([...next]));
+      if (hiddenAccountsKey) {
+        AsyncStorage.setItem(hiddenAccountsKey, JSON.stringify([...next]));
+      }
       return next;
     });
-  }, [filteredHesaplar, t]);
+  }, [filteredHesaplar, t, hiddenAccountsKey]);
 
   // Initialize entries when visible hesaplar changes
   useEffect(() => {
