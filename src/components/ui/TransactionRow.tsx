@@ -25,6 +25,8 @@ export interface TransactionRowProps {
   entityText?: string | null;
   secondaryText?: string | null;
   tertiaryText?: string | null;
+  /** Opsiyonel ek bağlam satırı (ör. hesap adı) — İşlemler geçmez; kategori raporu geçer. */
+  hesapText?: string | null;
   subAmount?: string | null;
   hasPhoto?: boolean;
   hasUrunler?: boolean;
@@ -54,6 +56,7 @@ export const TransactionRow = memo(function TransactionRow({
   entityText,
   secondaryText,
   tertiaryText,
+  hesapText,
   subAmount,
   hasPhoto,
   hasUrunler,
@@ -150,6 +153,12 @@ export const TransactionRow = memo(function TransactionRow({
             {tertiaryText}
           </Text>
         ) : null}
+        {/* Line 5: Opsiyonel bağlam (hesap adı) — yalnız geçildiğinde */}
+        {hesapText ? (
+          <Text style={styles.secondaryText} numberOfLines={1}>
+            {hesapText}
+          </Text>
+        ) : null}
       </View>
 
       {/* Amount */}
@@ -191,6 +200,7 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.entityText === next.entityText
     && prev.secondaryText === next.secondaryText
     && prev.tertiaryText === next.tertiaryText
+    && prev.hesapText === next.hesapText
     && prev.subAmount === next.subAmount
     && prev.overrideColor === next.overrideColor
     && prev.overridePrefix === next.overridePrefix

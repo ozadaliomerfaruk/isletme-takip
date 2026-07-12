@@ -4,7 +4,6 @@ import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Scroll
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import {
-  ChevronRight,
   TrendingUp,
   TrendingDown,
   Tag,
@@ -27,12 +26,14 @@ import {
   Share2,
 } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
+import { TransactionRow } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
+import { useUrunKalemlerByIslemIds } from '@/hooks/useUrunHareketler';
 import { IslemWithRelations, KategoriType } from '@/types/database';
 import { isReturnType } from '@/constants/islemTypes';
 import { useTranslation } from 'react-i18next';
@@ -172,6 +173,10 @@ export default function KategoriDetayPage() {
     { startDate: startDate!, endDate: endDate!, source, includeReturns: true }
   );
 
+  // Ürün kalemleri (satırda önizleme) — tek batch sorgu (İşlemler listesiyle aynı desen, N+1 yok).
+  const islemIdList = useMemo(() => (filteredIslemler || []).map((i) => i.id), [filteredIslemler]);
+  const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
+
   // Alt kategori seçimini toggle et
   const toggleSubCategory = (subKategoriId: string) => {
     const currentSet = new Set(effectiveSelectedSubCategories);
@@ -273,76 +278,45 @@ export default function KategoriDetayPage() {
     return `${start.getDate()} ${months[start.getMonth()]} - ${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
   };
 
-  // İşlem kartı render
+  // İşlem kartı render — İşlemler listesiyle AYNI zengin satır (TransactionRow):
+  // cari/personel (başlık) · TİP·tarih · kategori · ürün kalemleri · not · hesap.
   const renderIslemItem = ({ item }: { item: IslemWithRelations & { _categoryAmount?: number } }) => {
     const isGelir = type === 'gelir';
-    // İade, yönü AZALTIR → kartta yönün TERSİ gösterilir: gelir iadesi kırmızı/eksi,
-    // gider iadesi (para geri) yeşil/artı. (isGelir XOR iade)
+    // İade yönü AZALTIR → kategori raporunda TERS gösterilir (gelir iadesi kırmızı/eksi,
+    // gider iadesi para-geri yeşil/artı). Bu raporsal semantik TransactionRow'un tip-varsayılan
+    // renginden farklı olabildiği için overrideColor/overridePrefix ile korunur.
     const isRet = isReturnType(item.type);
     const showsPositive = isGelir !== isRet;
-    // If _categoryAmount exists, show it as the main amount and full invoice as sub-text
+    // _categoryAmount varsa ana tutar = kategori payı, alt tutar = tam fatura.
     const hasCategoryAmount = item._categoryAmount !== undefined && item._categoryAmount !== Number(item.amount);
     const displayAmount = hasCategoryAmount ? item._categoryAmount! : Number(item.amount);
+    const currency = item.hesap?.currency;
+    const urunItems = getUrunItems(item.id);
+    const entityText = item.cari?.name
+      || (item.personel ? `${item.personel.first_name} ${item.personel.last_name ?? ''}`.trim() : null)
+      || null;
 
     return (
-      <TouchableOpacity
-        style={styles.islemCard}
-        onPress={() => handleEditTransaction(item.id)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.islemHeader}>
-          <View style={styles.islemLeft}>
-            <View style={[
-              styles.islemIconContainer,
-              { backgroundColor: showsPositive ? colors.successLight : colors.errorLight }
-            ]}>
-              {showsPositive ? (
-                <TrendingUp size={16} color={colors.success} />
-              ) : (
-                <TrendingDown size={16} color={colors.error} />
-              )}
-            </View>
-            <View style={styles.islemInfo}>
-              <Text variant="body" numberOfLines={1} style={styles.islemTitle}>
-                {item.cari?.name
-                  || (item.personel ? `${item.personel.first_name} ${item.personel.last_name ?? ''}`.trim() : null)
-                  || item.description
-                  || t(`transactions:types.${item.type}`)}
-              </Text>
-              <Text variant="caption" color="secondary">
-                {t(`transactions:types.${item.type}`)} • {formatDateMedium(item.date)}
-              </Text>
-              {item.description && (item.cari || item.personel) && (
-                <Text variant="caption" color="secondary" numberOfLines={2}>
-                  {item.description}
-                </Text>
-              )}
-              {item.hesap && (
-                <Text variant="caption" color="secondary">
-                  {item.hesap.name}
-                </Text>
-              )}
-            </View>
-          </View>
-          <View style={styles.islemRight}>
-            <View style={styles.islemAmountContainer}>
-              <Text
-                variant="label"
-                color={showsPositive ? 'success' : 'error'}
-                style={styles.islemAmount}
-              >
-                {showsPositive ? '+' : '-'}{formatCurrency(displayAmount, item.hesap?.currency)}
-              </Text>
-              {hasCategoryAmount && (
-                <Text variant="caption" color="secondary" style={styles.islemSubAmount}>
-                  {t('reports:labels.invoiceTotal')}: {formatCurrency(Number(item.amount), item.hesap?.currency)}
-                </Text>
-              )}
-            </View>
-            <ChevronRight size={16} color={colors.textMuted} />
-          </View>
-        </View>
-      </TouchableOpacity>
+      <TransactionRow
+        id={item.id}
+        type={item.type}
+        amount={displayAmount}
+        date={formatDateMedium(item.date)}
+        typeLabel={t(`transactions:types.${item.type}`)}
+        entityText={entityText}
+        secondaryText={item.kategori?.name || null}
+        tertiaryText={item.description || null}
+        hesapText={item.hesap?.name || null}
+        urunItems={urunItems}
+        hasUrunler={urunItems.length > 0}
+        urunCount={urunItems.length}
+        currency={currency}
+        overrideColor={showsPositive ? colors.success : colors.error}
+        overridePrefix={showsPositive ? '+' : '-'}
+        subAmount={hasCategoryAmount ? `${t('reports:labels.invoiceTotal')}: ${formatCurrency(Number(item.amount), currency)}` : null}
+        hasPhoto={!!item.photo_path}
+        onPress={handleEditTransaction}
+      />
     );
   };
 
@@ -865,55 +839,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
-  },
-  islemCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  islemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  islemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  islemIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.sm,
-  },
-  islemInfo: {
-    flex: 1,
-  },
-  islemTitle: {
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  islemRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  islemAmountContainer: {
-    alignItems: 'flex-end',
-  },
-  islemAmount: {
-    fontWeight: '700',
-    fontSize: fontSize.lg,
-  },
-  islemSubAmount: {
-    fontSize: 10,
-    marginTop: 1,
   },
   emptyCard: {
     padding: spacing.xl,
