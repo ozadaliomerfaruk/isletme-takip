@@ -526,6 +526,7 @@ export default function IslemlerPage() {
           data={groupedData}
           keyExtractor={keyExtractor}
           getItemType={getIslemlerItemType}
+          keyboardShouldPersistTaps="handled"
           renderItem={renderItem}
           ListHeaderComponent={ListHeader}
           ListEmptyComponent={ListEmpty}

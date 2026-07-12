@@ -787,7 +787,7 @@ export default function AramaPage() {
                 placeholderTextColor={colors.textMuted}
                 value={minAmount}
                 onChangeText={setMinAmount}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
               />
               {minAmount.length > 0 && (
                 <TouchableOpacity onPress={() => setMinAmount('')} style={styles.inputClearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -803,7 +803,7 @@ export default function AramaPage() {
                 placeholderTextColor={colors.textMuted}
                 value={maxAmount}
                 onChangeText={setMaxAmount}
-                keyboardType="numeric"
+                keyboardType="decimal-pad"
               />
               {maxAmount.length > 0 && (
                 <TouchableOpacity onPress={() => setMaxAmount('')} style={styles.inputClearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>

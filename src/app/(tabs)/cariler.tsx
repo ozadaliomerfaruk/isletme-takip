@@ -775,6 +775,7 @@ export default function CarilerPage() {
         data={isLoading ? [] : filteredCariler}
         keyExtractor={(item) => item.id}
         renderItem={renderCariItem}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}
