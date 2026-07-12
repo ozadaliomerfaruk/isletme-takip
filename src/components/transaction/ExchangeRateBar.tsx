@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
+import { HIT_SLOP } from '@/constants/spacing';
 import { Currency } from '@/types/database';
 import { getCurrencySymbol, getExchangeRateDisplay } from '@/constants/currencies';
 import { parseCurrency, formatCurrency, formatAmountForInput } from '@/lib/currency';
@@ -359,7 +360,7 @@ export function ExchangeRateBar({
           <TouchableOpacity
             style={styles.closeButton}
             onPress={handleDismiss}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={HIT_SLOP.md}
           >
             <X size={20} color={colors.textMuted} />
           </TouchableOpacity>

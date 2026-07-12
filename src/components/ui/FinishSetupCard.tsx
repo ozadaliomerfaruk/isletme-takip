@@ -12,7 +12,7 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import type { DimensionValue } from 'react-native';
 import { CheckCircle2, Circle, ChevronRight, Sparkles, X } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { Text } from './Text';
 import { useTranslation } from 'react-i18next';
 import type { SetupStep, SetupStepKey } from '@/hooks/useSetupProgress';
@@ -52,7 +52,7 @@ export function FinishSetupCard({
         </View>
         <TouchableOpacity
           onPress={onDismiss}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          hitSlop={HIT_SLOP.md}
           style={styles.dismissBtn}
           accessibilityLabel={t('buttons.close')}
         >

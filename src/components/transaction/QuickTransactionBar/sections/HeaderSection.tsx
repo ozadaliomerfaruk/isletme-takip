@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
+import { HIT_SLOP } from '@/constants/spacing';
 import { isToday } from '@/lib/date';
 import { styles } from '../styles';
 
@@ -97,7 +98,7 @@ export function HeaderSection({
           <TouchableOpacity
             style={styles.nowButton}
             onPress={onResetToNow}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={HIT_SLOP.sm}
           >
             <Text style={styles.nowButtonText}>{t('common:date.now')}</Text>
           </TouchableOpacity>
@@ -106,7 +107,7 @@ export function HeaderSection({
         <TouchableOpacity
           style={styles.closeButton}
           onPress={onClose}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={HIT_SLOP.md}
         >
           <X size={20} color={colors.textMuted} />
         </TouchableOpacity>

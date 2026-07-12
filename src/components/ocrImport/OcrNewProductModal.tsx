@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { PlusCircle, X } from 'lucide-react-native';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { OcrParsedItem } from '@/types/ocrImport';
 import { formatQuantity } from '@/lib/currency';
 
@@ -33,7 +33,7 @@ export function OcrNewProductModal({
           {/* Header */}
           <View style={styles.header}>
             <Text variant="h3">{t('newProductModal.title')}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <TouchableOpacity onPress={onClose} hitSlop={HIT_SLOP.md}>
               <X size={24} color={colors.text} />
             </TouchableOpacity>
           </View>

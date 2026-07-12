@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight } from 'lucide-re
 import { Text, AnimatedNumber } from '@/components/ui';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { getCurrentCurrency } from '@/hooks/useSettings';
 import { useMonthSummary, type PeriodType } from '@/hooks/useIslemler';
@@ -100,7 +100,7 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
           <TouchableOpacity
             onPress={() => setPeriodOffset(prev => prev - 1)}
             style={styles.navButton}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={HIT_SLOP.sm}
           >
             <ChevronLeft size={22} color={colors.text} />
           </TouchableOpacity>
@@ -108,7 +108,7 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
           <TouchableOpacity
             onPress={() => canGoForward && setPeriodOffset(prev => prev + 1)}
             style={[styles.navButton, !canGoForward && styles.navButtonDisabled]}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={HIT_SLOP.sm}
             disabled={!canGoForward}
           >
             <ChevronRight size={22} color={canGoForward ? colors.text : colors.border} />

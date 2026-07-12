@@ -5,7 +5,7 @@ import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react-nativ
 
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useToast, Toast as ToastType, ToastType as ToastVariant } from '@/contexts/ToastContext';
 
 const iconMap: Record<ToastVariant, React.ReactNode> = {
@@ -86,7 +86,7 @@ function ToastItem({ toast, onDismiss }: ToastItemProps) {
       </Text>
       <TouchableOpacity
         onPress={handleDismiss}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        hitSlop={HIT_SLOP.md}
         style={styles.closeButton}
       >
         <X size={16} color={colors.textSecondary} />

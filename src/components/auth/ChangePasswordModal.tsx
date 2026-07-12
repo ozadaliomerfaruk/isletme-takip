@@ -14,7 +14,7 @@ import { Lock, KeyRound, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
 import { toErrorMessage } from '@/lib/errors';
 
@@ -143,7 +143,7 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
               <View style={styles.closeRow}>
                 <TouchableOpacity
                   onPress={handleClose}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  hitSlop={HIT_SLOP.md}
                 >
                   <X size={24} color={colors.textMuted} />
                 </TouchableOpacity>

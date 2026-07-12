@@ -30,7 +30,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { textIncludes } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
@@ -485,7 +485,7 @@ export default function PersonelPage() {
                     haptics.selection();
                     handleOpenActionSheet(personel);
                   }}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  hitSlop={HIT_SLOP.md}
                   style={styles.moreButton}
                 >
                   <MoreVertical size={20} color={colors.textMuted} />

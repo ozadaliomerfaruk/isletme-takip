@@ -5,7 +5,7 @@ import { Calendar, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatDateForDB, ensureValidDate } from '@/lib/date';
 
 interface CustomDateRangePickerProps {
@@ -63,7 +63,7 @@ export function CustomDateRangePicker({ startDate, endDate, onChange, locale }: 
                 <Text variant="h3">
                   {showStartPicker ? t('reports:period.startDateTitle') : t('reports:period.endDateTitle')}
                 </Text>
-                <TouchableOpacity onPress={close} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+                <TouchableOpacity onPress={close} hitSlop={HIT_SLOP.md}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>

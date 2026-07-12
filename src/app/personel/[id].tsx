@@ -33,7 +33,7 @@ import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, formatAmountForInput, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem, MilestoneItem } from '@/lib/transactionGrouping';
@@ -392,21 +392,21 @@ export default function PersonelHareketleriPage() {
       <TouchableOpacity
         onPress={() => router.push({ pathname: '/raporlar/personel', params: { personelId: id } })}
         style={styles.headerBtn}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        hitSlop={HIT_SLOP.md}
       >
         <BarChart3 size={22} color={colors.text} />
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => setShowShareOptions(true)}
         style={styles.headerBtn}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        hitSlop={HIT_SLOP.md}
       >
         <Share2 size={22} color={colors.text} />
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => setShowMenu(true)}
         style={styles.headerBtn}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        hitSlop={HIT_SLOP.md}
       >
         <MoreVertical size={24} color={colors.text} />
       </TouchableOpacity>
@@ -743,7 +743,7 @@ export default function PersonelHareketleriPage() {
               <TouchableOpacity
                 onPress={handleOpenEditBalance}
                 style={styles.editBalanceBtn}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={HIT_SLOP.sm}
               >
                 <Pencil size={16} color={colors.primary} />
               </TouchableOpacity>

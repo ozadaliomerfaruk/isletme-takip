@@ -29,7 +29,7 @@ import * as Haptics from 'expo-haptics';
 import { textIncludes } from '@/lib/turkishTextUtils';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
 import { ensureValidDate, parseDateFromDB } from '@/lib/date';
 import { useNotePhotoField } from '@/hooks/useNotePhoto';
@@ -269,7 +269,7 @@ export function NoteInputModal({
             <Text variant="h3">
               {isEditing ? t('common:notes.editNote') : t('common:notes.addNote')}
             </Text>
-            <Pressable onPress={onClose} hitSlop={10}>
+            <Pressable onPress={onClose} hitSlop={HIT_SLOP.md}>
               <X size={24} color={colors.text} />
             </Pressable>
           </View>
@@ -313,7 +313,7 @@ export function NoteInputModal({
                     {formatReminderDate(reminderDate)}
                   </Text>
                 </View>
-                <TouchableOpacity onPress={removeReminder} hitSlop={8}>
+                <TouchableOpacity onPress={removeReminder} hitSlop={HIT_SLOP.sm}>
                   <X size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -328,7 +328,7 @@ export function NoteInputModal({
                     <Text variant="caption" style={styles.assignBadgeText}>
                       {getUserName(assignedUser)}
                     </Text>
-                    <TouchableOpacity onPress={() => setAssignedUser(null)} hitSlop={6}>
+                    <TouchableOpacity onPress={() => setAssignedUser(null)} hitSlop={HIT_SLOP.sm}>
                       <X size={12} color={colors.textMuted} />
                     </TouchableOpacity>
                   </View>
@@ -339,7 +339,7 @@ export function NoteInputModal({
                     <Text variant="caption" style={styles.assignBadgeText}>
                       {getCariName(assignedCari)}
                     </Text>
-                    <TouchableOpacity onPress={() => setAssignedCari(null)} hitSlop={6}>
+                    <TouchableOpacity onPress={() => setAssignedCari(null)} hitSlop={HIT_SLOP.sm}>
                       <X size={12} color={colors.textMuted} />
                     </TouchableOpacity>
                   </View>
@@ -350,7 +350,7 @@ export function NoteInputModal({
                     <Text variant="caption" style={styles.assignBadgeText}>
                       {getPersonelName(assignedPersonel)}
                     </Text>
-                    <TouchableOpacity onPress={() => setAssignedPersonel(null)} hitSlop={6}>
+                    <TouchableOpacity onPress={() => setAssignedPersonel(null)} hitSlop={HIT_SLOP.sm}>
                       <X size={12} color={colors.textMuted} />
                     </TouchableOpacity>
                   </View>

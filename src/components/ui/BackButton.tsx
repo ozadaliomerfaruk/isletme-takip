@@ -2,6 +2,7 @@ import { TouchableOpacity, Platform, StyleSheet, type StyleProp, type ViewStyle 
 import { useRouter } from 'expo-router';
 import { ChevronLeft, type LucideIcon } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
+import { HIT_SLOP } from '@/constants/spacing';
 
 interface BackButtonProps {
   onPress?: () => void;
@@ -38,7 +39,7 @@ export function BackButton({
     <TouchableOpacity
       onPress={handlePress}
       style={[styles.container, style]}
-      hitSlop={8}
+      hitSlop={HIT_SLOP.sm}
     >
       <Icon size={size} color={color} />
     </TouchableOpacity>

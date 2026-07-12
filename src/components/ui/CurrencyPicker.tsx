@@ -5,7 +5,7 @@ import { X, Check, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies, getLocalizedCurrencyName, CurrencyInfo } from '@/constants/currencies';
 
@@ -169,7 +169,7 @@ export function CurrencyPicker({
                   <Text variant="h3">{displayLabel}</Text>
                   <TouchableOpacity
                     onPress={handleCloseModal}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    hitSlop={HIT_SLOP.md}
                   >
                     <X size={24} color={colors.text} />
                   </TouchableOpacity>

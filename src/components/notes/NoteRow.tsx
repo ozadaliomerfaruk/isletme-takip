@@ -4,7 +4,7 @@ import { Circle, CheckCircle2, Bell, Camera, User, Users, UserCircle, Pencil, Sh
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -143,7 +143,7 @@ export function NoteRow({
           <TouchableOpacity
             style={styles.checkbox}
             onPress={() => onToggleComplete?.(note.id, !isDone)}
-            hitSlop={10}
+            hitSlop={HIT_SLOP.md}
           >
             {isDone ? (
               <View style={styles.checkDone}>

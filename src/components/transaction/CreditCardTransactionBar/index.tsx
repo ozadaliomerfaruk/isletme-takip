@@ -32,7 +32,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, CategoryPicker } from '@/components/ui';
 import { TransactionTypeTabs, TransactionType, getTransactionTypeColor } from '../TransactionTypeTabs';
 import { colors } from '@/constants/colors';
-import { TAB_BAR_HEIGHT } from '@/constants/spacing';
+import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
 import { Hesap, IslemType, IslemInsert, IleriTarihliIslemInsert, Urun, Currency } from '@/types/database';
 import { parseCurrency, formatCurrency, isValidAmount, roundCurrency } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
@@ -675,7 +675,7 @@ export function CreditCardTransactionBar({
           <TouchableOpacity
             style={styles.closeButton}
             onPress={handleDismiss}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            hitSlop={HIT_SLOP.md}
           >
             <X size={20} color={colors.textMuted} />
           </TouchableOpacity>

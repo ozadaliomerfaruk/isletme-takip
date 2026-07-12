@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Package, ArrowRightLeft, History, MoreVertical } from 'lucide-react-native';
 import { Text, Button, ExpandableCard } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, formatQuantity } from '@/lib/currency';
 import type { Urun, BirimType } from '@/types/database';
 
@@ -101,7 +101,7 @@ export const ProductRow = memo(function ProductRow({
             <TouchableOpacity
               style={rowStyles.moreBtn}
               onPress={handleActionSheet}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={HIT_SLOP.md}
             >
               <MoreVertical size={18} color={colors.textMuted} />
             </TouchableOpacity>
@@ -174,7 +174,7 @@ export const ArchivedProductRow = memo(function ArchivedProductRow({
             <TouchableOpacity
               style={rowStyles.moreBtn}
               onPress={handleActionSheet}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={HIT_SLOP.md}
             >
               <MoreVertical size={20} color={colors.textMuted} />
             </TouchableOpacity>

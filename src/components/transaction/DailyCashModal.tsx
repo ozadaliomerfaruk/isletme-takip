@@ -25,7 +25,7 @@ import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/d
 
 import { Text, Button, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
 import { formatDateTimeForDB, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -468,14 +468,14 @@ export function DailyCashModal({
               <TouchableOpacity
                 style={[styles.settingsButton, showSettings && styles.settingsButtonActive]}
                 onPress={handleToggleSettings}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                hitSlop={HIT_SLOP.md}
               >
                 <SlidersHorizontal size={18} color={showSettings ? colors.surface : colors.textMuted} />
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.closeButton}
                 onPress={handleDismiss}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                hitSlop={HIT_SLOP.md}
               >
                 <X size={22} color={colors.text} />
               </TouchableOpacity>

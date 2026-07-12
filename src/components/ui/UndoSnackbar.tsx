@@ -3,7 +3,7 @@ import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Undo2, X } from 'lucide-react-native';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 
 export interface UndoSnackbarProps {
   visible: boolean;
@@ -72,7 +72,7 @@ export function UndoSnackbar({
           onPress={onUndo}
           style={styles.undoButton}
           activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={HIT_SLOP.sm}
         >
           <Undo2 size={16} color={colors.white} />
           <Text style={styles.undoText}>{undoLabel}</Text>
@@ -81,7 +81,7 @@ export function UndoSnackbar({
           onPress={onDismiss}
           style={styles.closeButton}
           activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={HIT_SLOP.sm}
         >
           <X size={16} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>

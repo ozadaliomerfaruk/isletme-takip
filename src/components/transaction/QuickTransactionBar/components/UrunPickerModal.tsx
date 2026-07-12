@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Text, Button, UndoSnackbar } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, shadows } from '@/constants/spacing';
+import { spacing, borderRadius, shadows, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useSonUrunFiyati } from '@/hooks/useUrunHareketler';
@@ -379,7 +379,7 @@ export function UrunPickerModal({
                   onPress={handleAddProductPress}
                   disabled={creating}
                   activeOpacity={0.85}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={HIT_SLOP.sm}
                   accessibilityRole="button"
                   accessibilityState={{ disabled: creating }}
                   accessibilityLabel={
@@ -421,7 +421,7 @@ export function UrunPickerModal({
                           {addingProduct.urun.ad}
                         </Text>
                       </View>
-                      <TouchableOpacity onPress={handleCancelAdd} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                      <TouchableOpacity onPress={handleCancelAdd} hitSlop={HIT_SLOP.sm}>
                         <X size={20} color={colors.textMuted} />
                       </TouchableOpacity>
                     </View>
@@ -503,7 +503,7 @@ export function UrunPickerModal({
                                 priceTouchedRef.current = true;
                                 setAddingProduct({ ...addingProduct, birimFiyat: formatAmountForInput(sonFiyat.fiyat) });
                               }}
-                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              hitSlop={HIT_SLOP.sm}
                               activeOpacity={0.7}
                             >
                               <Text style={styles.priceHintText}>
@@ -518,7 +518,7 @@ export function UrunPickerModal({
                                 priceTouchedRef.current = true;
                                 setAddingProduct({ ...addingProduct, birimFiyat: formatAmountForInput(refFiyat) });
                               }}
-                              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                              hitSlop={HIT_SLOP.sm}
                               activeOpacity={0.7}
                             >
                               <Text style={styles.priceHintText}>
@@ -689,14 +689,14 @@ export function UrunPickerModal({
                               <TouchableOpacity
                                 onPress={() => handleEditItem(item)}
                                 style={styles.editButton}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                hitSlop={HIT_SLOP.sm}
                               >
                                 <Pencil size={16} color={colors.primary} />
                               </TouchableOpacity>
                               <TouchableOpacity
                                 onPress={() => handleRemoveItem(item.urunId)}
                                 style={styles.removeButton}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                hitSlop={HIT_SLOP.sm}
                               >
                                 <Trash2 size={18} color={colors.error} />
                               </TouchableOpacity>

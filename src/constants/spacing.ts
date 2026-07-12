@@ -80,5 +80,15 @@ export const shadows = {
   }),
 } as const;
 
+// Dokunma hedefi genişletmeleri (hitSlop) — küçük ikonlarda (satır içi ⋮, X, tarih chip'i)
+// ıska dokunuşu azaltır. Değerler kod tabanındaki mevcut baskın değerlerden türetildi:
+// sm=8 ve md=10 en yaygın (dedup ile değişmez); lg=15 büyük foto-görüntüleyici kontrolleri için.
+// RN hitSlop objesi {top,bottom,left,right} bekler; skaler hitSlop={8} ile obje eşdeğerdir.
+export const HIT_SLOP = {
+  sm: { top: 8, bottom: 8, left: 8, right: 8 },
+  md: { top: 10, bottom: 10, left: 10, right: 10 },
+  lg: { top: 15, bottom: 15, left: 15, right: 15 },
+} as const;
+
 // Layout constants
 export const TAB_BAR_HEIGHT = 52;

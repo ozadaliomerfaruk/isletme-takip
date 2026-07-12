@@ -20,7 +20,7 @@ import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Plus, Trash2, Calendar, ChevronDown, Package, Search, X, Check } from 'lucide-react-native';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -307,7 +307,7 @@ export default function TopluCikisPage() {
                         <TouchableOpacity
                           style={styles.deleteBtn}
                           onPress={() => removeRow(row.id)}
-                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          hitSlop={HIT_SLOP.sm}
                         >
                           <Trash2 size={15} color={colors.error} />
                         </TouchableOpacity>

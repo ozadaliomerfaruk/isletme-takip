@@ -9,6 +9,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { TransactionTypeTabs } from '../../TransactionTypeTabs';
 import { PhotoButton } from '../../PhotoButton';
 import { colors } from '@/constants/colors';
+import { HIT_SLOP } from '@/constants/spacing';
 import { styles } from '../styles';
 import type { TransactionType, TransactionTabMode } from '../types';
 
@@ -278,7 +279,7 @@ export function AmountInputSection({
           style={[localStyles.calcToggle, calcOpen && localStyles.calcToggleActive]}
           onPress={toggleCalc}
           disabled={isSaving}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={HIT_SLOP.sm}
           accessibilityRole="button"
         >
           <Calculator size={20} color={calcOpen ? colors.success : colors.textMuted} />

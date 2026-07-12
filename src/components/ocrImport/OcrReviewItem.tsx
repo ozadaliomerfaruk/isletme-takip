@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { CheckCircle, AlertTriangle, PlusCircle, Trash2, ChevronDown, ChevronUp, List, Tag } from 'lucide-react-native';
 import { Text, Card, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { OcrParsedItem, MatchTier } from '@/types/ocrImport';
 import { Urun } from '@/types/database';
 import { formatCurrency, formatQuantity, parseCurrency } from '@/lib/currency';
@@ -99,7 +99,7 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
       <View style={styles.header}>
         <Text variant="caption" color="secondary">#{index + 1}</Text>
         <MatchBadge tier={item.matchTier} />
-        <TouchableOpacity onPress={() => onRemove(index)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => onRemove(index)} hitSlop={HIT_SLOP.md}>
           <Trash2 size={16} color={colors.error} />
         </TouchableOpacity>
       </View>

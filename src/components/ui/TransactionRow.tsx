@@ -4,7 +4,7 @@ import { Image as ImageIcon, Package } from 'lucide-react-native';
 import { Text } from './Text';
 import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
-import { spacing, fontSize, fontWeight, borderRadius } from '@/constants/spacing';
+import { spacing, fontSize, fontWeight, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
@@ -164,7 +164,7 @@ export const TransactionRow = memo(function TransactionRow({
             </View>
           )}
           {hasPhoto && (
-            <TouchableOpacity onPress={handlePhotoPress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity onPress={handlePhotoPress} hitSlop={HIT_SLOP.sm}>
               <ImageIcon size={14} color={colors.primary} style={styles.photoIcon} />
             </TouchableOpacity>
           )}

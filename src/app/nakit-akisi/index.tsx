@@ -17,7 +17,7 @@ import { exportCashFlowToExcel, CashFlowExcelTranslations } from '@/lib/reportEx
 import { useSettings } from '@/hooks/useSettings';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 type FlowType = 'inflow' | 'outflow';
@@ -122,7 +122,7 @@ export default function NakitAkisiPage() {
               onPress={handleExport}
               disabled={isExporting}
               style={styles.headerBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={HIT_SLOP.md}
             >
               {isExporting ? (
                 <ActivityIndicator size="small" color={colors.text} />

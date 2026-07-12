@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { CheckCircle, AlertTriangle, FileText, Trash2, CreditCard, Receipt, Truck, ClipboardList, ArrowDownCircle, ArrowUpCircle, StickyNote, HelpCircle } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { MultiInvoiceEntry, DOCUMENT_TYPE_DEFAULTS, OcrDocumentType } from '@/types/ocrImport';
 import { formatCurrency } from '@/lib/currency';
 
@@ -96,7 +96,7 @@ export function OcrInvoiceListItem({ entry, index, onPress, onRemove }: OcrInvoi
                 e.stopPropagation();
                 onRemove(index);
               }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={HIT_SLOP.sm}
             >
               <Trash2 size={18} color={colors.error} />
             </TouchableOpacity>

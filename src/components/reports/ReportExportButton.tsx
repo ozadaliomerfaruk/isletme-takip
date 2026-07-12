@@ -1,6 +1,7 @@
 import { TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Share2 } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
+import { HIT_SLOP } from '@/constants/spacing';
 
 interface ReportExportButtonProps {
   onPress: () => void;
@@ -20,7 +21,7 @@ export function ReportExportButton({ onPress, isExporting, accessibilityLabel }:
       onPress={onPress}
       disabled={isExporting}
       style={{ padding: 6 }}
-      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      hitSlop={HIT_SLOP.md}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >

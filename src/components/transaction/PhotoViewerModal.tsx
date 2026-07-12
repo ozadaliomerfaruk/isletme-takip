@@ -37,7 +37,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useGetPhotoUrl } from '@/hooks/useIslemPhoto';
 
 const DISMISS_THRESHOLD = 150;
@@ -364,7 +364,7 @@ export function PhotoViewerModal({
             <TouchableOpacity
               style={styles.closeButton}
               onPress={onClose}
-              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+              hitSlop={HIT_SLOP.lg}
             >
               <X size={24} color="#FFFFFF" />
             </TouchableOpacity>
@@ -377,7 +377,7 @@ export function PhotoViewerModal({
                 style={styles.shareButton}
                 onPress={handleShare}
                 disabled={isSharing}
-                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                hitSlop={HIT_SLOP.lg}
               >
                 {isSharing ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />

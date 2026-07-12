@@ -33,7 +33,7 @@ import { CariPickerSheet } from '@/components/transaction/QuickTransactionBar/co
 import type { Hesap, CariType } from '@/types/database';
 import { DashboardCarousel, FinancialDetailModal } from '@/components/dashboard';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getHesapIcon } from '@/lib/icons';
 import { useHesaplar, useDeleteHesap } from '@/hooks/useHesaplar';
@@ -404,7 +404,7 @@ export default function HomePage() {
         <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]} pointerEvents="box-none">
           <Text variant="h2">{t('navigation:tabs.home')}</Text>
           <View style={styles.headerRight}>
-            <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn} hitSlop={HIT_SLOP.md}>
               <Search size={22} color={colors.text} />
             </TouchableOpacity>
             <NotificationBell />
@@ -581,7 +581,7 @@ export default function HomePage() {
                                 haptics.selection();
                                 handleOpenHesapActionSheet(hesap);
                               }}
-                              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                              hitSlop={HIT_SLOP.md}
                               style={styles.moreButton}
                             >
                               <MoreVertical size={20} color={colors.textMuted} />

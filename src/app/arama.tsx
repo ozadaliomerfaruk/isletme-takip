@@ -41,7 +41,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
@@ -734,7 +734,7 @@ export default function AramaPage() {
           {query.length > 0 && !isSearching && (
             <TouchableOpacity
               onPress={() => setQuery('')}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={HIT_SLOP.sm}
               style={styles.clearButton}
             >
               <X size={14} color={colors.textMuted} />
@@ -743,7 +743,7 @@ export default function AramaPage() {
         </View>
         <TouchableOpacity
           onPress={() => setShowFilters(!showFilters)}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={HIT_SLOP.sm}
           style={styles.filterToggle}
         >
           <SlidersHorizontal size={20} color={showFilters || hasActiveAdvancedFilters ? colors.primary : colors.textMuted} />
@@ -790,7 +790,7 @@ export default function AramaPage() {
                 keyboardType="decimal-pad"
               />
               {minAmount.length > 0 && (
-                <TouchableOpacity onPress={() => setMinAmount('')} style={styles.inputClearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity onPress={() => setMinAmount('')} style={styles.inputClearBtn} hitSlop={HIT_SLOP.sm}>
                   <X size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
@@ -806,7 +806,7 @@ export default function AramaPage() {
                 keyboardType="decimal-pad"
               />
               {maxAmount.length > 0 && (
-                <TouchableOpacity onPress={() => setMaxAmount('')} style={styles.inputClearBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <TouchableOpacity onPress={() => setMaxAmount('')} style={styles.inputClearBtn} hitSlop={HIT_SLOP.sm}>
                   <X size={14} color={colors.textMuted} />
                 </TouchableOpacity>
               )}
@@ -829,7 +829,7 @@ export default function AramaPage() {
               </Text>
               {dateFrom && (
                 <TouchableOpacity
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={HIT_SLOP.sm}
                   onPress={(e) => { e.stopPropagation(); setDateFrom(null); }}
                 >
                   <X size={14} color={colors.textMuted} />
@@ -850,7 +850,7 @@ export default function AramaPage() {
               </Text>
               {dateTo && (
                 <TouchableOpacity
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  hitSlop={HIT_SLOP.sm}
                   onPress={(e) => { e.stopPropagation(); setDateTo(null); }}
                 >
                   <X size={14} color={colors.textMuted} />

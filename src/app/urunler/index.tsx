@@ -13,7 +13,7 @@ import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useUrunler, useArchiveUrun, usePermanentDeleteUrun, countUrunLinkedMovements } from '@/hooks/useUrunler';
 import { toErrorMessage } from '@/lib/errors';
 import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
@@ -615,7 +615,7 @@ export default function UrunlerPage() {
             rightIcon={searchQuery.length > 0 ? (
               <TouchableOpacity
                 onPress={() => setSearchQuery('')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={HIT_SLOP.sm}
               >
                 <X size={18} color={colors.textMuted} />
               </TouchableOpacity>

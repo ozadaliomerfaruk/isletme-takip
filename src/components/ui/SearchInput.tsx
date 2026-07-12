@@ -11,7 +11,7 @@ import Animated, {
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, HIT_SLOP } from '@/constants/spacing';
 import { Text } from './Text';
 
 interface SearchInputProps {
@@ -83,7 +83,7 @@ export function SearchInput({
           <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
             <TouchableOpacity
               onPress={handleClear}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              hitSlop={HIT_SLOP.sm}
               style={styles.clearButton}
             >
               <X size={16} color={colors.textMuted} />

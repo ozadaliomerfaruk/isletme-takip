@@ -26,7 +26,7 @@ import { QuickTransactionBar, CreditCardTransactionBar, TransactionType, PhotoVi
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateSmart } from '@/lib/date';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
@@ -634,14 +634,14 @@ export default function HesapHareketleriPage() {
       <TouchableOpacity
         onPress={() => setShowShareOptions(true)}
         style={styles.headerBtn}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        hitSlop={HIT_SLOP.md}
       >
         <Share2 size={22} color={colors.text} />
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => setShowMenu(true)}
         style={styles.headerBtn}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        hitSlop={HIT_SLOP.md}
       >
         <MoreVertical size={24} color={colors.text} />
       </TouchableOpacity>

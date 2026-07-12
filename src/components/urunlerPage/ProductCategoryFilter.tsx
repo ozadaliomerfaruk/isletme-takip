@@ -3,7 +3,7 @@ import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 
 export interface CategoryChipData {
   id: string;
@@ -80,7 +80,7 @@ export const ProductCategoryFilter = memo(function ProductCategoryFilter({
           </Text>
           <TouchableOpacity
             onPress={onClearFilters}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            hitSlop={HIT_SLOP.sm}
           >
             <Text variant="caption" style={styles.clearText}>
               {t('products:filter.clear')}

@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
 import { Text, Input, Button, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
 import { formatDateForDB, parseDateFromDB, ensureValidDate } from '@/lib/date';
 import { parseCurrency } from '@/lib/currency';
@@ -302,7 +302,7 @@ export default function PersonelDuzenlePage() {
                   {endDate && (
                     <TouchableOpacity
                       onPress={() => setEndDate(null)}
-                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                      hitSlop={HIT_SLOP.md}
                     >
                       <X size={18} color={colors.textMuted} />
                     </TouchableOpacity>

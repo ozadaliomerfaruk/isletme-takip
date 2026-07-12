@@ -16,6 +16,7 @@ import { toNumber } from '@/lib/currency';
 import { exportGenelDurumToExcel, GenelDurumExcelTranslations } from '@/lib/reportExcelExport';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
+import { HIT_SLOP } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
@@ -120,7 +121,7 @@ export default function GenelRaporPage() {
               onPress={handleExport}
               disabled={isExporting}
               style={styles.headerBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={HIT_SLOP.md}
             >
               {isExporting ? (
                 <ActivityIndicator size="small" color={colors.text} />

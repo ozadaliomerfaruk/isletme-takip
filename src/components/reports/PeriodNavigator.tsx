@@ -13,7 +13,7 @@ import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-commun
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { PeriodType } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { ensureValidDate, getDateRange } from '@/lib/date';
@@ -176,7 +176,7 @@ export function PeriodNavigator({
       <TouchableOpacity
         style={styles.navButton}
         onPress={() => setPeriodOffset(periodOffset - 1)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        hitSlop={HIT_SLOP.sm}
       >
         <ChevronLeft size={20} color={colors.text} />
       </TouchableOpacity>
@@ -200,7 +200,7 @@ export function PeriodNavigator({
       <TouchableOpacity
         style={styles.navButton}
         onPress={() => setPeriodOffset(periodOffset + 1)}
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        hitSlop={HIT_SLOP.sm}
       >
         <ChevronRight size={20} color={colors.text} />
       </TouchableOpacity>
