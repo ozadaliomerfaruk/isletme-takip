@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
+import { processLock } from '@supabase/auth-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Platform, AppState } from 'react-native';
 import { withTelemetrySafe } from './supabaseTelemetry';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
@@ -53,10 +54,36 @@ export const supabase = withTelemetrySafe(
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: false,
+      // React Native: eşzamanlı token-yenileme / getSession çağrıları auth kilidinde
+      // DEADLOCK'a girip TÜM istekleri (kayıt dahil) sonsuza asabiliyor. Varsayılan
+      // navigatorLock RN'de yok (navigator.locks tanımsız); processLock (in-process mutex)
+      // bu deadlock'u önler → "sonsuz spinner, foreground'da çözülüyor" bug'ının çekirdek fix'i.
+      // (Bonus: kilit çözülünce refresh'in kendi fetch'i de fetchWithTimeout'a tabi → en kötü
+      // sonsuz-asılma penceresi ≤15 sn'ye iner.)
+      lock: processLock,
     },
     global: { fetch: fetchWithTimeout },
   })
 );
+
+// React Native: token auto-refresh timer'ını yalnız uygulama ÖN PLANDAYKEN çalıştır/durdur.
+// Arka planda RN timer'ları kısıtlanır; bu wiring olmadan token sessizce expire olur ve
+// sonraki yazma isteği auth kilidinde asılırdı (foreground'da useAuth.refreshSession() yalnız
+// yara bandıydı). Resmî Supabase RN deseni; createClient'ın hemen yanında (tek instance) durur
+// ve processLock ile serileşir → useAuth'taki mevcut foreground refresh'iyle çakışmaz.
+if (Platform.OS !== 'web') {
+  AppState.addEventListener('change', (nextState) => {
+    if (nextState === 'active') {
+      supabase.auth.startAutoRefresh();
+    } else {
+      supabase.auth.stopAutoRefresh();
+    }
+  });
+  // İlk yüklemede uygulama zaten aktifse timer'ı hemen başlat.
+  if (AppState.currentState === 'active') {
+    supabase.auth.startAutoRefresh();
+  }
+}
 
 export async function checkNetworkConnectivity(): Promise<boolean> {
   try {
