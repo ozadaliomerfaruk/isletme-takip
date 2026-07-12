@@ -22,6 +22,7 @@ import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,6 +36,7 @@ const errorKeyMap: Record<string, string> = {
 
 export default function CariSatisPage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients']);
   usePagePermission({ module: 'islemler', action: 'create' });
   const params = useLocalSearchParams<{ cari_id?: string }>();
@@ -108,9 +110,8 @@ export default function CariSatisPage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('clients:messages.scheduledSaleCreated'), [
-          { text: t('common:buttons.ok'), onPress: () => router.back() },
-        ]);
+        notifySaved(t('clients:messages.scheduledSaleCreated'));
+        router.back();
       } else {
         await createIslem.mutateAsync({
           type: 'cari_satis',
@@ -121,9 +122,8 @@ export default function CariSatisPage() {
           date: formatDateTimeForDB(data.selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('clients:messages.saleRecorded'), [
-          { text: t('common:buttons.ok'), onPress: () => router.back() },
-        ]);
+        notifySaved(t('clients:messages.saleRecorded'));
+        router.back();
       }
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:transaction.addFailed'));

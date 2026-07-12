@@ -25,10 +25,12 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function PersonelEklePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t, i18n } = useTranslation(['staff', 'common', 'errors']);
   usePagePermission({ module: 'personel', action: 'create' });
   const { locale, formatDateNative } = useDateFormat();
@@ -88,9 +90,8 @@ export default function PersonelEklePage() {
         balance: finalBalance !== 0 ? finalBalance : undefined,
       });
 
-      Alert.alert(t('common:status.success'), t('staff:messages.createSuccess'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('staff:messages.createSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:personel.createFailed'));
     }

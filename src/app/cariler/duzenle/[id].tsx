@@ -19,10 +19,12 @@ import { useCari, useUpdateCari } from '@/hooks/useCariler';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function CariDuzenlePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
   const currencies = getLocalizedCurrencies(i18n.language);
@@ -77,9 +79,8 @@ export default function CariDuzenlePage() {
         is_active: isActive,
       });
 
-      Alert.alert(t('common:status.success'), t('clients:messages.updateSuccess'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('clients:messages.updateSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:cari.updateFailed'));
     }

@@ -19,10 +19,12 @@ import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categ
 import { useCreateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriEklePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { type: initialType } = useLocalSearchParams<{ type?: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
   usePagePermission({ module: 'kategoriler', action: 'create' });
@@ -69,9 +71,8 @@ export default function KategoriEklePage() {
         mapped_gider_kategori_id: type === 'urun' ? mappedGiderKategoriId : null,
       });
 
-      Alert.alert(t('common:status.success'), t('categories:messages.createSuccess'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('categories:messages.createSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:category.createFailed'));
     }

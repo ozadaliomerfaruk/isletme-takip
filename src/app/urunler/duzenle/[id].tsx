@@ -8,11 +8,13 @@ import { UrunForm, type UrunFormValues } from '@/components/urun/UrunForm';
 import { colors } from '@/constants/colors';
 import { useUrun, useUpdateUrun } from '@/hooks/useUrunler';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function UrunDuzenlePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['products', 'common', 'errors', 'navigation']);
   const { data: urun, isLoading } = useUrun(id);
@@ -51,9 +53,8 @@ export default function UrunDuzenlePage() {
         aciklama: values.aciklama.trim() || null,
       });
 
-      Alert.alert(t('common:status.success'), t('products:messages.updateSuccess'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('products:messages.updateSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
     }

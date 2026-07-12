@@ -43,9 +43,11 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { parseDateFromDB } from '@/lib/date';
 import { useRequireOwner } from '@/hooks/usePagePermission';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 
 export default function IsletmeBilgileriPage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['settings', 'common', 'errors', 'auth']);
   useRequireOwner();
   const { formatDateNative } = useDateFormat();
@@ -115,9 +117,8 @@ export default function IsletmeBilgileriPage() {
             : null,
       });
 
-      Alert.alert(t('common:status.success'), t('settings:messages.businessInfoUpdated'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('settings:messages.businessInfoUpdated'));
+      router.back();
     } catch (error: unknown) {
       Alert.alert(t('common:status.error'), error instanceof Error ? error.message : t('settings:messages.businessUpdateFailed'));
     }

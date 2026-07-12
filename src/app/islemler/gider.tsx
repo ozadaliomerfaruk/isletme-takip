@@ -23,6 +23,7 @@ import { parseCurrency, formatCurrency } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { giderSchema, type GiderFormData } from '@/lib/schemas/paymentForm';
@@ -35,6 +36,7 @@ const errorKeyMap: Record<string, string> = {
 
 export default function GiderEklePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['transactions', 'common', 'errors']);
   usePagePermission({ module: 'islemler', action: 'create' });
   const params = useLocalSearchParams<{ hesap_id?: string }>();
@@ -108,9 +110,8 @@ export default function GiderEklePage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('transactions:messages.scheduledCreated'), [
-          { text: t('common:buttons.ok'), onPress: () => router.back() },
-        ]);
+        notifySaved(t('transactions:messages.scheduledCreated'));
+        router.back();
       } else {
         await createIslem.mutateAsync({
           type: 'gider',
@@ -121,9 +122,8 @@ export default function GiderEklePage() {
           date: formatDateTimeForDB(data.selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('transactions:messages.expenseAdded'), [
-          { text: t('common:buttons.ok'), onPress: () => router.back() },
-        ]);
+        notifySaved(t('transactions:messages.expenseAdded'));
+        router.back();
       }
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:transaction.addFailed'));

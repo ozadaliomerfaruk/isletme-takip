@@ -31,6 +31,7 @@ import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
 import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { CariLinkSection } from '@/components/urun/QuickUrunBar/CariLinkSection';
 
@@ -50,6 +51,7 @@ interface StockRow {
 
 export default function TopluCikisPage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['products', 'common', 'transactions']);
   usePagePermission({ module: 'urunler', action: 'create' });
   const { currency } = useSettings();
@@ -228,11 +230,8 @@ export default function TopluCikisPage() {
         await Promise.all(promises);
       }
 
-      Alert.alert(
-        t('common:status.success'),
-        t('products:bulk.success', { count: validRows.length }),
-        [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
-      );
+      notifySaved(t('products:bulk.success', { count: validRows.length }));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
     } finally {

@@ -23,6 +23,7 @@ import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { scheduleTransactionReminder, calculateReminderDate } from '@/lib/notifications';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { transferSchema, type TransferFormData } from '@/lib/schemas/paymentForm';
@@ -37,6 +38,7 @@ const errorKeyMap: Record<string, string> = {
 
 export default function TransferPage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['transactions', 'common', 'errors']);
   usePagePermission({ module: 'islemler', action: 'create' });
   const createIslem = useCreateIslem();
@@ -113,9 +115,8 @@ export default function TransferPage() {
           );
         }
 
-        Alert.alert(t('common:status.success'), t('transactions:messages.scheduledCreated'), [
-          { text: t('common:buttons.ok'), onPress: () => router.back() },
-        ]);
+        notifySaved(t('transactions:messages.scheduledCreated'));
+        router.back();
       } else {
         await createIslem.mutateAsync({
           type: 'transfer',
@@ -126,9 +127,8 @@ export default function TransferPage() {
           date: formatDateTimeForDB(data.selectedDate),
         });
 
-        Alert.alert(t('common:status.success'), t('transactions:messages.transferCompleted'), [
-          { text: t('common:buttons.ok'), onPress: () => router.back() },
-        ]);
+        notifySaved(t('transactions:messages.transferCompleted'));
+        router.back();
       }
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.transferFailed'));

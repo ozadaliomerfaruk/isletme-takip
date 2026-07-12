@@ -19,10 +19,12 @@ import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categ
 import { useKategoriler, useUpdateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriDuzenlePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
   const { data: kategoriler } = useKategoriler();
@@ -78,9 +80,8 @@ export default function KategoriDuzenlePage() {
         mapped_gider_kategori_id: type === 'urun' ? mappedGiderKategoriId : null,
       });
 
-      Alert.alert(t('common:status.success'), t('categories:messages.updateSuccess'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('categories:messages.updateSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:category.updateFailed'));
     }

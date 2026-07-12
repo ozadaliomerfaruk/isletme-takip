@@ -26,10 +26,12 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function PersonelDuzenlePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['staff', 'common', 'errors']);
   const { locale, formatDateNative } = useDateFormat();
@@ -93,9 +95,8 @@ export default function PersonelDuzenlePage() {
         is_active: isActive,
       });
 
-      Alert.alert(t('common:status.success'), t('staff:messages.updateSuccess'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('staff:messages.updateSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:personel.updateFailed'));
     }

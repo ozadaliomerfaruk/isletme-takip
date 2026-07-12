@@ -27,10 +27,12 @@ import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber, formatAmountForInput } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function TopluGiderPage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['staff', 'common', 'transactions']);
   usePagePermission({ module: 'personel', action: 'create' });
   const createIslem = useCreateIslem();
@@ -164,11 +166,8 @@ export default function TopluGiderPage() {
 
       await Promise.all(promises);
 
-      Alert.alert(
-        t('common:status.success'),
-        t('staff:bulkSalary.success', { count: selectedCount }),
-        [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
-      );
+      notifySaved(t('staff:bulkSalary.success', { count: selectedCount }));
+      router.back();
     } catch (error) {
       if (__DEV__) {
         console.error('Toplu gider hatası:', error);

@@ -34,10 +34,12 @@ import { isLeaveType } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateForDB } from '@/lib/date';
 import { textIncludes } from '@/lib/turkishTextUtils';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function IleriTarihliIslemDuzenlePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
   const { data: islem, isLoading: islemLoading } = useIleriTarihliIslem(id);
@@ -153,9 +155,8 @@ export default function IleriTarihliIslemDuzenlePage() {
         },
       });
 
-      Alert.alert(t('common:status.success'), t('transactions:messages.transactionUpdated'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('transactions:messages.transactionUpdated'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:transaction.updateFailed'));
     }

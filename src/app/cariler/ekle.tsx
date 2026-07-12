@@ -18,11 +18,13 @@ import { useCreateCari } from '@/hooks/useCariler';
 import { CariType, Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function CariEklePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const params = useLocalSearchParams<{
     prefillName?: string;
     prefillType?: string;
@@ -94,9 +96,8 @@ export default function CariEklePage() {
         notes: notes.trim() || null,
       });
 
-      Alert.alert(t('common:status.success'), t('clients:messages.createSuccess'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('clients:messages.createSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:cari.createFailed'));
     }

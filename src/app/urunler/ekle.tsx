@@ -11,11 +11,13 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency, parseQuantity } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function UrunEklePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['products', 'common', 'errors', 'navigation']);
   usePagePermission({ module: 'urunler', action: 'create' });
   const createUrun = useCreateUrun();
@@ -52,9 +54,8 @@ export default function UrunEklePage() {
         });
       }
 
-      Alert.alert(t('common:status.success'), t('products:messages.createSuccess'), [
-        { text: t('common:buttons.ok'), onPress: () => router.back() },
-      ]);
+      notifySaved(t('products:messages.createSuccess'));
+      router.back();
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
     }

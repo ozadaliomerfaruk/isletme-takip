@@ -28,10 +28,12 @@ import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber, formatAmountForInput } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function TopluOdemePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['staff', 'common', 'transactions', 'accounts']);
   usePagePermission({ module: 'personel', action: 'create' });
   const createIslem = useCreateIslem();
@@ -228,11 +230,8 @@ export default function TopluOdemePage() {
       }
 
       if (failedCount === 0) {
-        Alert.alert(
-          t('common:status.success'),
-          t('staff:bulkPayment.success', { count: succeededIds.size }),
-          [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
-        );
+        notifySaved(t('staff:bulkPayment.success', { count: succeededIds.size }));
+        router.back();
       } else {
         // Kısmi başarı: başarısızlar seçili kaldı, ekranda kal — kullanıcı tekrar deneyebilir
         Alert.alert(

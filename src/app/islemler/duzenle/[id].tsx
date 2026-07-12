@@ -31,11 +31,13 @@ import { isLeaveType } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB, formatDateForDB } from '@/lib/date';
 import { textIncludes } from '@/lib/turkishTextUtils';
 import { toErrorMessage } from '@/lib/errors';
+import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export default function IslemDuzenlePage() {
   const router = useRouter();
+  const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
   const { data: islem, isLoading: islemLoading } = useIslem(id);
@@ -173,11 +175,8 @@ export default function IslemDuzenlePage() {
         // Sonra eski işlemi sil (bu bakiyeleri geri alacak)
         await deleteIslem.mutateAsync(id);
 
-        Alert.alert(
-          t('common:status.success'),
-          t('transactions:messages.convertedToScheduled'),
-          [{ text: t('common:buttons.ok'), onPress: () => router.back() }]
-        );
+        notifySaved(t('transactions:messages.convertedToScheduled'));
+        router.back();
       } else {
         // Normal güncelleme
         await updateIslem.mutateAsync({
@@ -194,9 +193,8 @@ export default function IslemDuzenlePage() {
           },
         });
 
-        Alert.alert(t('common:status.success'), t('transactions:messages.transactionUpdated'), [
-          { text: t('common:buttons.ok'), onPress: () => router.back() },
-        ]);
+        notifySaved(t('transactions:messages.transactionUpdated'));
+        router.back();
       }
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:transaction.updateFailed'));
