@@ -650,7 +650,7 @@ export default function HomePage() {
                 setCariPickerMode('supplier');
                 setShowCariPicker(true);
               }),
-              index: 3,
+              index: 2,
             },
             {
               label: t('clients:types.musteri'),
@@ -659,21 +659,12 @@ export default function HomePage() {
                 setCariPickerMode('customer');
                 setShowCariPicker(true);
               }),
-              index: 2,
+              index: 1,
             },
             {
               label: t('transactions:dailyCash.enterButton'),
               icon: <Banknote size={18} color={colors.primary} />,
               onPress: () => handleFabMenuOption(() => setDailyCashModalVisible(true)),
-              index: 1,
-            },
-            {
-              // A4: cari'ye bağlı olmayan hızlı gelir/gider — en sık işlem, thumb'a en yakın slot.
-              // defaultHesapId verilmez → bar A1 son-kullanılan hesap prefill'iyle (normal mod) akıllı
-              // açılır, yoksa ilk hesaba düşer. defaultType='gelir' (varsayılan); kullanıcı gider sekmesine geçebilir.
-              label: `${t('transactions:tabs.gelir')}/${t('transactions:tabs.gider')}`,
-              icon: <Zap size={18} color={colors.primary} />,
-              onPress: () => handleFabMenuOption(() => setHesapQuickBarVisible(true)),
               index: 0,
             },
           ].map((item) => (
