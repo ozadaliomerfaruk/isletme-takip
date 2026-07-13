@@ -19,6 +19,7 @@ import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categ
 import { useKategoriler, useUpdateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
@@ -69,9 +70,11 @@ export default function KategoriDuzenlePage() {
     if (!validate() || !id) return;
 
     try {
+      // Güncellemede işlem kategorisi (gelir/gider) BÜYÜK harf kaydedilir (kullanıcı
+      // isteği); kullanıcı bir kategoriyi düzenlerse büyük harfe döner. Ürün hariç.
       await updateKategori.mutateAsync({
         id,
-        name: name.trim(),
+        name: type === 'urun' ? name.trim() : upperTr(name.trim()),
         type,
         icon,
         color,
