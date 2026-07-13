@@ -936,7 +936,10 @@ export default function CariHareketleriPage() {
             </Text>
           </TouchableOpacity>
         )}
-        <Card style={styles.hareketCard}>
+        <Card
+          style={styles.hareketCard}
+          onPress={!isViewer && (!islemler || islemler.length === 0) ? handleOpenEditBalance : undefined}
+        >
           <View style={styles.hareketHeader}>
             <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
               <CircleDollarSign size={22} color={colors.primary} />
@@ -951,14 +954,12 @@ export default function CariHareketleriPage() {
               <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
                 {formatCurrency(initialBalance, cari.currency)}
               </Text>
+              {/* Satırın tamamı tıklanabilir (Card onPress); kalem yalnız görsel ipucu.
+                  İşlem varken (kilit) veya viewer'da onPress undefined → satır tıklanamaz. */}
               {!isViewer && (!islemler || islemler.length === 0) && (
-                <TouchableOpacity
-                  onPress={handleOpenEditBalance}
-                  style={styles.editBalanceBtn}
-                  hitSlop={HIT_SLOP.sm}
-                >
+                <View style={styles.editBalanceBtn}>
                   <Pencil size={16} color={colors.primary} />
-                </TouchableOpacity>
+                </View>
               )}
             </View>
           </View>
