@@ -508,6 +508,8 @@ export default function HomePage() {
                       variant="label"
                       color={(categoryTotals[groupKey] || 0) >= 0 ? 'primary' : 'error'}
                       style={styles.groupTotal}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
                     >
                       {formatCurrency(categoryTotals[groupKey] || 0)}
                     </Text>
@@ -804,7 +806,7 @@ const styles = StyleSheet.create({
   },
   section: {
     paddingHorizontal: spacing.lg,
-    marginTop: spacing.xl,
+    marginTop: spacing.md,
     marginBottom: spacing['3xl'],
   },
   sectionHeader: {
@@ -834,12 +836,12 @@ const styles = StyleSheet.create({
   },
   groupLabel: {
     textTransform: 'uppercase',
-    fontSize: fontSize.md,
+    fontSize: fontSize.lg,
     letterSpacing: 0.5,
   },
   groupTotal: {
     fontWeight: '700',
-    fontSize: fontSize.lg,
+    fontSize: fontSize.xl,
   },
   hesapHeader: {
     flexDirection: 'row',
