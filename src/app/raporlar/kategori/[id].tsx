@@ -31,6 +31,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
 import { useUrunKalemlerByIslemIds } from '@/hooks/useUrunHareketler';
@@ -222,6 +223,9 @@ export default function KategoriDetayPage() {
 
   // Sayfa başlığı
   const pageTitle = isUncategorized ? t('reports:titles.uncategorized') : (subCategoryReport.parentKategori?.name || t('reports:titles.categoryDetail'));
+  // Ekranda gösterilen (native header) sürüm — büyük harf. pageTitle export'a HAM gider
+  // (Excel dosya adı/başlığı stored isimle kalsın); yalnız görünüm büyütülür.
+  const pageTitleDisplay = upperTr(pageTitle);
 
   const handleExport = useCallback(async () => {
     if (!isletme || !startDate || !endDate) return;
@@ -304,7 +308,7 @@ export default function KategoriDetayPage() {
         date={formatDateMedium(item.date)}
         typeLabel={t(`transactions:types.${item.type}`)}
         entityText={entityText}
-        secondaryText={item.kategori?.name || null}
+        secondaryText={item.kategori?.name ? upperTr(item.kategori.name) : null}
         tertiaryText={item.description || null}
         hesapText={item.hesap?.name || null}
         urunItems={urunItems}
@@ -447,7 +451,7 @@ export default function KategoriDetayPage() {
               key={sub.kategori.id}
               checked={effectiveSelectedSubCategories.has(sub.kategori.id)}
               onPress={() => toggleSubCategory(sub.kategori.id)}
-              label={sub.kategori.name}
+              label={upperTr(sub.kategori.name)}
               amount={sub.total}
               count={sub.count}
             />
@@ -581,7 +585,7 @@ export default function KategoriDetayPage() {
   if (subCategoryReport.isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ title: pageTitle, headerBackVisible: true, gestureEnabled: true }} />
+        <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
@@ -593,7 +597,7 @@ export default function KategoriDetayPage() {
   if (subCategoryReport.error) {
     return (
       <SafeAreaView style={styles.container} edges={['bottom']}>
-        <Stack.Screen options={{ title: pageTitle, headerBackVisible: true, gestureEnabled: true }} />
+        <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.errorContainer}>
           <Text variant="body" color="error">
             {t('reports:empty.dataLoadError')}
@@ -609,7 +613,7 @@ export default function KategoriDetayPage() {
       <SafeAreaView style={styles.container} edges={['bottom']}>
         <Stack.Screen
           options={{
-            title: pageTitle,
+            title: pageTitleDisplay,
             headerBackTitle: t('reports:titles.reports'),
             headerBackVisible: true,
             gestureEnabled: true,
@@ -683,7 +687,7 @@ export default function KategoriDetayPage() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <Stack.Screen
         options={{
-          title: pageTitle,
+          title: pageTitleDisplay,
           headerBackTitle: t('reports:titles.reports'),
           headerBackVisible: true,
           gestureEnabled: true,

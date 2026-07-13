@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
 import { useSettings } from '@/hooks/useSettings';
 import { formatCurrency } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import type { WidgetProps } from '@/types/analytics';
@@ -63,7 +64,7 @@ export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
     const data = top4.map((item, index) => ({
       value: item.total,
       color: CHART_COLORS[index % CHART_COLORS.length],
-      name: item.kategori?.name || t('category.uncategorized'),
+      name: item.kategori?.name ? upperTr(item.kategori.name) : t('category.uncategorized'),
       percentage: item.percentage,
       kategoriId: item.kategori?.id || null,
     }));

@@ -19,6 +19,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { useIleriTarihliIslemler } from '@/hooks/useIleriTarihliIslemler';
 import { formatCurrency } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { IleriTarihliIslemWithRelations } from '@/types/database';
@@ -301,8 +302,8 @@ export function NotificationBell() {
                         </Text>
                         <Text style={[styles.itemTypeLabel, { color: txColor }]} numberOfLines={1}>
                           {entityText
-                            ? [typeLabel, islem.kategori?.name].filter(Boolean).join(' · ')
-                            : [islem.description || islem.hesap?.name, islem.kategori?.name].filter(Boolean).join(' · ') || ''
+                            ? [typeLabel, islem.kategori?.name ? upperTr(islem.kategori.name) : null].filter(Boolean).join(' · ')
+                            : [islem.description || islem.hesap?.name, islem.kategori?.name ? upperTr(islem.kategori.name) : null].filter(Boolean).join(' · ') || ''
                           }
                         </Text>
                       </View>

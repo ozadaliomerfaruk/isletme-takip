@@ -38,7 +38,7 @@ import { IslemWithRelations } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isLeaveType } from '@/constants/islemTypes';
 import { getCrossCurrencyDisplay } from '@/lib/currency';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { textIncludes, upperTr } from '@/lib/turkishTextUtils';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -110,7 +110,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   );
 
   const entityName = getIslemEntity(islem);
-  const kategoriName = islem.kategori?.name || null;
+  // Display-only uppercase (stored isim/arama değişmez — arama ham islem.kategori.name kullanır)
+  const kategoriName = islem.kategori?.name ? upperTr(islem.kategori.name) : null;
   const noteText = islem.description || null;
   const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
   // Cross-currency: ana satır HEDEF pb, alt satır KAYNAK pb (tek kural, tüm tipler).

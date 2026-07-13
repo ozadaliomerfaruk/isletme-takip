@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { IslemWithRelations } from '@/types/database';
 import { formatCurrency, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useIslemlerWithUrun } from '@/hooks/useUrunHareketler';
@@ -187,7 +188,7 @@ export function EntityTransactionList({
                 {transaction.kategori && (
                   <View style={styles.categoryBadge}>
                     <Text variant="caption" color="secondary">
-                      {transaction.kategori.name}
+                      {upperTr(transaction.kategori.name)}
                     </Text>
                   </View>
                 )}

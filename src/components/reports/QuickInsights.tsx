@@ -6,6 +6,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
 
@@ -42,7 +43,7 @@ export function QuickInsights({ dateRange }: QuickInsightsProps) {
     {
       id: 'topExpense',
       label: topExpenseCategory
-        ? t('reports:home.topExpense', { category: topExpenseCategory.kategori?.name ?? t('reports:category.uncategorized') })
+        ? t('reports:home.topExpense', { category: topExpenseCategory.kategori?.name ? upperTr(topExpenseCategory.kategori.name) : t('reports:category.uncategorized') })
         : t('reports:home.topExpense', { category: '-' }),
       value: topExpenseCategory ? formatCurrency(topExpenseCategory.total) : '-',
       color: colors.error,

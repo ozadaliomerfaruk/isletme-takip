@@ -14,6 +14,7 @@ import { Button } from './Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
 import { IleriTarihliIslemWithRelations } from '@/types/database';
 import {
@@ -183,7 +184,7 @@ export function IleriTarihliIslemlerSection({
         // Satır 3: açıklama veya kategori + hesap adı
         const secondaryParts: string[] = [];
         if (item.description) secondaryParts.push(item.description);
-        if (item.kategori?.name) secondaryParts.push(item.kategori.name);
+        if (item.kategori?.name) secondaryParts.push(upperTr(item.kategori.name));
         if (accountText) secondaryParts.push(accountText);
 
         return (

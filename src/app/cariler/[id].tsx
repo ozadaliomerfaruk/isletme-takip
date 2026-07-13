@@ -56,6 +56,7 @@ import { IslemWithRelations, IslemType, Not } from '@/types/database';
 import { useCariLinkStatus, useRemoveCariLink } from '@/hooks/useCariSharing';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { invertCariTransactionType, hasTypeMismatch, shouldInvertTransaction } from '@/lib/cariTransactionMapper';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -188,7 +189,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
-        secondaryText={islem.kategori?.name || null}
+        secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
         tertiaryText={islem.description || null}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}

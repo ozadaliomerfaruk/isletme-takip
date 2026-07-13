@@ -52,6 +52,7 @@ import { IslemWithRelations, Not } from '@/types/database';
 import { LeaveQuotaCard } from '@/components/personel/LeaveQuotaCard';
 import { isLeaveType } from '@/constants/islemTypes';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -140,7 +141,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
-        secondaryText={islem.kategori?.name || null}
+        secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
         tertiaryText={islem.description || null}
         creatorText={creatorText}
         subAmount={xc.subText}

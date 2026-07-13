@@ -37,7 +37,14 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useKategorilerHierarchical, FlattenedCategory } from '@/hooks/useKategoriler';
 import { usePermissions } from '@/hooks/usePermissions';
 import { KategoriType } from '@/types/database';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { textIncludes, upperTr } from '@/lib/turkishTextUtils';
+
+/**
+ * Kategori adını EKRAN için büyütür (display-only; stored isim değişmez).
+ * Ürün kategorilerine (type==='urun') DOKUNMAZ — bilinçli kapsam dışı.
+ */
+const catDisplay = (name: string, type?: KategoriType) =>
+  type === 'urun' ? name : upperTr(name);
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -232,7 +239,7 @@ export function CategoryPicker({
               </View>
               <Text variant="body" numberOfLines={1} style={styles.selectedText}>
                 {selectedCategory.level > 0 && '└ '}
-                {selectedCategory.name}
+                {catDisplay(selectedCategory.name, selectedCategory.type)}
               </Text>
             </View>
           ) : (
@@ -365,7 +372,7 @@ export function CategoryPicker({
                           numberOfLines={1}
                           style={isSelected && { color: colors.primary }}
                         >
-                          {category.name}
+                          {catDisplay(category.name, category.type)}
                         </Text>
                         {isSubcategory && (
                           <Text variant="caption" color="secondary">

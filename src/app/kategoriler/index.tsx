@@ -36,6 +36,7 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { useKategoriler, useKategorilerHierarchical, useDeleteKategori, FlattenedCategory } from '@/hooks/useKategoriler';
 import { KategoriType, Kategori } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { upperTr } from '@/lib/turkishTextUtils';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -210,7 +211,7 @@ export default function KategorilerPage() {
                       </View>
                       <View style={styles.kategoriInfo}>
                         <View style={styles.kategoriNameRow}>
-                          <Text variant="body">{kategori.name}</Text>
+                          <Text variant="body">{kategori.type === 'urun' ? kategori.name : upperTr(kategori.name)}</Text>
                           {kategori.hasChildren && (
                             <View style={styles.childIndicator}>
                               <ChevronRight size={14} color={colors.textMuted} />
@@ -226,7 +227,7 @@ export default function KategorilerPage() {
                               <View style={[styles.mappingBadge, { backgroundColor: colors.errorLight }]}>
                                 <TrendingDown size={10} color={colors.error} />
                                 <Text style={[styles.mappingBadgeText, { color: colors.error }]}>
-                                  {kategoriNameMap.get(kategori.mapped_gider_kategori_id) || '?'}
+                                  {upperTr(kategoriNameMap.get(kategori.mapped_gider_kategori_id) || '?')}
                                 </Text>
                               </View>
                             )}
@@ -234,7 +235,7 @@ export default function KategorilerPage() {
                               <View style={[styles.mappingBadge, { backgroundColor: colors.successLight }]}>
                                 <TrendingUp size={10} color={colors.success} />
                                 <Text style={[styles.mappingBadgeText, { color: colors.success }]}>
-                                  {kategoriNameMap.get(kategori.mapped_gelir_kategori_id) || '?'}
+                                  {upperTr(kategoriNameMap.get(kategori.mapped_gelir_kategori_id) || '?')}
                                 </Text>
                               </View>
                             )}

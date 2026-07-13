@@ -46,7 +46,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { ensureValidDate } from '@/lib/date';
-import { normalizeTurkish } from '@/lib/turkishTextUtils';
+import { normalizeTurkish, upperTr } from '@/lib/turkishTextUtils';
 import { isLeaveType, isIncomeType } from '@/constants/islemTypes';
 
 const RECENT_SEARCHES_KEY = 'recent_searches';
@@ -572,7 +572,7 @@ export default function AramaPage() {
       const name = `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim();
       if (name) return name;
     }
-    if (islem.kategori?.name) return islem.kategori.name;
+    if (islem.kategori?.name) return upperTr(islem.kategori.name); // kategori display-uppercase; cari/personel/hesap ADLARI değişmez
     if (islem.hesap?.name) return islem.hesap.name;
     return getShortTypeLabel(islem.type);
   }, [getShortTypeLabel]);

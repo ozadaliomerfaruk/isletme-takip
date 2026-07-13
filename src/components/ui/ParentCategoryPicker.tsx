@@ -29,6 +29,7 @@ import {
 } from 'lucide-react-native';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useParentKategoriler } from '@/hooks/useKategoriler';
 import { KategoriType, Kategori } from '@/types/database';
@@ -218,7 +219,7 @@ export function ParentCategoryPicker({
                       numberOfLines={2}
                       style={styles.categoryLabel}
                     >
-                      {category.name}
+                      {type === 'urun' ? category.name : upperTr(category.name)}
                     </Text>
                     {isSelected && (
                       <View style={[styles.checkBadge, { backgroundColor: categoryColor }]}>

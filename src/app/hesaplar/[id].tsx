@@ -47,6 +47,7 @@ import { IslemWithRelations, Currency, IslemType, Not } from '@/types/database';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
@@ -258,7 +259,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
-        secondaryText={islem.kategori?.name || null}
+        secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
         tertiaryText={islem.description || null}
         creatorText={creatorText}
         hasPhoto={!!islem.photo_path}
