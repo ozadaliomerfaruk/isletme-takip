@@ -529,7 +529,9 @@ export default function CariHareketleriPage() {
   }, [cari, islemler, isletme?.id, typeMismatch, shouldInvertBalance]);
 
   // Açılış bakiyesi yalnız İŞLEM YOKKEN ve viewer-olmayan modda düzenlenir (ilk işlemle kilit).
-  const isBalanceEditable = !isViewer && (!islemler || islemler.length === 0);
+  // !!islemler: liste YÜKLENİRKEN (undefined) kilitli kalmalı (hesap detayıyla aynı polarite) —
+  // aksi hâlde işlemli caride yükleme penceresinde editör açılıp bakiye ezilebilir.
+  const isBalanceEditable = !isViewer && !!islemler && islemler.length === 0;
 
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
