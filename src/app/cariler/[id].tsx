@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Info,
   Link,
+  Plus,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
@@ -527,6 +528,9 @@ export default function CariHareketleriPage() {
     return effectiveBalance - totalEffect;
   }, [cari, islemler, isletme?.id, typeMismatch, shouldInvertBalance]);
 
+  // Açılış bakiyesi yalnız İŞLEM YOKKEN ve viewer-olmayan modda düzenlenir (ilk işlemle kilit).
+  const isBalanceEditable = !isViewer && (!islemler || islemler.length === 0);
+
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
     // Mevcut yönü belirle: pozitif = debt (bize borçlu), negatif = credit (biz borçluyuz)
@@ -928,7 +932,7 @@ export default function CariHareketleriPage() {
         )}
         <Card
           style={styles.hareketCard}
-          onPress={!isViewer && (!islemler || islemler.length === 0) ? handleOpenEditBalance : undefined}
+          onPress={isBalanceEditable ? handleOpenEditBalance : undefined}
         >
           <View style={styles.hareketHeader}>
             <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
@@ -941,22 +945,43 @@ export default function CariHareketleriPage() {
               </Text>
             </View>
             <View style={styles.initialBalanceRow}>
-              <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                {formatCurrency(initialBalance, cari.currency)}
-              </Text>
-              {/* Satırın tamamı tıklanabilir (Card onPress); kalem yalnız görsel ipucu.
-                  İşlem varken (kilit) veya viewer'da onPress undefined → satır tıklanamaz. */}
-              {!isViewer && (!islemler || islemler.length === 0) && (
-                <View style={styles.editBalanceBtn}>
-                  <Pencil size={16} color={colors.primary} />
+              {/* #8: boş (0) + düzenlenebilirken belirgin "ekle" çağrısı; değer varsa ya da
+                  kilitliyken (işlem var) yalnız değer + (düzenlenebilirse) kalem ipucu. */}
+              {isBalanceEditable && initialBalance === 0 ? (
+                <View style={styles.addBalanceCta}>
+                  <Plus size={16} color={colors.primary} />
+                  <Text variant="label" style={{ color: colors.primary }}>
+                    {t('clients:details.addInitialBalance')}
+                  </Text>
                 </View>
+              ) : (
+                <>
+                  <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
+                    {formatCurrency(initialBalance, cari.currency)}
+                  </Text>
+                  {isBalanceEditable && (
+                    <View style={styles.editBalanceBtn}>
+                      <Pencil size={16} color={colors.primary} />
+                    </View>
+                  )}
+                </>
               )}
             </View>
           </View>
         </Card>
       </View>
     );
-  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isViewer, islemler, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
+  }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isBalanceEditable, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
+
+  // === FlatList ListEmptyComponent (#7) — hesaptaki desenle parite ===
+  const ListEmpty = useMemo(() => {
+    if (islemlerLoading) return null;
+    return (
+      <View style={styles.section}>
+        <EmptyState title={t('clients:details.noTransactions')} />
+      </View>
+    );
+  }, [islemlerLoading, t]);
 
   if (cariLoading) {
     return (
@@ -1003,6 +1028,7 @@ export default function CariHareketleriPage() {
             renderItem={renderTransactionItem}
             ListHeaderComponent={ListHeader}
             ListFooterComponent={ListFooter}
+            ListEmptyComponent={ListEmpty}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.flatListContent}
             refreshing={refreshing}
@@ -1308,6 +1334,15 @@ const styles = StyleSheet.create({
   },
   editBalanceBtn: {
     padding: spacing.xs,
+  },
+  addBalanceCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryLight + '20',
   },
   loadMoreBtn: {
     alignItems: 'center',

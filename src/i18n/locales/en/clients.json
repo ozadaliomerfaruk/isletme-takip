@@ -178,6 +178,8 @@
     "newTransaction": "New Transaction",
     "initialBalance": "Opening Balance",
     "cariOpening": "Contact opening",
+    "noTransactions": "No transactions for this contact",
+    "addInitialBalance": "Enter opening balance",
     "notFoundDescription": "This contact does not exist or may have been deleted."
   },
   "transactionLabels": {

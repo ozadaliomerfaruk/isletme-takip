@@ -178,6 +178,8 @@
     "newTransaction": "Yeni İşlem",
     "initialBalance": "Başlangıç Bakiyesi",
     "cariOpening": "Cari açılışı",
+    "noTransactions": "Bu cariye ait işlem yok",
+    "addInitialBalance": "Başlangıç bakiyesi gir",
     "notFoundDescription": "Bu cari mevcut değil veya silinmiş olabilir."
   },
   "transactionLabels": {
