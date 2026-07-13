@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import {
   Users,
   History,
+  Zap,
   EyeOff,
   Archive,
   Edit3,
@@ -20,7 +21,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -82,7 +83,7 @@ export default function CarilerPage() {
 
   // QuickTransactionBar için state
   const [quickBarVisible, setQuickBarVisible] = useState(false);
-  const [selectedCari, setSelectedCari] = useState<MergedCari | null>(null);
+  const [selectedCari, setSelectedCari] = useState<Cari | null>(null);
 
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -619,14 +620,10 @@ export default function CarilerPage() {
             </View>
           </TouchableOpacity>
         ) : (
-          <Card
-            onPress={() => {
-              haptics.selection();
-              setSelectedCari(cari);
-              setQuickBarVisible(true);
-            }}
-            style={styles.cariCard}
-          >
+          <ExpandableCard
+            expanded={expandedCariId === cari.id}
+            onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
+            header={
               <View style={styles.cariHeader}>
                 <Avatar name={cari.name} size={40} />
                 <View style={styles.cariInfo}>
@@ -707,7 +704,35 @@ export default function CarilerPage() {
                   <MoreVertical size={20} color={colors.textMuted} />
                 </TouchableOpacity>
               </View>
-          </Card>
+            }
+          >
+            <View style={styles.actionButtons}>
+              {/* BUG 7: View-only linkli carilerde İşlem Yap butonu gizle */}
+              {!(cari.isLinked && cari.linkPermission === 'view') && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Zap size={16} color={colors.surface} />}
+                  onPress={() => {
+                    setSelectedCari(cari);
+                    setQuickBarVisible(true);
+                  }}
+                  style={styles.actionButton}
+                >
+                  {t('common:archive.actions.makeTransaction')}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<History size={16} color={colors.text} />}
+                onPress={() => router.push(`/cariler/${cari.id}`)}
+                style={[styles.actionButton, cari.isLinked && cari.linkPermission === 'view' && { flex: 1 }]}
+              >
+                {t('clients:actions.viewTransactions')}
+              </Button>
+            </View>
+          </ExpandableCard>
         )}
       </View>
       </AnimatedListItem>
@@ -819,16 +844,6 @@ export default function CarilerPage() {
         }}
         defaultCariId={selectedCari?.id}
         defaultCariType={selectedCari?.type}
-        isViewer={!!(selectedCari?.isLinked && selectedCari?.linkPermission === 'view')}
-        peekCari={selectedCari ? {
-          id: selectedCari.id,
-          name: selectedCari.name,
-          balance: toNumber(selectedCari.balance),
-          currency: selectedCari.currency,
-          type: selectedCari.type,
-          isLinked: selectedCari.isLinked,
-          linkPermission: selectedCari.linkPermission,
-        } : undefined}
         onSuccess={() => {
           setQuickBarVisible(false);
           setSelectedCari(null);
@@ -1026,9 +1041,6 @@ const styles = StyleSheet.create({
   listContainer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
-  },
-  cariCard: {
-    marginBottom: spacing.sm,
   },
   cariHeader: {
     flexDirection: 'row',

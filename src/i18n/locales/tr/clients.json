@@ -199,27 +199,6 @@
     "error": "Dışa aktarma başarısız",
     "sharingNotSupported": "Paylaşım bu cihazda desteklenmiyor"
   },
-  "peek": {
-    "history": "Hareketler",
-    "close": "Kapat",
-    "other": "Diğer işlemler",
-    "noPermission": "Bu paylaşılan cariye işlem ekleme izniniz yok",
-    "status": {
-      "theyOwe": "SANA BORÇLU",
-      "weOwe": "SEN BORÇLUSUN",
-      "noBalance": "BAKİYE YOK"
-    },
-    "buttons": {
-      "saleTitle": "Satış Yap",
-      "saleSub": "borç yazar",
-      "collectTitle": "Tahsilat Al",
-      "collectSub": "ödeme alır",
-      "purchaseTitle": "Alış Yap",
-      "purchaseSub": "borç alır",
-      "payTitle": "Ödeme Yap",
-      "paySub": "ödeme yapar"
-    }
-  },
   "transactionLabels": {
     "alis": "Alış",
     "odeme": "Ödeme",

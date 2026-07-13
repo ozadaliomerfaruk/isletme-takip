@@ -94,19 +94,6 @@ export interface QuickTransactionBarProps {
   copySourceId?: string;
   // Override auto-detected tab mode (e.g. 'personel_izin' for leave-only tabs)
   tabModeOverride?: TransactionTabMode;
-  /** #5 peek-sheet: cari satırından açılınca peek başlığı + yön butonları (yalnız cari-create). */
-  peekCari?: PeekCari;
-}
-
-/** #5 peek verisi — cariler listesinden gelir, SIFIR ek sorgu. */
-export interface PeekCari {
-  id: string;
-  name: string;
-  balance: number;
-  currency: string;
-  type: 'musteri' | 'tedarikci';
-  isLinked?: boolean;
-  linkPermission?: string;
 }
 
 // Exchange rate data for cross-currency transactions

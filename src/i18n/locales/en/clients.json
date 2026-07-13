@@ -199,27 +199,6 @@
     "error": "Export failed",
     "sharingNotSupported": "Sharing is not supported on this device"
   },
-  "peek": {
-    "history": "History",
-    "close": "Close",
-    "other": "Other transactions",
-    "noPermission": "You don't have permission to add transactions to this shared contact",
-    "status": {
-      "theyOwe": "OWES YOU",
-      "weOwe": "YOU OWE",
-      "noBalance": "NO BALANCE"
-    },
-    "buttons": {
-      "saleTitle": "Sell",
-      "saleSub": "adds debt",
-      "collectTitle": "Collect",
-      "collectSub": "receives payment",
-      "purchaseTitle": "Buy",
-      "purchaseSub": "adds debt",
-      "payTitle": "Pay",
-      "paySub": "makes payment"
-    }
-  },
   "transactionLabels": {
     "alis": "Purchase",
     "odeme": "Payment",
