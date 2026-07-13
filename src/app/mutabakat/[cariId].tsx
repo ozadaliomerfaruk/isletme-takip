@@ -568,6 +568,8 @@ export default function MutabakatPage() {
           visible={queueBarVisible}
           onDismiss={pauseQueue}
           onSuccess={advanceQueue}
+          // #4b KRİTİK: kuyruk otomatik akış — son-kullanılan belleğe YAZMASIN (chip'leri ezmesin)
+          suppressLastUsed
           defaultCariId={cari.id}
           defaultCariType={cari.type}
           defaultType={suggestedType(currentQueueItem)}

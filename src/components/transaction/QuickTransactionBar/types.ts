@@ -80,6 +80,12 @@ export interface QuickTransactionBarProps {
   onSuccess?: () => void;
   // Viewer mode: linked cari viewer (hides ödeme/tahsilat tabs)
   isViewer?: boolean;
+  /**
+   * Otomatik/toplu akışlarda (mutabakat "eksikleri ekle" kuyruğu) son-kullanılan belleğe
+   * YAZMAYI atlar — kuyruk 20 kalemi arka arkaya kaydedip chip'leri yanlış-etiketle ezmesin.
+   * Yalnız kuyruk instance'ı true geçer; normal cari/personel/gelir-gider girişleri persist eder.
+   */
+  suppressLastUsed?: boolean;
   // Edit mode props
   mode?: QuickTransactionMode;
   transactionId?: string;

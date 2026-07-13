@@ -73,6 +73,7 @@ export function QuickTransactionBar({
   defaultDescription,
   onSuccess,
   isViewer,
+  suppressLastUsed,
   mode = 'create',
   transactionId,
   isScheduledTransaction = false,
@@ -264,6 +265,7 @@ export function QuickTransactionBar({
     isCariMode: form.isCariMode,
     isPersonelMode: form.isPersonelMode,
     isEditMode: form.isEditMode,
+    suppressLastUsed,
     // Edit mode props
     mode,
     transactionId,
@@ -336,16 +338,18 @@ export function QuickTransactionBar({
   // doğrulanmış → silinmiş id'ler otomatik düşer; en fazla 3).
   const recentKategoriIds = lastUsed.getRecentKategoriIds(currentCategoryFamily);
   const recentCategories = useMemo(() => {
-    // A1 v1: chip satırı yalnız normal modda (cari/personel akışları belleğe yazmıyor,
-    // orada normal-mod recents'ini göstermek tutarsız olurdu).
-    if (form.isCariMode || form.isPersonelMode) return [];
+    // #4b: chip satırı artık cari/personel modda da görünür (persist o modlara genişletildi;
+    // kaynak mutabakat kuyruğu suppressLastUsed ile hariç tutuldu). Aile eşlemesi chip ile
+    // persist'te aynı fonksiyondur (getCategoryType) → chip'ler cari işlemlerinden dolar.
+    // Viewer (salt-görüntüleme linkli cari) modunda gizli: kategori bağlamı belirsiz.
+    if (isViewer) return [];
     if (!kategorilerForFamily || recentKategoriIds.length === 0) return [];
     return recentKategoriIds
       .map((id) => kategorilerForFamily.find((k) => k.id === id))
       .filter((k): k is NonNullable<typeof k> => !!k)
       .slice(0, 3)
       .map((k) => ({ id: k.id, name: k.name, color: k.color }));
-  }, [form.isCariMode, form.isPersonelMode, kategorilerForFamily, recentKategoriIds]);
+  }, [isViewer, kategorilerForFamily, recentKategoriIds]);
 
   // Handle hesap selection from picker
   const handleHesapSelect = useCallback(

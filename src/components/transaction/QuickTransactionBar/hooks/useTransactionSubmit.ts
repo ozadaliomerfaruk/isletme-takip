@@ -49,6 +49,8 @@ interface UseTransactionSubmitOptions {
   isCariMode: boolean;
   isPersonelMode: boolean;
   isEditMode: boolean;
+  /** Mutabakat kuyruğu gibi toplu akışlarda son-kullanılan persist'ini atla (#4b). */
+  suppressLastUsed?: boolean;
 
   // Edit mode props
   mode?: QuickTransactionMode;
@@ -171,6 +173,7 @@ export function useTransactionSubmit({
   isCariMode,
   isPersonelMode,
   isEditMode,
+  suppressLastUsed,
   mode = 'create',
   transactionId,
   isScheduledTransaction = false,
@@ -232,11 +235,12 @@ export function useTransactionSubmit({
   // Anahtar isletme.id ile namespace'li; hesap RAW tipe, kategori gelir/gider ailesine göre.
   const persistLastUsed = useCallback(() => {
     if (!isletme?.id) return;
-    // A1 v1: YALNIZ normal mod (cari/personel dışı). Cari/personel akışları — özellikle
+    // #4b: persist artık cari/personel modda da çalışır (chip'ler o modlarda da beslensin —
+    // işini cari üzerinden yürüten esnafta recents boş kalmasın). TEK istisna suppressLastUsed:
     // mutabakat "eksikleri ekle" kuyruğu bar'ı her kalemde remount edip birçok farklı işlemi
-    // arka arkaya kaydeder — tek son-kullanılan kategoriyle toplu yanlış-etiketleyip belleği
-    // ezerdi. Hesap ön-doldurma zaten yalnız normal modda; kategori bellek de öyle olsun.
-    if (isCariMode || isPersonelMode) return;
+    // arka arkaya kaydeder → tek kategoriyle toplu yanlış-etiketleyip belleği ezerdi; o yol
+    // suppressLastUsed=true geçer. (Edit'te zaten çağrılmaz.)
+    if (suppressLastUsed) return;
     // Ürün-taşıyan kayıtlarda kategori 'skip' sayılır → kategori yazma.
     const kategoriToPersist = urunItems.length > 0 ? null : kategoriId;
     void recordLastUsed(isletme.id, {
@@ -245,7 +249,7 @@ export function useTransactionSubmit({
       hesapId: hesapId ?? null,
       kategoriId: kategoriToPersist,
     });
-  }, [isletme, type, hesapId, kategoriId, urunItems.length, isCariMode, isPersonelMode]);
+  }, [isletme, type, hesapId, kategoriId, urunItems.length, suppressLastUsed]);
 
   // Helper: Get urun movement type based on transaction type
   const getUrunHareketTipi = useCallback((txnType: TransactionType): UrunHareketTipi | null => {
