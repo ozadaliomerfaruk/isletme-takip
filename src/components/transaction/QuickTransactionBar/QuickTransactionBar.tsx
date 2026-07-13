@@ -43,6 +43,7 @@ import {
   TahsilatSection,
   AmountInputSection,
 } from './sections';
+import { CariPeekSection } from './sections/CariPeekSection';
 import {
   useQuickTransactionAnimation,
   useQuickTransactionModals,
@@ -79,6 +80,7 @@ export function QuickTransactionBar({
   isScheduledTransaction = false,
   copySourceId,
   tabModeOverride,
+  peekCari,
 }: QuickTransactionBarProps) {
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
@@ -148,6 +150,20 @@ export function QuickTransactionBar({
 
   // Leave usage type flag
   const isLeaveUsageType = form.type === 'personel_izin_kullanimi_tab';
+
+  // #5 peek-sheet: cari satırından açılınca peek başlığı + yön butonları.
+  // Yalnız cari-CREATE (edit/copy/normal/personel dokunulmaz — G6). copySourceId de create'te dolu.
+  const isPeekMode =
+    !!peekCari && form.isCariMode && mode === 'create' && !copySourceId && !form.isEditMode;
+  // Yön seçildi mi? peek → form geçişi (tek boolean, QTB-yerel). Bar her açılışında sıfırlanır.
+  const [directionChosen, setDirectionChosen] = useState(false);
+  useEffect(() => {
+    if (visible) setDirectionChosen(false);
+  }, [visible, peekCari?.id]);
+  const peekViewOnly = !!peekCari?.isLinked && peekCari?.linkPermission === 'view';
+  const peekSingleButton = !!peekCari?.isLinked && peekCari?.linkPermission !== 'view';
+  // Peek modda form yalnız yön seçilince görünür; view-only'de hiç form yok.
+  const showFormInPeek = directionChosen && !peekViewOnly;
 
   // Auto-calculate day count from date range for leave usage.
   // Gün başına (yerel 00:00) normalize edilir: saat farkı / DST kenarı gün sayısını bozmasın
@@ -595,7 +611,28 @@ export function QuickTransactionBar({
           onDateEndPress={() => modals.setShowDateEndPicker(true)}
         />
 
-        {/* Entity Display: Hesap/Cari/Personel bilgisi */}
+        {/* #5 Peek başlığı + yön butonları (yalnız cari satırından açılan create) */}
+        {isPeekMode && peekCari && (
+          <CariPeekSection
+            cari={peekCari}
+            directionChosen={directionChosen}
+            onSelectDirection={(newType) => {
+              form.setType(newType);
+              setDirectionChosen(true);
+            }}
+            onOther={() => setDirectionChosen(true)}
+            onClose={handleDismiss}
+            onHistory={() => {
+              handleDismiss();
+              setTimeout(() => router.push({ pathname: '/cariler/[id]', params: { id: peekCari.id } }), 250);
+            }}
+            peekOnly={peekViewOnly}
+            singleButton={peekSingleButton}
+          />
+        )}
+
+        {/* Entity Display: Hesap/Cari/Personel bilgisi (peek modda gizli — peek başlığı yerine geçer) */}
+        {!isPeekMode && (
         <EntityDisplaySection
           type={form.type}
           isCariMode={form.isCariMode}
@@ -610,6 +647,7 @@ export function QuickTransactionBar({
             modals.setShowHesapPicker(true);
           }}
         />
+        )}
 
         {/* Transfer: Kaynak ve Hedef Hesap */}
         {form.type === 'transfer' && (
@@ -661,7 +699,9 @@ export function QuickTransactionBar({
           />
         )}
 
-        {/* Amount Input Section: Category, Description, Amount, Save, Tabs */}
+        {/* Amount Input Section: Category, Description, Amount, Save, Tabs.
+            Peek modda yalnız yön seçilince görünür (#5). */}
+        {(!isPeekMode || showFormInPeek) && (
         <AmountInputSection
           amount={form.amount}
           onAmountChange={form.handleAmountChange}
@@ -709,6 +749,7 @@ export function QuickTransactionBar({
           urunItemCount={form.urunItems.length}
           onUrunButtonPress={() => modals.setShowUrunPicker(true)}
         />
+        )}
       </Animated.View>
 
       {/* DateTime Picker Modal */}
