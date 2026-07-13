@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, Collapsible } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCari, useUpdateCari } from '@/hooks/useCariler';
@@ -177,32 +177,39 @@ export default function CariDuzenlePage() {
                 onChangeText={setPhone}
               />
 
-              <Input
-                label={t('clients:form.emailOptional')}
-                placeholder={t('clients:form.emailExample')}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
+              {/* Detaylar — GUARDRAIL: dolu alan varsa açık başlar (kullanıcı verisini
+                  görmeden üstüne yazmasın). defaultOpen kaynak kayıttan hesaplanır (mount'ta cari yüklü). */}
+              <Collapsible
+                title={t('clients:form.detailsSection')}
+                defaultOpen={!!(cari.email || cari.address || cari.notes)}
+              >
+                <Input
+                  label={t('clients:form.emailOptional')}
+                  placeholder={t('clients:form.emailExample')}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  value={email}
+                  onChangeText={setEmail}
+                />
 
-              <Input
-                label={t('clients:form.addressOptional')}
-                placeholder={t('clients:form.addressDetailPlaceholder')}
-                multiline
-                numberOfLines={2}
-                value={address}
-                onChangeText={setAddress}
-              />
+                <Input
+                  label={t('clients:form.addressOptional')}
+                  placeholder={t('clients:form.addressDetailPlaceholder')}
+                  multiline
+                  numberOfLines={2}
+                  value={address}
+                  onChangeText={setAddress}
+                />
 
-              <Input
-                label={t('clients:form.noteOptional')}
-                placeholder={t('clients:form.noteDetailPlaceholder')}
-                multiline
-                numberOfLines={3}
-                value={notes}
-                onChangeText={setNotes}
-              />
+                <Input
+                  label={t('clients:form.noteOptional')}
+                  placeholder={t('clients:form.noteDetailPlaceholder')}
+                  multiline
+                  numberOfLines={3}
+                  value={notes}
+                  onChangeText={setNotes}
+                />
+              </Collapsible>
             </View>
 
             {/* Pasif Mod */}

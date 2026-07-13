@@ -4,6 +4,7 @@ export { Card } from './Card';
 export { Input } from './Input';
 export { CurrencyInput } from './CurrencyInput';
 export { ExpandableCard } from './ExpandableCard';
+export { Collapsible } from './Collapsible';
 export { TabFilter } from './TabFilter';
 export { FilterChips } from './FilterChips';
 export type { FilterChipItem } from './FilterChips';

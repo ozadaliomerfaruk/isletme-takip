@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
-import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
+import { Text, Input, Button, Card, BalanceDirectionSelector, Collapsible, type BalanceDirection } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreateCari } from '@/hooks/useCariler';
@@ -187,7 +187,8 @@ export default function CariEklePage() {
             </ScrollView>
           </View>
 
-          {/* Form */}
+          {/* Form — sık-yol: İsim + Açılış bakiyesi (yıldız) + Telefon.
+              Nadir alanlar (e-posta/adres/not) "Detaylar" akordeonunda (Dilim 1, #6). */}
           <View style={styles.section}>
             <Input
               label={t('clients:form.name')}
@@ -197,32 +198,7 @@ export default function CariEklePage() {
               error={errors.name}
             />
 
-            <Input
-              label={t('clients:form.phoneOptional')}
-              placeholder={t('clients:form.phoneExample')}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-
-            <Input
-              label={t('clients:form.emailOptional')}
-              placeholder={t('clients:form.emailExample')}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={email}
-              onChangeText={setEmail}
-            />
-
-            <Input
-              label={t('clients:form.addressOptional')}
-              placeholder={t('clients:form.addressDetailPlaceholder')}
-              multiline
-              numberOfLines={2}
-              value={address}
-              onChangeText={setAddress}
-            />
-
+            {/* Açılış bakiyesi — formun yıldızı (carilerin %60+'ı bakiyeli; tutunmanın çekirdeği) */}
             <Input
               label={t('accounts:form.openingBalanceOptional')}
               placeholder="0"
@@ -246,13 +222,46 @@ export default function CariEklePage() {
             )}
 
             <Input
-              label={t('clients:form.noteOptional')}
-              placeholder={t('clients:form.noteDetailPlaceholder')}
-              multiline
-              numberOfLines={3}
-              value={notes}
-              onChangeText={setNotes}
+              label={t('clients:form.phoneOptional')}
+              placeholder={t('clients:form.phoneExample')}
+              keyboardType="phone-pad"
+              value={phone}
+              onChangeText={setPhone}
             />
+
+            {/* Detaylar — nadir kullanılan alanlar. GUARDRAIL: kart-taramadan VKN nota
+                prefill edildiyse açık başla (kullanıcı eklenen veriyi görsün). */}
+            <Collapsible
+              title={t('clients:form.detailsSection')}
+              defaultOpen={!!params.prefillTaxNumber}
+            >
+              <Input
+                label={t('clients:form.emailOptional')}
+                placeholder={t('clients:form.emailExample')}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+              />
+
+              <Input
+                label={t('clients:form.addressOptional')}
+                placeholder={t('clients:form.addressDetailPlaceholder')}
+                multiline
+                numberOfLines={2}
+                value={address}
+                onChangeText={setAddress}
+              />
+
+              <Input
+                label={t('clients:form.noteOptional')}
+                placeholder={t('clients:form.noteDetailPlaceholder')}
+                multiline
+                numberOfLines={3}
+                value={notes}
+                onChangeText={setNotes}
+              />
+            </Collapsible>
           </View>
 
           {/* Buttons */}
