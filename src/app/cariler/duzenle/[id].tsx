@@ -159,7 +159,7 @@ export default function CariDuzenlePage() {
               </View>
             </View>
 
-            {/* Form */}
+            {/* Form — üst (sık-yol): Ad + Notlar. Telefon/e-posta/adres akordeonda (Dilim 1 #2/#4). */}
             <View style={styles.section}>
               <Input
                 label={t('clients:form.name')}
@@ -170,19 +170,28 @@ export default function CariDuzenlePage() {
               />
 
               <Input
-                label={t('clients:form.phoneOptional')}
-                placeholder={t('clients:form.phoneExample')}
-                keyboardType="phone-pad"
-                value={phone}
-                onChangeText={setPhone}
+                label={t('clients:form.noteOptional')}
+                placeholder={t('clients:form.noteDetailPlaceholder')}
+                multiline
+                numberOfLines={3}
+                value={notes}
+                onChangeText={setNotes}
               />
 
               {/* Detaylar — GUARDRAIL: dolu alan varsa açık başlar (kullanıcı verisini
                   görmeden üstüne yazmasın). defaultOpen kaynak kayıttan hesaplanır (mount'ta cari yüklü). */}
               <Collapsible
                 title={t('clients:form.detailsSection')}
-                defaultOpen={!!(cari.email || cari.address || cari.notes)}
+                defaultOpen={!!(cari.phone || cari.email || cari.address)}
               >
+                <Input
+                  label={t('clients:form.phoneOptional')}
+                  placeholder={t('clients:form.phoneExample')}
+                  keyboardType="phone-pad"
+                  value={phone}
+                  onChangeText={setPhone}
+                />
+
                 <Input
                   label={t('clients:form.emailOptional')}
                   placeholder={t('clients:form.emailExample')}
@@ -199,15 +208,6 @@ export default function CariDuzenlePage() {
                   numberOfLines={2}
                   value={address}
                   onChangeText={setAddress}
-                />
-
-                <Input
-                  label={t('clients:form.noteOptional')}
-                  placeholder={t('clients:form.noteDetailPlaceholder')}
-                  multiline
-                  numberOfLines={3}
-                  value={notes}
-                  onChangeText={setNotes}
                 />
               </Collapsible>
             </View>
@@ -230,27 +230,28 @@ export default function CariDuzenlePage() {
               </View>
             </View>
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={updateCari.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.update')}
-              </Button>
-            </View>
           </ScrollView>
+
+          {/* Sticky footer — kaydet butonu klavyenin altında kalmasın (Dilim 1 #5) */}
+          <View style={styles.footer}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={updateCari.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.update')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -303,11 +304,15 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderWidth: 2,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

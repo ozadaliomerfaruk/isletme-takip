@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
-import { Text, Input, Button, Card, BalanceDirectionSelector, Collapsible, type BalanceDirection } from '@/components/ui';
+import { Text, Input, Button, Card, Collapsible } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreateCari } from '@/hooks/useCariler';
@@ -19,7 +19,6 @@ import { CariType, Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
-import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function CariEklePage() {
@@ -49,17 +48,8 @@ export default function CariEklePage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [balance, setBalance] = useState('');
-  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
   const [notes, setNotes] = useState(params.prefillTaxNumber ? `VKN: ${params.prefillTaxNumber}` : '');
   const [errors, setErrors] = useState<{ name?: string }>({});
-
-  // Cari tipi değiştiğinde varsayılan yönü güncelle
-  useEffect(() => {
-    // Tedarikçi: genelde biz borçlu oluruz (credit = bize alacak)
-    // Müşteri: genelde onlar borçlu olur (debt = bize borç)
-    setBalanceDirection(type === 'tedarikci' ? 'credit' : 'debt');
-  }, [type]);
 
   const validate = () => {
     const newErrors: { name?: string } = {};
@@ -76,35 +66,37 @@ export default function CariEklePage() {
     if (!validate()) return;
 
     try {
-      // Bakiye mantığı:
-      // debt (bize borç) = onların bize borcu var = pozitif bakiye (alacağımız var)
-      // credit (bize alacak) = bizim onlara borcumuz var = negatif bakiye
-      let finalBalance = balance ? parseCurrency(balance) : 0;
-      if (balanceDirection === 'credit' && finalBalance > 0) {
-        finalBalance = -finalBalance; // Bize alacak = bizim borcumuz, negatif
-      }
-      // debt durumunda pozitif kalır (bize borç = alacağımız var)
-
-      await createCari.mutateAsync({
+      // Açılış bakiyesi artık formda YOK (Dilim 1 #3): cari 0 bakiye ile oluşur;
+      // açılış bakiyesi, işlem girilmeden önce cari DETAY sayfasından (yön'lü,
+      // düzenlenebilir/silinebilir) girilir. İlk işlemle birlikte orada kilitlenir.
+      const created = await createCari.mutateAsync({
         name: name.trim(),
         type,
         currency,
         phone: phone.trim() || null,
         email: email.trim() || null,
         address: address.trim() || null,
-        balance: finalBalance,
+        balance: 0,
         notes: notes.trim() || null,
       });
 
       notifySaved(t('clients:messages.createSuccess'));
-      router.back();
+      // Kayıt sonrası oluşturulan cari detayına git (geri tuşu = liste). (Dilim 1 #6)
+      // İSTİSNA: prefill'le gelindiyse (foto-import tedarikçi oluşturma akışı) çağıran
+      // ekrana geri dön — o akış router.back() ile import'a devam etmeyi bekliyor.
+      const cameFromPrefillFlow = !!(params.prefillName || params.prefillType || params.prefillTaxNumber);
+      if (cameFromPrefillFlow) {
+        router.back();
+      } else {
+        router.replace({ pathname: '/cariler/[id]', params: { id: created.id } });
+      }
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:cari.createFailed'));
     }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -115,16 +107,8 @@ export default function CariEklePage() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text variant="h2">{t('clients:titles.addClient')}</Text>
-          </View>
-
-          {/* Cari Tipi Seçimi */}
+          {/* Cari Tipi Seçimi — başlık kaldırıldı, kutular yukarı dayalı */}
           <View style={styles.section}>
-            <Text variant="label" color="secondary" style={styles.sectionTitle}>
-              {t('clients:form.type')}
-            </Text>
             <View style={styles.typeGrid}>
               {cariTypes.map((item) => (
                 <Card
@@ -187,8 +171,8 @@ export default function CariEklePage() {
             </ScrollView>
           </View>
 
-          {/* Form — sık-yol: İsim + Açılış bakiyesi (yıldız) + Telefon.
-              Nadir alanlar (e-posta/adres/not) "Detaylar" akordeonunda (Dilim 1, #6). */}
+          {/* Form — üst (sık-yol): Ad + Notlar. Telefon/e-posta/adres "Detaylar"
+              akordeonunda. Açılış bakiyesi formdan çıktı → cari detayında (Dilim 1 #3/#4). */}
           <View style={styles.section}>
             <Input
               label={t('clients:form.name')}
@@ -196,45 +180,29 @@ export default function CariEklePage() {
               value={name}
               onChangeText={setName}
               error={errors.name}
+              autoFocus
             />
 
-            {/* Açılış bakiyesi — formun yıldızı (carilerin %60+'ı bakiyeli; tutunmanın çekirdeği) */}
+            {/* Notlar — üst kısımda (Dilim 1 #4) */}
             <Input
-              label={t('accounts:form.openingBalanceOptional')}
-              placeholder="0"
-              keyboardType="decimal-pad"
-              value={balance}
-              onChangeText={setBalance}
+              label={t('clients:form.noteOptional')}
+              placeholder={t('clients:form.noteDetailPlaceholder')}
+              multiline
+              numberOfLines={3}
+              value={notes}
+              onChangeText={setNotes}
             />
 
-            {/* Bakiye Yönü - sadece bakiye girilmişse göster */}
-            {balance.trim() !== '' && (
-              <View style={styles.balanceDirectionContainer}>
-                <Text variant="label" style={styles.balanceDirectionLabel}>
-                  {t('clients:balanceDirection.label')}
-                </Text>
-                <BalanceDirectionSelector
-                  value={balanceDirection}
-                  onChange={setBalanceDirection}
-                  variant={type === 'tedarikci' ? 'supplier' : 'customer'}
-                />
-              </View>
-            )}
+            {/* Detaylar — nadir kullanılan alanlar (telefon/e-posta/adres), default kapalı */}
+            <Collapsible title={t('clients:form.detailsSection')}>
+              <Input
+                label={t('clients:form.phoneOptional')}
+                placeholder={t('clients:form.phoneExample')}
+                keyboardType="phone-pad"
+                value={phone}
+                onChangeText={setPhone}
+              />
 
-            <Input
-              label={t('clients:form.phoneOptional')}
-              placeholder={t('clients:form.phoneExample')}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-            />
-
-            {/* Detaylar — nadir kullanılan alanlar. GUARDRAIL: kart-taramadan VKN nota
-                prefill edildiyse açık başla (kullanıcı eklenen veriyi görsün). */}
-            <Collapsible
-              title={t('clients:form.detailsSection')}
-              defaultOpen={!!params.prefillTaxNumber}
-            >
               <Input
                 label={t('clients:form.emailOptional')}
                 placeholder={t('clients:form.emailExample')}
@@ -252,39 +220,30 @@ export default function CariEklePage() {
                 value={address}
                 onChangeText={setAddress}
               />
-
-              <Input
-                label={t('clients:form.noteOptional')}
-                placeholder={t('clients:form.noteDetailPlaceholder')}
-                multiline
-                numberOfLines={3}
-                value={notes}
-                onChangeText={setNotes}
-              />
             </Collapsible>
           </View>
-
-          {/* Buttons */}
-          <View style={styles.buttons}>
-            <Button
-              variant="outline"
-              size="lg"
-              onPress={() => router.back()}
-              style={styles.button}
-            >
-              {t('common:buttons.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={createCari.isPending}
-              onPress={handleSubmit}
-              style={styles.button}
-            >
-              {t('common:buttons.save')}
-            </Button>
-          </View>
         </ScrollView>
+
+        {/* Sticky footer — kaydet butonu klavyenin altında kalmasın (Dilim 1 #5) */}
+        <View style={styles.footer}>
+          <Button
+            variant="outline"
+            size="lg"
+            onPress={() => router.back()}
+            style={styles.button}
+          >
+            {t('common:buttons.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            loading={createCari.isPending}
+            onPress={handleSubmit}
+            style={styles.button}
+          >
+            {t('common:buttons.save')}
+          </Button>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -302,11 +261,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
   },
   section: {
     paddingHorizontal: spacing.lg,
@@ -341,21 +297,17 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderWidth: 2,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,
-  },
-  // Balance direction styles
-  balanceDirectionContainer: {
-    marginBottom: spacing.md,
-  },
-  balanceDirectionLabel: {
-    marginBottom: spacing.xs,
-    color: colors.text,
   },
 });
