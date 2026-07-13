@@ -102,7 +102,7 @@ export default function HesapDuzenlePage() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
@@ -112,7 +112,7 @@ export default function HesapDuzenlePage() {
 
   if (!hesap) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <Text>{t('errors:account.notFound')}</Text>
         </View>

@@ -426,7 +426,7 @@ export default function LeaveHistoryPage() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <BackButton icon={ArrowLeft} style={styles.backButton} />

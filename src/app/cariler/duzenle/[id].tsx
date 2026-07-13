@@ -88,7 +88,7 @@ export default function CariDuzenlePage() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
@@ -98,7 +98,7 @@ export default function CariDuzenlePage() {
 
   if (!cari) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <Text>{t('errors:cari.notFound')}</Text>
         </View>

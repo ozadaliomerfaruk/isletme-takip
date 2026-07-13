@@ -188,7 +188,7 @@ export default function IleriTarihliIslemDuzenlePage() {
 
   if (islemLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text color="secondary" style={{ marginTop: spacing.md }}>{t('common:status.loading')}</Text>
@@ -199,7 +199,7 @@ export default function IleriTarihliIslemDuzenlePage() {
 
   if (!islem) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['bottom']}>
         <View style={styles.loadingContainer}>
           <Text color="error">{t('transactions:messages.transactionNotFound')}</Text>
           <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
