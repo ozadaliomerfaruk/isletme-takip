@@ -1,5 +1,12 @@
 {
   "appName": "İşletme Takip",
+  "addEntity": {
+    "title": "Ne eklemek istersin?",
+    "account": "Hesap Ekle",
+    "client": "Cari Ekle",
+    "staff": "Personel Ekle",
+    "product": "Ürün Ekle"
+  },
   "setupCard": {
     "title": "Kurulumu tamamla",
     "subtitle": "{{done}}/{{total}} adım tamam",

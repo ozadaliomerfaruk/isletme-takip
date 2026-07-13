@@ -1,5 +1,12 @@
 {
   "appName": "Small Business Finance",
+  "addEntity": {
+    "title": "What would you like to add?",
+    "account": "Add Account",
+    "client": "Add Contact",
+    "staff": "Add Staff",
+    "product": "Add Product"
+  },
   "setupCard": {
     "title": "Finish setup",
     "subtitle": "{{done}}/{{total}} steps done",

@@ -4,7 +4,6 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router';
 import {
   Users,
-  Plus,
   History,
   Zap,
   EyeOff,
@@ -21,7 +20,7 @@ import {
   Share2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard } from '@/components/ui';
+import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -42,7 +41,6 @@ import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { useLinkedCariler, useCariLinks, useRemoveCariLink } from '@/hooks/useCariSharing';
 import type { SharingPermission } from '@/types/cariSharing';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
-import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { DetailExportSection } from '@/components/detail';
@@ -706,16 +704,7 @@ export default function CarilerPage() {
           >
             <Link size={18} color={colors.primary} />
           </TouchableOpacity>
-          <PermissionGate module="cariler" action="create">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus size={18} color={colors.white} />}
-              onPress={() => router.push('/cariler/ekle')}
-            >
-              {t('common:buttons.add')}
-            </Button>
-          </PermissionGate>
+          <AddEntityButton />
         </View>
       </View>
 

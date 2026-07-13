@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet, X } from 'lucide-react-native';
-import { Text, Button, Input, EmptyState, TabFilter, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, Input, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -27,7 +27,6 @@ import { formatDateForDB } from '@/lib/date';
 import { textIncludes } from '@/lib/turkishTextUtils';
 import { exportUrunListesiToExcel, UrunListeItem } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 
@@ -590,17 +589,7 @@ export default function UrunlerPage() {
               <ArrowUpDown size={18} color={colors.primary} />
             </TouchableOpacity>
           )}
-          <PermissionGate module="urunler" action="create">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus size={18} color={colors.white} />}
-              iconPosition="left"
-              onPress={() => router.push('/urunler/ekle' as Href)}
-            >
-              {t('common:buttons.add')}
-            </Button>
-          </PermissionGate>
+          <AddEntityButton />
         </View>
       </View>
 

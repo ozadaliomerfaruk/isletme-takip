@@ -24,7 +24,7 @@ import {
   CalendarDays,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard } from '@/components/ui';
+import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -40,7 +40,6 @@ import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
 import { useArchivePersonel } from '@/hooks/useArchive';
 import type { Personel } from '@/types/database';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
-import { PermissionGate } from '@/components/PermissionGate';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
@@ -545,16 +544,7 @@ export default function PersonelPage() {
           >
             <ArrowUpDown size={18} color={colors.primary} />
           </TouchableOpacity>
-          <PermissionGate module="personel" action="create">
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<Plus size={18} color={colors.white} />}
-              onPress={() => router.push('/personel/ekle')}
-            >
-              {t('common:buttons.add')}
-            </Button>
-          </PermissionGate>
+          <AddEntityButton />
         </View>
       </View>
 

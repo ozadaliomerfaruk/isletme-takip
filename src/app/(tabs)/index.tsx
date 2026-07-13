@@ -23,7 +23,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -408,6 +408,7 @@ export default function HomePage() {
               <Search size={22} color={colors.text} />
             </TouchableOpacity>
             <NotificationBell />
+            <AddEntityButton />
           </View>
         </Animated.View>
 
