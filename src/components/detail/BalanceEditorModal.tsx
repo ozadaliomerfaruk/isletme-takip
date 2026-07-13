@@ -1,4 +1,4 @@
-import { Modal, TouchableOpacity, View, TextInput, StyleSheet } from 'react-native';
+import { Modal, TouchableOpacity, View, TextInput, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { X } from 'lucide-react-native';
 import { Text, Button, BalanceDirectionSelector } from '@/components/ui';
 import type { BalanceDirection } from '@/components/ui/BalanceDirectionSelector';
@@ -55,6 +55,10 @@ export function BalanceEditorModal({
       animationType="fade"
       onRequestClose={onDismiss}
     >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
+      >
       <TouchableOpacity
         style={styles.overlay}
         activeOpacity={1}
@@ -123,11 +127,15 @@ export function BalanceEditorModal({
           </View>
         </View>
       </TouchableOpacity>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

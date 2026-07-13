@@ -1105,7 +1105,6 @@ export default function CariHareketleriPage() {
           visible={editBalanceModalVisible}
           onDismiss={() => setEditBalanceModalVisible(false)}
           title={t('clients:balance.editTitle')}
-          warning={t('clients:balance.editWarning')}
           directionLabel={t('clients:balanceDirection.label')}
           directionVariant={effectiveType === 'tedarikci' ? 'supplier' : 'customer'}
           balanceDirection={balanceDirection}
