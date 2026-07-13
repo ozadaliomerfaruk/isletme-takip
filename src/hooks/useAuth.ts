@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import type * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { supabase } from '@/lib/supabase';
+import { supabase, checkNetworkConnectivity } from '@/lib/supabase';
 import { wipePersistedCache } from '@/lib/queryClient';
 import { clearLastUsedSelections } from '@/lib/lastUsedSelections';
 import { logEvent, setEventContext } from '@/lib/appEvents';
@@ -262,7 +262,25 @@ export function useAuth() {
     // Mevcut session'ı al
     const initializeAuth = async () => {
       try {
+        // ── [GEÇİCİ TEŞHİS — auth-init asılması, 13 Tem] Teşhis bitince bu blok ÇIKACAK ──
+        // Üç ayrı probu ayırt eder: (a) health-probe = telefon→Supabase HAM erişim (ham fetch,
+        // auth kilidini ve token'ı BYPASS eder, 5sn abort'lu); (b) getSession süresi (lock +
+        // storage + gerekirse refresh); (c) isletme fetch süresi (postgrest + token bekleme).
+        const __t0 = Date.now();
+        if (__DEV__) {
+          checkNetworkConnectivity()
+            .then((ok) => console.log(`[auth-debug] health-probe ok=${ok} · ${Date.now() - __t0}ms`))
+            .catch((e) => console.log('[auth-debug] health-probe HATA:', String(e)));
+          console.log('[auth-debug] getSession başlıyor');
+        }
         const { data: { session }, error } = await supabase.auth.getSession();
+        if (__DEV__) {
+          console.log(
+            `[auth-debug] getSession bitti ${Date.now() - __t0}ms · session=${!!session}` +
+            ` · tokenExp=${session?.expires_at ?? '-'} · şimdi=${Math.floor(Date.now() / 1000)}` +
+            ` · hata=${error ? String(error.message ?? error) : '-'}`
+          );
+        }
 
         if (!isMounted) return;
 
@@ -305,7 +323,9 @@ export function useAuth() {
               || session.user.user_metadata?.name?.split(' ')[0]
               || null;
             const isletmeName = session.user.user_metadata?.isletme_name || null;
+            if (__DEV__) console.log(`[auth-debug] isletme fetch başlıyor ${Date.now() - __t0}ms`); // [GEÇİCİ TEŞHİS]
             const isletme = await fetchOrCreateIsletme(session.user.id, userName, isletmeName);
+            if (__DEV__) console.log(`[auth-debug] isletme fetch bitti ${Date.now() - __t0}ms · isletme=${!!isletme}`); // [GEÇİCİ TEŞHİS]
 
             if (!isMounted) return;
 
@@ -455,35 +475,47 @@ export function useAuth() {
           isletmeLoading: true, // İşletme yükleniyor
         }));
 
-        // Sonra işletmeyi arka planda getir/oluştur
-        try {
-          const userName = session.user.user_metadata?.full_name?.split(' ')[0]
-            || session.user.user_metadata?.name?.split(' ')[0]
-            || null;
-          const isletmeName = session.user.user_metadata?.isletme_name || null;
-          const isletme = await fetchOrCreateIsletme(session.user.id, userName, isletmeName);
+        // Sonra işletmeyi arka planda getir/oluştur.
+        // ⚠️ setTimeout(0) ŞART — Supabase'in belgelenmiş kuralı: onAuthStateChange callback'i
+        // auth-js tarafından KİLİT TUTULURKEN beklenir; callback içinde bir supabase çağrısı
+        // await edilirse (fetchOrCreateIsletme → postgrest → token için getSession) aynı kilit
+        // yeniden istenir → RE-ENTRANT DEADLOCK. processLock'suz dönemde (kilit no-op'ken)
+        // zararsızdı; 98d9ea3 gerçek kilidi getirince "getSession hiç bitmiyor → veriler
+        // yüklenmiyor" (13 Tem) bug'ının kök nedeni oldu. İş macrotask'a ertelenir: callback
+        // hemen döner, kilit bırakılır, sorgu kilit SERBESTKEN çalışır. AWAIT ETME!
+        const userName = session.user.user_metadata?.full_name?.split(' ')[0]
+          || session.user.user_metadata?.name?.split(' ')[0]
+          || null;
+        const isletmeName = session.user.user_metadata?.isletme_name || null;
+        const userId = session.user.id;
+        setTimeout(() => {
+          void (async () => {
+            try {
+              const isletme = await fetchOrCreateIsletme(userId, userName, isletmeName);
 
-          if (!isMounted) return;
+              if (!isMounted) return;
 
-          setState((prev) => ({
-            ...prev,
-            isletme: isletme ?? prev.isletme,
-            ownIsletme: isletme ?? prev.ownIsletme,
-            isOwner: true,
-            currentPermissions: null,
-            currentUserRole: isletme ? 'owner' : prev.currentUserRole,
-            isletmeLoading: false,
-          }));
-        } catch (e) {
-          if (__DEV__) {
-            console.error('İşletme getirme/oluşturma hatası:', e);
-          }
-          if (!isMounted) return;
-          setState((prev) => ({
-            ...prev,
-            isletmeLoading: false,
-          }));
-        }
+              setState((prev) => ({
+                ...prev,
+                isletme: isletme ?? prev.isletme,
+                ownIsletme: isletme ?? prev.ownIsletme,
+                isOwner: true,
+                currentPermissions: null,
+                currentUserRole: isletme ? 'owner' : prev.currentUserRole,
+                isletmeLoading: false,
+              }));
+            } catch (e) {
+              if (__DEV__) {
+                console.error('İşletme getirme/oluşturma hatası:', e);
+              }
+              if (!isMounted) return;
+              setState((prev) => ({
+                ...prev,
+                isletmeLoading: false,
+              }));
+            }
+          })();
+        }, 0);
       } else {
         // Session yok
         if (!isMounted) return;
