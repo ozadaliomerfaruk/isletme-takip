@@ -210,3 +210,29 @@ Dilim 1 ucuz, düşük riskli ve import'un ön-koşulu (import review ekranı da
 **Para birimi:** KARAR KESİN — dokunulmuyor, olduğu gibi görünür kalır. (Adaptif görünürlük reddedildi: görünürlük zaten korununca gereksiz. Ayrı backlog notu: FX cari para birimi oluşturmadan sonra düzeltilemiyor + İngilizce default USD → latent bug, Dilim 1 dışı.)
 
 **Sekme koordinasyonu (Madde 3 şartı):** İşlem formu (Madde 3) `useTransactionSubmit.ts`'e dokunacak; o dosyada şu an başka bir sekmenin commit'lenmemiş auth-hang teşhis kodu var. **Madde 3'e başlamadan önce o sekme işini commit'lemeli veya stash'lemeli.** Madde 2 (cari formu) bu dosyalara değmiyor, paralel güvenli.
+
+---
+
+## 8. Tur 2 — kozmetik + UX batch (13 Tem)
+
+Dilim 1 (form sadeleştirme) + ölü-kod temizliği + header/#7 sonrası, kullanıcının cihaz turundan gelen ikinci istek dalgası. Hepsi commit'li (`feat/offline-read-cache`), typecheck + 285/285 test.
+
+**Yapılanlar:**
+- **#2** Ekle butonu marka rengi (success→primary) · **#4** dashboard etiketleri uppercase — `beb9068`
+- **Paket 1 (kozmetik):** #1 sticky header hizası + #5 VARLIKLAR yukarı + #6 grup başlığı puntosu + #7 grup toplamı puntosu (taşma için `adjustsFontSizeToFit`) — `ce6fa7a`
+- **#10** Ana sayfa başlığı = işletme adı, tık → `/ayarlar/paylasilan-isletmeler` (yeni rota yok) — `780964a`
+- **#8** Cariler listesi Excel export (ürünler deseni; açık tab+arama+sıralama; dosya adı `cariler-{tab}-{tarih}`) — `ec6e262`
+- **#9** Cari notu liste satırında (isim altında en yeni notun ilk satırı; ayrı toplu `useNotlar('cari')`, JOIN yok) — `8b925bb`
+
+**Geri alınan:**
+- **#3** Liste tab header'larında arama ikonu — kullanıcı beğenmedi, tamamı geri alındı (commit'siz). Ana sayfa arama ikonu (→ global arama) korundu.
+
+**Backlog / follow-up:**
+- #1 "Varlıklar" rename → i18n'de (`accounts.json`); uppercase ile fiilen kapandı.
+- #2 dashboard-her-sayfada · #3 tab slider → backlog.
+- Cari export **PDF** → şu an Excel-only (ürünler de öyle); cari-liste PDF helper'ı follow-up.
+- urunler header arama **auto-focus** → `Input` forwardRef gerektirir (çekirdek bileşen); #3 geri alındığı için şimdilik gündemde değil.
+
+**Masada kalan büyük işler:**
+- **#5 peek-sheet** (cari satırına basınca hızlı alış/satış) — tutunma backlog'unun kalbi (bkz. §3.3).
+- **Build kararı** — auth fix #2 (`2e5e205`) hâlâ hiçbir build'de değil; bu seri kapanınca build, günün tüm mesaisini + auth fix'ini cihazlara taşır.
