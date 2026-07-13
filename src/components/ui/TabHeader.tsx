@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react-native';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
+import { upperTr } from '@/lib/turkishTextUtils';
 
 interface TabHeaderProps {
   /** Sol taraftaki başlık (ekran adı veya işletme adı). */
@@ -26,7 +27,7 @@ export function TabHeader({ title, subtitle, right, onTitlePress }: TabHeaderPro
   const titleBlock = (
     <>
       <View style={styles.titleRow}>
-        <Text variant="h2" numberOfLines={1} style={styles.titleText}>{title}</Text>
+        <Text variant="h2" numberOfLines={1} style={styles.titleText}>{upperTr(title)}</Text>
         {onTitlePress ? <ChevronDown size={18} color={colors.textMuted} /> : null}
       </View>
       {subtitle ? (

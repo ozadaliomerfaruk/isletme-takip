@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react-native';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { upperTr } from '@/lib/turkishTextUtils';
 
 interface CollapsibleProps {
   /** Başlık — "Detaylar" gibi. */
@@ -40,7 +41,7 @@ export function Collapsible({ title, defaultOpen = false, children }: Collapsibl
           <ChevronRight size={18} color={colors.textMuted} />
         )}
         <Text variant="label" color="secondary" style={styles.title}>
-          {title}
+          {upperTr(title)}
         </Text>
       </TouchableOpacity>
       {open && <View style={styles.body}>{children}</View>}

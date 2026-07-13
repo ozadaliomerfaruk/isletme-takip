@@ -4,6 +4,7 @@ import { Text, AnimatedNumber } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import useSettings from '@/hooks/useSettings';
 
 interface CashFlowCardProps {
@@ -41,7 +42,7 @@ export function CashFlowCard({
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('common:dashboard.cashFlow')}</Text>
+        <Text style={styles.title}>{upperTr(t('common:dashboard.cashFlow'))}</Text>
         {periodBadge ? (
           <Text style={styles.badge}>{periodBadge}</Text>
         ) : null}
@@ -60,7 +61,7 @@ export function CashFlowCard({
             { color: netCashFlow >= 0 ? colors.success : colors.error },
           ]}
         />
-        <Text style={styles.heroLabel}>{t('common:dashboard.netCashFlow')}</Text>
+        <Text style={styles.heroLabel}>{upperTr(t('common:dashboard.netCashFlow'))}</Text>
       </View>
 
       {/* Progress Bar */}
@@ -76,7 +77,7 @@ export function CashFlowCard({
         <View style={styles.detailItem}>
           <View style={styles.detailHeader}>
             <View style={[styles.dot, { backgroundColor: colors.success }]} />
-            <Text style={styles.detailLabel}>{t('common:dashboard.inflow')}</Text>
+            <Text style={styles.detailLabel}>{upperTr(t('common:dashboard.inflow'))}</Text>
           </View>
           <Text style={[styles.detailValue, { color: colors.success }]} numberOfLines={1} adjustsFontSizeToFit>
             {formatCurrency(totalInflow)}
@@ -87,7 +88,7 @@ export function CashFlowCard({
 
         <View style={[styles.detailItem, styles.detailItemRight]}>
           <View style={styles.detailHeader}>
-            <Text style={styles.detailLabel}>{t('common:dashboard.outflow')}</Text>
+            <Text style={styles.detailLabel}>{upperTr(t('common:dashboard.outflow'))}</Text>
             <View style={[styles.dot, { backgroundColor: colors.error }]} />
           </View>
           <Text style={[styles.detailValue, { color: colors.error }]} numberOfLines={1} adjustsFontSizeToFit>

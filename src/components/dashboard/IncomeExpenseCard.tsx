@@ -4,6 +4,7 @@ import { Text, AnimatedNumber } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import useSettings from '@/hooks/useSettings';
 
 interface IncomeExpenseCardProps {
@@ -40,7 +41,7 @@ export function IncomeExpenseCard({
     >
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>{t('common:dashboard.incomeExpense')}</Text>
+        <Text style={styles.title}>{upperTr(t('common:dashboard.incomeExpense'))}</Text>
         {periodBadge ? (
           <Text style={styles.badge}>{periodBadge}</Text>
         ) : null}
@@ -59,7 +60,7 @@ export function IncomeExpenseCard({
             { color: netProfit >= 0 ? colors.success : colors.error },
           ]}
         />
-        <Text style={styles.heroLabel}>{t('common:dashboard.netProfitLoss')}</Text>
+        <Text style={styles.heroLabel}>{upperTr(t('common:dashboard.netProfitLoss'))}</Text>
       </View>
 
       {/* Progress Bar */}
@@ -75,7 +76,7 @@ export function IncomeExpenseCard({
         <View style={styles.detailItem}>
           <View style={styles.detailHeader}>
             <View style={[styles.dot, { backgroundColor: colors.success }]} />
-            <Text style={styles.detailLabel}>{t('common:dashboard.income')}</Text>
+            <Text style={styles.detailLabel}>{upperTr(t('common:dashboard.income'))}</Text>
           </View>
           <Text style={[styles.detailValue, { color: colors.success }]} numberOfLines={1} adjustsFontSizeToFit>
             {formatCurrency(income)}
@@ -86,7 +87,7 @@ export function IncomeExpenseCard({
 
         <View style={[styles.detailItem, styles.detailItemRight]}>
           <View style={styles.detailHeader}>
-            <Text style={styles.detailLabel}>{t('common:dashboard.expense')}</Text>
+            <Text style={styles.detailLabel}>{upperTr(t('common:dashboard.expense'))}</Text>
             <View style={[styles.dot, { backgroundColor: colors.error }]} />
           </View>
           <Text style={[styles.detailValue, { color: colors.error }]} numberOfLines={1} adjustsFontSizeToFit>

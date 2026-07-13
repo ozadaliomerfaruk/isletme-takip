@@ -20,6 +20,7 @@ import Animated, {
 import { Eye, EyeOff } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { Text } from './Text';
 
 interface InputProps extends Omit<TextInputProps, 'style'> {
@@ -121,7 +122,7 @@ export function Input({
       {/* Static label for multiline (floating label doesn't work well with multiline) */}
       {label && multiline && (
         <Text variant="label" color="secondary" style={styles.staticLabel}>
-          {label}
+          {upperTr(label)}
         </Text>
       )}
 
@@ -146,7 +147,7 @@ export function Input({
             onPress={() => inputRef.current?.focus()}
             numberOfLines={1}
           >
-            {label}
+            {label ? upperTr(label) : null}
           </Animated.Text>
         )}
 

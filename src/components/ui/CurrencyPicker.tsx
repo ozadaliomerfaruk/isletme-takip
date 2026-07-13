@@ -8,6 +8,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies, getLocalizedCurrencyName, CurrencyInfo } from '@/constants/currencies';
+import { upperTr } from '@/lib/turkishTextUtils';
 
 interface CurrencyPickerProps {
   value: Currency;
@@ -99,7 +100,7 @@ export function CurrencyPicker({
       {/* Label */}
       {displayLabel && (
         <Text variant="label" style={styles.label}>
-          {displayLabel}
+          {upperTr(displayLabel)}
         </Text>
       )}
 
@@ -166,7 +167,7 @@ export function CurrencyPicker({
               >
                 {/* Header */}
                 <View style={styles.modalHeader}>
-                  <Text variant="h3">{displayLabel}</Text>
+                  <Text variant="h3">{upperTr(displayLabel)}</Text>
                   <TouchableOpacity
                     onPress={handleCloseModal}
                     hitSlop={HIT_SLOP.md}

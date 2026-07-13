@@ -43,6 +43,17 @@ export function normalizeTurkish(text: string): string {
 }
 
 /**
+ * Türkçe-DOĞRU büyük harfe çevirir (başlık/label'lar için). RN/Hermes
+ * toLocaleUpperCase('tr') güvenilmez; kritik iki dönüşümü elle yaparız:
+ * küçük i → İ (noktalı), ı → I (noktasız). Gerisi standart toUpperCase
+ * (ç→Ç, ş→Ş, ğ→Ğ, ö→Ö, ü→Ü doğru). "Cari"→"CARİ", "Nakit"→"NAKİT", "Gelir"→"GELİR".
+ * (textTransform:'uppercase' bu ikisini I/İ olarak bozardı.)
+ */
+export function upperTr(text: string): string {
+  return text.replace(/i/g, 'İ').replace(/ı/g, 'I').toUpperCase();
+}
+
+/**
  * Türkçe-güvenli, büyük/küçük harf bağımsız "içeriyor mu" kontrolü.
  * Hem metni hem sorguyu normalizeTurkish ile katlayarak karşılaştırır; böylece
  * "diğ" / "DİĞ" / "DIG" sorguları "DİĞER" / "Diğer" / "DIGER" adlarını bulur
