@@ -423,94 +423,6 @@ function RootLayoutNav() {
           }}
         />
         <Stack.Screen
-          name="islemler/gider"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:titles.addExpense'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/transfer"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:titles.transferBetweenAccounts'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/cariAlis"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:types.cari_alis'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/cariOdeme"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:types.cari_odeme'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/cariSatis"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:types.cari_satis'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/cariTahsilat"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:types.cari_tahsilat'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/personelGider"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:types.personel_gider'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/personelOdeme"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:types.personel_odeme'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
           name="islemler/duzenle/[id]"
           options={{
             presentation: 'card',
@@ -518,17 +430,6 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('transactions:titles.editTransaction'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/ileri-tarihli/duzenle/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:scheduled.title'),
             headerShadowVisible: false,
           }}
         />
