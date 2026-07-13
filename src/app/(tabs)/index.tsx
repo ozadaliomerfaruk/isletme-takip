@@ -377,7 +377,8 @@ export default function HomePage() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Sabit (sticky) header — scroll dışında, üstte yapışık */}
       <TabHeader
-        title={t('navigation:tabs.home')}
+        title={isletme?.name ?? t('navigation:tabs.home')}
+        onTitlePress={() => router.push('/ayarlar/paylasilan-isletmeler')}
         right={
           <>
             <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn} hitSlop={HIT_SLOP.md}>
