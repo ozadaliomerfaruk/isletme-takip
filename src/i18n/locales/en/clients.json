@@ -182,6 +182,23 @@
     "addInitialBalance": "Enter opening balance",
     "notFoundDescription": "This contact does not exist or may have been deleted."
   },
+  "export": {
+    "clientList": {
+      "title": "Contact List",
+      "fileName": "contacts",
+      "shareDialogTitle": "Share Contact List",
+      "noData": "No contacts to export",
+      "columns": {
+        "name": "Name",
+        "type": "Type",
+        "phone": "Phone",
+        "balance": "Balance",
+        "status": "Status"
+      }
+    },
+    "error": "Export failed",
+    "sharingNotSupported": "Sharing is not supported on this device"
+  },
   "transactionLabels": {
     "alis": "Purchase",
     "odeme": "Payment",

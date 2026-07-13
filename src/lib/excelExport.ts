@@ -1174,3 +1174,105 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
     throw new Error(t.sharingNotSupported);
   }
 }
+
+// ============================================================================
+// CARİ LİSTESİ EXPORT (#8 — açık tab'ın anlık listesi: tip filtresi + arama + sıralama)
+// ============================================================================
+
+export interface CariListeExcelTranslations {
+  title: string;
+  columns: {
+    name: string;
+    type: string;
+    phone: string;
+    balance: string;
+    status: string;
+  };
+  fileName: string;
+  isletmeName: string;
+  shareDialogTitle: string;
+  sharingNotSupported: string;
+  noDataError: string;
+}
+
+export interface CariListeItem {
+  ad: string;
+  tip: string;
+  telefon: string;
+  bakiye: number;
+  durum: string;
+  currency: string;
+}
+
+export interface CariListeExportOptions {
+  cariler: CariListeItem[];
+  translations: CariListeExcelTranslations;
+}
+
+export async function exportCariListesiToExcel(options: CariListeExportOptions): Promise<void> {
+  const { cariler, translations: t } = options;
+
+  if (cariler.length === 0) {
+    throw new Error(t.noDataError);
+  }
+
+  const headers = [
+    t.columns.name,
+    t.columns.type,
+    t.columns.phone,
+    t.columns.balance,
+    t.columns.status,
+  ];
+
+  const dataRows = cariler.map((c) => [
+    c.ad,
+    c.tip,
+    c.telefon || '',
+    c.bakiye !== 0 ? formatCurrency(Math.abs(c.bakiye), c.currency) : '',
+    c.durum,
+  ]);
+
+  const wsData = [
+    [{ v: t.title, s: titleStyle }],
+    [{ v: t.isletmeName, s: { font: { sz: 11, color: { rgb: '666666' } } } }],
+    [],
+    headers.map((h) => ({ v: h, s: headerStyle })),
+    ...dataRows.map((row) =>
+      row.map((cell) => ({
+        v: cell,
+        s: cellStyle,
+      }))
+    ),
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 22 }];
+
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, t.title);
+
+  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+  const safeName = t.fileName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const filePath = `${FileSystem.cacheDirectory}${safeName}.xlsx`;
+
+  await FileSystem.writeAsStringAsync(filePath, wbout, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const isAvailable = await Sharing.isAvailableAsync();
+  if (isAvailable) {
+    await Sharing.shareAsync(filePath, {
+      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      dialogTitle: t.shareDialogTitle,
+      UTI: 'com.microsoft.excel.xlsx',
+    });
+  } else {
+    throw new Error(t.sharingNotSupported);
+  }
+}

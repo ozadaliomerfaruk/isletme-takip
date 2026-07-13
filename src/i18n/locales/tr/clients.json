@@ -182,6 +182,23 @@
     "addInitialBalance": "Başlangıç bakiyesi gir",
     "notFoundDescription": "Bu cari mevcut değil veya silinmiş olabilir."
   },
+  "export": {
+    "clientList": {
+      "title": "Cari Listesi",
+      "fileName": "cariler",
+      "shareDialogTitle": "Cari Listesini Paylaş",
+      "noData": "Dışa aktarılacak cari yok",
+      "columns": {
+        "name": "Cari Adı",
+        "type": "Tip",
+        "phone": "Telefon",
+        "balance": "Bakiye",
+        "status": "Durum"
+      }
+    },
+    "error": "Dışa aktarma başarısız",
+    "sharingNotSupported": "Paylaşım bu cihazda desteklenmiyor"
+  },
   "transactionLabels": {
     "alis": "Alış",
     "odeme": "Ödeme",

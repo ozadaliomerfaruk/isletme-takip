@@ -18,6 +18,7 @@ import {
   ArrowUpDown,
   MoreVertical,
   Share2,
+  FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
@@ -44,6 +45,7 @@ import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { DetailExportSection } from '@/components/detail';
+import { exportCariListesiToExcel, type CariListeItem } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { hasTypeMismatch } from '@/lib/cariTransactionMapper';
 
@@ -494,6 +496,55 @@ export default function CarilerPage() {
     }),
   [mergedCariler, filter, debouncedSearch, sortBy]);
 
+  // #8: açık tab'ın (tip filtresi + arama + sıralama uygulanmış) anlık listesini Excel'e aktar
+  const [isExporting, setIsExporting] = useState(false);
+  const handleExportClientList = useCallback(async () => {
+    if (!filteredCariler || filteredCariler.length === 0 || !isletme) return;
+    setIsExporting(true);
+    try {
+      const items: CariListeItem[] = filteredCariler.map((c) => {
+        const bal = toNumber(c.balance);
+        const durum = bal === 0
+          ? t('clients:balance.noBalance')
+          : c.type === 'tedarikci'
+            ? (bal < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe'))
+            : (bal > 0 ? t('clients:balance.theyOwe') : t('clients:balance.weOwe'));
+        return {
+          ad: c.name,
+          tip: t(`clients:types.${c.type}`),
+          telefon: c.phone || '',
+          bakiye: bal,
+          durum,
+          currency: c.currency || 'TRY',
+        };
+      });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      const tabKey = filter === 'all' ? 'tumu' : filter;
+      await exportCariListesiToExcel({
+        cariler: items,
+        translations: {
+          title: t('clients:export.clientList.title'),
+          fileName: `${t('clients:export.clientList.fileName')}-${tabKey}-${dateStr}`,
+          isletmeName: isletme.name || '',
+          shareDialogTitle: t('clients:export.clientList.shareDialogTitle'),
+          sharingNotSupported: t('clients:export.sharingNotSupported'),
+          noDataError: t('clients:export.clientList.noData'),
+          columns: {
+            name: t('clients:export.clientList.columns.name'),
+            type: t('clients:export.clientList.columns.type'),
+            phone: t('clients:export.clientList.columns.phone'),
+            balance: t('clients:export.clientList.columns.balance'),
+            status: t('clients:export.clientList.columns.status'),
+          },
+        },
+      });
+    } catch {
+      showToast(t('clients:export.error'), 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [filteredCariler, isletme, filter, t, showToast]);
+
   // #11: "Tümünü seç" durumunu sayı eşitliği yerine ÜYELİK ile belirle. Filtre/arama
   // değişince selectedIds bayat id'ler tutabiliyor; saf sayı karşılaştırması yanlış
   // etiket gösteriyordu. Görünür (linked olmayan) tüm carilerin seçili olup olmadığına bak.
@@ -741,6 +792,11 @@ export default function CarilerPage() {
         title={t('clients:titles.clients')}
         right={
           <>
+            {filteredCariler.length > 0 && (
+              <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); handleExportClientList(); }} activeOpacity={0.7} disabled={isExporting}>
+                <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.sortButton} onPress={() => setSortSheetVisible(true)} activeOpacity={0.7}>
               <ArrowUpDown size={18} color={colors.primary} />
             </TouchableOpacity>
