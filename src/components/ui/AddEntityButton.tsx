@@ -33,21 +33,25 @@ export function AddEntityButton() {
   const rows: Array<ActionSheetOption | false> = [
     canCreate('hesaplar') && {
       label: t('common:addEntity.account'),
+      description: t('common:addEntity.accountDesc'),
       icon: <Wallet size={ICON} color={colors.primary} />,
       onPress: () => go('/hesaplar/ekle'),
     },
     canCreate('cariler') && {
       label: t('common:addEntity.client'),
+      description: t('common:addEntity.clientDesc'),
       icon: <Users size={ICON} color={colors.info} />,
       onPress: () => go('/cariler/ekle'),
     },
     canCreate('personel') && {
       label: t('common:addEntity.staff'),
+      description: t('common:addEntity.staffDesc'),
       icon: <UserCircle size={ICON} color={colors.warning} />,
       onPress: () => go('/personel/ekle'),
     },
     canCreate('urunler') && {
       label: t('common:addEntity.product'),
+      description: t('common:addEntity.productDesc'),
       icon: <Package size={ICON} color={colors.success} />,
       onPress: () => go('/urunler/ekle'),
     },

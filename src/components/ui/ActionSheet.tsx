@@ -39,6 +39,8 @@ const SPRING_CLOSE = { damping: 22, stiffness: 300, mass: 0.7 };
 
 export interface ActionSheetOption {
   label: string;
+  /** İsteğe bağlı ikinci satır — kullanıcı seçeneğin ne olduğunu bilsin (ör. ekle-picker). */
+  description?: string;
   icon?: React.ReactNode;
   onPress: () => void;
   destructive?: boolean;
@@ -122,16 +124,23 @@ function OptionRow({
         accessibilityState={{ disabled: option.disabled }}
       >
         {option.icon && <View style={styles.optionIcon}>{option.icon}</View>}
-        <Text
-          style={[
-            styles.optionLabel,
-            option.destructive && styles.destructiveLabel,
-            option.disabled && styles.disabledLabel,
-          ]}
-          numberOfLines={1}
-        >
-          {option.label}
-        </Text>
+        <View style={styles.optionTextCol}>
+          <Text
+            style={[
+              styles.optionLabel,
+              option.destructive && styles.destructiveLabel,
+              option.disabled && styles.disabledLabel,
+            ]}
+            numberOfLines={1}
+          >
+            {option.label}
+          </Text>
+          {option.description ? (
+            <Text style={styles.optionDescription} numberOfLines={2}>
+              {option.description}
+            </Text>
+          ) : null}
+        </View>
       </Pressable>
     </Animated.View>
   );
@@ -429,11 +438,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: spacing.md,
   },
+  optionTextCol: {
+    flex: 1,
+  },
   optionLabel: {
     fontSize: 16,
     fontWeight: '500',
     color: colors.text,
-    flex: 1,
+  },
+  optionDescription: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   destructiveLabel: {
     color: colors.error,

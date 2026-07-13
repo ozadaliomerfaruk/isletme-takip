@@ -3,9 +3,13 @@
   "addEntity": {
     "title": "What would you like to add?",
     "account": "Add Account",
+    "accountDesc": "Cash, bank, credit card or savings",
     "client": "Add Contact",
+    "clientDesc": "Track a person/company's debt and credit",
     "staff": "Add Staff",
-    "product": "Add Product"
+    "staffDesc": "For salary, advances and payments",
+    "product": "Add Product",
+    "productDesc": "Track product, material or stock quantity"
   },
   "setupCard": {
     "title": "Finish setup",

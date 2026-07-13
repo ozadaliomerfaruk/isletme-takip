@@ -3,9 +3,13 @@
   "addEntity": {
     "title": "Ne eklemek istersin?",
     "account": "Hesap Ekle",
+    "accountDesc": "Nakit, banka, kredi kartı veya birikim",
     "client": "Cari Ekle",
+    "clientDesc": "Bir kişi/şirketin borç ve alacağını takip et",
     "staff": "Personel Ekle",
-    "product": "Ürün Ekle"
+    "staffDesc": "Maaş, avans ve ödemeler için",
+    "product": "Ürün Ekle",
+    "productDesc": "Ürün, malzeme veya mal miktarı takibi"
   },
   "setupCard": {
     "title": "Kurulumu tamamla",
