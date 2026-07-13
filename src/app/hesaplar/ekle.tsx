@@ -10,9 +10,9 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
-import { Text, Input, Button, Card, BalanceDirectionSelector, CurrencyPicker, type BalanceDirection } from '@/components/ui';
+import { Text, Input, Button, Card, CurrencyPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { useCreateHesap } from '@/hooks/useHesaplar';
 import { HesapType, Currency } from '@/types/database';
 import { DEFAULT_CURRENCY } from '@/constants/currencies';
@@ -44,8 +44,6 @@ export default function HesapEklePage() {
   const [name, setName] = useState('');
   const [type, setType] = useState<HesapType>('nakit');
   const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY);
-  const [balance, setBalance] = useState('');
-  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
   const [creditLimit, setCreditLimit] = useState('');
   const [paymentDueDay, setPaymentDueDay] = useState('');
   const [description, setDescription] = useState('');
@@ -65,21 +63,16 @@ export default function HesapEklePage() {
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    // Bakiye hesaplama
-    // debt (artı bakiye) = pozitif
-    // credit (eksi bakiye) = negatif
-    let finalBalance = balance ? parseCurrency(balance) : 0;
-    if (balanceDirection === 'credit' && finalBalance > 0) {
-      finalBalance = -finalBalance;
-    }
-
     try {
-      await createHesap.mutateAsync({
+      // Açılış bakiyesi artık formda YOK (cari deseni): hesap 0 bakiye ile oluşur;
+      // açılış bakiyesi, işlem girilmeden önce hesap DETAY sayfasından (yön'lü,
+      // düzenlenebilir) girilir. İlk işlemle orada kilitlenir.
+      const created = await createHesap.mutateAsync({
         name: name.trim(),
         type,
         currency,
-        balance: finalBalance,
-        initial_balance: finalBalance, // Açılış bakiyesi olarak kaydet
+        balance: 0,
+        initial_balance: 0,
         description: description.trim() || null,
         credit_limit: type === 'kredi_karti' && creditLimit
           ? parseCurrency(creditLimit)
@@ -90,7 +83,8 @@ export default function HesapEklePage() {
       });
 
       notifySaved(t('accounts:messages.createSuccess'));
-      router.back();
+      // Kayıt sonrası oluşturulan hesabın detayına git (geri = liste).
+      router.replace({ pathname: '/hesaplar/[id]', params: { id: created.id } });
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.createFailed'));
     }
@@ -112,16 +106,9 @@ export default function HesapEklePage() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text variant="h2">{t('accounts:titles.addAccount')}</Text>
-          </View>
-
-          {/* Hesap Tipi Seçimi */}
+          {/* Hesap Tipi — sayfa-içi başlık (native header ile çift) ve "Hesap Tipi"
+              etiketi kaldırıldı, kutular yukarı dayalı */}
           <View style={styles.section}>
-            <Text variant="label" color="secondary" style={styles.sectionTitle}>
-              {t('accounts:form.type')}
-            </Text>
             <View style={styles.typeGrid}>
               {hesapTypes.map((item) => (
                 <Card
@@ -165,29 +152,10 @@ export default function HesapEklePage() {
               value={name}
               onChangeText={setName}
               error={errors.name}
+              autoFocus
             />
 
-            <Input
-              label={t('accounts:form.openingBalanceOptional')}
-              placeholder="0"
-              keyboardType="decimal-pad"
-              value={balance}
-              onChangeText={setBalance}
-            />
-
-            {/* Bakiye Yönü - sadece bakiye girilmişse göster */}
-            {balance.trim() !== '' && (
-              <View style={styles.balanceDirectionContainer}>
-                <Text variant="label" style={styles.balanceDirectionLabel}>
-                  {t('accounts:balanceDirection.label')}
-                </Text>
-                <BalanceDirectionSelector
-                  value={balanceDirection}
-                  onChange={setBalanceDirection}
-                  variant="account"
-                />
-              </View>
-            )}
+            {/* Açılış bakiyesi formdan çıkarıldı → hesap DETAY sayfasından girilir (cari deseni) */}
 
             {/* Kredi Limiti - sadece kredi kartı seçiliyse göster */}
             {type === 'kredi_karti' && (
@@ -225,27 +193,28 @@ export default function HesapEklePage() {
             />
           </View>
 
-          {/* Buttons */}
-          <View style={styles.buttons}>
-            <Button
-              variant="outline"
-              size="lg"
-              onPress={() => router.back()}
-              style={styles.button}
-            >
-              {t('common:buttons.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={createHesap.isPending}
-              onPress={handleSubmit}
-              style={styles.button}
-            >
-              {t('common:buttons.save')}
-            </Button>
-          </View>
         </ScrollView>
+
+        {/* Sticky footer — kaydet butonu klavyenin altında kalmasın */}
+        <View style={styles.footer}>
+          <Button
+            variant="outline"
+            size="lg"
+            onPress={() => router.back()}
+            style={styles.button}
+          >
+            {t('common:buttons.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            loading={createHesap.isPending}
+            onPress={handleSubmit}
+            style={styles.button}
+          >
+            {t('common:buttons.save')}
+          </Button>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -263,18 +232,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
   },
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    marginBottom: spacing.md,
   },
   typeGrid: {
     flexDirection: 'row',
@@ -290,21 +253,17 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderWidth: 2,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,
-  },
-  // Balance direction styles
-  balanceDirectionContainer: {
-    marginBottom: spacing.md,
-  },
-  balanceDirectionLabel: {
-    marginBottom: spacing.xs,
-    color: colors.text,
   },
 });

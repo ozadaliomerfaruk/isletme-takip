@@ -15,9 +15,9 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Button, EmptyState, ArchivedBanner } from '@/components/ui';
+import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
-import { DetailExportSection, DetailActionMenu } from '@/components/detail';
+import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
@@ -27,7 +27,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency } from '@/lib/currency';
 import { formatDateSmart } from '@/lib/date';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -349,6 +349,10 @@ export default function HesapHareketleriPage() {
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
+  // Açılış bakiyesi editörü (yalnız işlem yokken; ilk işlemle kilitlenir)
+  const [editBalanceModalVisible, setEditBalanceModalVisible] = useState(false);
+  const [newInitialBalance, setNewInitialBalance] = useState('');
+  const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('debt');
   // Photo viewer state
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
   const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
@@ -474,6 +478,37 @@ export default function HesapHareketleriPage() {
   const initialBalance = hesap?.initial_balance !== undefined && hesap?.initial_balance !== null
     ? Number(hesap.initial_balance)
     : calculatedInitialBalance;
+
+  // Açılış bakiyesi yalnız İŞLEM YOKKEN düzenlenebilir (cari deseni): ilk işlemle
+  // birlikte kilitlenir — sonrasında düzenlemek yürüyen bakiyeyi bozardı.
+  const isBalanceEditable =
+    !!islemler && islemler.length === 0 && canUpdate('hesaplar', hesap?.created_by ?? null);
+
+  const handleOpenEditBalance = useCallback(() => {
+    // pozitif = debt (artı bakiye), negatif = credit (eksi bakiye)
+    setBalanceDirection(initialBalance >= 0 ? 'debt' : 'credit');
+    setNewInitialBalance(Math.abs(initialBalance).toString());
+    setEditBalanceModalVisible(true);
+  }, [initialBalance]);
+
+  const handleSaveInitialBalance = async () => {
+    if (!hesap) return;
+    const absoluteAmount = parseCurrency(newInitialBalance) || 0;
+    const newInitial = balanceDirection === 'debt' ? absoluteAmount : -absoluteAmount;
+    // Onay sorusu yok (editör zaten yalnız ilk girişte açık). İşlem yokken açılış ==
+    // güncel bakiye olduğu için ikisini birden set ediyoruz.
+    try {
+      await updateHesap.mutateAsync({
+        id: hesap.id,
+        balance: newInitial,
+        initial_balance: newInitial,
+      });
+      setEditBalanceModalVisible(false);
+      refetchHesap();
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
+    }
+  };
 
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
@@ -823,8 +858,12 @@ export default function HesapHareketleriPage() {
             </Text>
           </TouchableOpacity>
         )}
-        {/* Başlangıç Bakiyesi - düzenleme/silme yok */}
-        <Card style={styles.hareketCard}>
+        {/* Başlangıç Bakiyesi — işlem yokken satır tıklanınca düzenlenir (Card onPress);
+            ilk işlemle kilitlenir (onPress undefined → tıklanamaz). Kalem yalnız ipucu. */}
+        <Card
+          style={styles.hareketCard}
+          onPress={isBalanceEditable ? handleOpenEditBalance : undefined}
+        >
           <View style={styles.hareketHeader}>
             <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
               <CircleDollarSign size={20} color={colors.primary} />
@@ -835,14 +874,21 @@ export default function HesapHareketleriPage() {
                 {t('accounts:details.accountOpening')} • {formatDateShort(hesap?.created_at || '')}
               </Text>
             </View>
-            <Text variant="h3" color={initialBalance >= 0 ? 'primary' : 'error'}>
-              {formatCurrency(initialBalance, hesap.currency)}
-            </Text>
+            <View style={styles.initialBalanceRow}>
+              <Text variant="h3" color={initialBalance >= 0 ? 'primary' : 'error'}>
+                {formatCurrency(initialBalance, hesap.currency)}
+              </Text>
+              {isBalanceEditable && (
+                <View style={styles.editBalanceBtn}>
+                  <Pencil size={16} color={colors.primary} />
+                </View>
+              )}
+            </View>
           </View>
         </Card>
       </View>
     );
-  }, [hesap, islemlerLoading, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage]);
+  }, [hesap, islemlerLoading, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage, isBalanceEditable, handleOpenEditBalance]);
 
   // === FlatList ListEmptyComponent ===
   const ListEmpty = useMemo(() => {
@@ -913,6 +959,23 @@ export default function HesapHareketleriPage() {
           { icon: Pencil, label: t('common:buttons.edit'), visible: canUpdate('hesaplar', hesap?.created_by ?? null), onPress: () => { setShowMenu(false); router.push({ pathname: '/hesaplar/duzenle/[id]', params: { id: id } }); } },
           { icon: Trash2, label: t('common:buttons.delete'), visible: canDelete('hesaplar', hesap?.created_by ?? null), danger: true, onPress: handleDeleteHesap },
         ]}
+      />
+
+      <BalanceEditorModal
+        visible={editBalanceModalVisible}
+        onDismiss={() => setEditBalanceModalVisible(false)}
+        title={t('accounts:balance.editInitialTitle')}
+        directionLabel={t('accounts:balanceDirection.label')}
+        directionVariant="account"
+        balanceDirection={balanceDirection}
+        onDirectionChange={setBalanceDirection}
+        inputLabel={t('accounts:balance.newInitialBalance')}
+        inputValue={newInitialBalance}
+        onInputChange={setNewInitialBalance}
+        onSave={handleSaveInitialBalance}
+        isSaving={updateHesap.isPending}
+        cancelLabel={t('common:buttons.cancel')}
+        saveLabel={t('common:buttons.save')}
       />
 
       {/* Quick Transaction Bar - kredi kartı için özel bar */}
@@ -1137,6 +1200,14 @@ const styles = StyleSheet.create({
   },
   hareketCard: {
     marginBottom: spacing.sm,
+  },
+  initialBalanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  editBalanceBtn: {
+    padding: spacing.xs,
   },
   // Header right buttons
   headerRightContainer: {

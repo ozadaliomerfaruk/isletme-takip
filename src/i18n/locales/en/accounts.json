@@ -49,7 +49,9 @@
     "usedCredit": "Used Credit",
     "remainingCredit": "Remaining Limit",
     "editBalance": "Edit Balance",
+    "editInitialTitle": "Edit Opening Balance",
     "newBalance": "New Balance",
+    "newInitialBalance": "New Opening Balance",
     "confirmChange": "Are you sure you want to change the balance from {{oldBalance}} to {{newBalance}}?"
   },
   "actions": {

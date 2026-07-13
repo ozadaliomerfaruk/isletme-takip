@@ -163,6 +163,7 @@ export interface HesapUpdate {
   type?: HesapType;
   currency?: Currency;
   balance?: number;
+  initial_balance?: number; // Açılış bakiyesi (yalnız işlem yokken düzenlenir)
   description?: string | null;
   credit_limit?: number | null;
   is_active?: boolean;

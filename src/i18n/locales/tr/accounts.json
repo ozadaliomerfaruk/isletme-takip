@@ -49,7 +49,9 @@
     "usedCredit": "Kullanılan Kredi",
     "remainingCredit": "Kalan Limit",
     "editBalance": "Bakiye Düzenle",
+    "editInitialTitle": "Başlangıç Bakiyesini Düzenle",
     "newBalance": "Yeni Bakiye",
+    "newInitialBalance": "Yeni Başlangıç Bakiyesi",
     "confirmChange": "Bakiyeyi {{oldBalance}}'dan {{newBalance}}'ye değiştirmek istediğinize emin misiniz?"
   },
   "actions": {
