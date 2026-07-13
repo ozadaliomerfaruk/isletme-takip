@@ -138,6 +138,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 10,
     overflow: 'hidden',
+    textTransform: 'uppercase',
   },
   heroValue: {
     alignItems: 'center',
@@ -155,6 +156,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textMuted,
     fontWeight: '500',
+    textTransform: 'uppercase',
   },
   progressContainer: {
     marginBottom: spacing.sm,
@@ -205,6 +207,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textMuted,
     fontWeight: '500',
+    textTransform: 'uppercase',
   },
   detailValue: {
     fontSize: 17,
