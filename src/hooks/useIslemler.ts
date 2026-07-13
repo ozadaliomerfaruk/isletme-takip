@@ -143,46 +143,71 @@ export function useCreateIslem() {
     mutationFn: async (input: Omit<IslemInsert, 'isletme_id'>) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
-      // Linked cari kontrolü: B (viewer) işlem oluştururken, cari balance
-      // güncellemesi owner (A) perspektifinden yapılmalı
-      // DB'ye kaydedilen tip değişmez (viewer perspektifi kalır)
-      const balanceInput = await applyLinkedCariInversion(input, isletme.id);
-
-      const { data, error } = await supabase
-        .from('islemler')
-        .insert({ ...input, isletme_id: isletme.id })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Bakiyeleri güncelle - başarısız olursa işlemi geri al
+      // ─── [GEÇİCİ TEŞHİS — auth/kayıt-hang ölçümü, 13 Tem] ───────────────────
+      // Uzun arka plandan sonra kayıt yolunda HANGİ await'in astığını KESİN görmek
+      // için her faz'ın süresini ölçüp app_events'e yazıyoruz. Davranış DEĞİŞMEZ:
+      // yalnız Date.now() okuması + eşik-üstü ateşle-unut log (yeni ağ çağrısı YOK,
+      // mitigasyon YOK → gelen kanıt temiz). try/finally: yavaş-BAŞARILI ve yavaş-sonra-
+      // HATA (satır kaydolur ama yanıt timeout) durumlarının İKİSİNİ de yakalar.
+      // Teşhis bittiğinde bu blok ve alttaki ölçüm satırları ÇIKARILACAK.
+      const __t0 = Date.now();
+      const __timing: Record<string, unknown> = { is_cari: !!input.cari_id, type: input.type };
+      let __ok = false;
       try {
-        await updateBalances(balanceInput);
-      } catch (balanceError) {
-        // Bakiye güncellemesi başarısız oldu, işlemi sil
-        console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
+        // Linked cari kontrolü: B (viewer) işlem oluştururken, cari balance
+        // güncellemesi owner (A) perspektifinden yapılmalı
+        // DB'ye kaydedilen tip değişmez (viewer perspektifi kalır)
+        const __tLink = Date.now();
+        const balanceInput = await applyLinkedCariInversion(input, isletme.id);
+        __timing.link_ms = Date.now() - __tLink;
 
+        const __tInsert = Date.now();
+        const { data, error } = await supabase
+          .from('islemler')
+          .insert({ ...input, isletme_id: isletme.id })
+          .select()
+          .single();
+        __timing.insert_ms = Date.now() - __tInsert;
+
+        if (error) throw error;
+
+        // Bakiyeleri güncelle - başarısız olursa işlemi geri al
+        const __tBal = Date.now();
         try {
-          await supabase
-            .from('islemler')
-            .delete()
-            .eq('id', data.id)
-            .eq('isletme_id', isletme.id);
-        } catch (rollbackError) {
-          console.error('CRITICAL: İşlem geri alma hatası:', rollbackError);
-          // Kritik hata: işlem oluşturuldu ama bakiye güncellenemedi ve geri alınamadı
-          throw new Error(
-            'Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. ' +
-            `Lütfen destek ile iletişime geçin. Detay: ${(rollbackError as Error).message}`
-          );
+          await updateBalances(balanceInput);
+        } catch (balanceError) {
+          // Bakiye güncellemesi başarısız oldu, işlemi sil
+          console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
+
+          try {
+            await supabase
+              .from('islemler')
+              .delete()
+              .eq('id', data.id)
+              .eq('isletme_id', isletme.id);
+          } catch (rollbackError) {
+            console.error('CRITICAL: İşlem geri alma hatası:', rollbackError);
+            // Kritik hata: işlem oluşturuldu ama bakiye güncellenemedi ve geri alınamadı
+            throw new Error(
+              'Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. ' +
+              `Lütfen destek ile iletişime geçin. Detay: ${(rollbackError as Error).message}`
+            );
+          }
+
+          // Bakiye hatası ile devam et
+          throw balanceError;
         }
+        __timing.balance_ms = Date.now() - __tBal;
 
-        // Bakiye hatası ile devam et
-        throw balanceError;
+        __ok = true;
+        return data as Islem;
+      } finally {
+        // [GEÇİCİ TEŞHİS] Yalnız yavaş kayıtları logla (normal kayıt <1sn → gürültü yok).
+        const __totalMs = Date.now() - __t0;
+        if (__totalMs > 2000) {
+          logEvent('save_timing_debug', { ...__timing, total_ms: __totalMs, ok: __ok });
+        }
       }
-
-      return data as Islem;
     },
     onSuccess: (data) => {
       invalidateRelatedQueries(queryClient, 'islem');

@@ -14,6 +14,7 @@ import type { Currency, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
 import { supabase, checkNetworkConnectivity } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents'; // [GEÇİCİ TEŞHİS — auth-hang ölçümü, 13 Tem] teşhis sonrası ÇIKAR
 import { useToast } from '@/contexts/ToastContext';
 import { recordLastUsed } from '@/lib/lastUsedSelections';
 import { getCategoryType } from '../utils/categoryTypeMapper';
@@ -445,7 +446,15 @@ export function useTransactionSubmit({
       return;
     }
 
+    // [GEÇİCİ TEŞHİS — auth-hang ölçümü, 13 Tem] token'SIZ ham soket gecikmesini ölç →
+    // mutation'daki insert_ms (token+soket) ile kıyaslanınca bayat-soket'i auth-refresh'ten
+    // AYIRIR. Davranış değişmez (mevcut çağrı, sadece süre + eşik-üstü ateşle-unut log).
+    const __ncStart = Date.now();
     const isOnline = await checkNetworkConnectivity();
+    const __ncMs = Date.now() - __ncStart;
+    if (__ncMs > 2000) {
+      logEvent('save_netcheck_debug', { netcheck_ms: __ncMs, online: isOnline });
+    }
     if (!isOnline) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
