@@ -325,56 +325,12 @@ export function QuickTransactionBar({
     }
   }, [currentCategoryFamily, modals.selectedCategoryType, modals.setSelectedCategoryType]);
 
-  // Kategori ön-doldurma: açılışta/aile değişiminde son-kullanılan kategoriyi (canlı listeye
-  // karşı DOĞRULANMIŞ) uygula. Yalnız create modda, kategori boşken, ürün seçili değilken.
-  // Prefill kategoriyi truthy yaptığı için save-anı kategori modalı istisnaya düşer.
-  // Ön-doldurulan kategori ailelerini AÇILIŞ BAŞINA izler (Set). Tek-değer ref yerine Set:
-  // kullanıcı gelir→gider→gelir turu attığında ilk kez ele alınan aile TEKRAR prefill EDİLMEZ.
-  // Böylece aile-değişimi temizliğiyle boşalan (ör. elle seçilmiş "Kira") seçim, dönüşte son-
-  // kullanılan "Yemek" ile SESSİZCE değiştirilmez; kategori boş kalır ve save-gate kullanıcıya
-  // bilinçli seçtirir.
-  const categoryPrefilledFamiliesRef = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    if (!visible) {
-      categoryPrefilledFamiliesRef.current = new Set();
-      return;
-    }
-    if (form.isEditMode || form.isCopyMode) return; // edit/copy: kategori kaynaktan gelir
-    if (form.isCariMode || form.isPersonelMode) return; // A1 v1: yalnız normal mod (cari/personel değil)
-    if (form.urunItems.length > 0) return; // ürünler kategoriyi devre dışı bırakır
-    if (currentCategoryFamily !== 'gelir' && currentCategoryFamily !== 'gider') return;
-    if (categoryPrefilledFamiliesRef.current.has(currentCategoryFamily)) return; // bu aile bu açılışta ele alındı
-    if (!kategorilerForFamily) return; // doğrulama listesi yüklenmeden karar verme (işaretleme)
-    // Kullanıcının MEVCUT AİLE İÇİN GEÇERLİ bir kategorisi varsa dokunma. Sadece truthy
-    // bakmak yetmez: gelir↔gider sekme geçişinde bayat (yanlış-aile) bir id kısa süre truthy
-    // kalır; form hook onu temizlemeden önce bu effect çalışırsa (aynı commit, hook sırası)
-    // aileyi "ele alındı" işaretleyip prefill'i kalıcı baltalardı.
-    if (form.kategoriId && kategorilerForFamily.some((k) => k.id === form.kategoriId)) {
-      categoryPrefilledFamiliesRef.current.add(currentCategoryFamily);
-      return;
-    }
-    // Boş veya bayat-geçersiz kategori: son-kullanılanı (doğrulanmış) uygula. Bayat id'nin
-    // null'lanmasını form hook'un aile-değişimi effect'i üstlenir (create modda).
-    const remembered = lastUsed.getKategoriId(currentCategoryFamily);
-    if (remembered && kategorilerForFamily.some((k) => k.id === remembered)) {
-      form.setKategoriId(remembered);
-      modals.setSelectedCategoryType(currentCategoryFamily);
-    }
-    categoryPrefilledFamiliesRef.current.add(currentCategoryFamily);
-  }, [
-    visible,
-    form.isEditMode,
-    form.isCopyMode,
-    form.isCariMode,
-    form.isPersonelMode,
-    form.urunItems.length,
-    form.kategoriId,
-    currentCategoryFamily,
-    kategorilerForFamily,
-    lastUsed.getKategoriId,
-    form.setKategoriId,
-    modals.setSelectedCategoryType,
-  ]);
+  // Kategori OTOMATİK ön-doldurma BİLİNÇLİ OLARAK kaldırıldı (Dilim 1, #4).
+  // Neden: son-kullanılan kategoriyi sessizce doldurmak, kullanıcının fark etmeden yanlış
+  // kategoriyle kaydetmesine yol açıyordu (mis-tag riski; cihaz geri bildirimi). Kategori
+  // görünmez bir varsayılan değil, bilinçli bir seçim olmalı → save-gate kullanıcıya seçtirir.
+  // "Son 3 kategori" ÖNERİSİ aşağıdaki görünür chip satırı olarak KALIR (dokununca seçilir).
+  // Hesap ön-doldurma da KALIR (form hook'unda; seçim kutusunda görünür, yanlışsa bariz).
 
   // A1: "son kullanılan" kategori chip'leri için çözümlenmiş liste (canlı listeye karşı
   // doğrulanmış → silinmiş id'ler otomatik düşer; en fazla 3).

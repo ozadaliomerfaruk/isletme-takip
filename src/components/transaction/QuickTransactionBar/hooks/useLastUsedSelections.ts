@@ -17,9 +17,10 @@ const EMPTY_ARR: string[] = [];
  *
  * - Anahtar aktif isletme.id ile namespace'lidir (çapraz-kiracı sızıntı yok); işletme
  *   değişince otomatik olarak diğer işletmenin belleğini okur, açık temizlik gerekmez.
- * - getHesapId/getKategoriId REF üzerinden okur (kimlik-stabil) → ön-doldurma
- *   effect'leri değeri senkron okuyabilir, dep dizilerini şişirmez.
+ * - getHesapId REF üzerinden okur (kimlik-stabil) → ön-doldurma effect'i değeri senkron
+ *   okuyabilir, dep dizilerini şişirmez.
  * - recentKategoriByFamily REACTIVE'dir → "son 3 kategori" chip satırı yeniden render olur.
+ *   (Kategori OTOMATİK ön-doldurma Dilim 1 #4'te kaldırıldı — mis-tag riski; yalnız chip önerisi.)
  * - reload(): diski yeniden okur (bar her açılışında çağrılır ki aynı oturumdaki
  *   kayıtlar da yansısın; kayıt useTransactionSubmit içinde diske yazılır).
  *
@@ -54,12 +55,6 @@ export function useLastUsedSelections() {
     return storeRef.current.hesapByType[type];
   }, []);
 
-  const getKategoriId = useCallback((family: CategoryFamily | undefined): string | undefined => {
-    if (!family) return undefined;
-    // "Son kullanılan tek kategori" = recents listesinin ilk elemanı (türetilir, ayrı tutulmaz).
-    return storeRef.current.recentKategoriByFamily[family]?.[0];
-  }, []);
-
   const getRecentKategoriIds = useCallback(
     (family: CategoryFamily | undefined): string[] => {
       if (!family) return EMPTY_ARR;
@@ -68,5 +63,5 @@ export function useLastUsedSelections() {
     [store]
   );
 
-  return { getHesapId, getKategoriId, getRecentKategoriIds, reload: load };
+  return { getHesapId, getRecentKategoriIds, reload: load };
 }
