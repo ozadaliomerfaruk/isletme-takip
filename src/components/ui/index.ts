@@ -6,6 +6,7 @@ export { CurrencyInput } from './CurrencyInput';
 export { ExpandableCard } from './ExpandableCard';
 export { Collapsible } from './Collapsible';
 export { AddEntityButton } from './AddEntityButton';
+export { TabHeader } from './TabHeader';
 export { TabFilter } from './TabFilter';
 export { FilterChips } from './FilterChips';
 export type { FilterChipItem } from './FilterChips';

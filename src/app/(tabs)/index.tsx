@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert, Pressable, Animated, RefreshControl } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, Pressable, Animated, RefreshControl, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -23,7 +23,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -48,7 +48,6 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSetupProgress, type SetupStepKey } from '@/hooks/useSetupProgress';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
-import { PermissionGate } from '@/components/PermissionGate';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export default function HomePage() {
@@ -373,45 +372,29 @@ export default function HomePage() {
     }, 300);
   }, [cariPickerMode]);
 
-  // Collapsible header animation
-  const scrollY = useRef(new Animated.Value(0)).current;
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, 60],
-    outputRange: [52, 0],
-    extrapolate: 'clamp',
-  });
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 40],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <Animated.ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          { useNativeDriver: false },
-        )}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
-        }
-      >
-        {/* Collapsible Header */}
-        <Animated.View style={[styles.header, { height: headerHeight, opacity: headerOpacity }]} pointerEvents="box-none">
-          <Text variant="h2">{t('navigation:tabs.home')}</Text>
-          <View style={styles.headerRight}>
+      {/* Sabit (sticky) header — scroll dışında, üstte yapışık */}
+      <TabHeader
+        title={t('navigation:tabs.home')}
+        right={
+          <>
             <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn} hitSlop={HIT_SLOP.md}>
               <Search size={22} color={colors.text} />
             </TouchableOpacity>
             <NotificationBell />
             <AddEntityButton />
-          </View>
-        </Animated.View>
-
+          </>
+        }
+      />
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+        }
+      >
         {/* Shared İşletme Banner */}
         <SharedIsletmeBanner />
 
@@ -491,17 +474,6 @@ export default function HomePage() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text variant="h3" style={styles.sectionTitle}>{t('accounts:titles.accounts')}</Text>
-            <PermissionGate module="hesaplar" action="create">
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => router.push('/hesaplar/ekle')}
-              >
-                <Plus size={20} color={colors.primary} />
-                <Text variant="label" style={{ color: colors.primary }}>
-                  {t('common:buttons.add')}
-                </Text>
-              </TouchableOpacity>
-            </PermissionGate>
           </View>
 
           {/* Hesap Listesi - Gruplandırılmış */}
@@ -626,7 +598,7 @@ export default function HomePage() {
             </View>
           )}
         </View>
-      </Animated.ScrollView>
+      </ScrollView>
 
       {/* FAB Menü - Backdrop */}
       {showFabMenu && (

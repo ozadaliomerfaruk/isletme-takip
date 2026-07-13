@@ -20,7 +20,7 @@ import {
   Share2,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton } from '@/components/ui';
+import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -686,28 +686,6 @@ export default function CarilerPage() {
   const ListHeader = useMemo(() => (
     <>
       <SharedIsletmeBanner />
-      {/* Header */}
-      <View style={styles.header}>
-        <Text variant="h2">{t('clients:titles.clients')}</Text>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.sortButton}
-            onPress={() => setSortSheetVisible(true)}
-            activeOpacity={0.7}
-          >
-            <ArrowUpDown size={18} color={colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.linkButton}
-            onPress={() => setAcceptCodeVisible(true)}
-            activeOpacity={0.7}
-          >
-            <Link size={18} color={colors.primary} />
-          </TouchableOpacity>
-          <AddEntityButton />
-        </View>
-      </View>
-
       {/* Özet Kartları */}
       <View style={styles.summaryContainer}>
         <Card style={styles.summaryCard}>
@@ -759,6 +737,20 @@ export default function CarilerPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <TabHeader
+        title={t('clients:titles.clients')}
+        right={
+          <>
+            <TouchableOpacity style={styles.sortButton} onPress={() => setSortSheetVisible(true)} activeOpacity={0.7}>
+              <ArrowUpDown size={18} color={colors.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.linkButton} onPress={() => setAcceptCodeVisible(true)} activeOpacity={0.7}>
+              <Link size={18} color={colors.primary} />
+            </TouchableOpacity>
+            <AddEntityButton />
+          </>
+        }
+      />
       <FlatList
         style={styles.scrollView}
         data={isLoading ? [] : filteredCariler}

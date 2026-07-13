@@ -4,7 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet, X } from 'lucide-react-native';
-import { Text, Input, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton } from '@/components/ui';
+import { Text, Input, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -560,39 +560,6 @@ export default function UrunlerPage() {
   const listHeaderComponent = useMemo(() => (
     <View>
       <SharedIsletmeBanner />
-      {/* Header */}
-      <View style={styles.header}>
-        <Text variant="h2">{t('products:title')}</Text>
-        <View style={styles.headerButtons}>
-          {(urunler && urunler.length > 0) && (
-            <TouchableOpacity
-              style={styles.sortButton}
-              onPress={() => {
-                haptics.light();
-                handleExportProductList();
-              }}
-              activeOpacity={0.7}
-              disabled={isExporting}
-            >
-              <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
-            </TouchableOpacity>
-          )}
-          {(urunler && urunler.length > 0) && (
-            <TouchableOpacity
-              style={styles.sortButton}
-              onPress={() => {
-                haptics.light();
-                setSortSheetVisible(true);
-              }}
-              activeOpacity={0.7}
-            >
-              <ArrowUpDown size={18} color={colors.primary} />
-            </TouchableOpacity>
-          )}
-          <AddEntityButton />
-        </View>
-      </View>
-
       {/* Arama */}
       {((urunler && urunler.length > 0) || archivedCount > 0) && (
         <View style={styles.searchSection}>
@@ -806,6 +773,24 @@ export default function UrunlerPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <TabHeader
+        title={t('products:title')}
+        right={
+          <>
+            {(urunler && urunler.length > 0) && (
+              <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); handleExportProductList(); }} activeOpacity={0.7} disabled={isExporting}>
+                <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
+              </TouchableOpacity>
+            )}
+            {(urunler && urunler.length > 0) && (
+              <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); setSortSheetVisible(true); }} activeOpacity={0.7}>
+                <ArrowUpDown size={18} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+            <AddEntityButton />
+          </>
+        }
+      />
       <FlatList
         data={listData}
         keyExtractor={keyExtractor}

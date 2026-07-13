@@ -24,7 +24,7 @@ import {
   CalendarDays,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton } from '@/components/ui';
+import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -526,27 +526,6 @@ export default function PersonelPage() {
   const ListHeader = useMemo(() => (
     <>
       <SharedIsletmeBanner />
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text variant="h2">{t('staff:titles.personnel')}</Text>
-          {personelList && personelList.length > 0 && (
-            <Text variant="caption" color="secondary">
-              {t('staff:messages.personnelCount', { count: personelList.length })}
-            </Text>
-          )}
-        </View>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.sortButton}
-            onPress={() => setSortSheetVisible(true)}
-            activeOpacity={0.7}
-          >
-            <ArrowUpDown size={18} color={colors.primary} />
-          </TouchableOpacity>
-          <AddEntityButton />
-        </View>
-      </View>
 
       {/* Özet Kartları */}
       <View style={styles.summaryContainer}>
@@ -594,6 +573,18 @@ export default function PersonelPage() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <TabHeader
+        title={t('staff:titles.personnel')}
+        subtitle={personelList && personelList.length > 0 ? t('staff:messages.personnelCount', { count: personelList.length }) : undefined}
+        right={
+          <>
+            <TouchableOpacity style={styles.sortButton} onPress={() => setSortSheetVisible(true)} activeOpacity={0.7}>
+              <ArrowUpDown size={18} color={colors.primary} />
+            </TouchableOpacity>
+            <AddEntityButton />
+          </>
+        }
+      />
       <FlatList
         style={styles.scrollView}
         data={isLoading ? [] : filteredPersonel}
