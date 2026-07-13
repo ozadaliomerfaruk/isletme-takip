@@ -33,6 +33,7 @@ import { textIncludes } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
+import { useNotlar } from '@/hooks/useNotlar';
 import { useArchiveCari } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { Cari, CariType } from '@/types/database';
@@ -56,6 +57,7 @@ type MergedCari = Cari & {
   linkOwnerName?: string;
   linkPermission?: SharingPermission;
   linkId?: string;
+  notePreview?: string; // #9: en yeni cari notunun ilk satırı (liste satırında gösterilir)
 };
 
 export default function CarilerPage() {
@@ -407,11 +409,26 @@ export default function CarilerPage() {
     return getActionSheetOptions(mergedItem ?? (actionSheetCari as MergedCari));
   }, [actionSheetCari, getActionSheetOptions]);
 
+  // #9: TÜM cari notları (ayrı toplu sorgu — ana cariler sorgusuna JOIN YOK). created_at
+  // desc geldiği için entity_id başına İLK gördüğümüz = en yeni not. İlk satırı önizleme.
+  const { data: cariNotlar } = useNotlar('cari');
+  const noteByCariId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const not of cariNotlar ?? []) {
+      if (not.entity_id && !map.has(not.entity_id)) {
+        const firstLine = (not.content ?? '').split('\n')[0].trim();
+        if (firstLine) map.set(not.entity_id, firstLine);
+      }
+    }
+    return map;
+  }, [cariNotlar]);
+
   // Merge own cariler + linked cariler
   const mergedCariler = useMemo((): MergedCari[] => {
     const ownItems: MergedCari[] = (cariler ?? []).map(c => ({
       ...c,
       isSharedByMe: sharedOwnCariIds.has(c.id),
+      notePreview: noteByCariId.get(c.id),
     }));
 
     // Transform linked cariler into MergedCari items
@@ -449,7 +466,7 @@ export default function CarilerPage() {
       });
 
     return [...ownItems, ...linkedItems];
-  }, [cariler, linkedCariler, sharedOwnCariIds]);
+  }, [cariler, linkedCariler, sharedOwnCariIds, noteByCariId]);
 
   // Arama filtresi ve sıralama (aktif önce). A2: useMemo + debouncedSearch → her tuşta değil,
   // yalnız arama 250ms durunca (veya diğer girdiler değişince) filter+sort tekrar çalışır.
@@ -633,6 +650,11 @@ export default function CarilerPage() {
                       <EyeOff size={14} color={colors.textMuted} />
                     )}
                   </View>
+                  {cari.notePreview ? (
+                    <Text variant="caption" color="secondary" numberOfLines={1} style={styles.notePreview}>
+                      {cari.notePreview}
+                    </Text>
+                  ) : null}
                   {cari.isLinked ? (
                     <LinkedCariBadge
                       ownerIsletmeName={cari.linkOwnerName ?? ''}
@@ -1040,6 +1062,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  notePreview: {
+    marginTop: 1,
   },
   cariInfo: {
     flex: 1,
