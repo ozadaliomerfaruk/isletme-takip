@@ -535,38 +535,28 @@ export default function CariHareketleriPage() {
     setEditBalanceModalVisible(true);
   }, [initialBalance]);
 
-  const handleSaveInitialBalance = () => {
+  const handleSaveInitialBalance = async () => {
+    if (!cari) return;
     const absoluteAmount = parseCurrency(newInitialBalance) || 0;
     // Yöne göre işareti uygula: debt = pozitif, credit = negatif
     const newInitial = balanceDirection === 'debt' ? absoluteAmount : -absoluteAmount;
 
-    Alert.alert(
-      t('clients:balance.confirmTitle'),
-      t('clients:balance.confirmMessage'),
-      [
-        { text: t('common:buttons.cancel'), style: 'cancel' },
-        {
-          text: t('common:buttons.confirm'),
-          onPress: async () => {
-            try {
-              if (!cari) return;
-              const transactionEffect = Number(cari.balance) - initialBalance;
-              const newCariBalance = newInitial + transactionEffect;
+    // Onay Alert'i kaldırıldı: editör zaten yalnız işlem YOKKEN açılıyor (ilk giriş),
+    // "değiştirmek istediğinize emin misiniz?" sormak gereksiz. Hata Alert'i kalır.
+    try {
+      const transactionEffect = Number(cari.balance) - initialBalance;
+      const newCariBalance = newInitial + transactionEffect;
 
-              await updateCari.mutateAsync({
-                id: cari.id,
-                balance: newCariBalance,
-              });
+      await updateCari.mutateAsync({
+        id: cari.id,
+        balance: newCariBalance,
+      });
 
-              setEditBalanceModalVisible(false);
-              refetchCari();
-            } catch (error) {
-              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
-            }
-          },
-        },
-      ]
-    );
+      setEditBalanceModalVisible(false);
+      refetchCari();
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:general.tryAgain'));
+    }
   };
 
   // === MEMOIZED HANDLERS for FlatList items ===
