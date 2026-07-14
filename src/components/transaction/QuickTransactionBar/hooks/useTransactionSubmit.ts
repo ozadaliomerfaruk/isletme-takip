@@ -13,7 +13,7 @@ import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, 
 import type { Currency, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
-import { supabase, checkNetworkConnectivity } from '@/lib/supabase';
+import { supabase, checkNetworkConnectivity, msSinceForeground } from '@/lib/supabase';
 import { logEvent } from '@/lib/appEvents'; // [GEÇİCİ TEŞHİS — auth-hang ölçümü, 13 Tem] teşhis sonrası ÇIKAR
 import { useToast } from '@/contexts/ToastContext';
 import { recordLastUsed } from '@/lib/lastUsedSelections';
@@ -437,6 +437,10 @@ export function useTransactionSubmit({
     // gibi async boşluklar var; yavaş ağda 2-3 dokunuş aksi halde hepsi geçip çift kayıt yapardı.
     if (submitInFlightRef.current) return;
     submitInFlightRef.current = true;
+    // [GEÇİCİ TEŞHİS — 14 Tem] Submit-zinciri TOPLAM süresi (kullanıcının gördüğü spinner'ın
+    // proxy'si). mutationFn fazları hızlıyken kullanıcı asılma yaşıyorsa fark buradadır
+    // (netcheck/cross-currency/personel-RPC/urun/foto + auth-kilit beklemeleri dahil).
+    const __submitT0 = Date.now();
     try {
 
     if (!isValidAmount(amount)) {
@@ -882,6 +886,15 @@ export function useTransactionSubmit({
     } finally {
       // Erken dönüşlerde (validation/picker/cross-currency) ve kayıt bitince kilidi bırak.
       submitInFlightRef.current = false;
+      // [GEÇİCİ TEŞHİS — 14 Tem] Yalnız yavaş submit'leri logla (eşik 2sn; ateşle-unut).
+      const __submitMs = Date.now() - __submitT0;
+      if (__submitMs > 2000) {
+        logEvent('save_submit_debug', {
+          submit_ms: __submitMs,
+          type,
+          ms_since_fg: msSinceForeground(),
+        });
+      }
     }
   }, [
     amount,

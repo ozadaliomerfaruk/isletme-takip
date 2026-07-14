@@ -547,13 +547,14 @@ export function useAuth() {
         appState.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
-        // Son yenilemeden bu yana en az 1 dakika geçtiyse session'ı yenile
-        const timeSinceLastRefresh = Date.now() - lastRefreshTime.current;
-        const ONE_MINUTE = 60 * 1000;
-
-        if (timeSinceLastRefresh > ONE_MINUTE && state.session) {
-          await refreshSession();
-        }
+        // NOT (14 Tem): Buradaki "her foreground'da (≥1dk) refreshSession" çağrısı KALDIRILDI.
+        // Gerekçe: startAutoRefresh/AppState wiring'i (supabase.ts) yenilemeyi zaten gerektiğinde
+        // yapıyor; bu açık çağrı 7-günlük token'la tamamen gereksizdi VE processLock ile birlikte
+        // ZARARLIYDI — iOS arka plandan dönüşte soketi geç uyandırdığında bu refresh (15sn
+        // abort × retry) auth kilidini tutuyor, o sırada yapılan TÜM kayıtlar/sorgular kuyruğa
+        // giriyordu → "kaydet spinner'ı asılı, kapatıp açınca düzeliyor" (build 66'da yaşandı;
+        // sunucu tarafı refresh'ler 23-374ms = masum, süre cihazda kilit beklemesinde).
+        // Token gerçekten dolmak üzereyse yenilemeyi auto-refresh tick'i (kilit-dostu) yapar.
 
         // Paylaşılan moddayken yetkileri de yenile
         if (!state.isOwner && state.isletme && state.user) {

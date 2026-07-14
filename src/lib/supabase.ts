@@ -71,9 +71,18 @@ export const supabase = withTelemetrySafe(
 // sonraki yazma isteği auth kilidinde asılırdı (foreground'da useAuth.refreshSession() yalnız
 // yara bandıydı). Resmî Supabase RN deseni; createClient'ın hemen yanında (tek instance) durur
 // ve processLock ile serileşir → useAuth'taki mevcut foreground refresh'iyle çakışmaz.
+// [GEÇİCİ TEŞHİS — yavaş-kayıt korelasyonu, 14 Tem] Son ön-plana geçiş zamanı.
+// Yavaş kayıt loglarına ms_since_fg olarak eklenir: asılmaların "arka plandan dönüş"
+// anlarında kümelenip kümelenmediğini kanıtlar. Teşhis bitince sadeleştirilebilir.
+let lastForegroundAt = Date.now();
+export function msSinceForeground(): number {
+  return Date.now() - lastForegroundAt;
+}
+
 if (Platform.OS !== 'web') {
   AppState.addEventListener('change', (nextState) => {
     if (nextState === 'active') {
+      lastForegroundAt = Date.now();
       supabase.auth.startAutoRefresh();
     } else {
       supabase.auth.stopAutoRefresh();
