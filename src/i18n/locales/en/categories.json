@@ -1,4 +1,7 @@
 {
+  "info": {
+    "customizable": "These categories can be changed or deleted, and you can add your own sub-categories to fit your business."
+  },
   "titles": {
     "categories": "Categories",
     "addCategory": "Add Category",

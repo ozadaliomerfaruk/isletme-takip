@@ -1,4 +1,7 @@
 {
+  "info": {
+    "customizable": "Bu kategoriler işletmenize göre değiştirilebilir, silinebilir ve altına yeni alt kategoriler eklenebilir."
+  },
   "titles": {
     "categories": "Kategoriler",
     "addCategory": "Kategori Ekle",

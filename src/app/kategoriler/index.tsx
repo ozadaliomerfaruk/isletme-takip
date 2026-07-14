@@ -25,7 +25,7 @@ import {
   ChartBar, Sparkles, Ribbon, CircleHelp, CirclePlus, CircleMinus, HandHelping,
   FileSignature, Scale, ChartLine,
   Monitor, Smartphone, Laptop, Printer, HardDrive, Camera, Tv, Headphones, Cog,
-  Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
+  Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction, Info,
 } from 'lucide-react-native';
 import { Text, Card, TabFilter, EmptyState, Button } from '@/components/ui';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
@@ -160,6 +160,14 @@ export default function KategorilerPage() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
           }
         >
+          {/* Bilgi notu — kategoriler işletmeye göre özelleştirilebilir (kullanıcı isteği) */}
+          <View style={styles.infoNote}>
+            <Info size={16} color={colors.primary} style={styles.infoIcon} />
+            <Text variant="caption" color="secondary" style={styles.infoNoteText}>
+              {t('categories:info.customizable')}
+            </Text>
+          </View>
+
           {/* Tip Filtresi */}
           <View style={styles.filterContainer}>
             <TabFilter
@@ -292,6 +300,23 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  infoNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    backgroundColor: colors.primaryLight + '20',
+    borderRadius: borderRadius.md,
+  },
+  infoIcon: {
+    marginTop: 1,
+  },
+  infoNoteText: {
+    flex: 1,
+    lineHeight: 18,
   },
   filterContainer: {
     paddingHorizontal: spacing.lg,
