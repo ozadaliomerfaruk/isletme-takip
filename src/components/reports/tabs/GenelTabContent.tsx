@@ -1,6 +1,5 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import {
-  TrendingDown,
   Wallet,
   Users,
   Building2,
@@ -14,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Card } from '@/components/ui';
 import { SkeletonSummaryCard, SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { toNumber } from '@/lib/currency';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -185,7 +184,7 @@ export function GenelTabContent(_props: TabContentProps) {
               {t('reports:counts.account', { count: normalHesaplar.length })}
             </Text>
             <View style={{ flex: 1 }} />
-            <Text variant="h3" color={normalHesaplarToplam >= 0 ? 'primary' : 'error'}>
+            <Text variant="h3" color={normalHesaplarToplam >= 0 ? 'primary' : 'error'} style={styles.cardTotal}>
               {formatCurrency(normalHesaplarToplam, baseCurrency)}
             </Text>
           </View>
@@ -196,7 +195,7 @@ export function GenelTabContent(_props: TabContentProps) {
               <View key={hesap.id} style={styles.accountItem}>
                 <Text variant="body">{hesap.name}</Text>
                 <View style={{ alignItems: 'flex-end' }}>
-                  <Text variant="label" color={balance >= 0 ? 'primary' : 'error'}>
+                  <Text variant="label" color={balance >= 0 ? 'primary' : 'error'} style={styles.accountAmount}>
                     {formatCurrency(balance, hesapCurrency)}
                   </Text>
                   {hesapCurrency !== baseCurrency && exchangeRates && balance !== 0 && (
@@ -220,11 +219,11 @@ export function GenelTabContent(_props: TabContentProps) {
           <Card>
             <View style={styles.accountHeader}>
               <CreditCard size={20} color={colors.error} />
-              <Text variant="body" style={{ marginLeft: spacing.sm }}>
+              <Text variant="body" style={[{ marginLeft: spacing.sm }, styles.countLabel]}>
                 {t('reports:counts.creditCard', { count: krediKartiHesaplar.length })}
               </Text>
               <View style={{ flex: 1 }} />
-              <Text variant="h3" color="error">
+              <Text variant="h3" color="error" style={styles.cardTotal}>
                 {formatCurrency(Math.abs(krediKartiToplam), baseCurrency)}
               </Text>
             </View>
@@ -235,7 +234,7 @@ export function GenelTabContent(_props: TabContentProps) {
                 <View key={hesap.id} style={styles.accountItem}>
                   <Text variant="body">{hesap.name}</Text>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <Text variant="label" color="error">
+                    <Text variant="label" color="error" style={styles.accountAmount}>
                       {formatCurrency(Math.abs(balance), hesapCurrency)}
                     </Text>
                     {hesapCurrency !== baseCurrency && exchangeRates && balance !== 0 && (
@@ -260,7 +259,7 @@ export function GenelTabContent(_props: TabContentProps) {
           <Card>
             <View style={styles.accountHeader}>
               <Building2 size={20} color={colors.warning} />
-              <Text variant="body" style={{ marginLeft: spacing.sm }}>
+              <Text variant="body" style={[{ marginLeft: spacing.sm }, styles.countLabel]}>
                 {t('reports:counts.client', { count: cariler?.length ?? 0 })}
               </Text>
             </View>
@@ -287,7 +286,7 @@ export function GenelTabContent(_props: TabContentProps) {
               <Text variant="body" color="secondary">
                 {t('reports:summary.netStatus')}
               </Text>
-              <Text variant="h3" color={totalReceivables - totalPayables >= 0 ? 'success' : 'error'}>
+              <Text variant="h3" color={totalReceivables - totalPayables >= 0 ? 'success' : 'error'} style={styles.cardTotal}>
                 {formatCurrency(totalReceivables - totalPayables, baseCurrency)}
               </Text>
             </View>
@@ -304,7 +303,7 @@ export function GenelTabContent(_props: TabContentProps) {
           <Card>
             <View style={styles.accountHeader}>
               <Users size={20} color={colors.info} />
-              <Text variant="body" style={{ marginLeft: spacing.sm }}>
+              <Text variant="body" style={[{ marginLeft: spacing.sm }, styles.countLabel]}>
                 {t('reports:counts.personnel', { count: personelList?.length ?? 0 })}
               </Text>
             </View>
@@ -331,7 +330,7 @@ export function GenelTabContent(_props: TabContentProps) {
               <Text variant="body" color="secondary">
                 {t('reports:summary.netStatus')}
               </Text>
-              <Text variant="h3" color={personelReceivables - personelDebt >= 0 ? 'success' : 'error'}>
+              <Text variant="h3" color={personelReceivables - personelDebt >= 0 ? 'success' : 'error'} style={styles.cardTotal}>
                 {formatCurrency(personelReceivables - personelDebt, baseCurrency)}
               </Text>
             </View>
@@ -348,8 +347,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
     marginLeft: spacing.xs,
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+  },
+  countLabel: {
+    fontWeight: fontWeight.semibold,
+  },
+  accountAmount: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+  },
+  cardTotal: {
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.bold,
   },
   conversionWarning: {
     flexDirection: 'row',
@@ -442,8 +455,8 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.md,
   },
   heroDetailValue: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
   },
   accountHeader: {
     flexDirection: 'row',

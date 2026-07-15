@@ -113,6 +113,22 @@
     "scheduledPaymentCreated": "İleri tarihli ödeme oluşturuldu",
     "personnelCount": "{{count}} personel"
   },
+  "export": {
+    "staffList": {
+      "title": "Personel Listesi",
+      "fileName": "personel",
+      "shareDialogTitle": "Personel Listesini Paylaş",
+      "noData": "Dışa aktarılacak personel yok",
+      "columns": {
+        "name": "Ad Soyad",
+        "phone": "Telefon",
+        "balance": "Bakiye",
+        "status": "Durum"
+      }
+    },
+    "error": "Dışa aktarma başarısız",
+    "sharingNotSupported": "Paylaşım bu cihazda desteklenmiyor"
+  },
   "search": {
     "searchPersonnel": "Personel ara...",
     "noResults": "Sonuç bulunamadı"

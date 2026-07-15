@@ -382,7 +382,7 @@ export default function HomePage() {
         right={
           <>
             <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn} hitSlop={HIT_SLOP.md}>
-              <Search size={22} color={colors.text} />
+              <Search size={24} color={colors.text} />
             </TouchableOpacity>
             <NotificationBell />
             <AddEntityButton />
@@ -784,7 +784,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   headerIconBtn: {
-    padding: spacing.xs,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deletionWarning: {
     backgroundColor: colors.error,

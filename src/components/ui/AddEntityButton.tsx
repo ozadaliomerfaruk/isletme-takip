@@ -4,7 +4,9 @@ import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Wallet, Users, UserCircle, Package } from 'lucide-react-native';
 import { ActionSheet, type ActionSheetOption } from './ActionSheet';
+import { Text } from './Text';
 import { usePermissions } from '@/hooks/usePermissions';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { colors } from '@/constants/colors';
 import { borderRadius, HIT_SLOP } from '@/constants/spacing';
 
@@ -32,25 +34,25 @@ export function AddEntityButton() {
   const ICON = 22;
   const rows: Array<ActionSheetOption | false> = [
     canCreate('hesaplar') && {
-      label: t('common:addEntity.account'),
+      label: upperTr(t('common:addEntity.account')),
       description: t('common:addEntity.accountDesc'),
       icon: <Wallet size={ICON} color={colors.primary} />,
       onPress: () => go('/hesaplar/ekle'),
     },
     canCreate('cariler') && {
-      label: t('common:addEntity.client'),
+      label: upperTr(t('common:addEntity.client')),
       description: t('common:addEntity.clientDesc'),
       icon: <Users size={ICON} color={colors.info} />,
       onPress: () => go('/cariler/ekle'),
     },
     canCreate('personel') && {
-      label: t('common:addEntity.staff'),
+      label: upperTr(t('common:addEntity.staff')),
       description: t('common:addEntity.staffDesc'),
       icon: <UserCircle size={ICON} color={colors.warning} />,
       onPress: () => go('/personel/ekle'),
     },
     canCreate('urunler') && {
-      label: t('common:addEntity.product'),
+      label: upperTr(t('common:addEntity.product')),
       description: t('common:addEntity.productDesc'),
       icon: <Package size={ICON} color={colors.success} />,
       onPress: () => go('/urunler/ekle'),
@@ -70,13 +72,13 @@ export function AddEntityButton() {
         accessibilityRole="button"
         accessibilityLabel={t('common:buttons.add')}
       >
-        <Plus size={22} color={colors.white} />
+        <Plus size={18} color={colors.white} />
+        <Text style={styles.buttonLabel}>{upperTr(t('common:buttons.add'))}</Text>
       </TouchableOpacity>
 
       <ActionSheet
         visible={visible}
         onClose={() => setVisible(false)}
-        title={t('common:addEntity.title')}
         options={options}
       />
     </>
@@ -85,11 +87,18 @@ export function AddEntityButton() {
 
 const styles = StyleSheet.create({
   button: {
-    width: 36,
-    height: 36,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primary,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 4,
+    height: 36,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary,
+  },
+  buttonLabel: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

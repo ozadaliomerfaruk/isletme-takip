@@ -757,6 +757,7 @@ export default function AramaPage() {
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.chipBar}
+          keyboardShouldPersistTaps="handled"
         >
           {allEntityTypes.map(({ key, label }) => {
             const active = enabledTypes.has(key);

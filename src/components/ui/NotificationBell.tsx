@@ -327,7 +327,10 @@ export function NotificationBell() {
 
 const styles = StyleSheet.create({
   bellButton: {
-    padding: spacing.sm,
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
     position: 'relative',
   },
   badge: {

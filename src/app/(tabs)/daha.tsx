@@ -19,7 +19,6 @@ import {
   Calendar,
   Upload,
   Archive,
-  Users,
   Share2,
   History,
   Bell,
@@ -304,22 +303,12 @@ export default function DahaPage() {
         {/* Çoklu Kullanıcı */}
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
-            {t('multiUser:menu.userManagement').toUpperCase()}
+            {t('multiUser:shared.pageTitle').toUpperCase()}
           </Text>
           <Card padding="none">
-            {isOwner && (
-              <>
-                <MenuItem
-                  icon={<Users size={22} color={colors.info} />}
-                  label={t('multiUser:menu.userManagement')}
-                  onPress={() => router.push('/ayarlar/kullanici-yonetimi' as Href)}
-                />
-                <View style={styles.divider} />
-              </>
-            )}
             <MenuItem
               icon={<Share2 size={22} color={colors.success} />}
-              label={t('multiUser:menu.sharedBusinesses')}
+              label={t('multiUser:shared.pageTitle')}
               onPress={() => router.push('/ayarlar/paylasilan-isletmeler' as Href)}
             />
             {isOwner && (

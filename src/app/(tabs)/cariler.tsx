@@ -45,7 +45,9 @@ import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { DetailExportSection } from '@/components/detail';
-import { exportCariListesiToExcel, type CariListeItem } from '@/lib/excelExport';
+import { exportEntityListToExcel, type EntityListCell, type EntityListSummaryLine, type EntityListExportOptions } from '@/lib/excelExport';
+import { exportEntityListToPdf } from '@/lib/entityListPdf';
+import { ShareOptionsSheet, ListPdfPreviewSheet } from '@/components/export';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { hasTypeMismatch } from '@/lib/cariTransactionMapper';
 
@@ -496,54 +498,117 @@ export default function CarilerPage() {
     }),
   [mergedCariler, filter, debouncedSearch, sortBy]);
 
-  // #8: açık tab'ın (tip filtresi + arama + sıralama uygulanmış) anlık listesini Excel'e aktar
+  // #8: açık tab'ın (tip filtresi + arama + sıralama uygulanmış) anlık listesini dışa aktar
   const [isExporting, setIsExporting] = useState(false);
-  const handleExportClientList = useCallback(async () => {
-    if (!filteredCariler || filteredCariler.length === 0 || !isletme) return;
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
+
+  // Excel + PDF ortak options nesnesini kur (boşsa null)
+  const buildClientListOptions = useCallback((): EntityListExportOptions | null => {
+    if (!filteredCariler || filteredCariler.length === 0 || !isletme) return null;
+
+    // Satırlar: bakiye para birimli GERÇEK sayı (Math.abs), yön "Durum" kolonunda.
+    // Yön konvansiyonu: pozitif bakiye = alacağımız, negatif = borcumuz.
+    const rows: EntityListCell[][] = filteredCariler.map((c) => {
+      const bal = toNumber(c.balance);
+      const cur = c.currency || 'TRY';
+      const durum = bal === 0
+        ? t('clients:balance.noBalance')
+        : bal > 0 ? t('clients:balance.theyOwe') : t('clients:balance.weOwe');
+      return [
+        c.name,
+        t(`clients:types.${c.type}`),
+        c.phone || '',
+        { amount: bal !== 0 ? Math.abs(bal) : null, currency: cur },
+        durum,
+      ];
+    });
+
+    // Para birimi bazlı özet: toplam alacak / toplam borç (çapraz-kur toplamı yok)
+    const byCur: Record<string, { recv: number; pay: number }> = {};
+    filteredCariler.forEach((c) => {
+      const bal = toNumber(c.balance);
+      const cur = c.currency || 'TRY';
+      if (!byCur[cur]) byCur[cur] = { recv: 0, pay: 0 };
+      if (bal > 0) byCur[cur].recv += bal;
+      else if (bal < 0) byCur[cur].pay += -bal;
+    });
+    const summary: EntityListSummaryLine[] = [];
+    Object.entries(byCur).forEach(([cur, v]) => {
+      if (v.recv > 0) summary.push({ label: `${t('clients:balance.theyOwe')} (${cur})`, amount: v.recv, currency: cur });
+      if (v.pay > 0) summary.push({ label: `${t('clients:balance.weOwe')} (${cur})`, amount: v.pay, currency: cur });
+    });
+
+    // Aktif filtre metni (sekme + arama)
+    const filterBits: string[] = [];
+    if (filter === 'tedarikci') filterBits.push(t('clients:titles.suppliers'));
+    else if (filter === 'musteri') filterBits.push(t('clients:titles.customers'));
+    if (debouncedSearch.trim()) filterBits.push(`${t('common:export.listExport.search')}: ${debouncedSearch.trim()}`);
+    const filterText = filterBits.length ? filterBits.join(' · ') : undefined;
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const tabKey = filter === 'all' ? 'tumu' : filter;
+    return {
+      title: t('clients:export.clientList.title'),
+      isletmeName: isletme.name || '',
+      fileName: `${t('clients:export.clientList.fileName')}-${tabKey}-${dateStr}`,
+      shareDialogTitle: t('clients:export.clientList.shareDialogTitle'),
+      sharingNotSupported: t('clients:export.sharingNotSupported'),
+      noDataError: t('clients:export.clientList.noData'),
+      columns: [
+        { header: t('clients:export.clientList.columns.name'), width: 30 },
+        { header: t('clients:export.clientList.columns.type'), width: 14 },
+        { header: t('clients:export.clientList.columns.phone'), width: 16 },
+        { header: t('clients:export.clientList.columns.balance'), width: 18, align: 'right' },
+        { header: t('clients:export.clientList.columns.status'), width: 22 },
+      ],
+      rows,
+      summary,
+      filterText,
+      labels: {
+        business: t('common:export.excel.business'),
+        createdAt: t('common:export.excel.createdAt'),
+        recordCount: t('common:export.listExport.recordCount'),
+        filter: t('common:export.listExport.filter'),
+        summary: t('common:export.listExport.summary'),
+        snapshotNote: t('common:export.listExport.snapshotNote'),
+        generatedByApp: t('common:export.listExport.generatedByApp'),
+      },
+    };
+  }, [filteredCariler, isletme, filter, debouncedSearch, t]);
+
+  // PDF: önce önizleme aç (paylaşılacak options'ı sakla). Excel: doğrudan üret.
+  const [pdfPreview, setPdfPreview] = useState<EntityListExportOptions | null>(null);
+
+  const handleExcelExport = useCallback(async () => {
+    const opts = buildClientListOptions();
+    if (!opts) return;
     setIsExporting(true);
     try {
-      const items: CariListeItem[] = filteredCariler.map((c) => {
-        const bal = toNumber(c.balance);
-        const durum = bal === 0
-          ? t('clients:balance.noBalance')
-          : c.type === 'tedarikci'
-            ? (bal < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe'))
-            : (bal > 0 ? t('clients:balance.theyOwe') : t('clients:balance.weOwe'));
-        return {
-          ad: c.name,
-          tip: t(`clients:types.${c.type}`),
-          telefon: c.phone || '',
-          bakiye: bal,
-          durum,
-          currency: c.currency || 'TRY',
-        };
-      });
-      const dateStr = new Date().toISOString().slice(0, 10);
-      const tabKey = filter === 'all' ? 'tumu' : filter;
-      await exportCariListesiToExcel({
-        cariler: items,
-        translations: {
-          title: t('clients:export.clientList.title'),
-          fileName: `${t('clients:export.clientList.fileName')}-${tabKey}-${dateStr}`,
-          isletmeName: isletme.name || '',
-          shareDialogTitle: t('clients:export.clientList.shareDialogTitle'),
-          sharingNotSupported: t('clients:export.sharingNotSupported'),
-          noDataError: t('clients:export.clientList.noData'),
-          columns: {
-            name: t('clients:export.clientList.columns.name'),
-            type: t('clients:export.clientList.columns.type'),
-            phone: t('clients:export.clientList.columns.phone'),
-            balance: t('clients:export.clientList.columns.balance'),
-            status: t('clients:export.clientList.columns.status'),
-          },
-        },
-      });
+      await exportEntityListToExcel(opts);
     } catch {
       showToast(t('clients:export.error'), 'error');
     } finally {
       setIsExporting(false);
     }
-  }, [filteredCariler, isletme, filter, t, showToast]);
+  }, [buildClientListOptions, showToast, t]);
+
+  const openPdfPreview = useCallback(() => {
+    const opts = buildClientListOptions();
+    if (opts) setPdfPreview(opts);
+  }, [buildClientListOptions]);
+
+  const handleSharePreviewPdf = useCallback(async () => {
+    if (!pdfPreview) return;
+    setIsExporting(true);
+    try {
+      await exportEntityListToPdf(pdfPreview);
+      setPdfPreview(null);
+    } catch {
+      showToast(t('clients:export.error'), 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [pdfPreview, showToast, t]);
 
   // #11: "Tümünü seç" durumunu sayı eşitliği yerine ÜYELİK ile belirle. Filtre/arama
   // değişince selectedIds bayat id'ler tutabiliyor; saf sayı karşılaştırması yanlış
@@ -798,16 +863,16 @@ export default function CarilerPage() {
         title={t('clients:titles.clients')}
         right={
           <>
+            <TouchableOpacity style={styles.linkButton} onPress={() => setAcceptCodeVisible(true)} activeOpacity={0.7}>
+              <Link size={18} color={colors.primary} />
+            </TouchableOpacity>
             {filteredCariler.length > 0 && (
-              <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); handleExportClientList(); }} activeOpacity={0.7} disabled={isExporting}>
+              <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); setShareSheetVisible(true); }} activeOpacity={0.7} disabled={isExporting}>
                 <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.sortButton} onPress={() => setSortSheetVisible(true)} activeOpacity={0.7}>
               <ArrowUpDown size={18} color={colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.linkButton} onPress={() => setAcceptCodeVisible(true)} activeOpacity={0.7}>
-              <Link size={18} color={colors.primary} />
             </TouchableOpacity>
             <AddEntityButton />
           </>
@@ -848,6 +913,22 @@ export default function CarilerPage() {
           setQuickBarVisible(false);
           setSelectedCari(null);
         }}
+      />
+
+      {/* Liste dışa aktar: PDF (önizleme) / Excel */}
+      <ShareOptionsSheet
+        visible={shareSheetVisible}
+        onDismiss={() => setShareSheetVisible(false)}
+        entityType="cari"
+        onPdfPress={openPdfPreview}
+        onExcelPress={handleExcelExport}
+      />
+      <ListPdfPreviewSheet
+        visible={!!pdfPreview}
+        options={pdfPreview}
+        isSharing={isExporting}
+        onDismiss={() => setPdfPreview(null)}
+        onShare={handleSharePreviewPdf}
       />
 
       {/* Action Sheet */}

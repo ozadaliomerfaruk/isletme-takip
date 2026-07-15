@@ -113,6 +113,22 @@
     "scheduledPaymentCreated": "Scheduled payment created",
     "personnelCount": "{{count}} staff members"
   },
+  "export": {
+    "staffList": {
+      "title": "Staff List",
+      "fileName": "staff",
+      "shareDialogTitle": "Share Staff List",
+      "noData": "No staff to export",
+      "columns": {
+        "name": "Full Name",
+        "phone": "Phone",
+        "balance": "Balance",
+        "status": "Status"
+      }
+    },
+    "error": "Export failed",
+    "sharingNotSupported": "Sharing is not supported on this device"
+  },
   "search": {
     "searchPersonnel": "Search staff...",
     "noResults": "No results found"

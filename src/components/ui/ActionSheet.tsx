@@ -447,9 +447,10 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   optionDescription: {
-    fontSize: 13,
+    fontSize: 15,
+    lineHeight: 20,
     color: colors.textMuted,
-    marginTop: 2,
+    marginTop: 3,
   },
   destructiveLabel: {
     color: colors.error,

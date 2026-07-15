@@ -68,6 +68,8 @@
     "noInvites": "Bekleyen davet yok"
   },
   "shared": {
+    "pageTitle": "Paylaşım",
+    "ownerSectionTitle": "Bu İşletmeyi Paylaş",
     "title": "Paylaşılan İşletmeler",
     "subtitle": "Size paylaşılan işletmeleri görüntüleyin",
     "empty": "Henüz paylaşılan işletme yok",

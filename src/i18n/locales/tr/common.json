@@ -416,6 +416,14 @@
       "title": "Büyük Veri Uyarısı",
       "message": "Bu dönemde {{count}} işlem bulunuyor. Export işlemi biraz sürebilir."
     },
+    "listExport": {
+      "snapshotNote": "Bu rapor, oluşturulduğu andaki durumu yansıtan anlık bir görüntüdür. Sonradan yapılan değişiklikleri içermez.",
+      "generatedByApp": "İşletme Takip uygulaması ile oluşturulmuştur.",
+      "recordCount": "Kayıt Sayısı",
+      "filter": "Filtre",
+      "search": "Arama",
+      "summary": "Özet"
+    },
     "excel": {
       "statement": "EKSTRESİ",
       "accountStatement": "HESAP EKSTRESİ",
@@ -504,6 +512,8 @@
     "report": "Rapor",
     "send": "Gönder",
     "cancel": "Vazgeç",
+    "preview": "Önizleme",
+    "share": "Paylaş",
     "pdf": {
       "phone": "Telefon",
       "date": "Tarih",

@@ -1176,89 +1176,174 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
 }
 
 // ============================================================================
-// CARİ LİSTESİ EXPORT (#8 — açık tab'ın anlık listesi: tip filtresi + arama + sıralama)
+// GENEL VARLIK LİSTESİ EXPORT (cari + personel ana sayfa "anlık liste")
+// Zengin başlık (tarih/anlık-not/marka) + kayıt sayısı + aktif filtre +
+// para-birimi bazlı bakiye özeti + autofilter + gerçek-sayı bakiye hücreleri.
 // ============================================================================
 
-export interface CariListeExcelTranslations {
+// Not sat. stili (anlık/marka bilgilendirmesi — italik, soluk gri)
+const noteStyle = {
+  font: { italic: true, sz: 10, color: { rgb: '888888' } },
+  alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
+};
+
+// Bir liste hücresi: düz metin YA DA para birimli sayı (Excel'de gerçek sayı)
+export type EntityListCell = string | { amount: number | null; currency: string };
+
+export interface EntityListColumn {
+  header: string;
+  width: number;
+  align?: 'left' | 'right';
+}
+
+// Özet satırı — para birimi bazlı toplam (gerçek sayı olarak yazılır)
+export interface EntityListSummaryLine {
+  label: string;
+  amount: number;
+  currency: string;
+}
+
+export interface EntityListMetaLabels {
+  business: string;
+  createdAt: string;
+  recordCount: string;
+  filter: string;
+  summary: string;
+  snapshotNote: string;
+  generatedByApp: string;
+}
+
+export interface EntityListExportOptions {
   title: string;
-  columns: {
-    name: string;
-    type: string;
-    phone: string;
-    balance: string;
-    status: string;
-  };
-  fileName: string;
   isletmeName: string;
+  columns: EntityListColumn[];
+  rows: EntityListCell[][];
+  summary?: EntityListSummaryLine[];
+  filterText?: string; // "Müşteri · Arama: ahmet" gibi
+  labels: EntityListMetaLabels;
+  fileName: string; // uzantısız
   shareDialogTitle: string;
   sharingNotSupported: string;
   noDataError: string;
 }
 
-export interface CariListeItem {
-  ad: string;
-  tip: string;
-  telefon: string;
-  bakiye: number;
-  durum: string;
-  currency: string;
+/** Para birimli gerçek-sayı hücre (SUM/sıralama/grafik çalışsın; sembol format koduna gömülür) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SheetJS hücre nesnesi
+function moneyNumberCell(amount: number | null, currency: string, style: any): any {
+  if (amount === null || amount === undefined) return { v: '', s: style };
+  const fmt = `"${getCurrencySymbol(currency)}"#,##0.00`;
+  return { v: amount, t: 'n', z: fmt, s: style };
 }
 
-export interface CariListeExportOptions {
-  cariler: CariListeItem[];
-  translations: CariListeExcelTranslations;
-}
+export async function exportEntityListToExcel(options: EntityListExportOptions): Promise<void> {
+  const {
+    title,
+    isletmeName,
+    columns,
+    rows,
+    summary,
+    filterText,
+    labels,
+    fileName,
+    shareDialogTitle,
+    sharingNotSupported,
+    noDataError,
+  } = options;
 
-export async function exportCariListesiToExcel(options: CariListeExportOptions): Promise<void> {
-  const { cariler, translations: t } = options;
-
-  if (cariler.length === 0) {
-    throw new Error(t.noDataError);
+  if (rows.length === 0) {
+    throw new Error(noDataError);
   }
 
-  const headers = [
-    t.columns.name,
-    t.columns.type,
-    t.columns.phone,
-    t.columns.balance,
-    t.columns.status,
+  const lastCol = columns.length - 1;
+  const cellAt = (r: number, c: number) => XLSX.utils.encode_cell({ r, c });
+  const ws: XLSX.WorkSheet = {};
+  const merges: XLSX.Range[] = [];
+  let r = 0;
+
+  // ── Başlık ──
+  ws[cellAt(r, 0)] = { v: title, s: titleStyle };
+  merges.push({ s: { r, c: 0 }, e: { r, c: lastCol } });
+  r++;
+
+  // ── Meta satırları (etiket + değer) ──
+  const metaRows: { label: string; value: string; bold?: boolean }[] = [
+    { label: labels.business, value: isletmeName, bold: true },
+    { label: labels.createdAt, value: formatDateTime(new Date().toISOString()) },
+    { label: labels.recordCount, value: String(rows.length) },
   ];
+  if (filterText) metaRows.push({ label: labels.filter, value: filterText });
 
-  const dataRows = cariler.map((c) => [
-    c.ad,
-    c.tip,
-    c.telefon || '',
-    c.bakiye !== 0 ? formatCurrency(Math.abs(c.bakiye), c.currency) : '',
-    c.durum,
-  ]);
+  metaRows.forEach((m) => {
+    ws[cellAt(r, 0)] = { v: `${m.label}:`, s: metaLabelStyle };
+    ws[cellAt(r, 1)] = { v: m.value, s: m.bold ? businessNameStyle : metaValueStyle };
+    r++;
+  });
 
-  const wsData = [
-    [{ v: t.title, s: titleStyle }],
-    [{ v: t.isletmeName, s: { font: { sz: 11, color: { rgb: '666666' } } } }],
-    [],
-    headers.map((h) => ({ v: h, s: headerStyle })),
-    ...dataRows.map((row) =>
-      row.map((cell) => ({
-        v: cell,
-        s: cellStyle,
-      }))
-    ),
-  ];
+  // ── Anlık (snapshot) notu ──
+  ws[cellAt(r, 0)] = { v: labels.snapshotNote, s: noteStyle };
+  merges.push({ s: { r, c: 0 }, e: { r, c: lastCol } });
+  r++;
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  // Boş satır
+  r++;
 
-  ws['!cols'] = [{ wch: 30 }, { wch: 14 }, { wch: 16 }, { wch: 18 }, { wch: 22 }];
+  // ── Tablo başlıkları ──
+  const headerR = r;
+  columns.forEach((col, c) => {
+    ws[cellAt(headerR, c)] = { v: col.header, s: headerStyle };
+  });
+  r++;
 
-  ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 4 } },
-  ];
+  // ── Veri satırları ──
+  rows.forEach((row) => {
+    columns.forEach((col, c) => {
+      const cell = row[c];
+      const baseStyle = col.align === 'right' ? currencyCellStyle : cellStyle;
+      if (cell && typeof cell === 'object') {
+        ws[cellAt(r, c)] = moneyNumberCell(cell.amount, cell.currency, baseStyle);
+      } else {
+        ws[cellAt(r, c)] = { v: (cell as string) ?? '', s: baseStyle };
+      }
+    });
+    r++;
+  });
+  const dataEndR = r - 1;
+
+  // ── Özet (para birimi bazlı toplamlar) ──
+  if (summary && summary.length > 0) {
+    r++; // boş satır
+    ws[cellAt(r, 0)] = { v: labels.summary, s: summaryRowStyle };
+    for (let c = 1; c <= lastCol; c++) ws[cellAt(r, c)] = { v: '', s: summaryRowStyle };
+    r++;
+    summary.forEach((line) => {
+      ws[cellAt(r, 0)] = { v: line.label, s: summaryRowStyle };
+      for (let c = 1; c < lastCol; c++) ws[cellAt(r, c)] = { v: '', s: summaryRowStyle };
+      ws[cellAt(r, lastCol)] = moneyNumberCell(line.amount, line.currency, summaryCurrencyStyle);
+      r++;
+    });
+  }
+
+  // ── Marka / oluşturan-uygulama notu ──
+  r++; // boş satır
+  ws[cellAt(r, 0)] = { v: labels.generatedByApp, s: noteStyle };
+  merges.push({ s: { r, c: 0 }, e: { r, c: lastCol } });
+  const lastR = r;
+
+  // Worksheet meta
+  ws['!ref'] = `A1:${cellAt(lastR, lastCol)}`;
+  ws['!merges'] = merges;
+  ws['!cols'] = columns.map((col) => ({ wch: col.width }));
+  ws['!rows'] = [{ hpt: 24 }];
+  // Başlık satırına otomatik filtre (sıralanabilir/filtrelenebilir kolonlar)
+  ws['!autofilter'] = {
+    ref: `${cellAt(headerR, 0)}:${cellAt(dataEndR, lastCol)}`,
+  };
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, t.title);
+  XLSX.utils.book_append_sheet(wb, ws, title);
 
   const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-  const safeName = t.fileName.replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeName = fileName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const filePath = `${FileSystem.cacheDirectory}${safeName}.xlsx`;
 
   await FileSystem.writeAsStringAsync(filePath, wbout, {
@@ -1269,10 +1354,10 @@ export async function exportCariListesiToExcel(options: CariListeExportOptions):
   if (isAvailable) {
     await Sharing.shareAsync(filePath, {
       mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle: t.shareDialogTitle,
+      dialogTitle: shareDialogTitle,
       UTI: 'com.microsoft.excel.xlsx',
     });
   } else {
-    throw new Error(t.sharingNotSupported);
+    throw new Error(sharingNotSupported);
   }
 }

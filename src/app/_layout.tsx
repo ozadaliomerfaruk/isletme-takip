@@ -837,13 +837,6 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
-        {/* Kullanıcı Yönetimi */}
-        <Stack.Screen
-          name="ayarlar/kullanici-yonetimi"
-          options={{
-            headerShown: false,
-          }}
-        />
         <Stack.Screen
           name="ayarlar/davet-olustur"
           options={{

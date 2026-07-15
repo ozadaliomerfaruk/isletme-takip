@@ -68,6 +68,8 @@
     "noInvites": "No pending invites"
   },
   "shared": {
+    "pageTitle": "Sharing",
+    "ownerSectionTitle": "Share This Business",
     "title": "Shared Businesses",
     "subtitle": "View businesses shared with you",
     "empty": "No shared businesses yet",

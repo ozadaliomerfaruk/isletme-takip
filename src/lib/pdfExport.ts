@@ -200,27 +200,30 @@ export function generatePdfHtml(options: PdfExportOptions): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; padding: 24px; font-size: 10px; color: #333; }
-  .header { margin-bottom: 16px; border-bottom: 2px solid #4472C4; padding-bottom: 12px; }
-  .header h1 { color: #1F4E79; font-size: 15px; margin-bottom: 4px; }
-  .header h2 { color: #666; font-size: 11px; font-weight: normal; margin-bottom: 10px; }
+  /* Arka plan renklerini yazdırmaya zorla — yoksa mavi başlık zemini basılmaz ve
+     beyaz başlık yazısı görünmez kalır (expo-print/WKWebView varsayılanı) */
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; padding: 24px; font-size: 12px; color: #333; }
+  .header { margin-bottom: 16px; border-bottom: 3px solid #4472C4; padding-bottom: 12px; }
+  .header h1 { color: #1F4E79; font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+  .header h2 { color: #444; font-size: 14px; font-weight: 700; margin-bottom: 10px; }
   .header-divider { height: 1px; background: #D0D0D0; margin-bottom: 8px; }
-  .meta { display: flex; flex-wrap: wrap; gap: 3px 24px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 4px 24px; }
   .meta-item { display: flex; gap: 4px; }
-  .meta-label { font-weight: 600; color: #666; min-width: 50px; }
-  .meta-value { color: #333; }
-  .meta-value.balance { font-weight: 700; color: #1F4E79; }
+  .meta-label { font-weight: 700; color: #555; min-width: 60px; font-size: 12px; }
+  .meta-value { color: #222; font-size: 12px; font-weight: 600; }
+  .meta-value.balance { font-weight: 800; color: #1F4E79; }
   table { width: 100%; border-collapse: collapse; margin-top: 12px; }
-  thead th { background: #4472C4; color: white; padding: 5px 4px; font-size: 8px; text-align: center; border: 1px solid #3566A8; }
-  tbody td { border: 1px solid #D0D0D0; padding: 4px 4px; font-size: 8px; vertical-align: top; }
+  thead th { background: #4472C4; color: #ffffff; padding: 8px 5px; font-size: 12px; font-weight: 800; text-align: center; border: 1px solid #3566A8; }
+  tbody td { border: 1px solid #D0D0D0; padding: 6px 5px; font-size: 11px; vertical-align: top; }
   .desc { word-break: break-word; }
   .amount { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .summary-row td { background: #E7E6E6; font-weight: 600; color: #1F4E79; }
-  .total-row td { background: #5B9BD5; font-weight: 600; color: white; }
-  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #D0D0D0; font-size: 8px; color: #666; }
-  .footer-row { display: flex; justify-content: space-between; margin-bottom: 2px; }
-  .footer-balance { font-weight: 600; color: #1F4E79; }
+  .summary-row td { background: #E7E6E6; font-weight: 800; font-size: 11px; color: #1F4E79; }
+  .total-row td { background: #5B9BD5; font-weight: 800; font-size: 11px; color: #ffffff; }
+  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #D0D0D0; font-size: 11px; color: #555; }
+  .footer-row { display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .footer-balance { font-weight: 800; color: #1F4E79; font-size: 12px; }
   @media print { body { padding: 12px; } }
   @page { margin: 15mm 10mm; }
   thead { display: table-header-group; }

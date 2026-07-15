@@ -22,6 +22,7 @@ import {
   Zap,
   History,
   CalendarDays,
+  FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
@@ -43,6 +44,10 @@ import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { exportEntityListToExcel, type EntityListCell, type EntityListSummaryLine, type EntityListExportOptions } from '@/lib/excelExport';
+import { exportEntityListToPdf } from '@/lib/entityListPdf';
+import { ShareOptionsSheet, ListPdfPreviewSheet } from '@/components/export';
 
 export default function PersonelPage() {
   const router = useRouter();
@@ -78,6 +83,7 @@ export default function PersonelPage() {
   // Toast ve Haptics
   const { showToast } = useToast();
   const haptics = useHaptics();
+  const { isletme } = useAuthContext();
 
   // Gerçek veriler - pasif personeli de dahil et
   const { data: personelList, isLoading, refetch } = usePersonelList(true);
@@ -339,6 +345,110 @@ export default function PersonelPage() {
     }),
   [personelList, debouncedSearch, sortBy]);
 
+  // Ana sayfa "anlık liste" dışa aktarımı (cariler ile aynı zengin başlık/özet formatı; Excel + PDF)
+  const [isExporting, setIsExporting] = useState(false);
+  const [shareSheetVisible, setShareSheetVisible] = useState(false);
+
+  const buildStaffListOptions = useCallback((): EntityListExportOptions | null => {
+    if (!filteredPersonel || filteredPersonel.length === 0 || !isletme) return null;
+
+    // Yön konvansiyonu (cariler ile aynı): pozitif bakiye = alacağımız, negatif = borcumuz.
+    const rows: EntityListCell[][] = filteredPersonel.map((p) => {
+      const bal = toNumber(p.balance);
+      const cur = p.currency || 'TRY';
+      const durum = bal === 0
+        ? t('staff:balance.noBalance')
+        : bal > 0 ? t('staff:balance.theyOwe') : t('staff:balance.weOwe');
+      return [
+        `${p.first_name} ${p.last_name ?? ''}`.trim(),
+        p.phone || '',
+        { amount: bal !== 0 ? Math.abs(bal) : null, currency: cur },
+        durum,
+      ];
+    });
+
+    // Para birimi bazlı özet: toplam alacak / toplam borç
+    const byCur: Record<string, { recv: number; pay: number }> = {};
+    filteredPersonel.forEach((p) => {
+      const bal = toNumber(p.balance);
+      const cur = p.currency || 'TRY';
+      if (!byCur[cur]) byCur[cur] = { recv: 0, pay: 0 };
+      if (bal > 0) byCur[cur].recv += bal;
+      else if (bal < 0) byCur[cur].pay += -bal;
+    });
+    const summary: EntityListSummaryLine[] = [];
+    Object.entries(byCur).forEach(([cur, v]) => {
+      if (v.recv > 0) summary.push({ label: `${t('staff:balance.theyOwe')} (${cur})`, amount: v.recv, currency: cur });
+      if (v.pay > 0) summary.push({ label: `${t('staff:balance.weOwe')} (${cur})`, amount: v.pay, currency: cur });
+    });
+
+    const filterText = debouncedSearch.trim()
+      ? `${t('common:export.listExport.search')}: ${debouncedSearch.trim()}`
+      : undefined;
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    return {
+      title: t('staff:export.staffList.title'),
+      isletmeName: isletme.name || '',
+      fileName: `${t('staff:export.staffList.fileName')}-${dateStr}`,
+      shareDialogTitle: t('staff:export.staffList.shareDialogTitle'),
+      sharingNotSupported: t('staff:export.sharingNotSupported'),
+      noDataError: t('staff:export.staffList.noData'),
+      columns: [
+        { header: t('staff:export.staffList.columns.name'), width: 30 },
+        { header: t('staff:export.staffList.columns.phone'), width: 16 },
+        { header: t('staff:export.staffList.columns.balance'), width: 18, align: 'right' },
+        { header: t('staff:export.staffList.columns.status'), width: 22 },
+      ],
+      rows,
+      summary,
+      filterText,
+      labels: {
+        business: t('common:export.excel.business'),
+        createdAt: t('common:export.excel.createdAt'),
+        recordCount: t('common:export.listExport.recordCount'),
+        filter: t('common:export.listExport.filter'),
+        summary: t('common:export.listExport.summary'),
+        snapshotNote: t('common:export.listExport.snapshotNote'),
+        generatedByApp: t('common:export.listExport.generatedByApp'),
+      },
+    };
+  }, [filteredPersonel, isletme, debouncedSearch, t]);
+
+  // PDF: önce önizleme aç. Excel: doğrudan üret.
+  const [pdfPreview, setPdfPreview] = useState<EntityListExportOptions | null>(null);
+
+  const handleExcelExport = useCallback(async () => {
+    const opts = buildStaffListOptions();
+    if (!opts) return;
+    setIsExporting(true);
+    try {
+      await exportEntityListToExcel(opts);
+    } catch {
+      showToast(t('staff:export.error'), 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [buildStaffListOptions, showToast, t]);
+
+  const openPdfPreview = useCallback(() => {
+    const opts = buildStaffListOptions();
+    if (opts) setPdfPreview(opts);
+  }, [buildStaffListOptions]);
+
+  const handleSharePreviewPdf = useCallback(async () => {
+    if (!pdfPreview) return;
+    setIsExporting(true);
+    try {
+      await exportEntityListToPdf(pdfPreview);
+      setPdfPreview(null);
+    } catch {
+      showToast(t('staff:export.error'), 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [pdfPreview, showToast, t]);
+
   // #11: "Tümünü seç" durumunu sayı eşitliği yerine ÜYELİK ile belirle + filtre/arama
   // değişince bayat seçimleri buda (yanlış etiket / hayalet seçim önlenir).
   const visiblePersonelIds = useMemo(
@@ -578,6 +688,9 @@ export default function PersonelPage() {
         subtitle={personelList && personelList.length > 0 ? t('staff:messages.personnelCount', { count: personelList.length }) : undefined}
         right={
           <>
+            <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); setShareSheetVisible(true); }} activeOpacity={0.7} disabled={isExporting}>
+              <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.sortButton} onPress={() => setSortSheetVisible(true)} activeOpacity={0.7}>
               <ArrowUpDown size={18} color={colors.primary} />
             </TouchableOpacity>
@@ -709,6 +822,22 @@ export default function PersonelPage() {
           setQuickBarVisible(false);
           setSelectedPersonelId(null);
         }}
+      />
+
+      {/* Liste dışa aktar: PDF (önizleme) / Excel */}
+      <ShareOptionsSheet
+        visible={shareSheetVisible}
+        onDismiss={() => setShareSheetVisible(false)}
+        entityType="personel"
+        onPdfPress={openPdfPreview}
+        onExcelPress={handleExcelExport}
+      />
+      <ListPdfPreviewSheet
+        visible={!!pdfPreview}
+        options={pdfPreview}
+        isSharing={isExporting}
+        onDismiss={() => setPdfPreview(null)}
+        onShare={handleSharePreviewPdf}
       />
 
       {/* Action Sheet */}

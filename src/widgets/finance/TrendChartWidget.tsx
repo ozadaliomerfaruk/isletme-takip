@@ -1,14 +1,15 @@
 /**
  * TrendChartWidget
  *
- * Displays 6-period income/expense trend as a bar chart
- * Full-width widget with metric toggle (Income/Expense/Net)
+ * Displays 6-period income/expense trend as a smooth line/area chart
+ * (net-varlık trend grafiğiyle aynı görsel dil: curved area + dashed rules +
+ *  basılı-tutup scrub). Full-width widget with metric toggle (Income/Expense/Net)
  * Supports filtering by hesap, cari, kategori, or personel
  */
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
-import { BarChart } from 'react-native-gifted-charts';
+import { LineChart } from 'react-native-gifted-charts';
 import { Filter, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useAnalyticsTrend } from '@/hooks/useAnalyticsTrend';
@@ -50,44 +51,45 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
     );
   }
 
-  // Prepare bar data based on selected metric
+  // Prepare line/area data based on selected metric
   const chartWidth = windowWidth - spacing.lg * 4;
-  const barWidth = Math.max(20, (chartWidth / trend.data.length) - 12);
 
-  const getBarColor = (value: number, metric: MetricType): string => {
-    if (metric === 'income') return colors.success;
-    if (metric === 'expense') return colors.error;
-    // Net: green if positive, red if negative
-    return value >= 0 ? colors.success : colors.error;
-  };
+  // Metrik başına tek renk (net-varlık grafiği gibi): gelir yeşil, gider kırmızı, net marka-yeşili
+  const metricColor =
+    selectedMetric === 'income'
+      ? colors.success
+      : selectedMetric === 'expense'
+      ? colors.error
+      : colors.primary;
 
-  const barData = trend.data.map((point) => {
-    const value =
-      selectedMetric === 'income'
-        ? point.income
-        : selectedMetric === 'expense'
-        ? point.expense
-        : point.net;
+  const rawValues = trend.data.map((point) =>
+    selectedMetric === 'income'
+      ? point.income
+      : selectedMetric === 'expense'
+      ? point.expense
+      : point.net
+  );
 
-    const absValue = Math.abs(value);
+  // Negatif (net) değerleri desteklemek için tüm seriyi ≥0'a KAYDIR; eksende/etikette
+  // gerçek değeri geri ekle (net-varlık trend grafiğiyle aynı teknik).
+  const minVal = Math.min(0, ...rawValues);
+  const shift = minVal < 0 ? -minVal : 0;
 
+  const lineData = trend.data.map((point, i) => {
+    const real = rawValues[i];
+    const isCurrent = point.isCurrentPeriod;
     return {
-      value: absValue,
+      value: real + shift,
+      trueValue: real,
       label: point.label,
-      frontColor: getBarColor(value, selectedMetric),
-      topLabelComponent: () => (
-        <View style={styles.barTopLabel}>
-          {point.isCurrentPeriod && <View style={styles.currentPeriodDot} />}
-          <Text style={styles.barValueText}>
-            {formatCurrencyCompact(absValue, currency)}
-          </Text>
-        </View>
-      ),
+      monthLabel: point.label,
+      dataPointColor: isCurrent ? colors.primary : metricColor,
+      dataPointRadius: isCurrent ? 5 : 3,
     };
   });
 
-  // Calculate max value for Y-axis
-  const maxValue = Math.max(...barData.map((d) => d.value), 1);
+  // Calculate max value for Y-axis (kaydırılmış seriden)
+  const maxValue = Math.max(...lineData.map((d) => d.value), 1);
 
   // Get total and average for selected metric
   const total =
@@ -142,26 +144,70 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
         </View>
       </View>
 
-      {/* Bar Chart */}
+      {/* Line/Area Chart — net-varlık trend grafiğiyle aynı stil */}
       <View style={styles.chartContainer}>
-        <BarChart
-          data={barData}
+        <LineChart
+          data={lineData}
           width={chartWidth}
-          height={150}
-          barWidth={barWidth}
-          barBorderRadius={4}
+          height={170}
+          maxValue={maxValue * 1.1}
           noOfSections={4}
+          thickness={2.5}
+          color={metricColor}
+          hideDataPoints={false}
+          dataPointsColor={metricColor}
+          areaChart
+          startFillColor={metricColor}
+          startOpacity={0.16}
+          endFillColor={metricColor}
+          endOpacity={0.01}
+          curved
+          curvature={0.18}
           yAxisThickness={0}
           xAxisThickness={1}
           xAxisColor={colors.border}
           yAxisTextStyle={styles.yAxisText}
           xAxisLabelTextStyle={styles.xAxisLabel}
-          hideRules
-          spacing={12}
-          maxValue={maxValue * 1.1}
-          formatYLabel={(val) => formatCurrencyCompact(Number(val), currency)}
+          rulesType="dashed"
+          rulesColor={colors.borderLight}
+          dashWidth={3}
+          dashGap={6}
+          formatYLabel={(val) => formatCurrencyCompact(Number(val) - shift, currency)}
+          overflowTop={16}
+          initialSpacing={12}
+          endSpacing={12}
           isAnimated
-          animationDuration={300}
+          animationDuration={400}
+          adjustToWidth
+          pointerConfig={{
+            // Basılı tutmaya gerek yok: parmakla dokunup gezdirince anında tutarı göster
+            activatePointersOnLongPress: false,
+            pointerVanishDelay: 2500,
+            autoAdjustPointerLabelPosition: true,
+            pointerColor: metricColor,
+            radius: 5,
+            pointerStripColor: colors.border,
+            pointerStripWidth: 1,
+            strokeDashArray: [3, 4],
+            pointerLabelWidth: 130,
+            pointerLabelHeight: 56,
+            pointerLabelComponent: (items: Array<{ trueValue?: number; monthLabel?: string }>) => {
+              const it = items?.[0];
+              if (!it) return null;
+              const v = it.trueValue ?? 0;
+              return (
+                <View style={styles.pointerLabel}>
+                  <Text style={styles.pointerMonth} numberOfLines={1}>{it.monthLabel}</Text>
+                  <Text
+                    style={[styles.pointerValue, { color: v >= 0 ? colors.success : colors.error }]}
+                    numberOfLines={1}
+                  >
+                    {formatCurrency(v, currency)}
+                  </Text>
+                </View>
+              );
+            },
+          }}
         />
       </View>
 
@@ -303,21 +349,27 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 4,
   },
-  barTopLabel: {
-    alignItems: 'center',
+  pointerLabel: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  pointerMonth: {
+    fontSize: 11,
+    color: colors.textMuted,
     marginBottom: 2,
   },
-  barValueText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  currentPeriodDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.primary,
-    marginBottom: 1,
+  pointerValue: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   summaryRow: {
     flexDirection: 'row',

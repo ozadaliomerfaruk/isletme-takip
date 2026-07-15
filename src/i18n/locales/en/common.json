@@ -416,6 +416,14 @@
       "title": "Large Data Warning",
       "message": "This period contains {{count}} transactions. Export may take a while."
     },
+    "listExport": {
+      "snapshotNote": "This report is a snapshot reflecting the state at the moment it was created. It does not include later changes.",
+      "generatedByApp": "Generated with the İşletme Takip app.",
+      "recordCount": "Record Count",
+      "filter": "Filter",
+      "search": "Search",
+      "summary": "Summary"
+    },
     "excel": {
       "statement": "STATEMENT",
       "accountStatement": "ACCOUNT STATEMENT",
@@ -504,6 +512,8 @@
     "report": "Report",
     "send": "Send",
     "cancel": "Cancel",
+    "preview": "Preview",
+    "share": "Share",
     "pdf": {
       "phone": "Phone",
       "date": "Date",
