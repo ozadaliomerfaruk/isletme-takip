@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ensureValidDate } from '@/lib/date';
-import { roundCurrency, toNumber } from '@/lib/currency';
+import { roundCurrency, toNumber, cleanAmountInput } from '@/lib/currency';
 import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, UrunItem } from '../types';
 import type { CariType, Currency, BirimType } from '@/types/database';
 import { useIslem } from '@/hooks/useIslemler';
@@ -252,9 +252,10 @@ export function useQuickTransactionForm({
 
   // Amount change handler
   const handleAmountChange = useCallback((text: string) => {
-    // Remove non-numeric except comma and dot
-    const cleaned = text.replace(/[^0-9,.]/g, '');
-    setAmount(cleaned);
+    // Merkezî temizleyici: locale'e göre binliği atar, ondalığı 2 haneye kısar ve tek
+    // ayraç bırakır. Ham regex (birden çok ayraç + sınırsız ondalık) parseCurrency'nin
+    // "3-ondalık" tuzağına düşüp tutarı ~1000x şişirebiliyordu.
+    setAmount(cleanAmountInput(text));
   }, []);
 
   // Reset form

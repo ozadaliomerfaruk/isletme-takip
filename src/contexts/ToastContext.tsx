@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, ReactNode } from 'react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -23,6 +23,9 @@ interface ToastProviderProps {
 
 export function ToastProvider({ children }: ToastProviderProps) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  // Monotonik id — Date.now() aynı ms'de iki toast'a AYNI id verip React key çakışması
+  // + hideToast'ın ikisini birden kaldırmasına yol açıyordu.
+  const idCounterRef = useRef(0);
 
   const hideToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -30,7 +33,7 @@ export function ToastProvider({ children }: ToastProviderProps) {
 
   const showToast = useCallback(
     (message: string, type: ToastType = 'info', duration = 3000) => {
-      const id = Date.now().toString();
+      const id = `toast-${idCounterRef.current++}`;
       const toast: Toast = { id, message, type, duration };
 
       setToasts((prev) => [...prev, toast]);

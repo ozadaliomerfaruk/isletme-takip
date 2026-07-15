@@ -932,9 +932,12 @@ export function useAuth() {
     permissions: Permissions,
     role: UserRole,
   ) => {
-    // Önce bekleyen sorguları iptal et ve cache'i stale olarak işaretle
+    // Önce bekleyen sorguları iptal et
     await queryClient.cancelQueries();
-    queryClient.invalidateQueries();
+    // Gizlilik: önceki işletmenin (kendi ya da başka paylaşılan) finansal verisi
+    // şifresiz diskte kalıp soğuk açılışta rehydrate olmasın — bellek + disk cache'i
+    // temizle. Geçiş zaten yeni işletmeyi yükleyeceğinden ekstra "loading" maliyeti yok.
+    await wipePersistedCache();
 
     setState((prev) => ({
       ...prev,
@@ -946,10 +949,10 @@ export function useAuth() {
   }, [queryClient]);
 
   // Kendi işletmesine geri dön
-  const switchToOwnIsletme = useCallback(() => {
-    // Bekleyen sorguları iptal et ve cache'i stale olarak işaretle
-    queryClient.cancelQueries();
-    queryClient.invalidateQueries();
+  const switchToOwnIsletme = useCallback(async () => {
+    // Bekleyen sorguları iptal et + gizlilik gereği önceki işletme cache'ini diskten sil
+    await queryClient.cancelQueries();
+    await wipePersistedCache();
 
     setState((prev) => {
       if (!prev.ownIsletme) return prev;

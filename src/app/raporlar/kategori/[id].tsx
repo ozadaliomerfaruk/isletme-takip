@@ -284,7 +284,7 @@ export default function KategoriDetayPage() {
 
   // İşlem kartı render — İşlemler listesiyle AYNI zengin satır (TransactionRow):
   // cari/personel (başlık) · TİP·tarih · kategori · ürün kalemleri · not · hesap.
-  const renderIslemItem = ({ item }: { item: IslemWithRelations & { _categoryAmount?: number } }) => {
+  const renderIslemItem = useCallback(({ item }: { item: IslemWithRelations & { _categoryAmount?: number } }) => {
     const isGelir = type === 'gelir';
     // İade yönü AZALTIR → kategori raporunda TERS gösterilir (gelir iadesi kırmızı/eksi,
     // gider iadesi para-geri yeşil/artı). Bu raporsal semantik TransactionRow'un tip-varsayılan
@@ -322,7 +322,7 @@ export default function KategoriDetayPage() {
         onPress={handleEditTransaction}
       />
     );
-  };
+  }, [type, getUrunItems, formatDateMedium, handleEditTransaction, t]);
 
   // Kategori ikonu için helper
   const getCategoryIcon = () => {
@@ -522,7 +522,7 @@ export default function KategoriDetayPage() {
           data={uncategorizedIslemler}
           keyExtractor={(item) => item.id}
           renderItem={renderIslemItem}
-          ListHeaderComponent={() => (
+          ListHeaderComponent={(
             <View style={styles.headerContainer}>
               <Card style={styles.summaryCard}>
                 <View style={styles.summaryHeader}>
@@ -557,7 +557,7 @@ export default function KategoriDetayPage() {
               </Text>
             </View>
           )}
-          ListEmptyComponent={() => (
+          ListEmptyComponent={(
             <Card style={styles.emptyCard}>
               <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
                 {t('reports:empty.noUncategorizedTransactions')}
@@ -566,6 +566,9 @@ export default function KategoriDetayPage() {
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={10}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
@@ -624,7 +627,7 @@ export default function KategoriDetayPage() {
           data={filteredIslemler}
           keyExtractor={(item) => item.id}
           renderItem={renderIslemItem}
-          ListHeaderComponent={() => (
+          ListHeaderComponent={(
             <View style={styles.headerContainer}>
               <Card style={styles.summaryCard}>
                 <View style={styles.summaryHeader}>
@@ -659,7 +662,7 @@ export default function KategoriDetayPage() {
               </Text>
             </View>
           )}
-          ListEmptyComponent={() => (
+          ListEmptyComponent={(
             <Card style={styles.emptyCard}>
               <Text variant="body" color="secondary" style={{ textAlign: 'center' }}>
                 {t('reports:empty.noCategoryTransactions')}
@@ -668,6 +671,9 @@ export default function KategoriDetayPage() {
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={10}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
@@ -708,10 +714,15 @@ export default function KategoriDetayPage() {
         data={selectedKategoriIds.length > 0 ? filteredIslemler : []}
         keyExtractor={(item) => item.id}
         renderItem={renderIslemItem}
-        ListHeaderComponent={renderHeader}
-        ListEmptyComponent={EmptyState}
+        // Element (renderHeader()) geç — fonksiyon (renderHeader) geçilirse her checkbox
+        // toggle'ında başlık (özet + tüm alt-kategori checkbox'ları) TÜMDEN remount ediyordu.
+        ListHeaderComponent={renderHeader()}
+        ListEmptyComponent={EmptyState()}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={10}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         ListFooterComponent={islemlerLoading ? (
           <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />

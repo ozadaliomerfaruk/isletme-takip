@@ -14,6 +14,7 @@ import { ToastProvider } from '@/contexts/ToastContext';
 import { ReviewProvider } from '@/contexts/ReviewContext';
 import { ToastContainer, Text } from '@/components/ui';
 import { ChangePasswordModal } from '@/components/auth';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { WifiOff } from 'lucide-react-native';
 import { PersistentTabBar } from '@/components/ui/PersistentTabBar';
@@ -906,7 +907,9 @@ export default function RootLayout() {
           <AuthProvider>
             <ToastProvider>
               <ReviewProvider>
-                <RootLayoutNav />
+                <ErrorBoundary>
+                  <RootLayoutNav />
+                </ErrorBoundary>
               </ReviewProvider>
             </ToastProvider>
           </AuthProvider>

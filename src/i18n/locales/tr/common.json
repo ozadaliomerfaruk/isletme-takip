@@ -1,5 +1,10 @@
 {
   "appName": "İşletme Takip",
+  "errorBoundary": {
+    "title": "Bir şeyler ters gitti",
+    "message": "Beklenmedik bir hata oluştu. Verileriniz güvende — kayıtlarınıza bir şey olmadı. Tekrar deneyebilirsiniz.",
+    "retry": "Ana Sayfaya Dön"
+  },
   "addEntity": {
     "title": "Ne eklemek istersin?",
     "account": "Hesap Ekle",

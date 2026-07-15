@@ -1,5 +1,10 @@
 {
   "appName": "Small Business Finance",
+  "errorBoundary": {
+    "title": "Something went wrong",
+    "message": "An unexpected error occurred. Your data is safe — nothing happened to your records. You can try again.",
+    "retry": "Back to Home"
+  },
   "addEntity": {
     "title": "What would you like to add?",
     "account": "Add Account",
