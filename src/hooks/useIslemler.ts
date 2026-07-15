@@ -161,43 +161,30 @@ export function useCreateIslem() {
         const balanceInput = await applyLinkedCariInversion(input, isletme.id);
         __timing.link_ms = Date.now() - __tLink;
 
-        const __tInsert = Date.now();
-        const { data, error } = await supabase
-          .from('islemler')
-          .insert({ ...input, isletme_id: isletme.id })
-          .select()
-          .single();
-        __timing.insert_ms = Date.now() - __tInsert;
+        // ATOMİK: insert + bakiye ops'ları TEK transaction'da (create_islem_atomik).
+        // Deltalar computeBalanceOps ile hesaplanır — eski updateBalances ile BİREBİR aynı
+        // (tek kaynak), yani yeni yol eski yolla AYNI bakiyeleri üretir; fark yalnız artık
+        // "ya hepsi ya hiçbiri" olması → ikinci bacak patlarsa sessiz para kaybı YOK.
+        const ops = computeBalanceOps(balanceInput);
+        const __tRpc = Date.now();
+        const { data, error } = await supabase.rpc('create_islem_atomik', {
+          p_isletme_id: isletme.id,
+          p_new_row: input,
+          p_balance_ops: ops,
+        });
+        __timing.rpc_ms = Date.now() - __tRpc;
 
-        if (error) throw error;
-
-        // Bakiyeleri güncelle - başarısız olursa işlemi geri al
-        const __tBal = Date.now();
-        try {
-          await updateBalances(balanceInput);
-        } catch (balanceError) {
-          // Bakiye güncellemesi başarısız oldu, işlemi sil
-          console.error('Bakiye güncelleme hatası, işlem geri alınıyor:', balanceError);
-
-          try {
-            await supabase
-              .from('islemler')
-              .delete()
-              .eq('id', data.id)
-              .eq('isletme_id', isletme.id);
-          } catch (rollbackError) {
-            console.error('CRITICAL: İşlem geri alma hatası:', rollbackError);
-            // Kritik hata: işlem oluşturuldu ama bakiye güncellenemedi ve geri alınamadı
-            throw new Error(
-              'Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. ' +
-              `Lütfen destek ile iletişime geçin. Detay: ${(rollbackError as Error).message}`
-            );
+        if (error) {
+          // Emniyet: RPC dağıtım boşluğu (undefined_function) → ESKİ insert+increment yoluna
+          // düş (işlem yine kaydedilir; yalnız o nadir durumda atomik değil). Diğer TÜM
+          // hataları yükselt — atomik olduğundan kısmi/yarım state kalmaz.
+          if (error.code === '42883' || /create_islem_atomik/.test(error.message ?? '')) {
+            const legacy = await createIslemLegacy(isletme.id, input, balanceInput);
+            __ok = true;
+            return legacy;
           }
-
-          // Bakiye hatası ile devam et
-          throw balanceError;
+          throw error;
         }
-        __timing.balance_ms = Date.now() - __tBal;
 
         __ok = true;
         return data as Islem;
@@ -292,6 +279,37 @@ async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
   for (const op of computeBalanceOps(islem)) {
     await safeIncrementBalance(op.t, op.id, op.d);
   }
+}
+
+// Eski (NON-ATOMIK) create yolu — YALNIZ create_islem_atomik RPC'si bulunamazsa fallback.
+// insert + ayrı increment_balance'lar; ikinci bacak patlarsa satırı geri sil (mevcut davranış).
+// Not: atomik RPC yoluyla çağrıldığında bu hiç çalışmaz; sadece dağıtım boşluğuna karşı emniyet.
+async function createIslemLegacy(
+  isletmeId: string,
+  input: Omit<IslemInsert, 'isletme_id'>,
+  balanceInput: Omit<IslemInsert, 'isletme_id'>,
+): Promise<Islem> {
+  const { data, error } = await supabase
+    .from('islemler')
+    .insert({ ...input, isletme_id: isletmeId })
+    .select()
+    .single();
+  if (error) throw error;
+
+  try {
+    await updateBalances(balanceInput);
+  } catch (balanceError) {
+    try {
+      await supabase.from('islemler').delete().eq('id', data.id).eq('isletme_id', isletmeId);
+    } catch (rollbackError) {
+      throw new Error(
+        'Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. ' +
+        `Lütfen destek ile iletişime geçin. Detay: ${(rollbackError as Error).message}`
+      );
+    }
+    throw balanceError;
+  }
+  return data as Islem;
 }
 
 // Cari işlemleri (kategori bilgisi dahil) - infinite scroll
