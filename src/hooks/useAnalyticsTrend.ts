@@ -189,14 +189,22 @@ export function useAnalyticsTrend(
         const oldestStart = periods[0].startDate;
         const newestEnd = periods[periods.length - 1].endDate;
 
+        type TrendEntity = { currency: string | null; is_active?: boolean | null };
         type TrendRow = {
           type: string; amount: number; date: string;
-          hesap: { currency: string | null } | { currency: string | null }[] | null;
-          cari: { currency: string | null } | { currency: string | null }[] | null;
-          personel: { currency: string | null } | { currency: string | null }[] | null;
+          hesap: TrendEntity | TrendEntity[] | null;
+          cari: TrendEntity | TrendEntity[] | null;
+          personel: TrendEntity | TrendEntity[] | null;
         };
-        const firstCcy = (v: TrendRow['hesap']): string | null =>
-          Array.isArray(v) ? (v[0]?.currency ?? null) : (v?.currency ?? null);
+        const firstEntity = (v: TrendRow['hesap']): TrendEntity | null =>
+          Array.isArray(v) ? (v[0] ?? null) : v;
+        const firstCcy = (v: TrendRow['hesap']): string | null => firstEntity(v)?.currency ?? null;
+        // Pasif (is_active=false) hesap/cari/personel işlemleri trend'e katılmaz
+        // (rapor RPC'leriyle tutarlı; arşivli kalır).
+        const isPassiveRow = (row: TrendRow): boolean =>
+          firstEntity(row.hesap)?.is_active === false ||
+          firstEntity(row.cari)?.is_active === false ||
+          firstEntity(row.personel)?.is_active === false;
         // İşlemin para birimini A1 ile aynı kuralla çöz (tutar hangi bakiye bacağındaysa o)
         // ve ana para birimine çevir. Kur yoksa ham tutar (mevcut davranış; nadir).
         const toBaseAmount = (row: TrendRow): number => {
@@ -210,7 +218,7 @@ export function useAnalyticsTrend(
         const data = await fetchAllPages<TrendRow>(() => {
           let q = supabase
             .from('islemler')
-            .select('type, amount, date, hesap:hesaplar!hesap_id(currency), cari:cariler(currency), personel:personel(currency)')
+            .select('type, amount, date, hesap:hesaplar!hesap_id(currency,is_active), cari:cariler(currency,is_active), personel:personel(currency,is_active)')
             .eq('isletme_id', isletme.id)
             .gte('date', `${oldestStart}T00:00:00`)
             .lte('date', `${newestEnd}T23:59:59`);
@@ -235,6 +243,7 @@ export function useAnalyticsTrend(
 
         trendData = periods.map((p) => {
           const periodTransactions = data.filter((t) => {
+            if (isPassiveRow(t)) return false;
             const txDate = t.date.split('T')[0];
             return txDate >= p.startDate && txDate <= p.endDate;
           });

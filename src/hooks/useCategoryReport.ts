@@ -90,6 +90,26 @@ function normalizeDateRange(startDate: string | undefined, endDate: string | und
   return { startDateTime, endDateTime };
 }
 
+/**
+ * Pasif (is_active=false) hesap/cari/personel/hedef-hesap içeren işlemleri drill-down
+ * işlem listelerinden çıkarır — get_category_report toplamıyla TUTARLI olsun (toplamda
+ * yok ama listede vardı → bug). Arşivli (is_active=true) olanlar KALIR: rapor kuralı
+ * "arşiv görünür, pasif görünmez". Select'lerde ilgili is_active alanları çekilmelidir.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- PostgREST embed satırı (obje ya da dizi)
+function rowHasPassiveEntity(row: any): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pick = (v: any) => (Array.isArray(v) ? v[0] : v);
+  const h = pick(row?.hesap);
+  const hh = pick(row?.hedef_hesap);
+  const c = pick(row?.cari);
+  const p = pick(row?.personel);
+  return (h && h.is_active === false)
+    || (hh && hh.is_active === false)
+    || (c && c.is_active === false)
+    || (p && p.is_active === false);
+}
+
 export function useCategoryReport(
   type: KategoriType,
   options: UseCategoryReportOptions
@@ -677,8 +697,8 @@ export function useCategoryTransactions(
           *,
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name)
+          cari:cariler(id,name,type,is_active),
+          personel:personel(id,first_name,last_name,is_active)
         `;
 
       const noProductData = await fetchAllPages(() => {
@@ -782,10 +802,10 @@ export function useCategoryTransactions(
             .select(`
               *,
               hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-              hedef_hesap:hesaplar!hedef_hesap_id(id,type),
+              hedef_hesap:hesaplar!hedef_hesap_id(id,type,is_active),
               kategori:kategoriler(id,name),
-              cari:cariler(id,name,type),
-              personel:personel(id,first_name,last_name)
+              cari:cariler(id,name,type,is_active),
+              personel:personel(id,first_name,last_name,is_active)
             `)
             .eq('isletme_id', isletme.id)
             .eq('type', 'transfer')
@@ -870,8 +890,8 @@ export function useMultiCategoryTransactions(
           *,
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name)
+          cari:cariler(id,name,type,is_active),
+          personel:personel(id,first_name,last_name,is_active)
         `;
 
       const directData = await fetchAllPages(() =>
@@ -944,10 +964,10 @@ export function useMultiCategoryTransactions(
             .select(`
               *,
               hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-              hedef_hesap:hesaplar!hedef_hesap_id(id,type),
+              hedef_hesap:hesaplar!hedef_hesap_id(id,type,is_active),
               kategori:kategoriler(id,name),
-              cari:cariler(id,name,type),
-              personel:personel(id,first_name,last_name)
+              cari:cariler(id,name,type,is_active),
+              personel:personel(id,first_name,last_name,is_active)
             `)
             .eq('isletme_id', isletme.id)
             .eq('type', 'transfer')
@@ -979,7 +999,9 @@ export function useMultiCategoryTransactions(
       }
 
       combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      return combined;
+      // Pasif (is_active=false) hesap/cari/personel içeren işlemleri listeden çıkar —
+      // kategori toplamı (get_category_report) zaten dışlıyor; liste de tutarlı olsun.
+      return combined.filter((row) => !rowHasPassiveEntity(row));
     },
     enabled: !!isletme && !!startDate && !!endDate && kategoriIds.length > 0,
   });
