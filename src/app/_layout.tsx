@@ -336,6 +336,9 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('accounts:titles.accountTransactions'),
             headerShadowVisible: false,
+            // SwipeableRow (satır kaydır-düzenle/sil) tam-ekran back jestiyle çakışır;
+            // bu ekranda tam-ekran back kapalı — geri gitme kenar-kaydırmayla çalışır.
+            fullScreenGestureEnabled: false,
           }}
         />
         <Stack.Screen
@@ -347,6 +350,7 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('clients:titles.clientTransactions'),
             headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
           }}
         />
         <Stack.Screen
@@ -358,6 +362,7 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('staff:titles.personnelTransactions'),
             headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
           }}
         />
         <Stack.Screen
@@ -369,6 +374,7 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('transactions:titles.allTransactions'),
             headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
           }}
         />
         <Stack.Screen
@@ -380,6 +386,7 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('navigation:screens.notes'),
             headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
           }}
         />
         <Stack.Screen
@@ -748,6 +755,7 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('staff:leave.leaveHistory'),
             headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
           }}
         />
         {/* Hesap Silme */}
@@ -815,6 +823,7 @@ function RootLayoutNav() {
             headerTintColor: colors.text,
             headerTitle: t('products:stock.movements'),
             headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
           }}
         />
         <Stack.Screen
