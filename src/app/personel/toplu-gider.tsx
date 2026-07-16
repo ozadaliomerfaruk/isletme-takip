@@ -145,29 +145,63 @@ export default function TopluGiderPage() {
     setIsSaving(true);
 
     try {
-      // Her seçili personel için işlem oluştur
-      const promises: Promise<any>[] = [];
+      // Her seçili (tutarı > 0) personel için gider işlemini PARALEL başlat ama
+      // Promise.allSettled ile AYRI değerlendir. Promise.all kısmi başarıda hata fırlatır
+      // ama commit olmuş giderler geri alınmaz; kullanıcı tekrar basınca AYNI seçimi
+      // gönderip çift gider yapardı. Başarılı personeli seçimden çıkarıyoruz; böylece
+      // tekrar deneme yalnızca başarısızları gönderir. (toplu-odeme.tsx ile aynı desen.)
+      const targets = Array.from(selectedPersonel).filter(
+        (id) => parseCurrency(amounts[id] || '0') > 0
+      );
 
-      selectedPersonel.forEach(personelId => {
-        const amount = parseCurrency(amounts[personelId] || '0');
-        if (amount > 0) {
-          promises.push(
-            createIslem.mutateAsync({
-              type: 'personel_gider',
-              amount,
-              personel_id: personelId,
-              kategori_id: kategoriId,
-              date: formatDateTimeForDB(safeDate),
-              description: description.trim() || (kategoriId ? null : t('staff:bulkSalary.description')),
-            })
-          );
+      const results = await Promise.allSettled(
+        targets.map((personelId) =>
+          createIslem.mutateAsync({
+            type: 'personel_gider',
+            amount: parseCurrency(amounts[personelId] || '0'),
+            personel_id: personelId,
+            kategori_id: kategoriId,
+            date: formatDateTimeForDB(safeDate),
+            description: description.trim() || (kategoriId ? null : t('staff:bulkSalary.description')),
+          }).then(() => personelId)
+        )
+      );
+
+      const succeededIds = new Set<string>();
+      let failedCount = 0;
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          succeededIds.add(targets[i]);
+        } else {
+          failedCount++;
+          if (__DEV__) console.error('Toplu gider — başarısız:', targets[i], r.reason);
         }
       });
 
-      await Promise.all(promises);
+      // Başarılı kaydedilenleri seçimden çıkar (çift gideri önler) ve tutarlarını temizle
+      if (succeededIds.size > 0) {
+        setSelectedPersonel((prev) => {
+          const next = new Set(prev);
+          succeededIds.forEach((id) => next.delete(id));
+          return next;
+        });
+        setAmounts((prev) => {
+          const next = { ...prev };
+          succeededIds.forEach((id) => { delete next[id]; });
+          return next;
+        });
+      }
 
-      notifySaved(t('staff:bulkSalary.success', { count: selectedCount }));
-      router.back();
+      if (failedCount === 0) {
+        notifySaved(t('staff:bulkSalary.success', { count: succeededIds.size }));
+        router.back();
+      } else {
+        // Kısmi başarı: başarısızlar seçili kaldı, ekranda kal — kullanıcı tekrar deneyebilir
+        Alert.alert(
+          t('common:status.warning'),
+          t('staff:bulkSalary.partialError', { success: succeededIds.size, failed: failedCount })
+        );
+      }
     } catch (error) {
       if (__DEV__) {
         console.error('Toplu gider hatası:', error);

@@ -275,9 +275,27 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
 
 // Bakiye güncelleme (APPLY): işlemin bakiye etkisini uygular.
 // Matematik computeBalanceOps'ta (tek kaynak, birim-testli); burası yalnız executor.
+// Kısmi başarı korumalı: bir bacak (ör. iki-bacaklı transfer'in 2.'si) patlarsa, o ana
+// kadar uygulanan bacaklar GERİ ALINIR — yoksa satır silinse bile bakiye orphan kalırdı.
 async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
-  for (const op of computeBalanceOps(islem)) {
-    await safeIncrementBalance(op.t, op.id, op.d);
+  const ops = computeBalanceOps(islem);
+  const applied: typeof ops = [];
+  try {
+    for (const op of ops) {
+      await safeIncrementBalance(op.t, op.id, op.d);
+      applied.push(op);
+    }
+  } catch (err) {
+    // Uygulanan bacakları ters sırada geri al; geri alma da patlarsa yut (üst katman
+    // islem satırını siler + kullanıcıya kritik hata mesajı verir).
+    for (const op of applied.reverse()) {
+      try {
+        await safeIncrementBalance(op.t, op.id, -op.d);
+      } catch {
+        /* best-effort geri alma */
+      }
+    }
+    throw err;
   }
 }
 

@@ -216,22 +216,58 @@ export default function TopluCikisPage() {
           cari_id: selectedCariId,
           date: formatDateTimeForDB(date),
         });
-      } else {
-        const promises = validRows.map(row =>
-          createUrunHareket.mutateAsync({
-            urun_id: row.urunId!,
-            hareket_tipi: 'cikis',
-            miktar: parseQuantity(row.miktar),
-            birim_fiyat: parseCurrency(row.birimFiyat) || null,
-            aciklama: null,
-            created_at: formatDateTimeForDB(date),
-          })
-        );
-        await Promise.all(promises);
-      }
 
-      notifySaved(t('products:bulk.success', { count: validRows.length }));
-      router.back();
+        notifySaved(t('products:bulk.success', { count: validRows.length }));
+        router.back();
+      } else {
+        // Cari-SIZ toplu stok: her satır ayrı stok hareketi (bakiye yok). Promise.all
+        // kısmi başarıda hata fırlatır ama işlenen hareketler stoku AZALTMIŞ kalır;
+        // kullanıcı tekrar basınca AYNI satırları gönderip çift stok düşerdi. allSettled
+        // ile başarılı satırları listeden çıkarıyoruz → tekrar sadece başarısızları gönderir.
+        const results = await Promise.allSettled(
+          validRows.map(row =>
+            createUrunHareket.mutateAsync({
+              urun_id: row.urunId!,
+              hareket_tipi: 'cikis',
+              miktar: parseQuantity(row.miktar),
+              birim_fiyat: parseCurrency(row.birimFiyat) || null,
+              aciklama: null,
+              created_at: formatDateTimeForDB(date),
+            }).then(() => row.id)
+          )
+        );
+
+        const succeededIds = new Set<string>();
+        let failedCount = 0;
+        results.forEach((r, i) => {
+          if (r.status === 'fulfilled') {
+            succeededIds.add(validRows[i].id);
+          } else {
+            failedCount++;
+            if (__DEV__) console.error('Toplu stok çıkış — başarısız:', validRows[i].id, r.reason);
+          }
+        });
+
+        // Başarılı satırları listeden çıkar (çift stoku önler); liste boşalırsa 1 boş satır bırak
+        if (succeededIds.size > 0) {
+          setRows((prev) => {
+            const remaining = prev.filter((r) => !succeededIds.has(r.id));
+            return remaining.length > 0
+              ? remaining
+              : [{ id: '1', urunId: null, miktar: '', birimFiyat: '', kdvOrani: 0 }];
+          });
+        }
+
+        if (failedCount === 0) {
+          notifySaved(t('products:bulk.success', { count: succeededIds.size }));
+          router.back();
+        } else {
+          Alert.alert(
+            t('common:status.warning'),
+            t('products:bulk.partialError', { success: succeededIds.size, failed: failedCount })
+          );
+        }
+      }
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
     } finally {

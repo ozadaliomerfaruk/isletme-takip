@@ -34,7 +34,6 @@ import { useCreateIslem } from '@/hooks/useIslemler';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getHesapIconConfig } from '@/lib/icons';
 import { Hesap } from '@/types/database';
-import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Gizli-hesap tercihi isletme_id ile namespace'lenir (çapraz-kiracı sızıntı yok).
@@ -81,6 +80,9 @@ export function DailyCashModal({
   });
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Senkron çift-submit kilidi: setIsSaving asenkron; hızlı çift-dokunuşta iki kayıt
+  // döngüsü başlamadan önce state güncellenmemiş olabilir. Ref anında bloklar.
+  const isSavingRef = useRef(false);
 
   // Account visibility settings
   const [hiddenAccountIds, setHiddenAccountIds] = useState<Set<string>>(new Set());
@@ -313,6 +315,9 @@ export function DailyCashModal({
 
   // Handle save
   const handleSave = useCallback(async () => {
+    // Senkron çift-submit kilidi (setIsSaving state güncellenmeden önce ikinci dokunuş)
+    if (isSavingRef.current) return;
+
     // Filter valid entries
     const validEntries = entries.filter(
       (e) => e.amount && isValidAmount(e.amount)
@@ -326,64 +331,77 @@ export function DailyCashModal({
       return;
     }
 
+    isSavingRef.current = true;
     setIsSaving(true);
 
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    // Track created islem IDs for rollback
-    const createdIslemIds: string[] = [];
-
     try {
-      // Create transactions for each valid entry
-      for (const entry of validEntries) {
-        const result = await createIslem.mutateAsync({
-          type: 'gelir',
-          amount: parseCurrency(entry.amount),
-          hesap_id: entry.hesapId,
-          kategori_id: entry.kategoriId,
-          description: entry.description || null,
-          date: formatDateTimeForDB(date),
-        });
+      // Her hesap için gelir işlemini PARALEL başlat ama Promise.allSettled ile AYRI
+      // değerlendir. ÖNEMLİ: her giriş bağımsız bir gelir kaydıdır ve bakiyeyi createIslem
+      // içinde (materyalize bakiye) doğru günceller. Eski kod kısmi hatada ham
+      // supabase.delete() ile "rollback" yapıyordu ama bu bakiyeleri GERİ ALMIYORDU
+      // → hesap kalıcı şişik kalıyordu. Doğrusu: başarılıları KORU, başarısızları ekranda
+      // bırak (kullanıcı sadece onları tekrar dener); yıkıcı rollback yok.
+      const results = await Promise.allSettled(
+        validEntries.map((entry) =>
+          createIslem
+            .mutateAsync({
+              type: 'gelir',
+              amount: parseCurrency(entry.amount),
+              hesap_id: entry.hesapId,
+              kategori_id: entry.kategoriId,
+              description: entry.description || null,
+              date: formatDateTimeForDB(date),
+            })
+            .then(() => entry.hesapId)
+        )
+      );
 
-        // Track created islem ID for potential rollback
-        if (result?.id) {
-          createdIslemIds.push(result.id);
+      const succeededIds = new Set<string>();
+      let failedCount = 0;
+      results.forEach((r, i) => {
+        if (r.status === 'fulfilled') {
+          succeededIds.add(validEntries[i].hesapId);
+        } else {
+          failedCount++;
+          if (__DEV__) console.error('Günlük ciro — başarısız:', validEntries[i].hesapId, r.reason);
         }
+      });
+
+      // Başarılı hesapların tutarını temizle (tekrar denemede çift kayıt olmasın)
+      if (succeededIds.size > 0) {
+        setEntries((prev) =>
+          prev.map((e) => (succeededIds.has(e.hesapId) ? { ...e, amount: '' } : e))
+        );
       }
 
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (failedCount === 0) {
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+        Alert.alert(t('common:status.success'), t('transactions:dailyCash.success'));
+        onSuccess?.();
+        handleDismiss();
+      } else {
+        // Kısmi başarı: başarısızlar ekranda kaldı — kullanıcı tekrar deneyebilir
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+        Alert.alert(
+          t('common:status.warning'),
+          t('transactions:dailyCash.partialError', { success: succeededIds.size, failed: failedCount })
+        );
       }
-
-      Alert.alert(t('common:status.success'), t('transactions:dailyCash.success'));
-      onSuccess?.();
-      handleDismiss();
     } catch (error: unknown) {
-      // Rollback: delete any successfully created islemler
-      if (createdIslemIds.length > 0) {
-        try {
-          const { error: deleteError } = await supabase
-            .from('islemler')
-            .delete()
-            .in('id', createdIslemIds);
-
-          if (deleteError && __DEV__) {
-            console.error('Rollback işlem silme başarısız:', deleteError);
-          }
-        } catch (rollbackError) {
-          if (__DEV__) {
-            console.error('Rollback tamamen başarısız:', rollbackError);
-          }
-        }
-      }
-
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
       Alert.alert(t('common:status.error'), error instanceof Error ? error.message : t('transactions:messages.saveFailed'));
     } finally {
+      isSavingRef.current = false;
       setIsSaving(false);
     }
   }, [entries, date, createIslem, t, onSuccess, handleDismiss]);

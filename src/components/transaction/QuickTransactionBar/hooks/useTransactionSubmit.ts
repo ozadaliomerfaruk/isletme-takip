@@ -989,19 +989,21 @@ export function useTransactionSubmit({
               },
             });
           } else if (!isScheduledTransaction && isScheduled) {
-            // Was regular, now scheduled → delete regular + create scheduled (strip unsupported fields)
-            await deleteIslem.mutateAsync(transactionId);
+            // Was regular, now scheduled → create scheduled FIRST, then delete regular.
+            // (handleSave yolu ile aynı sıra.) Create patlarsa eski kayıt DURUR; delete-first
+            // olsaydı create patladığında işlem tamamen kaybolurdu (sessiz veri kaybı).
             await createIleriTarihliIslem.mutateAsync({
               ...stripScheduledUnsupportedFields(transactionData),
               scheduled_date: formatDateForDB(safeDate),
             });
+            await deleteIslem.mutateAsync(transactionId);
           } else {
-            // Was scheduled, now regular → delete scheduled + create regular
-            await deleteIleriTarihliIslem.mutateAsync(transactionId);
+            // Was scheduled, now regular → create regular FIRST, then delete scheduled
             await createIslem.mutateAsync({
               ...transactionData,
               date: formatDateTimeForDB(safeDate),
             });
+            await deleteIleriTarihliIslem.mutateAsync(transactionId);
           }
         }
         // Create mode - create new transaction

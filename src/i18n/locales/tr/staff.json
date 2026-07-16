@@ -222,7 +222,8 @@
     "selectAll": "Hepsini Seç",
     "selectNone": "Hiçbirini Seçme",
     "description": "Maaş tahakkuku",
-    "success": "{{count}} personele gider kaydedildi"
+    "success": "{{count}} personele gider kaydedildi",
+    "partialError": "{{success}} gider kaydedildi, {{failed}} başarısız oldu. Başarısız olanlar seçili kaldı; tekrar deneyebilirsiniz (kaydedilen personel artık seçili değil, çift kayıt olmaz)."
   },
   "bulkPayment": {
     "title": "Toplu Ödeme",

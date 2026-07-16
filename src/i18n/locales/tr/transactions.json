@@ -213,7 +213,8 @@
     "success": "Günlük ciro kaydedildi",
     "noEntries": "En az bir hesap için tutar girin",
     "saving": "Kaydediliyor...",
-    "minOneAccount": "En az bir hesap görünür olmalıdır"
+    "minOneAccount": "En az bir hesap görünür olmalıdır",
+    "partialError": "{{success}} hesap kaydedildi, {{failed}} başarısız oldu. Başarısız olan hesapların tutarı ekranda kaldı; tekrar deneyebilirsiniz (kaydedilenler temizlendi, çift kayıt olmaz)."
   },
   "stock": {
     "addStock": "Ürün Ekle",

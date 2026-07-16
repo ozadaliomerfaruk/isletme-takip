@@ -160,6 +160,7 @@
     "noProducts": "No products added yet",
     "noEntries": "Enter a quantity for at least one product",
     "success": "{{count}} product movements saved",
+    "partialError": "{{success}} product(s) saved, {{failed}} failed. Failed rows stayed on screen; you can retry (saved ones were removed, no double entry).",
     "selectAll": "Select All",
     "selectNone": "Select None"
   },

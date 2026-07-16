@@ -160,6 +160,7 @@
     "noProducts": "Henüz ürün eklenmedi",
     "noEntries": "En az bir ürün için miktar girin",
     "success": "{{count}} adet ürün hareketi kaydedildi",
+    "partialError": "{{success}} ürün kaydedildi, {{failed}} başarısız oldu. Başarısız satırlar ekranda kaldı; tekrar deneyebilirsiniz (kaydedilenler çıkarıldı, çift kayıt olmaz).",
     "selectAll": "Tümünü Seç",
     "selectNone": "Hiçbirini Seçme"
   },

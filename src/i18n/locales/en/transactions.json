@@ -213,7 +213,8 @@
     "success": "Daily revenue saved",
     "noEntries": "Enter amount for at least one account",
     "saving": "Saving...",
-    "minOneAccount": "At least one account must be visible"
+    "minOneAccount": "At least one account must be visible",
+    "partialError": "{{success}} account(s) saved, {{failed}} failed. Amounts for the failed accounts remain on screen; you can retry (saved ones were cleared, no double entry)."
   },
   "stock": {
     "addStock": "Add Product",

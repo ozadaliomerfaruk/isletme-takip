@@ -222,7 +222,8 @@
     "selectAll": "Select All",
     "selectNone": "Select None",
     "description": "Salary accrual",
-    "success": "Expense recorded for {{count}} staff"
+    "success": "Expense recorded for {{count}} staff",
+    "partialError": "{{success}} expense(s) recorded, {{failed}} failed. Failed ones stayed selected; you can retry (recorded staff are no longer selected, no double entry)."
   },
   "bulkPayment": {
     "title": "Bulk Payment",
