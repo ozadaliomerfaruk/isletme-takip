@@ -672,6 +672,17 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        <Stack.Screen
+          name="gelistirici-notu"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('help:developerNote.title'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Düzenleme Sayfaları */}
         <Stack.Screen
           name="hesaplar/duzenle/[id]"

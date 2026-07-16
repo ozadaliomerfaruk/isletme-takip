@@ -25,6 +25,7 @@ import {
   Star,
   Mail,
   HelpCircle,
+  Heart,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
@@ -87,7 +88,7 @@ export default function DahaPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { signOut, user, isletme, isOwner } = useAuthContext();
-  const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser']);
+  const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser', 'help']);
   const { canAccessModule } = usePermissions();
   const { openWriteReview } = useReview();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -389,6 +390,12 @@ export default function DahaPage() {
               icon={<HelpCircle size={22} color={colors.success} />}
               label={t('settings:about.help')}
               onPress={() => router.push('/yardim' as Href)}
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon={<Heart size={22} color={colors.error} />}
+              label={t('help:developerNote.title')}
+              onPress={() => router.push('/gelistirici-notu' as Href)}
             />
           </Card>
         </View>
