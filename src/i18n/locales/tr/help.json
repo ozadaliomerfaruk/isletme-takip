@@ -1,27 +1,43 @@
 {
   "title": "Yardım",
   "subtitle": "Uygulamayı nasıl kullanacağınıza dair ipuçları",
-  "intro": "Aşağıda uygulamanın başlıca ekranlarını nasıl kullanacağınıza dair kısa ipuçları yer alıyor.",
+  "intro": "Aşağıda uygulamanın başlıca ekranlarını nasıl kullanacağınıza dair pratik ipuçları yer alıyor.",
   "sections": {
     "home": {
-      "title": "Ana Sayfa",
-      "content": "Genel Durum kartı, tüm hesap, cari ve personel bakiyelerinizden hesaplanan net varlığınızı gösterir.\nHesaplarınız (kasa, banka, kredi kartı) burada listelenir; birine dokunarak detayını ve işlemlerini görebilirsiniz.\nSağ alttaki + düğmesiyle hızlıca gelir, gider, transfer veya cari/personel işlemi ekleyebilirsiniz.\n\"Günlük Ciro Gir\" ile gün sonu hesap girişlerinizi tek ekrandan toplu kaydedebilirsiniz."
+      "title": "Ana Sayfa & Genel Durum",
+      "content": "Ana sayfadaki Genel Durum, işletmenizin anlık net değerini gösterir: hesaplarınızdaki para, artı alacaklarınız, eksi borçlarınız.\nPasife aldığınız hesap, cari veya personel Genel Durum'a dahil edilmez; ayrı tutmak istediklerinizi pasife alarak bu raporu etkilemeden takip edebilirsiniz. Böylece bir satış veya alışı Genel Durum'a ya da gelir-gidere yansıtmadan izleyebilirsiniz.\nSağ alttaki + düğmesiyle hızlıca gelir, gider, transfer veya cari/personel işlemi ekleyebilirsiniz.\n\"Günlük Ciro Gir\" ile gün sonu hesap girişlerinizi tek ekrandan toplu kaydedebilirsiniz."
+    },
+    "hesaplar": {
+      "title": "Hesaplar (Banka, Nakit, Kredi Kartı)",
+      "content": "Banka, nakit ve kredi kartından yaptığınız her işlemi burada da manuel kaydetmek, programdan en iyi verimi almanızı sağlar.\nBir hesaptan gelir veya gider oluşturduğunuzda hem gelir-gider kaydı oluşur hem de o hesaba nakit girişi ya da çıkışı işlenir.\nFarklı şubeleriniz için istediğiniz kadar ayrı kasa/hesap oluşturabilirsiniz.\nPOS cihazı ve banka komisyonu gibi giderleri ayrı bir \"banka komisyonu\" kategorisine girin; böylece işletmelerdeki \"görünmeyen giderleri\" de takip eder, mali disiplini oturtursunuz."
+    },
+    "birikim": {
+      "title": "Birikim Hesapları",
+      "content": "Birikim hesaplarını istediğiniz döviz cinsinden açabilirsiniz.\nAylık kârınızı dolar, euro veya altına çevirip ayrı tutuyorsanız, bunu birikim hesabıyla takip edebilirsiniz.\nHer döviz için ayrı bir birikim hesabı açın: altın için altın, dolar için dolar, euro için euro hesabı."
     },
     "cariler": {
       "title": "Cariler (Müşteri & Tedarikçi)",
-      "content": "Cariler sekmesinden müşteri ve tedarikçilerinizi ekleyin; her cari için borç/alacak bakiyesi otomatik hesaplanır.\nCari detayında satış, alış, ödeme ve tahsilat işlemleri ekleyebilirsiniz.\nSağ üstteki grafik simgesiyle o cariye ait raporu, paylaş simgesiyle ekstresini alabilirsiniz.\nBir cariyi başka bir işletmeyle paylaşmak için cari kartındaki paylaşım kodunu kullanın."
+      "content": "Veresiye (vadeli) çalıştığınız tedarikçi ve müşterileri muhakkak cari olarak kaydedin; ne kadar alacağınız, ne kadar borcunuz olduğunu ancak böyle takip edebilirsiniz.\nPeşin çalışıyorsanız doğrudan hesaplardan gelir/gider oluşturabilirsiniz; ancak bu durumda o tedarikçiye veya müşteriye ait ayrı bir rapora ulaşamazsınız.\nBir tedarikçiden ne kadar alış, bir müşteriye ne kadar satış yaptığınızı görmek için cari oluşturmak mantıklıdır: önce satışı, hemen ardından tahsilatı girin. Böylece aylar sonra bile toplam alış-satış hacminizi görürsünüz.\nCari detayındaki grafik simgesiyle o cariye ait rapora, paylaş simgesiyle ekstreye ulaşırsınız; paylaşım koduyla bir cariyi başka bir işletmeyle paylaşabilirsiniz."
     },
     "personel": {
       "title": "Personel",
-      "content": "Personel sekmesinden çalışanlarınızı ekleyin; her personel için bakiye takip edilir.\nMaaş/gider tahakkuku, ödeme, prim ve avans işlemlerini kaydedebilirsiniz.\nToplu maaş veya toplu ödeme ekranıyla birden fazla personele aynı anda işlem yapabilirsiniz.\nİzin hakkı ve izin kullanımı girerek personelin kalan izin bakiyesini takip edebilirsiniz."
+      "content": "Personele ödeme yapmadan önce sırayı takip edin: önce \"personel gideri\" oluşturun, ardından ödemeyi girin.\nPersonel gideri, personelin hakedişi (tahakkuku) anlamına gelir; maaş, mesai veya prim bu şekilde tahakkuk eder.\nMaaşı, mesaiyi ya da primi yatırdığınızda \"ödeme\" seçeneğini kullanın; böylece personel bakiyesi doğru kapanır.\nToplu maaş/ödeme ekranıyla birden fazla personele aynı anda işlem yapabilir; izin hakkı ve kullanımıyla kalan izni takip edebilirsiniz."
     },
     "urunler": {
       "title": "Ürünler & Stok",
-      "content": "Ürünler sekmesinden ürünlerinizi ve stok miktarlarını yönetin.\nStok giriş/çıkış ile miktarı güncelleyin; düzeltme ile stoğu doğrudan istediğiniz değere sabitleyin.\nToplu giriş/çıkış ekranıyla birçok ürünü tek seferde işleyebilirsiniz.\nBir işlemi cari ile ilişkilendirirseniz hem stok hem cari bakiye birlikte güncellenir."
+      "content": "Ürünler bölümünü illa stok takibi için kullanmak zorunda değilsiniz.\nBir malı veya hizmeti ne kadar alıp sattığınızı, fiyatın aylar içinde nasıl değiştiğini takip etmek için de kullanabilirsiniz.\nStok giriş/çıkış ile miktarı güncelleyin; düzeltme ile stoğu doğrudan istediğiniz değere sabitleyin; toplu ekranla çok sayıda ürünü tek seferde işleyin.\nBir ürün işlemini cari ile ilişkilendirirseniz hem stok hem cari bakiye birlikte güncellenir."
+    },
+    "kategoriler": {
+      "title": "Kategoriler",
+      "content": "Kategoriler hazır (sabit) gelir, ancak dilediğiniz gibi ekleyip çıkarabilirsiniz.\nRaporlarda bir kategoriye ne kadar harcadığınızı veya o kategoriden ne kadar gelir elde ettiğinizi görürsünüz.\nDaha ayrıntılı takip için alt kategoriler açın: örneğin tedarikçi kategorisi altında ambalaj, et ürünleri, tavuk ürünleri, temizlik ve sarf malzemeleri gibi istediğiniz kadar alt kategori oluşturabilirsiniz.\nYaptığınız her işleme kategori eklemek önemlidir; aksi halde raporlardan tam verim alamazsınız.\nÜrünlerin ayrı kategorileri vardır. Ürün kategorilerini gelir/gider kategorilerine bağlarsanız gelir-gider raporlarında da görünür; bağlamazsanız yalnızca ürün ve cari hareketlerini etkiler."
     },
     "islemler": {
       "title": "İşlemler",
-      "content": "İşlem eklerken türü seçin: gelir, gider, hesaplar arası transfer, cari veya personel işlemi.\nBir işleme ürün ekleyerek stok hareketini de aynı anda oluşturabilirsiniz.\nİleri tarihli işlem oluşturup vadesi geldiğinde hatırlatma alabilirsiniz.\nİşleme fiş/fatura fotoğrafı ekleyebilir; Tüm İşlemler ekranından arama ve filtreleme yapabilirsiniz."
+      "content": "İşlem eklerken türü seçin: gelir, gider, hesaplar arası transfer, cari veya personel işlemi.\nBir işleme ürün ekleyerek stok hareketini de aynı anda oluşturabilirsiniz.\nİşleme fiş/fatura fotoğrafı ekleyebilirsiniz.\nTüm İşlemler ekranından arama ve filtreleme yapabilirsiniz."
+    },
+    "ileri": {
+      "title": "İleri Tarihli İşlemler",
+      "content": "İleride kesinleşecek tahsilat, ödeme, alış veya satışlarınız varsa (örneğin çek/senet ya da vadeli işlemler), bunları \"ileri tarihli\" olarak girin.\nBöylece gelecekte gerçekleşecek işlemleri önceden görür, vadesi geldiğinde hatırlatma alırsınız."
     },
     "raporlar": {
       "title": "Raporlar",
@@ -33,15 +49,15 @@
     },
     "paylasim": {
       "title": "Paylaşım & Çoklu Kullanıcı",
-      "content": "İşletmenizi ekip arkadaşlarınızla paylaşmak için davet kodu oluşturun; yönetici, operatör veya özel rol atayın.\nHer rol farklı yetkilere sahiptir; kapalı modülleri o kullanıcı göremez.\nBelirli bir cariyi başka bir işletmeyle paylaşabilirsiniz; karşı taraf yalnızca o cariyi görür.\nPaylaşımı istediğiniz zaman kaldırabilirsiniz."
+      "content": "İşletmenizi ortaklarınız veya ekip arkadaşlarınızla paylaşıp herkesin işlem girmesini sağlayabilirsiniz; kimin hangi işlemi girdiğini her iki taraf da görür.\nKimin hangi işlemi sildiği veya düzelttiği de geçmiş işlem takibinden görülebilir.\nDavet kodu oluşturup yönetici, operatör veya özel rol atayın; her rol farklı yetkilere sahiptir ve kapalı modülleri o kullanıcı göremez.\nBelirli bir cariyi başka bir işletmeyle paylaşabilir, paylaşımı istediğiniz zaman kaldırabilirsiniz."
     },
-    "import": {
-      "title": "İçe & Dışa Aktarma",
-      "content": "Daha menüsündeki Veri İçe Aktar ile Excel dosyasından toplu işlem aktarabilirsiniz.\nListeleri, raporları ve ekstreleri Excel (.xlsx) ve PDF olarak dışa aktarabilirsiniz.\nDışa aktarılan dosyalar cihazınıza kaydedilir; paylaşım tercihi tamamen size aittir."
+    "disaAktarma": {
+      "title": "Dışa Aktarma, Yedek & Güvenlik",
+      "content": "Hesap özeti ve bakiye ekstrelerini istediğiniz tarih aralığında PDF veya Excel olarak paylaşabilir ya da çıktısını alabilirsiniz.\nDaha menüsündeki Veri İçe Aktar ile Excel dosyasından toplu işlem aktarabilirsiniz.\nVerileriniz sunucularımızda yedeklenir ve kaybolmaz; girdiğiniz tüm cirolar, gelirler ve giderler şifreli olarak saklanır, başkaları göremez. Özetle verileriniz güvenli ve yedeklidir."
     },
     "tips": {
       "title": "Pratik İpuçları",
-      "content": "Liste öğelerini sola veya sağa kaydırarak hızlıca düzenleyebilir ya da silebilirsiniz.\nKategoriler ekranından gelir/gider kategorilerinizi özelleştirebilirsiniz.\nArtık kullanmadığınız hesap, cari veya personeli silmek yerine arşivleyin; geçmiş raporlarınız korunur.\nPara birimi ve dil tercihlerinizi Daha menüsünden değiştirebilirsiniz."
+      "content": "Liste öğelerini sola veya sağa kaydırarak hızlıca düzenleyebilir ya da silebilirsiniz.\nArtık kullanmadığınız hesap, cari veya personeli silmek yerine arşivleyin; geçmiş raporlarınız korunur.\nPara birimi ve dil tercihlerinizi Daha menüsünden değiştirebilirsiniz."
     }
   }
 }

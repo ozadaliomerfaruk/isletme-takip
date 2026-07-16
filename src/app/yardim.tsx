@@ -8,14 +8,18 @@ import { spacing } from '@/constants/spacing';
 // Bölümler sabit sırayla render edilir (i18n: help namespace).
 const SECTIONS = [
   'home',
+  'hesaplar',
+  'birikim',
   'cariler',
   'personel',
   'urunler',
+  'kategoriler',
   'islemler',
+  'ileri',
   'raporlar',
   'mutabakat',
   'paylasim',
-  'import',
+  'disaAktarma',
   'tips',
 ] as const;
 
@@ -26,7 +30,7 @@ export default function YardimPage() {
     <SafeAreaView style={styles.container} edges={['bottom']}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          <Text variant="h3" style={styles.title}>
+          <Text variant="h2" bold style={styles.title}>
             {t('title')}
           </Text>
           <Text variant="body" color="secondary" style={styles.intro}>
@@ -35,7 +39,7 @@ export default function YardimPage() {
 
           {SECTIONS.map((key) => (
             <View key={key} style={styles.section}>
-              <Text variant="label" style={styles.sectionTitle}>
+              <Text variant="h3" bold style={styles.sectionTitle}>
                 {t(`sections.${key}.title`)}
               </Text>
               <Text variant="body" color="secondary" style={styles.paragraph}>
@@ -65,19 +69,20 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['3xl'],
   },
   title: {
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   intro: {
     marginBottom: spacing.xl,
-    lineHeight: 22,
+    lineHeight: 24,
   },
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
   sectionTitle: {
+    marginTop: spacing.xs,
     marginBottom: spacing.sm,
   },
   paragraph: {
-    lineHeight: 22,
+    lineHeight: 25,
   },
 });
