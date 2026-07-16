@@ -166,7 +166,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
 export default function PersonelHareketleriPage() {
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
-  const { t } = useTranslation(['staff', 'common', 'errors']);
+  const { t } = useTranslation(['staff', 'common', 'errors', 'multiUser']);
   const { formatDateSmart, formatDateShort, formatDateMedium } = useDateFormat();
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
@@ -180,7 +180,7 @@ export default function PersonelHareketleriPage() {
   // İzin kotası: KANONİK kaynak (tüm izin satırları, sayfalamasız) — ana sayfa ve izin
   // geçmişiyle birebir aynı; paginated `islemler`'den hesaplanmaz (scroll'a göre oynamaz).
   const { data: leaveQuotas } = usePersonelLeaveQuotas();
-  const { canUpdate, canDelete } = usePermissions();
+  const { canUpdate, canDelete, canAccessModule } = usePermissions();
   const { user, isletme } = useAuthContext();
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
@@ -391,7 +391,15 @@ export default function PersonelHareketleriPage() {
   const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
       <TouchableOpacity
-        onPress={() => router.push({ pathname: '/raporlar/personel', params: { personelId: id } })}
+        onPress={() => {
+          // Rapor sayfası 'raporlar' modülüne bağlı. İzinsiz üye için sayfaya HİÇ gitme
+          // (flaş + veri-çekme olmadan) — doğrudan "Erişim Engellendi" uyarısı ver.
+          if (!canAccessModule('raporlar')) {
+            Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
+            return;
+          }
+          router.push({ pathname: '/raporlar/personel', params: { personelId: id } });
+        }}
         style={styles.headerBtn}
         hitSlop={HIT_SLOP.md}
       >
@@ -412,7 +420,7 @@ export default function PersonelHareketleriPage() {
         <MoreVertical size={24} color={colors.text} />
       </TouchableOpacity>
     </View>
-  ), [id]);
+  ), [id, canAccessModule, t, router]);
 
   // ============================================================================
   // FlatList renderItem + key extractor

@@ -388,7 +388,7 @@ const productDetailStyles = StyleSheet.create({
 export default function CariHareketleriPage() {
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
-  const { t } = useTranslation(['clients', 'common', 'errors', 'checks']);
+  const { t } = useTranslation(['clients', 'common', 'errors', 'checks', 'multiUser']);
   const { formatDateSmart, formatDateShort } = useDateFormat();
   const { currency: baseCurrency } = useSettings();
   const insets = useSafeAreaInsets();
@@ -405,7 +405,7 @@ export default function CariHareketleriPage() {
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByCari(id!, !!isViewer);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: entityNotes } = useNotlarByEntity('cari', id!);
-  const { canUpdate, canDelete } = usePermissions();
+  const { canUpdate, canDelete, canAccessModule } = usePermissions();
   const { user, isletme } = useAuthContext();
   const haptics = useHaptics();
   const {
@@ -677,7 +677,15 @@ export default function CariHareketleriPage() {
   const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
       <TouchableOpacity
-        onPress={() => router.push({ pathname: '/raporlar/cari', params: { cariId: id } })}
+        onPress={() => {
+          // Rapor sayfası 'raporlar' modülüne bağlı. İzinsiz üye için sayfaya HİÇ gitme
+          // (flaş + veri-çekme olmadan) — doğrudan "Erişim Engellendi" uyarısı ver.
+          if (!canAccessModule('raporlar')) {
+            Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
+            return;
+          }
+          router.push({ pathname: '/raporlar/cari', params: { cariId: id } });
+        }}
         style={styles.headerBtn}
         hitSlop={HIT_SLOP.md}
       >
@@ -700,7 +708,7 @@ export default function CariHareketleriPage() {
         </TouchableOpacity>
       )}
     </View>
-  ), [isViewer, id, router]);
+  ), [isViewer, id, router, canAccessModule, t]);
 
   // === DATE GROUPING ===
   const groupedData = useMemo(() => {
