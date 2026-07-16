@@ -171,17 +171,6 @@ export function useDeleteCari() {
         throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedScheduledTransactions', { count: scheduledCount }));
       }
 
-      // Bağlı çek kontrolü
-      const { count: cekCount } = await supabase
-        .from('cekler')
-        .select('id', { count: 'exact', head: true })
-        .eq('cari_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (cekCount && cekCount > 0) {
-        throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedChecks', { count: cekCount }));
-      }
-
       // Bağlı paylaşım kontrolü: bu cari başka bir işletmeyle paylaşılmışsa (cari_links),
       // silinince FK CASCADE ile paylaşım kalkar ve karşı (viewer) taraf erişimini SESSİZCE
       // kaybeder. Silmeyi engelle; kullanıcı önce paylaşımı kaldırmalı.

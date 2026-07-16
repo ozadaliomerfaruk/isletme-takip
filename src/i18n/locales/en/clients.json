@@ -211,7 +211,7 @@
     "transactionTitle": "Delete Transaction",
     "transactionMessage": "Are you sure you want to delete this transaction?",
     "clientTitle": "Delete Contact",
-    "clientMessage": "Are you sure you want to delete this contact?\n\nNote: Contacts with linked transactions, checks or scheduled transactions cannot be deleted. You must delete the linked records first."
+    "clientMessage": "Are you sure you want to delete this contact?\n\nNote: Contacts with linked transactions or scheduled transactions cannot be deleted. You must delete the linked records first."
   },
   "balanceDirection": {
     "label": "Balance Direction",

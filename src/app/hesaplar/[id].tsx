@@ -296,7 +296,7 @@ export default function HesapHareketleriPage() {
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { t } = useTranslation(['accounts', 'common', 'errors', 'checks']);
+  const { t } = useTranslation(['accounts', 'common', 'errors']);
   const { formatDateMedium, formatDateShort } = useDateFormat();
 
   const { data: hesap, isLoading: hesapLoading, refetch: refetchHesap } = useHesap(id!);

@@ -168,18 +168,6 @@ export function useDeleteHesap() {
         throw new Error(i18n.t('errors:account.hasFutureTransactions'));
       }
 
-      // Bağlı çek kontrolü: çek hesabı silinince cekler.hesap_id CASCADE ile sessizce silinir
-      // (bekleyen çek işlem satırı oluşturmadığı için yukarıdaki işlem guard'ından geçer).
-      const { count: cekCount } = await supabase
-        .from('cekler')
-        .select('id', { count: 'exact', head: true })
-        .eq('hesap_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (cekCount && cekCount > 0) {
-        throw new Error(i18n.t('errors:account.hasChecks'));
-      }
-
       // Bu hesaba iliştirilmiş notları genel nota çevir (yetim not kalmasın)
       const { error: notlarError } = await supabase
         .from('notlar')

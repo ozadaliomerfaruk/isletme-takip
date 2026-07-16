@@ -18,11 +18,11 @@
         "auth": "Kimlik Doğrulama ve Oturum Bilgileri:",
         "authItems": "Oturum ve yetkilendirme bilgileri",
         "financial": "Finansal Bilgiler:",
-        "financialItems": "Kullanıcı tarafından manuel olarak girilen işletme hesap kayıtları, cari hesap bilgileri, personel bilgileri, ürün ve stok bilgileri, çek ve senet bilgileri, döviz kuru bilgileri",
+        "financialItems": "Kullanıcı tarafından manuel olarak girilen işletme hesap kayıtları, cari hesap bilgileri, personel bilgileri, ürün ve stok bilgileri, döviz kuru bilgileri",
         "visual": "Görsel Veriler:",
         "visualItems": "İşlemlere ve notlara eklenen fotoğraflar (fiş, fatura vb.)",
         "technical": "İşlem ve Teknik Güvenlik Bilgileri:",
-        "technicalItems": "Sistem güvenliği ve hizmetin sağlanması amacıyla oluşturulan teknik kayıtlar"
+        "technicalItems": "Sistem güvenliği ve hizmetin sağlanması amacıyla oluşturulan teknik kayıtlar ile uygulamanın geliştirilmesi amacıyla toplanan anonim kullanım ve performans kayıtları (hangi ekranların kullanıldığı, özellik kullanımı, işlem süreleri vb.)"
       },
       "purposes": {
         "title": "3. Kişisel Verilerin İşlenme Amaçları",
@@ -57,12 +57,12 @@
   },
   "terms": {
     "title": "Kullanım Koşulları",
-    "lastUpdated": "Son Güncelleme: 18 Haziran 2026",
+    "lastUpdated": "Son Güncelleme: 16 Temmuz 2026",
     "intro": "İşletme Takip – Hesap Kitap uygulamasını kullanarak aşağıdaki koşulları kabul etmiş sayılırsınız.",
     "sections": {
       "serviceDescription": {
         "title": "1. Hizmet Tanımı",
-        "content": "İşletme Takip – Hesap Kitap, küçük ve orta ölçekli işletmeler için geliştirilmiş bir finansal takip ve yönetim uygulamasıdır. Uygulama; gelir-gider takibi, cari hesap yönetimi, personel kayıt ve ödeme takibi, ürün ve stok yönetimi, çek ve senet takibi, not ve görev yönetimi ile finansal raporlama araçları sunar.\n\nUygulama, resmi muhasebe, bordro, vergi veya hukuki danışmanlık hizmeti sunmaz."
+        "content": "İşletme Takip – Hesap Kitap, küçük ve orta ölçekli işletmeler için geliştirilmiş bir finansal takip ve yönetim uygulamasıdır. Uygulama; gelir-gider takibi, cari hesap yönetimi, personel kayıt ve ödeme takibi, ürün ve stok yönetimi, not ve görev yönetimi ile finansal raporlama araçları sunar.\n\nUygulama, resmi muhasebe, bordro, vergi veya hukuki danışmanlık hizmeti sunmaz."
       },
       "usageTerms": {
         "title": "2. Kullanım Şartları ve Yaş Sınırı",
@@ -116,7 +116,7 @@
   },
   "privacy": {
     "title": "Gizlilik Politikası",
-    "lastUpdated": "Son Güncelleme: 18 Haziran 2026",
+    "lastUpdated": "Son Güncelleme: 16 Temmuz 2026",
     "intro": "İşletme Takip – Hesap Kitap olarak gizliliğinize önem veriyoruz. Bu Gizlilik Politikası, mobil uygulamamız aracılığıyla toplanan kişisel verilerin hangi amaçlarla işlendiği, nasıl korunduğunu ve kullanıcıların haklarını açıklamaktadır.",
     "sections": {
       "collectedData": {
@@ -128,7 +128,7 @@
         "userContent": {
           "title": "1.2 Kullanıcı Tarafından Girilen İçerikler",
           "intro": "Aşağıdaki bilgiler tamamen kullanıcının isteğiyle ve manuel olarak girilir:",
-          "content": "Finansal kayıtlar (banka hesapları, kasa, gelir-gider kayıtları)\nCari hesap bilgileri (müşteri ve tedarikçi bilgileri)\nPersonel bilgileri (ad, pozisyon, maaş, izin bilgileri)\nÜrün ve stok bilgileri (ürün adı, kodu, fiyat, stok miktarı)\nÇek ve senet bilgileri\nNot ve görev içerikleri (hatırlatıcılar, fotoğraflar, atamalar dahil)\nAçıklamalar ve benzeri içerikler"
+          "content": "Finansal kayıtlar (banka hesapları, kasa, gelir-gider kayıtları)\nCari hesap bilgileri (müşteri ve tedarikçi bilgileri)\nPersonel bilgileri (ad, pozisyon, maaş, izin bilgileri)\nÜrün ve stok bilgileri (ürün adı, kodu, fiyat, stok miktarı)\nNot ve görev içerikleri (hatırlatıcılar, fotoğraflar, atamalar dahil)\nAçıklamalar ve benzeri içerikler"
         },
         "optional": {
           "title": "1.3 Opsiyonel Bilgiler",
@@ -142,8 +142,8 @@
       "dataUsage": {
         "title": "2. Verilerin Kullanım Amaçları",
         "intro": "Toplanan veriler aşağıdaki amaçlarla işlenir:",
-        "items": "Uygulama fonksiyonlarının sağlanması\nHesap ve oturum yönetimi\nFinansal kayıt ve raporların oluşturulması\nİleri tarihli işlem hatırlatmalarının gönderilmesi\nNot ve görev hatırlatıcılarının gönderilmesi\nTeknik sorunların giderilmesi\nYasal yükümlülüklerin yerine getirilmesi",
-        "outro": "Veriler reklam, pazarlama veya kullanıcı takibi amacıyla kullanılmaz."
+        "items": "Uygulama fonksiyonlarının sağlanması\nHesap ve oturum yönetimi\nFinansal kayıt ve raporların oluşturulması\nİleri tarihli işlem hatırlatmalarının gönderilmesi\nNot ve görev hatırlatıcılarının gönderilmesi\nTeknik sorunların giderilmesi ve uygulamanın anonim kullanım verileriyle iyileştirilmesi\nYasal yükümlülüklerin yerine getirilmesi",
+        "outro": "Uygulama içi anonim kullanım ve performans kayıtları yalnızca hizmeti geliştirmek amacıyla toplanır. Veriler üçüncü taraf reklam, pazarlama veya çapraz uygulama/site kullanıcı takibi amacıyla kullanılmaz veya satılmaz."
       },
       "multiUser": {
         "title": "3. Çoklu Kullanıcı ve Veri Paylaşımı",
@@ -156,12 +156,12 @@
       "dataSecurity": {
         "title": "5. Veri Güvenliği",
         "intro": "Kişisel verilerin güvenliği için aşağıdaki önlemler alınmaktadır:",
-        "items": "SSL/TLS ile şifrelenmiş veri iletimi\nGüvenli sunucu altyapıları\nSatır düzeyinde erişim kontrolü (Row Level Security)\nYetkilendirme ve erişim kontrol mekanizmaları\nYetkisiz erişimi önlemeye yönelik teknik tedbirler"
+        "items": "SSL/TLS ile şifrelenmiş veri iletimi\nGüvenli sunucu altyapıları\nSatır düzeyinde erişim kontrolü (Row Level Security)\nYetkilendirme ve erişim kontrol mekanizmaları\nYetkisiz erişimi önlemeye yönelik teknik tedbirler\nÇevrimdışı erişim ve performans için verilerin bir kısmı cihazınızda yerel olarak önbelleğe alınabilir; bu veriler cihazınızın kendi güvenlik mekanizmalarıyla korunur"
       },
       "thirdParty": {
         "title": "6. Üçüncü Taraf Hizmet Sağlayıcılar",
         "intro": "Uygulama aşağıdaki hizmet sağlayıcılardan faydalanabilir:",
-        "items": "Kimlik doğrulama servisleri (Apple Kimliği, Google Hesabı)\nVeritabanı ve kimlik doğrulama altyapısı (Supabase)\nDosya depolama hizmetleri (Supabase Storage)\nBulut barındırma (hosting) hizmetleri",
+        "items": "Kimlik doğrulama servisleri (Apple Kimliği, Google Hesabı)\nVeritabanı ve kimlik doğrulama altyapısı (Supabase)\nDosya depolama hizmetleri (Supabase Storage)\nBulut barındırma (hosting) hizmetleri\nAnlık bildirim (push) altyapısı (Expo)",
         "outro": "Bu hizmet sağlayıcılar, verilere yalnızca uygulamanın işlevlerini yerine getirebilmek amacıyla ve sınırlı ölçüde erişebilir."
       },
       "dataExport": {

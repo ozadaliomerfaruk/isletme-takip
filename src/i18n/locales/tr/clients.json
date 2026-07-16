@@ -211,7 +211,7 @@
     "transactionTitle": "İşlemi Sil",
     "transactionMessage": "Bu işlemi silmek istediğinizden emin misiniz?",
     "clientTitle": "Cariyi Sil",
-    "clientMessage": "Bu cariyi silmek istediğinizden emin misiniz?\n\nNot: Bağlı işlemi, çeki veya ileri tarihli işlemi olan cariler silinemez. Önce bağlı kayıtları silmeniz gerekir."
+    "clientMessage": "Bu cariyi silmek istediğinizden emin misiniz?\n\nNot: Bağlı işlemi veya ileri tarihli işlemi olan cariler silinemez. Önce bağlı kayıtları silmeniz gerekir."
   },
   "balanceDirection": {
     "label": "Bakiye Yönü",

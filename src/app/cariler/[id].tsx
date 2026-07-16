@@ -388,7 +388,7 @@ const productDetailStyles = StyleSheet.create({
 export default function CariHareketleriPage() {
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
-  const { t } = useTranslation(['clients', 'common', 'errors', 'checks', 'multiUser']);
+  const { t } = useTranslation(['clients', 'common', 'errors', 'multiUser']);
   const { formatDateSmart, formatDateShort } = useDateFormat();
   const { currency: baseCurrency } = useSettings();
   const insets = useSafeAreaInsets();

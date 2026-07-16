@@ -642,19 +642,6 @@ export function useDeleteIslem() {
       if (fetchError) throw fetchError;
       if (!islem) throw new Error(i18n.t('common:errors.transactionNotFound'));
 
-      // Bu işleme bağlı çek var mı? Çek tahsilatı işlemi (cekler.islem_id) silinirse
-      // çek 'ödendi' durumunda kilitli-tutarsız kalır (kullanıcı ne silebilir ne iptal edebilir).
-      // Silmeyi engelle; kullanıcı önce çek tahsilatını geri almalı.
-      const { count: linkedCekCount } = await supabase
-        .from('cekler')
-        .select('id', { count: 'exact', head: true })
-        .eq('islem_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (linkedCekCount && linkedCekCount > 0) {
-        throw new LinkedRecordsError(i18n.t('common:errors.transactionLinkedToCheck'));
-      }
-
       // Linked cari inversiyonu: viewer perspektifinden owner perspektifine çevir
       const balanceIslem = await applyLinkedCariInversion(islem, isletme.id);
 

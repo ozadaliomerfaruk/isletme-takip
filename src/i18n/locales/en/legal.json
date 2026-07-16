@@ -18,11 +18,11 @@
         "auth": "Authentication and Session Information:",
         "authItems": "Session and authorization data",
         "financial": "Financial Information:",
-        "financialItems": "Business account records manually entered by user, client account information, staff information, product and inventory information, cheque and promissory note information, exchange rate information",
+        "financialItems": "Business account records manually entered by user, client account information, staff information, product and inventory information, exchange rate information",
         "visual": "Visual Data:",
         "visualItems": "Photos attached to transactions and notes (receipts, invoices, etc.)",
         "technical": "Transaction and Technical Security Information:",
-        "technicalItems": "Technical records created for system security and service provision"
+        "technicalItems": "Technical records created for system security and service provision, and anonymous usage and performance records collected to improve the application (which screens are used, feature usage, operation timing, etc.)"
       },
       "purposes": {
         "title": "3. Purposes of Processing Personal Data",
@@ -57,12 +57,12 @@
   },
   "terms": {
     "title": "Terms of Service",
-    "lastUpdated": "Last Updated: June 18, 2026",
+    "lastUpdated": "Last Updated: July 16, 2026",
     "intro": "By using the Simple Business Finance application, you agree to the following terms.",
     "sections": {
       "serviceDescription": {
         "title": "1. Service Description",
-        "content": "Simple Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, cheque and promissory note tracking, notes and task management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
+        "content": "Simple Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, notes and task management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
       },
       "usageTerms": {
         "title": "2. Usage Terms and Age Restriction",
@@ -116,7 +116,7 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last Updated: June 18, 2026",
+    "lastUpdated": "Last Updated: July 16, 2026",
     "intro": "At Simple Business Finance, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
     "sections": {
       "collectedData": {
@@ -128,7 +128,7 @@
         "userContent": {
           "title": "1.2 User-Entered Content",
           "intro": "The following information is entered entirely at user's discretion and manually:",
-          "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information (name, position, salary, leave details)\nProduct and inventory information (product name, code, price, stock quantity)\nCheque and promissory note information\nNotes and task content (including reminders, photos, and assignments)\nDescriptions and similar content"
+          "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information (name, position, salary, leave details)\nProduct and inventory information (product name, code, price, stock quantity)\nNotes and task content (including reminders, photos, and assignments)\nDescriptions and similar content"
         },
         "optional": {
           "title": "1.3 Optional Information",
@@ -142,8 +142,8 @@
       "dataUsage": {
         "title": "2. Data Usage Purposes",
         "intro": "Collected data is processed for the following purposes:",
-        "items": "Providing application functions\nAccount and session management\nCreating financial records and reports\nSending scheduled transaction reminders\nSending note and task reminders\nResolving technical issues\nFulfilling legal obligations",
-        "outro": "Data is not used for advertising, marketing, or user tracking purposes."
+        "items": "Providing application functions\nAccount and session management\nCreating financial records and reports\nSending scheduled transaction reminders\nSending note and task reminders\nResolving technical issues and improving the application using anonymous usage data\nFulfilling legal obligations",
+        "outro": "In-app anonymous usage and performance records are collected solely to improve the service. Data is not used or sold for third-party advertising, marketing, or cross-app/site user tracking purposes."
       },
       "multiUser": {
         "title": "3. Multi-User Access and Data Sharing",
@@ -156,12 +156,12 @@
       "dataSecurity": {
         "title": "5. Data Security",
         "intro": "The following measures are taken for personal data security:",
-        "items": "SSL/TLS encrypted data transmission\nSecure server infrastructure\nRow Level Security (RLS) access controls\nAuthorization and access control mechanisms\nTechnical measures to prevent unauthorized access"
+        "items": "SSL/TLS encrypted data transmission\nSecure server infrastructure\nRow Level Security (RLS) access controls\nAuthorization and access control mechanisms\nTechnical measures to prevent unauthorized access\nFor offline access and performance, some data may be cached locally on your device; this data is protected by your device's own security mechanisms"
       },
       "thirdParty": {
         "title": "6. Third-Party Service Providers",
         "intro": "The application may utilize the following service providers:",
-        "items": "Authentication services (Apple ID, Google Account)\nDatabase and authentication infrastructure (Supabase)\nFile storage services (Supabase Storage)\nCloud hosting services",
+        "items": "Authentication services (Apple ID, Google Account)\nDatabase and authentication infrastructure (Supabase)\nFile storage services (Supabase Storage)\nCloud hosting services\nPush notification infrastructure (Expo)",
         "outro": "These service providers can access data only for the purpose of fulfilling application functions and to a limited extent."
       },
       "dataExport": {
