@@ -201,7 +201,8 @@
     "conversion": "Dönüşüm",
     "confirm": "Onayla ve Kaydet",
     "cancel": "İptal",
-    "invalidRate": "Geçerli bir kur girin"
+    "invalidRate": "Geçerli bir kur girin",
+    "scheduledCrossCurrencyBlocked": "İleri tarihli işlem farklı para birimli hesaplar arasında oluşturulamaz (kur saklanamadığı için vadesinde tamamlanamaz). Lütfen işlemi vadesi geldiğinde normal olarak girin."
   },
   "dailyCash": {
     "enterButton": "Günlük Ciro Gir",

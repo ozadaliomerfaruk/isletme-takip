@@ -45,7 +45,7 @@ import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
-import { ensureValidDate } from '@/lib/date';
+import { ensureValidDate, formatDateForDB } from '@/lib/date';
 import { normalizeTurkish, upperTr } from '@/lib/turkishTextUtils';
 import { isLeaveType, isIncomeType } from '@/constants/islemTypes';
 
@@ -209,8 +209,10 @@ export default function AramaPage() {
     searchQuery: debouncedQuery,
     minAmount: parsedMin,
     maxAmount: parsedMax,
-    dateFrom: dateFrom ? dateFrom.toISOString().split('T')[0] : null,
-    dateTo: dateTo ? dateTo.toISOString().split('T')[0] : null,
+    // YEREL tarih (formatDateForDB) — toISOString() UTC'ye çevirip UTC+3'te günü BİR GERİ
+    // kaydırıyordu (16 Tem seçince "15" gidiyor → bitiş günü işlemleri filtreden düşüyordu).
+    dateFrom: dateFrom ? formatDateForDB(dateFrom) : null,
+    dateTo: dateTo ? formatDateForDB(dateTo) : null,
   });
 
   const amountInRange = useCallback((amount: number): boolean => {

@@ -307,6 +307,14 @@ export function useQuickTransactionForm({
     // Ensure the loaded transaction matches the requested source ID (avoid stale cache)
     if (transaction.id !== loadSourceId) return;
 
+    // KRİTİK YARIŞ FIX: urun_hareketler AYRI bir sorgudur ve normalTransaction'dan SONRA
+    // çözülebilir. Henüz yükleniyorsa editDataLoaded'ı SET ETME — aksi halde ürün kalemleri
+    // boş kalır (aşağıdaki blok atlanır), guard (editDataLoaded) yüzünden effect bir daha
+    // yüklemez ve kaydetmede reapply RPC'ye BOŞ items gider → mevcut stok hareketleri silinir
+    // + stok yanlış yöne geri sarılır (ürün stok kaybı). Sorgu çözülünce (urunHareketler
+    // referansı + isLoadingUrunHareketler değişince) effect tekrar çalışıp kalemleri yükler.
+    if (shouldLoadNormal && isLoadingUrunHareketler) return;
+
     // Map API type to form state using reverse mapper
     const mappedState = mapApiTypeToFormState(
       transaction.type,
@@ -382,6 +390,8 @@ export function useQuickTransactionForm({
     normalTransaction,
     scheduledTransaction,
     urunHareketler,
+    shouldLoadNormal,
+    isLoadingUrunHareketler,
   ]);
 
   // Prefill (defaultAmount/Date/Description) açılış başına BİR KEZ uygulanır:

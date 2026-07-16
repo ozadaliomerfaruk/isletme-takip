@@ -201,7 +201,8 @@
     "conversion": "Conversion",
     "confirm": "Confirm and Save",
     "cancel": "Cancel",
-    "invalidRate": "Please enter a valid rate"
+    "invalidRate": "Please enter a valid rate",
+    "scheduledCrossCurrencyBlocked": "Scheduled transactions can't be created between accounts with different currencies (the exchange rate can't be stored, so it can't be completed on its due date). Please enter the transaction normally when it's due."
   },
   "dailyCash": {
     "enterButton": "Enter Daily Revenue",

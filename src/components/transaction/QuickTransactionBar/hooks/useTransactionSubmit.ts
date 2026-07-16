@@ -953,6 +953,18 @@ export function useTransactionSubmit({
     async (exchangeRate: number, _targetAmount: number) => {
       if (!pendingExchangeData || isSavingRef.current) return;
 
+      // İLERİ TARİHLİ + CROSS-CURRENCY ENGELİ: bu handler'a YALNIZ cross-currency ile
+      // ulaşılır. ileri_tarihli_islemler tablosu kur/para birimi saklamaz (create'te
+      // strip'lenir) → farklı para birimleri arasında bir ileri tarihli işlem TAMAMLANAMAZ
+      // (tamamlama anında kur null olur, calculateTargetAmount "geçersiz kur" fırlatır ve
+      // her deneme geri sarılır). Sessizce-tamamlanamaz durum yaratmak yerine baştan net
+      // mesajla engelle. (Kalıcı çözüm: ileri_tarihli'ye kur kolonları eklemek — ayrı iş.)
+      if (isScheduled) {
+        setShowExchangeRateBar(false);
+        showToast(t('transactions:exchangeRate.scheduledCrossCurrencyBlocked'), 'error');
+        return;
+      }
+
       setShowExchangeRateBar(false);
       isSavingRef.current = true;
       setIsSaving(true);
