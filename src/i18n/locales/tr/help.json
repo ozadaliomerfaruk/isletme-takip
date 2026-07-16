@@ -1,0 +1,47 @@
+{
+  "title": "Yardım",
+  "subtitle": "Uygulamayı nasıl kullanacağınıza dair ipuçları",
+  "intro": "Aşağıda uygulamanın başlıca ekranlarını nasıl kullanacağınıza dair kısa ipuçları yer alıyor.",
+  "sections": {
+    "home": {
+      "title": "Ana Sayfa",
+      "content": "Genel Durum kartı, tüm hesap, cari ve personel bakiyelerinizden hesaplanan net varlığınızı gösterir.\nHesaplarınız (kasa, banka, kredi kartı) burada listelenir; birine dokunarak detayını ve işlemlerini görebilirsiniz.\nSağ alttaki + düğmesiyle hızlıca gelir, gider, transfer veya cari/personel işlemi ekleyebilirsiniz.\n\"Günlük Ciro Gir\" ile gün sonu hesap girişlerinizi tek ekrandan toplu kaydedebilirsiniz."
+    },
+    "cariler": {
+      "title": "Cariler (Müşteri & Tedarikçi)",
+      "content": "Cariler sekmesinden müşteri ve tedarikçilerinizi ekleyin; her cari için borç/alacak bakiyesi otomatik hesaplanır.\nCari detayında satış, alış, ödeme ve tahsilat işlemleri ekleyebilirsiniz.\nSağ üstteki grafik simgesiyle o cariye ait raporu, paylaş simgesiyle ekstresini alabilirsiniz.\nBir cariyi başka bir işletmeyle paylaşmak için cari kartındaki paylaşım kodunu kullanın."
+    },
+    "personel": {
+      "title": "Personel",
+      "content": "Personel sekmesinden çalışanlarınızı ekleyin; her personel için bakiye takip edilir.\nMaaş/gider tahakkuku, ödeme, prim ve avans işlemlerini kaydedebilirsiniz.\nToplu maaş veya toplu ödeme ekranıyla birden fazla personele aynı anda işlem yapabilirsiniz.\nİzin hakkı ve izin kullanımı girerek personelin kalan izin bakiyesini takip edebilirsiniz."
+    },
+    "urunler": {
+      "title": "Ürünler & Stok",
+      "content": "Ürünler sekmesinden ürünlerinizi ve stok miktarlarını yönetin.\nStok giriş/çıkış ile miktarı güncelleyin; düzeltme ile stoğu doğrudan istediğiniz değere sabitleyin.\nToplu giriş/çıkış ekranıyla birçok ürünü tek seferde işleyebilirsiniz.\nBir işlemi cari ile ilişkilendirirseniz hem stok hem cari bakiye birlikte güncellenir."
+    },
+    "islemler": {
+      "title": "İşlemler",
+      "content": "İşlem eklerken türü seçin: gelir, gider, hesaplar arası transfer, cari veya personel işlemi.\nBir işleme ürün ekleyerek stok hareketini de aynı anda oluşturabilirsiniz.\nİleri tarihli işlem oluşturup vadesi geldiğinde hatırlatma alabilirsiniz.\nİşleme fiş/fatura fotoğrafı ekleyebilir; Tüm İşlemler ekranından arama ve filtreleme yapabilirsiniz."
+    },
+    "raporlar": {
+      "title": "Raporlar",
+      "content": "Raporlar bölümünden gelir-gider, kategori, hesap bazlı ve net varlık trendi raporlarına ulaşın.\nÜstteki dönem seçiciyle yıllık, aylık, haftalık, günlük veya özel tarih aralığı seçebilirsiniz.\nRaporları ve ekstreleri Excel ve PDF olarak dışa aktarıp paylaşabilirsiniz."
+    },
+    "mutabakat": {
+      "title": "Mutabakat",
+      "content": "Mutabakat ile bir carinin sizdeki kayıtlarını, karşı taraftan gelen Excel/CSV ekstresiyle karşılaştırabilirsiniz.\nUygulama eksik veya fazla kayıtları tespit eder; eksik olanları tek dokunuşla ekleyebilirsiniz."
+    },
+    "paylasim": {
+      "title": "Paylaşım & Çoklu Kullanıcı",
+      "content": "İşletmenizi ekip arkadaşlarınızla paylaşmak için davet kodu oluşturun; yönetici, operatör veya özel rol atayın.\nHer rol farklı yetkilere sahiptir; kapalı modülleri o kullanıcı göremez.\nBelirli bir cariyi başka bir işletmeyle paylaşabilirsiniz; karşı taraf yalnızca o cariyi görür.\nPaylaşımı istediğiniz zaman kaldırabilirsiniz."
+    },
+    "import": {
+      "title": "İçe & Dışa Aktarma",
+      "content": "Daha menüsündeki Veri İçe Aktar ile Excel dosyasından toplu işlem aktarabilirsiniz.\nListeleri, raporları ve ekstreleri Excel (.xlsx) ve PDF olarak dışa aktarabilirsiniz.\nDışa aktarılan dosyalar cihazınıza kaydedilir; paylaşım tercihi tamamen size aittir."
+    },
+    "tips": {
+      "title": "Pratik İpuçları",
+      "content": "Liste öğelerini sola veya sağa kaydırarak hızlıca düzenleyebilir ya da silebilirsiniz.\nKategoriler ekranından gelir/gider kategorilerinizi özelleştirebilirsiniz.\nArtık kullanmadığınız hesap, cari veya personeli silmek yerine arşivleyin; geçmiş raporlarınız korunur.\nPara birimi ve dil tercihlerinizi Daha menüsünden değiştirebilirsiniz."
+    }
+  }
+}

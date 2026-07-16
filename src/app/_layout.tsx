@@ -660,6 +660,18 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
+        {/* Yardım */}
+        <Stack.Screen
+          name="yardim"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerTitle: t('help:title'),
+            headerShadowVisible: false,
+          }}
+        />
         {/* Düzenleme Sayfaları */}
         <Stack.Screen
           name="hesaplar/duzenle/[id]"

@@ -1,0 +1,47 @@
+{
+  "title": "Help",
+  "subtitle": "Tips on how to use the app",
+  "intro": "Below are short tips on how to use the app's main screens.",
+  "sections": {
+    "home": {
+      "title": "Home",
+      "content": "The Overview card shows your net worth, calculated from all account, client and staff balances.\nYour accounts (cash, bank, credit card) are listed here; tap one to see its details and transactions.\nUse the + button at the bottom right to quickly add income, expense, a transfer or a client/staff transaction.\nWith \"Enter Daily Revenue\" you can record end-of-day account entries in bulk from a single screen."
+    },
+    "cariler": {
+      "title": "Contacts (Customers & Suppliers)",
+      "content": "Add your customers and suppliers from the Contacts tab; a debit/credit balance is calculated automatically for each.\nFrom a contact's detail you can add sale, purchase, payment and collection transactions.\nUse the chart icon at the top right for that contact's report, and the share icon for its statement.\nTo share a contact with another business, use the share code on the contact card."
+    },
+    "personel": {
+      "title": "Staff",
+      "content": "Add your employees from the Staff tab; a balance is tracked for each.\nYou can record salary/expense accruals, payments, bonuses and advances.\nUse the bulk salary or bulk payment screen to process several staff at once.\nBy entering leave entitlements and leave usage you can track each employee's remaining leave."
+    },
+    "urunler": {
+      "title": "Products & Stock",
+      "content": "Manage your products and stock quantities from the Products tab.\nUpdate quantity with stock in/out; use adjustment to set stock directly to a desired value.\nUse the bulk in/out screen to process many products at once.\nIf you link a transaction to a contact, both stock and the contact balance are updated together."
+    },
+    "islemler": {
+      "title": "Transactions",
+      "content": "When adding a transaction, choose its type: income, expense, transfer between accounts, or a client/staff transaction.\nBy adding products to a transaction you can create the stock movement at the same time.\nCreate a scheduled transaction and get a reminder when it is due.\nYou can attach a receipt/invoice photo, and search and filter from the All Transactions screen."
+    },
+    "raporlar": {
+      "title": "Reports",
+      "content": "From Reports, access income-expense, category, account-based and net worth trend reports.\nUse the period selector at the top to choose yearly, monthly, weekly, daily or a custom date range.\nYou can export reports and statements as Excel and PDF and share them."
+    },
+    "mutabakat": {
+      "title": "Reconciliation",
+      "content": "With Reconciliation you can compare your records for a contact against the Excel/CSV statement they send you.\nThe app detects missing or extra entries; you can add the missing ones with a single tap."
+    },
+    "paylasim": {
+      "title": "Sharing & Multi-User",
+      "content": "To share your business with teammates, create an invite code and assign a manager, operator or custom role.\nEach role has different permissions; a user cannot see disabled modules.\nYou can share a specific contact with another business; the other side sees only that contact.\nYou can remove sharing at any time."
+    },
+    "import": {
+      "title": "Import & Export",
+      "content": "Use Import Data in the More menu to bulk-import transactions from an Excel file.\nYou can export lists, reports and statements as Excel (.xlsx) and PDF.\nExported files are saved to your device; sharing is entirely your choice."
+    },
+    "tips": {
+      "title": "Handy Tips",
+      "content": "Swipe list items left or right to quickly edit or delete them.\nCustomize your income/expense categories from the Categories screen.\nInstead of deleting an account, contact or staff you no longer use, archive it; your past reports are preserved.\nYou can change your currency and language preferences from the More menu."
+    }
+  }
+}

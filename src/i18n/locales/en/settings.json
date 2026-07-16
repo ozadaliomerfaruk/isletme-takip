@@ -119,6 +119,9 @@
   },
   "about": {
     "title": "About",
+    "contactUs": "Contact Us",
+    "contactSubject": "Small Business Finance - Feedback",
+    "help": "Help",
     "version": "Version",
     "appName": "Small Business Finance",
     "developer": "Developer",

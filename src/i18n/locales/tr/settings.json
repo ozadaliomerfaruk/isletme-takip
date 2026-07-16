@@ -119,6 +119,9 @@
   },
   "about": {
     "title": "Hakkında",
+    "contactUs": "Bize Yazın",
+    "contactSubject": "İşletme Takip - Geri Bildirim",
+    "help": "Yardım",
     "version": "Sürüm",
     "appName": "İşletme Takip",
     "developer": "Geliştirici",

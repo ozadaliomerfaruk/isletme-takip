@@ -16,7 +16,6 @@ import {
   Check,
   X,
   Coins,
-  Calendar,
   Upload,
   Archive,
   Share2,
@@ -24,6 +23,8 @@ import {
   Bell,
   StickyNote,
   Star,
+  Mail,
+  HelpCircle,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
@@ -34,7 +35,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { changeLanguage, getCurrentLanguage } from '@/i18n';
 import type { SupportedLanguage } from '@/i18n/types';
-import { useSettings, type CurrencyCode, type DateFormatType } from '@/hooks/useSettings';
+import { useSettings, type CurrencyCode } from '@/hooks/useSettings';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -91,17 +92,12 @@ export default function DahaPage() {
   const { openWriteReview } = useReview();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
-  const [dateFormatModalVisible, setDateFormatModalVisible] = useState(false);
   const [currentLang, setCurrentLang] = useState(getCurrentLanguage());
 
   const {
     currency,
-    dateFormat,
-    dateFormatConfig,
     setCurrency,
-    setDateFormat,
     currencyOptions,
-    dateFormatOptions,
   } = useSettings();
 
   const handleLanguageChange = async (langCode: SupportedLanguage) => {
@@ -122,12 +118,20 @@ export default function DahaPage() {
     setCurrencyModalVisible(false);
   };
 
-  const handleDateFormatChange = async (format: DateFormatType) => {
-    await setDateFormat(format);
-    // Invalidate all queries so mounted screens re-render with the new date format
-    // (lib/date.ts reads the global format; non-useSettings screens otherwise stay stale)
-    queryClient.invalidateQueries();
-    setDateFormatModalVisible(false);
+  // "Bize Yazın": geliştiriciye doğrudan e-posta. Konu + basit gövde ön-doldurulur.
+  const handleContactUs = async () => {
+    const subject = encodeURIComponent(t('settings:about.contactSubject'));
+    const url = `mailto:ozadaliomerfaruk@gmail.com?subject=${subject}`;
+    try {
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert(t('settings:about.contactUs'), 'ozadaliomerfaruk@gmail.com');
+      }
+    } catch {
+      Alert.alert(t('settings:about.contactUs'), 'ozadaliomerfaruk@gmail.com');
+    }
   };
 
   // Notification toggle state
@@ -344,13 +348,6 @@ export default function DahaPage() {
               onPress={() => setCurrencyModalVisible(true)}
             />
             <View style={styles.divider} />
-            <MenuItem
-              icon={<Calendar size={22} color={colors.warning} />}
-              label={t('settings:dateFormat.title')}
-              subtitle={dateFormatConfig.example}
-              onPress={() => setDateFormatModalVisible(true)}
-            />
-            <View style={styles.divider} />
             <View style={styles.menuItem}>
               <View style={styles.menuIcon}>
                 <Bell size={22} color={colors.primary} />
@@ -373,13 +370,25 @@ export default function DahaPage() {
           </Card>
         </View>
 
-        {/* Değerlendir */}
+        {/* Değerlendir + Destek */}
         <View style={styles.section}>
           <Card padding="none">
             <MenuItem
               icon={<Star size={22} color={colors.warning} />}
               label={t('settings:about.rateApp')}
               onPress={openWriteReview}
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon={<Mail size={22} color={colors.primary} />}
+              label={t('settings:about.contactUs')}
+              onPress={handleContactUs}
+            />
+            <View style={styles.divider} />
+            <MenuItem
+              icon={<HelpCircle size={22} color={colors.success} />}
+              label={t('settings:about.help')}
+              onPress={() => router.push('/yardim' as Href)}
             />
           </Card>
         </View>
@@ -526,53 +535,6 @@ export default function DahaPage() {
         </TouchableOpacity>
       </Modal>
 
-      {/* Date Format Selection Modal */}
-      <Modal
-        visible={dateFormatModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDateFormatModalVisible(false)}
-      >
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setDateFormatModalVisible(false)}
-        >
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text variant="h3">{t('settings:dateFormat.selectDateFormat')}</Text>
-              <TouchableOpacity onPress={() => setDateFormatModalVisible(false)}>
-                <X size={24} color={colors.textMuted} />
-              </TouchableOpacity>
-            </View>
-            {dateFormatOptions.map((fmt) => (
-              <TouchableOpacity
-                key={fmt.code}
-                style={[
-                  styles.optionItem,
-                  dateFormat === fmt.code && styles.optionItemSelected,
-                ]}
-                onPress={() => handleDateFormatChange(fmt.code)}
-              >
-                <View style={styles.dateFormatOption}>
-                  <Text
-                    variant="body"
-                    style={dateFormat === fmt.code && { color: colors.primary, fontWeight: '600' }}
-                  >
-                    {t(`settings:dateFormat.${fmt.code}`)}
-                  </Text>
-                  <Text variant="caption" color="muted">
-                    {fmt.example}
-                  </Text>
-                </View>
-                {dateFormat === fmt.code && (
-                  <Check size={20} color={colors.primary} style={styles.checkIcon} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -676,10 +638,6 @@ const styles = StyleSheet.create({
   },
   checkIcon: {
     marginLeft: 'auto',
-  },
-  dateFormatOption: {
-    flex: 1,
-    gap: 2,
   },
   badge: {
     backgroundColor: colors.error,
