@@ -165,14 +165,18 @@ export function QuickTransactionBar({
     }
   }, [isLeaveUsageType, form.safeDate, form.dateEnd]);
 
-  // Initialize dateEnd to today when switching to leave usage type
+  // Initialize dateEnd to today when switching to leave usage type.
+  // EDIT modda BUGÜN'e OTOMATİK set ETME: date_end'i NULL olan legacy izin-kullanımı kaydı
+  // düzenlenince dateEnd=bugün olur, yukarıdaki recompute effect'i tetikler ve saklı amount'ı
+  // (ör. 2 gün) başlangıç→bugün gün sayısına ŞİŞİRİR (sessiz veri bozulması). Edit modda
+  // dateEnd yalnız kayıttan (yükleme effect'i) veya kullanıcının manuel seçiminden gelmeli.
   useEffect(() => {
-    if (isLeaveUsageType && !form.dateEnd) {
+    if (isLeaveUsageType && !form.dateEnd && !form.isEditMode) {
       form.setDateEnd(new Date());
     } else if (!isLeaveUsageType && form.dateEnd) {
       form.setDateEnd(null);
     }
-  }, [isLeaveUsageType]);
+  }, [isLeaveUsageType, form.isEditMode]);
 
   // Entities hook - with actual form values
   const entities = useQuickTransactionEntities({

@@ -57,25 +57,36 @@ export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'sati
       if (!isletme || !urunId) return null;
       const { data, error } = await supabase
         .from('urun_hareketler')
-        .select('birim_fiyat, created_at, islem:islemler(date)')
+        .select('birim_fiyat, created_at, islem:islemler(date, type)')
         .eq('isletme_id', isletme.id)
         .eq('urun_id', urunId)
         .eq('hareket_tipi', yon === 'satis' ? 'cikis' : 'giris')
         .not('birim_fiyat', 'is', null)
         .gt('birim_fiyat', 0)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(15);
       if (error) throw error;
       if (!data || data.length === 0) return null;
+      // İADE hariç: iade stok'u TERS yönde hareket ettirir (alış iadesi = 'cikis',
+      // satış iadesi = 'giris'). hareket_tipi filtresi tek başına, "son satış fiyatı"
+      // için bir ALIŞ İADESİNİN fiyatını (ya da tersini) döndürebilir → yanlış öneri.
+      // İş tipine göre karşı-aile iadelerini ele.
+      const excluded = yon === 'satis'
+        ? new Set(['alis_iade', 'cari_alis_iade'])
+        : new Set(['satis_iade', 'cari_satis_iade']);
       // created_at düzenleme/reapply'da NOW()'a kayar (bkz. islemDate notu yukarıda);
-      // gerçek iş tarihi islem.date'tir → son 5 aday içinden iş tarihine göre seç.
-      const adaylar = data.map((h) => {
-        const islemRaw = Array.isArray(h.islem) ? h.islem[0] : h.islem;
-        const tarih = (islemRaw as { date?: string } | null)?.date ?? h.created_at;
-        return { fiyat: toNumber(h.birim_fiyat), tarih: String(tarih).slice(0, 10) };
-      });
+      // gerçek iş tarihi islem.date'tir → adaylar içinden iş tarihine göre seç.
+      const adaylar = data
+        .map((h) => {
+          const islemRaw = Array.isArray(h.islem) ? h.islem[0] : h.islem;
+          const meta = islemRaw as { date?: string; type?: string } | null;
+          const tarih = meta?.date ?? h.created_at;
+          return { fiyat: toNumber(h.birim_fiyat), tarih: String(tarih).slice(0, 10), type: meta?.type };
+        })
+        .filter((c) => !c.type || !excluded.has(c.type)); // type yoksa (düzeltme) güvenli tut
+      if (adaylar.length === 0) return null;
       adaylar.sort((a, b) => (a.tarih < b.tarih ? 1 : -1));
-      return adaylar[0];
+      return { fiyat: adaylar[0].fiyat, tarih: adaylar[0].tarih };
     },
     enabled: !!isletme && !!urunId,
     staleTime: 30_000,

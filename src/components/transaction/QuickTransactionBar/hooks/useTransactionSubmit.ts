@@ -375,6 +375,26 @@ export function useTransactionSubmit({
         }
       }
 
+      // Kredi kartı ödemesi (API'de 'transfer' olarak saklanır): ödeyen hesap ile kart hesabı
+      // farklı para birimindeyse cross-currency. Yukarıdaki 'transfer' dalı yalnız
+      // type==='transfer' yakalar; kredi kartı ödemesi type==='odeme' olduğundan atlanıp
+      // tutar kart bakiyesine 1:1 (çevrilmeden) uygulanıyordu (yanlış bakiye).
+      if (type === 'odeme' && odemeHedefType === 'kredi_karti' && hesapId && hedefHesapId) {
+        const sourceAcc = hesaplar?.find((h) => h.id === hesapId);
+        const targetAcc = hesaplar?.find((h) => h.id === hedefHesapId);
+        const sourceCurr = sourceAcc?.currency || 'TRY';
+        const targetCurr = targetAcc?.currency || 'TRY';
+        if (isCrossCurrency(sourceCurr, targetCurr)) {
+          setPendingExchangeData({
+            sourceCurrency: sourceCurr as Currency,
+            targetCurrency: targetCurr as Currency,
+            sourceAmount: parsedAmount,
+          });
+          setShowExchangeRateBar(true);
+          return true;
+        }
+      }
+
       // Payment/collection cross-currency check - compare hesap currency with cari currency
       if (['odeme', 'tahsilat'].includes(type) && sourceHesapId && cariId) {
         const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
@@ -841,8 +861,19 @@ export function useTransactionSubmit({
               await createUrunHareketler(type, description.trim(), newIslem.id);
               console.log('[UrunHareket] Urun movements created successfully');
             } catch (urunError) {
+              // ÖNEMLİ: islem + bakiye ZATEN commit oldu ama ürün hareketleri patladı. Eskiden
+              // yalnız uyarı verilip AKIŞ SÜRÜYORDU → "başarılı" toast'ı gösteriliyor ama stok
+              // eksik/kısmi kalıyordu (sessiz tutarsızlık). Doğrusu: islem'i geri al
+              // (delete_islem_atomik bakiyeyi + kısmi stok hareketlerini geri sarar) ve hatayı
+              // YÜKSELT → dış catch net hata gösterir, success toast/dismiss OLMAZ. Kullanıcı
+              // temiz durumdan tekrar dener (yarım kayıt/çift stok yok).
               console.error('[UrunHareket] Error creating urun movements:', urunError);
-              Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
+              try {
+                await deleteIslem.mutateAsync(newIslem.id);
+              } catch (rollbackErr) {
+                console.error('[UrunHareket] Rollback (delete islem) da başarısız:', rollbackErr);
+              }
+              throw urunError;
             }
           }
         }
