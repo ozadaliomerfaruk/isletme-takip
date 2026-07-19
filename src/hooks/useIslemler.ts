@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Islem, IslemInsert, IslemWithRelations, IslemType } from '@/types/database';
+import { Islem, IslemInsert, IslemWithRelations, IslemType, UrunHareketTipi } from '@/types/database';
 import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType, LEAVE_TYPES } from '@/constants/islemTypes';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { roundCurrency } from '@/lib/currency';
@@ -198,6 +198,61 @@ export function useCreateIslem() {
     },
     onSuccess: (data) => {
       invalidateRelatedQueries(queryClient, 'islem');
+      logEvent('transaction_created', {
+        type: data?.type,
+        has_cari: !!data?.cari_id,
+        has_personel: !!data?.personel_id,
+        has_kategori: !!data?.kategori_id,
+      });
+    },
+  });
+}
+
+// Ürünlü CREATE'i TEK atomik RPC'de yap (islem + bakiye + N ürün stok/hareket).
+// create_islem_with_urun_atomik zaten prod'da CANLI (QuickUrunBar/toplu-giriş-çıkış kullanıyor);
+// QTB alış/satış yolu buraya bağlanınca ürünlü kayıt 2+3N round-trip'ten ~1'e iner → zayıf
+// ağda ölü-soket/timeout istiflenmesi ciddi azalır (asıl "kaydet asılması" fix'i). Bakiye ops'u
+// useCreateIslem ile AYNI kaynaktan (applyLinkedCariInversion + computeBalanceOps) hesaplanır →
+// parite tam. Atomik olduğundan istemci tarafı manuel rollback GEREKMEZ (RPC patlarsa hiçbir
+// bacak commit olmaz). p_new_row.id istemciden gelirse idempotent (retry çift kayıt yazmaz).
+export interface CreateIslemWithUrunItem {
+  urun_id: string;
+  hareket_tipi: UrunHareketTipi;
+  miktar: number;
+  birim_fiyat: number;
+  kdv_orani: number;
+  aciklama?: string | null;
+}
+
+export function useCreateIslemWithUrun() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async ({ input, items }: { input: Omit<IslemInsert, 'isletme_id'>; items: CreateIslemWithUrunItem[] }) => {
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+
+      // Linked-cari inversiyonu + bakiye deltaları: useCreateIslem ile BİREBİR aynı yol.
+      const balanceInput = await applyLinkedCariInversion(input, isletme.id);
+      const ops = computeBalanceOps(balanceInput);
+
+      const { data, error } = await supabase.rpc('create_islem_with_urun_atomik', {
+        p_isletme_id: isletme.id,
+        p_new_row: input,
+        p_balance_ops: ops,
+        p_items: items,
+      });
+
+      // 42883 (fonksiyon yok) dahil TÜM hatalar yükseltilir; çağıran (handleSave) 42883'te
+      // eski çok-çağrılı yola (create_islem_atomik + per-product) düşer. Atomik olduğundan
+      // hata halinde kısmi state kalmaz. createIslem paritesi: özel 42501 mesaj eşlemesi yok.
+      if (error) throw error;
+
+      return data as Islem;
+    },
+    onSuccess: (data) => {
+      invalidateRelatedQueries(queryClient, 'islem');
+      invalidateRelatedQueries(queryClient, 'urunHareket');
       logEvent('transaction_created', {
         type: data?.type,
         has_cari: !!data?.cari_id,

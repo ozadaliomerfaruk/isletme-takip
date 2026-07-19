@@ -1,8 +1,11 @@
 import { useCallback, useRef } from 'react';
 import { Platform, Alert } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as Crypto from 'expo-crypto';
 import { useTranslation } from 'react-i18next';
-import { useCreateIslem, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCreateIslem, useCreateIslemWithUrun, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem, useDeleteIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useCreateUrunHareket, useReapplyUrunHareketlerForIslem } from '@/hooks/useUrunHareketler';
@@ -217,7 +220,9 @@ export function useTransactionSubmit({
   const { isletme } = useAuthContext();
   const { triggerReviewIfEligible } = useReview();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const createIslem = useCreateIslem();
+  const createIslemWithUrun = useCreateIslemWithUrun();
   const updateIslem = useUpdateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
   const updateIleriTarihliIslem = useUpdateIleriTarihliIslem();
@@ -461,6 +466,30 @@ export function useTransactionSubmit({
     // proxy'si). mutationFn fazları hızlıyken kullanıcı asılma yaşıyorsa fark buradadır
     // (netcheck/cross-currency/personel-RPC/urun/foto + auth-kilit beklemeleri dahil).
     const __submitT0 = Date.now();
+    // P1b: fonksiyon kapsamında — catch/finally erişebilsin.
+    let __slowTimer: ReturnType<typeof setTimeout> | null = null; // yavaş-kayıt bilgi zamanlayıcısı
+    let createdClientIslemId: string | null = null; // create yolunda üretilen id (existence-check için)
+    // Başarı UI'ı: normal başarı VE "hata verdi ama aslında düşmüştü" kurtarma yolunda ortak kullanılır.
+    const completeSuccess = () => {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      showToast(
+        isEditMode
+          ? t('transactions:messages.updateSuccess')
+          : t('transactions:messages.saveSuccess'),
+        'success'
+      );
+      if (!isEditMode) {
+        persistLastUsed(); // A1: son-kullanılan hesap/kategoriyi hatırla (create-only)
+        triggerReviewIfEligible().catch((err) => {
+          console.log('[Review] Error triggering review:', err);
+        });
+      }
+      onSuccess?.();
+      isSavingRef.current = false;
+      handleDismiss();
+    };
     try {
 
     if (!isValidAmount(amount)) {
@@ -722,6 +751,10 @@ export function useTransactionSubmit({
     // Submit transaction
     isSavingRef.current = true;
     setIsSaving(true);
+    // P1b: kayıt 8 sn'yi aşarsa "kaydediliyor…" bilgisi ver (donmadı hissi; ölü-soket turu sürebilir).
+    __slowTimer = setTimeout(() => {
+      showToast(t('transactions:messages.savingSlow'), 'info');
+    }, 8000);
 
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -827,13 +860,64 @@ export function useTransactionSubmit({
             scheduled_date: formatDateForDB(safeDate),
           });
         } else {
-          // Create transaction first to get the ID
-          const newIslem = await createIslem.mutateAsync({
+          // P1a: idempotent-retry anahtarı — client-üretimi id. Zayıf ağda RQ retry veya
+          // "sunucuda başarılı ama yanıt timeout" durumunda aynı id ikinci kez gidince RPC
+          // ON CONFLICT ile atlar → MÜKERRER kayıt + çift bakiye/stok YAZILMAZ. id, mutation
+          // değişkeninde SABİT tutulur ki RQ retry'ı aynısını göndersin (mutationFn içinde
+          // üretilseydi her denemede yeni id olur, idempotency bozulurdu).
+          createdClientIslemId = Crypto.randomUUID();
+          const baseRow = {
             ...transactionData,
+            id: createdClientIslemId,
             date: formatDateTimeForDB(safeDate),
-          });
+          };
+          const hareketTipi = urunItems.length > 0 ? getUrunHareketTipi(type) : null;
 
-          // Upload photo if present
+          // P0: ürünlü kayıt TEK atomik RPC'de (islem + bakiye + N ürün stok/hareket) →
+          // 2+3N round-trip'ten ~1'e iner (asıl "kaydet asılması" fix'i). Atomik olduğundan
+          // istemci tarafı manuel rollback GEREKMEZ (RPC patlarsa hiçbir bacak commit olmaz).
+          let newIslem: { id?: string } | null = null;
+          if (urunItems.length > 0 && hareketTipi) {
+            const items = urunItems.map((item) => ({
+              urun_id: item.urunId,
+              hareket_tipi: hareketTipi,
+              miktar: item.miktar,
+              birim_fiyat: item.birimFiyat,
+              kdv_orani: item.kdvOrani,
+              aciklama: description.trim() || null,
+            }));
+            try {
+              newIslem = await createIslemWithUrun.mutateAsync({ input: baseRow, items });
+            } catch (rpcError) {
+              // Defensif fallback: birleşik RPC yoksa (deploy boşluğu, 42883) eski çok-çağrılı
+              // yola düş — davranış eskiyle birebir (create_islem_atomik + per-product + rollback).
+              // Aynı clientIslemId kullanılır (create_islem_atomik idempotent → çift kayıt yok).
+              const code = (rpcError as { code?: string })?.code;
+              const msg = (rpcError as { message?: string })?.message ?? '';
+              if (code !== '42883' && !/create_islem_with_urun_atomik/.test(msg)) throw rpcError;
+              newIslem = await createIslem.mutateAsync(baseRow);
+              if (newIslem?.id) {
+                try {
+                  await createUrunHareketler(type, description.trim(), newIslem.id);
+                } catch (urunError) {
+                  // islem + bakiye commit oldu ama ürün hareketleri patladı → islem'i geri al
+                  // (delete_islem_atomik bakiye + kısmi stoğu geri sarar) ve hatayı YÜKSELT.
+                  console.error('[UrunHareket] Error creating urun movements:', urunError);
+                  try {
+                    await deleteIslem.mutateAsync(newIslem.id);
+                  } catch (rollbackErr) {
+                    console.error('[UrunHareket] Rollback (delete islem) da başarısız:', rollbackErr);
+                  }
+                  throw urunError;
+                }
+              }
+            }
+          } else {
+            // Ürünsüz kayıt: tek atomik create (idempotent id ile).
+            newIslem = await createIslem.mutateAsync(baseRow);
+          }
+
+          // Upload photo if present (islem oluştuktan sonra; foto hatası kaydı düşürmez)
           if (photoUri && isletme?.id && newIslem?.id) {
             try {
               console.log('[PhotoUpload] Starting upload for islem:', newIslem.id);
@@ -854,67 +938,56 @@ export function useTransactionSubmit({
               Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
             }
           }
-
-          // Create urun movements if urunItems present (for alis/satis/iade/gelir/gider/kredi_karti_gider)
-          if (urunItems.length > 0 && newIslem?.id) {
-            try {
-              await createUrunHareketler(type, description.trim(), newIslem.id);
-              console.log('[UrunHareket] Urun movements created successfully');
-            } catch (urunError) {
-              // ÖNEMLİ: islem + bakiye ZATEN commit oldu ama ürün hareketleri patladı. Eskiden
-              // yalnız uyarı verilip AKIŞ SÜRÜYORDU → "başarılı" toast'ı gösteriliyor ama stok
-              // eksik/kısmi kalıyordu (sessiz tutarsızlık). Doğrusu: islem'i geri al
-              // (delete_islem_atomik bakiyeyi + kısmi stok hareketlerini geri sarar) ve hatayı
-              // YÜKSELT → dış catch net hata gösterir, success toast/dismiss OLMAZ. Kullanıcı
-              // temiz durumdan tekrar dener (yarım kayıt/çift stok yok).
-              console.error('[UrunHareket] Error creating urun movements:', urunError);
-              try {
-                await deleteIslem.mutateAsync(newIslem.id);
-              } catch (rollbackErr) {
-                console.error('[UrunHareket] Rollback (delete islem) da başarısız:', rollbackErr);
-              }
-              throw urunError;
-            }
-          }
         }
       }
 
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      }
-
-      // Show success toast
-      showToast(
-        isEditMode
-          ? t('transactions:messages.updateSuccess')
-          : t('transactions:messages.saveSuccess'),
-        'success'
-      );
-
-      // Trigger review prompt for new transactions (not edits)
-      if (!isEditMode) {
-        persistLastUsed(); // A1: son-kullanılan hesap/kategoriyi hatırla (create-only)
-        // Async call, don't await - we don't want to block the UI
-        triggerReviewIfEligible().catch((err) => {
-          console.log('[Review] Error triggering review:', err);
-        });
-      }
-
-      onSuccess?.();
-      isSavingRef.current = false;
-      handleDismiss();
+      completeSuccess();
     } catch (error) {
       if (__DEV__) {
         console.error('Transaction error:', error);
       }
-      isSavingRef.current = false;
-      setIsSaving(false);
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // P1b: Kayıt hata verdi ama istek sunucuda BAŞARILI olup yanıtı timeout'a düşmüş olabilir
+      // ("sessiz başarı"). Client id ile gerçekten düşüp düşmediğini doğrula (ölü ağda kontrolün
+      // kendisi asmasın diye kısa süre sınırı). Düştüyse → başarı akışı (kullanıcı elle tekrar
+      // denemesin → MÜKERRER önlenir) + manuel invalidation (mutation onSuccess'i çalışmadı).
+      let landed = false;
+      if (!isEditMode && createdClientIslemId && isletme?.id) {
+        const probeId = createdClientIslemId;
+        const probeIsletmeId = isletme.id;
+        const probe = (async () => {
+          try {
+            const { data } = await supabase
+              .from('islemler')
+              .select('id')
+              .eq('id', probeId)
+              .eq('isletme_id', probeIsletmeId)
+              .maybeSingle();
+            return !!data;
+          } catch {
+            return false;
+          }
+        })();
+        const probeTimeout = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 5000));
+        landed = await Promise.race([probe, probeTimeout]);
       }
-      Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
+      if (landed) {
+        // Kayıt gerçekte düşmüş → başarı akışını çalıştır. Mutation onSuccess tetiklenmediği
+        // için invalidation'ı elle yap (yeni kayıt + stok listelerde görünsün).
+        invalidateRelatedQueries(queryClient, 'islem');
+        invalidateRelatedQueries(queryClient, 'urunHareket');
+        completeSuccess();
+      } else {
+        isSavingRef.current = false;
+        setIsSaving(false);
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+        // Form KORUNUR (handleDismiss çağrılmaz) → kullanıcı verisini kaybetmeden tekrar dener.
+        Alert.alert(t('common:status.error'), t('transactions:messages.saveFailedRetry'));
+      }
     }
     } finally {
+      if (__slowTimer) clearTimeout(__slowTimer); // P1b: yavaş-kayıt bilgisini iptal et
       // Erken dönüşlerde (validation/picker/cross-currency) ve kayıt bitince kilidi bırak.
       submitInFlightRef.current = false;
       // [GEÇİCİ TEŞHİS — 14 Tem] Yalnız yavaş submit'leri logla (eşik 2sn; ateşle-unut).
@@ -962,6 +1035,8 @@ export function useTransactionSubmit({
     buildTransactionData,
     createIleriTarihliIslem,
     createIslem,
+    createIslemWithUrun,
+    queryClient,
     updateIslem,
     updateIleriTarihliIslem,
     deleteIslem,

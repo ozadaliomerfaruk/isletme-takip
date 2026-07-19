@@ -108,6 +108,7 @@
     "transferCompleted": "Transfer tamamlandı",
     "selectAccountRequired": "Lütfen bir hesap seçin",
     "saveFailedRetry": "İşlem kaydedilemedi. Lütfen tekrar deneyin.",
+    "savingSlow": "Kaydediliyor… bağlantı yavaş olabilir, lütfen bekleyin.",
     "photoUploadFailed": "İşlem kaydedildi ancak fotoğraf yüklenemedi.",
     "urunMovementFailed": "İşlem kaydedildi ancak ürün stok hareketi oluşturulamadı.",
     "addAsIncome": "Gelir olarak ekle",

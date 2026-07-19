@@ -108,6 +108,7 @@
     "transferCompleted": "Transfer completed",
     "selectAccountRequired": "Please select an account",
     "saveFailedRetry": "Transaction could not be saved. Please try again.",
+    "savingSlow": "Saving… your connection may be slow, please wait.",
     "photoUploadFailed": "Transaction saved but photo upload failed.",
     "urunMovementFailed": "Transaction saved but product stock movement could not be created.",
     "addAsIncome": "Add as income",
