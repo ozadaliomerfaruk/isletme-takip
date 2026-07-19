@@ -85,7 +85,8 @@ interface CariTransactionItemProps {
   currentUserId?: string;
   otherPartyName?: string | null;
   urunItems?: UrunKalemOzet[];
-  vadeGecti?: boolean;
+  vadeText?: string | null;
+  vadeState?: 'paid' | 'overdue' | 'soon' | 'future';
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -153,7 +154,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
   currentUserId,
   otherPartyName,
   urunItems,
-  vadeGecti,
+  vadeText,
+  vadeState,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -194,7 +196,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
         tertiaryText={islem.description || null}
         creatorText={creatorText}
-        vadeGecti={vadeGecti}
+        vadeText={vadeText}
+        vadeState={vadeState}
         hasPhoto={!!islem.photo_path}
         hasUrunler={(urunItems?.length ?? 0) > 0}
         urunCount={urunItems?.length ?? 0}
@@ -218,7 +221,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
     && prev.displayType === next.displayType
     && prev.hideHesap === next.hideHesap
     && prev.otherPartyName === next.otherPartyName
-    && prev.vadeGecti === next.vadeGecti;
+    && prev.vadeText === next.vadeText
+    && prev.vadeState === next.vadeState;
 });
 
 // ============================================================================
@@ -759,8 +763,12 @@ export default function CariHareketleriPage() {
   // carinin NET bakiyesi borç yönünde ise çıkar → "ödedim ama gecikmiş görünüyor" şikayetini önler.
   // musteri: bakiye>0 (bize borçlu) → çıkar; tedarikçi: bakiye<0 (biz borçlu) → çıkar; settled/ters → sustur.
   // Viewer'da tamamen gizle: inversiyon perspektifi Faz 2'de kalan-bazlı netleşir (yanlış göstermektense hiç gösterme).
-  const hideOverdue = useMemo(() => {
-    if (isViewer) return true;
+  // Kaba "ödendi" (Faz 1 yaklaşımı): cari NET bakiyesi borç yönünde DEĞİLSE vadeli işlemler
+  // crude "ödendi"=yeşil. (Faz 2 FIFO tahsis defteri per-fatura kesinleştirir: kısmi ödemede
+  // en eski fatura yeşil, kalan kırmızı — Faz 1'de yapılamaz.) musteri: bakiye>0 borçlu →
+  // borç var; tedarikçi: bakiye<0 → borç var. Viewer'da paid perspektifi karışık → false (urgency).
+  const cariPaidCrude = useMemo(() => {
+    if (isViewer) return false;
     const bal = Number(cari?.balance) || 0;
     const hasOutstanding = cari?.type === 'musteri' ? bal > 0.01 : bal < -0.01;
     return !hasOutstanding;
@@ -802,9 +810,24 @@ export default function CariHareketleriPage() {
     const itemOtherPartyName = isOtherPartyTransaction ? otherPartyIsletmeName : null;
     // Vade (Faz 1): vade<bugün + susturucu geçerse "Vadesi geçti". != null guard: eski
     // persist-cache satırlarında alan undefined olabilir → vadesiz say (tipe yaslanma).
-    const itemVadeGecti = !hideOverdue
-      && islem.vade_tarihi != null
-      && String(islem.vade_tarihi) < overdueTodayStr;
+    // Vade (Faz 1): her vadeli islemde renkli "Vade: GG.AA.YYYY". Renk: paid=yesil (crude settled),
+    // overdue=kirmizi (bugun/gecmis), soon=turuncu (<=7g), future=sari (>7g). != null persist-guard.
+    let itemVadeText: string | null = null;
+    let itemVadeState: 'paid' | 'overdue' | 'soon' | 'future' | undefined;
+    if (islem.vade_tarihi != null) {
+      const p = String(islem.vade_tarihi).split('-');
+      if (p.length === 3) {
+        itemVadeText = `${t('transactions:vade.label')}: ${p[2]}.${p[1]}.${p[0]}`;
+        if (cariPaidCrude) {
+          itemVadeState = 'paid';
+        } else {
+          const daysUntil = Math.round(
+            (new Date(String(islem.vade_tarihi)).getTime() - new Date(overdueTodayStr).getTime()) / 86400000
+          );
+          itemVadeState = daysUntil <= 0 ? 'overdue' : daysUntil > 7 ? 'future' : 'soon';
+        }
+      }
+    }
     return (
       <CariTransactionItem
         islem={islem}
@@ -824,10 +847,11 @@ export default function CariHareketleriPage() {
         currentUserId={user?.id}
         otherPartyName={itemOtherPartyName}
         urunItems={getUrunItems(islem.id)}
-        vadeGecti={itemVadeGecti}
+        vadeText={itemVadeText}
+        vadeState={itemVadeState}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, hideOverdue, overdueTodayStr]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

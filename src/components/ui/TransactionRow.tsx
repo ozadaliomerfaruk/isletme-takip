@@ -15,6 +15,16 @@ import type { IslemType } from '@/types/database';
 // TRANSACTION ROW — Presentational Component (Modernized)
 // ============================================================================
 
+// Vade renk durumu (cari detay). Açık zeminde okunur: Light zemin + Dark metin
+// (salt warning/orange açık zeminde soluk — colors.ts notu).
+export type VadeState = 'paid' | 'overdue' | 'soon' | 'future';
+const VADE_COLORS: Record<VadeState, { bg: string; fg: string }> = {
+  paid:    { bg: colors.successLight, fg: colors.successDark },  // ödendi → yeşil
+  overdue: { bg: colors.errorLight,   fg: colors.errorDark },    // bugün/geçmiş → kırmızı
+  soon:    { bg: colors.orangeLight,  fg: colors.orangeDark },   // <1 hafta → turuncu
+  future:  { bg: colors.warningLight, fg: colors.warningDark },  // >1 hafta → sarı
+};
+
 export interface TransactionRowProps {
   id: string;
   type: IslemType;
@@ -42,8 +52,10 @@ export interface TransactionRowProps {
   overridePrefix?: string;
   /** Creator name shown as a small badge (multi-user mode) */
   creatorText?: string | null;
-  /** "Vadesi geçti" rozeti — cari detayda vade<bugün + net-bakiye susturucu geçerse true (Faz 1). */
-  vadeGecti?: boolean;
+  /** Vade etiketi "Vade: GG.AA.YYYY" (vadeli işlemde gösterilir). */
+  vadeText?: string | null;
+  /** Vade renk durumu: paid=yeşil, overdue=kırmızı, soon=turuncu(<1hf), future=sarı(>1hf). */
+  vadeState?: VadeState;
   onPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
   onPhotoPress?: (id: string) => void;
@@ -69,7 +81,8 @@ export const TransactionRow = memo(function TransactionRow({
   overrideColor,
   overridePrefix,
   creatorText,
-  vadeGecti,
+  vadeText,
+  vadeState,
   onPress,
   onLongPress,
   onPhotoPress,
@@ -126,9 +139,11 @@ export const TransactionRow = memo(function TransactionRow({
               <Text style={styles.creatorText} numberOfLines={1}>{creatorText}</Text>
             </>
           ) : null}
-          {vadeGecti ? (
-            <View style={styles.overduePill}>
-              <Text style={styles.overduePillText}>{t('transactions:vade.overdue')}</Text>
+          {vadeText ? (
+            <View style={[styles.vadePill, { backgroundColor: VADE_COLORS[vadeState ?? 'future'].bg }]}>
+              <Text style={[styles.vadePillText, { color: VADE_COLORS[vadeState ?? 'future'].fg }]} numberOfLines={1}>
+                {vadeText}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -213,7 +228,8 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.overrideColor === next.overrideColor
     && prev.overridePrefix === next.overridePrefix
     && prev.creatorText === next.creatorText
-    && prev.vadeGecti === next.vadeGecti;
+    && prev.vadeText === next.vadeText
+    && prev.vadeState === next.vadeState;
 });
 
 // ============================================================================
@@ -287,17 +303,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
     flexShrink: 1,
   },
-  overduePill: {
+  vadePill: {
     marginLeft: 6,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.error + '18',
   },
-  overduePillText: {
+  vadePillText: {
     fontSize: 11,
     fontWeight: fontWeight.semibold,
-    color: colors.error,
   },
   line3: {
     flexDirection: 'row',
