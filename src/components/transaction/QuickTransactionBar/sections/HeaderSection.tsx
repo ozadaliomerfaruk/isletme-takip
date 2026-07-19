@@ -1,10 +1,10 @@
-import { View, TouchableOpacity } from 'react-native';
-import { Calendar, Bell, X, ArrowRight } from 'lucide-react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { Calendar, Bell, X, ArrowRight, CalendarClock } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { HIT_SLOP } from '@/constants/spacing';
+import { HIT_SLOP, spacing, fontSize, fontWeight, borderRadius } from '@/constants/spacing';
 import { isToday } from '@/lib/date';
 import { styles } from '../styles';
 
@@ -20,6 +20,12 @@ export interface HeaderSectionProps {
   isLeaveUsageType?: boolean;
   dateEnd?: Date | null;
   onDateEndPress?: () => void;
+  // Vade (ödeme tarihi) — yalnız borç-doğuran (alış/satış) tiplerde gösterilir.
+  // İleri-tarihli (Bell) ile AYRI: bu, var olan borcun ödeme vadesi; scheduled değil.
+  showVade?: boolean;
+  vadeTarihi?: Date | null;
+  onVadePress?: () => void;
+  onVadeClear?: () => void;
 }
 
 export function HeaderSection({
@@ -33,6 +39,10 @@ export function HeaderSection({
   isLeaveUsageType,
   dateEnd,
   onDateEndPress,
+  showVade,
+  vadeTarihi,
+  onVadePress,
+  onVadeClear,
 }: HeaderSectionProps) {
   const { t } = useTranslation(['transactions', 'common', 'staff']);
   const dateIsToday = isToday(date);
@@ -112,6 +122,42 @@ export function HeaderSection({
           <X size={20} color={colors.textMuted} />
         </TouchableOpacity>
       </View>
+
+      {/* Vade (ödeme tarihi) — yalnız borç-doğuran tiplerde; ileri-tarihli (Bell) ile ayrı çip. */}
+      {showVade && (
+        <TouchableOpacity style={local.vadeChip} onPress={onVadePress} activeOpacity={0.7}>
+          <CalendarClock size={15} color={vadeTarihi ? colors.warning : colors.textMuted} />
+          <Text style={[local.vadeChipText, vadeTarihi && { color: colors.warning }]} numberOfLines={1}>
+            {vadeTarihi
+              ? `${t('transactions:vade.label')}: ${formatDateMedium(vadeTarihi)}`
+              : t('transactions:vade.add')}
+          </Text>
+          {vadeTarihi && onVadeClear ? (
+            <TouchableOpacity onPress={onVadeClear} hitSlop={HIT_SLOP.sm}>
+              <X size={13} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : null}
+        </TouchableOpacity>
+      )}
     </>
   );
 }
+
+const local = StyleSheet.create({
+  vadeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingVertical: 5,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceLighter,
+  },
+  vadeChipText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.textMuted,
+  },
+});

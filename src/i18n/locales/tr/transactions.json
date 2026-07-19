@@ -89,6 +89,11 @@
     "personnelCollection": "Personelden Tahsilat",
     "transactionNotes": "İşlem Notları"
   },
+  "vade": {
+    "label": "Vade",
+    "add": "Vade ekle",
+    "overdue": "Vadesi geçti"
+  },
   "messages": {
     "createSuccess": "İşlem kaydedildi",
     "updateSuccess": "İşlem güncellendi",

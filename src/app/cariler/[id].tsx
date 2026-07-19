@@ -85,6 +85,7 @@ interface CariTransactionItemProps {
   currentUserId?: string;
   otherPartyName?: string | null;
   urunItems?: UrunKalemOzet[];
+  vadeGecti?: boolean;
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -152,6 +153,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   currentUserId,
   otherPartyName,
   urunItems,
+  vadeGecti,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -192,6 +194,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
         secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
         tertiaryText={islem.description || null}
         creatorText={creatorText}
+        vadeGecti={vadeGecti}
         hasPhoto={!!islem.photo_path}
         hasUrunler={(urunItems?.length ?? 0) > 0}
         urunCount={urunItems?.length ?? 0}
@@ -214,7 +217,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
     && prev.urunItems === next.urunItems
     && prev.displayType === next.displayType
     && prev.hideHesap === next.hideHesap
-    && prev.otherPartyName === next.otherPartyName;
+    && prev.otherPartyName === next.otherPartyName
+    && prev.vadeGecti === next.vadeGecti;
 });
 
 // ============================================================================
@@ -745,6 +749,23 @@ export default function CariHareketleriPage() {
     }
   }, [linkStatus]);
 
+  // ── Vade (Faz 1) — "Vadesi geçti" görünürlüğü ─────────────────────────────
+  // Bugün YYYY-MM-DD (yerel). vade_tarihi date-kolonu → string karşılaştırma TZ-güvenli.
+  const overdueTodayStr = useMemo(() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
+  }, []);
+  // Kaba susturucu (Fable): tahsis defteri (Faz 2) YOKKEN "gecikme" iddia etme. Rozet yalnız
+  // carinin NET bakiyesi borç yönünde ise çıkar → "ödedim ama gecikmiş görünüyor" şikayetini önler.
+  // musteri: bakiye>0 (bize borçlu) → çıkar; tedarikçi: bakiye<0 (biz borçlu) → çıkar; settled/ters → sustur.
+  // Viewer'da tamamen gizle: inversiyon perspektifi Faz 2'de kalan-bazlı netleşir (yanlış göstermektense hiç gösterme).
+  const hideOverdue = useMemo(() => {
+    if (isViewer) return true;
+    const bal = Number(cari?.balance) || 0;
+    const hasOutstanding = cari?.type === 'musteri' ? bal > 0.01 : bal < -0.01;
+    return !hasOutstanding;
+  }, [isViewer, cari?.balance, cari?.type]);
+
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
@@ -779,6 +800,11 @@ export default function CariHareketleriPage() {
     const itemHideHesap = isOtherPartyTransaction && isPaymentType;
     // Karşı tarafın işlemi ise işletme adını göster
     const itemOtherPartyName = isOtherPartyTransaction ? otherPartyIsletmeName : null;
+    // Vade (Faz 1): vade<bugün + susturucu geçerse "Vadesi geçti". != null guard: eski
+    // persist-cache satırlarında alan undefined olabilir → vadesiz say (tipe yaslanma).
+    const itemVadeGecti = !hideOverdue
+      && islem.vade_tarihi != null
+      && String(islem.vade_tarihi) < overdueTodayStr;
     return (
       <CariTransactionItem
         islem={islem}
@@ -798,9 +824,10 @@ export default function CariHareketleriPage() {
         currentUserId={user?.id}
         otherPartyName={itemOtherPartyName}
         urunItems={getUrunItems(islem.id)}
+        vadeGecti={itemVadeGecti}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, hideOverdue, overdueTodayStr]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

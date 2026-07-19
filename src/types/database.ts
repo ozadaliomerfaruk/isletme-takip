@@ -345,6 +345,8 @@ export interface Islem {
   date_end: string | null;         // İzin kullanımında bitiş tarihi (YYYY-MM-DD)
   // İleri tarihli işlem kaynağı (çift kayıt koruması)
   source_ileri_id: string | null;  // Bu işlem bir ileri tarihli işlemden oluştuysa kaynak satırın id'si
+  // Vade (ödeme tarihi) — Faz 1: borç-doğuran işlemde tahsilat/ödeme vadesi (YYYY-MM-DD). NULL = vadesiz.
+  vade_tarihi: string | null;
   created_by: string | null;
   updated_by: string | null;
   created_at: string;
@@ -373,6 +375,8 @@ export interface IslemInsert {
   date_end?: string | null;
   // İleri tarihli işlem kaynağı (çift kayıt koruması)
   source_ileri_id?: string | null;
+  // Vade (ödeme tarihi) — YYYY-MM-DD; NULL/absent = vadesiz.
+  vade_tarihi?: string | null;
 }
 
 export interface IslemUpdate {
@@ -393,6 +397,8 @@ export interface IslemUpdate {
   photo_path?: string | null;
   // İzin tarih aralığı
   date_end?: string | null;
+  // Vade (ödeme tarihi) — düzenlemede NULL'a çekilebilir.
+  vade_tarihi?: string | null;
 }
 
 // İlişkili verilerle birlikte işlem

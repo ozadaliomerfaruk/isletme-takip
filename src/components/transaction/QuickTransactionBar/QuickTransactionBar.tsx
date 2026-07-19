@@ -227,6 +227,8 @@ export function QuickTransactionBar({
 
   // Photo viewer state
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+  // Vade (ödeme tarihi) picker görünürlüğü — ileri-tarihli (Bell) picker'ından ayrı.
+  const [showVadePicker, setShowVadePicker] = useState(false);
 
   const handleViewPhoto = useCallback(() => {
     if (form.photoUri) {
@@ -280,6 +282,7 @@ export function QuickTransactionBar({
     description: form.description,
     safeDate: form.safeDate,
     safeDateEnd: form.safeDateEnd,
+    vadeTarihi: form.safeVadeTarihi,
     kategoriId: form.kategoriId,
     isScheduled: form.isScheduled,
     odemeHedefType: form.odemeHedefType,
@@ -562,6 +565,10 @@ export function QuickTransactionBar({
   const urunTransactionTypes: TransactionType[] = ['alis', 'satis', 'alis_iade', 'satis_iade', 'gelir', 'gider', 'kredi_karti_gider'];
   const showUrunButton = entities.hasUrunler && urunTransactionTypes.includes(form.type);
 
+  // Vade (ödeme tarihi) — yalnız borç-doğuran (alış/satış) + non-scheduled tiplerde. İleri-tarihli
+  // (Bell) ile BİLİNÇLİ olarak ayrı: bu, var olan borcun ödeme vadesi (scheduled = henüz olmamış işlem).
+  const showVade = (form.type === 'alis' || form.type === 'satis') && !form.isScheduled;
+
   // Position card above keyboard and tab bar
   const cardBottom = animation.keyboardHeight > 0
     ? animation.keyboardHeight
@@ -597,6 +604,10 @@ export function QuickTransactionBar({
           isLeaveUsageType={isLeaveUsageType}
           dateEnd={form.dateEnd}
           onDateEndPress={() => modals.setShowDateEndPicker(true)}
+          showVade={showVade}
+          vadeTarihi={form.safeVadeTarihi}
+          onVadePress={() => setShowVadePicker(true)}
+          onVadeClear={() => form.setVadeTarihi(null)}
         />
 
         {/* Entity Display: Hesap/Cari/Personel bilgisi */}
@@ -723,6 +734,17 @@ export function QuickTransactionBar({
         onChange={form.setDate}
         locale={locale}
       />
+
+      {/* Vade (ödeme tarihi) Picker — borç-doğuran işlemde vade; ileri-tarihli picker'dan AYRI */}
+      {showVade && (
+        <DateTimePickerModal
+          visible={showVadePicker}
+          onDismiss={() => setShowVadePicker(false)}
+          value={form.safeVadeTarihi || form.safeDate}
+          onChange={form.setVadeTarihi}
+          locale={locale}
+        />
+      )}
 
       {/* DateTime End Picker Modal (for leave usage date range) */}
       {isLeaveUsageType && (

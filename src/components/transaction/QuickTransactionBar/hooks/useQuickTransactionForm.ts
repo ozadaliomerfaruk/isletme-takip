@@ -68,6 +68,10 @@ interface UseQuickTransactionFormReturn {
   dateEnd: Date | null;
   setDateEnd: (date: Date | null) => void;
   safeDateEnd: Date | null;
+  // Vade (ödeme tarihi) — yalnız borç-doğuran (alış/satış) tiplerde girilir
+  vadeTarihi: Date | null;
+  setVadeTarihi: (date: Date | null) => void;
+  safeVadeTarihi: Date | null;
   kategoriId: string | null;
   setKategoriId: (id: string | null) => void;
   isScheduled: boolean;
@@ -195,10 +199,15 @@ export function useQuickTransactionForm({
 
   // Date end (for leave usage date range)
   const [dateEnd, setDateEnd] = useState<Date | null>(null);
+  // Vade (ödeme tarihi) — borç-doğuran işlemde tahsilat/ödeme vadesi
+  const [vadeTarihi, setVadeTarihi] = useState<Date | null>(null);
 
   // Safe date
   const safeDate = useMemo(() => ensureValidDate(date), [date]);
   const safeDateEnd = useMemo(() => dateEnd ? ensureValidDate(dateEnd) : null, [dateEnd]);
+  // Vade — ham picker değeri geçersiz Date üretebilir (1970 bug sınıfı, bkz. ensureValidDate);
+  // submit formatDateForDB'yi doğrudan tüketmeden ÖNCE sanitize et (safeDate deseniyle aynı).
+  const safeVadeTarihi = useMemo(() => vadeTarihi ? ensureValidDate(vadeTarihi) : null, [vadeTarihi]);
 
   // Entity IDs
   const [hedefHesapId, setHedefHesapId] = useState<string | null>(null);
@@ -264,6 +273,7 @@ export function useQuickTransactionForm({
     setDescription('');
     setDate(new Date());
     setDateEnd(null);
+    setVadeTarihi(null);
     setKategoriId(null);
     setIsScheduled(false);
     setIsSaving(false);
@@ -346,6 +356,10 @@ export function useQuickTransactionForm({
     // Load date_end for leave usage date range (only in edit mode)
     if (!isCopyMode && (transaction as { date_end?: string | null }).date_end) {
       setDateEnd(new Date((transaction as { date_end?: string | null }).date_end!));
+    }
+    // Vade yükle (yalnız edit — copy'de tarih bugüne alınır, eski vade anlamsız kalırdı)
+    if (!isCopyMode && (transaction as { vade_tarihi?: string | null }).vade_tarihi) {
+      setVadeTarihi(new Date((transaction as { vade_tarihi?: string | null }).vade_tarihi!));
     }
     setSourceHesapId(transaction.hesap_id || null);
     setHedefHesapId(transaction.hedef_hesap_id || null);
@@ -527,6 +541,9 @@ export function useQuickTransactionForm({
     dateEnd,
     setDateEnd,
     safeDateEnd,
+    vadeTarihi,
+    setVadeTarihi,
+    safeVadeTarihi,
     kategoriId,
     setKategoriId,
     isScheduled,

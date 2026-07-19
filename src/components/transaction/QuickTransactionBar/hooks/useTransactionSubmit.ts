@@ -67,6 +67,8 @@ interface UseTransactionSubmitOptions {
   description: string;
   safeDate: Date;
   safeDateEnd?: Date | null;
+  /** Vade (ödeme tarihi) — yalnız borç-doğuran (alış/satış) tiplerde. */
+  vadeTarihi?: Date | null;
   kategoriId: string | null;
   isScheduled: boolean;
   odemeHedefType: OdemeHedefType;
@@ -155,7 +157,9 @@ function needsHesapForType(type: TransactionType): boolean {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- works with dynamic transaction data object
 function stripScheduledUnsupportedFields(data: any): any {
-  const { source_currency, target_currency, exchange_rate, photo_path, date_end, ...rest } = data;
+  // vade_tarihi de strip'lenir: ileri_tarihli_islemler tablosunda böyle bir kolon YOK
+  // (ileri-tarihli ≠ vade — ayrı kavram). Aksi halde insert bilinmeyen-kolon hatası verir.
+  const { source_currency, target_currency, exchange_rate, photo_path, date_end, vade_tarihi, ...rest } = data;
   return rest;
 }
 
@@ -186,6 +190,7 @@ export function useTransactionSubmit({
   description,
   safeDate,
   safeDateEnd,
+  vadeTarihi,
   kategoriId,
   isScheduled,
   odemeHedefType,
@@ -355,9 +360,16 @@ export function useTransactionSubmit({
         data.date_end = formatDateForDB(safeDateEnd);
       }
 
+      // Vade (ödeme tarihi) — YALNIZ borç-doğuran (alış/satış) tiplerde. HER ZAMAN AÇIK yazılır
+      // (değer ya da null, ASLA undefined): update_islem_atomik'in anahtar-varlığı guard'ı böyle
+      // çalışır ve düzenlemede vade'yi temizleme (açık null) sessizce kaybolmaz. Diğer tiplerde null.
+      data.vade_tarihi = (vadeTarihi && (type === 'alis' || type === 'satis'))
+        ? formatDateForDB(vadeTarihi)
+        : null;
+
       return data;
     },
-    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd, urunItems.length, isEditMode]
+    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd, vadeTarihi, urunItems.length, isEditMode]
   );
 
   // Check cross-currency

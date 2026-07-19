@@ -42,6 +42,8 @@ export interface TransactionRowProps {
   overridePrefix?: string;
   /** Creator name shown as a small badge (multi-user mode) */
   creatorText?: string | null;
+  /** "Vadesi geçti" rozeti — cari detayda vade<bugün + net-bakiye susturucu geçerse true (Faz 1). */
+  vadeGecti?: boolean;
   onPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
   onPhotoPress?: (id: string) => void;
@@ -67,6 +69,7 @@ export const TransactionRow = memo(function TransactionRow({
   overrideColor,
   overridePrefix,
   creatorText,
+  vadeGecti,
   onPress,
   onLongPress,
   onPhotoPress,
@@ -122,6 +125,11 @@ export const TransactionRow = memo(function TransactionRow({
               <Text style={styles.dot}> · </Text>
               <Text style={styles.creatorText} numberOfLines={1}>{creatorText}</Text>
             </>
+          ) : null}
+          {vadeGecti ? (
+            <View style={styles.overduePill}>
+              <Text style={styles.overduePillText}>{t('transactions:vade.overdue')}</Text>
+            </View>
           ) : null}
         </View>
 
@@ -204,7 +212,8 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.subAmount === next.subAmount
     && prev.overrideColor === next.overrideColor
     && prev.overridePrefix === next.overridePrefix
-    && prev.creatorText === next.creatorText;
+    && prev.creatorText === next.creatorText
+    && prev.vadeGecti === next.vadeGecti;
 });
 
 // ============================================================================
@@ -277,6 +286,18 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.medium,
     color: colors.primary,
     flexShrink: 1,
+  },
+  overduePill: {
+    marginLeft: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.error + '18',
+  },
+  overduePillText: {
+    fontSize: 11,
+    fontWeight: fontWeight.semibold,
+    color: colors.error,
   },
   line3: {
     flexDirection: 'row',

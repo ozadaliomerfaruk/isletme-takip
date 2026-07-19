@@ -89,6 +89,11 @@
     "personnelCollection": "Staff Payment Received",
     "transactionNotes": "Transaction Notes"
   },
+  "vade": {
+    "label": "Due",
+    "add": "Add due date",
+    "overdue": "Overdue"
+  },
   "messages": {
     "createSuccess": "Transaction saved",
     "updateSuccess": "Transaction updated",
