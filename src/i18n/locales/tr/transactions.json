@@ -108,6 +108,27 @@
     "temiz": "Gecikmiş vade yok",
     "adetKisa": "{{adet}} işlem"
   },
+  "taksit": {
+    "label": "Taksit",
+    "adetLabel": "{{adet}} Taksit",
+    "title": "Taksit Takip",
+    "configTitle": "Taksitli İşlem",
+    "adetSecin": "Taksit Sayısı",
+    "ilkVade": "İlk Taksit Vadesi",
+    "aylikNot": "Taksitler birer ay arayla oluşturulur; tahsilatlar en eski taksitten kapatılır.",
+    "uygula": "Uygula",
+    "odenenOran": "{{odenen}}/{{toplam}} taksit ödendi",
+    "sonrakiVade": "Sonraki vade",
+    "gecikmisAdet": "{{adet}} taksit gecikmiş",
+    "tamamlandi": "Tamamlandı",
+    "detayTitle": "Taksit Detayı",
+    "siraLabel": "{{sira}}. Taksit",
+    "bos": "Henüz taksitli işlem yok",
+    "bosAciklama": "Satış veya alış girerken vade menüsünden \"Taksit\" seçerek plan oluşturabilirsiniz.",
+    "editEngel": "Taksitli işlemin tutarı/tipi/carisi değiştirilemez. Planı silip yeniden oluşturun.",
+    "satis": "Satış",
+    "alis": "Alış"
+  },
   "messages": {
     "createSuccess": "İşlem kaydedildi",
     "updateSuccess": "İşlem güncellendi",

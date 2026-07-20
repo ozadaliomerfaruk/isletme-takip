@@ -263,6 +263,50 @@ export function useCreateIslemWithUrun() {
   });
 }
 
+// Faz 3: taksitli satış/alış — 1 işlem + N taksit satırı TEK atomik RPC'de
+// (taksit_plani_olustur). Bakiye matematiği useCreateIslem ile BİREBİR aynı
+// (computeBalanceOps; satış BİR KEZ satış tarihinde — taksit yalnız tahsilat beklentisi).
+// p_new_row.id client'tan gelir → idempotent (retry çift plan yazmaz).
+export interface TaksitSatiri {
+  sira: number;
+  vade_tarihi: string; // YYYY-MM-DD
+  tutar: number;
+}
+
+export function useCreateIslemTaksitli() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async ({ input, taksitler }: { input: Omit<IslemInsert, 'isletme_id'>; taksitler: TaksitSatiri[] }) => {
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+
+      const balanceInput = await applyLinkedCariInversion(input, isletme.id);
+      const ops = computeBalanceOps(balanceInput);
+
+      const { data, error } = await supabase.rpc('taksit_plani_olustur', {
+        p_isletme_id: isletme.id,
+        p_new_row: input,
+        p_balance_ops: ops,
+        p_taksitler: taksitler,
+      });
+
+      // Yeni özellik: dağıtım-boşluğu fallback'i YOK (eski yol taksit bilmez) —
+      // hata olduğu gibi yükselir, atomik olduğundan kısmi state kalmaz.
+      if (error) throw error;
+      return data as Islem;
+    },
+    onSuccess: (data) => {
+      invalidateRelatedQueries(queryClient, 'islem');
+      logEvent('transaction_created', {
+        type: data?.type,
+        has_cari: !!data?.cari_id,
+        taksitli: true,
+      });
+    },
+  });
+}
+
 // Cari işlem tipi mi kontrol et
 function isCariType(type: string): boolean {
   return type.startsWith('cari_');

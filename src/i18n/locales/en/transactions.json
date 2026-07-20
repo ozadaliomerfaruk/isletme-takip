@@ -108,6 +108,27 @@
     "temiz": "Nothing overdue",
     "adetKisa": "{{adet}} items"
   },
+  "taksit": {
+    "label": "Installments",
+    "adetLabel": "{{adet}} Installments",
+    "title": "Installment Tracking",
+    "configTitle": "Installment Plan",
+    "adetSecin": "Number of Installments",
+    "ilkVade": "First Due Date",
+    "aylikNot": "Installments are created one month apart; collections settle the oldest installment first.",
+    "uygula": "Apply",
+    "odenenOran": "{{odenen}}/{{toplam}} installments paid",
+    "sonrakiVade": "Next due",
+    "gecikmisAdet": "{{adet}} installments overdue",
+    "tamamlandi": "Completed",
+    "detayTitle": "Installment Details",
+    "siraLabel": "Installment {{sira}}",
+    "bos": "No installment plans yet",
+    "bosAciklama": "When entering a sale or purchase, choose \"Installments\" from the due-date menu to create a plan.",
+    "editEngel": "Amount/type/contact of an installment transaction cannot be changed. Delete the plan and recreate it.",
+    "satis": "Sales",
+    "alis": "Purchases"
+  },
   "messages": {
     "createSuccess": "Transaction saved",
     "updateSuccess": "Transaction updated",

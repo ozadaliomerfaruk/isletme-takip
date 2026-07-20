@@ -32,6 +32,10 @@ export interface HeaderSectionProps {
   onVadeClear?: () => void;
   /** Preset seçimi: işlem tarihi + days → vade. */
   onVadePreset?: (days: number) => void;
+  // Faz 3: taksit — vade menüsünden girilir; vade ile karşılıklı münhasır.
+  taksitAdet?: number | null;
+  onTaksitPress?: () => void;
+  onTaksitClear?: () => void;
 }
 
 export function HeaderSection({
@@ -49,6 +53,9 @@ export function HeaderSection({
   onVadePress,
   onVadeClear,
   onVadePreset,
+  taksitAdet,
+  onTaksitPress,
+  onTaksitClear,
 }: HeaderSectionProps) {
   const { t } = useTranslation(['transactions', 'common', 'staff']);
   const dateIsToday = isToday(date);
@@ -131,14 +138,22 @@ export function HeaderSection({
                   onPress={() => setVadeMenuOpen((v) => !v)}
                   activeOpacity={0.6}
                 >
-                  <CalendarClock size={20} color={vadeTarihi ? colors.primary : colors.textMuted} />
+                  <CalendarClock size={20} color={vadeTarihi || taksitAdet ? colors.primary : colors.textMuted} />
                   <Text
-                    style={[local.segmentText, vadeTarihi ? { color: colors.primary } : null]}
+                    style={[local.segmentText, vadeTarihi || taksitAdet ? { color: colors.primary } : null]}
                     numberOfLines={1}
                   >
-                    {vadeTarihi ? formatDateMedium(vadeTarihi) : t('transactions:vade.label')}
+                    {taksitAdet
+                      ? t('transactions:taksit.adetLabel', { adet: taksitAdet })
+                      : vadeTarihi
+                        ? formatDateMedium(vadeTarihi)
+                        : t('transactions:vade.label')}
                   </Text>
-                  {vadeTarihi && onVadeClear ? (
+                  {taksitAdet && onTaksitClear ? (
+                    <TouchableOpacity onPress={onTaksitClear} hitSlop={HIT_SLOP.sm} style={local.segClear}>
+                      <X size={18} color={colors.primary} />
+                    </TouchableOpacity>
+                  ) : vadeTarihi && onVadeClear ? (
                     <TouchableOpacity onPress={onVadeClear} hitSlop={HIT_SLOP.sm} style={local.segClear}>
                       <X size={18} color={colors.primary} />
                     </TouchableOpacity>
@@ -182,6 +197,24 @@ export function HeaderSection({
               {upperTr(t('transactions:vade.pick'))}
             </Text>
           </TouchableOpacity>
+          {/* Faz 3: taksitli satış/alış — plan modalını açar */}
+          {onTaksitPress ? (
+            <>
+              <View style={local.divider} />
+              <TouchableOpacity
+                style={local.vadeMenuItem}
+                onPress={() => {
+                  setVadeMenuOpen(false);
+                  onTaksitPress();
+                }}
+                activeOpacity={0.6}
+              >
+                <Text style={[local.vadeMenuText, { color: colors.primary }]}>
+                  {upperTr(t('transactions:taksit.label'))}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
         </View>
       )}
     </>

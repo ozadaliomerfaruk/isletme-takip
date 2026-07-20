@@ -8,8 +8,10 @@ import {
   TouchableWithoutFeedback,
   Platform,
   Keyboard,
+  StyleSheet,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import { Text } from '@/components/ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +20,7 @@ import { useRouter, useFocusEffect, type Href } from 'expo-router';
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
 import { colors } from '@/constants/colors';
 import { roundCurrency } from '@/lib/currency';
-import { addDays } from '@/lib/date';
+import { addDays, addMonths } from '@/lib/date';
 
 import { getTransactionTypeColor } from '../TransactionTypeTabs';
 import { ExchangeRateBar } from '../ExchangeRateBar';
@@ -234,6 +236,29 @@ export function QuickTransactionBar({
   // Vade (ödeme tarihi) picker görünürlüğü — ileri-tarihli (Bell) picker'ından ayrı.
   const [showVadePicker, setShowVadePicker] = useState(false);
 
+  // FAZ 3 — taksit planı (yalnız alış/satış + non-scheduled + ürünsüz create).
+  // Vade ile karşılıklı münhasır: taksit seçilince vade temizlenir (ve tersi).
+  const [taksitPlan, setTaksitPlan] = useState<{ adet: number; ilkVade: Date } | null>(null);
+  const [showTaksitConfig, setShowTaksitConfig] = useState(false);
+  const [taksitAdetDraft, setTaksitAdetDraft] = useState(3);
+  const [taksitIlkVadeDraft, setTaksitIlkVadeDraft] = useState<Date>(() => addMonths(new Date(), 1));
+  const [showTaksitVadePicker, setShowTaksitVadePicker] = useState(false);
+
+  // Bar kapanınca / tip taksit-dışına dönünce / scheduled açılınca / ürün eklenince
+  // / edit moduna girince taksit sıfırlanır (yalnız yeni-kayıt yolu destekli).
+  useEffect(() => {
+    if (!visible) setTaksitPlan(null);
+  }, [visible]);
+  useEffect(() => {
+    if (
+      taksitPlan &&
+      (form.isScheduled || (form.type !== 'satis' && form.type !== 'alis') ||
+        form.urunItems.length > 0 || form.isEditMode)
+    ) {
+      setTaksitPlan(null);
+    }
+  }, [taksitPlan, form.isScheduled, form.type, form.urunItems.length, form.isEditMode]);
+
   const handleViewPhoto = useCallback(() => {
     if (form.photoUri) {
       setShowPhotoViewer(true);
@@ -287,6 +312,7 @@ export function QuickTransactionBar({
     safeDate: form.safeDate,
     safeDateEnd: form.safeDateEnd,
     vadeTarihi: form.safeVadeTarihi,
+    taksitPlan,
     kategoriId: form.kategoriId,
     isScheduled: form.isScheduled,
     odemeHedefType: form.odemeHedefType,
@@ -621,9 +647,27 @@ export function QuickTransactionBar({
             onDateEndPress={() => modals.setShowDateEndPicker(true)}
             showVade={showVade}
             vadeTarihi={form.safeVadeTarihi}
-            onVadePress={() => setShowVadePicker(true)}
+            onVadePress={() => {
+              setTaksitPlan(null);
+              setShowVadePicker(true);
+            }}
             onVadeClear={() => form.setVadeTarihi(null)}
-            onVadePreset={(days) => form.setVadeTarihi(addDays(form.safeDate, days))}
+            onVadePreset={(days) => {
+              setTaksitPlan(null);
+              form.setVadeTarihi(addDays(form.safeDate, days));
+            }}
+            taksitAdet={taksitPlan?.adet ?? null}
+            onTaksitPress={
+              // Taksit yalnız yeni kayıt + ürünsüz yolda (RPC ürünlü varyantı Faz 3 kapsamı dışı)
+              !form.isEditMode && form.urunItems.length === 0
+                ? () => {
+                    setTaksitAdetDraft(taksitPlan?.adet ?? 3);
+                    setTaksitIlkVadeDraft(taksitPlan?.ilkVade ?? addMonths(form.safeDate, 1));
+                    setShowTaksitConfig(true);
+                  }
+                : undefined
+            }
+            onTaksitClear={() => setTaksitPlan(null)}
           />
 
           {/* Entity Display: Hesap/Cari/Personel bilgisi */}
@@ -762,6 +806,72 @@ export function QuickTransactionBar({
           locale={locale}
         />
       )}
+
+      {/* FAZ 3 — Taksit plan konfigürasyonu (adet + ilk vade; aylık aralık sabit) */}
+      <Modal visible={showTaksitConfig} transparent animationType="fade" statusBarTranslucent>
+        <TouchableWithoutFeedback onPress={() => setShowTaksitConfig(false)}>
+          <View style={styles.pickerBackdrop}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={styles.pickerContainer}>
+                <Text style={styles.pickerTitle}>{t('transactions:taksit.configTitle')}</Text>
+
+                <Text style={styles.pickerSectionTitle}>{t('transactions:taksit.adetSecin')}</Text>
+                <View style={taksitStyles.adetRow}>
+                  {[2, 3, 4, 5, 6, 9, 12].map((n) => (
+                    <TouchableOpacity
+                      key={n}
+                      style={[taksitStyles.adetChip, taksitAdetDraft === n && taksitStyles.adetChipActive]}
+                      onPress={() => setTaksitAdetDraft(n)}
+                    >
+                      <Text
+                        style={[taksitStyles.adetChipText, taksitAdetDraft === n && taksitStyles.adetChipTextActive]}
+                      >
+                        {n}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.pickerSectionTitle}>{t('transactions:taksit.ilkVade')}</Text>
+                <TouchableOpacity
+                  style={taksitStyles.vadeButton}
+                  onPress={() => setShowTaksitVadePicker(true)}
+                >
+                  <Text style={taksitStyles.vadeButtonText}>{formatDateMedium(taksitIlkVadeDraft)}</Text>
+                </TouchableOpacity>
+
+                <Text style={taksitStyles.not}>{t('transactions:taksit.aylikNot')}</Text>
+
+                <TouchableOpacity
+                  style={styles.pickerDoneButton}
+                  onPress={() => {
+                    setTaksitPlan({ adet: taksitAdetDraft, ilkVade: taksitIlkVadeDraft });
+                    form.setVadeTarihi(null); // karşılıklı münhasır
+                    setShowTaksitConfig(false);
+                  }}
+                >
+                  <Text style={styles.pickerDoneText}>{t('transactions:taksit.uygula')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerCancelButton}
+                  onPress={() => setShowTaksitConfig(false)}
+                >
+                  <Text style={styles.pickerCancelText}>{t('common:buttons.cancel')}</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
+
+      {/* Taksit ilk-vade tarih seçici */}
+      <DateTimePickerModal
+        visible={showTaksitVadePicker}
+        onDismiss={() => setShowTaksitVadePicker(false)}
+        value={taksitIlkVadeDraft}
+        onChange={setTaksitIlkVadeDraft}
+        locale={locale}
+      />
 
       {/* DateTime End Picker Modal (for leave usage date range) */}
       {isLeaveUsageType && (
@@ -913,3 +1023,56 @@ export function QuickTransactionBar({
     </Modal>
   );
 }
+
+// FAZ 3 — taksit konfigürasyon modalı yerel stilleri
+const taksitStyles = StyleSheet.create({
+  adetRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  adetChip: {
+    minWidth: 44,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  adetChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  adetChipText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  adetChipTextActive: {
+    color: '#FFFFFF',
+  },
+  vadeButton: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    backgroundColor: colors.background,
+    marginBottom: 8,
+  },
+  vadeButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  not: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+});

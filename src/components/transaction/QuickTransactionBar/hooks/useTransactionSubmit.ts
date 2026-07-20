@@ -4,13 +4,13 @@ import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCreateIslem, useCreateIslemWithUrun, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
+import { useCreateIslem, useCreateIslemWithUrun, useCreateIslemTaksitli, useUpdateIslem, useDeleteIslem } from '@/hooks/useIslemler';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem, useDeleteIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useCreateUrunHareket, useReapplyUrunHareketlerForIslem } from '@/hooks/useUrunHareketler';
-import { parseCurrency, isValidAmount } from '@/lib/currency';
-import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
+import { parseCurrency, isValidAmount, roundCurrency, toNumber } from '@/lib/currency';
+import { formatDateForDB, formatDateTimeForDB, addMonths } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
 import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode, UrunItem } from '../types';
 import type { Currency, UrunHareketTipi } from '@/types/database';
@@ -69,6 +69,8 @@ interface UseTransactionSubmitOptions {
   safeDateEnd?: Date | null;
   /** Vade (ödeme tarihi) — yalnız borç-doğuran (alış/satış) tiplerde. */
   vadeTarihi?: Date | null;
+  /** Faz 3: taksit planı (yalnız alış/satış + non-scheduled + ürünsüz create'te). */
+  taksitPlan?: { adet: number; ilkVade: Date } | null;
   kategoriId: string | null;
   isScheduled: boolean;
   odemeHedefType: OdemeHedefType;
@@ -191,6 +193,7 @@ export function useTransactionSubmit({
   safeDate,
   safeDateEnd,
   vadeTarihi,
+  taksitPlan,
   kategoriId,
   isScheduled,
   odemeHedefType,
@@ -228,6 +231,7 @@ export function useTransactionSubmit({
   const queryClient = useQueryClient();
   const createIslem = useCreateIslem();
   const createIslemWithUrun = useCreateIslemWithUrun();
+  const createIslemTaksitli = useCreateIslemTaksitli();
   const updateIslem = useUpdateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
   const updateIleriTarihliIslem = useUpdateIleriTarihliIslem();
@@ -924,6 +928,31 @@ export function useTransactionSubmit({
                 }
               }
             }
+          } else if (
+            taksitPlan &&
+            taksitPlan.adet >= 2 &&
+            (type === 'satis' || type === 'alis') &&
+            transactionData.cari_id
+          ) {
+            // FAZ 3 — taksitli satış/alış: 1 işlem + N taksit TEK atomik RPC.
+            // Tutar bölüşümü kuruş-güvenli: son taksit artığı alır (Σ == amount, RPC doğrular).
+            const toplam = toNumber(transactionData.amount);
+            const adet = taksitPlan.adet;
+            const taban = roundCurrency(toplam / adet);
+            const taksitler = Array.from({ length: adet }, (_, i) => ({
+              sira: i + 1,
+              vade_tarihi: formatDateForDB(addMonths(taksitPlan.ilkVade, i)),
+              tutar:
+                i === adet - 1
+                  ? roundCurrency(toplam - roundCurrency(taban * (adet - 1)))
+                  : taban,
+            }));
+            // Taksitli işlemde ayrıca vade gönderilmez (sunucu ilk taksit vadesini yazar).
+            const { vade_tarihi: _stripVade, ...taksitRow } = baseRow as Record<string, unknown>;
+            newIslem = await createIslemTaksitli.mutateAsync({
+              input: taksitRow as typeof baseRow,
+              taksitler,
+            });
           } else {
             // Ürünsüz kayıt: tek atomik create (idempotent id ile).
             newIslem = await createIslem.mutateAsync(baseRow);

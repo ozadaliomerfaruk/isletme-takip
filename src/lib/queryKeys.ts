@@ -56,6 +56,13 @@ export const queryKeys = {
       ['islem-tahsis', 'vade-rozet', isletmeId] as const,
   },
 
+  // Taksit (Faz 3 — taksit_planlari/taksitler + get_taksit_plan_listesi RPC)
+  taksit: {
+    all: () => ['taksit'] as const,
+    list: (isletmeId: string) => ['taksit', 'list', isletmeId] as const,
+    detay: (planId: string, isletmeId: string) => ['taksit', 'detay', planId, isletmeId] as const,
+  },
+
   // Hesaplar
   hesaplar: {
     all: () => ['hesaplar'] as const,
@@ -357,6 +364,8 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       // boşalt+dağıt server-side). Cari detay mounted iken QTB'den kayıt girildiği için
       // immediate (rapor key'leriyle aynı gerekçe — cache-invalidation-rapor-gotcha).
       'islem-tahsis',
+      // Faz 3: taksit listesi/detayı da tahsislerden türer (ödenen/kalan/sonraki vade).
+      'taksit',
     ],
     deferred: [
       'dashboard',

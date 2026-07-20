@@ -26,6 +26,7 @@ import {
   Mail,
   HelpCircle,
   Heart,
+  CalendarClock,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
@@ -88,7 +89,7 @@ export default function DahaPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { signOut, user, isletme, isOwner } = useAuthContext();
-  const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser', 'help']);
+  const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser', 'help', 'transactions']);
   const { canAccessModule } = usePermissions();
   const { openWriteReview } = useReview();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
@@ -251,6 +252,13 @@ export default function DahaPage() {
               icon={<Receipt size={22} color={colors.primary} />}
               label={t('navigation:menu.allTransactions')}
               onPress={() => router.push('/islemler')}
+            />
+            <View style={styles.divider} />
+            {/* Faz 3: Taksit Takip */}
+            <MenuItem
+              icon={<CalendarClock size={22} color={colors.orange} />}
+              label={t('transactions:taksit.title')}
+              onPress={() => router.push('/taksit' as Href)}
             />
             {canAccessModule('raporlar') && (
               <>
