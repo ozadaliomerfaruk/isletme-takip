@@ -52,6 +52,8 @@ export const queryKeys = {
       ['islem-tahsis', 'vade-ozet', isletmeId] as const,
     vadeliBorclar: (cariId: string, isletmeId: string) =>
       ['islem-tahsis', 'vadeli-borclar', cariId, isletmeId] as const,
+    vadeRozet: (isletmeId: string) =>
+      ['islem-tahsis', 'vade-rozet', isletmeId] as const,
   },
 
   // Hesaplar

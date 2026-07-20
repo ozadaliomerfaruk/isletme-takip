@@ -96,7 +96,17 @@
     "days": "{{d}} gün",
     "pick": "Seç",
     "kalan": "Kalan",
-    "gecikmisOzet": "Vadesi geçmiş {{adet}} işlem"
+    "gecikmisOzet": "Vadesi geçmiş {{adet}} işlem",
+    "mahsup": "Mahsup",
+    "avans": "Avans",
+    "tahsilEt": "Tahsil Et",
+    "ode": "Öde",
+    "cardTitle": "Vade Takibi",
+    "gecikmisAlacak": "Vadesi Geçmiş Alacak",
+    "gecikmisBorc": "Gecikmiş Borç",
+    "yaklasan7": "Yaklaşan (7 Gün)",
+    "temiz": "Gecikmiş vade yok",
+    "adetKisa": "{{adet}} işlem"
   },
   "messages": {
     "createSuccess": "İşlem kaydedildi",

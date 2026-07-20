@@ -89,6 +89,9 @@ interface CariTransactionItemProps {
   urunItems?: UrunKalemOzet[];
   vadeText?: string | null;
   vadeState?: 'paid' | 'overdue' | 'soon' | 'future';
+  /** Faz 2: açık vadeli borçta swipe hızlı aksiyonu ("Tahsil Et"/"Öde") */
+  onTahsil?: () => void;
+  tahsilLabel?: string;
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -158,6 +161,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
   urunItems,
   vadeText,
   vadeState,
+  onTahsil,
+  tahsilLabel,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -184,6 +189,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
       itemKey={islem.id}
       onDelete={canEdit ? handleDelete : undefined}
       onCopy={canEdit ? handleCopy : undefined}
+      onAction={canEdit ? onTahsil : undefined}
+      actionLabel={tahsilLabel}
       enabled={canEdit}
       deleteLabel={deleteLabel}
       copyLabel={copyLabel}
@@ -224,7 +231,11 @@ const CariTransactionItem = memo(function CariTransactionItem({
     && prev.hideHesap === next.hideHesap
     && prev.otherPartyName === next.otherPartyName
     && prev.vadeText === next.vadeText
-    && prev.vadeState === next.vadeState;
+    && prev.vadeState === next.vadeState
+    // onTahsil callback kimliği değil VARLIĞI karşılaştırılır (kalan değişimi zaten
+    // vadeText üzerinden yeni render tetikler; closure o renderda tazelenir).
+    && !!prev.onTahsil === !!next.onTahsil
+    && prev.tahsilLabel === next.tahsilLabel;
 });
 
 // ============================================================================
@@ -462,6 +473,8 @@ export default function CariHareketleriPage() {
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
+  // Faz 2: swipe "Tahsil Et/Öde" — kalan tutar ön-dolu QTB (FIFO mahsup sunucuda otomatik)
+  const [tahsilPrefill, setTahsilPrefill] = useState<{ type: 'tahsilat' | 'odeme'; amount: number } | null>(null);
   // Product detail modal state
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   // Photo viewer state
@@ -843,6 +856,8 @@ export default function CariHareketleriPage() {
     // overdue=kirmizi (bugun/gecmis), soon=turuncu (<=7g), future=sari (>7g). != null persist-guard.
     let itemVadeText: string | null = null;
     let itemVadeState: 'paid' | 'overdue' | 'soon' | 'future' | undefined;
+    let itemOnTahsil: (() => void) | undefined;
+    let itemTahsilLabel: string | undefined;
     if (islem.vade_tarihi != null) {
       const p = String(islem.vade_tarihi).split('-');
       if (p.length === 3) {
@@ -866,8 +881,39 @@ export default function CariHareketleriPage() {
           if (itemKalan !== null && tahsisToplam > 0 && itemKalan > 0) {
             itemVadeText += ` · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`;
           }
+          // Swipe hızlı aksiyon: açık vadeli borçta kalanı ön-dolu tahsilat/ödeme aç.
+          // FIFO mahsup sunucuda otomatik (en eski vade önce); viewer'da kapalı.
+          if (!isViewer && canEditItem && (islem.type === 'cari_satis' || islem.type === 'cari_alis')) {
+            const prefillType = islem.type === 'cari_satis' ? 'tahsilat' : 'odeme';
+            const prefillAmount = itemKalan ?? toNumber(islem.amount);
+            itemTahsilLabel = t(prefillType === 'tahsilat' ? 'transactions:vade.tahsilEt' : 'transactions:vade.ode');
+            itemOnTahsil = () => setTahsilPrefill({ type: prefillType, amount: prefillAmount });
+          }
         }
       }
+    } else if (tahsisOzeti && (tahsisOzeti.odemeTahsisleri[islem.id] ?? 0) > 0) {
+      // Faz 2 — ödeme/tahsilat/iade satırı: nereye mahsup olduğu + kalan avans.
+      // Yalnız defterde payı olan ödemelerde görünür (legacy ödemeler temiz kalır).
+      const mahsup = tahsisOzeti.odemeTahsisleri[islem.id];
+      let cariEtki = toNumber(islem.amount);
+      if (islem.type === 'cari_odeme' || islem.type === 'cari_tahsilat') {
+        try {
+          cariEtki = calculateTargetAmount(
+            toNumber(islem.amount),
+            islem.exchange_rate ? toNumber(islem.exchange_rate) : null,
+            islem.source_currency || 'TRY',
+            islem.target_currency || 'TRY',
+          );
+        } catch {
+          // kur verisi bozuksa ham tutara düş (görsel bilgi — para matematiği değil)
+        }
+      }
+      const avans = Math.max(0, roundCurrency(cariEtki - mahsup));
+      itemVadeText = `${t('transactions:vade.mahsup')}: ${formatCurrency(mahsup, cari?.currency || 'TRY')}`;
+      if (avans > 0.009) {
+        itemVadeText += ` · ${t('transactions:vade.avans')}: ${formatCurrency(avans, cari?.currency || 'TRY')}`;
+      }
+      itemVadeState = 'paid';
     }
     return (
       <CariTransactionItem
@@ -890,9 +936,11 @@ export default function CariHareketleriPage() {
         urunItems={getUrunItems(islem.id)}
         vadeText={itemVadeText}
         vadeState={itemVadeState}
+        onTahsil={itemOnTahsil}
+        tahsilLabel={itemTahsilLabel}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, isViewer]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -1172,6 +1220,19 @@ export default function CariHareketleriPage() {
           defaultCariType={effectiveType}
           isViewer={isViewer}
           onSuccess={() => setQuickBarVisible(false)}
+        />
+
+        {/* Faz 2: swipe "Tahsil Et/Öde" — kalan tutar ön-dolu tahsilat/ödeme.
+            Mahsup sunucuda oto-FIFO (en eski vade önce); hedef seçim v2 (retahsis). */}
+        <QuickTransactionBar
+          visible={!!tahsilPrefill}
+          onDismiss={() => setTahsilPrefill(null)}
+          defaultCariId={cari?.id}
+          defaultCariType={effectiveType}
+          defaultType={tahsilPrefill?.type}
+          defaultAmount={tahsilPrefill?.amount}
+          isViewer={isViewer}
+          onSuccess={() => setTahsilPrefill(null)}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}

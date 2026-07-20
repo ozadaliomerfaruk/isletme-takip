@@ -96,7 +96,17 @@
     "days": "{{d}} days",
     "pick": "Pick",
     "kalan": "Remaining",
-    "gecikmisOzet": "{{adet}} overdue transactions"
+    "gecikmisOzet": "{{adet}} overdue transactions",
+    "mahsup": "Applied",
+    "avans": "Advance",
+    "tahsilEt": "Collect",
+    "ode": "Pay",
+    "cardTitle": "Due Tracking",
+    "gecikmisAlacak": "Overdue Receivable",
+    "gecikmisBorc": "Overdue Payable",
+    "yaklasan7": "Upcoming (7 Days)",
+    "temiz": "Nothing overdue",
+    "adetKisa": "{{adet}} items"
   },
   "messages": {
     "createSuccess": "Transaction saved",

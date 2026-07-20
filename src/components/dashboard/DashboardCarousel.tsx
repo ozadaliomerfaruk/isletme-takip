@@ -5,6 +5,7 @@ import { spacing } from '@/constants/spacing';
 import { HeroCard } from './HeroCard';
 import { IncomeExpenseCard } from './IncomeExpenseCard';
 import { CashFlowCard } from './CashFlowCard';
+import { DueSummaryCard } from './DueSummaryCard';
 
 const CARD_PADDING = spacing.lg;
 
@@ -28,7 +29,8 @@ interface DashboardCarouselProps {
   periodBadge?: string;
 }
 
-const CARD_COUNT = 3;
+// 4. kart: Vade Takibi (Faz 2) — verisini kendi çeker (useVadeOzet), prop almaz.
+const CARD_COUNT = 4;
 
 export function DashboardCarousel({
   generalStatus,
@@ -104,6 +106,7 @@ export function DashboardCarousel({
             onPress={onCashFlowPress}
           />
         )}
+        {index === 3 && <DueSummaryCard />}
       </View>
     );
   }, [generalStatus, assets, receivables, payables, onHeroPress, income, expense, onIncomeExpensePress, totalInflow, totalOutflow, netCashFlow, onCashFlowPress, periodBadge, cardWidth]);

@@ -33,6 +33,7 @@ import { textIncludes } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
+import { useCariVadeRozet } from '@/hooks/useIslemTahsis';
 import { useArchiveCari } from '@/hooks/useArchive';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { Cari, CariType } from '@/types/database';
@@ -138,6 +139,8 @@ export default function CarilerPage() {
   // Settings ve döviz kurları
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
+  // Faz 2: cari-bazlı gecikmiş vade rozetleri (tek istek, işletme geneli)
+  const { data: vadeRozetMap } = useCariVadeRozet();
   const exchangeRates = exchangeRatesData?.rates;
 
   // Gerçek veriler - pasif carileri de dahil et
@@ -756,6 +759,23 @@ export default function CarilerPage() {
                       ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
                     </Text>
                   )}
+                  {/* Faz 2: gecikmiş vade rozeti — yalnız bakiye borç yönünde açıkken
+                      (crude susturucu; migration-öncesi kapanmış geçmişte yanlış alarm yok) */}
+                  {(() => {
+                    const rozet = vadeRozetMap?.[cari.id];
+                    if (!rozet || cari.isLinked) return null;
+                    const bal = toNumber(cari.balance);
+                    const tutar = cari.type === 'tedarikci' ? rozet.gecikmis_borc : rozet.gecikmis_alacak;
+                    const outstanding = cari.type === 'tedarikci' ? bal < -0.01 : bal > 0.01;
+                    if (!outstanding || tutar <= 0.009) return null;
+                    return (
+                      <View style={styles.vadeRozet}>
+                        <Text style={styles.vadeRozetText} numberOfLines={1}>
+                          {t('transactions:vade.overdue')} · {formatCurrency(tutar, rozet.currency)}
+                        </Text>
+                      </View>
+                    );
+                  })()}
                 </View>
                 <TouchableOpacity
                   onPress={(e) => {
@@ -802,7 +822,7 @@ export default function CarilerPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router]);
+  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, vadeRozetMap]);
 
   // FlatList ListHeaderComponent - header, özet, arama ve filtre
   const ListHeader = useMemo(() => (
@@ -1149,6 +1169,19 @@ const styles = StyleSheet.create({
   },
   cariBalance: {
     alignItems: 'flex-end',
+  },
+  vadeRozet: {
+    marginTop: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.errorLight,
+    maxWidth: 160,
+  },
+  vadeRozetText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.error,
   },
   actionButtons: {
     flexDirection: 'row',

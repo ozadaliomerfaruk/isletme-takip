@@ -93,6 +93,44 @@ export function useCariVadeliBorclar(cariId: string | undefined, enabled = true)
   });
 }
 
+export interface CariVadeRozet {
+  cari_id: string;
+  currency: string;
+  gecikmis_alacak: number;
+  gecikmis_borc: number;
+  gecikmis_adet: number;
+}
+
+/**
+ * Cariler listesi rozetleri: işletme genelinde cari-bazlı gecikmiş kalanlar,
+ * TEK istekte (get_cari_vade_rozet RPC). Dönüş: cari_id → rozet map'i.
+ */
+export function useCariVadeRozet(enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.islemTahsis.vadeRozet(isletme?.id ?? ''),
+    enabled: enabled && !!isletme?.id,
+    queryFn: async (): Promise<Record<string, CariVadeRozet>> => {
+      if (!isletme?.id) return {};
+      const { data, error } = await supabase.rpc('get_cari_vade_rozet', {
+        p_isletme_id: isletme.id,
+      });
+      if (error) throw error;
+      const map: Record<string, CariVadeRozet> = {};
+      for (const row of (data as CariVadeRozet[]) ?? []) {
+        map[row.cari_id] = {
+          ...row,
+          gecikmis_alacak: Number(row.gecikmis_alacak) || 0,
+          gecikmis_borc: Number(row.gecikmis_borc) || 0,
+          gecikmis_adet: Number(row.gecikmis_adet) || 0,
+        };
+      }
+      return map;
+    },
+  });
+}
+
 export interface VadeOzetSatiri {
   currency: string;
   gecikmis_alacak: number | null;
