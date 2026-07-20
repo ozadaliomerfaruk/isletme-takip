@@ -5,6 +5,8 @@ import { Platform, AppState } from 'react-native';
 import { withTelemetrySafe } from './supabaseTelemetry';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+/** Faz 4 web-ekstre: public edge function URL'leri için taban adres. */
+export const SUPABASE_PROJECT_URL = supabaseUrl;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const SupabaseStorageAdapter = {

@@ -409,3 +409,8 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/telemetry-ingest/deno.json"
 entrypoint = "./functions/telemetry-ingest/index.ts"
+
+[functions.cari-ekstre]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/cari-ekstre/index.ts"

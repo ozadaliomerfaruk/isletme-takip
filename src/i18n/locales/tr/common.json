@@ -514,6 +514,8 @@
     "excelShareDesc": "İşlem listesini Excel dosyası olarak gönderin",
     "accountShare": "Hesap Paylaş",
     "accountShareDesc": "Kullanıcıya erişim verin",
+    "ekstreLink": "Ekstre Linki",
+    "ekstreLinkDesc": "Cariye web ekstre bağlantısı gönderin (30 gün geçerli)",
     "report": "Rapor",
     "send": "Gönder",
     "cancel": "Vazgeç",

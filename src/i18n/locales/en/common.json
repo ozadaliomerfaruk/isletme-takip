@@ -514,6 +514,8 @@
     "excelShareDesc": "Send transaction list as an Excel file",
     "accountShare": "Share Account",
     "accountShareDesc": "Give access to a user",
+    "ekstreLink": "Statement Link",
+    "ekstreLinkDesc": "Send a web statement link to the contact (valid 30 days)",
     "report": "Report",
     "send": "Send",
     "cancel": "Cancel",

@@ -1,6 +1,6 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { FileText, FileSpreadsheet, Link } from 'lucide-react-native';
+import { FileText, FileSpreadsheet, Link, Globe } from 'lucide-react-native';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Text } from '@/components/ui/Text';
 import { colors } from '@/constants/colors';
@@ -14,6 +14,8 @@ interface ShareOptionsSheetProps {
   onPdfPress: () => void;
   onExcelPress: () => void;
   onSharePress?: () => void;
+  /** Faz 4: public web-ekstre linki (yalnız cari) */
+  onEkstreLinkPress?: () => void;
 }
 
 interface OptionItemProps {
@@ -42,8 +44,14 @@ export function ShareOptionsSheet({
   onPdfPress,
   onExcelPress,
   onSharePress,
+  onEkstreLinkPress,
 }: ShareOptionsSheetProps) {
   const { t } = useTranslation('common');
+
+  const handleEkstreLink = () => {
+    onDismiss();
+    setTimeout(() => onEkstreLinkPress?.(), 300);
+  };
 
   const handlePdf = () => {
     onDismiss();
@@ -64,7 +72,13 @@ export function ShareOptionsSheet({
     <BottomSheet
       visible={visible}
       onDismiss={onDismiss}
-      snapPoints={[entityType === 'cari' && onSharePress ? 0.42 : 0.32]}
+      snapPoints={[
+        entityType === 'cari' && onSharePress && onEkstreLinkPress
+          ? 0.52
+          : entityType === 'cari' && (onSharePress || onEkstreLinkPress)
+            ? 0.42
+            : 0.32,
+      ]}
     >
       <View style={styles.container}>
         <Text style={styles.header}>{t('export.shareOptions')}</Text>
@@ -75,6 +89,15 @@ export function ShareOptionsSheet({
             title={t('export.accountShare')}
             description={t('export.accountShareDesc')}
             onPress={handleShare}
+          />
+        )}
+
+        {entityType === 'cari' && onEkstreLinkPress && (
+          <OptionItem
+            icon={<Globe size={22} color={colors.primary} />}
+            title={t('export.ekstreLink')}
+            description={t('export.ekstreLinkDesc')}
+            onPress={handleEkstreLink}
           />
         )}
 
