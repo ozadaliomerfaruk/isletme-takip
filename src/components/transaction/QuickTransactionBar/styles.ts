@@ -6,15 +6,34 @@ export const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
-  card: {
+  // Şeffaf sarmalayıcı: kart + kartın DIŞINDA (sağ üstte) duran ✕ butonu.
+  // ✕ karta child yapılamaz: Android parent-bounds dışını dokunuşa kapatır.
+  cardWrapper: {
     position: 'absolute',
     left: 12,
     right: 12,
+  },
+  floatingClose: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: 8,
+    paddingTop: 14,
+    paddingBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.15,
@@ -30,7 +49,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 6,
     alignSelf: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   scheduledLabelText: {
     fontSize: 13,
@@ -119,9 +138,6 @@ export const styles = StyleSheet.create({
     borderLeftWidth: 1,
     borderLeftColor: colors.border,
   },
-  closeButton: {
-    padding: 6,
-  },
   iconButtonActive: {
     backgroundColor: colors.warningLight,
   },
@@ -133,7 +149,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: colors.background,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   pickerButtonText: {
     flex: 1,
@@ -148,18 +164,18 @@ export const styles = StyleSheet.create({
     color: colors.text,
     paddingVertical: 10,
     paddingHorizontal: 0,
-    marginBottom: 8,
+    marginBottom: 6,
     maxHeight: 60,
   },
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 56,
-    marginBottom: 8,
+    height: 52,
+    marginBottom: 6,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    paddingTop: 8,
+    paddingTop: 10,
   },
   scheduledBellIcon: {
     padding: 8,
@@ -217,7 +233,7 @@ export const styles = StyleSheet.create({
     marginBottom: 16,
   },
   pickerSection: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   pickerSectionTitle: {
     fontSize: 14,
@@ -291,11 +307,11 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 10,
+    height: 46,
     paddingHorizontal: 12,
     backgroundColor: colors.infoLight,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   sourceAccountText: {
     fontSize: 14,
@@ -303,7 +319,7 @@ export const styles = StyleSheet.create({
     fontWeight: '500',
   },
   balanceText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
     marginLeft: 'auto',
     marginRight: 8,
@@ -365,7 +381,7 @@ export const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: colors.surfaceLighter,
     borderRadius: 12,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   bottomSheetItemSelected: {
     backgroundColor: colors.primaryLight + '30',
@@ -469,7 +485,7 @@ export const styles = StyleSheet.create({
     paddingHorizontal: 12,
     backgroundColor: colors.background,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   paymentRowLeft: {
     flex: 1,

@@ -168,6 +168,11 @@ export function AmountInputSection({
   const amtLen = amount.length;
   const amtFontSize = amtLen > 12 ? 22 : amtLen > 9 ? 26 : 30;
 
+  // Chip satırı görünürken picker'ın kendi alt marjını sıfırla → kategori satırı ile
+  // chip'ler bitişik dursun (aksi hâlde spacing.lg + wrapper 4px ≈ 20px kopukluk).
+  const hasRecentChips =
+    !!categoryType && urunItemCount === 0 && !!recentCategories && recentCategories.length > 0;
+
   return (
     <>
       {/* Category Picker - tüm işlem tiplerinde */}
@@ -178,19 +183,20 @@ export function AmountInputSection({
             onChange={onKategoriChange}
             type={categoryType}
             label=""
-            placeholder={t('common:select.selectCategory')}
+            placeholder={`${t('common:select.selectCategory')} ${t('common:labels.optionalSuffix')}`}
             disabled={urunItemCount > 0}
             disabledMessage={t('transactions:stock.categoryDisabledByProducts')}
             onNavigateAway={onNavigateAway}
             open={categoryPickerOpen}
             onOpenChange={onCategoryPickerOpenChange}
+            containerStyle={hasRecentChips ? localStyles.categoryPickerTight : undefined}
           />
         </View>
       )}
 
       {/* A1: "son kullanılan" kategori chip'leri — tek dokunuşla kategori seçimi, böylece
           save-anı kategori modalı istisnaya düşer. Ürün seçiliyken kategori devre dışı → gizle. */}
-      {categoryType && urunItemCount === 0 && recentCategories && recentCategories.length > 0 && (
+      {hasRecentChips && recentCategories && (
         <View style={localStyles.recentChipsRow}>
           {recentCategories.map((cat) => {
             const isSelected = cat.id === kategoriId;
@@ -229,7 +235,7 @@ export function AmountInputSection({
           onChangeText={onDescriptionChange}
           maxLength={500}
           multiline
-          numberOfLines={2}
+          numberOfLines={3}
           textAlignVertical="top"
         />
 
@@ -242,7 +248,8 @@ export function AmountInputSection({
             onViewPhoto={onViewPhoto}
             loading={photoLoading}
             disabled={isSaving}
-            size="small"
+            size="medium"
+            style={localStyles.photoBtn}
           />
 
           {/* Ürün butonu — sadece alış/satış türlerinde; ikon-only (kutu + adet rozeti) */}
@@ -367,6 +374,9 @@ export function AmountInputSection({
 }
 
 const localStyles = StyleSheet.create({
+  categoryPickerTight: {
+    marginBottom: 0,
+  },
   recentChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -404,13 +414,15 @@ const localStyles = StyleSheet.create({
   },
   noteRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8,
     marginBottom: 8,
   },
   noteInput: {
     flex: 1,
     marginBottom: 0,
+    minHeight: 40,
+    maxHeight: 84,
   },
   noteActions: {
     flexDirection: 'row',
@@ -466,13 +478,18 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 3,
-    minWidth: 40,
-    height: 40,
+    minWidth: 45,
+    height: 45,
     paddingHorizontal: 8,
     backgroundColor: colors.primaryLight,
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.primary,
+  },
+  photoBtn: {
+    width: 45,
+    height: 45,
+    borderRadius: 8,
   },
   urunBadge: {
     backgroundColor: colors.primary,

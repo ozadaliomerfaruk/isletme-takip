@@ -3,7 +3,7 @@
  * Shows camera icon when no photo, image icon when photo exists
  */
 
-import { TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, StyleSheet, Alert, ActivityIndicator, StyleProp, ViewStyle } from 'react-native';
 import { Camera, Image as ImageIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { colors } from '@/constants/colors';
@@ -25,6 +25,8 @@ interface PhotoButtonProps {
   loading?: boolean;
   /** Size variant */
   size?: 'small' | 'medium';
+  /** Buton kabı için opsiyonel stil override'ı (ör. QTB'de 45×45'e büyütmek) */
+  style?: StyleProp<ViewStyle>;
 }
 
 export function PhotoButton({
@@ -36,6 +38,7 @@ export function PhotoButton({
   disabled,
   loading,
   size = 'medium',
+  style,
 }: PhotoButtonProps) {
   const { t } = useTranslation('common');
 
@@ -71,7 +74,7 @@ export function PhotoButton({
   if (loading) {
     return (
       <TouchableOpacity
-        style={[buttonStyle, styles.buttonLoading]}
+        style={[buttonStyle, styles.buttonLoading, style]}
         disabled
       >
         <ActivityIndicator size="small" color={colors.primary} />
@@ -81,7 +84,7 @@ export function PhotoButton({
 
   return (
     <TouchableOpacity
-      style={[buttonStyle, hasPhoto && styles.buttonWithPhoto, disabled && styles.buttonDisabled]}
+      style={[buttonStyle, hasPhoto && styles.buttonWithPhoto, disabled && styles.buttonDisabled, style]}
       onPress={handlePress}
       disabled={disabled}
     >

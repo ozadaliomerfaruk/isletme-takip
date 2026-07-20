@@ -91,8 +91,10 @@
   },
   "vade": {
     "label": "Vade",
-    "add": "Vade ekle",
-    "overdue": "Vadesi geçti"
+    "add": "Vade",
+    "overdue": "Vadesi geçti",
+    "days": "{{d}} gün",
+    "pick": "Seç"
   },
   "messages": {
     "createSuccess": "İşlem kaydedildi",

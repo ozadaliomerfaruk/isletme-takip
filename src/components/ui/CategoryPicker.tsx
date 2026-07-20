@@ -1,4 +1,4 @@
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, TextInput, Keyboard, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, TextInput, Keyboard, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -95,6 +95,7 @@ interface CategoryPickerProps {
   onNavigateAway?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  containerStyle?: StyleProp<ViewStyle>;
 }
 
 export function CategoryPicker({
@@ -110,6 +111,7 @@ export function CategoryPicker({
   onNavigateAway,
   open: externalOpen,
   onOpenChange,
+  containerStyle,
 }: CategoryPickerProps) {
   const router = useRouter();
   const { t } = useTranslation(['common', 'categories']);
@@ -150,8 +152,11 @@ export function CategoryPicker({
     }
   }, [isControlled, onOpenChange]);
 
-  // Use translations for defaults
-  const displayLabel = label || t('common:labels.category');
+  // Use translations for defaults.
+  // NOT: label === '' (boş string) BİLİNÇLİ olarak "etiket gösterme" demektir → ?? ile
+  // koru (|| boş string'i sessizce default'a düşürüyordu; label="" geçen çağıranların
+  // niyeti etiketi gizlemekti). undefined/atlanmış → default "Kategori".
+  const displayLabel = label ?? t('common:labels.category');
   const displayPlaceholder = placeholder || t('common:select.selectCategory');
 
   const { flatList, isLoading } = useKategorilerHierarchical(type);
@@ -216,7 +221,7 @@ export function CategoryPicker({
 
   return (
     <>
-      <View style={styles.container}>
+      <View style={[styles.container, containerStyle]}>
         {displayLabel ? (
           <Text variant="label" color="secondary" style={styles.label}>
             {displayLabel}{optional ? ` ${t('common:labels.optionalSuffix')}` : ''}
@@ -268,26 +273,21 @@ export function CategoryPicker({
               <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
                 <View style={styles.modalHeader}>
               <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
-              <View style={styles.headerActions}>
-                {canCreateCategory('kategoriler') && (
-                  <TouchableOpacity
-                    onPress={handleAddCategory}
-                    style={styles.addButton}
-                    activeOpacity={0.7}
-                  >
-                    <Plus size={18} color={colors.primary} />
-                    <Text variant="caption" color="primary" style={styles.addButtonText}>
-                      {t('categories:titles.addCategory')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+              {/* Ana sayfa sticky header'larındaki AddEntityButton ile aynı görünüm.
+                  Kapatma X'i yok: modal dışına dokununca zaten kapanıyor. */}
+              {canCreateCategory('kategoriler') && (
                 <TouchableOpacity
-                  onPress={handleCloseModal}
-                  style={styles.closeButton}
+                  onPress={handleAddCategory}
+                  style={styles.addButton}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
                 >
-                  <X size={24} color={colors.text} />
+                  <Plus size={18} color={colors.white} />
+                  <Text style={styles.addButtonText}>
+                    {upperTr(t('categories:titles.addCategory'))}
+                  </Text>
                 </TouchableOpacity>
-              </View>
+              )}
             </View>
 
             {/* Search Bar */}
@@ -434,7 +434,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: spacing.md,
+    height: 46,
     paddingHorizontal: spacing.lg,
   },
   triggerError: {
@@ -481,25 +481,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    backgroundColor: colors.primaryLight + '30',
+    justifyContent: 'center',
+    gap: 4,
+    height: 36,
+    paddingHorizontal: 12,
     borderRadius: borderRadius.md,
+    backgroundColor: colors.primary,
   },
   addButtonText: {
-    fontWeight: '600',
-  },
-  closeButton: {
-    padding: spacing.xs,
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '700',
   },
   searchContainer: {
     flexDirection: 'row',

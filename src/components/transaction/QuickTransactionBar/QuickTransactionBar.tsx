@@ -4,17 +4,21 @@ import {
   Modal,
   Animated,
   TextInput,
+  TouchableOpacity,
   TouchableWithoutFeedback,
   Platform,
   Keyboard,
 } from 'react-native';
+import { X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useRouter, useFocusEffect, type Href } from 'expo-router';
 
-import { TAB_BAR_HEIGHT } from '@/constants/spacing';
+import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
+import { colors } from '@/constants/colors';
 import { roundCurrency } from '@/lib/currency';
+import { addDays } from '@/lib/date';
 
 import { getTransactionTypeColor } from '../TransactionTypeTabs';
 import { ExchangeRateBar } from '../ExchangeRateBar';
@@ -581,10 +585,13 @@ export function QuickTransactionBar({
         <View style={styles.backdrop} />
       </TouchableWithoutFeedback>
 
-      {/* Card */}
+      {/* Card + kartın dışında sağ üstte duran kapatma butonu.
+          box-none: sarmalayıcının boş (şeffaf) alanı dokunuşu YUTMASIN — X'in solu/üstü
+          backdrop'a geçer, backdrop davranışı (klavye kapat → QTB kapat) korunur. */}
       <Animated.View
+        pointerEvents="box-none"
         style={[
-          styles.card,
+          styles.cardWrapper,
           {
             bottom: cardBottom,
             opacity: animation.opacity,
@@ -592,138 +599,148 @@ export function QuickTransactionBar({
           },
         ]}
       >
-        {/* Header: Date + Bell + Close */}
-        <HeaderSection
-          date={form.safeDate}
-          isScheduled={form.isScheduled}
-          formatDateMedium={formatDateMedium}
-          onDatePress={() => modals.setShowDatePicker(true)}
-          onScheduledToggle={() => form.setIsScheduled(!form.isScheduled)}
-          onClose={handleDismiss}
-          onResetToNow={() => form.setDate(new Date())}
-          isLeaveUsageType={isLeaveUsageType}
-          dateEnd={form.dateEnd}
-          onDateEndPress={() => modals.setShowDateEndPicker(true)}
-          showVade={showVade}
-          vadeTarihi={form.safeVadeTarihi}
-          onVadePress={() => setShowVadePicker(true)}
-          onVadeClear={() => form.setVadeTarihi(null)}
-        />
+        <TouchableOpacity
+          style={styles.floatingClose}
+          onPress={handleDismiss}
+          hitSlop={HIT_SLOP.md}
+        >
+          <X size={20} color={colors.textMuted} />
+        </TouchableOpacity>
 
-        {/* Entity Display: Hesap/Cari/Personel bilgisi */}
-        <EntityDisplaySection
-          type={form.type}
-          isCariMode={form.isCariMode}
-          isPersonelMode={form.isPersonelMode}
-          defaultCariType={defaultCariType}
-          selectedHesap={entities.selectedHesap}
-          selectedSourceHesap={entities.selectedSourceHesap}
-          selectedCari={entities.selectedCari}
-          selectedPersonel={entities.selectedPersonel}
-          onOpenHesapPicker={() => {
-            modals.setHesapPickerTarget('source');
-            modals.setShowHesapPicker(true);
-          }}
-        />
-
-        {/* Transfer: Kaynak ve Hedef Hesap */}
-        {form.type === 'transfer' && (
-          <TransferSection
-            selectedHesap={entities.selectedHesap}
-            selectedHedefHesap={entities.selectedHedefHesap}
-            onOpenHedefHesapPicker={() => {
-              modals.setHesapPickerTarget('hedef');
-              modals.setShowHesapPicker(true);
-            }}
+        <View style={styles.card}>
+          {/* Header: Date + Bell */}
+          <HeaderSection
+            date={form.safeDate}
+            isScheduled={form.isScheduled}
+            formatDateMedium={formatDateMedium}
+            onDatePress={() => modals.setShowDatePicker(true)}
+            onScheduledToggle={() => form.setIsScheduled(!form.isScheduled)}
+            onResetToNow={() => form.setDate(new Date())}
+            isLeaveUsageType={isLeaveUsageType}
+            dateEnd={form.dateEnd}
+            onDateEndPress={() => modals.setShowDateEndPicker(true)}
+            showVade={showVade}
+            vadeTarihi={form.safeVadeTarihi}
+            onVadePress={() => setShowVadePicker(true)}
+            onVadeClear={() => form.setVadeTarihi(null)}
+            onVadePreset={(days) => form.setVadeTarihi(addDays(form.safeDate, days))}
           />
-        )}
 
-        {/* Ödeme: Kaynak Hesap + Ödeme Türü Seçici (sadece normal modda) */}
-        {form.type === 'odeme' && !form.isCariMode && (
-          <OdemeSection
+          {/* Entity Display: Hesap/Cari/Personel bilgisi */}
+          <EntityDisplaySection
+            type={form.type}
+            isCariMode={form.isCariMode}
+            isPersonelMode={form.isPersonelMode}
+            defaultCariType={defaultCariType}
             selectedHesap={entities.selectedHesap}
             selectedSourceHesap={entities.selectedSourceHesap}
             selectedCari={entities.selectedCari}
             selectedPersonel={entities.selectedPersonel}
-            selectedKrediKarti={entities.selectedKrediKarti}
-            odemeHedefType={form.odemeHedefType}
-            onOpenOdemeTypePicker={() => modals.setShowOdemeHedefTypePicker(true)}
-            onOpenCariPicker={() => modals.setShowCariPicker(true)}
-            onOpenPersonelPicker={() => modals.setShowPersonelPicker(true)}
-            onOpenSourceHesapPicker={() => {
+            onOpenHesapPicker={() => {
               modals.setHesapPickerTarget('source');
               modals.setShowHesapPicker(true);
             }}
-            onOpenKrediKartiPicker={() => modals.setShowKrediKartiPicker(true)}
           />
-        )}
 
-        {/* Tahsilat: Tahsilat Türü + Hedef Hesap Seçici (sadece normal modda) */}
-        {form.type === 'tahsilat' && !form.isCariMode && (
-          <TahsilatSection
-            selectedHesap={entities.selectedHesap}
-            selectedHedefHesap={entities.selectedHedefHesap}
-            selectedCari={entities.selectedCari}
-            selectedPersonel={entities.selectedPersonel}
-            tahsilatHedefType={form.tahsilatHedefType}
-            onOpenTahsilatTypePicker={() => modals.setShowTahsilatHedefTypePicker(true)}
-            onOpenCariPicker={() => modals.setShowCariPicker(true)}
-            onOpenPersonelPicker={() => modals.setShowPersonelPicker(true)}
-            onOpenHedefHesapPicker={() => {
-              modals.setHesapPickerTarget('hedef');
-              modals.setShowHesapPicker(true);
+          {/* Transfer: Kaynak ve Hedef Hesap */}
+          {form.type === 'transfer' && (
+            <TransferSection
+              selectedHesap={entities.selectedHesap}
+              selectedHedefHesap={entities.selectedHedefHesap}
+              onOpenHedefHesapPicker={() => {
+                modals.setHesapPickerTarget('hedef');
+                modals.setShowHesapPicker(true);
+              }}
+            />
+          )}
+
+          {/* Ödeme: Kaynak Hesap + Ödeme Türü Seçici (sadece normal modda) */}
+          {form.type === 'odeme' && !form.isCariMode && (
+            <OdemeSection
+              selectedHesap={entities.selectedHesap}
+              selectedSourceHesap={entities.selectedSourceHesap}
+              selectedCari={entities.selectedCari}
+              selectedPersonel={entities.selectedPersonel}
+              selectedKrediKarti={entities.selectedKrediKarti}
+              odemeHedefType={form.odemeHedefType}
+              onOpenOdemeTypePicker={() => modals.setShowOdemeHedefTypePicker(true)}
+              onOpenCariPicker={() => modals.setShowCariPicker(true)}
+              onOpenPersonelPicker={() => modals.setShowPersonelPicker(true)}
+              onOpenSourceHesapPicker={() => {
+                modals.setHesapPickerTarget('source');
+                modals.setShowHesapPicker(true);
+              }}
+              onOpenKrediKartiPicker={() => modals.setShowKrediKartiPicker(true)}
+            />
+          )}
+
+          {/* Tahsilat: Tahsilat Türü + Hedef Hesap Seçici (sadece normal modda) */}
+          {form.type === 'tahsilat' && !form.isCariMode && (
+            <TahsilatSection
+              selectedHesap={entities.selectedHesap}
+              selectedHedefHesap={entities.selectedHedefHesap}
+              selectedCari={entities.selectedCari}
+              selectedPersonel={entities.selectedPersonel}
+              tahsilatHedefType={form.tahsilatHedefType}
+              onOpenTahsilatTypePicker={() => modals.setShowTahsilatHedefTypePicker(true)}
+              onOpenCariPicker={() => modals.setShowCariPicker(true)}
+              onOpenPersonelPicker={() => modals.setShowPersonelPicker(true)}
+              onOpenHedefHesapPicker={() => {
+                modals.setHesapPickerTarget('hedef');
+                modals.setShowHesapPicker(true);
+              }}
+            />
+          )}
+
+          {/* Amount Input Section: Category, Description, Amount, Save, Tabs */}
+          <AmountInputSection
+            amount={form.amount}
+            onAmountChange={form.handleAmountChange}
+            amountInputRef={amountInputRef}
+            description={form.description}
+            onDescriptionChange={form.setDescription}
+            kategoriId={form.kategoriId}
+            onKategoriChange={(newKategoriId) => {
+              form.setKategoriId(newKategoriId);
+              if (newKategoriId) {
+                modals.setSelectedCategoryType(categoryType ?? null);
+              } else {
+                modals.setSelectedCategoryType(null);
+              }
             }}
+            categoryType={categoryType ?? null}
+            recentCategories={recentCategories}
+            categoryPickerOpen={modals.categoryPickerOpen && form.urunItems.length === 0}
+            onCategoryPickerOpenChange={(open) => {
+              // Prevent opening category picker when products are selected
+              if (open && form.urunItems.length > 0) {
+                return;
+              }
+              modals.setCategoryPickerOpen(open);
+              if (!open && !form.kategoriId) {
+                modals.setCategorySkipped(true);
+              }
+            }}
+            onNavigateAway={onDismiss}
+            hasPhoto={!!form.photoUri}
+            onPickImage={handlePickImage}
+            onTakePhoto={handleTakePhoto}
+            onRemovePhoto={handleRemovePhoto}
+            onViewPhoto={handleViewPhoto}
+            photoLoading={pickImage.isPending || takePhoto.isPending}
+            isScheduled={form.isScheduled}
+            isSaving={form.isSaving || form.isLoadingTransaction}
+            buttonColor={buttonColor}
+            buttonLabel={buttonLabel}
+            onSave={submit.handleSave}
+            type={form.type}
+            onTypeChange={form.setType}
+            tabMode={tabMode}
+            showUrunButton={showUrunButton}
+            urunItemCount={form.urunItems.length}
+            onUrunButtonPress={() => modals.setShowUrunPicker(true)}
           />
-        )}
-
-        {/* Amount Input Section: Category, Description, Amount, Save, Tabs */}
-        <AmountInputSection
-          amount={form.amount}
-          onAmountChange={form.handleAmountChange}
-          amountInputRef={amountInputRef}
-          description={form.description}
-          onDescriptionChange={form.setDescription}
-          kategoriId={form.kategoriId}
-          onKategoriChange={(newKategoriId) => {
-            form.setKategoriId(newKategoriId);
-            if (newKategoriId) {
-              modals.setSelectedCategoryType(categoryType ?? null);
-            } else {
-              modals.setSelectedCategoryType(null);
-            }
-          }}
-          categoryType={categoryType ?? null}
-          recentCategories={recentCategories}
-          categoryPickerOpen={modals.categoryPickerOpen && form.urunItems.length === 0}
-          onCategoryPickerOpenChange={(open) => {
-            // Prevent opening category picker when products are selected
-            if (open && form.urunItems.length > 0) {
-              return;
-            }
-            modals.setCategoryPickerOpen(open);
-            if (!open && !form.kategoriId) {
-              modals.setCategorySkipped(true);
-            }
-          }}
-          onNavigateAway={onDismiss}
-          hasPhoto={!!form.photoUri}
-          onPickImage={handlePickImage}
-          onTakePhoto={handleTakePhoto}
-          onRemovePhoto={handleRemovePhoto}
-          onViewPhoto={handleViewPhoto}
-          photoLoading={pickImage.isPending || takePhoto.isPending}
-          isScheduled={form.isScheduled}
-          isSaving={form.isSaving || form.isLoadingTransaction}
-          buttonColor={buttonColor}
-          buttonLabel={buttonLabel}
-          onSave={submit.handleSave}
-          type={form.type}
-          onTypeChange={form.setType}
-          tabMode={tabMode}
-          showUrunButton={showUrunButton}
-          urunItemCount={form.urunItems.length}
-          onUrunButtonPress={() => modals.setShowUrunPicker(true)}
-        />
+        </View>
       </Animated.View>
 
       {/* DateTime Picker Modal */}
