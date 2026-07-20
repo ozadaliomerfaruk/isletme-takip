@@ -138,28 +138,53 @@ Deno.serve(async (req) => {
     return errorPage("Bu bağlantının süresi dolmuş. İşletmeden yeni bağlantı isteyin.", 410);
   }
 
-  const [{ data: cari }, { data: isletme }, { data: islemler, error: islemErr }] = await Promise.all([
-    supabase.from("cariler").select("id, name, currency, type, balance").eq("id", link.cari_id).maybeSingle(),
+  // En YENİ kayıtlar asla kırpılmaz: DESC çek, sonra ters çevir. Kırpılan eski
+  // kayıtlar + islem-satırsız açılışlar (Excel-import "Başlangıç Bakiyesi"
+  // doğrudan cariler.balance'a yazar) "Devir" satırında toplanır:
+  //   acilis = cariler.balance − Σ(görünen delta) → kapanış HER ZAMAN gerçek
+  //   bakiyeye eşittir (excelExport.calculateCariOpeningBalance deseni).
+  const [{ data: cari }, { data: isletme }, { data: islemlerDesc, error: islemErr }] = await Promise.all([
+    supabase.from("cariler").select("id, name, currency, type, balance")
+      .eq("id", link.cari_id).eq("isletme_id", link.isletme_id).maybeSingle(),
     supabase.from("isletmeler").select("name").eq("id", link.isletme_id).maybeSingle(),
     supabase
       .from("islemler")
       .select("date, type, description, amount, exchange_rate, source_currency, target_currency, vade_tarihi")
       .eq("isletme_id", link.isletme_id)
       .eq("cari_id", link.cari_id)
-      .order("date", { ascending: true })
-      .order("created_at", { ascending: true })
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(2000),
   ]);
 
   if (islemErr || !cari) return errorPage("Beklenmeyen bir hata oluştu.", 500);
 
   const currency = (cari.currency as string) || "TRY";
-  let bakiye = 0;
-  const satirlar = (islemler ?? [])
+  const r2 = (v: number) => Math.round(v * 100) / 100;
+  const rows = (islemlerDesc ?? [])
     .filter((r) => TIP_ETIKET[r.type as string])
+    .reverse();
+
+  const toplamEtki = r2(rows.reduce((s, r) => s + cariDelta(r as Parameters<typeof cariDelta>[0]), 0));
+  const gercekBakiye = r2(Number(cari.balance) || 0);
+  const acilis = r2(gercekBakiye - toplamEtki);
+
+  let bakiye = acilis;
+  const acilisSatiri = Math.abs(acilis) > 0.009
+    ? `<tr>
+<td></td>
+<td>Devir / Açılış Bakiyesi</td>
+<td></td>
+<td class="num borc">${acilis > 0 ? esc(fmtMoney(acilis, currency)) : ""}</td>
+<td class="num alacak">${acilis < 0 ? esc(fmtMoney(-acilis, currency)) : ""}</td>
+<td class="num">${esc(fmtMoney(acilis, currency))}</td>
+</tr>`
+    : "";
+
+  const satirlar = acilisSatiri + rows
     .map((r) => {
       const delta = cariDelta(r as Parameters<typeof cariDelta>[0]);
-      bakiye = Math.round((bakiye + delta) * 100) / 100;
+      bakiye = r2(bakiye + delta);
       const vade = r.vade_tarihi ? ` · Vade: ${fmtDate(String(r.vade_tarihi))}` : "";
       return `<tr>
 <td>${fmtDate(String(r.date))}</td>
@@ -172,6 +197,9 @@ Deno.serve(async (req) => {
     })
     .join("");
 
+  // Başlıktaki bakiye = cariler.balance (tek gerçek kaynak); yürüyen toplam da
+  // açılış-satırı sayesinde aynı değere kapanır.
+  bakiye = gercekBakiye;
   const borclu = bakiye > 0.009;
   const alacakli = bakiye < -0.009;
   const bakiyeText = borclu
