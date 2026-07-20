@@ -94,7 +94,9 @@
     "add": "Due",
     "overdue": "Overdue",
     "days": "{{d}} days",
-    "pick": "Pick"
+    "pick": "Pick",
+    "kalan": "Remaining",
+    "gecikmisOzet": "{{adet}} overdue transactions"
   },
   "messages": {
     "createSuccess": "Transaction saved",

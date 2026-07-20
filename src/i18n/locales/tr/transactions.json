@@ -94,7 +94,9 @@
     "add": "Vade",
     "overdue": "Vadesi geçti",
     "days": "{{d}} gün",
-    "pick": "Seç"
+    "pick": "Seç",
+    "kalan": "Kalan",
+    "gecikmisOzet": "Vadesi geçmiş {{adet}} işlem"
   },
   "messages": {
     "createSuccess": "İşlem kaydedildi",

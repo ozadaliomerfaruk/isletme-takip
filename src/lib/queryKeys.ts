@@ -43,6 +43,17 @@ export const queryKeys = {
       ['islemler-search', isletmeId, query] as const,
   },
 
+  // Tahsis defteri (Faz 2 — FIFO ödeme tahsisi; islem_tahsis tablosu + get_vade_ozet RPC)
+  islemTahsis: {
+    all: () => ['islem-tahsis'] as const,
+    byCari: (cariId: string, isletmeId: string) =>
+      ['islem-tahsis', 'cari', cariId, isletmeId] as const,
+    vadeOzet: (isletmeId: string) =>
+      ['islem-tahsis', 'vade-ozet', isletmeId] as const,
+    vadeliBorclar: (cariId: string, isletmeId: string) =>
+      ['islem-tahsis', 'vadeli-borclar', cariId, isletmeId] as const,
+  },
+
   // Hesaplar
   hesaplar: {
     all: () => ['hesaplar'] as const,
@@ -340,6 +351,10 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'urun-hareketler',
       'product-report',
       'product-report-returns',
+      // Faz 2 tahsis defteri: her işlem mutasyonu tahsisleri değiştirebilir (oto-FIFO /
+      // boşalt+dağıt server-side). Cari detay mounted iken QTB'den kayıt girildiği için
+      // immediate (rapor key'leriyle aynı gerekçe — cache-invalidation-rapor-gotcha).
+      'islem-tahsis',
     ],
     deferred: [
       'dashboard',

@@ -24,6 +24,7 @@ import {
   Info,
   Link,
   Plus,
+  CalendarClock,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
@@ -38,7 +39,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, formatQuantity, parseCurrency, toNumber, calculateTargetAmount } from '@/lib/currency';
+import { formatCurrency, formatQuantity, parseCurrency, toNumber, calculateTargetAmount, roundCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -49,6 +50,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
+import { useCariTahsisOzeti, useCariVadeliBorclar } from '@/hooks/useIslemTahsis';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
@@ -774,6 +776,33 @@ export default function CariHareketleriPage() {
     return !hasOutstanding;
   }, [isViewer, cari?.balance, cari?.type]);
 
+  // ── Vade (Faz 2) — tahsis defteri: işlem başına KESİN kalan ─────────────────
+  // Sunucu her ödeme/tahsilat/iadeyi açık vadeli borçlara FIFO tahsis eder (atomik
+  // RPC içinde); burada yalnız OKUNUR. Kısmi ödemede en eski borç kapanır (yeşil),
+  // kalan borçta "Kalan: X" gösterilir. Viewer'da kapalı (RLS zaten boş döndürür)
+  // → Faz 1 davranışı sürer. crude susturucu KALIR: migration ÖNCESİ ödenmiş eski
+  // borçların tahsis kaydı yok (backfill yok) — bakiye kapalıyken gecikme İDDİA ETME.
+  const { data: tahsisOzeti } = useCariTahsisOzeti(id, !isViewer);
+
+  // Başlık V.G. özeti: carinin TÜM vadeli borçları (sayfalı listeden değil — kısmi
+  // sayfa yanlış toplam verir) + tahsis kalanları → gecikmiş adet/toplam.
+  // crude susturucu burada da geçerli: bakiye kapalıysa şerit hiç çıkmaz.
+  const { data: vadeliBorclar } = useCariVadeliBorclar(id, !isViewer);
+  const cariVadeOzeti = useMemo(() => {
+    if (isViewer || cariPaidCrude || !vadeliBorclar || !tahsisOzeti) return null;
+    let toplam = 0;
+    let adet = 0;
+    for (const b of vadeliBorclar) {
+      if (String(b.vade_tarihi) > overdueTodayStr) continue; // gecikmiş = bugün dahil (liste ile aynı kural)
+      const kalan = roundCurrency(toNumber(b.amount) - (tahsisOzeti.borcTahsisleri[b.id] ?? 0));
+      if (kalan > 0.009) {
+        toplam = roundCurrency(toplam + kalan);
+        adet += 1;
+      }
+    }
+    return adet > 0 ? { toplam, adet } : null;
+  }, [isViewer, cariPaidCrude, vadeliBorclar, tahsisOzeti, overdueTodayStr]);
+
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
@@ -818,13 +847,25 @@ export default function CariHareketleriPage() {
       const p = String(islem.vade_tarihi).split('-');
       if (p.length === 3) {
         itemVadeText = `${t('transactions:vade.label')}: ${p[2]}.${p[1]}.${p[0]}`;
-        if (cariPaidCrude) {
+        // Faz 2 — tahsis-bazlı kesin kalan (yalnız veri geldiyse; yükleniyor/viewer → null).
+        // İşlem tipi owner-canonical (islem.type) — tahsis defteri ham DB üzerindedir.
+        const tahsisToplam = tahsisOzeti?.borcTahsisleri[islem.id] ?? 0;
+        const itemKalan = tahsisOzeti
+          ? Math.max(0, roundCurrency(toNumber(islem.amount) - tahsisToplam))
+          : null;
+        if (cariPaidCrude || (itemKalan !== null && itemKalan <= 0.009)) {
+          // paid: tahsislerle tamamen kapanmış borç VEYA crude susturucu (bakiye
+          // kapalı — migration-öncesi geçmişte tahsis kaydı olmayan ödemeler).
           itemVadeState = 'paid';
         } else {
           const daysUntil = Math.round(
             (new Date(String(islem.vade_tarihi)).getTime() - new Date(overdueTodayStr).getTime()) / 86400000
           );
           itemVadeState = daysUntil <= 0 ? 'overdue' : daysUntil > 7 ? 'future' : 'soon';
+          // Kısmi tahsis: pill'e kalanı ekle ("Vade: 15.08.2026 · Kalan: ₺500").
+          if (itemKalan !== null && tahsisToplam > 0 && itemKalan > 0) {
+            itemVadeText += ` · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`;
+          }
         }
       }
     }
@@ -851,7 +892,7 @@ export default function CariHareketleriPage() {
         vadeState={itemVadeState}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
@@ -916,6 +957,18 @@ export default function CariHareketleriPage() {
           </View>
         </Card>
 
+        {/* Vadesi geçmiş özeti (Faz 2 — tahsis kalanlarından; crude susturucu geçerse hiç çıkmaz) */}
+        {cariVadeOzeti && (
+          <View style={styles.vadeOzetBanner}>
+            <CalendarClock size={16} color={colors.error} />
+            <Text variant="caption" style={styles.vadeOzetText} numberOfLines={1}>
+              {t('transactions:vade.gecikmisOzet', { adet: cariVadeOzeti.adet })}
+              {' · '}
+              {t('transactions:vade.kalan')}: {formatCurrency(cariVadeOzeti.toplam, cari.currency)}
+            </Text>
+          </View>
+        )}
+
         {/* Paylaşım İzin Modu Banner (görüntüleme/tam erişim) — tek yer, kart şeridiyle tekrar etmez */}
         {isViewer && (
           <View style={styles.permissionBanner}>
@@ -973,7 +1026,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -1328,6 +1381,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: 8,
     backgroundColor: colors.surface,
+  },
+  vadeOzetBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    backgroundColor: colors.errorLight,
+  },
+  vadeOzetText: {
+    flex: 1,
+    color: colors.error,
+    fontWeight: '600',
   },
   summaryRow: {
     flexDirection: 'row',
