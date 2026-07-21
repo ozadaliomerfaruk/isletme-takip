@@ -644,8 +644,8 @@ export default function PersonelHareketleriPage() {
           />
         )}
 
-        {/* İleri Tarihli İşlemler */}
-        <View style={styles.section}>
+        {/* İleri Tarihli İşlemler — sıkı alt boşluk: işlem listesi izin kartına yapışık başlar */}
+        <View style={[styles.section, styles.sectionTight]}>
           <IleriTarihliIslemlerSection
             ileriTarihliIslemler={ileriTarihliIslemler}
             isLoading={ileriTarihliLoading}
@@ -1012,6 +1012,10 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
+  },
+  // Header'ın son bölümü: 3xl alt boşluk işlem listesini aşağı itiyordu
+  sectionTight: {
+    paddingBottom: 0,
   },
   sectionTitle: {
     marginBottom: spacing.lg,
