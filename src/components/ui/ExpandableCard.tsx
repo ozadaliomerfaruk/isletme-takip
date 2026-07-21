@@ -22,6 +22,8 @@ interface ExpandableCardProps {
   // Controlled mode props
   expanded?: boolean;
   onToggle?: () => void;
+  /** Uzun basma (ör. önizleme kartı açmak için) — verilmezse davranış değişmez. */
+  onLongPress?: () => void;
   // Compat prop (no longer needed, kept for API compatibility)
   disableAnimation?: boolean;
 }
@@ -37,6 +39,7 @@ export const ExpandableCard = memo(function ExpandableCard({
   defaultExpanded = false,
   expanded: controlledExpanded,
   onToggle,
+  onLongPress,
 }: ExpandableCardProps) {
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
 
@@ -89,6 +92,8 @@ export const ExpandableCard = memo(function ExpandableCard({
       <TouchableOpacity
         style={styles.header}
         onPress={toggleExpand}
+        onLongPress={onLongPress}
+        delayLongPress={350}
         activeOpacity={0.7}
       >
         <View style={styles.headerContent}>{header}</View>

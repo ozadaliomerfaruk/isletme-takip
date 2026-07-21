@@ -44,6 +44,7 @@ import { useLinkedCariler, useCariLinks, useRemoveCariLink } from '@/hooks/useCa
 import type { SharingPermission } from '@/types/cariSharing';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { CariMiniDashboard } from '@/components/cariler/CariMiniDashboard';
+import { CariPreviewModal, type PreviewCari } from '@/components/cariler/CariPreviewModal';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { DetailExportSection } from '@/components/detail';
@@ -74,6 +75,8 @@ export default function CarilerPage() {
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');
   // Mini-dashboard Vade Takibi kartı → listeye "gecikmiş vade" filtresi
   const [vadeFiltre, setVadeFiltre] = useState(false);
+  // Uzun basma önizlemesi (iOS context-menu taklidi, JS)
+  const [previewCari, setPreviewCari] = useState<PreviewCari | null>(null);
   // Multi-select state
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -702,6 +705,10 @@ export default function CarilerPage() {
           <ExpandableCard
             expanded={expandedCariId === cari.id}
             onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
+            onLongPress={() => {
+              haptics.medium();
+              setPreviewCari(cari);
+            }}
             header={
               <View style={styles.cariHeader}>
                 <Avatar name={cari.name} size={40} />
@@ -943,6 +950,34 @@ export default function CarilerPage() {
         value={searchQuery}
         onChangeText={setSearchQuery}
         placeholder={t('clients:search.searchClients')}
+      />
+
+      {/* Uzun basma önizlemesi (iOS context-menu taklidi) */}
+      <CariPreviewModal
+        cari={previewCari}
+        onDismiss={() => setPreviewCari(null)}
+        gecikmisTutar={(() => {
+          if (!previewCari || previewCari.isLinked) return null;
+          const rozet = vadeRozetMap?.[previewCari.id];
+          if (!rozet) return null;
+          const tutar = previewCari.type === 'tedarikci' ? rozet.gecikmis_borc : rozet.gecikmis_alacak;
+          return Number(tutar) || 0;
+        })()}
+        gecikmisCurrency={previewCari ? vadeRozetMap?.[previewCari.id]?.currency : undefined}
+        onIslemYap={
+          previewCari && !(previewCari.isLinked && previewCari.linkPermission === 'view')
+            ? (c) => {
+                setSelectedCari(c);
+                setQuickBarVisible(true);
+              }
+            : undefined
+        }
+        onDetay={(c) => router.push(`/cariler/${c.id}`)}
+        onDuzenle={
+          previewCari && !previewCari.isLinked && canUpdate('cariler', previewCari.created_by)
+            ? (c) => router.push(`/cariler/duzenle/${c.id}`)
+            : undefined
+        }
       />
 
       {/* Quick Transaction Bar */}

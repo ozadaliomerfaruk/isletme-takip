@@ -207,6 +207,11 @@
     "error": "Export failed",
     "sharingNotSupported": "Sharing is not supported on this device"
   },
+  "preview": {
+    "sonIslemler": "Recent Transactions",
+    "islemYok": "No transactions yet",
+    "detay": "Open Details"
+  },
   "transactionLabels": {
     "alis": "Purchase",
     "odeme": "Payment",
