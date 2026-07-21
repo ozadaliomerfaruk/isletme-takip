@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   Platform,
+  Pressable,
   StyleSheet,
   TextInput,
   TouchableOpacity,
@@ -126,9 +127,11 @@ export function FloatingSearchBar({
       pointerEvents="box-none"
     >
       <View style={styles.row}>
-        <View
+        <Pressable
           ref={pillRef}
           style={[styles.pill, isFocused && styles.pillFocused]}
+          // Pill'in NERESİNE basılırsa basılsın arama açılır (yalnız yazı satırı değil)
+          onPress={() => inputRef.current?.focus()}
         >
           <Search size={20} color={isFocused ? colors.primary : colors.textMuted} />
           <TextInput
@@ -157,7 +160,7 @@ export function FloatingSearchBar({
               </TouchableOpacity>
             </Animated.View>
           )}
-        </View>
+        </Pressable>
         {isActive && (
           <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
             {/* Dışarıdaki X: aramayı tamamen kapatır (metin + klavye) */}
