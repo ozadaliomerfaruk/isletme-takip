@@ -51,7 +51,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari, useCariOzet, type CariOzet } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useCariTahsisOzeti, useCariVadeRozet, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
+import { useCariTahsisOzeti, useCariVadeRozet, useCariVadeliBorclar, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
 import { useCariTaksitliIslemIds } from '@/hooks/useTaksit';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
@@ -814,6 +814,10 @@ export default function CariHareketleriPage() {
   // Dashboard özeti (RPC — sunucuda toplanır) + birim-farkındalı gecikmiş rozeti
   // (taksit birimleri dahil; liste sayfasıyla aynı kaynak/cache).
   const { data: cariOzet } = useCariOzet(id, !isViewer);
+  // Vade satırları yalnız carinin EN AZ BİR vadeli işlemi varsa gösterilir
+  // (kullanıcı isteği: vadesiz cari kartında vade lafı hiç geçmesin)
+  const { data: vadeliBorclar } = useCariVadeliBorclar(id, !isViewer);
+  const hasVadeliIslem = (vadeliBorclar?.length ?? 0) > 0;
   const { data: vadeRozetMap } = useCariVadeRozet(!isViewer);
   const cariVadeOzeti = useMemo(() => {
     // Crude susturucu (liste rozetiyle aynı kural): bakiye ilgili yönde açık değilse
@@ -1046,16 +1050,20 @@ export default function CariHareketleriPage() {
                 label: isTedarikci ? t('clients:detayOzet.toplamOdeme') : t('clients:detayOzet.toplamTahsilat'),
                 value: formatCurrency(odemeTahsilat, cari.currency),
               },
-              {
+            ];
+            // Vade satırları yalnız vadeli işlemi olan caride (kullanıcı isteği:
+            // hiç vade kullanılmadıysa kartta vade lafı geçmesin)
+            if (hasVadeliIslem) {
+              rows.push({
                 label: isTedarikci ? t('clients:detayOzet.vadesiGecenBorc') : t('clients:detayOzet.vadesiGecenAlacak'),
                 value: formatCurrency(gecikmis, cari.currency),
                 danger: gecikmis > 0,
-              },
-              {
+              });
+              rows.push({
                 label: isTedarikci ? t('clients:detayOzet.vadesiGelmemisBorc') : t('clients:detayOzet.vadesiGelmemisAlacak'),
                 value: formatCurrency(vadesiGelmemis, cari.currency),
-              },
-            ];
+              });
+            }
             return (
               <View style={styles.darkRows}>
                 {rows.map((r, i) => (
@@ -1135,7 +1143,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
