@@ -1452,8 +1452,8 @@ export default function CariHareketleriPage() {
   );
 }
 
-// Koyu özet kartı zemini (kullanıcının örnek ekranındaki antrasit ton)
-const DARK_CARD_BG = '#23262B';
+// Özet kartı zemini — marka koyu yeşili (antrasit beğenilmedi; EKLE/primary tonu)
+const DARK_CARD_BG = colors.primary;
 
 const styles = StyleSheet.create({
   container: {
@@ -1527,7 +1527,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   darkLinkedText: {
-    color: '#B5BAC1',
+    color: '#CDE7DF',
     fontSize: fontSize.xs,
     fontWeight: '600',
     flexShrink: 1,
@@ -1540,7 +1540,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   darkType: {
-    color: '#8A9099',
+    color: '#9ECDC0',
     fontSize: fontSize.sm,
     textAlign: 'center',
     marginTop: 1,
@@ -1576,7 +1576,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   darkLabel: {
-    color: '#B5BAC1',
+    color: '#CDE7DF',
     fontSize: fontSize.lg,
     flexShrink: 1,
   },
@@ -1587,7 +1587,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   darkValueDanger: {
-    color: '#FF9E99',
+    color: '#FFB4AC',
   },
   summaryRow: {
     flexDirection: 'row',
