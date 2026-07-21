@@ -1058,17 +1058,21 @@ export default function CariHareketleriPage() {
             ];
             return (
               <View style={styles.darkRows}>
-                {rows.map((r) => (
-                  <View key={r.label} style={styles.darkRow}>
-                    <Text style={styles.darkLabel} numberOfLines={1}>{r.label}</Text>
-                    <Text
-                      style={[styles.darkValue, r.danger && styles.darkValueDanger]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.7}
-                    >
-                      {r.value}
-                    </Text>
+                {rows.map((r, i) => (
+                  <View key={r.label}>
+                    {/* Satırlar arası ince ayraç (ilk satırın üstünde de — üst bloğu ayırır) */}
+                    <View style={[styles.darkRowDivider, i === 0 && styles.darkRowDividerTop]} />
+                    <View style={styles.darkRow}>
+                      <Text style={styles.darkLabel} numberOfLines={1}>{r.label}</Text>
+                      <Text
+                        style={[styles.darkValue, r.danger && styles.darkValueDanger]}
+                        numberOfLines={1}
+                        adjustsFontSizeToFit
+                        minimumFontScale={0.7}
+                      >
+                        {r.value}
+                      </Text>
+                    </View>
                   </View>
                 ))}
               </View>
@@ -1567,14 +1571,21 @@ const styles = StyleSheet.create({
     fontSize: fontSize['2xl'],
     fontWeight: '800',
   },
-  darkRows: {
-    gap: spacing.sm,
-  },
+  darkRows: {},
   darkRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  // Yeşil zeminde ince, hafif saydam ayraç — satırları görsel olarak ayırır
+  darkRowDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255,255,255,0.28)',
+  },
+  darkRowDividerTop: {
+    backgroundColor: 'rgba(255,255,255,0.38)',
   },
   // Okunurluk: yeşil zeminde neredeyse-beyaz etiketler, kalın beyaz değerler
   darkLabel: {
