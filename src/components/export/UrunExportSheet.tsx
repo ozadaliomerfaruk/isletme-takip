@@ -1,3 +1,4 @@
+import { upperTr } from '@/lib/turkishTextUtils';
 /**
  * Ürün Export Sheet Component
  * Ürün hareketleri için tarih aralığı seçimi ve Excel export
@@ -62,14 +63,14 @@ export function UrunExportSheet({
   });
 
   const periodOptions: PeriodOption[] = useMemo(() => [
-    { key: 'today', label: t('common:date.today'), period: 'daily', offset: 0 },
-    { key: 'thisWeek', label: t('common:date.thisWeek'), period: 'weekly', offset: 0 },
-    { key: 'thisMonth', label: t('common:date.thisMonth'), period: 'monthly', offset: 0 },
-    { key: 'lastMonth', label: t('common:date.lastMonth'), period: 'monthly', offset: -1 },
-    { key: 'last3Months', label: t('common:date.last3Months'), period: 'monthly', offset: -2 },
-    { key: 'thisYear', label: t('common:date.thisYear'), period: 'yearly', offset: 0 },
-    { key: 'allTime', label: t('common:period.allTime'), period: 'yearly', offset: -100 },
-    { key: 'custom', label: t('common:period.custom'), period: 'custom' },
+    { key: 'today', label: upperTr(t('common:date.today')), period: 'daily', offset: 0 },
+    { key: 'thisWeek', label: upperTr(t('common:date.thisWeek')), period: 'weekly', offset: 0 },
+    { key: 'thisMonth', label: upperTr(t('common:date.thisMonth')), period: 'monthly', offset: 0 },
+    { key: 'lastMonth', label: upperTr(t('common:date.lastMonth')), period: 'monthly', offset: -1 },
+    { key: 'last3Months', label: upperTr(t('common:date.last3Months')), period: 'monthly', offset: -2 },
+    { key: 'thisYear', label: upperTr(t('common:date.thisYear')), period: 'yearly', offset: 0 },
+    { key: 'allTime', label: upperTr(t('common:period.allTime')), period: 'yearly', offset: -100 },
+    { key: 'custom', label: upperTr(t('common:period.custom')), period: 'custom' },
   ], [t]);
 
   const dateRange = useMemo(() => {

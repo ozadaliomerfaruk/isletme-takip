@@ -1,3 +1,4 @@
+import { upperTr } from '@/lib/turkishTextUtils';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Modal, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
@@ -68,12 +69,12 @@ export function PdfExportSheet({
   });
 
   const periodOptions: PeriodOption[] = useMemo(() => [
-    { key: 'thisMonth', label: t('date.thisMonth'), period: 'monthly', offset: 0 },
-    { key: 'lastMonth', label: t('date.lastMonth'), period: 'monthly', offset: -1 },
-    { key: 'last3Months', label: t('date.last3Months'), period: 'monthly', offset: -2 },
-    { key: 'thisYear', label: t('date.thisYear'), period: 'yearly', offset: 0 },
-    { key: 'allTime', label: t('period.allTime'), period: 'yearly', offset: -100 },
-    { key: 'custom', label: t('period.custom'), period: 'custom' },
+    { key: 'thisMonth', label: upperTr(t('date.thisMonth')), period: 'monthly', offset: 0 },
+    { key: 'lastMonth', label: upperTr(t('date.lastMonth')), period: 'monthly', offset: -1 },
+    { key: 'last3Months', label: upperTr(t('date.last3Months')), period: 'monthly', offset: -2 },
+    { key: 'thisYear', label: upperTr(t('date.thisYear')), period: 'yearly', offset: 0 },
+    { key: 'allTime', label: upperTr(t('period.allTime')), period: 'yearly', offset: -100 },
+    { key: 'custom', label: upperTr(t('period.custom')), period: 'custom' },
   ], [t]);
 
   const dateRange = useMemo(() => {

@@ -1,3 +1,4 @@
+import { upperTr } from '@/lib/turkishTextUtils';
 /**
  * Export Sheet Component
  * Tarih aralığı seçimi ve Excel export için bottom sheet
@@ -75,14 +76,14 @@ export function ExportSheet({
 
   // Dönem seçenekleri
   const periodOptions: PeriodOption[] = useMemo(() => [
-    { key: 'today', label: t('date.today'), period: 'daily', offset: 0 },
-    { key: 'thisWeek', label: t('date.thisWeek'), period: 'weekly', offset: 0 },
-    { key: 'thisMonth', label: t('date.thisMonth'), period: 'monthly', offset: 0 },
-    { key: 'lastMonth', label: t('date.lastMonth'), period: 'monthly', offset: -1 },
-    { key: 'last3Months', label: t('date.last3Months'), period: 'monthly', offset: -2 },
-    { key: 'thisYear', label: t('date.thisYear'), period: 'yearly', offset: 0 },
-    { key: 'allTime', label: t('period.allTime'), period: 'yearly', offset: -100 },
-    { key: 'custom', label: t('period.custom'), period: 'custom' },
+    { key: 'today', label: upperTr(t('date.today')), period: 'daily', offset: 0 },
+    { key: 'thisWeek', label: upperTr(t('date.thisWeek')), period: 'weekly', offset: 0 },
+    { key: 'thisMonth', label: upperTr(t('date.thisMonth')), period: 'monthly', offset: 0 },
+    { key: 'lastMonth', label: upperTr(t('date.lastMonth')), period: 'monthly', offset: -1 },
+    { key: 'last3Months', label: upperTr(t('date.last3Months')), period: 'monthly', offset: -2 },
+    { key: 'thisYear', label: upperTr(t('date.thisYear')), period: 'yearly', offset: 0 },
+    { key: 'allTime', label: upperTr(t('period.allTime')), period: 'yearly', offset: -100 },
+    { key: 'custom', label: upperTr(t('period.custom')), period: 'custom' },
   ], [t]);
 
   // Seçilen döneme göre tarih aralığını hesapla

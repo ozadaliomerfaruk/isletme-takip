@@ -1,3 +1,4 @@
+import { upperTr } from '@/lib/turkishTextUtils';
 import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
@@ -34,11 +35,11 @@ export default function NakitAkisiPage() {
   const [showEndPicker, setShowEndPicker] = useState(false);
 
   const PERIOD_OPTIONS = [
-    { label: t('reports:period.yearly'), value: 'yearly' },
-    { label: t('reports:period.monthly'), value: 'monthly' },
-    { label: t('reports:period.weekly'), value: 'weekly' },
-    { label: t('reports:period.daily'), value: 'daily' },
-    { label: t('reports:period.custom'), value: 'custom' },
+    { label: upperTr(t('reports:period.yearly')), value: 'yearly' },
+    { label: upperTr(t('reports:period.monthly')), value: 'monthly' },
+    { label: upperTr(t('reports:period.weekly')), value: 'weekly' },
+    { label: upperTr(t('reports:period.daily')), value: 'daily' },
+    { label: upperTr(t('reports:period.custom')), value: 'custom' },
   ];
 
   const { isletme } = useAuthContext();

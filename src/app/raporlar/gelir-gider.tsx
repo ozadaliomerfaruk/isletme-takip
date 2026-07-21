@@ -1,3 +1,4 @@
+import { upperTr } from '@/lib/turkishTextUtils';
 import { useState, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,11 +38,11 @@ export default function GelirGiderRaporPage() {
   const { isExporting, exportReport } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
 
   const PERIOD_OPTIONS = [
-    { label: t('reports:period.yearly'), value: 'yearly' },
-    { label: t('reports:period.monthly'), value: 'monthly' },
-    { label: t('reports:period.weekly'), value: 'weekly' },
-    { label: t('reports:period.daily'), value: 'daily' },
-    { label: t('reports:period.custom'), value: 'custom' },
+    { label: upperTr(t('reports:period.yearly')), value: 'yearly' },
+    { label: upperTr(t('reports:period.monthly')), value: 'monthly' },
+    { label: upperTr(t('reports:period.weekly')), value: 'weekly' },
+    { label: upperTr(t('reports:period.daily')), value: 'daily' },
+    { label: upperTr(t('reports:period.custom')), value: 'custom' },
   ];
 
   const gelirRaporu = useCategoryReport('gelir', {

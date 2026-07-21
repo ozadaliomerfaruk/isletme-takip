@@ -1,3 +1,4 @@
+import { upperTr } from '@/lib/turkishTextUtils';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { TabFilter } from '@/components/ui';
@@ -30,11 +31,11 @@ export function ReportPeriodBar({ state, includeCustom = false, monthlyAsYear = 
   const { t } = useTranslation(['reports']);
 
   const periodOptions = [
-    { label: t('reports:period.yearly'), value: 'yearly' },
-    { label: t('reports:period.monthly'), value: 'monthly' },
-    { label: t('reports:period.weekly'), value: 'weekly' },
-    { label: t('reports:period.daily'), value: 'daily' },
-    ...(includeCustom ? [{ label: t('reports:period.custom'), value: 'custom' }] : []),
+    { label: upperTr(t('reports:period.yearly')), value: 'yearly' },
+    { label: upperTr(t('reports:period.monthly')), value: 'monthly' },
+    { label: upperTr(t('reports:period.weekly')), value: 'weekly' },
+    { label: upperTr(t('reports:period.daily')), value: 'daily' },
+    ...(includeCustom ? [{ label: upperTr(t('reports:period.custom')), value: 'custom' }] : []),
   ];
 
   return (
