@@ -215,7 +215,9 @@
     "kalanBorc": "Kalan Borcumuz",
     "kalanAlacak": "Kalan Alacağımız",
     "vadesiGecenAlacak": "Vadesi Geçen Alacağımız",
-    "vadesiGecenBorc": "Vadesi Geçen Borcumuz"
+    "vadesiGecenBorc": "Vadesi Geçen Borcumuz",
+    "vadesiGelmemisAlacak": "Vadesi Gelmemiş Alacağımız",
+    "vadesiGelmemisBorc": "Vadesi Gelmemiş Borcumuz"
   },
   "preview": {
     "sonIslemler": "Son İşlemler",

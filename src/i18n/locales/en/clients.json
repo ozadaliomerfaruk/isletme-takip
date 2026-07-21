@@ -215,7 +215,9 @@
     "kalanBorc": "Remaining We Owe",
     "kalanAlacak": "Remaining They Owe",
     "vadesiGecenAlacak": "Overdue Receivable",
-    "vadesiGecenBorc": "Overdue Payable"
+    "vadesiGecenBorc": "Overdue Payable",
+    "vadesiGelmemisAlacak": "Not Yet Due Receivable",
+    "vadesiGelmemisBorc": "Not Yet Due Payable"
   },
   "preview": {
     "sonIslemler": "Recent Transactions",

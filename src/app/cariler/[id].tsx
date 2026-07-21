@@ -1007,53 +1007,55 @@ export default function CariHareketleriPage() {
             </View>
           )}
 
-          <Text style={styles.darkTitle} numberOfLines={2}>{upperTr(cari.name)}</Text>
-          <Text style={styles.darkType}>
-            {isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-          </Text>
-
-          {cari.phone ? (
-            <View style={styles.darkPhoneRow}>
-              <View style={styles.darkPhoneChip}>
-                <Phone size={16} color={DARK_CARD_BG} />
-              </View>
-              <Text style={styles.darkPhoneText} numberOfLines={1}>{cari.phone}</Text>
+          {/* Üst satır: SOLDA isim + tip, SAĞDA kalan bakiye (aynı satır) */}
+          <View style={styles.darkTopRow}>
+            <View style={styles.darkTitleWrap}>
+              <Text style={styles.darkTitle} numberOfLines={2}>{upperTr(cari.name)}</Text>
+              <Text style={styles.darkType} numberOfLines={1}>
+                {isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}
+                {cari.phone ? `  ·  ${cari.phone}` : ''}
+              </Text>
             </View>
-          ) : null}
+            <View style={styles.darkBalanceWrap}>
+              <Text style={styles.darkLabel} numberOfLines={1}>
+                {displayBalance < 0 ? t('clients:detayOzet.kalanBorc') : t('clients:detayOzet.kalanAlacak')}
+              </Text>
+              <Text style={styles.darkBalanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                {formatCurrency(Math.abs(displayBalance), cari.currency)}
+              </Text>
+            </View>
+          </View>
 
           {(() => {
-            // Satırlar: ömür-boyu toplamlar (RPC, iadeler net) + kalan bakiye + vadesi geçen.
+            // Alt 4 satır: toplam alış/satış, toplam ödeme/tahsilat, vadesi geçen,
+            // vadesi gelmemiş (= kalan − geçen). İadeler toplamdan netleştirilir.
             const oz = (k: keyof CariOzet) => cariOzet?.[k]?.toplam ?? 0;
-            const satisNet = roundCurrency(oz('cari_satis') - oz('cari_satis_iade'));
-            const alisNet = roundCurrency(oz('cari_alis') - oz('cari_alis_iade'));
-            const tahsilat = oz('cari_tahsilat');
-            const odeme = oz('cari_odeme');
-            const rows: { label: string; value: string; danger?: boolean }[] = [];
-            if (!isViewer && cariOzet) {
-              // Birincil yön cari tipine göre; karşı yön yalnız doluysa
-              if (isTedarikci) {
-                if (alisNet !== 0) rows.push({ label: t('clients:detayOzet.toplamAlis'), value: formatCurrency(alisNet, cari.currency) });
-                if (odeme !== 0) rows.push({ label: t('clients:detayOzet.toplamOdeme'), value: formatCurrency(odeme, cari.currency) });
-                if (satisNet !== 0) rows.push({ label: t('clients:detayOzet.toplamSatis'), value: formatCurrency(satisNet, cari.currency) });
-                if (tahsilat !== 0) rows.push({ label: t('clients:detayOzet.toplamTahsilat'), value: formatCurrency(tahsilat, cari.currency) });
-              } else {
-                if (satisNet !== 0) rows.push({ label: t('clients:detayOzet.toplamSatis'), value: formatCurrency(satisNet, cari.currency) });
-                if (tahsilat !== 0) rows.push({ label: t('clients:detayOzet.toplamTahsilat'), value: formatCurrency(tahsilat, cari.currency) });
-                if (alisNet !== 0) rows.push({ label: t('clients:detayOzet.toplamAlis'), value: formatCurrency(alisNet, cari.currency) });
-                if (odeme !== 0) rows.push({ label: t('clients:detayOzet.toplamOdeme'), value: formatCurrency(odeme, cari.currency) });
-              }
-            }
-            rows.push({
-              label: displayBalance < 0 ? t('clients:detayOzet.kalanBorc') : t('clients:detayOzet.kalanAlacak'),
-              value: formatCurrency(Math.abs(displayBalance), cari.currency),
-            });
-            if (cariVadeOzeti) {
-              rows.push({
+            const toplam = isTedarikci
+              ? roundCurrency(oz('cari_alis') - oz('cari_alis_iade'))
+              : roundCurrency(oz('cari_satis') - oz('cari_satis_iade'));
+            const odemeTahsilat = isTedarikci ? oz('cari_odeme') : oz('cari_tahsilat');
+            const kalanAbs = Math.abs(displayBalance);
+            const gecikmis = cariVadeOzeti?.toplam ?? 0;
+            const vadesiGelmemis = Math.max(0, roundCurrency(kalanAbs - gecikmis));
+            const rows: { label: string; value: string; danger?: boolean }[] = [
+              {
+                label: isTedarikci ? t('clients:detayOzet.toplamAlis') : t('clients:detayOzet.toplamSatis'),
+                value: formatCurrency(toplam, cari.currency),
+              },
+              {
+                label: isTedarikci ? t('clients:detayOzet.toplamOdeme') : t('clients:detayOzet.toplamTahsilat'),
+                value: formatCurrency(odemeTahsilat, cari.currency),
+              },
+              {
                 label: isTedarikci ? t('clients:detayOzet.vadesiGecenBorc') : t('clients:detayOzet.vadesiGecenAlacak'),
-                value: formatCurrency(cariVadeOzeti.toplam, cari.currency),
-                danger: true,
-              });
-            }
+                value: formatCurrency(gecikmis, cari.currency),
+                danger: gecikmis > 0,
+              },
+              {
+                label: isTedarikci ? t('clients:detayOzet.vadesiGelmemisBorc') : t('clients:detayOzet.vadesiGelmemisAlacak'),
+                value: formatCurrency(vadesiGelmemis, cari.currency),
+              },
+            ];
             return (
               <View style={styles.darkRows}>
                 {rows.map((r) => (
@@ -1121,10 +1123,8 @@ export default function CariHareketleriPage() {
             isLoading={ileriTarihliLoading}
           />
 
-          <Text variant="h3" style={styles.sectionTitle}>
-            {t('clients:details.transactions')}
-          </Text>
-
+          {/* "Hareketler" başlığı kaldırıldı (kullanıcı isteği) — işlemler
+              dashboard'un hemen altından başlar */}
           {islemlerLoading && (
             <Text color="secondary">{t('common:status.loading')}</Text>
           )}
@@ -1515,7 +1515,7 @@ const styles = StyleSheet.create({
     backgroundColor: DARK_CARD_BG,
     borderRadius: borderRadius.xl,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
@@ -1532,39 +1532,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     flexShrink: 1,
   },
+  // Üst satır: isim solda, kalan bakiye sağda
+  darkTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  darkTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   darkTitle: {
     color: colors.white,
     fontSize: fontSize.xl,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    textAlign: 'center',
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   darkType: {
-    color: '#9ECDC0',
+    color: '#DFF0EA',
     fontSize: fontSize.sm,
-    textAlign: 'center',
-    marginTop: 1,
-    marginBottom: spacing.sm,
+    fontWeight: '500',
   },
-  darkPhoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  darkPhoneChip: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  darkPhoneText: {
-    color: colors.white,
-    fontSize: fontSize.lg,
-    fontWeight: '600',
+  darkBalanceWrap: {
+    alignItems: 'flex-end',
+    gap: 2,
     flexShrink: 1,
+    maxWidth: '55%',
+  },
+  darkBalanceValue: {
+    color: colors.white,
+    fontSize: fontSize['2xl'],
+    fontWeight: '800',
   },
   darkRows: {
     gap: spacing.sm,
@@ -1575,19 +1576,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
+  // Okunurluk: yeşil zeminde neredeyse-beyaz etiketler, kalın beyaz değerler
   darkLabel: {
-    color: '#CDE7DF',
-    fontSize: fontSize.lg,
+    color: '#E9F5F0',
+    fontSize: fontSize.md,
+    fontWeight: '600',
     flexShrink: 1,
   },
   darkValue: {
     color: colors.white,
-    fontSize: fontSize.xl,
-    fontWeight: '700',
+    fontSize: fontSize.lg,
+    fontWeight: '800',
     flexShrink: 1,
   },
   darkValueDanger: {
-    color: '#FFB4AC',
+    color: '#FFC4BD',
   },
   summaryRow: {
     flexDirection: 'row',
