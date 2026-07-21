@@ -76,6 +76,30 @@ export function useIslemTaksitliMi(islemId: string | undefined) {
   });
 }
 
+/**
+ * Carinin taksit planlı işlem id'leri — cari detay satırlarında taksit-farkındalı
+ * vade pill'i için (işlem-düzeyi vade+kalan taksitli işlemde YANLIŞ "vadesi geçti"
+ * üretiyordu). Dizi döner (Set persist edilemez — offline cache şema kuralı).
+ */
+export function useCariTaksitliIslemIds(cariId: string | undefined, enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.taksit.cariPlanlar(cariId ?? '', isletme?.id ?? ''),
+    enabled: enabled && !!cariId && !!isletme?.id,
+    queryFn: async (): Promise<string[]> => {
+      if (!cariId || !isletme?.id) return [];
+      const { data, error } = await supabase
+        .from('taksit_planlari')
+        .select('islem_id')
+        .eq('isletme_id', isletme.id)
+        .eq('cari_id', cariId);
+      if (error) throw error;
+      return (data ?? []).map((r) => r.islem_id as string);
+    },
+  });
+}
+
 export interface BuAyTaksitOzeti {
   /** Bu ay vadesi gelen ve kalanı açık taksit sayısı (tüm para birimleri). */
   adet: number;

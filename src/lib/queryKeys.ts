@@ -63,6 +63,7 @@ export const queryKeys = {
     detay: (planId: string, isletmeId: string) => ['taksit', 'detay', planId, isletmeId] as const,
     byIslem: (islemId: string, isletmeId: string) => ['taksit', 'by-islem', islemId, isletmeId] as const,
     buAy: (isletmeId: string, ay: string) => ['taksit', 'bu-ay', isletmeId, ay] as const,
+    cariPlanlar: (cariId: string, isletmeId: string) => ['taksit', 'cari-planlar', cariId, isletmeId] as const,
   },
 
   // Hesaplar

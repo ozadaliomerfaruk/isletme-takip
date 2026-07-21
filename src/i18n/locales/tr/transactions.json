@@ -110,7 +110,8 @@
     "alacakKisa": "Alacak",
     "borcKisa": "Borç",
     "gecAlacakKisa": "Geciken Alacak",
-    "gecBorcKisa": "Geciken Borç"
+    "gecBorcKisa": "Geciken Borç",
+    "hedefTahsisHata": "Ödeme kaydedildi ancak bu borca yönlendirilemedi — carinin en eski vadesine sayıldı."
   },
   "taksit": {
     "label": "Taksit",

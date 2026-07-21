@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import i18n from '@/i18n';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useToast } from '@/contexts/ToastContext';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { roundCurrency } from '@/lib/currency';
 
@@ -169,6 +171,7 @@ export function useVadeOzet(enabled = true) {
 export function useRetahsisOdeme() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { showToast } = useToast();
 
   return useMutation({
     mutationFn: async ({ odemeIslemId, hedefBorcId }: { odemeIslemId: string; hedefBorcId: string }) => {
@@ -181,7 +184,16 @@ export function useRetahsisOdeme() {
       if (error) throw error;
       return data as { tahsis_adet: number; avans: number };
     },
+    // Retry: retahsis idempotent (tüm tahsisleri söküp yeniden dağıtır) — geçici
+    // ağ hatasında sessizce genel-FIFO'da kalmasın diye 2 kez daha denenir.
+    retry: 2,
     onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'islem');
+    },
+    onError: () => {
+      // SESSİZ KALMA (denetim bulgusu): para kaydedildi ama hedefe yönlendirilemedi —
+      // genel FIFO'da (carinin en eski vadesinde) kaldı. Kullanıcı bilsin.
+      showToast(i18n.t('transactions:vade.hedefTahsisHata'), 'error');
       invalidateRelatedQueries(queryClient, 'islem');
     },
   });

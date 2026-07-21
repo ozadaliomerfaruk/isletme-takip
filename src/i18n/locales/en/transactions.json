@@ -110,7 +110,8 @@
     "alacakKisa": "Receivable",
     "borcKisa": "Payable",
     "gecAlacakKisa": "Overdue Receivable",
-    "gecBorcKisa": "Overdue Payable"
+    "gecBorcKisa": "Overdue Payable",
+    "hedefTahsisHata": "Payment saved but could not be targeted to this debt — it was applied to the oldest due balance."
   },
   "taksit": {
     "label": "Installments",

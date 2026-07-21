@@ -52,6 +52,7 @@ import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useCariTahsisOzeti, useCariVadeliBorclar, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
+import { useCariTaksitliIslemIds } from '@/hooks/useTaksit';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
@@ -477,7 +478,7 @@ export default function CariHareketleriPage() {
   const [showCopyBar, setShowCopyBar] = useState(false);
   // Faz 2: swipe "Tahsil Et/Öde" — kalan tutar ön-dolu QTB; tahsis kaydırılan satırın
   // borcuna hedeflenir (retahsis_odeme)
-  const [tahsilPrefill, setTahsilPrefill] = useState<{ type: 'tahsilat' | 'odeme'; amount: number; hedefBorcId: string } | null>(null);
+  const [tahsilPrefill, setTahsilPrefill] = useState<{ type: 'tahsilat' | 'odeme'; amount?: number; hedefBorcId: string } | null>(null);
   const retahsis = useRetahsisOdeme();
   // Product detail modal state
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
@@ -805,11 +806,22 @@ export default function CariHareketleriPage() {
   // sayfa yanlış toplam verir) + tahsis kalanları → gecikmiş adet/toplam.
   // crude susturucu burada da geçerli: bakiye kapalıysa şerit hiç çıkmaz.
   const { data: vadeliBorclar } = useCariVadeliBorclar(id, !isViewer);
+
+  // Taksitli işlem id'leri: işlem-düzeyi vade (=ilk taksit) + işlem-bütünü kalan,
+  // taksitli işlemde YANLIŞ "vadesi geçti" üretir (plan yolundayken bile). Satır
+  // pill'i ve banner bu set ile taksit-farkındalı davranır.
+  const { data: taksitliIslemIds } = useCariTaksitliIslemIds(id, !isViewer);
+  const taksitliSet = useMemo(() => new Set(taksitliIslemIds ?? []), [taksitliIslemIds]);
+
   const cariVadeOzeti = useMemo(() => {
     if (isViewer || cariPaidCrude || !vadeliBorclar || !tahsisOzeti) return null;
     let toplam = 0;
     let adet = 0;
     for (const b of vadeliBorclar) {
+      // Taksitli borç banner'dan hariç: işlem vadesi ilk taksit tarihi olduğundan
+      // plan yolunda giderken bile "gecikmiş" sayardı (taksit-birimi kırılımı
+      // burada yok; liste sayfası rozeti zaten birim-farkındalı RPC'den gelir).
+      if (taksitliSet.has(b.id)) continue;
       if (String(b.vade_tarihi) > overdueTodayStr) continue; // gecikmiş = bugün dahil (liste ile aynı kural)
       const kalan = roundCurrency(toNumber(b.amount) - (tahsisOzeti.borcTahsisleri[b.id] ?? 0));
       if (kalan > 0.009) {
@@ -818,7 +830,7 @@ export default function CariHareketleriPage() {
       }
     }
     return adet > 0 ? { toplam, adet } : null;
-  }, [isViewer, cariPaidCrude, vadeliBorclar, tahsisOzeti, overdueTodayStr]);
+  }, [isViewer, cariPaidCrude, vadeliBorclar, tahsisOzeti, overdueTodayStr, taksitliSet]);
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
@@ -865,33 +877,59 @@ export default function CariHareketleriPage() {
     if (islem.vade_tarihi != null) {
       const p = String(islem.vade_tarihi).split('-');
       if (p.length === 3) {
-        itemVadeText = `${t('transactions:vade.label')}: ${p[2]}.${p[1]}.${p[0]}`;
         // Faz 2 — tahsis-bazlı kesin kalan (yalnız veri geldiyse; yükleniyor/viewer → null).
         // İşlem tipi owner-canonical (islem.type) — tahsis defteri ham DB üzerindedir.
         const tahsisToplam = tahsisOzeti?.borcTahsisleri[islem.id] ?? 0;
         const itemKalan = tahsisOzeti
           ? Math.max(0, roundCurrency(toNumber(islem.amount) - tahsisToplam))
           : null;
-        if (cariPaidCrude || (itemKalan !== null && itemKalan <= 0.009)) {
-          // paid: tahsislerle tamamen kapanmış borç VEYA crude susturucu (bakiye
-          // kapalı — migration-öncesi geçmişte tahsis kaydı olmayan ödemeler).
-          itemVadeState = 'paid';
-        } else {
-          const daysUntil = Math.round(
-            (new Date(String(islem.vade_tarihi)).getTime() - new Date(overdueTodayStr).getTime()) / 86400000
-          );
-          itemVadeState = daysUntil <= 0 ? 'overdue' : daysUntil > 7 ? 'future' : 'soon';
-          // Kısmi tahsis: pill'e kalanı ekle ("Vade: 15.08.2026 · Kalan: ₺500").
-          if (itemKalan !== null && tahsisToplam > 0 && itemKalan > 0) {
-            itemVadeText += ` · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`;
+        const isTaksitli = taksitliSet.has(islem.id);
+
+        if (isTaksitli) {
+          // TAKSİTLİ işlem: işlem vadesi = İLK taksit tarihi; işlem-bütünü kalanla
+          // gün hesabı yapılırsa plan yolunda giderken bile "vadesi geçti" çıkar
+          // (yanlış alarm — inceleme bulgusu). Pill tarafsız "Taksit · Kalan: X"
+          // gösterir; gecikme kırılımı Taksit Takip/detayda birim bazında.
+          if (cariPaidCrude || (itemKalan !== null && itemKalan <= 0.009)) {
+            itemVadeText = `${t('transactions:taksit.label')} · ${t('transactions:taksit.tamamlandi')}`;
+            itemVadeState = 'paid';
+          } else {
+            itemVadeText = itemKalan !== null
+              ? `${t('transactions:taksit.label')} · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`
+              : t('transactions:taksit.label');
+            itemVadeState = 'future';
+            if (!isViewer && canEditItem && (islem.type === 'cari_satis' || islem.type === 'cari_alis')) {
+              const prefillType = islem.type === 'cari_satis' ? 'tahsilat' : 'odeme';
+              itemTahsilLabel = t(prefillType === 'tahsilat' ? 'transactions:vade.tahsilEt' : 'transactions:vade.ode');
+              // Tutar BOŞ bırakılır: işlem-bütünü kalanı ön-doldurmak "bu ayın
+              // taksitini alacaktım, tüm kalanı kaydettim" kazasına yol açıyordu.
+              // Hedefli retahsis yine bu planın en eski açık taksitinden kapatır.
+              itemOnTahsil = () => setTahsilPrefill({ type: prefillType, hedefBorcId: islem.id });
+            }
           }
-          // Swipe hızlı aksiyon: açık vadeli borçta kalanı ön-dolu tahsilat/ödeme aç.
-          // FIFO mahsup sunucuda otomatik (en eski vade önce); viewer'da kapalı.
-          if (!isViewer && canEditItem && (islem.type === 'cari_satis' || islem.type === 'cari_alis')) {
-            const prefillType = islem.type === 'cari_satis' ? 'tahsilat' : 'odeme';
-            const prefillAmount = itemKalan ?? toNumber(islem.amount);
-            itemTahsilLabel = t(prefillType === 'tahsilat' ? 'transactions:vade.tahsilEt' : 'transactions:vade.ode');
-            itemOnTahsil = () => setTahsilPrefill({ type: prefillType, amount: prefillAmount, hedefBorcId: islem.id });
+        } else {
+          itemVadeText = `${t('transactions:vade.label')}: ${p[2]}.${p[1]}.${p[0]}`;
+          if (cariPaidCrude || (itemKalan !== null && itemKalan <= 0.009)) {
+            // paid: tahsislerle tamamen kapanmış borç VEYA crude susturucu (bakiye
+            // kapalı — migration-öncesi geçmişte tahsis kaydı olmayan ödemeler).
+            itemVadeState = 'paid';
+          } else {
+            const daysUntil = Math.round(
+              (new Date(String(islem.vade_tarihi)).getTime() - new Date(overdueTodayStr).getTime()) / 86400000
+            );
+            itemVadeState = daysUntil <= 0 ? 'overdue' : daysUntil > 7 ? 'future' : 'soon';
+            // Kısmi tahsis: pill'e kalanı ekle ("Vade: 15.08.2026 · Kalan: ₺500").
+            if (itemKalan !== null && tahsisToplam > 0 && itemKalan > 0) {
+              itemVadeText += ` · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`;
+            }
+            // Swipe hızlı aksiyon: açık vadeli borçta kalanı ön-dolu tahsilat/ödeme aç.
+            // FIFO mahsup sunucuda otomatik (en eski vade önce); viewer'da kapalı.
+            if (!isViewer && canEditItem && (islem.type === 'cari_satis' || islem.type === 'cari_alis')) {
+              const prefillType = islem.type === 'cari_satis' ? 'tahsilat' : 'odeme';
+              const prefillAmount = itemKalan ?? toNumber(islem.amount);
+              itemTahsilLabel = t(prefillType === 'tahsilat' ? 'transactions:vade.tahsilEt' : 'transactions:vade.ode');
+              itemOnTahsil = () => setTahsilPrefill({ type: prefillType, amount: prefillAmount, hedefBorcId: islem.id });
+            }
           }
         }
       }
@@ -944,7 +982,7 @@ export default function CariHareketleriPage() {
         tahsilLabel={itemTahsilLabel}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, isViewer]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, isViewer, taksitliSet]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
