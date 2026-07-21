@@ -52,8 +52,10 @@ export const queryKeys = {
       ['islem-tahsis', 'vade-ozet', isletmeId] as const,
     vadeliBorclar: (cariId: string, isletmeId: string) =>
       ['islem-tahsis', 'vadeli-borclar', cariId, isletmeId] as const,
+    // v2: RPC'ye yakin_vade/yakin_tutar/yakin_yon eklendi — disk-persist'teki eski
+    // şekilli cache'i atlatmak için key bump (şema kuralı: sorgu şekli değişince şart)
     vadeRozet: (isletmeId: string) =>
-      ['islem-tahsis', 'vade-rozet', isletmeId] as const,
+      ['islem-tahsis', 'vade-rozet-v2', isletmeId] as const,
   },
 
   // Taksit (Faz 3 — taksit_planlari/taksitler + get_taksit_plan_listesi RPC)

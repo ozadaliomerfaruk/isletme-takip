@@ -29,7 +29,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { formatDateForDB } from '@/lib/date';
+import { formatDateMedium } from '@/lib/date';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
@@ -664,10 +664,11 @@ export default function CarilerPage() {
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
   const renderCariItem = useCallback(({ item: cari, index }: { item: MergedCari; index: number }) => {
     const isSelected = selectedIds.has(cari.id);
-    // Vade satırı (chip yok, düz yazı): önce gecikmiş; gecikmiş yoksa en yakın gelecek vade.
+    // Vade bilgisi (chip yok, düz yazı) — bakiye tutarının ALTINDA iki satır:
+    // etiket ("Vadesi geçen:" / "En yakın vade: <tarih>") + tutar satırı.
     // Gecikmiş gösterimi bakiye-yönü susturuculu (migration-öncesi kapanmış geçmişte yanlış alarm yok).
     const rozet = !cari.isLinked ? vadeRozetMap?.[cari.id] : undefined;
-    let vadeLine: { text: string; overdue: boolean } | null = null;
+    let vadeInfo: { label: string; amount: string; overdue: boolean } | null = null;
     if (rozet) {
       const bal = toNumber(cari.balance);
       const gecParts: string[] = [];
@@ -678,15 +679,16 @@ export default function CarilerPage() {
         gecParts.push(`${t('transactions:vade.borcKisa')} ${formatCurrency(rozet.gecikmis_borc, rozet.currency)}`);
       }
       if (gecParts.length > 0) {
-        vadeLine = { text: `${t('transactions:vade.gecikenEtiket')}: ${gecParts.join(' · ')}`, overdue: true };
+        vadeInfo = {
+          label: `${t('transactions:vade.gecikenEtiket')}:`,
+          amount: gecParts.join(' · '),
+          overdue: true,
+        };
       } else if (rozet.yakin_vade && (rozet.yakin_tutar ?? 0) > 0.009) {
-        const gun = Math.round(
-          (new Date(rozet.yakin_vade).getTime() - new Date(formatDateForDB(new Date())).getTime()) / 86400000
-        );
         const yon = rozet.yakin_yon === 'borc' ? t('transactions:vade.borcKisa') : t('transactions:vade.alacakKisa');
-        const gunText = gun <= 0 ? t('transactions:vade.bugunSon') : t('transactions:vade.gunSonra', { gun });
-        vadeLine = {
-          text: `${t('transactions:vade.yakinVade')}: ${yon} ${formatCurrency(rozet.yakin_tutar ?? 0, rozet.currency)} · ${gunText}`,
+        vadeInfo = {
+          label: `${t('transactions:vade.yakinVade')}: ${formatDateMedium(rozet.yakin_vade)}`,
+          amount: `${yon} ${formatCurrency(rozet.yakin_tutar ?? 0, rozet.currency)}`,
           overdue: false,
         };
       }
@@ -773,15 +775,6 @@ export default function CarilerPage() {
                       </Text>
                     </View>
                   ) : null}
-                  {/* Vade satırı: gecikmiş varsa kırmızı; yoksa en yakın gelecek vade */}
-                  {vadeLine ? (
-                    <Text
-                      style={[styles.vadeText, vadeLine.overdue ? styles.vadeTextOverdue : styles.vadeTextUpcoming]}
-                      numberOfLines={1}
-                    >
-                      {vadeLine.text}
-                    </Text>
-                  ) : null}
                 </View>
                 <View style={styles.cariBalance}>
                   <Text style={styles.balanceLabel}>
@@ -812,6 +805,23 @@ export default function CarilerPage() {
                       ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
                     </Text>
                   )}
+                  {/* Vade bilgisi: tutarın altında — gecikmiş kırmızı, en yakın vade nötr */}
+                  {vadeInfo ? (
+                    <>
+                      <Text
+                        style={[styles.vadeText, vadeInfo.overdue ? styles.vadeTextOverdue : styles.vadeTextUpcoming]}
+                        numberOfLines={1}
+                      >
+                        {vadeInfo.label}
+                      </Text>
+                      <Text
+                        style={[styles.vadeAmount, vadeInfo.overdue ? styles.vadeTextOverdue : styles.vadeTextUpcoming]}
+                        numberOfLines={1}
+                      >
+                        {vadeInfo.amount}
+                      </Text>
+                    </>
+                  ) : null}
                 </View>
                 <TouchableOpacity
                   onPress={(e) => {
@@ -1248,13 +1258,16 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   vadeText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
-    marginTop: 2,
+    marginTop: 4,
+  },
+  vadeAmount: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   vadeTextOverdue: {
     color: colors.error,
-    fontWeight: '600',
   },
   vadeTextUpcoming: {
     color: colors.textSecondary,
