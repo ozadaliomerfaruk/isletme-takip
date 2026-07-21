@@ -11,7 +11,8 @@ import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import type { Cari } from '@/types/database';
+import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
+import type { Cari, IslemType } from '@/types/database';
 
 /** Önizlemede gösterilecek cari — liste satırındaki birleşik tip (link meta opsiyonel). */
 export type PreviewCari = Cari & {
@@ -50,7 +51,7 @@ function useSonIslemler(cariId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('islemler')
-        .select('id, type, amount, date')
+        .select('id, type, amount, date, hesap:hesaplar!hesap_id(name)')
         .eq('isletme_id', isletme!.id)
         .eq('cari_id', cariId!)
         .order('date', { ascending: false })
@@ -169,21 +170,37 @@ export function CariPreviewModal({
             ) : !sonIslemler || sonIslemler.length === 0 ? (
               <Text variant="caption" color="muted">{t('clients:preview.islemYok')}</Text>
             ) : (
-              sonIslemler.map((islem) => (
-                <View key={islem.id} style={styles.islemRow}>
-                  <Text variant="caption" color="secondary" style={styles.islemDate}>
-                    {formatDateShort(islem.date)}
-                  </Text>
-                  <Text variant="caption" style={styles.islemType} numberOfLines={1}>
-                    {TX_LABEL_KEY[islem.type]
-                      ? t(`clients:transactionLabels.${TX_LABEL_KEY[islem.type]}`)
-                      : islem.type}
-                  </Text>
-                  <Text variant="caption" style={styles.islemAmount} numberOfLines={1}>
-                    {formatCurrency(toNumber(islem.amount), cari.currency)}
-                  </Text>
-                </View>
-              ))
+              sonIslemler.map((islem) => {
+                // Detay sayfasıyla AYNI dil: perspektif rengi + +/- öneki + hesap oku
+                // (ödeme → hesaba gider, tahsilat ← hesaptan gelir; cariler/[id] deseni)
+                const tip = islem.type as IslemType;
+                const renk = getEntityPerspectiveColor(tip);
+                const onek = getEntityPerspectivePrefix(tip);
+                const hesapRaw = (islem as { hesap?: { name: string } | { name: string }[] | null }).hesap;
+                const hesap = Array.isArray(hesapRaw) ? hesapRaw[0] : hesapRaw;
+                return (
+                  <View key={islem.id} style={styles.islemRow}>
+                    <Text variant="caption" color="secondary" style={styles.islemDate}>
+                      {formatDateShort(islem.date)}
+                    </Text>
+                    <View style={styles.islemMid}>
+                      <Text variant="caption" style={[styles.islemType, { color: renk }]} numberOfLines={1}>
+                        {TX_LABEL_KEY[islem.type]
+                          ? t(`clients:transactionLabels.${TX_LABEL_KEY[islem.type]}`)
+                          : islem.type}
+                      </Text>
+                      {hesap?.name ? (
+                        <Text variant="caption" color="muted" numberOfLines={1} style={styles.islemHesap}>
+                          {tip === 'cari_odeme' ? '→ ' : '← '}{hesap.name}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text variant="caption" style={[styles.islemAmount, { color: renk }]} numberOfLines={1}>
+                      {onek}{formatCurrency(toNumber(islem.amount), cari.currency)}
+                    </Text>
+                  </View>
+                );
+              })
             )}
           </View>
         </Animated.View>
@@ -301,13 +318,18 @@ const styles = StyleSheet.create({
   islemDate: {
     width: 74,
   },
-  islemType: {
+  islemMid: {
     flex: 1,
-    color: colors.text,
+    minWidth: 0,
+  },
+  islemType: {
+    fontWeight: fontWeight.semibold,
+  },
+  islemHesap: {
+    fontSize: fontSize.xs,
   },
   islemAmount: {
     fontWeight: fontWeight.semibold,
-    color: colors.text,
   },
   actions: {
     flexDirection: 'row',
