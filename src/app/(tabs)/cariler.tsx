@@ -21,7 +21,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -709,7 +709,6 @@ export default function CarilerPage() {
                   <Circle size={24} color={colors.border} />
                 )}
               </View>
-              <Avatar name={cari.name} size={40} />
               <View style={styles.cariInfo}>
                 <View style={styles.cariNameRow}>
                   <Text style={styles.cariName}>{cari.name}</Text>
@@ -746,7 +745,6 @@ export default function CarilerPage() {
             }}
             header={
               <View style={styles.cariHeader}>
-                <Avatar name={cari.name} size={40} />
                 <View style={styles.cariInfo}>
                   <View style={styles.cariNameRow}>
                     {/* İsim kırpılmaz — uzunsa alt satıra sarar (kullanıcı isteği) */}
