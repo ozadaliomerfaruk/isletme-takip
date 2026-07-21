@@ -5,7 +5,6 @@ import { spacing } from '@/constants/spacing';
 import { HeroCard } from './HeroCard';
 import { IncomeExpenseCard } from './IncomeExpenseCard';
 import { CashFlowCard } from './CashFlowCard';
-import { DueSummaryCard } from './DueSummaryCard';
 
 const CARD_PADDING = spacing.lg;
 
@@ -29,8 +28,9 @@ interface DashboardCarouselProps {
   periodBadge?: string;
 }
 
-// 4. kart: Vade Takibi (Faz 2) — verisini kendi çeker (useVadeOzet), prop almaz.
-const CARD_COUNT = 4;
+// Vade Takibi kartı dashboard'dan Cariler sayfası üstüne taşındı (VadeOzetStrip) —
+// kullanıcı tercihi: vade özeti cari bağlamında daha anlamlı.
+const CARD_COUNT = 3;
 
 export function DashboardCarousel({
   generalStatus,
@@ -106,7 +106,6 @@ export function DashboardCarousel({
             onPress={onCashFlowPress}
           />
         )}
-        {index === 3 && <DueSummaryCard />}
       </View>
     );
   }, [generalStatus, assets, receivables, payables, onHeroPress, income, expense, onIncomeExpensePress, totalInflow, totalOutflow, netCashFlow, onCashFlowPress, periodBadge, cardWidth]);

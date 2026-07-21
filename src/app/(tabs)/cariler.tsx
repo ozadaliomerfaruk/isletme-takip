@@ -21,7 +21,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -29,7 +29,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
@@ -43,6 +43,7 @@ import { LinkedCariBadge } from '@/components/cariSharing/LinkedCariBadge';
 import { useLinkedCariler, useCariLinks, useRemoveCariLink } from '@/hooks/useCariSharing';
 import type { SharingPermission } from '@/types/cariSharing';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
+import { CariMiniDashboard } from '@/components/cariler/CariMiniDashboard';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { DetailExportSection } from '@/components/detail';
@@ -71,6 +72,8 @@ export default function CarilerPage() {
   // kullanır ve useMemo ile sarılır → binlerce caride her tuşta filter+sort tekrarlanmaz.
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');
+  // Mini-dashboard Vade Takibi kartı → listeye "gecikmiş vade" filtresi
+  const [vadeFiltre, setVadeFiltre] = useState(false);
   // Multi-select state
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -462,8 +465,16 @@ export default function CarilerPage() {
     .filter((cari) => {
       // Type filter
       if (filter !== 'all' && cari.type !== filter) return false;
+      // Mini-dashboard "Vade Takibi" kartından gelen gecikmiş filtresi:
+      // yalnız gecikmiş vadesi olan cariler (rozet verisiyle aynı kaynak)
+      if (vadeFiltre) {
+        const rozet = vadeRozetMap?.[cari.id];
+        const gecikmis = rozet && ((Number(rozet.gecikmis_alacak) || 0) > 0 || (Number(rozet.gecikmis_borc) || 0) > 0);
+        if (!gecikmis) return false;
+      }
       // Search filter
-      if (debouncedSearch && !textIncludes(cari.name, debouncedSearch)) return false;
+      // Ad + cari kartındaki not birlikte aranır (kullanıcı isteği: "notları da arasın")
+      if (debouncedSearch && !searchMatchesTr(`${cari.name} ${cari.notes ?? ''}`, debouncedSearch)) return false;
       return true;
     })
     .sort((a, b) => {
@@ -499,7 +510,7 @@ export default function CarilerPage() {
       // Default: alphabetical
       return a.name.localeCompare(b.name, 'tr');
     }),
-  [mergedCariler, filter, debouncedSearch, sortBy]);
+  [mergedCariler, filter, debouncedSearch, sortBy, vadeFiltre, vadeRozetMap]);
 
   // #8: açık tab'ın (tip filtresi + arama + sıralama uygulanmış) anlık listesini dışa aktar
   const [isExporting, setIsExporting] = useState(false);
@@ -770,8 +781,12 @@ export default function CarilerPage() {
                     if (!outstanding || tutar <= 0.009) return null;
                     return (
                       <View style={styles.vadeRozet}>
+                        {/* Tutar asla kırpılmaz; dar kalırsa etiket kısalır */}
+                        <Text style={[styles.vadeRozetText, styles.vadeRozetLabel]} numberOfLines={1}>
+                          {t('transactions:vade.overdue')}
+                        </Text>
                         <Text style={styles.vadeRozetText} numberOfLines={1}>
-                          {t('transactions:vade.overdue')} · {formatCurrency(tutar, rozet.currency)}
+                          {' · '}{formatCurrency(tutar, rozet.currency)}
                         </Text>
                       </View>
                     );
@@ -824,30 +839,31 @@ export default function CarilerPage() {
     );
   }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, vadeRozetMap]);
 
-  // FlatList ListHeaderComponent - header, özet, arama ve filtre
+  // FlatList ListHeaderComponent - header, mini-dashboard, filtre
   const ListHeader = useMemo(() => (
     <>
       <SharedIsletmeBanner />
-      {/* Özet Kartları */}
-      <View style={styles.summaryContainer}>
-        <Card style={styles.summaryCard}>
-          <Text variant="caption" color="secondary">{t('clients:balance.weOwe')}</Text>
-          <Text variant="h3" color="error">{formatCurrency(payables.cari, baseCurrency)}</Text>
-        </Card>
-        <Card style={styles.summaryCard}>
-          <Text variant="caption" color="secondary">{t('clients:balance.theyOwe')}</Text>
-          <Text variant="h3" color="success">{formatCurrency(receivables.cari, baseCurrency)}</Text>
-        </Card>
-      </View>
+      {/* Mini-dashboard (kullanıcı isteği): eski iki özet kutusu + vade şeridinin
+          yerine kaydırmalı kompakt kartlar — Genel Durum / Vade Takibi / Bu Ay Taksit */}
+      <CariMiniDashboard
+        borcumuz={payables.cari}
+        alacagimiz={receivables.cari}
+        baseCurrency={baseCurrency}
+        onGenelPress={() => router.push('/raporlar/cari')}
+        onVadePress={() => setVadeFiltre((v) => !v)}
+        onTaksitPress={() => router.push('/taksit')}
+        vadeFiltreAktif={vadeFiltre}
+      />
 
-      {/* Arama */}
-      <View style={styles.searchContainer}>
-        <SearchInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={t('clients:search.searchClients')}
-        />
-      </View>
+      {/* Aktif gecikmiş-vade filtresi göstergesi */}
+      {vadeFiltre && (
+        <View style={styles.vadeFiltreRow}>
+          <TouchableOpacity style={styles.vadeFiltreChip} onPress={() => setVadeFiltre(false)} activeOpacity={0.7}>
+            <Text style={styles.vadeFiltreChipText}>{t('clients:miniDashboard.gecikmisFiltre')}</Text>
+            <X size={13} color={colors.error} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Filtre */}
       <View style={styles.filterContainer}>
@@ -857,25 +873,27 @@ export default function CarilerPage() {
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, payables.cari, receivables.cari, searchQuery, filterOptions, filter, isLoading, baseCurrency]);
+  ), [t, router, payables.cari, receivables.cari, filterOptions, filter, isLoading, baseCurrency, vadeFiltre]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {
     if (isLoading) return null;
+    // Arama ya da gecikmiş-vade filtresi aktifken "ilk carinizi ekleyin" yanıltıcı olur
+    const filtered = !!debouncedSearch || vadeFiltre;
     return (
       <EmptyState
         icon={<Users size={48} color={colors.textMuted} />}
-        title={debouncedSearch ? t('clients:search.noResults') : t('clients:messages.noClients')}
+        title={filtered ? t('clients:search.noResults') : t('clients:messages.noClients')}
         description={
-          debouncedSearch
+          filtered
             ? t('common:search.tryDifferent')
             : t('clients:messages.addFirstClient')
         }
-        actionLabel={debouncedSearch ? undefined : t('clients:titles.addClient')}
-        onAction={debouncedSearch ? undefined : () => router.push('/cariler/ekle')}
+        actionLabel={filtered ? undefined : t('clients:titles.addClient')}
+        onAction={filtered ? undefined : () => router.push('/cariler/ekle')}
       />
     );
-  }, [isLoading, debouncedSearch, t, router]);
+  }, [isLoading, debouncedSearch, vadeFiltre, t, router]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -918,6 +936,13 @@ export default function CarilerPage() {
         // Extra data for re-renders when these change
         extraData={{ selectedIds, isSelectMode, sortBy, expandedCariId }}
         contentContainerStyle={styles.listContainer}
+      />
+
+      {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı) */}
+      <FloatingSearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={t('clients:search.searchClients')}
       />
 
       {/* Quick Transaction Bar */}
@@ -1120,20 +1145,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  summaryContainer: {
+  vadeFiltreRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
-  summaryCard: {
-    flex: 1,
+  vadeFiltreChip: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    gap: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.errorLight,
   },
-  searchContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+  vadeFiltreChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.error,
   },
   filterContainer: {
     paddingHorizontal: spacing.lg,
@@ -1141,7 +1170,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
   },
   cariHeader: {
     flexDirection: 'row',
@@ -1176,12 +1205,17 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: borderRadius.full,
     backgroundColor: colors.errorLight,
-    maxWidth: 160,
+    maxWidth: 170,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   vadeRozetText: {
     fontSize: 11,
     fontWeight: '700',
     color: colors.error,
+  },
+  vadeRozetLabel: {
+    flexShrink: 1,
   },
   actionButtons: {
     flexDirection: 'row',

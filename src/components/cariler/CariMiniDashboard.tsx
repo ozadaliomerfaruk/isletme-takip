@@ -1,0 +1,324 @@
+import { useRef, useState, useEffect, useCallback } from 'react';
+import { View, StyleSheet, FlatList, TouchableOpacity, useWindowDimensions, type ViewToken } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { CalendarClock, CalendarRange, ChevronRight, CheckCircle2 } from 'lucide-react-native';
+import { Text } from '@/components/ui';
+import { colors } from '@/constants/colors';
+import { spacing, borderRadius, shadows, fontSize, fontWeight } from '@/constants/spacing';
+import { formatCurrency } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
+import { useVadeOzet, type VadeOzetSatiri } from '@/hooks/useIslemTahsis';
+import { useBuAyTaksitOzeti } from '@/hooks/useTaksit';
+
+const CARD_PADDING = spacing.lg;
+const CARD_COUNT = 3;
+/** Ana sayfa carousel'inin aksine BİLEREK kısa (kompakt özet). */
+const CARD_HEIGHT = 106;
+
+interface CariMiniDashboardProps {
+  /** Cari yönlü toplamlar (useFinancialSummary.payables/receivables.cari). */
+  borcumuz: number;
+  alacagimiz: number;
+  baseCurrency: string;
+  onGenelPress?: () => void;
+  onVadePress?: () => void;
+  onTaksitPress?: () => void;
+  /** Vade kartı aktif filtre görünümü (listeye gecikmiş filtresi uygulanmışken). */
+  vadeFiltreAktif?: boolean;
+}
+
+/**
+ * Cariler sayfası mini-dashboard'u: ana sayfadaki gibi kaydırmalı/noktalı ama kısa.
+ * 3 kart — Cari Durum (borç/alacak → cari raporu), Vade Takibi (gecikmiş + yaklaşan
+ * → listeye gecikmiş filtresi), Bu Ay Taksit (→ Taksit Takip).
+ * Vade/taksit verisini kendi çeker; çapraz-para toplamı YOK.
+ */
+export function CariMiniDashboard({
+  borcumuz,
+  alacagimiz,
+  baseCurrency,
+  onGenelPress,
+  onVadePress,
+  onTaksitPress,
+  vadeFiltreAktif,
+}: CariMiniDashboardProps) {
+  const { t } = useTranslation(['clients', 'transactions']);
+  const { data: vadeRows } = useVadeOzet();
+  const { data: taksitOzet } = useBuAyTaksitOzeti();
+
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeIndexRef = useRef(0);
+  const listRef = useRef<FlatList<number>>(null);
+  const { width: windowWidth } = useWindowDimensions();
+  const cardWidth = windowWidth - CARD_PADDING * 2;
+  const snapInterval = cardWidth + spacing.sm;
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: { viewableItems: ViewToken[] }) => {
+    if (viewableItems.length > 0 && viewableItems[0].index != null) {
+      setActiveIndex(viewableItems[0].index);
+      activeIndexRef.current = viewableItems[0].index;
+    }
+  }).current;
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+
+  useEffect(() => {
+    listRef.current?.scrollToOffset({ offset: activeIndexRef.current * snapInterval, animated: false });
+  }, [snapInterval]);
+
+  // Vade özeti — ana para birimi satırı (TRY öncelikli); yön ayrı, karışık toplam yok
+  const rows: VadeOzetSatiri[] = vadeRows ?? [];
+  const num = (v: number | null | undefined) => Number(v) || 0;
+  const ana = rows.find((r) => r.currency === 'TRY') ?? rows[0];
+  const vadeCur = ana?.currency || 'TRY';
+  const gecAlacak = num(ana?.gecikmis_alacak);
+  const gecBorc = num(ana?.gecikmis_borc);
+  const yaklasan = num(ana?.yaklasan_alacak) + num(ana?.yaklasan_borc);
+  const vadeTemiz = gecAlacak <= 0 && gecBorc <= 0 && yaklasan <= 0;
+
+  const renderHeader = (
+    Icon: typeof CalendarClock | null,
+    iconColor: string,
+    iconBg: string,
+    title: string,
+    tappable: boolean
+  ) => (
+    <View style={styles.cardHeader}>
+      {Icon && (
+        <View style={[styles.iconChip, { backgroundColor: iconBg }]}>
+          <Icon size={13} color={iconColor} />
+        </View>
+      )}
+      <Text style={styles.cardTitle} numberOfLines={1}>{upperTr(title)}</Text>
+      {tappable && <ChevronRight size={16} color={colors.textMuted} style={styles.chevron} />}
+    </View>
+  );
+
+  const renderStat = (label: string, value: string, color: string, key?: string) => (
+    <View style={styles.stat} key={key}>
+      <Text style={styles.statLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+        {upperTr(label)}
+      </Text>
+      <Text style={[styles.statValue, { color }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+        {value}
+      </Text>
+    </View>
+  );
+
+  const renderItem = useCallback(({ index }: { index: number }) => (
+    <View style={{ width: cardWidth }}>
+      {index === 0 && (
+        <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onGenelPress}>
+          {renderHeader(null, colors.primary, colors.primaryLight, t('clients:miniDashboard.genelTitle'), true)}
+          <View style={styles.statsRow}>
+            {renderStat(t('clients:balance.weOwe'), formatCurrency(borcumuz, baseCurrency), colors.error)}
+            <View style={styles.divider} />
+            {renderStat(t('clients:balance.theyOwe'), formatCurrency(alacagimiz, baseCurrency), colors.success)}
+          </View>
+        </TouchableOpacity>
+      )}
+      {index === 1 && (
+        <TouchableOpacity
+          style={[styles.card, vadeFiltreAktif && styles.cardActive]}
+          activeOpacity={0.75}
+          onPress={onVadePress}
+          disabled={vadeTemiz && !vadeFiltreAktif}
+        >
+          {renderHeader(CalendarClock, colors.error, colors.errorLight, t('transactions:vade.cardTitle'), !vadeTemiz)}
+          {vadeTemiz ? (
+            <View style={styles.emptyWrap}>
+              <CheckCircle2 size={14} color={colors.success} />
+              <Text style={styles.emptyText}>{upperTr(t('transactions:vade.temiz'))}</Text>
+            </View>
+          ) : (
+            <View style={styles.statsRow}>
+              {renderStat(
+                t('transactions:vade.gecAlacakKisa'),
+                formatCurrency(gecAlacak, vadeCur),
+                gecAlacak > 0 ? colors.error : colors.textMuted
+              )}
+              <View style={styles.divider} />
+              {renderStat(
+                t('transactions:vade.gecBorcKisa'),
+                formatCurrency(gecBorc, vadeCur),
+                gecBorc > 0 ? colors.error : colors.textMuted
+              )}
+              <View style={styles.divider} />
+              {renderStat(
+                t('transactions:vade.yaklasan7'),
+                formatCurrency(yaklasan, vadeCur),
+                yaklasan > 0 ? colors.warning : colors.textMuted
+              )}
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
+      {index === 2 && (
+        <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onTaksitPress}>
+          {renderHeader(CalendarRange, colors.info, colors.infoLight, t('clients:miniDashboard.buAyTaksitTitle'), true)}
+          {!taksitOzet || taksitOzet.adet === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>{upperTr(t('clients:miniDashboard.buAyTaksitYok'))}</Text>
+            </View>
+          ) : (
+            <View style={styles.statsRow}>
+              {renderStat(t('transactions:taksit.label'), String(taksitOzet.adet), colors.text)}
+              <View style={styles.divider} />
+              {renderStat(
+                t('clients:miniDashboard.tahsil'),
+                formatCurrency(taksitOzet.tahsilKalan, taksitOzet.currency),
+                taksitOzet.tahsilKalan > 0 ? colors.success : colors.textMuted
+              )}
+              <View style={styles.divider} />
+              {renderStat(
+                t('clients:miniDashboard.odeme'),
+                formatCurrency(taksitOzet.odemeKalan, taksitOzet.currency),
+                taksitOzet.odemeKalan > 0 ? colors.error : colors.textMuted
+              )}
+            </View>
+          )}
+        </TouchableOpacity>
+      )}
+    </View>
+  ), [cardWidth, t, borcumuz, alacagimiz, baseCurrency, onGenelPress, onVadePress, onTaksitPress, vadeFiltreAktif, vadeTemiz, gecAlacak, gecBorc, yaklasan, vadeCur, taksitOzet]);
+
+  const data = useRef(Array.from({ length: CARD_COUNT }, (_, i) => i)).current;
+
+  return (
+    <View style={styles.wrapper}>
+      <FlatList
+        ref={listRef}
+        data={data}
+        renderItem={renderItem}
+        keyExtractor={(item) => String(item)}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={snapInterval}
+        decelerationRate="fast"
+        contentContainerStyle={styles.listContent}
+        onViewableItemsChanged={onViewableItemsChanged}
+        viewabilityConfig={viewabilityConfig}
+        extraData={cardWidth}
+        getItemLayout={(_, index) => ({ length: snapInterval, offset: snapInterval * index, index })}
+      />
+      <View style={styles.dots}>
+        {data.map((i) => (
+          <View key={i} style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  wrapper: {
+    marginBottom: spacing.md,
+    // Cariler liste konteynerinin yatay padding'inden (spacing.lg) kaçış: carousel
+    // tam ekran genişliğinde konumlanır, kart marjını kendi padding'i verir.
+    // Aksi halde kartlar sola 2×, sağa 0 boşlukla kayıyor ve sağ kenar taşıyordu.
+    marginHorizontal: -CARD_PADDING,
+  },
+  listContent: {
+    paddingHorizontal: CARD_PADDING,
+    gap: spacing.sm,
+  },
+  card: {
+    height: CARD_HEIGHT,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    ...shadows.sm,
+  },
+  cardActive: {
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  iconChip: {
+    width: 22,
+    height: 22,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.textSecondary,
+    letterSpacing: 0.4,
+    flexShrink: 1,
+  },
+  chevron: {
+    marginLeft: 'auto',
+  },
+  // flex:1 + center: içerik başlıkla alt kenar arasında DİKEYDE ORTALANIR
+  // (önceden alta yapışıktı)
+  statsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+    minWidth: 0,
+  },
+  statLabel: {
+    fontSize: fontSize.md,
+    color: colors.textMuted,
+    fontWeight: fontWeight.semibold,
+    letterSpacing: 0.3,
+    maxWidth: '100%',
+  },
+  statValue: {
+    fontSize: fontSize['2xl'],
+    fontWeight: fontWeight.bold,
+    maxWidth: '100%',
+  },
+  divider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.borderLight,
+    marginHorizontal: spacing.xs,
+  },
+  emptyWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.xs,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: fontSize.md,
+    color: colors.textMuted,
+    fontWeight: fontWeight.medium,
+  },
+  dots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: spacing.sm,
+  },
+  dot: {
+    borderRadius: 3,
+    height: 5,
+  },
+  dotActive: {
+    width: 14,
+    backgroundColor: colors.primary,
+  },
+  dotInactive: {
+    width: 5,
+    backgroundColor: colors.border,
+  },
+});

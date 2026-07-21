@@ -56,6 +56,14 @@
     "openingDebtOptional": "Açılış Borcu (Opsiyonel)",
     "openingReceivableOptional": "Açılış Alacağı (Opsiyonel)"
   },
+  "miniDashboard": {
+    "genelTitle": "Cari Durum",
+    "buAyTaksitTitle": "Bu Ay Taksit",
+    "buAyTaksitYok": "Bu ay vadesi gelen taksit yok",
+    "tahsil": "Tahsil",
+    "odeme": "Ödeme",
+    "gecikmisFiltre": "Vadesi geçenler"
+  },
   "balance": {
     "balance": "Bakiye",
     "currentBalance": "Mevcut Bakiye",

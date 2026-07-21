@@ -56,6 +56,14 @@
     "openingDebtOptional": "Opening Debt (Optional)",
     "openingReceivableOptional": "Opening Receivable (Optional)"
   },
+  "miniDashboard": {
+    "genelTitle": "Client Status",
+    "buAyTaksitTitle": "This Month's Installments",
+    "buAyTaksitYok": "No installments due this month",
+    "tahsil": "Collect",
+    "odeme": "Pay",
+    "gecikmisFiltre": "Overdue"
+  },
   "balance": {
     "balance": "Balance",
     "currentBalance": "Current Balance",
