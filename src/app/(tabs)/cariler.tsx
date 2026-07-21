@@ -150,7 +150,7 @@ export default function CarilerPage() {
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   // Faz 2: cari-bazlı gecikmiş vade rozetleri (tek istek, işletme geneli)
-  const { data: vadeRozetMap } = useCariVadeRozet();
+  const { data: vadeRozetMap, refetch: refetchVadeRozet } = useCariVadeRozet();
   const exchangeRates = exchangeRatesData?.rates;
 
   // Gerçek veriler - pasif carileri de dahil et
@@ -165,12 +165,14 @@ export default function CarilerPage() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      // Vade satırları rozet sorgusundan gelir — yalnız cari listesini çekmek
+      // onları bayat bırakıyordu; ikisini birlikte yenile.
+      await Promise.all([refetch(), refetchVadeRozet()]);
       haptics.success();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch, haptics]);
+  }, [refetch, refetchVadeRozet, haptics]);
 
   // Action sheet handlers
   const handleOpenActionSheet = useCallback((cari: Cari) => {
@@ -710,7 +712,7 @@ export default function CarilerPage() {
               <Avatar name={cari.name} size={40} />
               <View style={styles.cariInfo}>
                 <View style={styles.cariNameRow}>
-                  <Text style={styles.cariName} numberOfLines={1}>{cari.name}</Text>
+                  <Text style={styles.cariName}>{cari.name}</Text>
                   {!cari.is_active && (
                     <EyeOff size={14} color={colors.textMuted} />
                   )}
@@ -735,6 +737,7 @@ export default function CarilerPage() {
         ) : (
           <ExpandableCard
             style={styles.flatCard}
+            showChevron={false}
             expanded={expandedCariId === cari.id}
             onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
             onLongPress={() => {
@@ -746,7 +749,8 @@ export default function CarilerPage() {
                 <Avatar name={cari.name} size={40} />
                 <View style={styles.cariInfo}>
                   <View style={styles.cariNameRow}>
-                    <Text style={styles.cariName} numberOfLines={1}>{cari.name}</Text>
+                    {/* İsim kırpılmaz — uzunsa alt satıra sarar (kullanıcı isteği) */}
+                    <Text style={styles.cariName}>{cari.name}</Text>
                     {!cari.is_active && (
                       <EyeOff size={14} color={colors.textMuted} />
                     )}
@@ -1291,8 +1295,10 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
   },
+  // Ok kaldırıldıktan sonra üç nokta en sağ kenara yaslanır
   moreButton: {
     padding: spacing.xs,
+    marginRight: -spacing.xs,
   },
   // Multi-select styles (düz-liste görünümüyle uyumlu: köşe/boşluk yok)
   selectedItem: {

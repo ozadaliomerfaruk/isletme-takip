@@ -28,6 +28,8 @@ interface ExpandableCardProps {
   onLongPress?: () => void;
   /** Konteyner stil override'ı (ör. düz-liste görünümü: radius/margin sıfırlama). */
   style?: StyleProp<ViewStyle>;
+  /** false: sağdaki aç/kapa oku çizilmez (satır yine tıklanabilir). Varsayılan true. */
+  showChevron?: boolean;
   // Compat prop (no longer needed, kept for API compatibility)
   disableAnimation?: boolean;
 }
@@ -45,6 +47,7 @@ export const ExpandableCard = memo(function ExpandableCard({
   onToggle,
   onLongPress,
   style,
+  showChevron = true,
 }: ExpandableCardProps) {
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
 
@@ -102,13 +105,15 @@ export const ExpandableCard = memo(function ExpandableCard({
         activeOpacity={0.7}
       >
         <View style={styles.headerContent}>{header}</View>
-        <View style={styles.chevron}>
-          {expanded ? (
-            <ChevronUp size={20} color={colors.textMuted} />
-          ) : (
-            <ChevronDown size={20} color={colors.textMuted} />
-          )}
-        </View>
+        {showChevron && (
+          <View style={styles.chevron}>
+            {expanded ? (
+              <ChevronUp size={20} color={colors.textMuted} />
+            ) : (
+              <ChevronDown size={20} color={colors.textMuted} />
+            )}
+          </View>
+        )}
       </TouchableOpacity>
       {showContent && (
         <Animated.View style={[styles.content, animatedContentStyle]}>
