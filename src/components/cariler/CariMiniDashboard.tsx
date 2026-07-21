@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, useWindowDimensions, type ViewToken } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { CalendarClock, CalendarRange, ChevronRight, CheckCircle2 } from 'lucide-react-native';
+import { CalendarClock, CalendarRange, CheckCircle2 } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, fontSize, fontWeight } from '@/constants/spacing';
@@ -75,12 +75,12 @@ export function CariMiniDashboard({
   const yaklasan = num(ana?.yaklasan_alacak) + num(ana?.yaklasan_borc);
   const vadeTemiz = gecAlacak <= 0 && gecBorc <= 0 && yaklasan <= 0;
 
+  // Ok işareti (ChevronRight) kullanıcı isteğiyle kaldırıldı — kartlar yine tıklanabilir
   const renderHeader = (
     Icon: typeof CalendarClock | null,
     iconColor: string,
     iconBg: string,
-    title: string,
-    tappable: boolean
+    title: string
   ) => (
     <View style={styles.cardHeader}>
       {Icon && (
@@ -89,7 +89,6 @@ export function CariMiniDashboard({
         </View>
       )}
       <Text style={styles.cardTitle} numberOfLines={1}>{upperTr(title)}</Text>
-      {tappable && <ChevronRight size={16} color={colors.textMuted} style={styles.chevron} />}
     </View>
   );
 
@@ -108,7 +107,7 @@ export function CariMiniDashboard({
     <View style={{ width: cardWidth }}>
       {index === 0 && (
         <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onGenelPress}>
-          {renderHeader(null, colors.primary, colors.primaryLight, t('clients:miniDashboard.genelTitle'), true)}
+          {renderHeader(null, colors.primary, colors.primaryLight, t('clients:miniDashboard.genelTitle'))}
           <View style={styles.statsRow}>
             {renderStat(t('clients:balance.weOwe'), formatCurrency(borcumuz, baseCurrency), colors.error)}
             <View style={styles.divider} />
@@ -123,7 +122,7 @@ export function CariMiniDashboard({
           onPress={onVadePress}
           disabled={vadeTemiz && !vadeFiltreAktif}
         >
-          {renderHeader(CalendarClock, colors.error, colors.errorLight, t('transactions:vade.cardTitle'), !vadeTemiz)}
+          {renderHeader(CalendarClock, colors.error, colors.errorLight, t('transactions:vade.cardTitle'))}
           {vadeTemiz ? (
             <View style={styles.emptyWrap}>
               <CheckCircle2 size={14} color={colors.success} />
@@ -154,7 +153,7 @@ export function CariMiniDashboard({
       )}
       {index === 2 && (
         <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onTaksitPress}>
-          {renderHeader(CalendarRange, colors.info, colors.infoLight, t('clients:miniDashboard.buAyTaksitTitle'), true)}
+          {renderHeader(CalendarRange, colors.info, colors.infoLight, t('clients:miniDashboard.buAyTaksitTitle'))}
           {!taksitOzet || taksitOzet.adet === 0 ? (
             <View style={styles.emptyWrap}>
               <Text style={styles.emptyText}>{upperTr(t('clients:miniDashboard.buAyTaksitYok'))}</Text>
@@ -255,9 +254,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     letterSpacing: 0.4,
     flexShrink: 1,
-  },
-  chevron: {
-    marginLeft: 'auto',
   },
   // flex:1 + center: içerik başlıkla alt kenar arasında DİKEYDE ORTALANIR
   // (önceden alta yapışıktı)

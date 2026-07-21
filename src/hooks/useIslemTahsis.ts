@@ -103,6 +103,10 @@ export interface CariVadeRozet {
   gecikmis_alacak: number;
   gecikmis_borc: number;
   gecikmis_adet: number;
+  /** En yakın GELECEK vadeli açık birim (yoksa null) — eski RPC sürümünde alan hiç gelmez. */
+  yakin_vade?: string | null;
+  yakin_tutar?: number | null;
+  yakin_yon?: 'alacak' | 'borc' | null;
 }
 
 /**
@@ -128,6 +132,7 @@ export function useCariVadeRozet(enabled = true) {
           gecikmis_alacak: Number(row.gecikmis_alacak) || 0,
           gecikmis_borc: Number(row.gecikmis_borc) || 0,
           gecikmis_adet: Number(row.gecikmis_adet) || 0,
+          yakin_tutar: row.yakin_tutar == null ? null : Number(row.yakin_tutar) || 0,
         };
       }
       return map;

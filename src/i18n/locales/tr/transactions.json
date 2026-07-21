@@ -116,6 +116,8 @@
     "bugunSon": "bugün son gün",
     "gunSonra": "{{gun}} gün sonra",
     "gecikenler": "Vadesi Geçen İşlemler",
+    "yakinVade": "En yakın vade",
+    "gecikenEtiket": "Vadesi geçen",
     "whatsappHatirlat": "WhatsApp ile hatırlat",
     "whatsappMesaj": "Merhaba {{isim}}, {{isletme}} olarak hatırlatmak isteriz: {{tutar}} tutarında vadesi geçmiş bakiyeniz bulunmaktadır. Müsait olduğunuzda ödeme yapabilirseniz seviniriz. İyi günler dileriz."
   },

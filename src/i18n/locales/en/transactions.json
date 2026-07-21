@@ -116,6 +116,8 @@
     "bugunSon": "due today",
     "gunSonra": "due in {{gun}} days",
     "gecikenler": "Overdue Transactions",
+    "yakinVade": "Next due",
+    "gecikenEtiket": "Overdue",
     "whatsappHatirlat": "Remind via WhatsApp",
     "whatsappMesaj": "Hello {{isim}}, this is a friendly reminder from {{isletme}}: you have an overdue balance of {{tutar}}. We would appreciate your payment at your convenience. Thank you."
   },

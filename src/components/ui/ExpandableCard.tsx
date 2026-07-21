@@ -3,6 +3,8 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  type StyleProp,
+  type ViewStyle,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -24,6 +26,8 @@ interface ExpandableCardProps {
   onToggle?: () => void;
   /** Uzun basma (ör. önizleme kartı açmak için) — verilmezse davranış değişmez. */
   onLongPress?: () => void;
+  /** Konteyner stil override'ı (ör. düz-liste görünümü: radius/margin sıfırlama). */
+  style?: StyleProp<ViewStyle>;
   // Compat prop (no longer needed, kept for API compatibility)
   disableAnimation?: boolean;
 }
@@ -40,6 +44,7 @@ export const ExpandableCard = memo(function ExpandableCard({
   expanded: controlledExpanded,
   onToggle,
   onLongPress,
+  style,
 }: ExpandableCardProps) {
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded);
 
@@ -88,7 +93,7 @@ export const ExpandableCard = memo(function ExpandableCard({
   }, [isControlled, onToggle]);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, style]}>
       <TouchableOpacity
         style={styles.header}
         onPress={toggleExpand}

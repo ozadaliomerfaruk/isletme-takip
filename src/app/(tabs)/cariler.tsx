@@ -29,6 +29,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatDateForDB } from '@/lib/date';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
@@ -62,6 +63,9 @@ type MergedCari = Cari & {
   linkPermission?: SharingPermission;
   linkId?: string;
 };
+
+// Satırlar birbirine yapışık; aralarında yalnız 1px gri ayraç çizgisi (kart boşluğu yok)
+const ListSeparator = () => <View style={styles.separator} />;
 
 export default function CarilerPage() {
   const router = useRouter();
@@ -658,6 +662,33 @@ export default function CarilerPage() {
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
   const renderCariItem = useCallback(({ item: cari, index }: { item: MergedCari; index: number }) => {
     const isSelected = selectedIds.has(cari.id);
+    // Vade satırı (chip yok, düz yazı): önce gecikmiş; gecikmiş yoksa en yakın gelecek vade.
+    // Gecikmiş gösterimi bakiye-yönü susturuculu (migration-öncesi kapanmış geçmişte yanlış alarm yok).
+    const rozet = !cari.isLinked ? vadeRozetMap?.[cari.id] : undefined;
+    let vadeLine: { text: string; overdue: boolean } | null = null;
+    if (rozet) {
+      const bal = toNumber(cari.balance);
+      const gecParts: string[] = [];
+      if (bal > 0.01 && rozet.gecikmis_alacak > 0.009) {
+        gecParts.push(`${t('transactions:vade.alacakKisa')} ${formatCurrency(rozet.gecikmis_alacak, rozet.currency)}`);
+      }
+      if (bal < -0.01 && rozet.gecikmis_borc > 0.009) {
+        gecParts.push(`${t('transactions:vade.borcKisa')} ${formatCurrency(rozet.gecikmis_borc, rozet.currency)}`);
+      }
+      if (gecParts.length > 0) {
+        vadeLine = { text: `${t('transactions:vade.gecikenEtiket')}: ${gecParts.join(' · ')}`, overdue: true };
+      } else if (rozet.yakin_vade && (rozet.yakin_tutar ?? 0) > 0.009) {
+        const gun = Math.round(
+          (new Date(rozet.yakin_vade).getTime() - new Date(formatDateForDB(new Date())).getTime()) / 86400000
+        );
+        const yon = rozet.yakin_yon === 'borc' ? t('transactions:vade.borcKisa') : t('transactions:vade.alacakKisa');
+        const gunText = gun <= 0 ? t('transactions:vade.bugunSon') : t('transactions:vade.gunSonra', { gun });
+        vadeLine = {
+          text: `${t('transactions:vade.yakinVade')}: ${yon} ${formatCurrency(rozet.yakin_tutar ?? 0, rozet.currency)} · ${gunText}`,
+          overdue: false,
+        };
+      }
+    }
     return (
       <AnimatedListItem index={index}>
       <View style={[!cari.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
@@ -679,7 +710,7 @@ export default function CarilerPage() {
               <Avatar name={cari.name} size={40} />
               <View style={styles.cariInfo}>
                 <View style={styles.cariNameRow}>
-                  <Text variant="body">{cari.name}</Text>
+                  <Text style={styles.cariName} numberOfLines={1}>{cari.name}</Text>
                   {!cari.is_active && (
                     <EyeOff size={14} color={colors.textMuted} />
                   )}
@@ -703,6 +734,7 @@ export default function CarilerPage() {
           </TouchableOpacity>
         ) : (
           <ExpandableCard
+            style={styles.flatCard}
             expanded={expandedCariId === cari.id}
             onToggle={() => setExpandedCariId(expandedCariId === cari.id ? null : cari.id)}
             onLongPress={() => {
@@ -714,14 +746,14 @@ export default function CarilerPage() {
                 <Avatar name={cari.name} size={40} />
                 <View style={styles.cariInfo}>
                   <View style={styles.cariNameRow}>
-                    <Text variant="body">{cari.name}</Text>
+                    <Text style={styles.cariName} numberOfLines={1}>{cari.name}</Text>
                     {!cari.is_active && (
                       <EyeOff size={14} color={colors.textMuted} />
                     )}
                   </View>
-                  {/* #9: cari oluşturulurken yazılan not (cari.notes) — isim altında, tek satır */}
+                  {/* Cari oluşturulurken yazılan not — isim altında, tek satır, düz yazı */}
                   {cari.notes ? (
-                    <Text variant="caption" color="secondary" numberOfLines={1} style={styles.notePreview}>
+                    <Text style={styles.cariNote} numberOfLines={1}>
                       {cari.notes}
                     </Text>
                   ) : null}
@@ -737,19 +769,20 @@ export default function CarilerPage() {
                       <Text variant="caption" color="primary">
                         {t('clients:sharing.sharedByMe')}
                       </Text>
-                      <Text variant="caption" color="secondary">
-                        {' • '}{cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-                      </Text>
                     </View>
-                  ) : (
-                    <Text variant="caption" color="secondary">
-                      {cari.type === 'tedarikci' ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-                      {cari.phone ? ` • ${cari.phone}` : ''}
+                  ) : null}
+                  {/* Vade satırı: gecikmiş varsa kırmızı; yoksa en yakın gelecek vade */}
+                  {vadeLine ? (
+                    <Text
+                      style={[styles.vadeText, vadeLine.overdue ? styles.vadeTextOverdue : styles.vadeTextUpcoming]}
+                      numberOfLines={1}
+                    >
+                      {vadeLine.text}
                     </Text>
-                  )}
+                  ) : null}
                 </View>
                 <View style={styles.cariBalance}>
-                  <Text variant="caption" color="secondary">
+                  <Text style={styles.balanceLabel}>
                     {toNumber(cari.balance) === 0
                       ? t('clients:balance.noBalance')
                       : cari.type === 'tedarikci'
@@ -773,31 +806,10 @@ export default function CarilerPage() {
                     {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
                   </Text>
                   {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
-                    <Text variant="caption" color="secondary">
+                    <Text style={styles.balanceConverted}>
                       ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
                     </Text>
                   )}
-                  {/* Faz 2: gecikmiş vade rozeti — yalnız bakiye borç yönünde açıkken
-                      (crude susturucu; migration-öncesi kapanmış geçmişte yanlış alarm yok) */}
-                  {(() => {
-                    const rozet = vadeRozetMap?.[cari.id];
-                    if (!rozet || cari.isLinked) return null;
-                    const bal = toNumber(cari.balance);
-                    const tutar = cari.type === 'tedarikci' ? rozet.gecikmis_borc : rozet.gecikmis_alacak;
-                    const outstanding = cari.type === 'tedarikci' ? bal < -0.01 : bal > 0.01;
-                    if (!outstanding || tutar <= 0.009) return null;
-                    return (
-                      <View style={styles.vadeRozet}>
-                        {/* Tutar asla kırpılmaz; dar kalırsa etiket kısalır */}
-                        <Text style={[styles.vadeRozetText, styles.vadeRozetLabel]} numberOfLines={1}>
-                          {t('transactions:vade.overdue')}
-                        </Text>
-                        <Text style={styles.vadeRozetText} numberOfLines={1}>
-                          {' · '}{formatCurrency(tutar, rozet.currency)}
-                        </Text>
-                      </View>
-                    );
-                  })()}
                 </View>
                 <TouchableOpacity
                   onPress={(e) => {
@@ -928,6 +940,7 @@ export default function CarilerPage() {
         data={isLoading ? [] : filteredCariler}
         keyExtractor={(item) => item.id}
         renderItem={renderCariItem}
+        ItemSeparatorComponent={ListSeparator}
         keyboardShouldPersistTaps="handled"
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
@@ -1212,8 +1225,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  notePreview: {
+  // Düz-liste görünümü: kart köşesi ve alt boşluk yok, ayrım ListSeparator'dan
+  flatCard: {
+    borderRadius: 0,
+    marginBottom: 0,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  cariName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    flexShrink: 1,
+  },
+  cariNote: {
+    fontSize: 14,
+    color: colors.textSecondary,
     marginTop: 1,
+  },
+  vadeText: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  vadeTextOverdue: {
+    color: colors.error,
+    fontWeight: '600',
+  },
+  vadeTextUpcoming: {
+    color: colors.textSecondary,
+  },
+  balanceLabel: {
+    fontSize: 13,
+    color: colors.textSecondary,
+  },
+  balanceConverted: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
   cariInfo: {
     flex: 1,
@@ -1234,24 +1284,6 @@ const styles = StyleSheet.create({
   cariBalance: {
     alignItems: 'flex-end',
   },
-  vadeRozet: {
-    marginTop: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.errorLight,
-    maxWidth: 170,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  vadeRozetText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.error,
-  },
-  vadeRozetLabel: {
-    flexShrink: 1,
-  },
   actionButtons: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -1262,16 +1294,13 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: spacing.xs,
   },
-  // Multi-select styles
+  // Multi-select styles (düz-liste görünümüyle uyumlu: köşe/boşluk yok)
   selectedItem: {
     backgroundColor: colors.primaryLight,
-    borderRadius: borderRadius.lg,
   },
   selectableCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.md,
   },
   checkbox: {
     marginRight: spacing.xs,
