@@ -4,6 +4,7 @@ import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { usePermissions } from '@/hooks/usePermissions';
 import { ChevronLeft, ChevronRight, ChevronRight as ArrowRight } from 'lucide-react-native';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { Text, AnimatedNumber } from '@/components/ui';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { colors } from '@/constants/colors';
@@ -104,7 +105,7 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
           >
             <ChevronLeft size={22} color={colors.text} />
           </TouchableOpacity>
-          <Text style={styles.dateLabel}>{periodLabel}</Text>
+          <Text style={styles.dateLabel}>{upperTr(periodLabel)}</Text>
           <TouchableOpacity
             onPress={() => canGoForward && setPeriodOffset(prev => prev + 1)}
             style={[styles.navButton, !canGoForward && styles.navButtonDisabled]}
@@ -138,7 +139,7 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.tabText, isActive && styles.tabTextActive]} numberOfLines={1}>
-                    {t(`common:period.${p}`)}
+                    {upperTr(t(`common:period.${p}`))}
                   </Text>
                 </TouchableOpacity>
               );
@@ -289,8 +290,14 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.md,
   },
+  // Yuvarlak zeminli ok (ürünler/rapor gezinmeleriyle aynı desen)
   navButton: {
-    padding: 4,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navButtonDisabled: {
     opacity: 0.3,

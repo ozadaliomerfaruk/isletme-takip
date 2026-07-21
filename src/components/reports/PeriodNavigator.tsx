@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react-native';
+import { upperTr } from '@/lib/turkishTextUtils';
 import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
@@ -189,11 +190,13 @@ export function PeriodNavigator({
       >
         <Calendar size={14} color={colors.primary} />
         <Text variant="body" style={styles.dateLabelText}>
-          {period === 'monthly' && monthlyAsYear
-            ? String(new Date().getFullYear() + periodOffset)
-            : period === 'daily' && dailyAsMonth
-            ? getDateRange('monthly', periodOffset).label
-            : periodLabel}
+          {upperTr(
+            period === 'monthly' && monthlyAsYear
+              ? String(new Date().getFullYear() + periodOffset)
+              : period === 'daily' && dailyAsMonth
+              ? getDateRange('monthly', periodOffset).label
+              : periodLabel
+          )}
         </Text>
       </TouchableOpacity>
 
@@ -283,7 +286,7 @@ export function PeriodNavigator({
             <View style={styles.monthGrid}>
               {Array.from({ length: 12 }, (_, i) => {
                 const monthDate = new Date(selectedYear, i, 1);
-                const monthName = monthDate.toLocaleDateString(locale, { month: 'short' });
+                const monthName = upperTr(monthDate.toLocaleDateString(locale, { month: 'short' }));
                 const isCurrentMonth = selectedYear === activeYear && i === activeMonth;
                 return (
                   <TouchableOpacity
@@ -364,12 +367,21 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
+  // Yuvarlak zeminli ok — dokunma hedefi belirgin (ürünler sayfasıyla aynı desen)
   navButton: {
-    padding: spacing.sm,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dateLabelButton: {
     flexDirection: 'row',
@@ -434,7 +446,12 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   yearNavButton: {
-    padding: spacing.sm,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surfaceLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedYearText: {
     minWidth: 80,

@@ -608,7 +608,7 @@ export default function UrunlerPage() {
                   <ChevronLeft size={20} color={colors.primary} />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => { haptics.light(); handlePeriodLabelPress(); }} style={styles.periodLabelBtn}>
-                  <Text variant="body" style={styles.periodLabel} numberOfLines={1}>{periodLabel}</Text>
+                  <Text variant="body" style={styles.periodLabel} numberOfLines={1}>{upperTr(periodLabel)}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => {

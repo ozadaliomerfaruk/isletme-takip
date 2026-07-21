@@ -177,7 +177,7 @@ export default function NakitAkisiPage() {
                   <ChevronLeft size={18} color={colors.primary} />
                 </TouchableOpacity>
                 <Text variant="body" style={styles.dateLabel}>
-                  {state.periodLabel}
+                  {upperTr(state.periodLabel)}
                 </Text>
                 <TouchableOpacity
                   style={styles.navBtn}
@@ -379,12 +379,21 @@ const styles = StyleSheet.create({
   dateNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     gap: spacing.sm,
     marginBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
+  // Yuvarlak zeminli ok (ürünler/rapor gezinmeleriyle aynı desen)
   navBtn: {
-    padding: spacing.xs,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dateLabel: {
     fontWeight: '600',
