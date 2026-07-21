@@ -83,6 +83,9 @@ export function TabFilter({ options, value, onChange }: TabFilterProps) {
             <Text
               variant="label"
               style={{ color: isActive ? colors.white : colors.textSecondary }}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
             >
               {option.label}
             </Text>
@@ -112,7 +115,9 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    // xs: dar ekranda 5'li sekmede (YILLIK…ÖZEL) "HAFTALIK" tek satıra sığsın;
+    // flex:1 + ortalama olduğundan geniş ekranda görünümü değiştirmez
+    paddingHorizontal: spacing.xs,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     zIndex: 1,
