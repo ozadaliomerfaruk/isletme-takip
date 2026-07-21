@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
+import { useMemo, useState, useCallback } from 'react';
+import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, CalendarClock } from 'lucide-react-native';
+import { CheckCircle2, CalendarClock, Share2 } from 'lucide-react-native';
 import { Text, Button, EmptyState } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
@@ -12,6 +12,8 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useTaksitPlanDetay, type TaksitSatirDetay } from '@/hooks/useTaksit';
 import { useRetahsisOdeme } from '@/hooks/useIslemTahsis';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { exportTaksitPlaniToPdf } from '@/lib/taksitPlanPdf';
 
 /**
  * Taksit detayı (Faz 3): taksit satırları + tahsis-bazlı ödendi/kalan durumu.
@@ -25,8 +27,10 @@ export default function TaksitDetayPage() {
   const { t } = useTranslation(['transactions', 'common']);
   const { data: detay, isLoading, refetch, isRefetching } = useTaksitPlanDetay(id);
   const retahsis = useRetahsisOdeme();
+  const { isletme } = useAuthContext();
 
   const [tahsilVisible, setTahsilVisible] = useState(false);
+  const [pdfSharing, setPdfSharing] = useState(false);
 
   const bugunStr = useMemo(() => {
     const n = new Date();
@@ -44,6 +48,56 @@ export default function TaksitDetayPage() {
   );
 
   const currency = detay?.currency ?? 'TRY';
+
+  // Ödeme Planı PDF'i — müşteriye/tedarikçiye gönderilecek plan dökümü
+  const handleSharePdf = useCallback(async () => {
+    if (!detay || pdfSharing) return;
+    setPdfSharing(true);
+    try {
+      const fmt = (iso: string) => {
+        const p = iso.split('-');
+        return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso;
+      };
+      await exportTaksitPlaniToPdf({
+        isletmeName: isletme?.name ?? '',
+        cariName: detay.cariName ?? t('transactions:taksit.detayTitle'),
+        currency,
+        satirlar: detay.taksitler.map((tk) => ({
+          sira: tk.sira,
+          vadeTarihi: fmt(tk.vade_tarihi),
+          tutar: tk.tutar,
+          odenen: tk.odenen,
+          kalan: tk.kalan,
+          durum: tk.kalan <= 0 ? 'odendi' : tk.vade_tarihi <= bugunStr ? 'gecikmis' : 'acik',
+        })),
+        toplam: detay.toplam,
+        odenen: detay.odenen,
+        labels: {
+          baslik: t('transactions:taksit.pdfBaslik'),
+          sira: t('transactions:taksit.label'),
+          vade: t('transactions:vade.label'),
+          tutar: t('transactions:taksit.pdfTutar'),
+          odenen: t('transactions:taksit.pdfToplamOdenen'),
+          kalan: t('transactions:vade.kalan'),
+          durum: t('transactions:taksit.pdfDurum'),
+          odendi: t('transactions:taksit.pdfOdendi'),
+          gecikmis: t('transactions:taksit.pdfGecikmis'),
+          acik: t('transactions:taksit.pdfAcik'),
+          genelToplam: t('transactions:taksit.pdfGenelToplam'),
+          toplamOdenen: t('transactions:taksit.pdfToplamOdenen'),
+          toplamKalan: t('transactions:taksit.pdfToplamKalan'),
+          olusturulma: t('transactions:taksit.pdfOlusturulma'),
+        },
+        fileName: `Taksit_Plani_${(detay.cariName ?? 'plan').replace(/[^\p{L}\p{N}]+/gu, '_')}`,
+        shareDialogTitle: t('transactions:taksit.pdfPaylas'),
+        sharingNotSupported: t('transactions:taksit.pdfPaylasilamiyor'),
+      });
+    } catch (e) {
+      Alert.alert(t('common:status.error'), e instanceof Error ? e.message : String(e));
+    } finally {
+      setPdfSharing(false);
+    }
+  }, [detay, pdfSharing, isletme?.name, currency, bugunStr, t]);
 
   const renderItem = ({ item }: { item: TaksitSatirDetay }) => {
     const odendi = item.kalan <= 0;
@@ -104,7 +158,23 @@ export default function TaksitDetayPage() {
 
   return (
     <>
-      <Stack.Screen options={{ headerTitle: detay?.cariName ?? t('transactions:taksit.detayTitle') }} />
+      <Stack.Screen
+        options={{
+          headerTitle: detay?.cariName ?? t('transactions:taksit.detayTitle'),
+          // Ödeme Planı PDF paylaşımı — plan yüklüyse aktif
+          headerRight: detay
+            ? () => (
+                <TouchableOpacity onPress={handleSharePdf} disabled={pdfSharing} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  {pdfSharing ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Share2 size={20} color={colors.primary} />
+                  )}
+                </TouchableOpacity>
+              )
+            : undefined,
+        }}
+      />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         {/* Özet başlık */}
         {detay && (
