@@ -574,6 +574,9 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     paddingHorizontal: spacing.lg,
+    // Arama üste alınmadan önce üst boşluğu arama kutusu veriyordu; kaldırılınca
+    // sekmeler header'a yapışmıştı
+    paddingTop: spacing.md,
     marginBottom: spacing.md,
   },
   tab: {

@@ -829,11 +829,7 @@ export default function HesapHareketleriPage() {
             isLoading={ileriTarihliLoading}
           />
 
-          {/* Hareketler */}
-          <Text variant="h3" style={styles.sectionTitle}>
-            {t('accounts:details.transactions')}
-          </Text>
-
+          {/* "Hareketler" başlığı kaldırıldı (kullanıcı isteği) — işlemler yukarıdan başlar */}
           {islemlerLoading && (
             <Text color="secondary">{t('common:status.loading')}</Text>
           )}
