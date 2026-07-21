@@ -20,6 +20,8 @@ export interface DateTimePickerModalProps {
   value: Date;
   onChange: (date: Date) => void;
   locale?: string;
+  /** Geçmişe kaymayı engellemek için (ör. taksit ilk vadesi >= işlem tarihi). */
+  minimumDate?: Date;
 }
 
 export function DateTimePickerModal({
@@ -28,6 +30,7 @@ export function DateTimePickerModal({
   value,
   onChange,
   locale = 'tr',
+  minimumDate,
 }: DateTimePickerModalProps) {
   const { t } = useTranslation(['transactions', 'common']);
 
@@ -93,6 +96,7 @@ export function DateTimePickerModal({
                   display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                   onChange={handleDateChange}
                   locale={locale}
+                  minimumDate={minimumDate}
                   textColor={colors.text}
                   themeVariant="light"
                   style={styles.datePickerStyle}

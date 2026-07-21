@@ -106,7 +106,11 @@
     "gecikmisBorc": "Gecikmiş Borç",
     "yaklasan7": "Yaklaşan (7 Gün)",
     "temiz": "Gecikmiş vade yok",
-    "adetKisa": "{{adet}} işlem"
+    "adetKisa": "{{adet}} işlem",
+    "alacakKisa": "Alacak",
+    "borcKisa": "Borç",
+    "gecAlacakKisa": "Geciken Alacak",
+    "gecBorcKisa": "Geciken Borç"
   },
   "taksit": {
     "label": "Taksit",
@@ -117,6 +121,10 @@
     "ilkVade": "İlk Taksit Vadesi",
     "aylikNot": "Taksitler birer ay arayla oluşturulur; tahsilatlar en eski taksitten kapatılır.",
     "uygula": "Uygula",
+    "odenenLabel": "Ödenen",
+    "onizleme": "{{adet}} × {{tutar}}",
+    "onizlemeSon": "son taksit {{tutar}}",
+    "tutarOnce": "Taksit tutarlarını görmek için önce tutarı girin.",
     "odenenOran": "{{odenen}}/{{toplam}} taksit ödendi",
     "sonrakiVade": "Sonraki vade",
     "gecikmisAdet": "{{adet}} taksit gecikmiş",
@@ -126,6 +134,7 @@
     "bos": "Henüz taksitli işlem yok",
     "bosAciklama": "Satış veya alış girerken vade menüsünden \"Taksit\" seçerek plan oluşturabilirsiniz.",
     "editEngel": "Taksitli işlemin tutarı/tipi/carisi değiştirilemez. Planı silip yeniden oluşturun.",
+    "vadeEditEngel": "Bu işlem taksitli — vade tarihleri taksit planından gelir ve buradan değiştirilemez. Taksitleri Taksit Takip'ten görebilir, değiştirmek için işlemi silip yeniden oluşturabilirsiniz.",
     "satis": "Satış",
     "alis": "Alış"
   },

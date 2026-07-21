@@ -112,7 +112,7 @@ interface UseTransactionSubmitOptions {
   pendingExchangeData: PendingExchangeData | null;
 
   // Callbacks
-  onSuccess?: () => void;
+  onSuccess?: (islemId?: string) => void;
   handleDismiss: () => void;
 }
 
@@ -502,7 +502,9 @@ export function useTransactionSubmit({
           console.log('[Review] Error triggering review:', err);
         });
       }
-      onSuccess?.();
+      // Create yolunda client-üretimli id (idempotency id'siyle aynı) geçilir;
+      // edit'te mevcut transactionId. Çağıran bağlam-hedefli tahsis için kullanabilir.
+      onSuccess?.(isEditMode ? (transactionId ?? undefined) : (createdClientIslemId ?? undefined));
       isSavingRef.current = false;
       handleDismiss();
     };

@@ -60,6 +60,7 @@ function getActiveTab(segments: string[]): string | null {
   if (first === 'kategoriler') return 'daha';
   if (first === 'notlar') return 'daha';
   if (first === 'arsiv') return 'daha';
+  if (first === 'taksit') return 'daha';
   if (first === 'yasal') return 'daha';
 
   return 'home';

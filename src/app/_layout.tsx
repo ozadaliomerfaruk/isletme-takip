@@ -389,6 +389,31 @@ function RootLayoutNav() {
             fullScreenGestureEnabled: false,
           }}
         />
+        {/* Taksit sayfaları header'ı buradan alır (sayfa içi Stack.Screen yalnız başlık
+            geçer); kayıt olmadan global headerShown:false yüzünden içerik status bar
+            altına taşıyordu. */}
+        <Stack.Screen
+          name="taksit/index"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
+          }}
+        />
+        <Stack.Screen
+          name="taksit/[id]"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
+          }}
+        />
         <Stack.Screen
           name="hesaplar/ekle"
           options={{

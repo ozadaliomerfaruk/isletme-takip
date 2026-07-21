@@ -139,14 +139,19 @@ export const TransactionRow = memo(function TransactionRow({
               <Text style={styles.creatorText} numberOfLines={1}>{creatorText}</Text>
             </>
           ) : null}
-          {vadeText ? (
+        </View>
+
+        {/* Vade pill'i KENDİ satırında — line2 içinde uzun "Kalan/Mahsup·Avans"
+            metni tutar kolonuna taşıyordu; ayrı satırda flexShrink ile kırpılır */}
+        {vadeText ? (
+          <View style={styles.vadeRow}>
             <View style={[styles.vadePill, { backgroundColor: VADE_COLORS[vadeState ?? 'future'].bg }]}>
               <Text style={[styles.vadePillText, { color: VADE_COLORS[vadeState ?? 'future'].fg }]} numberOfLines={1}>
                 {vadeText}
               </Text>
             </View>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
 
         {/* Line 3: Secondary (category) */}
         {secondaryText ? (
@@ -303,11 +308,15 @@ const styles = StyleSheet.create({
     color: colors.primary,
     flexShrink: 1,
   },
+  vadeRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+  },
   vadePill: {
-    marginLeft: 6,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: borderRadius.full,
+    flexShrink: 1,
   },
   vadePillText: {
     fontSize: 11,

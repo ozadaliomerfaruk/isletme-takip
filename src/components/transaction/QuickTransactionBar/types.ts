@@ -77,7 +77,9 @@ export interface QuickTransactionBarProps {
   defaultAmount?: number;
   defaultDate?: Date;
   defaultDescription?: string;
-  onSuccess?: () => void;
+  /** Başarıda çağrılır; create yolunda oluşan işlemin id'si geçilir (edit'te transactionId).
+   *  Bağlam-hedefli tahsis (retahsis_odeme) için kullanılır. */
+  onSuccess?: (islemId?: string) => void;
   // Viewer mode: linked cari viewer (hides ödeme/tahsilat tabs)
   isViewer?: boolean;
   /**

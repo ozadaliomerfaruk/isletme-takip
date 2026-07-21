@@ -1,28 +1,30 @@
 import { useMemo, useState } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, CalendarClock } from 'lucide-react-native';
-import { Text, Button } from '@/components/ui';
+import { Text, Button, EmptyState } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
-import { useTaksitPlanDetay, useTaksitPlanListesi, type TaksitSatirDetay } from '@/hooks/useTaksit';
+import { useTaksitPlanDetay, type TaksitSatirDetay } from '@/hooks/useTaksit';
+import { useRetahsisOdeme } from '@/hooks/useIslemTahsis';
 
 /**
  * Taksit detayı (Faz 3): taksit satırları + tahsis-bazlı ödendi/kalan durumu.
  * "Tahsil Et/Öde" → en eski açık taksitin kalanı ön-dolu QTB (FIFO sunucuda —
  * ödeme zaten en eski vadeye gider, hedef seçtirmeye gerek yok).
+ * Tüm meta (para birimi, cari, tip) detay sorgusunun KENDİSİNDEN gelir —
+ * deep-link/soğuk açılışta liste sorgusu beklenmez.
  */
 export default function TaksitDetayPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common']);
-  const { data: detay } = useTaksitPlanDetay(id);
-  const { data: planlar } = useTaksitPlanListesi();
-  const meta = useMemo(() => (planlar ?? []).find((p) => p.plan_id === id) ?? null, [planlar, id]);
+  const { data: detay, isLoading, refetch, isRefetching } = useTaksitPlanDetay(id);
+  const retahsis = useRetahsisOdeme();
 
   const [tahsilVisible, setTahsilVisible] = useState(false);
 
@@ -36,22 +38,29 @@ export default function TaksitDetayPage() {
     [detay],
   );
 
+  const odenenAdet = useMemo(
+    () => (detay?.taksitler ?? []).filter((tk) => tk.kalan <= 0).length,
+    [detay],
+  );
+
+  const currency = detay?.currency ?? 'TRY';
+
   const renderItem = ({ item }: { item: TaksitSatirDetay }) => {
     const odendi = item.kalan <= 0;
     const gecikmis = !odendi && item.vade_tarihi <= bugunStr;
     return (
       <View style={styles.row}>
         <View style={styles.rowLeft}>
-          <Text variant="body" style={styles.siraText}>
+          <Text variant="body" style={styles.siraText} numberOfLines={1}>
             {t('transactions:taksit.siraLabel', { sira: item.sira })}
           </Text>
-          <Text variant="caption" color="secondary">
+          <Text variant="caption" color="secondary" numberOfLines={1}>
             {t('transactions:vade.label')}: {formatDateShort(item.vade_tarihi)}
           </Text>
         </View>
         <View style={styles.rowRight}>
-          <Text variant="body" style={styles.tutarText}>
-            {formatCurrency(item.tutar, meta?.currency || 'TRY')}
+          <Text variant="body" style={styles.tutarText} numberOfLines={1}>
+            {formatCurrency(item.tutar, currency)}
           </Text>
           {odendi ? (
             <View style={styles.durumRow}>
@@ -59,8 +68,8 @@ export default function TaksitDetayPage() {
               <Text variant="caption" color="success">{t('transactions:taksit.tamamlandi')}</Text>
             </View>
           ) : (
-            <Text variant="caption" style={gecikmis ? styles.gecikmis : styles.kalanText}>
-              {t('transactions:vade.kalan')}: {formatCurrency(item.kalan, meta?.currency || 'TRY')}
+            <Text variant="caption" style={gecikmis ? styles.gecikmis : styles.kalanText} numberOfLines={1}>
+              {t('transactions:vade.kalan')}: {formatCurrency(item.kalan, currency)}
             </Text>
           )}
         </View>
@@ -70,16 +79,16 @@ export default function TaksitDetayPage() {
 
   return (
     <>
-      <Stack.Screen options={{ headerTitle: meta?.cari_name ?? t('transactions:taksit.detayTitle') }} />
+      <Stack.Screen options={{ headerTitle: detay?.cariName ?? t('transactions:taksit.detayTitle') }} />
       <SafeAreaView style={styles.container} edges={['bottom']}>
         {/* Özet başlık */}
-        {meta && (
+        {detay && (
           <View style={styles.summary}>
             <CalendarClock size={18} color={colors.textMuted} />
             <Text variant="body" style={styles.summaryText}>
-              {formatCurrency(meta.odenen, meta.currency)} / {formatCurrency(meta.toplam, meta.currency)}
+              {formatCurrency(detay.odenen, currency)} / {formatCurrency(detay.toplam, currency)}
               {'  ·  '}
-              {t('transactions:taksit.odenenOran', { odenen: meta.odenen_taksit_adedi, toplam: meta.taksit_adedi })}
+              {t('transactions:taksit.odenenOran', { odenen: odenenAdet, toplam: detay.taksitler.length })}
             </Text>
           </View>
         )}
@@ -90,26 +99,45 @@ export default function TaksitDetayPage() {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+          ListEmptyComponent={
+            isLoading ? (
+              <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
+            ) : (
+              <EmptyState
+                icon={<CalendarClock size={44} color={colors.textMuted} />}
+                title={t('transactions:taksit.bos')}
+              />
+            )
+          }
         />
 
         {/* Tahsil Et / Öde — açık taksit varsa */}
-        {meta && ilkAcik && (
+        {detay?.type && ilkAcik && (
           <View style={styles.footer}>
             <Button onPress={() => setTahsilVisible(true)} fullWidth>
-              {`${meta.type === 'cari_satis' ? t('transactions:vade.tahsilEt') : t('transactions:vade.ode')} · ${formatCurrency(ilkAcik.kalan, meta.currency)}`}
+              {`${detay.type === 'cari_satis' ? t('transactions:vade.tahsilEt') : t('transactions:vade.ode')} · ${formatCurrency(ilkAcik.kalan, currency)}`}
             </Button>
           </View>
         )}
 
-        {meta && (
+        {detay?.type && detay.cariId && (
           <QuickTransactionBar
             visible={tahsilVisible}
             onDismiss={() => setTahsilVisible(false)}
-            defaultCariId={meta.cari_id}
-            defaultCariType={meta.type === 'cari_satis' ? 'musteri' : 'tedarikci'}
-            defaultType={meta.type === 'cari_satis' ? 'tahsilat' : 'odeme'}
+            defaultCariId={detay.cariId}
+            defaultCariType={detay.type === 'cari_satis' ? 'musteri' : 'tedarikci'}
+            defaultType={detay.type === 'cari_satis' ? 'tahsilat' : 'odeme'}
             defaultAmount={ilkAcik?.kalan}
-            onSuccess={() => setTahsilVisible(false)}
+            onSuccess={(islemId) => {
+              setTahsilVisible(false);
+              // Bağlam-hedefli tahsis: bu ekrandan yapılan tahsilat BU planın en eski
+              // açık taksitine gitsin. Genel FIFO carinin BAŞKA borcunun daha eski
+              // vadesine kaydırabiliyor (kullanıcı bulgusu) — retahsis hedefe çevirir.
+              if (islemId && detay?.islemId) {
+                retahsis.mutate({ odemeIslemId: islemId, hedefBorcId: detay.islemId });
+              }
+            }}
           />
         )}
       </SafeAreaView>
@@ -139,6 +167,10 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
+    flexGrow: 1,
+  },
+  loader: {
+    marginTop: spacing['3xl'],
   },
   row: {
     flexDirection: 'row',
@@ -150,6 +182,7 @@ const styles = StyleSheet.create({
   },
   rowLeft: {
     flex: 1,
+    marginRight: spacing.sm,
   },
   siraText: {
     fontWeight: '600',
@@ -157,6 +190,8 @@ const styles = StyleSheet.create({
   },
   rowRight: {
     alignItems: 'flex-end',
+    flexShrink: 1,
+    maxWidth: '60%',
   },
   tutarText: {
     fontWeight: '700',

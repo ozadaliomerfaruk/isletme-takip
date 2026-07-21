@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { roundCurrency } from '@/lib/currency';
 
 /**
@@ -155,6 +155,34 @@ export function useVadeOzet(enabled = true) {
       });
       if (error) throw error;
       return (data as VadeOzetSatiri[]) ?? [];
+    },
+  });
+}
+
+/**
+ * Bir ödemenin tahsislerini söküp HEDEF BORCA öncelik vererek yeniden dağıtır
+ * (retahsis_odeme RPC — Faz 2'nin düzeltme yolu; balance'a DOKUNMAZ).
+ * Kullanım: bağlam-hedefli tahsilat — taksit detayındaki "Tahsil Et" ve cari
+ * detayındaki satır-swipe "Tahsil Et" o borca/plana gitmeli; genel FIFO carinin
+ * BAŞKA borcunun daha eski vadesine kaydırabiliyor (kullanıcı bulgusu, 21 Tem).
+ */
+export function useRetahsisOdeme() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+
+  return useMutation({
+    mutationFn: async ({ odemeIslemId, hedefBorcId }: { odemeIslemId: string; hedefBorcId: string }) => {
+      if (!isletme?.id) throw new Error('İşletme bulunamadı');
+      const { data, error } = await supabase.rpc('retahsis_odeme', {
+        p_isletme_id: isletme.id,
+        p_odeme_islem_id: odemeIslemId,
+        p_hedef_borc: hedefBorcId,
+      });
+      if (error) throw error;
+      return data as { tahsis_adet: number; avans: number };
+    },
+    onSuccess: () => {
+      invalidateRelatedQueries(queryClient, 'islem');
     },
   });
 }

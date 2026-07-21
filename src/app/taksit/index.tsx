@@ -44,11 +44,12 @@ export default function TaksitTakipPage() {
           </View>
 
           <View style={styles.amountRow}>
-            <Text variant="h3" color={tamamlandi ? 'success' : undefined}>
-              {formatCurrency(item.odenen, item.currency)}
+            {/* Büyük rakam = KALAN (kullanıcının asıl merak ettiği); ödenen/toplam ikincil */}
+            <Text variant="h3" color={tamamlandi ? 'success' : undefined} numberOfLines={1} style={styles.kalanAmount}>
+              {t('transactions:vade.kalan')}: {formatCurrency(Math.max(0, item.toplam - item.odenen), item.currency)}
             </Text>
-            <Text variant="caption" color="secondary">
-              {' / '}{formatCurrency(item.toplam, item.currency)}
+            <Text variant="caption" color="secondary" numberOfLines={1} style={styles.odenenText}>
+              {t('transactions:taksit.odenenLabel')}: {formatCurrency(item.odenen, item.currency)} / {formatCurrency(item.toplam, item.currency)}
             </Text>
           </View>
 
@@ -102,6 +103,10 @@ export default function TaksitTakipPage() {
           keyExtractor={(item) => item.plan_id}
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
           ListEmptyComponent={
             isLoading ? null : (
@@ -170,9 +175,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   amountRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
     marginBottom: 6,
+    gap: 2,
+  },
+  kalanAmount: {
+    flexShrink: 1,
+  },
+  odenenText: {
+    flexShrink: 1,
   },
   progressBar: {
     height: 5,

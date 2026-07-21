@@ -1,6 +1,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Calendar, Bell, X, ArrowRight, CalendarClock } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
@@ -36,6 +37,10 @@ export interface HeaderSectionProps {
   taksitAdet?: number | null;
   onTaksitPress?: () => void;
   onTaksitClear?: () => void;
+  /** Edit'te işlem taksitliyse vade değiştirilemez (sunucu zaten sessizce korur) —
+   *  segment kilitli görünür, dokununca açıklama gösterilir. */
+  vadeLocked?: boolean;
+  onVadeLockedPress?: () => void;
 }
 
 export function HeaderSection({
@@ -56,6 +61,8 @@ export function HeaderSection({
   taksitAdet,
   onTaksitPress,
   onTaksitClear,
+  vadeLocked,
+  onVadeLockedPress,
 }: HeaderSectionProps) {
   const { t } = useTranslation(['transactions', 'common', 'staff']);
   const dateIsToday = isToday(date);
@@ -134,8 +141,14 @@ export function HeaderSection({
               <>
                 <View style={local.divider} />
                 <TouchableOpacity
-                  style={local.segment}
-                  onPress={() => setVadeMenuOpen((v) => !v)}
+                  style={[local.segment, local.segmentVade]}
+                  onPress={() => {
+                    if (vadeLocked) {
+                      onVadeLockedPress?.();
+                      return;
+                    }
+                    setVadeMenuOpen((v) => !v);
+                  }}
                   activeOpacity={0.6}
                 >
                   <CalendarClock size={20} color={vadeTarihi || taksitAdet ? colors.primary : colors.textMuted} />
@@ -147,9 +160,13 @@ export function HeaderSection({
                       ? t('transactions:taksit.adetLabel', { adet: taksitAdet })
                       : vadeTarihi
                         ? formatDateMedium(vadeTarihi)
-                        : t('transactions:vade.label')}
+                        : onTaksitPress
+                          /* Taksit girilebiliyorsa girişi görünür kıl — "Taksit"
+                             yalnız "Vade" altında saklıysa kullanıcı bulamıyor */
+                          ? `${t('transactions:vade.label')}/${t('transactions:taksit.label')}`
+                          : t('transactions:vade.label')}
                   </Text>
-                  {taksitAdet && onTaksitClear ? (
+                  {vadeLocked ? null : taksitAdet && onTaksitClear ? (
                     <TouchableOpacity onPress={onTaksitClear} hitSlop={HIT_SLOP.sm} style={local.segClear}>
                       <X size={18} color={colors.primary} />
                     </TouchableOpacity>
@@ -174,6 +191,7 @@ export function HeaderSection({
               <TouchableOpacity
                 style={local.vadeMenuItem}
                 onPress={() => {
+                  Haptics.selectionAsync();
                   setVadeMenuOpen(false);
                   onVadePreset?.(d);
                 }}
@@ -187,6 +205,7 @@ export function HeaderSection({
           <TouchableOpacity
             style={local.vadeMenuItem}
             onPress={() => {
+              Haptics.selectionAsync();
               setVadeMenuOpen(false);
               onVadePress?.();
             }}
@@ -204,6 +223,7 @@ export function HeaderSection({
               <TouchableOpacity
                 style={local.vadeMenuItem}
                 onPress={() => {
+                  Haptics.selectionAsync();
                   setVadeMenuOpen(false);
                   onTaksitPress();
                 }}
@@ -238,6 +258,10 @@ const local = StyleSheet.create({
     paddingHorizontal: 12,
     height: '100%',
     flexShrink: 1,
+  },
+  // Dar ekranda önce vade/taksit segmenti daralsın — işlem tarihi (asıl alan) korunur
+  segmentVade: {
+    flexShrink: 3,
   },
   segmentIcon: {
     height: '100%',

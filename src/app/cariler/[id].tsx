@@ -25,6 +25,7 @@ import {
   Link,
   Plus,
   CalendarClock,
+  HandCoins,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
@@ -50,7 +51,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useCariTahsisOzeti, useCariVadeliBorclar } from '@/hooks/useIslemTahsis';
+import { useCariTahsisOzeti, useCariVadeliBorclar, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
@@ -191,6 +192,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
       onCopy={canEdit ? handleCopy : undefined}
       onAction={canEdit ? onTahsil : undefined}
       actionLabel={tahsilLabel}
+      actionIcon={<HandCoins size={20} color={colors.white} />}
       enabled={canEdit}
       deleteLabel={deleteLabel}
       copyLabel={copyLabel}
@@ -473,8 +475,10 @@ export default function CariHareketleriPage() {
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
-  // Faz 2: swipe "Tahsil Et/Öde" — kalan tutar ön-dolu QTB (FIFO mahsup sunucuda otomatik)
-  const [tahsilPrefill, setTahsilPrefill] = useState<{ type: 'tahsilat' | 'odeme'; amount: number } | null>(null);
+  // Faz 2: swipe "Tahsil Et/Öde" — kalan tutar ön-dolu QTB; tahsis kaydırılan satırın
+  // borcuna hedeflenir (retahsis_odeme)
+  const [tahsilPrefill, setTahsilPrefill] = useState<{ type: 'tahsilat' | 'odeme'; amount: number; hedefBorcId: string } | null>(null);
+  const retahsis = useRetahsisOdeme();
   // Product detail modal state
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   // Photo viewer state
@@ -887,7 +891,7 @@ export default function CariHareketleriPage() {
             const prefillType = islem.type === 'cari_satis' ? 'tahsilat' : 'odeme';
             const prefillAmount = itemKalan ?? toNumber(islem.amount);
             itemTahsilLabel = t(prefillType === 'tahsilat' ? 'transactions:vade.tahsilEt' : 'transactions:vade.ode');
-            itemOnTahsil = () => setTahsilPrefill({ type: prefillType, amount: prefillAmount });
+            itemOnTahsil = () => setTahsilPrefill({ type: prefillType, amount: prefillAmount, hedefBorcId: islem.id });
           }
         }
       }
@@ -1223,7 +1227,8 @@ export default function CariHareketleriPage() {
         />
 
         {/* Faz 2: swipe "Tahsil Et/Öde" — kalan tutar ön-dolu tahsilat/ödeme.
-            Mahsup sunucuda oto-FIFO (en eski vade önce); hedef seçim v2 (retahsis). */}
+            Bağlam-hedefli tahsis: kaydırılan SATIRIN borcuna öncelik (retahsis_odeme);
+            genel FIFO carinin başka borcunun daha eski vadesine kaydırabiliyordu. */}
         <QuickTransactionBar
           visible={!!tahsilPrefill}
           onDismiss={() => setTahsilPrefill(null)}
@@ -1232,7 +1237,13 @@ export default function CariHareketleriPage() {
           defaultType={tahsilPrefill?.type}
           defaultAmount={tahsilPrefill?.amount}
           isViewer={isViewer}
-          onSuccess={() => setTahsilPrefill(null)}
+          onSuccess={(islemId) => {
+            const hedef = tahsilPrefill?.hedefBorcId;
+            setTahsilPrefill(null);
+            if (islemId && hedef) {
+              retahsis.mutate({ odemeIslemId: islemId, hedefBorcId: hedef });
+            }
+          }}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}

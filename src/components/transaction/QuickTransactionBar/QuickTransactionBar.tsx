@@ -9,6 +9,7 @@ import {
   Platform,
   Keyboard,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { Text } from '@/components/ui';
@@ -19,7 +20,7 @@ import { useRouter, useFocusEffect, type Href } from 'expo-router';
 
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
 import { colors } from '@/constants/colors';
-import { roundCurrency } from '@/lib/currency';
+import { roundCurrency, parseCurrency, formatCurrency } from '@/lib/currency';
 import { addDays, addMonths } from '@/lib/date';
 
 import { getTransactionTypeColor } from '../TransactionTypeTabs';
@@ -64,6 +65,7 @@ import { usePickImage, useTakePhoto } from '@/hooks/useIslemPhoto';
 import { useCreateCari } from '@/hooks/useCariler';
 import { useCreateUrun } from '@/hooks/useUrunler';
 import { useSettings } from '@/hooks/useSettings';
+import { useIslemTaksitliMi } from '@/hooks/useTaksit';
 import type { Currency, Urun } from '@/types/database';
 
 export function QuickTransactionBar({
@@ -243,6 +245,11 @@ export function QuickTransactionBar({
   const [taksitAdetDraft, setTaksitAdetDraft] = useState(3);
   const [taksitIlkVadeDraft, setTaksitIlkVadeDraft] = useState<Date>(() => addMonths(new Date(), 1));
   const [showTaksitVadePicker, setShowTaksitVadePicker] = useState(false);
+
+  // Edit'te işlem taksitliyse vade segmenti kilitlenir: update_islem_atomik
+  // taksitli işlemde vade'yi SESSİZCE korur (taksit satırlarıyla senkron kalmalı);
+  // kullanıcı vade değiştirip "güncellenmedi" yaşamasın diye girişte engelle + açıkla.
+  const { data: isTaksitliIslem } = useIslemTaksitliMi(mode === 'edit' ? transactionId : undefined);
 
   // Bar kapanınca / tip taksit-dışına dönünce / scheduled açılınca / ürün eklenince
   // / edit moduna girince taksit sıfırlanır (yalnız yeni-kayıt yolu destekli).
@@ -656,6 +663,13 @@ export function QuickTransactionBar({
               setTaksitPlan(null);
               form.setVadeTarihi(addDays(form.safeDate, days));
             }}
+            vadeLocked={!!isTaksitliIslem}
+            onVadeLockedPress={() => {
+              Alert.alert(
+                t('transactions:taksit.label'),
+                t('transactions:taksit.vadeEditEngel')
+              );
+            }}
             taksitAdet={taksitPlan?.adet ?? null}
             onTaksitPress={
               // Taksit yalnız yeni kayıt + ürünsüz yolda (RPC ürünlü varyantı Faz 3 kapsamı dışı)
@@ -821,7 +835,13 @@ export function QuickTransactionBar({
                     <TouchableOpacity
                       key={n}
                       style={[taksitStyles.adetChip, taksitAdetDraft === n && taksitStyles.adetChipActive]}
-                      onPress={() => setTaksitAdetDraft(n)}
+                      onPress={() => {
+                        Haptics.selectionAsync();
+                        setTaksitAdetDraft(n);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: taksitAdetDraft === n }}
+                      accessibilityLabel={t('transactions:taksit.adetLabel', { adet: n })}
                     >
                       <Text
                         style={[taksitStyles.adetChipText, taksitAdetDraft === n && taksitStyles.adetChipTextActive]}
@@ -831,6 +851,25 @@ export function QuickTransactionBar({
                     </TouchableOpacity>
                   ))}
                 </View>
+
+                {/* Canlı önizleme: taksit başına tutar (sunucudaki bölüşümle birebir —
+                    her taksit yuvarlanır, küsurat son taksite gider) */}
+                {(() => {
+                  const toplam = parseCurrency(form.amount) || 0;
+                  const cur = entities.selectedCari?.currency || userCurrency;
+                  if (toplam <= 0) {
+                    return <Text style={taksitStyles.onizleme}>{t('transactions:taksit.tutarOnce')}</Text>;
+                  }
+                  const per = roundCurrency(toplam / taksitAdetDraft);
+                  const son = roundCurrency(toplam - per * (taksitAdetDraft - 1));
+                  const sonFarkli = Math.abs(son - per) >= 0.005;
+                  return (
+                    <Text style={taksitStyles.onizleme} numberOfLines={2}>
+                      {t('transactions:taksit.onizleme', { adet: taksitAdetDraft, tutar: formatCurrency(per, cur) })}
+                      {sonFarkli ? ` (${t('transactions:taksit.onizlemeSon', { tutar: formatCurrency(son, cur) })})` : ''}
+                    </Text>
+                  );
+                })()}
 
                 <Text style={styles.pickerSectionTitle}>{t('transactions:taksit.ilkVade')}</Text>
                 <TouchableOpacity
@@ -845,6 +884,7 @@ export function QuickTransactionBar({
                 <TouchableOpacity
                   style={styles.pickerDoneButton}
                   onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     setTaksitPlan({ adet: taksitAdetDraft, ilkVade: taksitIlkVadeDraft });
                     form.setVadeTarihi(null); // karşılıklı münhasır
                     setShowTaksitConfig(false);
@@ -864,13 +904,15 @@ export function QuickTransactionBar({
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* Taksit ilk-vade tarih seçici */}
+      {/* Taksit ilk-vade tarih seçici — geçmiş tarih seçilemez (yanlışlıkla
+          "zaten gecikmiş" plan oluşmasın) */}
       <DateTimePickerModal
         visible={showTaksitVadePicker}
         onDismiss={() => setShowTaksitVadePicker(false)}
         value={taksitIlkVadeDraft}
         onChange={setTaksitIlkVadeDraft}
         locale={locale}
+        minimumDate={form.safeDate}
       />
 
       {/* DateTime End Picker Modal (for leave usage date range) */}
@@ -1035,7 +1077,7 @@ const taksitStyles = StyleSheet.create({
   },
   adetChip: {
     minWidth: 44,
-    height: 40,
+    height: 44,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1055,6 +1097,13 @@ const taksitStyles = StyleSheet.create({
   },
   adetChipTextActive: {
     color: '#FFFFFF',
+  },
+  onizleme: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'center',
+    marginBottom: 12,
   },
   vadeButton: {
     alignSelf: 'center',

@@ -106,7 +106,11 @@
     "gecikmisBorc": "Overdue Payable",
     "yaklasan7": "Upcoming (7 Days)",
     "temiz": "Nothing overdue",
-    "adetKisa": "{{adet}} items"
+    "adetKisa": "{{adet}} items",
+    "alacakKisa": "Receivable",
+    "borcKisa": "Payable",
+    "gecAlacakKisa": "Overdue Receivable",
+    "gecBorcKisa": "Overdue Payable"
   },
   "taksit": {
     "label": "Installments",
@@ -117,6 +121,10 @@
     "ilkVade": "First Due Date",
     "aylikNot": "Installments are created one month apart; collections settle the oldest installment first.",
     "uygula": "Apply",
+    "odenenLabel": "Paid",
+    "onizleme": "{{adet}} × {{tutar}}",
+    "onizlemeSon": "last installment {{tutar}}",
+    "tutarOnce": "Enter the amount first to see installment amounts.",
     "odenenOran": "{{odenen}}/{{toplam}} installments paid",
     "sonrakiVade": "Next due",
     "gecikmisAdet": "{{adet}} installments overdue",
@@ -126,6 +134,7 @@
     "bos": "No installment plans yet",
     "bosAciklama": "When entering a sale or purchase, choose \"Installments\" from the due-date menu to create a plan.",
     "editEngel": "Amount/type/contact of an installment transaction cannot be changed. Delete the plan and recreate it.",
+    "vadeEditEngel": "This transaction has an installment plan — due dates come from the plan and cannot be changed here. View installments in Installment Tracking, or delete and recreate the transaction to change them.",
     "satis": "Sales",
     "alis": "Purchases"
   },
