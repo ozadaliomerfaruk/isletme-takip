@@ -207,6 +207,14 @@
     "error": "Export failed",
     "sharingNotSupported": "Sharing is not supported on this device"
   },
+  "detayOzet": {
+    "toplamSatis": "Total Sales",
+    "toplamAlis": "Total Purchases",
+    "toplamTahsilat": "Total Collected",
+    "toplamOdeme": "Total Paid",
+    "vadesiGecenAlacak": "Overdue Receivable",
+    "vadesiGecenBorc": "Overdue Payable"
+  },
   "preview": {
     "sonIslemler": "Recent Transactions",
     "islemYok": "No transactions yet",

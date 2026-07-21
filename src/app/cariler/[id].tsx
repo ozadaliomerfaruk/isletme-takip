@@ -48,10 +48,10 @@ import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
-import { useCari, useDeleteCari, useUpdateCari } from '@/hooks/useCariler';
+import { useCari, useDeleteCari, useUpdateCari, useCariOzet } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useCariTahsisOzeti, useCariVadeliBorclar, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
+import { useCariTahsisOzeti, useCariVadeRozet, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
 import { useCariTaksitliIslemIds } from '@/hooks/useTaksit';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
@@ -805,32 +805,28 @@ export default function CariHareketleriPage() {
   // Başlık V.G. özeti: carinin TÜM vadeli borçları (sayfalı listeden değil — kısmi
   // sayfa yanlış toplam verir) + tahsis kalanları → gecikmiş adet/toplam.
   // crude susturucu burada da geçerli: bakiye kapalıysa şerit hiç çıkmaz.
-  const { data: vadeliBorclar } = useCariVadeliBorclar(id, !isViewer);
-
   // Taksitli işlem id'leri: işlem-düzeyi vade (=ilk taksit) + işlem-bütünü kalan,
   // taksitli işlemde YANLIŞ "vadesi geçti" üretir (plan yolundayken bile). Satır
-  // pill'i ve banner bu set ile taksit-farkındalı davranır.
+  // pill'i bu set ile taksit-farkındalı davranır.
   const { data: taksitliIslemIds } = useCariTaksitliIslemIds(id, !isViewer);
   const taksitliSet = useMemo(() => new Set(taksitliIslemIds ?? []), [taksitliIslemIds]);
 
+  // Dashboard özeti (RPC — sunucuda toplanır) + birim-farkındalı gecikmiş rozeti
+  // (taksit birimleri dahil; liste sayfasıyla aynı kaynak/cache).
+  const { data: cariOzet } = useCariOzet(id, !isViewer);
+  const { data: vadeRozetMap } = useCariVadeRozet(!isViewer);
   const cariVadeOzeti = useMemo(() => {
-    if (isViewer || cariPaidCrude || !vadeliBorclar || !tahsisOzeti) return null;
-    let toplam = 0;
-    let adet = 0;
-    for (const b of vadeliBorclar) {
-      // Taksitli borç banner'dan hariç: işlem vadesi ilk taksit tarihi olduğundan
-      // plan yolunda giderken bile "gecikmiş" sayardı (taksit-birimi kırılımı
-      // burada yok; liste sayfası rozeti zaten birim-farkındalı RPC'den gelir).
-      if (taksitliSet.has(b.id)) continue;
-      if (String(b.vade_tarihi) > overdueTodayStr) continue; // gecikmiş = bugün dahil (liste ile aynı kural)
-      const kalan = roundCurrency(toNumber(b.amount) - (tahsisOzeti.borcTahsisleri[b.id] ?? 0));
-      if (kalan > 0.009) {
-        toplam = roundCurrency(toplam + kalan);
-        adet += 1;
-      }
-    }
-    return adet > 0 ? { toplam, adet } : null;
-  }, [isViewer, cariPaidCrude, vadeliBorclar, tahsisOzeti, overdueTodayStr, taksitliSet]);
+    // Crude susturucu (liste rozetiyle aynı kural): bakiye ilgili yönde açık değilse
+    // gecikme İDDİA ETME (migration-öncesi tahsissiz ödenmiş geçmişte yanlış alarm olmasın)
+    if (isViewer || cariPaidCrude || !cari || !vadeRozetMap) return null;
+    const rozet = vadeRozetMap[cari.id];
+    if (!rozet) return null;
+    const bal = toNumber(cari.balance);
+    const tutar = cari.type === 'tedarikci' ? toNumber(rozet.gecikmis_borc) : toNumber(rozet.gecikmis_alacak);
+    const outstanding = cari.type === 'tedarikci' ? bal < -0.01 : bal > 0.01;
+    if (!outstanding || !tutar || tutar <= 0.009) return null;
+    return { toplam: tutar, adet: Number(rozet.gecikmis_adet) || 0 };
+  }, [isViewer, cariPaidCrude, cari, vadeRozetMap]);
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
@@ -1045,19 +1041,70 @@ export default function CariHareketleriPage() {
               )}
             </View>
           </View>
-        </Card>
 
-        {/* Vadesi geçmiş özeti (Faz 2 — tahsis kalanlarından; crude susturucu geçerse hiç çıkmaz) */}
-        {cariVadeOzeti && (
-          <View style={styles.vadeOzetBanner}>
-            <CalendarClock size={16} color={colors.error} />
-            <Text variant="caption" style={styles.vadeOzetText} numberOfLines={1}>
-              {t('transactions:vade.gecikmisOzet', { adet: cariVadeOzeti.adet })}
-              {' · '}
-              {t('transactions:vade.kalan')}: {formatCurrency(cariVadeOzeti.toplam, cari.currency)}
-            </Text>
-          </View>
-        )}
+          {/* Cari dashboard'u: ömür-boyu toplamlar (RPC) — "bu zamana kadar ne
+              alıp ne satmışız/ödemişiz" tek bakışta. İadeler netleştirilir. */}
+          {(() => {
+            if (isViewer || !cariOzet) return null;
+            const oz = (k: keyof typeof cariOzet) => cariOzet[k]?.toplam ?? 0;
+            const satisNet = roundCurrency(oz('cari_satis') - oz('cari_satis_iade'));
+            const alisNet = roundCurrency(oz('cari_alis') - oz('cari_alis_iade'));
+            const tahsilat = oz('cari_tahsilat');
+            const odeme = oz('cari_odeme');
+            const satirlar: { label: string; value: number; color?: string }[] = [];
+            // Birincil çift cari tipine göre önce; karşı yön yalnız sıfırdan farklıysa
+            if (isTedarikci) {
+              if (alisNet !== 0 || odeme !== 0) {
+                satirlar.push({ label: t('clients:detayOzet.toplamAlis'), value: alisNet });
+                satirlar.push({ label: t('clients:detayOzet.toplamOdeme'), value: odeme });
+              }
+              if (satisNet !== 0 || tahsilat !== 0) {
+                satirlar.push({ label: t('clients:detayOzet.toplamSatis'), value: satisNet });
+                satirlar.push({ label: t('clients:detayOzet.toplamTahsilat'), value: tahsilat });
+              }
+            } else {
+              if (satisNet !== 0 || tahsilat !== 0) {
+                satirlar.push({ label: t('clients:detayOzet.toplamSatis'), value: satisNet });
+                satirlar.push({ label: t('clients:detayOzet.toplamTahsilat'), value: tahsilat });
+              }
+              if (alisNet !== 0 || odeme !== 0) {
+                satirlar.push({ label: t('clients:detayOzet.toplamAlis'), value: alisNet });
+                satirlar.push({ label: t('clients:detayOzet.toplamOdeme'), value: odeme });
+              }
+            }
+            if (satirlar.length === 0 && !cariVadeOzeti) return null;
+            return (
+              <>
+                <View style={styles.ozetDivider} />
+                {satirlar.length > 0 && (
+                  <View style={styles.ozetGrid}>
+                    {satirlar.map((s) => (
+                      <View key={s.label} style={styles.ozetCell}>
+                        <Text variant="caption" color="secondary" numberOfLines={1}>{s.label}</Text>
+                        <Text style={styles.ozetValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {formatCurrency(s.value, cari.currency)}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {/* Vadesi geçen (birim-farkındalı rozet — taksit birimleri dahil) */}
+                {cariVadeOzeti && (
+                  <View style={styles.ozetGecikmisRow}>
+                    <CalendarClock size={14} color={colors.error} />
+                    <Text variant="caption" style={styles.ozetGecikmisText} numberOfLines={1}>
+                      {isTedarikci
+                        ? t('clients:detayOzet.vadesiGecenBorc')
+                        : t('clients:detayOzet.vadesiGecenAlacak')}
+                      {': '}{formatCurrency(cariVadeOzeti.toplam, cari.currency)}
+                      {cariVadeOzeti.adet > 0 ? `  ·  ${t('transactions:vade.adetKisa', { adet: cariVadeOzeti.adet })}` : ''}
+                    </Text>
+                  </View>
+                )}
+              </>
+            );
+          })()}
+        </Card>
 
         {/* Paylaşım İzin Modu Banner (görüntüleme/tam erişim) — tek yer, kart şeridiyle tekrar etmez */}
         {isViewer && (
@@ -1116,7 +1163,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -1492,21 +1539,43 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.surface,
   },
-  vadeOzetBanner: {
+  // Cari dashboard'u (özet kartı içi): toplamlar grid'i + gecikmiş satırı
+  ozetDivider: {
+    height: 1,
+    backgroundColor: colors.borderLight,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  ozetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  ozetCell: {
+    width: '50%',
+    paddingVertical: spacing.xs,
+    gap: 1,
+  },
+  ozetValue: {
+    fontSize: fontSize.lg,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  ozetGecikmisRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     borderRadius: 8,
     backgroundColor: colors.errorLight,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
   },
-  vadeOzetText: {
-    flex: 1,
+  ozetGecikmisText: {
     color: colors.error,
-    fontWeight: '600',
+    fontWeight: '700',
+    flexShrink: 1,
   },
   summaryRow: {
     flexDirection: 'row',

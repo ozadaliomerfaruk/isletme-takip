@@ -211,6 +211,48 @@ export function useDeleteCari() {
   });
 }
 
+// === Cari detay dashboard özeti (get_cari_ozet RPC — tip bazlı ömür-boyu toplamlar) ===
+export interface CariOzetTip {
+  toplam: number;
+  adet: number;
+}
+
+export type CariOzet = Partial<Record<
+  'cari_satis' | 'cari_alis' | 'cari_tahsilat' | 'cari_odeme' | 'cari_satis_iade' | 'cari_alis_iade',
+  CariOzetTip
+>>;
+
+/**
+ * Carinin tip bazlı ömür-boyu toplamları (satış/alış/tahsilat/ödeme/iadeler) —
+ * sunucuda toplanır (büyük geçmişte tüm işlemleri indirme yok). Ödeme/tahsilat
+ * kur-çevrimli (tahsis_cari_etki) → bakiye matematiğiyle tutarlı.
+ */
+export function useCariOzet(cariId: string | undefined, enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.cariler.ozet(cariId ?? '', isletme?.id ?? ''),
+    enabled: enabled && !!cariId && !!isletme?.id,
+    queryFn: async (): Promise<CariOzet> => {
+      if (!cariId || !isletme?.id) return {};
+      const { data, error } = await supabase.rpc('get_cari_ozet', {
+        p_isletme_id: isletme.id,
+        p_cari_id: cariId,
+      });
+      if (error) throw error;
+      const raw = (data ?? {}) as Record<string, { toplam: unknown; adet: unknown }>;
+      const out: CariOzet = {};
+      for (const [tip, v] of Object.entries(raw)) {
+        (out as Record<string, CariOzetTip>)[tip] = {
+          toplam: Number(v?.toplam) || 0,
+          adet: Number(v?.adet) || 0,
+        };
+      }
+      return out;
+    },
+  });
+}
+
 // Toplam alacak ve borç
 export function useCariSummary() {
   const { data: cariler } = useCariler();

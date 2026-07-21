@@ -207,6 +207,14 @@
     "error": "Dışa aktarma başarısız",
     "sharingNotSupported": "Paylaşım bu cihazda desteklenmiyor"
   },
+  "detayOzet": {
+    "toplamSatis": "Toplam Satış",
+    "toplamAlis": "Toplam Alış",
+    "toplamTahsilat": "Toplam Tahsilat",
+    "toplamOdeme": "Toplam Ödeme",
+    "vadesiGecenAlacak": "Vadesi Geçen Alacağımız",
+    "vadesiGecenBorc": "Vadesi Geçen Borcumuz"
+  },
   "preview": {
     "sonIslemler": "Son İşlemler",
     "islemYok": "Henüz işlem yok",

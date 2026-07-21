@@ -82,6 +82,7 @@ export const queryKeys = {
       ['cariler', isletmeId, type, includePassive, includeArchived] as const,
     detail: (id: string, isletmeId?: string) => ['cari', id, isletmeId] as const,
     archived: (isletmeId: string, type?: string) => ['cariler', 'archived', isletmeId, type] as const,
+    ozet: (cariId: string, isletmeId: string) => ['cariler', 'ozet', cariId, isletmeId] as const,
   },
 
   // Personel
