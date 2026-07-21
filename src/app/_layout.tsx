@@ -478,6 +478,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.reports'),
@@ -491,6 +492,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.categoryDetail'),
@@ -504,6 +506,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerShadowVisible: false,
@@ -516,6 +519,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.overview'),
@@ -529,6 +533,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.categoryDistribution'),
@@ -542,6 +547,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.clientReport'),
@@ -555,6 +561,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.personnelReport'),
@@ -568,6 +575,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.comparison'),
@@ -581,6 +589,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:titles.purchaseSales'),
@@ -594,6 +603,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerBackVisible: true,
             gestureEnabled: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('reports:netWorthTrend.title'),
@@ -606,6 +616,7 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
+            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('common:dashboard.cashFlow'),
