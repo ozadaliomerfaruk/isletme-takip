@@ -50,24 +50,33 @@ export const styles = StyleSheet.create({
     marginBottom: spacing.md,
     gap: spacing.sm,
   },
+  // Gezinme + Miktar/Tutar toggle'ı tek satırda: sol gezinme, sağ toggle
+  periodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   periodNav: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.md,
+    gap: spacing.xs,
+    flexShrink: 1,
   },
   periodNavButton: {
-    padding: spacing.sm,
+    padding: spacing.xs,
+  },
+  periodLabelBtn: {
+    flexShrink: 1,
   },
   periodLabel: {
     fontWeight: '600',
-    minWidth: 120,
     textAlign: 'center',
   },
   customDateRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
+    flexShrink: 1,
   },
   datePickerButton: {
     flexDirection: 'row',

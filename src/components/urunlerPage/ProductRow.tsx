@@ -6,6 +6,7 @@ import { Text, Button, ExpandableCard } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, formatQuantity } from '@/lib/currency';
+import { upperTr } from '@/lib/turkishTextUtils';
 import type { Urun, BirimType } from '@/types/database';
 
 interface DonemOzet { giris: number; cikis: number; girisTutar: number; cikisTutar: number }
@@ -69,7 +70,7 @@ export const ProductRow = memo(function ProductRow({
                 )}
                 {kategoriAdi && (
                   <View style={rowStyles.categoryChip}>
-                    <Text style={rowStyles.categoryChipText}>{kategoriAdi}</Text>
+                    <Text style={rowStyles.categoryChipText}>{upperTr(kategoriAdi)}</Text>
                   </View>
                 )}
               </View>

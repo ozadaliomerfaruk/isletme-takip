@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
+import { upperTr } from '@/lib/turkishTextUtils';
 
 export interface CategoryChipData {
   id: string;
@@ -53,8 +54,9 @@ export const ProductCategoryFilter = memo(function ProductCategoryFilter({
         onPress={() => onChange(key)}
         activeOpacity={0.7}
       >
+        {/* Kategori chip'leri her daim BÜYÜK harf (display-only; stored isim değişmez) */}
         <Text variant="caption" style={active ? styles.chipTextActive : styles.chipText}>
-          {label} ({count})
+          {upperTr(label)} ({count})
         </Text>
       </TouchableOpacity>
     );

@@ -24,7 +24,7 @@ import { useDonemUrunOzet } from '@/hooks/useUrunHareketler';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
-import { searchMatchesTr } from '@/lib/turkishTextUtils';
+import { searchMatchesTr, upperTr } from '@/lib/turkishTextUtils';
 import { exportUrunListesiToExcel, UrunListeItem } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -73,12 +73,13 @@ export default function UrunlerPage() {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
   // DÃ¶nem seÃ§ici seÃ§enekleri
+  // Dönem sekmeleri her daim BÜYÜK harf (kullanıcı tercihi)
   const PERIOD_OPTIONS = [
-    { label: t('products:period.yearly'), value: 'yearly' },
-    { label: t('products:period.monthly'), value: 'monthly' },
-    { label: t('products:period.weekly'), value: 'weekly' },
-    { label: t('products:period.daily'), value: 'daily' },
-    { label: t('products:period.custom'), value: 'custom' },
+    { label: upperTr(t('products:period.yearly')), value: 'yearly' },
+    { label: upperTr(t('products:period.monthly')), value: 'monthly' },
+    { label: upperTr(t('products:period.weekly')), value: 'weekly' },
+    { label: upperTr(t('products:period.daily')), value: 'daily' },
+    { label: upperTr(t('products:period.custom')), value: 'custom' },
   ];
 
   // DÃ¶nem tarih aralÄ±ÄŸÄ±nÄ± hesapla
@@ -262,14 +263,16 @@ export default function UrunlerPage() {
           return a.ad.localeCompare(b.ad, 'tr');
         case 'nameZA':
           return b.ad.localeCompare(a.ad, 'tr');
+        // TUTAR bazlı sıralama (kullanıcı bulgusu: adet bazlıydı — 'en fazla alış'
+        // deyince en yüksek TUTARLI beklenir, en çok adetli değil)
         case 'purchaseMost':
-          return (ozetB?.giris ?? 0) - (ozetA?.giris ?? 0);
+          return (ozetB?.girisTutar ?? 0) - (ozetA?.girisTutar ?? 0);
         case 'purchaseLeast':
-          return (ozetA?.giris ?? 0) - (ozetB?.giris ?? 0);
+          return (ozetA?.girisTutar ?? 0) - (ozetB?.girisTutar ?? 0);
         case 'saleMost':
-          return (ozetB?.cikis ?? 0) - (ozetA?.cikis ?? 0);
+          return (ozetB?.cikisTutar ?? 0) - (ozetA?.cikisTutar ?? 0);
         case 'saleLeast':
-          return (ozetA?.cikis ?? 0) - (ozetB?.cikis ?? 0);
+          return (ozetA?.cikisTutar ?? 0) - (ozetB?.cikisTutar ?? 0);
         default:
           return 0;
       }
@@ -563,7 +566,8 @@ export default function UrunlerPage() {
       {/* Arşiv sekmesi kaldırıldı — arşivlenmiş ürünler Daha → Arşiv sayfasında.
           Bu sayfa yalnızca aktif ürünleri gösterir. */}
 
-      {/* DÃ¶nem SeÃ§ici */}
+      {/* Dönem Seçici + Miktar/Tutar geçişi aynı satırda (bir satır kazanımı):
+          gezinme solda, toggle SAĞA dayalı; etiketler BÜYÜK harf */}
       {activeTab === 'active' && (urunler && urunler.length > 0) && (
         <View style={styles.periodSection}>
           <TabFilter
@@ -574,74 +578,71 @@ export default function UrunlerPage() {
               setPeriodOffset(0);
             }}
           />
-          {period === 'custom' ? (
-            <View style={styles.customDateRow}>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowStartPicker(true)}
-              >
-                <Calendar size={16} color={colors.primary} />
-                <Text variant="caption">{t('products:period.startDate')}: {formatDateForDB(customStartDate)}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.datePickerButton}
-                onPress={() => setShowEndPicker(true)}
-              >
-                <Calendar size={16} color={colors.primary} />
-                <Text variant="caption">{t('products:period.endDate')}: {formatDateForDB(customEndDate)}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.periodNav}>
-              <TouchableOpacity
-                onPress={() => {
-                  haptics.light();
-                  setPeriodOffset(periodOffset - 1);
-                }}
-                style={styles.periodNavButton}
-              >
-                <ChevronLeft size={20} color={colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => { haptics.light(); handlePeriodLabelPress(); }}>
-                <Text variant="body" style={styles.periodLabel}>{periodLabel}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => {
-                  haptics.light();
-                  setPeriodOffset(periodOffset + 1);
-                }}
-                style={styles.periodNavButton}
-                disabled={periodOffset >= 0}
-              >
-                <ChevronRight size={20} color={periodOffset >= 0 ? colors.textMuted : colors.primary} />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
-      )}
+          <View style={styles.periodRow}>
+            {period === 'custom' ? (
+              <View style={styles.customDateRow}>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={() => setShowStartPicker(true)}
+                >
+                  <Calendar size={16} color={colors.primary} />
+                  <Text variant="caption" numberOfLines={1}>{formatDateForDB(customStartDate)}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.datePickerButton}
+                  onPress={() => setShowEndPicker(true)}
+                >
+                  <Calendar size={16} color={colors.primary} />
+                  <Text variant="caption" numberOfLines={1}>{formatDateForDB(customEndDate)}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.periodNav}>
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.light();
+                    setPeriodOffset(periodOffset - 1);
+                  }}
+                  style={styles.periodNavButton}
+                >
+                  <ChevronLeft size={20} color={colors.primary} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { haptics.light(); handlePeriodLabelPress(); }} style={styles.periodLabelBtn}>
+                  <Text variant="body" style={styles.periodLabel} numberOfLines={1}>{periodLabel}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    haptics.light();
+                    setPeriodOffset(periodOffset + 1);
+                  }}
+                  style={styles.periodNavButton}
+                  disabled={periodOffset >= 0}
+                >
+                  <ChevronRight size={20} color={periodOffset >= 0 ? colors.textMuted : colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
 
-      {/* Miktar / Tutar geçişi — per-ürün dönem özeti pill'lerini (giriş/çıkış) değiştirir */}
-      {(urunler && urunler.length > 0) && (
-        <View style={ozetToggleStyles.wrap}>
-          <View style={ozetToggleStyles.toggle}>
-            <TouchableOpacity
-              style={[ozetToggleStyles.btn, ozetMode === 'miktar' && ozetToggleStyles.btnActive]}
-              onPress={() => { haptics.light(); setOzetMode('miktar'); }}
-              activeOpacity={0.8}
-            >
-              <Text style={[ozetToggleStyles.txt, ozetMode === 'miktar' && ozetToggleStyles.txtActive]}>
-                {t('products:stock.quantity')}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[ozetToggleStyles.btn, ozetMode === 'tutar' && ozetToggleStyles.btnActive]}
-              onPress={() => { haptics.light(); setOzetMode('tutar'); }}
-              activeOpacity={0.8}
-            >
-              <Text style={[ozetToggleStyles.txt, ozetMode === 'tutar' && ozetToggleStyles.txtActive]}>
-                {t('products:stock.amount')}
-              </Text>
-            </TouchableOpacity>
+            <View style={ozetToggleStyles.toggle}>
+              <TouchableOpacity
+                style={[ozetToggleStyles.btn, ozetMode === 'miktar' && ozetToggleStyles.btnActive]}
+                onPress={() => { haptics.light(); setOzetMode('miktar'); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[ozetToggleStyles.txt, ozetMode === 'miktar' && ozetToggleStyles.txtActive]}>
+                  {upperTr(t('products:stock.quantity'))}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[ozetToggleStyles.btn, ozetMode === 'tutar' && ozetToggleStyles.btnActive]}
+                onPress={() => { haptics.light(); setOzetMode('tutar'); }}
+                activeOpacity={0.8}
+              >
+                <Text style={[ozetToggleStyles.txt, ozetMode === 'tutar' && ozetToggleStyles.txtActive]}>
+                  {upperTr(t('products:stock.amount'))}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -965,13 +966,9 @@ export default function UrunlerPage() {
   );
 }
 
-// Miktar / Tutar geçiş anahtarı (ürün detay sayfasındaki toggle ile aynı görünüm)
+// Miktar / Tutar geçiş anahtarı (ürün detay sayfasındaki toggle ile aynı görünüm;
+// dönem gezinme satırının sağında konumlanır)
 const ozetToggleStyles = StyleSheet.create({
-  wrap: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    alignItems: 'flex-end',
-  },
   toggle: {
     flexDirection: 'row',
     backgroundColor: colors.surfaceLight,
@@ -987,8 +984,9 @@ const ozetToggleStyles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   txt: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
     color: colors.textSecondary,
   },
   txtActive: {
