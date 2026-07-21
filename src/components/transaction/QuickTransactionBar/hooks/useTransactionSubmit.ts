@@ -1123,6 +1123,8 @@ export function useTransactionSubmit({
       }
 
       try {
+        // onSuccess(islemId) sözleşmesi için (bağlam-hedefli retahsis) create yolunda id yakalanır
+        let exchangeCreatedIslemId: string | undefined;
         const transactionData = buildTransactionData(pendingExchangeData.sourceAmount, {
           sourceCurrency: pendingExchangeData.sourceCurrency,
           targetCurrency: pendingExchangeData.targetCurrency,
@@ -1160,10 +1162,11 @@ export function useTransactionSubmit({
             await deleteIslem.mutateAsync(transactionId);
           } else {
             // Was scheduled, now regular → create regular FIRST, then delete scheduled
-            await createIslem.mutateAsync({
+            const created = await createIslem.mutateAsync({
               ...transactionData,
               date: formatDateTimeForDB(safeDate),
             });
+            exchangeCreatedIslemId = created?.id;
             await deleteIleriTarihliIslem.mutateAsync(transactionId);
           }
         }
@@ -1176,10 +1179,11 @@ export function useTransactionSubmit({
               scheduled_date: formatDateForDB(safeDate),
             });
           } else {
-            await createIslem.mutateAsync({
+            const created = await createIslem.mutateAsync({
               ...transactionData,
               date: formatDateTimeForDB(safeDate),
             });
+            exchangeCreatedIslemId = created?.id;
           }
         }
 
@@ -1204,7 +1208,9 @@ export function useTransactionSubmit({
         }
 
         setPendingExchangeData(null);
-        onSuccess?.();
+        // İnceleme bulgusu: bu yol argümansız çağrılıyordu → çapraz-kurlu tahsilatta
+        // bağlam-hedefli retahsis SESSİZCE atlanıyordu. completeSuccess ile aynı sözleşme.
+        onSuccess?.(isEditMode ? (exchangeCreatedIslemId ?? transactionId ?? undefined) : exchangeCreatedIslemId);
         isSavingRef.current = false;
         handleDismiss();
       } catch (error) {

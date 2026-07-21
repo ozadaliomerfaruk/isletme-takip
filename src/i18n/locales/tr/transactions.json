@@ -153,6 +153,7 @@
     "ozetTahsil": "Tahsil Edilecek (Satış)",
     "ozetOde": "Ödenecek (Alış)",
     "planAdet": "{{adet}} plan",
+    "gecikenPlanNot": "Taksitli planlarda geciken · Taksit Takip'te görüntüle",
     "bos": "Henüz taksitli işlem yok",
     "bosAciklama": "Satış veya alış girerken vade menüsünden \"Taksit\" seçerek plan oluşturabilirsiniz.",
     "editEngel": "Taksitli işlemin tutarı/tipi/carisi değiştirilemez. Planı silip yeniden oluşturun.",

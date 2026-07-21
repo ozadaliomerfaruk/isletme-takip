@@ -856,6 +856,15 @@ export default function CariHareketleriPage() {
     return out;
   }, [isViewer, cariPaidCrude, vadeliBorclar, tahsisOzeti, taksitliSet, overdueTodayStr]);
 
+  // Kart rozetindeki gecikmiş toplam taksit BİRİMLERİNİ de içerir; akordiyon plansız
+  // borçları listeler. Fark = taksitli planlarda geciken kısım — akordiyonda ayrı
+  // satır olarak gösterilir (yoksa kart kırmızı derken akordiyon hiç çıkmazdı).
+  const taksitliGecikmisFark = useMemo(() => {
+    if (!cariVadeOzeti) return 0;
+    const plansiz = gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0);
+    return Math.max(0, roundCurrency(cariVadeOzeti.toplam - plansiz));
+  }, [cariVadeOzeti, gecikmisBorclar]);
+
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
@@ -1142,8 +1151,9 @@ export default function CariHareketleriPage() {
           );
         })()}
 
-        {/* Vadesi Geçen İşlemler akordiyonu — hızlı tahsilat + WhatsApp hatırlatma */}
-        {gecikmisBorclar.length > 0 && (
+        {/* Vadesi Geçen İşlemler akordiyonu — hızlı tahsilat + WhatsApp hatırlatma.
+            Taksitli planlardaki gecikme de ayrı satırla temsil edilir (kart rozetiyle tutarlı). */}
+        {(gecikmisBorclar.length > 0 || taksitliGecikmisFark > 0.009) && (
           <View style={styles.gecikenCard}>
             <TouchableOpacity
               style={styles.gecikenHeader}
@@ -1152,10 +1162,13 @@ export default function CariHareketleriPage() {
             >
               <CalendarClock size={16} color={colors.error} />
               <Text style={styles.gecikenTitle} numberOfLines={1}>
-                {t('transactions:vade.gecikenler')} ({gecikmisBorclar.length})
+                {t('transactions:vade.gecikenler')} ({gecikmisBorclar.length + (taksitliGecikmisFark > 0.009 ? 1 : 0)})
               </Text>
               <Text style={styles.gecikenToplam} numberOfLines={1}>
-                {formatCurrency(gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0), cari.currency)}
+                {formatCurrency(
+                  roundCurrency(gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0) + taksitliGecikmisFark),
+                  cari.currency
+                )}
               </Text>
               {gecikenlerOpen ? (
                 <ChevronUp size={18} color={colors.textMuted} />
@@ -1207,6 +1220,29 @@ export default function CariHareketleriPage() {
                     </View>
                   );
                 })}
+
+                {/* Taksitli planlarda geciken kısım — birim detayı Taksit Takip'te */}
+                {taksitliGecikmisFark > 0.009 && (
+                  <TouchableOpacity
+                    style={styles.gecikenRow}
+                    activeOpacity={0.7}
+                    onPress={() => router.push('/taksit')}
+                  >
+                    <View style={styles.gecikenInfo}>
+                      <Text variant="body" numberOfLines={1} style={styles.gecikenDesc}>
+                        {t('transactions:taksit.label')}
+                      </Text>
+                      <Text variant="caption" color="secondary" numberOfLines={2}>
+                        {t('transactions:taksit.gecikenPlanNot')}
+                      </Text>
+                    </View>
+                    <View style={styles.gecikenSag}>
+                      <Text style={styles.gecikenKalan} numberOfLines={1}>
+                        {formatCurrency(taksitliGecikmisFark, cari.currency)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
 
                 {/* WhatsApp ile kibar hatırlatma — hazır mesajla sohbet açar */}
                 {(() => {
@@ -1291,7 +1327,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, gecikenlerOpen, canEditTransactions, isletme?.name]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, gecikenlerOpen, canEditTransactions, isletme?.name, taksitliGecikmisFark, router]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
