@@ -120,7 +120,8 @@ export function CariPreviewModal({
       </Animated.View>
 
       <View style={styles.center} pointerEvents="box-none">
-        <Animated.View entering={ZoomIn.springify().damping(18).stiffness(220)} style={styles.card}>
+        {/* Sekmesiz (spring'siz) düz büyüme — kullanıcı tercihi */}
+        <Animated.View entering={ZoomIn.duration(180)} style={styles.card}>
           {/* Başlık */}
           <View style={styles.header}>
             <Avatar name={cari.name} size={48} />
@@ -189,7 +190,7 @@ export function CariPreviewModal({
 
         {/* Aksiyonlar — kartın altında ayrı kapsül (iOS menü hissi) */}
         {aksiyonlar.length > 0 && (
-          <Animated.View entering={ZoomIn.springify().damping(18).stiffness(220).delay(40)} style={styles.actions}>
+          <Animated.View entering={ZoomIn.duration(180).delay(40)} style={styles.actions}>
             {aksiyonlar.map((a, i) => (
               <TouchableOpacity
                 key={a.key}
