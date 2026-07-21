@@ -7,7 +7,7 @@ import { CalendarClock, ChevronRight } from 'lucide-react-native';
 import { Text, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, roundCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useTaksitPlanListesi, type TaksitPlanOzet } from '@/hooks/useTaksit';
 
@@ -25,6 +25,27 @@ export default function TaksitTakipPage() {
     () => (planlar ?? []).filter((p) => (tab === 'satis' ? p.type === 'cari_satis' : p.type === 'cari_alis')),
     [planlar, tab],
   );
+
+  // Üst özet: açık planların kalan toplamları (yön bazlı). Çapraz-para toplanmaz —
+  // TRY varsa TRY, yoksa ilk görülen para birimi baz alınır (mini-dashboard kuralı).
+  const ozet = useMemo(() => {
+    const acik = (planlar ?? []).filter((p) => Math.max(0, roundCurrency(p.toplam - p.odenen)) > 0.009);
+    if (acik.length === 0) return null;
+    const cur = acik.some((p) => p.currency === 'TRY') ? 'TRY' : acik[0].currency;
+    const sum = (type: 'cari_satis' | 'cari_alis') =>
+      roundCurrency(
+        acik
+          .filter((p) => p.currency === cur && p.type === type)
+          .reduce((s, p) => s + Math.max(0, p.toplam - p.odenen), 0)
+      );
+    return {
+      cur,
+      tahsil: sum('cari_satis'),
+      ode: sum('cari_alis'),
+      tahsilAdet: acik.filter((p) => p.type === 'cari_satis').length,
+      odeAdet: acik.filter((p) => p.type === 'cari_alis').length,
+    };
+  }, [planlar]);
 
   const renderItem = useCallback(
     ({ item }: { item: TaksitPlanOzet }) => {
@@ -83,6 +104,30 @@ export default function TaksitTakipPage() {
     <>
       <Stack.Screen options={{ headerTitle: t('transactions:taksit.title') }} />
       <SafeAreaView style={styles.container} edges={['bottom']}>
+        {/* Üst özet — açık planların yön bazlı kalan toplamları */}
+        {ozet && (
+          <View style={styles.ozetRow}>
+            <View style={[styles.ozetBox, styles.ozetBoxTahsil]}>
+              <Text style={styles.ozetDeger} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                {formatCurrency(ozet.tahsil, ozet.cur)}
+              </Text>
+              <Text style={styles.ozetLabel} numberOfLines={1}>
+                {t('transactions:taksit.ozetTahsil')}
+                {ozet.tahsilAdet > 0 ? ` · ${t('transactions:taksit.planAdet', { adet: ozet.tahsilAdet })}` : ''}
+              </Text>
+            </View>
+            <View style={[styles.ozetBox, styles.ozetBoxOde]}>
+              <Text style={styles.ozetDeger} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                {formatCurrency(ozet.ode, ozet.cur)}
+              </Text>
+              <Text style={styles.ozetLabel} numberOfLines={1}>
+                {t('transactions:taksit.ozetOde')}
+                {ozet.odeAdet > 0 ? ` · ${t('transactions:taksit.planAdet', { adet: ozet.odeAdet })}` : ''}
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Satış / Alış sekmeleri */}
         <View style={styles.tabs}>
           {(['satis', 'alis'] as const).map((tabKey) => (
@@ -127,6 +172,38 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  // Üst özet kutuları — sol kenar şeritli, yön renkleriyle
+  ozetRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+  },
+  ozetBox: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: 2,
+    borderLeftWidth: 4,
+  },
+  ozetBoxTahsil: {
+    borderLeftColor: colors.success,
+  },
+  ozetBoxOde: {
+    borderLeftColor: colors.error,
+  },
+  ozetDeger: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  ozetLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
   tabs: {
     flexDirection: 'row',

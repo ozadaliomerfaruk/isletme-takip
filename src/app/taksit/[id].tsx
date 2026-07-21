@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -48,6 +48,12 @@ export default function TaksitDetayPage() {
   const renderItem = ({ item }: { item: TaksitSatirDetay }) => {
     const odendi = item.kalan <= 0;
     const gecikmis = !odendi && item.vade_tarihi <= bugunStr;
+    const gecikmeGun = gecikmis
+      ? Math.max(1, Math.round(
+          (new Date(bugunStr).getTime() - new Date(item.vade_tarihi).getTime()) / 86400000
+        ))
+      : 0;
+    const ilkAcikMi = !odendi && ilkAcik?.id === item.id;
     return (
       <View style={styles.row}>
         <View style={styles.rowLeft}>
@@ -57,6 +63,11 @@ export default function TaksitDetayPage() {
           <Text variant="caption" color="secondary" numberOfLines={1}>
             {t('transactions:vade.label')}: {formatDateShort(item.vade_tarihi)}
           </Text>
+          {gecikmis && (
+            <Text variant="caption" style={styles.gecikmis} numberOfLines={1}>
+              {t('transactions:vade.gunGecikti', { gun: gecikmeGun })}
+            </Text>
+          )}
         </View>
         <View style={styles.rowRight}>
           <Text variant="body" style={styles.tutarText} numberOfLines={1}>
@@ -71,6 +82,20 @@ export default function TaksitDetayPage() {
             <Text variant="caption" style={gecikmis ? styles.gecikmis : styles.kalanText} numberOfLines={1}>
               {t('transactions:vade.kalan')}: {formatCurrency(item.kalan, currency)}
             </Text>
+          )}
+          {/* Sıradaki (en eski açık) taksite satır-içi hızlı tahsilat — FIFO ilkesi
+              gereği yalnız ilk açık taksitte gösterilir (aradaki taksite basılıp
+              paranın yine en eskiye gitmesi kafa karıştırırdı) */}
+          {ilkAcikMi && detay?.type && (
+            <TouchableOpacity
+              style={styles.satirTahsilBtn}
+              activeOpacity={0.8}
+              onPress={() => setTahsilVisible(true)}
+            >
+              <Text style={styles.satirTahsilText}>
+                {detay.type === 'cari_satis' ? t('transactions:vade.tahsilEt') : t('transactions:vade.ode')}
+              </Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -209,6 +234,18 @@ const styles = StyleSheet.create({
   gecikmis: {
     color: colors.error,
     fontWeight: '700',
+  },
+  satirTahsilBtn: {
+    marginTop: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+  },
+  satirTahsilText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.white,
   },
   separator: {
     height: spacing.sm,
