@@ -12,24 +12,22 @@ import {
   Modal,
   FlatList,
   Pressable,
-  TextInput,
 } from 'react-native';
 import {
   X,
   Check,
-  Search,
   Wallet,
   Building2,
   Users,
   Tag,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, TabFilter } from '@/components/ui';
+import { Text, Button, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getHesapIcon } from '@/lib/icons';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -115,7 +113,7 @@ export function TrendFilterModal({
 
     return items.filter((item: FilterableEntity) => {
       const name = getItemName(item, filterType);
-      return textIncludes(name, searchQuery);
+      return searchMatchesTr(name, searchQuery);
     });
   }, [items, searchQuery, filterType]);
 
@@ -269,35 +267,32 @@ export function TrendFilterModal({
             />
           </View>
 
-          {/* Search Input */}
-          <View style={styles.searchContainer}>
-            <Search size={20} color={colors.textMuted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder={t('common:search.searchPlaceholder')}
-              placeholderTextColor={colors.textMuted}
+          {/* List + üzerinde yüzen arama çubuğu (footer'ın üstünde kalır) */}
+          <View style={styles.listWrap}>
+            <FlatList
+              data={filteredItems}
+              keyExtractor={(item) => item.id}
+              renderItem={renderItem}
+              contentContainerStyle={styles.listContainer}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <View style={styles.emptyContainer}>
+                  <Text variant="body" color="secondary">
+                    {isLoading
+                      ? t('common:status.loading')
+                      : t('analytics:filter.noResults')}
+                  </Text>
+                </View>
+              }
+            />
+            <FloatingSearchBar
               value={searchQuery}
               onChangeText={setSearchQuery}
+              placeholder={t('common:search.searchPlaceholder')}
+              bottomOffset={spacing.md}
             />
           </View>
-
-          {/* List */}
-          <FlatList
-            data={filteredItems}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text variant="body" color="secondary">
-                  {isLoading
-                    ? t('common:status.loading')
-                    : t('analytics:filter.noResults')}
-                </Text>
-              </View>
-            }
-          />
 
           {/* Footer Buttons */}
           <View style={styles.footer}>
@@ -347,24 +342,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    paddingVertical: spacing.sm,
-    fontSize: 14,
-    color: colors.text,
+  listWrap: {
+    flexShrink: 1,
   },
   listContainer: {
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.md + FLOATING_SEARCH_CLEARANCE,
   },
   listItem: {
     flexDirection: 'row',

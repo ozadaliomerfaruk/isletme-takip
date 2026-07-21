@@ -51,7 +51,7 @@ export const ProductRow = memo(function ProductRow({
             </View>
             <View style={rowStyles.info}>
               <View style={rowStyles.nameRow}>
-                <Text variant="body" style={rowStyles.name} numberOfLines={1}>{urun.ad}</Text>
+                <Text variant="body" style={rowStyles.name} numberOfLines={2}>{urun.ad}</Text>
                 {urun.kod ? (
                   <View style={rowStyles.codeBadge}>
                     <Text style={rowStyles.codeBadgeText}>{urun.kod}</Text>

@@ -14,7 +14,8 @@ import {
 } from 'lucide-react-native';
 import {
   Text,
-  SearchInput,
+  FloatingSearchBar,
+  FLOATING_SEARCH_CLEARANCE,
   EmptyState,
   SwipeableRow,
   SwipeableProvider,
@@ -37,7 +38,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
@@ -169,7 +170,7 @@ export default function NotlarPage() {
       }
     }
     if (debouncedSearch.trim()) {
-      result = result.filter(n => textIncludes(n.content, debouncedSearch));
+      result = result.filter(n => searchMatchesTr(n.content, debouncedSearch));
     }
     return result;
   }, [notlar, debouncedSearch, filter, taskFilter, pendingDeleteIds]);
@@ -376,15 +377,6 @@ export default function NotlarPage() {
           </View>
         )}
 
-        {/* Search */}
-        <View style={styles.searchContainer}>
-          <SearchInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t('common:notes.searchPlaceholder')}
-          />
-        </View>
-
         {/* Notes List */}
         <FlatList
           data={filteredNotes}
@@ -405,6 +397,14 @@ export default function NotlarPage() {
               />
             ) : null
           }
+        />
+
+        {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı); sağdaki FAB için boşluk bırakır */}
+        <FloatingSearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('common:notes.searchPlaceholder')}
+          rightOffset={56 + spacing.md}
         />
 
         {/* FAB */}
@@ -525,13 +525,9 @@ const styles = StyleSheet.create({
     color: colors.surface,
     fontWeight: '600',
   },
-  searchContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
   listContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
   },
   noteWrapper: {
     gap: 4,

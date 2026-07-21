@@ -1,10 +1,9 @@
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, TextInput, Keyboard, Platform, type StyleProp, type ViewStyle } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, Keyboard, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import {
-  X,
   Check,
   ChevronDown,
   Search,
@@ -32,12 +31,13 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
+import { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useKategorilerHierarchical, FlattenedCategory } from '@/hooks/useKategoriler';
 import { usePermissions } from '@/hooks/usePermissions';
 import { KategoriType } from '@/types/database';
-import { textIncludes, upperTr } from '@/lib/turkishTextUtils';
+import { searchMatchesTr, upperTr } from '@/lib/turkishTextUtils';
 
 /**
  * Kategori adını EKRAN için büyütür (display-only; stored isim değişmez).
@@ -167,7 +167,7 @@ export function CategoryPicker({
   // Filtrelenmiş kategori listesi
   const filteredList = useMemo(() => {
     if (!flatList || !searchQuery.trim()) return flatList;
-    return flatList.filter(c => textIncludes(c.name, searchQuery));
+    return flatList.filter(c => searchMatchesTr(c.name, searchQuery));
   }, [flatList, searchQuery]);
 
   const handleSelect = (categoryId: string | null) => {
@@ -290,24 +290,6 @@ export function CategoryPicker({
               )}
             </View>
 
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-              <Search size={20} color={colors.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={t('common:search.searchCategories')}
-                placeholderTextColor={colors.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCorrect={false}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <X size={18} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
-
             <ScrollView
               style={styles.categoryList}
               contentContainerStyle={styles.categoryListContent}
@@ -410,6 +392,15 @@ export function CategoryPicker({
                 </View>
               )}
             </ScrollView>
+
+            {/* Sheet'in altında yüzen arama çubuğu (Apple Notes tarzı).
+                bottomOffset: modal pencere dibine dayandığından home indicator payı. */}
+            <FloatingSearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('common:search.searchCategories')}
+              bottomOffset={spacing.lg + insets.bottom + spacing.md}
+            />
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -496,29 +487,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    paddingVertical: spacing.xs,
-  },
   categoryList: {
     flex: 1,
   },
   categoryListContent: {
     padding: spacing.md,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
   },
   categoryItem: {
     flexDirection: 'row',

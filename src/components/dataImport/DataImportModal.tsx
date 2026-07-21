@@ -1,4 +1,4 @@
-import { View, ScrollView, TouchableOpacity, Modal, TextInput } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import {
   Receipt,
   Building2,
@@ -6,9 +6,8 @@ import {
   Tag,
   AlertTriangle,
   X,
-  Search,
 } from 'lucide-react-native';
-import { Text } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import type { AccountMapping, ParsedTransaction } from '@/lib/excelImport';
 import type { SkippedTransaction } from '@/hooks/useDataImport';
@@ -120,26 +119,9 @@ export function DataImportModal({
             </TouchableOpacity>
           </View>
 
-          <View style={styles.searchContainer}>
-            <Search size={20} color={colors.textMuted} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder={getSearchPlaceholder()}
-              placeholderTextColor={colors.textMuted}
-              value={searchQuery}
-              onChangeText={onSearchChange}
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => onSearchChange('')}>
-                <X size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-            )}
-          </View>
-
           <ScrollView
             style={styles.listContainer}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, { paddingBottom: FLOATING_SEARCH_CLEARANCE + 24 }]}
             showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="handled"
             bounces={true}
@@ -267,6 +249,14 @@ export function DataImportModal({
               </>
             )}
           </ScrollView>
+
+          {/* Sheet altında yüzen arama çubuğu */}
+          <FloatingSearchBar
+            value={searchQuery}
+            onChangeText={onSearchChange}
+            placeholder={getSearchPlaceholder()}
+            bottomOffset={16 + bottomInset + 12}
+          />
         </View>
       </View>
     </Modal>

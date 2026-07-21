@@ -1,4 +1,4 @@
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, TextInput, Keyboard, Platform } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions } from 'react-native';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -16,10 +16,11 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
+import { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { BirimType } from '@/types/database';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 
 // Unit category definitions
 type UnitCategory = 'piece' | 'weight' | 'volume' | 'length' | 'package' | 'consumption';
@@ -118,7 +119,7 @@ export function UnitPicker({
     if (!searchQuery.trim()) return UNIT_DEFINITIONS;
     return UNIT_DEFINITIONS.filter(unit => {
       const label = getUnitLabel(unit.id);
-      return textIncludes(label, searchQuery) || textIncludes(unit.id, searchQuery);
+      return searchMatchesTr(label, searchQuery) || searchMatchesTr(unit.id, searchQuery);
     });
   }, [searchQuery, getUnitLabel]);
 
@@ -212,24 +213,6 @@ export function UnitPicker({
                   </TouchableOpacity>
                 </View>
 
-                {/* Search Bar */}
-                <View style={styles.searchContainer}>
-                  <Search size={20} color={colors.textMuted} />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder={t('products:unitPicker.search')}
-                    placeholderTextColor={colors.textMuted}
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoCorrect={false}
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                      <X size={18} color={colors.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
                 <ScrollView
                   style={styles.unitList}
                   contentContainerStyle={styles.unitListContent}
@@ -302,6 +285,14 @@ export function UnitPicker({
                     </View>
                   )}
                 </ScrollView>
+
+                {/* Sheet altında yüzen arama çubuğu */}
+                <FloatingSearchBar
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={t('products:unitPicker.search')}
+                  bottomOffset={spacing.lg + insets.bottom + spacing.md}
+                />
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -372,29 +363,12 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: spacing.xs,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    paddingVertical: spacing.xs,
-  },
   unitList: {
     flex: 1,
   },
   unitListContent: {
     padding: spacing.md,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
   },
   categorySection: {
     marginBottom: spacing.lg,

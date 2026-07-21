@@ -1,7 +1,7 @@
-import { View, Modal, TextInput, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
+import { View, Modal, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Check, Wallet, Building2, UserCheck } from 'lucide-react-native';
-import { Text } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import type { Hesap, Cari, Personel } from '@/types/database';
 import { styles } from './styles';
@@ -47,24 +47,7 @@ export function HesapPickerSheet({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('common:search.searchPlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={onSearchChange}
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => onSearchChange('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
+              <ScrollView style={styles.bottomSheetList} contentContainerStyle={[styles.bottomSheetListContent, { paddingBottom: FLOATING_SEARCH_CLEARANCE }]} keyboardShouldPersistTaps="handled">
                 {filteredHesaplar.map((hesap) => {
                   const isSelected = selectedId === hesap.id;
                   return (
@@ -92,6 +75,14 @@ export function HesapPickerSheet({
                   </View>
                 )}
               </ScrollView>
+
+              {/* Sheet altında yüzen arama çubuğu */}
+              <FloatingSearchBar
+                value={searchQuery}
+                onChangeText={onSearchChange}
+                placeholder={t('common:search.searchPlaceholder')}
+                bottomOffset={16 + insets.bottom + 12}
+              />
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -139,24 +130,7 @@ export function CariPickerSheet({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('clients:search.searchSuppliers')}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={onSearchChange}
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => onSearchChange('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
+              <ScrollView style={styles.bottomSheetList} contentContainerStyle={[styles.bottomSheetListContent, { paddingBottom: FLOATING_SEARCH_CLEARANCE }]} keyboardShouldPersistTaps="handled">
                 {filteredCariler.map((cari) => {
                   const isSelected = selectedId === cari.id;
                   return (
@@ -190,6 +164,14 @@ export function CariPickerSheet({
                   </View>
                 )}
               </ScrollView>
+
+              {/* Sheet altında yüzen arama çubuğu */}
+              <FloatingSearchBar
+                value={searchQuery}
+                onChangeText={onSearchChange}
+                placeholder={t('clients:search.searchSuppliers')}
+                bottomOffset={16 + insets.bottom + 12}
+              />
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -237,24 +219,7 @@ export function PersonelPickerSheet({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('staff:search.searchPersonnel')}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={onSearchChange}
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => onSearchChange('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
+              <ScrollView style={styles.bottomSheetList} contentContainerStyle={[styles.bottomSheetListContent, { paddingBottom: FLOATING_SEARCH_CLEARANCE }]} keyboardShouldPersistTaps="handled">
                 {filteredPersonel.map((personel) => {
                   const isSelected = selectedId === personel.id;
                   return (
@@ -290,6 +255,14 @@ export function PersonelPickerSheet({
                   </View>
                 )}
               </ScrollView>
+
+              {/* Sheet altında yüzen arama çubuğu */}
+              <FloatingSearchBar
+                value={searchQuery}
+                onChangeText={onSearchChange}
+                placeholder={t('staff:search.searchPersonnel')}
+                bottomOffset={16 + insets.bottom + 12}
+              />
             </View>
           </TouchableWithoutFeedback>
         </View>

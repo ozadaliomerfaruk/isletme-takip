@@ -1,5 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '@/constants/colors';
+import { FLOATING_SEARCH_CLEARANCE } from '@/components/ui/FloatingSearchBar';
 
 export const styles = StyleSheet.create({
   backdrop: {
@@ -373,7 +374,8 @@ export const styles = StyleSheet.create({
   },
   bottomSheetListContent: {
     padding: 12,
-    paddingBottom: 24,
+    // Alta yüzen arama çubuğu son satırı örtmesin
+    paddingBottom: 24 + FLOATING_SEARCH_CLEARANCE,
   },
   bottomSheetItem: {
     flexDirection: 'row',

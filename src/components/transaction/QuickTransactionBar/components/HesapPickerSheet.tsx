@@ -4,7 +4,6 @@ import {
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  TextInput,
   ScrollView,
   Dimensions,
 } from 'react-native';
@@ -12,10 +11,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Wallet, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, FloatingSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { styles } from '../styles';
 import type { HesapPickerTarget, PendingModal } from '../types';
 
@@ -61,7 +60,7 @@ export function HesapPickerSheet({
     const list = excludeId ? hesaplar.filter((h) => h.id !== excludeId) : [...hesaplar];
     const sorted = list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
     if (!searchQuery.trim()) return sorted;
-    return sorted.filter((h) => textIncludes(h.name, searchQuery));
+    return sorted.filter((h) => searchMatchesTr(h.name, searchQuery));
   }, [hesaplar, searchQuery, excludeId]);
 
   const handleClose = useCallback(() => {
@@ -112,24 +111,6 @@ export function HesapPickerSheet({
                 <TouchableOpacity onPress={handleClose} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
-              </View>
-
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('common:search.searchPlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
               </View>
 
               <ScrollView
@@ -187,6 +168,14 @@ export function HesapPickerSheet({
                   </View>
                 )}
               </ScrollView>
+
+              {/* Sheet altında yüzen arama çubuğu */}
+              <FloatingSearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t('common:search.searchPlaceholder')}
+                bottomOffset={16 + insets.bottom + 12}
+              />
             </View>
           </TouchableWithoutFeedback>
         </View>

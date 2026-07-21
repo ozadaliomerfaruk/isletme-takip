@@ -1,6 +1,7 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { FLOATING_SEARCH_CLEARANCE } from '@/components/ui/FloatingSearchBar';
 
 export const styles = StyleSheet.create({
   container: {
@@ -13,7 +14,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   flatListContent: {
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
   },
   header: {
     flexDirection: 'row',

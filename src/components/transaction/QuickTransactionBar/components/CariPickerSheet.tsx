@@ -1,10 +1,9 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  TextInput,
   ScrollView,
   Dimensions,
 } from 'react-native';
@@ -13,10 +12,10 @@ import { X, Search, Users, Building2, Check, Plus } from 'lucide-react-native';
 import { ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, FloatingSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { styles } from '../styles';
 import type { PendingModal } from '../types';
 
@@ -63,15 +62,6 @@ export function CariPickerSheet({
   const windowHeight = Dimensions.get('window').height;
 
   const [searchQuery, setSearchQuery] = useState('');
-  const searchInputRef = useRef<TextInput>(null);
-
-  // Auto-focus search input when sheet opens
-  useEffect(() => {
-    if (visible) {
-      const timer = setTimeout(() => searchInputRef.current?.focus(), 400);
-      return () => clearTimeout(timer);
-    }
-  }, [visible]);
 
   const isCustomer = mode === 'customer';
   const iconColor = isCustomer ? colors.primary : colors.orange;
@@ -80,7 +70,7 @@ export function CariPickerSheet({
   // Filter cariler
   const filteredCariler = useMemo(() => {
     if (!searchQuery.trim()) return cariler;
-    return cariler.filter((c) => textIncludes(c.name, searchQuery));
+    return cariler.filter((c) => searchMatchesTr(c.name, searchQuery));
   }, [cariler, searchQuery]);
 
   const handleClose = useCallback(() => {
@@ -152,25 +142,6 @@ export function CariPickerSheet({
                 <TouchableOpacity onPress={handleClose} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
-              </View>
-
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  ref={searchInputRef}
-                  style={styles.searchInput}
-                  placeholder={searchPlaceholder}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
               </View>
 
               <ScrollView
@@ -255,6 +226,15 @@ export function CariPickerSheet({
                   </View>
                 )}
               </ScrollView>
+
+              {/* Sheet altında yüzen arama çubuğu; açılışta klavyeyi otomatik açar */}
+              <FloatingSearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={searchPlaceholder}
+                bottomOffset={16 + insets.bottom + 12}
+                autoFocusDelay={400}
+              />
             </View>
           </TouchableWithoutFeedback>
         </View>

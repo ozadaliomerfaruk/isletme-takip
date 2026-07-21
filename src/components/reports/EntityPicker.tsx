@@ -6,15 +6,14 @@ import {
   Modal,
   FlatList,
   Pressable,
-  TextInput,
 } from 'react-native';
-import { Text } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { ChevronDown, X, Building2, Users, Check, Search, Link } from 'lucide-react-native';
+import { ChevronDown, X, Building2, Users, Check, Link } from 'lucide-react-native';
 import { Cari, Personel } from '@/types/database';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useTranslation } from 'react-i18next';
 
 type EntityType = 'cari' | 'personel';
@@ -58,7 +57,7 @@ export function EntityPicker({
 
   const filteredEntities = React.useMemo(() => {
     if (!searchQuery.trim()) return entities;
-    return entities.filter((e) => textIncludes(getEntityName(e), searchQuery));
+    return entities.filter((e) => searchMatchesTr(getEntityName(e), searchQuery));
   }, [entities, searchQuery, type]);
 
   const handleSelect = (id: string | null) => {
@@ -171,24 +170,6 @@ export function EntityPicker({
               </TouchableOpacity>
             </View>
 
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-              <Search size={18} color={colors.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={t('common:search.searchPlaceholder')}
-                placeholderTextColor={colors.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCorrect={false}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <X size={18} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
-            </View>
-
             {/* Tümü seçeneği */}
             {!searchQuery && <TouchableOpacity
               style={[styles.listItem, !selectedId && styles.listItemSelected]}
@@ -229,6 +210,14 @@ export function EntityPicker({
                   </Text>
                 </View>
               }
+            />
+
+            {/* Sheet altında yüzen arama çubuğu */}
+            <FloatingSearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('common:search.searchPlaceholder')}
+              bottomOffset={spacing.lg + spacing.md}
             />
           </Pressable>
         </Pressable>
@@ -279,26 +268,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 10,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-    gap: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
-    padding: 0,
-  },
   listContainer: {
-    paddingBottom: spacing['2xl'],
+    paddingBottom: spacing['2xl'] + FLOATING_SEARCH_CLEARANCE,
   },
   listItem: {
     flexDirection: 'row',

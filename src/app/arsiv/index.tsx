@@ -15,11 +15,11 @@ import {
   EyeOff,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card, SearchInput, EmptyState, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, Card, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyState, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { getInitials } from '@/lib/utils';
 import {
   useArchivedHesaplar,
@@ -281,23 +281,23 @@ export default function ArsivPage() {
 
   // Arama filtresi — her tuşta 5 diziyi yeniden filtrelemek yerine memoize (kaydırma/yazma akıcılığı).
   const filteredHesaplar = useMemo(
-    () => hesaplar?.filter((h) => textIncludes(h.name, searchQuery)),
+    () => hesaplar?.filter((h) => searchMatchesTr(h.name, searchQuery)),
     [hesaplar, searchQuery]
   );
   const filteredTedarikciler = useMemo(
-    () => tedarikciler?.filter((c) => textIncludes(c.name, searchQuery)),
+    () => tedarikciler?.filter((c) => searchMatchesTr(c.name, searchQuery)),
     [tedarikciler, searchQuery]
   );
   const filteredMusteriler = useMemo(
-    () => musteriler?.filter((c) => textIncludes(c.name, searchQuery)),
+    () => musteriler?.filter((c) => searchMatchesTr(c.name, searchQuery)),
     [musteriler, searchQuery]
   );
   const filteredPersonel = useMemo(
-    () => personelList?.filter((p) => textIncludes(`${p.first_name} ${p.last_name}`, searchQuery)),
+    () => personelList?.filter((p) => searchMatchesTr(`${p.first_name} ${p.last_name}`, searchQuery)),
     [personelList, searchQuery]
   );
   const filteredUrunler = useMemo(
-    () => urunler?.filter((u) => textIncludes(u.ad, searchQuery) || (u.kod && textIncludes(u.kod, searchQuery))),
+    () => urunler?.filter((u) => searchMatchesTr(u.ad, searchQuery) || (u.kod && searchMatchesTr(u.kod, searchQuery))),
     [urunler, searchQuery]
   );
 
@@ -474,13 +474,6 @@ export default function ArsivPage() {
   const ListHeader = useMemo(
     () => (
       <View>
-        <View style={styles.searchContainer}>
-          <SearchInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder={t('common:archive.search.placeholder')}
-          />
-        </View>
         <View style={styles.tabsContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {tabs.map((tab) => (
@@ -505,7 +498,7 @@ export default function ArsivPage() {
         </View>
       </View>
     ),
-    [searchQuery, tabs, activeTab, t]
+    [tabs, activeTab, t]
   );
 
   const ListEmpty = useMemo(() => {
@@ -549,6 +542,13 @@ export default function ArsivPage() {
         }
       />
 
+      {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı) */}
+      <FloatingSearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={t('common:archive.search.placeholder')}
+      />
+
       {/* Action Sheet */}
       <ActionSheet
         visible={actionSheetVisible}
@@ -570,11 +570,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   listContent: {
-    paddingBottom: spacing.xl,
-  },
-  searchContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingBottom: spacing.xl + FLOATING_SEARCH_CLEARANCE,
   },
   tabsContainer: {
     paddingHorizontal: spacing.lg,

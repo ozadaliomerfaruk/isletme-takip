@@ -11,6 +11,7 @@ export { TabFilter } from './TabFilter';
 export { FilterChips } from './FilterChips';
 export type { FilterChipItem } from './FilterChips';
 export { SearchInput } from './SearchInput';
+export { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
 export { EmptyState } from './EmptyState';
 export { DateTimePicker } from './DateTimePicker';
 export { CategoryReportCard, HierarchicalCategoryReportCard } from './CategoryReportCard';

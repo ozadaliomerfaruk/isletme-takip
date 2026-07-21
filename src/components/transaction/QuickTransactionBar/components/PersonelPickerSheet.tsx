@@ -4,7 +4,6 @@ import {
   Modal,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  TextInput,
   ScrollView,
   Dimensions,
 } from 'react-native';
@@ -12,10 +11,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, UserCheck, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, FloatingSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { styles } from '../styles';
 import type { PendingModal } from '../types';
 
@@ -57,7 +56,7 @@ export function PersonelPickerSheet({
   const filteredPersonel = useMemo(() => {
     if (!searchQuery.trim()) return personelList;
     return personelList.filter((p) =>
-      textIncludes(`${p.first_name} ${p.last_name}`, searchQuery)
+      searchMatchesTr(`${p.first_name} ${p.last_name}`, searchQuery)
     );
   }, [personelList, searchQuery]);
 
@@ -106,24 +105,6 @@ export function PersonelPickerSheet({
                 <TouchableOpacity onPress={handleClose} style={styles.bottomSheetCloseBtn}>
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
-              </View>
-
-              {/* Search Bar */}
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('staff:search.searchPersonnel')}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
               </View>
 
               <ScrollView
@@ -189,6 +170,14 @@ export function PersonelPickerSheet({
                   </View>
                 )}
               </ScrollView>
+
+              {/* Sheet altında yüzen arama çubuğu */}
+              <FloatingSearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t('staff:search.searchPersonnel')}
+                bottomOffset={16 + insets.bottom + 12}
+              />
             </View>
           </TouchableWithoutFeedback>
         </View>

@@ -14,10 +14,10 @@ import {
   UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Search, Package, Plus, Trash2, Check, Pencil, ChevronUp, ChevronDown } from 'lucide-react-native';
+import { X, Package, Plus, Trash2, Check, Pencil, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, Button, UndoSnackbar } from '@/components/ui';
+import { Text, Button, UndoSnackbar, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
@@ -25,7 +25,7 @@ import { useKategoriler } from '@/hooks/useKategoriler';
 import { useSonUrunFiyati } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { styles as sharedStyles } from '../styles';
 import type { UrunItem } from '../types';
 import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
@@ -131,9 +131,9 @@ export function UrunPickerModal({
     if (!searchQuery.trim()) return urunler;
     return urunler.filter(
       (u) =>
-        textIncludes(u.ad, searchQuery) ||
-        (u.kod && textIncludes(u.kod, searchQuery)) ||
-        (u.kategori_id && textIncludes(kategoriNameMap.get(u.kategori_id) ?? '', searchQuery))
+        searchMatchesTr(u.ad, searchQuery) ||
+        (u.kod && searchMatchesTr(u.kod, searchQuery)) ||
+        (u.kategori_id && searchMatchesTr(kategoriNameMap.get(u.kategori_id) ?? '', searchQuery))
     );
   }, [urunler, searchQuery, kategoriNameMap]);
 
@@ -352,24 +352,6 @@ export function UrunPickerModal({
                 </TouchableOpacity>
               </View>
 
-              {/* Search Bar */}
-              <View style={sharedStyles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={sharedStyles.searchInput}
-                  placeholder={t('transactions:stock.searchProduct')}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={onSearchQueryChange}
-                  autoCorrect={false}
-                />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => onSearchQueryChange('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
               {/* === Kalıcı "Yeni Ürün Ekle" butonu — arama barının hemen altında, ScrollView DIŞINDA.
                   Yeni isim yazılınca '"x" olarak yeni ekle' (hızlı inline), boş/mevcut isimde
                   "Yeni Ürün Ekle" (tam ekran sayfa). Eski liste-içi dashed satır kaldırıldı. */}
@@ -403,6 +385,9 @@ export function UrunPickerModal({
                 </TouchableOpacity>
               )}
 
+              {/* Liste alanı sarmalayıcısı: yüzen arama çubuğu footer'ın ÜSTÜNDE,
+                  bu flex-1 alanın altında konumlanır */}
+              <View style={styles.content}>
               <ScrollView
                 style={styles.content}
                 contentContainerStyle={styles.contentContainer}
@@ -657,6 +642,17 @@ export function UrunPickerModal({
                 )}
               </ScrollView>
 
+              {/* Yüzen arama çubuğu — ürün ekleme formu açıkken gizli (klavye formda) */}
+              {!addingProduct && (
+                <FloatingSearchBar
+                  value={searchQuery}
+                  onChangeText={onSearchQueryChange}
+                  placeholder={t('transactions:stock.searchProduct')}
+                  bottomOffset={spacing.md}
+                />
+              )}
+              </View>
+
               {/* Footer: YUKARI açılan "Eklenen Ürünler" paneli + KDV Dahil özet satırı (tıkla-aç)
                   + KDV Hariç/KDV dökümü + OK. 300 kalemlik listeye scroll etmeden, alttaki toplam
                   satırından eklenenler görülür ve panel yukarı doğru açılır. */}
@@ -786,7 +782,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingBottom: spacing.lg + FLOATING_SEARCH_CLEARANCE,
   },
   section: {
     marginBottom: spacing.lg,

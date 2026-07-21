@@ -10,17 +10,16 @@ import {
   View,
   StyleSheet,
   Modal,
-  TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
   ScrollView,
   Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Search, Check } from 'lucide-react-native';
+import { X, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
 import { colors } from '@/constants/colors';
 
 export interface EntityPickerItem {
@@ -77,22 +76,6 @@ export function EntityPickerModal({
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
-              <View style={styles.searchContainer}>
-                <Search size={20} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder={t('common:search.searchPlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  value={searchValue}
-                  onChangeText={onSearchChange}
-                  autoCorrect={false}
-                />
-                {searchValue.length > 0 && (
-                  <TouchableOpacity onPress={() => onSearchChange('')}>
-                    <X size={18} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
               <ScrollView
                 style={styles.list}
                 contentContainerStyle={styles.listContent}
@@ -124,6 +107,14 @@ export function EntityPickerModal({
                   );
                 })}
               </ScrollView>
+
+              {/* Sheet altında yüzen arama çubuğu */}
+              <FloatingSearchBar
+                value={searchValue}
+                onChangeText={onSearchChange}
+                placeholder={t('common:search.searchPlaceholder')}
+                bottomOffset={16 + insets.bottom + 12}
+              />
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -159,29 +150,12 @@ const styles = StyleSheet.create({
   closeBtn: {
     padding: 4,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    paddingVertical: 4,
-  },
   list: {
     flex: 1,
   },
   listContent: {
     padding: 12,
-    paddingBottom: 24,
+    paddingBottom: 24 + FLOATING_SEARCH_CLEARANCE,
   },
   item: {
     flexDirection: 'row',

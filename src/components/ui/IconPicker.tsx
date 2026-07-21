@@ -1,7 +1,8 @@
-import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions, TextInput } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions } from 'react-native';
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
 import {
   Tag,
   Search,
@@ -121,7 +122,7 @@ import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { CATEGORY_ICONS } from '@/constants/categoryIcons';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -276,8 +277,8 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
     if (!searchQuery.trim()) return CATEGORY_ICONS;
 
     return CATEGORY_ICONS.filter(icon =>
-      textIncludes(icon.label, searchQuery) ||
-      textIncludes(icon.name, searchQuery)
+      searchMatchesTr(icon.label, searchQuery) ||
+      searchMatchesTr(icon.name, searchQuery)
     );
   }, [searchQuery]);
 
@@ -323,25 +324,6 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
               >
                 <X size={24} color={colors.text} />
               </TouchableOpacity>
-            </View>
-
-            {/* Arama Barı */}
-            <View style={styles.searchContainer}>
-              <Search size={20} color={colors.textMuted} style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder={t('common:search.searchIcons')}
-                placeholderTextColor={colors.textMuted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearButton}>
-                  <X size={18} color={colors.textMuted} />
-                </TouchableOpacity>
-              )}
             </View>
 
             <ScrollView
@@ -399,6 +381,14 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
                 })
               )}
             </ScrollView>
+
+            {/* Sheet altında yüzen arama çubuğu */}
+            <FloatingSearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('common:search.searchIcons')}
+              bottomOffset={spacing.lg + insets.bottom + spacing.md}
+            />
           </View>
         </View>
       </Modal>
@@ -447,27 +437,6 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: spacing.xs,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surfaceLighter,
-    borderRadius: borderRadius.lg,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  searchIcon: {
-    marginRight: spacing.sm,
-  },
-  searchInput: {
-    flex: 1,
-    height: 44,
-    fontSize: 16,
-    color: colors.text,
-  },
-  clearButton: {
-    padding: spacing.xs,
-  },
   iconGrid: {
     flex: 1,
   },
@@ -475,7 +444,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     padding: spacing.md,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
     gap: spacing.sm,
   },
   iconItem: {

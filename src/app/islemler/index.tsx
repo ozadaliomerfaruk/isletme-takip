@@ -16,7 +16,7 @@ import {
   CalendarMinus,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, FilterChips, SearchInput, EmptyState } from '@/components/ui';
+import { Text, FilterChips, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyState } from '@/components/ui';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import type { FilterChipItem } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -38,7 +38,7 @@ import { IslemWithRelations } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { isLeaveType } from '@/constants/islemTypes';
 import { getCrossCurrencyDisplay } from '@/lib/currency';
-import { textIncludes, upperTr } from '@/lib/turkishTextUtils';
+import { searchMatchesTr, upperTr } from '@/lib/turkishTextUtils';
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -261,11 +261,11 @@ export default function IslemlerPage() {
         ? `${islem.personel.first_name || ''} ${islem.personel.last_name || ''}`.trim()
         : '';
       const matchesSearch =
-        textIncludes(islem.description, debouncedSearch) ||
-        textIncludes(islem.hesap?.name, debouncedSearch) ||
-        textIncludes(islem.cari?.name, debouncedSearch) ||
-        textIncludes(islem.kategori?.name, debouncedSearch) ||
-        textIncludes(personelName, debouncedSearch);
+        searchMatchesTr(islem.description, debouncedSearch) ||
+        searchMatchesTr(islem.hesap?.name, debouncedSearch) ||
+        searchMatchesTr(islem.cari?.name, debouncedSearch) ||
+        searchMatchesTr(islem.kategori?.name, debouncedSearch) ||
+        searchMatchesTr(personelName, debouncedSearch);
 
       return matchesFilter && matchesSearch;
     });
@@ -449,20 +449,12 @@ export default function IslemlerPage() {
 
   const ListHeader = useMemo(() => (
     <View>
-      {/* Arama */}
-      <View style={styles.searchContainer}>
-        <SearchInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-      </View>
-
       {/* Filtre Chips */}
       <View style={styles.filterContainer}>
         <FilterChips chips={filterChips} activeKey={filter} onChange={setFilter} />
       </View>
     </View>
-  ), [searchQuery, filterChips, filter]);
+  ), [filterChips, filter]);
 
   // ============================================================================
   // FlatList Empty component (loading or empty state)
@@ -542,6 +534,12 @@ export default function IslemlerPage() {
           contentContainerStyle={styles.flatListContent}
         />
       </SwipeableProvider>
+
+      {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı) */}
+      <FloatingSearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+      />
 
       {/* Edit Transaction Bar */}
       <QuickTransactionBar
@@ -631,13 +629,10 @@ const styles = StyleSheet.create({
   },
   flatListContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'],
-  },
-  searchContainer: {
-    paddingTop: spacing.lg,
-    marginBottom: spacing.md,
+    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
   },
   filterContainer: {
+    paddingTop: spacing.lg,
     marginBottom: spacing.lg,
   },
   loadingContainer: {
