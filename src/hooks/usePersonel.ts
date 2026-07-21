@@ -50,6 +50,47 @@ export function usePersonelList(includePassive: boolean = false, includeArchived
   };
 }
 
+// === Personel detay dashboard özeti (get_personel_ozet RPC) ===
+export interface PersonelOzetTip {
+  toplam: number;
+  adet: number;
+}
+
+export type PersonelOzet = Partial<Record<
+  'personel_gider' | 'personel_odeme' | 'personel_satis' | 'personel_tahsilat',
+  PersonelOzetTip
+>>;
+
+/**
+ * Personelin tip bazlı ömür-boyu PARA toplamları (izin türleri hariç — gün tutar).
+ * Sunucuda toplanır; büyük geçmişte işlem indirme yok.
+ */
+export function usePersonelOzet(personelId: string | undefined, enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.personel.ozet(personelId ?? '', isletme?.id ?? ''),
+    enabled: enabled && !!personelId && !!isletme?.id,
+    queryFn: async (): Promise<PersonelOzet> => {
+      if (!personelId || !isletme?.id) return {};
+      const { data, error } = await supabase.rpc('get_personel_ozet', {
+        p_isletme_id: isletme.id,
+        p_personel_id: personelId,
+      });
+      if (error) throw error;
+      const raw = (data ?? {}) as Record<string, { toplam: unknown; adet: unknown }>;
+      const out: PersonelOzet = {};
+      for (const [tip, v] of Object.entries(raw)) {
+        (out as Record<string, PersonelOzetTip>)[tip] = {
+          toplam: Number(v?.toplam) || 0,
+          adet: Number(v?.adet) || 0,
+        };
+      }
+      return out;
+    },
+  });
+}
+
 export function usePersonel(id: string | undefined) {
   const { isletme } = useAuthContext();
 

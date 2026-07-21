@@ -41,6 +41,12 @@
       "credit": "Bize Alacak"
     }
   },
+  "detayOzet": {
+    "toplamHakedis": "Toplam Hakediş",
+    "toplamOdeme": "Toplam Ödeme",
+    "toplamSatis": "Toplam Satış",
+    "toplamTahsilat": "Toplam Tahsilat"
+  },
   "balance": {
     "balance": "Bakiye",
     "currentBalance": "Mevcut Bakiye",

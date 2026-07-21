@@ -4,8 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, HesapType } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
-import { toNumber } from '@/lib/currency';
-import { urunHareketYon, aileNetIsaret, isAlisAilesi } from '@/lib/urunHareket';
+import { toNumber, roundCurrency } from '@/lib/currency';
+import { urunHareketYon, aileNetIsaret, isAlisAilesi, isSatisAilesi } from '@/lib/urunHareket';
 import i18n from '@/i18n';
 
 /**
@@ -1135,6 +1135,59 @@ export function useCreateBulkUrunHareketWithCari() {
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'urunHareket');
       invalidateRelatedQueries(queryClient, 'islem');
+    },
+  });
+}
+
+// === Ürün detay dashboard özeti (get_urun_ozet RPC) ===
+export interface UrunOzet {
+  /** Net alış tutarı (alış − alış iadesi), KDV hariç, ürün para biriminde */
+  alisTutar: number;
+  /** Net satış tutarı (satış − satış iadesi), KDV hariç */
+  satisTutar: number;
+  /** Net alış miktarı */
+  alisMiktar: number;
+  /** Net satış miktarı */
+  satisMiktar: number;
+}
+
+/**
+ * Ürünün ömür-boyu alış/satış toplamları (tutar + miktar). RPC hareket_tipi ×
+ * işlem-tipi kırılımını döndürür; aile netleştirmesi (iade düşümü) CLIENT'ta
+ * urunHareketYon ile yapılır — TS'teki aile kuralları tek kaynak kalır.
+ */
+export function useUrunOzet(urunId: string | undefined, enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.urunHareketler.urunOzet(urunId ?? '', isletme?.id ?? ''),
+    enabled: enabled && !!urunId && !!isletme?.id,
+    queryFn: async (): Promise<UrunOzet> => {
+      const bos: UrunOzet = { alisTutar: 0, satisTutar: 0, alisMiktar: 0, satisMiktar: 0 };
+      if (!urunId || !isletme?.id) return bos;
+      const { data, error } = await supabase.rpc('get_urun_ozet', {
+        p_isletme_id: isletme.id,
+        p_urun_id: urunId,
+      });
+      if (error) throw error;
+
+      const rows = (data ?? []) as { hareket_tipi: UrunHareketTipi; islem_type: IslemType | null; miktar: unknown; tutar: unknown }[];
+      const out = { ...bos };
+      for (const r of rows) {
+        const yon = urunHareketYon(r.hareket_tipi, r.islem_type);
+        const isaret = aileNetIsaret(yon);
+        if (isaret === 0) continue; // düzeltme aileye yazılmaz
+        const miktar = Number(r.miktar) || 0;
+        const tutar = Number(r.tutar) || 0;
+        if (isAlisAilesi(yon)) {
+          out.alisMiktar += isaret * miktar;
+          out.alisTutar = roundCurrency(out.alisTutar + isaret * tutar);
+        } else if (isSatisAilesi(yon)) {
+          out.satisMiktar += isaret * miktar;
+          out.satisTutar = roundCurrency(out.satisTutar + isaret * tutar);
+        }
+      }
+      return out;
     },
   });
 }

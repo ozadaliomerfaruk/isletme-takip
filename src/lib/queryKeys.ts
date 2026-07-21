@@ -92,6 +92,7 @@ export const queryKeys = {
       ['personel', isletmeId, includePassive, includeArchived] as const,
     detail: (id: string, isletmeId?: string) => ['personel-detail', id, isletmeId] as const,
     archived: (isletmeId: string) => ['personel', 'archived', isletmeId] as const,
+    ozet: (personelId: string, isletmeId: string) => ['personel', 'ozet', personelId, isletmeId] as const,
   },
 
   // Kategoriler
@@ -210,6 +211,8 @@ export const queryKeys = {
       ['urun-hareketler', 'islem', islemId, isletmeId] as const,
     aylikOzet: (urunId: string, isletmeId: string) =>
       ['urun-hareketler', 'aylik-ozet', urunId, isletmeId] as const,
+    urunOzet: (urunId: string, isletmeId: string) =>
+      ['urun-hareketler', 'urun-ozet', urunId, isletmeId] as const,
     donemOzet: (isletmeId: string, startDate: string, endDate: string) =>
       ['urun-hareketler', 'donem-ozet', isletmeId, startDate, endDate] as const,
     islemlerWithUrun: (stableKey: string, isletmeId: string) =>

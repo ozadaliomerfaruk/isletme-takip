@@ -43,7 +43,8 @@ import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
-import { usePersonelById, useDeletePersonel, useUpdatePersonel } from '@/hooks/usePersonel';
+import { usePersonelById, useDeletePersonel, useUpdatePersonel, usePersonelOzet, type PersonelOzet } from '@/hooks/usePersonel';
+import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
 import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
 import { useUnarchivePersonel } from '@/hooks/useArchive';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
@@ -174,6 +175,8 @@ export default function PersonelHareketleriPage() {
   const insets = useSafeAreaInsets();
 
   const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
+  // Dashboard kartı toplamları (RPC — sunucuda toplanır, izin türleri hariç)
+  const { data: personelOzet } = usePersonelOzet(id);
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const { data: entityNotes } = useNotlarByEntity('personel', id!);
@@ -578,72 +581,48 @@ export default function PersonelHareketleriPage() {
     if (!personel) return null;
     return (
       <View>
-        {/* Personel Özeti */}
-        <Card style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.avatar}>
-              <Text variant="h2" style={{ color: colors.primary }}>
-                {getInitials(fullName)}
-              </Text>
-            </View>
-            <View style={styles.summaryInfo}>
-              {personel.position && (
-                <View style={styles.infoRow}>
-                  <Briefcase size={14} color={colors.textMuted} />
-                  <Text variant="body" color="secondary">
-                    {personel.position}
-                  </Text>
-                </View>
-              )}
-              {personel.phone && (
-                <View style={styles.infoRow}>
-                  <Phone size={14} color={colors.textMuted} />
-                  <Text variant="caption" color="secondary">
-                    {personel.phone}
-                  </Text>
-                </View>
-              )}
-              {personel.start_date && (
-                <View style={styles.infoRow}>
-                  <CalendarDays size={14} color={colors.textMuted} />
-                  <Text variant="caption" color="secondary">
-                    {formatDateShort(personel.start_date)}
-                    {personel.end_date ? ` → ${formatDateShort(personel.end_date)}` : ''}
-                  </Text>
-                </View>
-              )}
-              {!personel.start_date && personel.end_date && (
-                <View style={styles.infoRow}>
-                  <CalendarDays size={14} color={colors.error} />
-                  <Text variant="caption" color="error">
-                    {t('staff:form.endDate')}: {formatDateShort(personel.end_date)}
-                  </Text>
-                </View>
-              )}
-              {personel.salary != null && personel.salary > 0 && (
-                <View style={styles.infoRow}>
-                  <Banknote size={14} color={colors.textMuted} />
-                  <Text variant="caption" color="secondary">
-                    {formatCurrency(personel.salary, personel.currency)}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.balanceInfo}>
-              <Text variant="caption" color="secondary">
-                {Number(personel.balance) < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
-              </Text>
-              <Text variant="h2" color={Number(personel.balance) < 0 ? 'error' : 'success'}>
-                {formatCurrency(Math.abs(Number(personel.balance)), personel.currency)}
-              </Text>
-              {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
-                <Text variant="caption" color="secondary">
-                  ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                </Text>
-              )}
-            </View>
-          </View>
-        </Card>
+        {/* Personel Özeti — cari detayla aynı koyu-yeşil dashboard kartı */}
+        {(() => {
+          const bal = toNumber(personel.balance);
+          const meta1Parts = [
+            personel.position || null,
+            personel.phone || null,
+          ].filter(Boolean);
+          const meta2Parts = [
+            personel.start_date
+              ? `${formatDateShort(personel.start_date)}${personel.end_date ? ` → ${formatDateShort(personel.end_date)}` : ''}`
+              : personel.end_date
+                ? `${t('staff:form.endDate')}: ${formatDateShort(personel.end_date)}`
+                : null,
+            personel.salary != null && personel.salary > 0
+              ? formatCurrency(personel.salary, personel.currency)
+              : null,
+          ].filter(Boolean);
+
+          const oz = (k: keyof PersonelOzet) => personelOzet?.[k]?.toplam ?? 0;
+          const rows: DetailSummaryRow[] = [
+            { label: t('staff:detayOzet.toplamHakedis'), value: formatCurrency(oz('personel_gider'), personel.currency) },
+            { label: t('staff:detayOzet.toplamOdeme'), value: formatCurrency(oz('personel_odeme'), personel.currency) },
+          ];
+          // Personele satış/tahsilat kullanılmışsa göster (nadir yol — boşsa satır yok)
+          if (oz('personel_satis') !== 0) {
+            rows.push({ label: t('staff:detayOzet.toplamSatis'), value: formatCurrency(oz('personel_satis'), personel.currency) });
+          }
+          if (oz('personel_tahsilat') !== 0) {
+            rows.push({ label: t('staff:detayOzet.toplamTahsilat'), value: formatCurrency(oz('personel_tahsilat'), personel.currency) });
+          }
+
+          return (
+            <DetailSummaryCard
+              title={upperTr(fullName)}
+              subtitle={meta1Parts.join('  ·  ') || undefined}
+              subtitle2={meta2Parts.join('  ·  ') || undefined}
+              balanceLabel={bal < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
+              balanceValue={formatCurrency(Math.abs(bal), personel.currency)}
+              rows={rows}
+            />
+          );
+        })()}
 
         {/* Arşiv Banner */}
         {personel.is_archived && (
@@ -672,17 +651,14 @@ export default function PersonelHareketleriPage() {
             isLoading={ileriTarihliLoading}
           />
 
-          <Text variant="h3" style={styles.sectionTitle}>
-            {t('staff:details.transactions')}
-          </Text>
-
+          {/* "Hareketler" başlığı kaldırıldı (kullanıcı isteği) — işlemler yukarıdan başlar */}
           {islemlerLoading && (
             <Text color="secondary">{t('common:status.loading')}</Text>
           )}
         </View>
       </View>
     );
-  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, handleViewLeaveHistory, t]);
+  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, handleViewLeaveHistory, t, personelOzet, formatDateShort]);
 
   // ============================================================================
   // FlatList Footer (başlangıç bakiyesi kartı)

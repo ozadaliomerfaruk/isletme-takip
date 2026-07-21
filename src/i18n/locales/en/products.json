@@ -50,6 +50,12 @@
     "search": "Search units..."
   },
   "notFoundDescription": "This product does not exist or may have been deleted.",
+  "detayOzet": {
+    "toplamAlisTutar": "Total Purchase Amount",
+    "toplamSatisTutar": "Total Sales Amount",
+    "toplamAlisMiktar": "Total Purchased",
+    "toplamSatisMiktar": "Total Sold"
+  },
   "stock": {
     "productName": "Product Name",
     "currentStock": "Current Quantity",

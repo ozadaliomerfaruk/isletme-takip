@@ -50,6 +50,12 @@
     "search": "Birim ara..."
   },
   "notFoundDescription": "Bu ürün mevcut değil veya silinmiş olabilir.",
+  "detayOzet": {
+    "toplamAlisTutar": "Toplam Alış Tutarı",
+    "toplamSatisTutar": "Toplam Satış Tutarı",
+    "toplamAlisMiktar": "Toplam Alınan",
+    "toplamSatisMiktar": "Toplam Satılan"
+  },
   "stock": {
     "productName": "Ürün Adı",
     "currentStock": "Mevcut Miktar",

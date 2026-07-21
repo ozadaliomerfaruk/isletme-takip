@@ -41,6 +41,12 @@
       "credit": "We Owe Them"
     }
   },
+  "detayOzet": {
+    "toplamHakedis": "Total Earned",
+    "toplamOdeme": "Total Paid",
+    "toplamSatis": "Total Sales",
+    "toplamTahsilat": "Total Collected"
+  },
   "balance": {
     "balance": "Balance",
     "currentBalance": "Current Balance",

@@ -52,7 +52,9 @@ import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
-import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, UrunHareketWithSource } from '@/hooks/useUrunHareketler';
+import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, useUrunOzet, UrunHareketWithSource } from '@/hooks/useUrunHareketler';
+import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { urunHareketYon, isAlisAilesi, isIadeYon } from '@/lib/urunHareket';
 import { BirimType } from '@/types/database';
 import { formatCurrency, formatQuantity } from '@/lib/currency';
@@ -66,6 +68,8 @@ export default function UrunDetayPage() {
 
   usePagePermission({ module: 'urunler' });
   const { data: urun, isLoading: urunLoading, refetch: refetchUrun } = useUrun(id);
+  // Dashboard kartı toplamları (RPC + client aile netleştirmesi)
+  const { data: urunOzet } = useUrunOzet(id);
   const { data: hareketler, isLoading: hareketlerLoading, refetch: refetchHareketler } = useUrunHareketler(id);
   const { data: aylikOzet, refetch: refetchOzet } = useAylikUrunOzet(id);
   const { isletme } = useAuthContext();
@@ -470,43 +474,31 @@ export default function UrunDetayPage() {
           removeClippedSubviews={Platform.OS === 'android'}
           ListHeaderComponent={
             <>
-              {/* Urun Karti */}
-              <View style={styles.section}>
-                <Card>
-                  <View style={styles.urunCard}>
-                    <View style={styles.urunLeft}>
-                      <View style={styles.urunIcon}>
-                        <Package size={20} color={colors.primary} />
-                      </View>
-                      <View style={styles.urunInfo}>
-                        <Text variant="body" style={styles.urunName} numberOfLines={1}>
-                          {urun.ad}
-                        </Text>
-                        <View style={styles.urunMeta}>
-                          {urun.kod ? (
-                            <View style={styles.urunCodeBadge}>
-                              <Text style={styles.urunCodeText}>{urun.kod}</Text>
-                            </View>
-                          ) : null}
-                          {urun.satis_fiyati > 0 && (
-                            <Text variant="caption" color="muted">
-                              {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-                    </View>
-                    <View style={styles.urunRight}>
-                      <Text variant="caption" color="secondary">
-                        {t('products:stock.currentStock')}
-                      </Text>
-                      <Text variant="h3" color="primary">
-                        {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
-                      </Text>
-                    </View>
-                  </View>
-                </Card>
-              </View>
+              {/* Ürün Kartı — cari/personel detayla aynı koyu-yeşil dashboard kartı:
+                  solda ad + kod·fiyat, sağda mevcut stok, altında alış/satış
+                  tutar + miktar toplamları (iadeler netleştirilmiş) */}
+              {(() => {
+                const birim = getBirimLabel(urun.birim);
+                const meta = [
+                  urun.kod || null,
+                  urun.satis_fiyati > 0 ? `${formatCurrency(urun.satis_fiyati, urun.currency)}/${birim}` : null,
+                ].filter(Boolean);
+                const rows: DetailSummaryRow[] = [
+                  { label: t('products:detayOzet.toplamAlisTutar'), value: formatCurrency(urunOzet?.alisTutar ?? 0, urun.currency) },
+                  { label: t('products:detayOzet.toplamSatisTutar'), value: formatCurrency(urunOzet?.satisTutar ?? 0, urun.currency) },
+                  { label: t('products:detayOzet.toplamAlisMiktar'), value: `${formatQuantity(urunOzet?.alisMiktar ?? 0)} ${birim}` },
+                  { label: t('products:detayOzet.toplamSatisMiktar'), value: `${formatQuantity(urunOzet?.satisMiktar ?? 0)} ${birim}` },
+                ];
+                return (
+                  <DetailSummaryCard
+                    title={upperTr(urun.ad)}
+                    subtitle={meta.join('  ·  ') || undefined}
+                    balanceLabel={t('products:stock.currentStock')}
+                    balanceValue={`${formatQuantity(urun.miktar)} ${birim}`}
+                    rows={rows}
+                  />
+                );
+              })()}
 
               {/* Quick Actions */}
               {canAddStock && (
