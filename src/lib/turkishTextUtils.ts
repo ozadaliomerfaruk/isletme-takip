@@ -68,3 +68,38 @@ export function textIncludes(
   if (!q) return true;
   return normalizeTurkish(haystack ?? '').includes(q);
 }
+
+/**
+ * Çok-kelimeli, sıra-bağımsız arama eşleşmesi (searchbar filtreleri için).
+ * Kurallar:
+ * - Sorgu boşluklardan token'lara bölünür; HER token metinde eşleşmeli ama SIRA ÖNEMSİZ:
+ *   "gıda serdar" → "Serdar Gıda" ✓.
+ * - TAMAMLANMIŞ token (arkasına boşluk konmuş ya da ardından başka token gelen)
+ *   TAM KELİME olarak eşleşmeli: "ser " → "Ser Gıda" ✓ ama "Serdar Gıda" ✗
+ *   (boşluk "bu kelime bitti" niyetidir; serdar, "ser" kelimesi değildir).
+ * - Yazımı süren SON token (sorgu boşlukla bitmiyorsa) substring eşleşir:
+ *   "ser" → ikisi de ✓ (textIncludes davranışı).
+ * - Boş/whitespace sorgu her zaman eşleşir. Türkçe katlama textIncludes ile aynı
+ *   (normalizeTurkish): "GIDA"/"gıda"/"gida" eşdeğer.
+ */
+export function searchMatchesTr(
+  haystack: string | null | undefined,
+  query: string | null | undefined
+): boolean {
+  const rawQuery = query ?? '';
+  const trimmed = rawQuery.trim();
+  if (!trimmed) return true;
+
+  const text = normalizeTurkish(haystack ?? '');
+  const tokens = normalizeTurkish(trimmed).split(/\s+/).filter(Boolean);
+  const endsWithSpace = /\s$/.test(rawQuery);
+  // Kelime listesi yalnız tam-kelime kontrolü gerektiğinde lazım
+  let words: string[] | null = null;
+
+  return tokens.every((token, i) => {
+    const isComplete = endsWithSpace || i < tokens.length - 1;
+    if (!isComplete) return text.includes(token);
+    if (!words) words = text.split(/\s+/).filter(Boolean);
+    return words.includes(token);
+  });
+}

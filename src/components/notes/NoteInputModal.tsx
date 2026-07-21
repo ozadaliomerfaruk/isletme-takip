@@ -26,7 +26,7 @@ import {
   UserCircle,
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { Text, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
@@ -201,7 +201,7 @@ export function NoteInputModal({
     else if (assignPickerType === 'personel') items = personelItems;
 
     if (!assignSearch.trim()) return items;
-    return items.filter(i => textIncludes(i.label, assignSearch));
+    return items.filter(i => searchMatchesTr(i.label, assignSearch));
   };
 
   const handleAssignSelect = (id: string) => {

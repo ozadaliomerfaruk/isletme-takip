@@ -42,7 +42,7 @@ import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem, useUpdateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PhotoButton } from '../PhotoButton';
@@ -210,20 +210,20 @@ export function CreditCardTransactionBar({
 
   const filteredHesaplar = useMemo(() => {
     if (!hesapSearchQuery.trim()) return nakitHesaplar;
-    return nakitHesaplar.filter(h => textIncludes(h.name, hesapSearchQuery));
+    return nakitHesaplar.filter(h => searchMatchesTr(h.name, hesapSearchQuery));
   }, [nakitHesaplar, hesapSearchQuery]);
 
   const filteredCariler = useMemo(() => {
     if (!tedarikciCariler) return [];
     if (!cariSearchQuery.trim()) return tedarikciCariler;
-    return tedarikciCariler.filter(c => textIncludes(c.name, cariSearchQuery));
+    return tedarikciCariler.filter(c => searchMatchesTr(c.name, cariSearchQuery));
   }, [tedarikciCariler, cariSearchQuery]);
 
   const filteredPersonel = useMemo(() => {
     if (!personelList) return [];
     if (!personelSearchQuery.trim()) return personelList;
     return personelList.filter(p =>
-      textIncludes(`${p.first_name} ${p.last_name}`, personelSearchQuery)
+      searchMatchesTr(`${p.first_name} ${p.last_name}`, personelSearchQuery)
     );
   }, [personelList, personelSearchQuery]);
 

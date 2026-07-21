@@ -3,8 +3,8 @@ import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressabl
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet, X } from 'lucide-react-native';
-import { Text, Input, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader } from '@/components/ui';
+import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
+import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -13,7 +13,7 @@ import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrunler, useArchiveUrun, usePermanentDeleteUrun, countUrunLinkedMovements } from '@/hooks/useUrunler';
 import { toErrorMessage } from '@/lib/errors';
 import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
@@ -24,7 +24,7 @@ import { useDonemUrunOzet } from '@/hooks/useUrunHareketler';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { Urun, BirimType } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { exportUrunListesiToExcel, UrunListeItem } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -240,13 +240,13 @@ export default function UrunlerPage() {
         if (urun.kategori_id !== categoryFilter) return false;
       }
 
-      // Arama filtresi
+      // Arama filtresi — ad + kod + kategori + açıklama (ürün kartındaki not) birlikte
       if (query) {
         const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id) : '';
-        const matches =
-          textIncludes(urun.ad, debouncedSearch) ||
-          (urun.kod && textIncludes(urun.kod, debouncedSearch)) ||
-          (kategoriAdi && textIncludes(kategoriAdi, debouncedSearch));
+        const matches = searchMatchesTr(
+          `${urun.ad} ${urun.kod ?? ''} ${kategoriAdi ?? ''} ${urun.aciklama ?? ''}`,
+          debouncedSearch
+        );
         if (!matches) return false;
       }
 
@@ -282,10 +282,9 @@ export default function UrunlerPage() {
     if (!debouncedSearch) return archivedUrunler;
     return archivedUrunler.filter((urun) => {
       const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id) : '';
-      return (
-        textIncludes(urun.ad, debouncedSearch) ||
-        (urun.kod && textIncludes(urun.kod, debouncedSearch)) ||
-        (kategoriAdi && textIncludes(kategoriAdi, debouncedSearch))
+      return searchMatchesTr(
+        `${urun.ad} ${urun.kod ?? ''} ${kategoriAdi ?? ''} ${urun.aciklama ?? ''}`,
+        debouncedSearch
       );
     });
   }, [archivedUrunler, debouncedSearch, kategoriMap]);
@@ -560,25 +559,6 @@ export default function UrunlerPage() {
   const listHeaderComponent = useMemo(() => (
     <View>
       <SharedIsletmeBanner />
-      {/* Arama */}
-      {((urunler && urunler.length > 0) || archivedCount > 0) && (
-        <View style={styles.searchSection}>
-          <Input
-            placeholder={t('products:search.placeholder')}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            leftIcon={<Search size={20} color={colors.textMuted} />}
-            rightIcon={searchQuery.length > 0 ? (
-              <TouchableOpacity
-                onPress={() => setSearchQuery('')}
-                hitSlop={HIT_SLOP.sm}
-              >
-                <X size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-            ) : undefined}
-          />
-        </View>
-      )}
 
       {/* Arşiv sekmesi kaldırıldı — arşivlenmiş ürünler Daha → Arşiv sayfasında.
           Bu sayfa yalnızca aktif ürünleri gösterir. */}
@@ -700,7 +680,7 @@ export default function UrunlerPage() {
         </View>
       )}
     </View>
-  ), [t, urunler, archivedCount, searchQuery, activeTab, TAB_OPTIONS, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, router, uncategorizedProductCount, categoryChips, categoryFilter, isFiltered, filteredUrunler, handleClearFilters, isExporting, ozetMode]);
+  ), [t, urunler, archivedCount, activeTab, TAB_OPTIONS, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, router, uncategorizedProductCount, categoryChips, categoryFilter, isFiltered, filteredUrunler, handleClearFilters, isExporting, ozetMode]);
 
   // Empty component
   const listEmptyComponent = useMemo(() => {
@@ -809,6 +789,16 @@ export default function UrunlerPage() {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
       />
+
+      {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı); aktif sekmede FAB için boşluk bırakır */}
+      {((urunler && urunler.length > 0) || archivedCount > 0) && (
+        <FloatingSearchBar
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={t('products:search.placeholder')}
+          rightOffset={activeTab === 'active' ? 56 + spacing.md : 0}
+        />
+      )}
 
       {/* QuickUrunBar */}
       <QuickUrunBar

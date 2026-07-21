@@ -3,7 +3,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import type { TransactionType, TahsilatHedefType, HesapPickerTarget } from '../types';
 import type { CariType, Urun } from '@/types/database';
 
@@ -170,20 +170,20 @@ export function useQuickTransactionEntities({
         ? hesaplar || []
         : hesaplar?.filter((h) => h.id !== hesapId) || [];
     if (!hesapSearchQuery.trim()) return list;
-    return list.filter((h) => textIncludes(h.name, hesapSearchQuery));
+    return list.filter((h) => searchMatchesTr(h.name, hesapSearchQuery));
   }, [hesaplar, hesapId, hesapSearchQuery, hesapPickerTarget]);
 
   const filteredCariler = useMemo(() => {
     if (!carilerForType) return [];
     if (!cariSearchQuery.trim()) return carilerForType;
-    return carilerForType.filter((c) => textIncludes(c.name, cariSearchQuery));
+    return carilerForType.filter((c) => searchMatchesTr(c.name, cariSearchQuery));
   }, [carilerForType, cariSearchQuery]);
 
   const filteredPersonel = useMemo(() => {
     if (!personelList) return [];
     if (!personelSearchQuery.trim()) return personelList;
     return personelList.filter((p) =>
-      textIncludes(`${p.first_name} ${p.last_name}`, personelSearchQuery)
+      searchMatchesTr(`${p.first_name} ${p.last_name}`, personelSearchQuery)
     );
   }, [personelList, personelSearchQuery]);
 
@@ -191,8 +191,8 @@ export function useQuickTransactionEntities({
     if (!urunler) return [];
     if (!urunSearchQuery.trim()) return urunler;
     return urunler.filter((u) =>
-      textIncludes(u.ad, urunSearchQuery) ||
-      (u.kod && textIncludes(u.kod, urunSearchQuery))
+      searchMatchesTr(u.ad, urunSearchQuery) ||
+      (u.kod && searchMatchesTr(u.kod, urunSearchQuery))
     );
   }, [urunler, urunSearchQuery]);
 

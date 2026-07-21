@@ -25,7 +25,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, SearchInput, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -33,10 +33,11 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { textIncludes } from '@/lib/turkishTextUtils';
+import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
+import { useNotlar } from '@/hooks/useNotlar';
 import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
 import { useArchivePersonel } from '@/hooks/useArchive';
 import type { Personel } from '@/types/database';
@@ -308,11 +309,24 @@ export default function PersonelPage() {
     return options;
   }, [actionSheetPersonel, t, handleEnterSelectMode, handleArchive, handleDelete, canUpdate, canDelete, router]);
 
+  // Personelin kendi not kolonu yok; notlar Notlar modülünde personele iliştirilir.
+  // Aramada isimle birlikte taransın diye personel-notları tek sorguda çekilip
+  // personel_id → içerik haritasına indirgenir (kullanıcı isteği: "notları da arasın").
+  const { data: personelNotlar } = useNotlar('personel');
+  const personelNotMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const n of personelNotlar ?? []) {
+      if (!n.entity_id) continue;
+      map[n.entity_id] = map[n.entity_id] ? `${map[n.entity_id]} ${n.content}` : n.content;
+    }
+    return map;
+  }, [personelNotlar]);
+
   // Arama ve sıralama (aktif önce). A2: useMemo + debouncedSearch → her tuşta değil, arama
   // durunca (veya liste/sıralama değişince) filter+sort tekrar çalışır.
   const filteredPersonel = useMemo(() => (personelList ?? [])
     .filter((p) =>
-      textIncludes(`${p.first_name} ${p.last_name}`, debouncedSearch)
+      searchMatchesTr(`${p.first_name} ${p.last_name ?? ''} ${personelNotMap[p.id] ?? ''}`, debouncedSearch)
     )
     .sort((a, b) => {
       // Aktif olanlar önce
@@ -343,7 +357,7 @@ export default function PersonelPage() {
       // Default: alphabetical
       return a.first_name.localeCompare(b.first_name, 'tr');
     }),
-  [personelList, debouncedSearch, sortBy]);
+  [personelList, debouncedSearch, sortBy, personelNotMap]);
 
   // Ana sayfa "anlık liste" dışa aktarımı (cariler ile aynı zengin başlık/özet formatı; Excel + PDF)
   const [isExporting, setIsExporting] = useState(false);
@@ -649,19 +663,10 @@ export default function PersonelPage() {
         </Card>
       </View>
 
-      {/* Arama */}
-      <View style={styles.searchContainer}>
-        <SearchInput
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={t('staff:search.searchPersonnel')}
-        />
-      </View>
-
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, payables.personel, receivables.personel, baseCurrency, searchQuery, isLoading, personelList]);
+  ), [t, router, payables.personel, receivables.personel, baseCurrency, isLoading, personelList]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {
@@ -718,6 +723,14 @@ export default function PersonelPage() {
         // Extra data for re-renders when these change
         extraData={{ selectedIds, isSelectMode, sortBy, expandedPersonelId }}
         contentContainerStyle={styles.listContainer}
+      />
+
+      {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı); sağdaki FAB için boşluk bırakır */}
+      <FloatingSearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        placeholder={t('staff:search.searchPersonnel')}
+        rightOffset={56 + spacing.md}
       />
 
       {/* FAB Backdrop */}
@@ -950,13 +963,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
   },
-  searchContainer: {
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
-  },
   listContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'],
+    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
   },
   personelHeader: {
     flexDirection: 'row',
