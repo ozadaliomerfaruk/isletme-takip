@@ -30,6 +30,10 @@
   "fields": {
     "optional": "İsteğe Bağlı"
   },
+  "iletisim": {
+    "ara": "Ara",
+    "whatsapp": "WhatsApp"
+  },
   "buttons": {
     "save": "Kaydet",
     "cancel": "İptal",

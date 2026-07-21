@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity, Modal, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, Modal, ScrollView, Dimensions, Linking } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -26,6 +26,9 @@ import {
   Plus,
   CalendarClock,
   HandCoins,
+  MessageCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
@@ -53,6 +56,7 @@ import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useCariTahsisOzeti, useCariVadeRozet, useCariVadeliBorclar, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
 import { useCariTaksitliIslemIds } from '@/hooks/useTaksit';
+import { buildWhatsAppUrl, buildTelUrl } from '@/lib/phone';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
@@ -832,6 +836,26 @@ export default function CariHareketleriPage() {
     return { toplam: tutar, adet: Number(rozet.gecikmis_adet) || 0 };
   }, [isViewer, cariPaidCrude, cari, vadeRozetMap]);
 
+  // "Vadesi Geçen İşlemler" akordiyonu (plansız borçlar; taksitli planların
+  // gecikmesi Taksit Takip'te birim bazında izlenir). En eski vade üstte.
+  const [gecikenlerOpen, setGecikenlerOpen] = useState(false);
+  const gecikmisBorclar = useMemo(() => {
+    if (isViewer || cariPaidCrude || !vadeliBorclar || !tahsisOzeti) return [];
+    const out: { id: string; type: string; description: string | null; vade: string; gun: number; kalan: number }[] = [];
+    for (const b of vadeliBorclar) {
+      if (taksitliSet.has(b.id)) continue;
+      if (String(b.vade_tarihi) > overdueTodayStr) continue;
+      const kalan = roundCurrency(toNumber(b.amount) - (tahsisOzeti.borcTahsisleri[b.id] ?? 0));
+      if (kalan <= 0.009) continue;
+      const gun = Math.round(
+        (new Date(overdueTodayStr).getTime() - new Date(String(b.vade_tarihi)).getTime()) / 86400000
+      );
+      out.push({ id: b.id, type: b.type, description: b.description ?? null, vade: String(b.vade_tarihi), gun, kalan });
+    }
+    out.sort((a, b) => (a.vade < b.vade ? -1 : 1));
+    return out;
+  }, [isViewer, cariPaidCrude, vadeliBorclar, tahsisOzeti, taksitliSet, overdueTodayStr]);
+
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
@@ -918,6 +942,12 @@ export default function CariHareketleriPage() {
               (new Date(String(islem.vade_tarihi)).getTime() - new Date(overdueTodayStr).getTime()) / 86400000
             );
             itemVadeState = daysUntil <= 0 ? 'overdue' : daysUntil > 7 ? 'future' : 'soon';
+            // Esnaf dili: tarih yerine gün farkı öne çıkar ("32 gün gecikti" / "15 gün sonra")
+            itemVadeText += daysUntil < 0
+              ? ` · ${t('transactions:vade.gunGecikti', { gun: -daysUntil })}`
+              : daysUntil === 0
+                ? ` · ${t('transactions:vade.bugunSon')}`
+                : ` · ${t('transactions:vade.gunSonra', { gun: daysUntil })}`;
             // Kısmi tahsis: pill'e kalanı ekle ("Vade: 15.08.2026 · Kalan: ₺500").
             if (itemKalan !== null && tahsisToplam > 0 && itemKalan > 0) {
               itemVadeText += ` · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`;
@@ -1088,6 +1118,124 @@ export default function CariHareketleriPage() {
           })()}
         </View>
 
+        {/* Ara / WhatsApp kısayolları — telefon varsa (esnaf günlük akışı) */}
+        {(() => {
+          if (!cari.phone) return null;
+          const telUrl = buildTelUrl(cari.phone);
+          const waUrl = buildWhatsAppUrl(cari.phone);
+          if (!telUrl && !waUrl) return null;
+          return (
+            <View style={styles.iletisimRow}>
+              {telUrl && (
+                <TouchableOpacity style={styles.iletisimBtn} activeOpacity={0.7} onPress={() => Linking.openURL(telUrl)}>
+                  <Phone size={16} color={colors.primary} />
+                  <Text style={styles.iletisimText}>{t('common:iletisim.ara')}</Text>
+                </TouchableOpacity>
+              )}
+              {waUrl && (
+                <TouchableOpacity style={styles.iletisimBtn} activeOpacity={0.7} onPress={() => Linking.openURL(waUrl)}>
+                  <MessageCircle size={16} color={colors.success} />
+                  <Text style={styles.iletisimText}>{t('common:iletisim.whatsapp')}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })()}
+
+        {/* Vadesi Geçen İşlemler akordiyonu — hızlı tahsilat + WhatsApp hatırlatma */}
+        {gecikmisBorclar.length > 0 && (
+          <View style={styles.gecikenCard}>
+            <TouchableOpacity
+              style={styles.gecikenHeader}
+              activeOpacity={0.7}
+              onPress={() => setGecikenlerOpen((v) => !v)}
+            >
+              <CalendarClock size={16} color={colors.error} />
+              <Text style={styles.gecikenTitle} numberOfLines={1}>
+                {t('transactions:vade.gecikenler')} ({gecikmisBorclar.length})
+              </Text>
+              <Text style={styles.gecikenToplam} numberOfLines={1}>
+                {formatCurrency(gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0), cari.currency)}
+              </Text>
+              {gecikenlerOpen ? (
+                <ChevronUp size={18} color={colors.textMuted} />
+              ) : (
+                <ChevronDown size={18} color={colors.textMuted} />
+              )}
+            </TouchableOpacity>
+
+            {gecikenlerOpen && (
+              <View style={styles.gecikenList}>
+                {gecikmisBorclar.map((b) => {
+                  const tipKey = getCariHareketLabelKey(b.type);
+                  const p = b.vade.split('-');
+                  return (
+                    <View key={b.id} style={styles.gecikenRow}>
+                      <View style={styles.gecikenInfo}>
+                        <Text variant="body" numberOfLines={1} style={styles.gecikenDesc}>
+                          {b.description || t(tipKey)}
+                        </Text>
+                        <Text variant="caption" color="secondary" numberOfLines={1}>
+                          {t('transactions:vade.label')}: {p[2]}.{p[1]}.{p[0]}
+                          {'  ·  '}
+                          <Text variant="caption" style={styles.gecikenGun}>
+                            {t('transactions:vade.gunGecikti', { gun: Math.max(1, b.gun) })}
+                          </Text>
+                        </Text>
+                      </View>
+                      <View style={styles.gecikenSag}>
+                        <Text style={styles.gecikenKalan} numberOfLines={1}>
+                          {formatCurrency(b.kalan, cari.currency)}
+                        </Text>
+                        {!isViewer && canEditTransactions && (
+                          <TouchableOpacity
+                            style={styles.gecikenTahsilBtn}
+                            activeOpacity={0.8}
+                            onPress={() => setTahsilPrefill({
+                              type: cari.type === 'tedarikci' ? 'odeme' : 'tahsilat',
+                              amount: b.kalan,
+                              hedefBorcId: b.id,
+                            })}
+                          >
+                            <HandCoins size={13} color={colors.white} />
+                            <Text style={styles.gecikenTahsilText}>
+                              {cari.type === 'tedarikci' ? t('transactions:vade.ode') : t('transactions:vade.tahsilEt')}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  );
+                })}
+
+                {/* WhatsApp ile kibar hatırlatma — hazır mesajla sohbet açar */}
+                {(() => {
+                  const toplam = gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0);
+                  const waUrl = buildWhatsAppUrl(
+                    cari.phone,
+                    t('transactions:vade.whatsappMesaj', {
+                      isim: cari.name,
+                      isletme: isletme?.name ?? '',
+                      tutar: formatCurrency(toplam, cari.currency),
+                    })
+                  );
+                  if (!waUrl) return null;
+                  return (
+                    <TouchableOpacity
+                      style={styles.gecikenWaBtn}
+                      activeOpacity={0.8}
+                      onPress={() => Linking.openURL(waUrl)}
+                    >
+                      <MessageCircle size={15} color={colors.white} />
+                      <Text style={styles.gecikenWaText}>{t('transactions:vade.whatsappHatirlat')}</Text>
+                    </TouchableOpacity>
+                  );
+                })()}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* Paylaşım İzin Modu Banner (görüntüleme/tam erişim) — tek yer, kart şeridiyle tekrar etmez */}
         {isViewer && (
           <View style={styles.permissionBanner}>
@@ -1143,7 +1291,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, gecikenlerOpen, canEditTransactions, isletme?.name]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -1543,6 +1691,124 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: '600',
     flexShrink: 1,
+  },
+  // Ara / WhatsApp kısayol satırı
+  iletisimRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  iletisimBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  iletisimText: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  // Vadesi Geçen İşlemler akordiyonu
+  gecikenCard: {
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.errorLight,
+    overflow: 'hidden',
+  },
+  gecikenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+  },
+  gecikenTitle: {
+    flex: 1,
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  gecikenToplam: {
+    fontSize: fontSize.md,
+    fontWeight: '800',
+    color: colors.error,
+    flexShrink: 1,
+  },
+  gecikenList: {
+    borderTopWidth: 1,
+    borderTopColor: colors.borderLight,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+  },
+  gecikenRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
+  },
+  gecikenInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  gecikenDesc: {
+    fontWeight: '600',
+  },
+  gecikenGun: {
+    color: colors.error,
+    fontWeight: '700',
+  },
+  gecikenSag: {
+    alignItems: 'flex-end',
+    gap: 4,
+    flexShrink: 1,
+  },
+  gecikenKalan: {
+    fontSize: fontSize.lg,
+    fontWeight: '800',
+    color: colors.error,
+  },
+  gecikenTahsilBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+  },
+  gecikenTahsilText: {
+    fontSize: fontSize.sm,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  gecikenWaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: '#25D366',
+  },
+  gecikenWaText: {
+    fontSize: fontSize.md,
+    fontWeight: '700',
+    color: colors.white,
   },
   // Üst satır: isim solda, kalan bakiye sağda
   darkTopRow: {

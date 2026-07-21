@@ -111,7 +111,13 @@
     "borcKisa": "Payable",
     "gecAlacakKisa": "Overdue Receivable",
     "gecBorcKisa": "Overdue Payable",
-    "hedefTahsisHata": "Payment saved but could not be targeted to this debt — it was applied to the oldest due balance."
+    "hedefTahsisHata": "Payment saved but could not be targeted to this debt — it was applied to the oldest due balance.",
+    "gunGecikti": "{{gun}} days overdue",
+    "bugunSon": "due today",
+    "gunSonra": "due in {{gun}} days",
+    "gecikenler": "Overdue Transactions",
+    "whatsappHatirlat": "Remind via WhatsApp",
+    "whatsappMesaj": "Hello {{isim}}, this is a friendly reminder from {{isletme}}: you have an overdue balance of {{tutar}}. We would appreciate your payment at your convenience. Thank you."
   },
   "taksit": {
     "label": "Installments",

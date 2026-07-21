@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Linking } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -45,6 +45,8 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
 import { usePersonelById, useDeletePersonel, useUpdatePersonel, usePersonelOzet, type PersonelOzet } from '@/hooks/usePersonel';
 import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
+import { buildWhatsAppUrl, buildTelUrl } from '@/lib/phone';
+import { MessageCircle } from 'lucide-react-native';
 import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
 import { useUnarchivePersonel } from '@/hooks/useArchive';
 import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
@@ -612,15 +614,36 @@ export default function PersonelHareketleriPage() {
             rows.push({ label: t('staff:detayOzet.toplamTahsilat'), value: formatCurrency(oz('personel_tahsilat'), personel.currency) });
           }
 
+          const telUrl = buildTelUrl(personel.phone);
+          const waUrl = buildWhatsAppUrl(personel.phone);
           return (
-            <DetailSummaryCard
-              title={upperTr(fullName)}
-              subtitle={meta1Parts.join('  ·  ') || undefined}
-              subtitle2={meta2Parts.join('  ·  ') || undefined}
-              balanceLabel={bal < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
-              balanceValue={formatCurrency(Math.abs(bal), personel.currency)}
-              rows={rows}
-            />
+            <>
+              <DetailSummaryCard
+                title={upperTr(fullName)}
+                subtitle={meta1Parts.join('  ·  ') || undefined}
+                subtitle2={meta2Parts.join('  ·  ') || undefined}
+                balanceLabel={bal < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
+                balanceValue={formatCurrency(Math.abs(bal), personel.currency)}
+                rows={rows}
+              />
+              {/* Ara / WhatsApp kısayolları — telefon varsa */}
+              {(telUrl || waUrl) && (
+                <View style={styles.iletisimRow}>
+                  {telUrl && (
+                    <TouchableOpacity style={styles.iletisimBtn} activeOpacity={0.7} onPress={() => Linking.openURL(telUrl)}>
+                      <Phone size={16} color={colors.primary} />
+                      <Text style={styles.iletisimText}>{t('common:iletisim.ara')}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {waUrl && (
+                    <TouchableOpacity style={styles.iletisimBtn} activeOpacity={0.7} onPress={() => Linking.openURL(waUrl)}>
+                      <MessageCircle size={16} color={colors.success} />
+                      <Text style={styles.iletisimText}>{t('common:iletisim.whatsapp')}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+            </>
           );
         })()}
 
@@ -1016,6 +1039,30 @@ const styles = StyleSheet.create({
   // Header'ın son bölümü: 3xl alt boşluk işlem listesini aşağı itiyordu
   sectionTight: {
     paddingBottom: 0,
+  },
+  // Ara / WhatsApp kısayol satırı (cari detayla aynı desen)
+  iletisimRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  iletisimBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  iletisimText: {
+    fontSize: fontSize.md,
+    fontWeight: '600',
+    color: colors.text,
   },
   sectionTitle: {
     marginBottom: spacing.lg,

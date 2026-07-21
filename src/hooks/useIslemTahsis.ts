@@ -68,6 +68,8 @@ export interface CariVadeliBorc {
   amount: number;
   type: string;
   vade_tarihi: string;
+  /** Gecikenler akordiyonunda satır etiketi için (yoksa tip etiketi kullanılır). */
+  description: string | null;
 }
 
 /**
@@ -84,7 +86,7 @@ export function useCariVadeliBorclar(cariId: string | undefined, enabled = true)
       if (!cariId || !isletme?.id) return [];
       const { data, error } = await supabase
         .from('islemler')
-        .select('id, amount, type, vade_tarihi')
+        .select('id, amount, type, vade_tarihi, description')
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .not('vade_tarihi', 'is', null)

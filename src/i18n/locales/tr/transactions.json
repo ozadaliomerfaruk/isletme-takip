@@ -111,7 +111,13 @@
     "borcKisa": "Borç",
     "gecAlacakKisa": "Geciken Alacak",
     "gecBorcKisa": "Geciken Borç",
-    "hedefTahsisHata": "Ödeme kaydedildi ancak bu borca yönlendirilemedi — carinin en eski vadesine sayıldı."
+    "hedefTahsisHata": "Ödeme kaydedildi ancak bu borca yönlendirilemedi — carinin en eski vadesine sayıldı.",
+    "gunGecikti": "{{gun}} gün gecikti",
+    "bugunSon": "bugün son gün",
+    "gunSonra": "{{gun}} gün sonra",
+    "gecikenler": "Vadesi Geçen İşlemler",
+    "whatsappHatirlat": "WhatsApp ile hatırlat",
+    "whatsappMesaj": "Merhaba {{isim}}, {{isletme}} olarak hatırlatmak isteriz: {{tutar}} tutarında vadesi geçmiş bakiyeniz bulunmaktadır. Müsait olduğunuzda ödeme yapabilirseniz seviniriz. İyi günler dileriz."
   },
   "taksit": {
     "label": "Taksit",

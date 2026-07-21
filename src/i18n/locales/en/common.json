@@ -30,6 +30,10 @@
   "fields": {
     "optional": "Optional"
   },
+  "iletisim": {
+    "ara": "Call",
+    "whatsapp": "WhatsApp"
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",
