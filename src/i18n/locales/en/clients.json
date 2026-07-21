@@ -210,7 +210,8 @@
   "preview": {
     "sonIslemler": "Recent Transactions",
     "islemYok": "No transactions yet",
-    "detay": "Open Details"
+    "detay": "Open Details",
+    "ekstrePaylas": "Share Statement"
   },
   "transactionLabels": {
     "alis": "Purchase",

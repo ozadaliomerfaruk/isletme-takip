@@ -3,7 +3,7 @@ import Animated, { ZoomIn, FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Zap, ArrowRight, Pencil, Phone } from 'lucide-react-native';
+import { Zap, ArrowRight, Share2, Phone } from 'lucide-react-native';
 import { Text, Avatar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, shadows } from '@/constants/spacing';
@@ -24,8 +24,8 @@ interface CariPreviewModalProps {
   onDismiss: () => void;
   onIslemYap?: (cari: PreviewCari) => void;
   onDetay?: (cari: PreviewCari) => void;
-  /** Verilmezse Düzenle butonu gizlenir (izin/link kontrolü çağıranda). */
-  onDuzenle?: (cari: PreviewCari) => void;
+  /** Ekstre paylaşım akışını açar (DetailExportSection). */
+  onEkstre?: (cari: PreviewCari) => void;
   /** Gecikmiş vade tutarı (vadeRozetMap'ten; yoksa rozet gizli). */
   gecikmisTutar?: number | null;
   gecikmisCurrency?: string;
@@ -55,7 +55,7 @@ function useSonIslemler(cariId: string | undefined) {
         .eq('cari_id', cariId!)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
-        .limit(3);
+        .limit(5);
       if (error) throw error;
       return data ?? [];
     },
@@ -72,7 +72,7 @@ export function CariPreviewModal({
   onDismiss,
   onIslemYap,
   onDetay,
-  onDuzenle,
+  onEkstre,
   gecikmisTutar,
   gecikmisCurrency,
 }: CariPreviewModalProps) {
@@ -90,6 +90,12 @@ export function CariPreviewModal({
   const balanceColor = bal === 0 ? colors.textSecondary : bal > 0 ? colors.success : colors.error;
 
   const aksiyonlar = [
+    onEkstre && {
+      key: 'ekstre',
+      icon: <Share2 size={16} color={colors.primary} />,
+      label: t('clients:preview.ekstrePaylas'),
+      onPress: () => onEkstre(cari),
+    },
     onIslemYap && {
       key: 'islem',
       icon: <Zap size={18} color={colors.white} />,
@@ -102,12 +108,6 @@ export function CariPreviewModal({
       icon: <ArrowRight size={18} color={colors.primary} />,
       label: t('clients:preview.detay'),
       onPress: () => onDetay(cari),
-    },
-    onDuzenle && {
-      key: 'duzenle',
-      icon: <Pencil size={16} color={colors.primary} />,
-      label: t('common:buttons.edit'),
-      onPress: () => onDuzenle(cari),
     },
   ].filter(Boolean) as { key: string; icon: React.ReactNode; label: string; primary?: boolean; onPress: () => void }[];
 
@@ -318,14 +318,14 @@ const styles = StyleSheet.create({
     ...shadows.lg,
   },
   actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
-    flexShrink: 1,
   },
   actionBtnPrimary: {
     backgroundColor: colors.primary,

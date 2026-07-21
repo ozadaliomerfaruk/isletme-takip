@@ -973,11 +973,11 @@ export default function CarilerPage() {
             : undefined
         }
         onDetay={(c) => router.push(`/cariler/${c.id}`)}
-        onDuzenle={
-          previewCari && !previewCari.isLinked && canUpdate('cariler', previewCari.created_by)
-            ? (c) => router.push(`/cariler/duzenle/${c.id}`)
-            : undefined
-        }
+        onEkstre={(c) => {
+          // ActionSheet'teki Paylaş akışıyla aynı hedef (DetailExportSection)
+          setExportCari(c);
+          setExportSectionVisible(true);
+        }}
       />
 
       {/* Quick Transaction Bar */}

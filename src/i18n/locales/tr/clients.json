@@ -210,7 +210,8 @@
   "preview": {
     "sonIslemler": "Son İşlemler",
     "islemYok": "Henüz işlem yok",
-    "detay": "Detaya Git"
+    "detay": "Detaya Git",
+    "ekstrePaylas": "Ekstre Paylaş"
   },
   "transactionLabels": {
     "alis": "Alış",
