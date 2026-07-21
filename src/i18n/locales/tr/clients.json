@@ -208,10 +208,12 @@
     "sharingNotSupported": "Paylaşım bu cihazda desteklenmiyor"
   },
   "detayOzet": {
-    "toplamSatis": "Toplam Satış",
-    "toplamAlis": "Toplam Alış",
+    "toplamSatis": "Toplam Satış Tutarı",
+    "toplamAlis": "Toplam Alış Tutarı",
     "toplamTahsilat": "Toplam Tahsilat",
     "toplamOdeme": "Toplam Ödeme",
+    "kalanBorc": "Kalan Borcumuz",
+    "kalanAlacak": "Kalan Alacağımız",
     "vadesiGecenAlacak": "Vadesi Geçen Alacağımız",
     "vadesiGecenBorc": "Vadesi Geçen Borcumuz"
   },

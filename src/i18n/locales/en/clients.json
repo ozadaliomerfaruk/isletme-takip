@@ -212,6 +212,8 @@
     "toplamAlis": "Total Purchases",
     "toplamTahsilat": "Total Collected",
     "toplamOdeme": "Total Paid",
+    "kalanBorc": "Remaining We Owe",
+    "kalanAlacak": "Remaining They Owe",
     "vadesiGecenAlacak": "Overdue Receivable",
     "vadesiGecenBorc": "Overdue Payable"
   },

@@ -48,7 +48,7 @@ import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
-import { useCari, useDeleteCari, useUpdateCari, useCariOzet } from '@/hooks/useCariler';
+import { useCari, useDeleteCari, useUpdateCari, useCariOzet, type CariOzet } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useCariTahsisOzeti, useCariVadeRozet, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
@@ -995,116 +995,84 @@ export default function CariHareketleriPage() {
 
     return (
       <View>
-        {/* Cari Özeti */}
-        <Card style={[styles.summaryCard, linkedOwnerName && styles.summaryCardLinked]}>
+        {/* Cari Özeti — koyu kompakt dashboard (kullanıcının örnek ekranıyla aynı düzen):
+            ortada isim, altında telefon, sağa dayalı değerli satırlar */}
+        <View style={[styles.darkCard, linkedOwnerName && styles.summaryCardLinked]}>
           {linkedOwnerName && (
-            <View style={styles.linkedStrip}>
-              <Link size={13} color={colors.primary} />
-              <Text style={styles.linkedStripText} numberOfLines={1}>
-                {t('clients:sharing.linkedBadge')}
-                <Text style={styles.linkedStripPartner}>{'  ·  ' + linkedOwnerName}</Text>
+            <View style={styles.darkLinkedStrip}>
+              <Link size={13} color={colors.white} />
+              <Text style={styles.darkLinkedText} numberOfLines={1}>
+                {t('clients:sharing.linkedBadge')}{'  ·  '}{linkedOwnerName}
               </Text>
             </View>
           )}
-          <View style={styles.summaryRow}>
-            <View style={[styles.summaryIcon, { backgroundColor: isTedarikci ? colors.warningLight : colors.infoLight }]}>
-              {isTedarikci ? (
-                <Building2 size={32} color={colors.warning} />
-              ) : (
-                <User size={32} color={colors.info} />
-              )}
-            </View>
-            <View style={styles.summaryInfo}>
-              <Text variant="body" color="secondary">
-                {isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-              </Text>
-              {cari.phone && (
-                <View style={styles.phoneRow}>
-                  <Phone size={14} color={colors.textMuted} />
-                  <Text variant="caption" color="secondary">
-                    {cari.phone}
-                  </Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.balanceInfo}>
-              <Text variant="caption" color="secondary">
-                {displayBalance < 0 ? t('clients:balance.weOwe') : t('clients:balance.theyOwe')}
-              </Text>
-              <Text variant="h2" color={displayBalance < 0 ? 'error' : 'success'}>
-                {formatCurrency(Math.abs(displayBalance), cari.currency)}
-              </Text>
-              {cari.currency !== baseCurrency && exchangeRates && displayBalance !== 0 && (
-                <Text variant="caption" color="secondary">
-                  ~{formatCurrency(convertCurrency(Math.abs(displayBalance), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                </Text>
-              )}
-            </View>
-          </View>
 
-          {/* Cari dashboard'u: ömür-boyu toplamlar (RPC) — "bu zamana kadar ne
-              alıp ne satmışız/ödemişiz" tek bakışta. İadeler netleştirilir. */}
+          <Text style={styles.darkTitle} numberOfLines={2}>{upperTr(cari.name)}</Text>
+          <Text style={styles.darkType}>
+            {isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}
+          </Text>
+
+          {cari.phone ? (
+            <View style={styles.darkPhoneRow}>
+              <View style={styles.darkPhoneChip}>
+                <Phone size={16} color={DARK_CARD_BG} />
+              </View>
+              <Text style={styles.darkPhoneText} numberOfLines={1}>{cari.phone}</Text>
+            </View>
+          ) : null}
+
           {(() => {
-            if (isViewer || !cariOzet) return null;
-            const oz = (k: keyof typeof cariOzet) => cariOzet[k]?.toplam ?? 0;
+            // Satırlar: ömür-boyu toplamlar (RPC, iadeler net) + kalan bakiye + vadesi geçen.
+            const oz = (k: keyof CariOzet) => cariOzet?.[k]?.toplam ?? 0;
             const satisNet = roundCurrency(oz('cari_satis') - oz('cari_satis_iade'));
             const alisNet = roundCurrency(oz('cari_alis') - oz('cari_alis_iade'));
             const tahsilat = oz('cari_tahsilat');
             const odeme = oz('cari_odeme');
-            const satirlar: { label: string; value: number; color?: string }[] = [];
-            // Birincil çift cari tipine göre önce; karşı yön yalnız sıfırdan farklıysa
-            if (isTedarikci) {
-              if (alisNet !== 0 || odeme !== 0) {
-                satirlar.push({ label: t('clients:detayOzet.toplamAlis'), value: alisNet });
-                satirlar.push({ label: t('clients:detayOzet.toplamOdeme'), value: odeme });
-              }
-              if (satisNet !== 0 || tahsilat !== 0) {
-                satirlar.push({ label: t('clients:detayOzet.toplamSatis'), value: satisNet });
-                satirlar.push({ label: t('clients:detayOzet.toplamTahsilat'), value: tahsilat });
-              }
-            } else {
-              if (satisNet !== 0 || tahsilat !== 0) {
-                satirlar.push({ label: t('clients:detayOzet.toplamSatis'), value: satisNet });
-                satirlar.push({ label: t('clients:detayOzet.toplamTahsilat'), value: tahsilat });
-              }
-              if (alisNet !== 0 || odeme !== 0) {
-                satirlar.push({ label: t('clients:detayOzet.toplamAlis'), value: alisNet });
-                satirlar.push({ label: t('clients:detayOzet.toplamOdeme'), value: odeme });
+            const rows: { label: string; value: string; danger?: boolean }[] = [];
+            if (!isViewer && cariOzet) {
+              // Birincil yön cari tipine göre; karşı yön yalnız doluysa
+              if (isTedarikci) {
+                if (alisNet !== 0) rows.push({ label: t('clients:detayOzet.toplamAlis'), value: formatCurrency(alisNet, cari.currency) });
+                if (odeme !== 0) rows.push({ label: t('clients:detayOzet.toplamOdeme'), value: formatCurrency(odeme, cari.currency) });
+                if (satisNet !== 0) rows.push({ label: t('clients:detayOzet.toplamSatis'), value: formatCurrency(satisNet, cari.currency) });
+                if (tahsilat !== 0) rows.push({ label: t('clients:detayOzet.toplamTahsilat'), value: formatCurrency(tahsilat, cari.currency) });
+              } else {
+                if (satisNet !== 0) rows.push({ label: t('clients:detayOzet.toplamSatis'), value: formatCurrency(satisNet, cari.currency) });
+                if (tahsilat !== 0) rows.push({ label: t('clients:detayOzet.toplamTahsilat'), value: formatCurrency(tahsilat, cari.currency) });
+                if (alisNet !== 0) rows.push({ label: t('clients:detayOzet.toplamAlis'), value: formatCurrency(alisNet, cari.currency) });
+                if (odeme !== 0) rows.push({ label: t('clients:detayOzet.toplamOdeme'), value: formatCurrency(odeme, cari.currency) });
               }
             }
-            if (satirlar.length === 0 && !cariVadeOzeti) return null;
+            rows.push({
+              label: displayBalance < 0 ? t('clients:detayOzet.kalanBorc') : t('clients:detayOzet.kalanAlacak'),
+              value: formatCurrency(Math.abs(displayBalance), cari.currency),
+            });
+            if (cariVadeOzeti) {
+              rows.push({
+                label: isTedarikci ? t('clients:detayOzet.vadesiGecenBorc') : t('clients:detayOzet.vadesiGecenAlacak'),
+                value: formatCurrency(cariVadeOzeti.toplam, cari.currency),
+                danger: true,
+              });
+            }
             return (
-              <>
-                <View style={styles.ozetDivider} />
-                {satirlar.length > 0 && (
-                  <View style={styles.ozetGrid}>
-                    {satirlar.map((s) => (
-                      <View key={s.label} style={styles.ozetCell}>
-                        <Text variant="caption" color="secondary" numberOfLines={1}>{s.label}</Text>
-                        <Text style={styles.ozetValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                          {formatCurrency(s.value, cari.currency)}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-                {/* Vadesi geçen (birim-farkındalı rozet — taksit birimleri dahil) */}
-                {cariVadeOzeti && (
-                  <View style={styles.ozetGecikmisRow}>
-                    <CalendarClock size={14} color={colors.error} />
-                    <Text variant="caption" style={styles.ozetGecikmisText} numberOfLines={1}>
-                      {isTedarikci
-                        ? t('clients:detayOzet.vadesiGecenBorc')
-                        : t('clients:detayOzet.vadesiGecenAlacak')}
-                      {': '}{formatCurrency(cariVadeOzeti.toplam, cari.currency)}
-                      {cariVadeOzeti.adet > 0 ? `  ·  ${t('transactions:vade.adetKisa', { adet: cariVadeOzeti.adet })}` : ''}
+              <View style={styles.darkRows}>
+                {rows.map((r) => (
+                  <View key={r.label} style={styles.darkRow}>
+                    <Text style={styles.darkLabel} numberOfLines={1}>{r.label}</Text>
+                    <Text
+                      style={[styles.darkValue, r.danger && styles.darkValueDanger]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.7}
+                    >
+                      {r.value}
                     </Text>
                   </View>
-                )}
-              </>
+                ))}
+              </View>
             );
           })()}
-        </Card>
+        </View>
 
         {/* Paylaşım İzin Modu Banner (görüntüleme/tam erişim) — tek yer, kart şeridiyle tekrar etmez */}
         {isViewer && (
@@ -1484,6 +1452,9 @@ export default function CariHareketleriPage() {
   );
 }
 
+// Koyu özet kartı zemini (kullanıcının örnek ekranındaki antrasit ton)
+const DARK_CARD_BG = '#23262B';
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1539,43 +1510,84 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.surface,
   },
-  // Cari dashboard'u (özet kartı içi): toplamlar grid'i + gecikmiş satırı
-  ozetDivider: {
-    height: 1,
-    backgroundColor: colors.borderLight,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
+  // Koyu kompakt cari dashboard'u (kullanıcının örnek ekranı düzeni)
+  darkCard: {
+    backgroundColor: DARK_CARD_BG,
+    borderRadius: borderRadius.xl,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
   },
-  ozetGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  ozetCell: {
-    width: '50%',
-    paddingVertical: spacing.xs,
-    gap: 1,
-  },
-  ozetValue: {
-    fontSize: fontSize.lg,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  ozetGecikmisRow: {
+  darkLinkedStrip: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.xs,
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 8,
-    backgroundColor: colors.errorLight,
-    alignSelf: 'flex-start',
-    maxWidth: '100%',
+    marginBottom: spacing.xs,
   },
-  ozetGecikmisText: {
-    color: colors.error,
+  darkLinkedText: {
+    color: '#B5BAC1',
+    fontSize: fontSize.xs,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  darkTitle: {
+    color: colors.white,
+    fontSize: fontSize.xl,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
+  darkType: {
+    color: '#8A9099',
+    fontSize: fontSize.sm,
+    textAlign: 'center',
+    marginTop: 1,
+    marginBottom: spacing.sm,
+  },
+  darkPhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  darkPhoneChip: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  darkPhoneText: {
+    color: colors.white,
+    fontSize: fontSize.lg,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+  darkRows: {
+    gap: spacing.sm,
+  },
+  darkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  darkLabel: {
+    color: '#B5BAC1',
+    fontSize: fontSize.lg,
+    flexShrink: 1,
+  },
+  darkValue: {
+    color: colors.white,
+    fontSize: fontSize.xl,
     fontWeight: '700',
     flexShrink: 1,
+  },
+  darkValueDanger: {
+    color: '#FF9E99',
   },
   summaryRow: {
     flexDirection: 'row',
