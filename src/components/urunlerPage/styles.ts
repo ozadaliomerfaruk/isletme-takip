@@ -57,14 +57,26 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
+  // flex:1 + space-between: gezinme, toggle'a kadar olan alana YAYILIR
+  // (oklar uçlarda, etiket ortada — dokunması kolay)
   periodNav: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.xs,
     flexShrink: 1,
   },
+  // Yuvarlak zeminli ok — dokunma hedefi belirgin ve rahat
   periodNavButton: {
-    padding: spacing.xs,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   periodLabelBtn: {
     flexShrink: 1,
