@@ -267,12 +267,12 @@ const styles = StyleSheet.create({
   loader: {
     marginTop: spacing['3xl'],
   },
+  // Yapışık düz-liste görünümü (cariler dili): kutu değil satır
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
     padding: spacing.md,
   },
   rowLeft: {
@@ -318,7 +318,8 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   separator: {
-    height: spacing.sm,
+    height: 1,
+    backgroundColor: colors.border,
   },
   footer: {
     padding: spacing.lg,

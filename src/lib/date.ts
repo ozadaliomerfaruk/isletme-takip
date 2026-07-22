@@ -172,14 +172,24 @@ export function parseDateFromDB(dateStr: string): Date {
     return new Date();
   }
 
+  // 1970-bug ailesine karşı normalizasyon (Hermes/JSC Date.parse kaprisleri):
+  // 1) "YYYY-MM-DD HH:mm:ss" (boşluklu — ::text cast/eski kayıtlardan gelebilir)
+  //    Hermes'te Invalid Date olur → new Date(NaN) zinciri 01.01.1970 gösterir.
+  // 2) 3+ haneli kesirli saniye (Postgres mikrosaniye) bazı motorlarda Invalid.
+  let s = dateStr.trim();
+  if (/^\d{4}-\d{2}-\d{2} \d/.test(s)) {
+    s = s.replace(' ', 'T');
+  }
+  s = s.replace(/(\.\d{3})\d+/, '$1');
+
   let result: Date;
 
   // ISO timestamp formatı ise (T içeriyorsa) direkt parse et
-  if (dateStr.includes('T')) {
-    result = new Date(dateStr);
+  if (s.includes('T')) {
+    result = new Date(s);
   } else {
     // YYYY-MM-DD formatı için 'T00:00:00' ekleyerek yerel timezone'da parse et
-    result = new Date(dateStr + 'T00:00:00');
+    result = new Date(s + 'T00:00:00');
   }
 
   // Invalid Date kontrolü

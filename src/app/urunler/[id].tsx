@@ -50,6 +50,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
+import { parseDateFromDB } from '@/lib/date';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
 import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, useUrunOzet, UrunHareketWithSource } from '@/hooks/useUrunHareketler';
@@ -272,8 +273,9 @@ export default function UrunDetayPage() {
             <View style={styles.hareketInfo}>
               <View style={styles.hareketTitleRow}>
                 <Text variant="body">
-                  {/* İş tarihi (islem.date) — created_at değil; created_at düzenlemede NOW()'a kayıyor */}
-                  {new Date((hareket.islemDate ?? hareket.created_at).replace(' ', 'T')).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
+                  {/* İş tarihi (islem.date) — created_at değil; created_at düzenlemede NOW()'a kayıyor.
+                      parseDateFromDB: boşluklu format + Invalid guard (1970 bug ailesi) */}
+                  {parseDateFromDB(hareket.islemDate ?? hareket.created_at).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
                     day: 'numeric',
                     month: 'short',
                   })}

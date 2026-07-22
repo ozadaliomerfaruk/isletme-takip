@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ensureValidDate } from '@/lib/date';
+import { ensureValidDate, parseDateFromDB } from '@/lib/date';
 import { roundCurrency, toNumber, cleanAmountInput } from '@/lib/currency';
 import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, UrunItem } from '../types';
 import type { CariType, Currency, BirimType } from '@/types/database';
@@ -354,12 +354,14 @@ export function useQuickTransactionForm({
 
     setKategoriId(transaction.kategori_id || null);
     // Load date_end for leave usage date range (only in edit mode)
+    // parseDateFromDB: yerel gece yarısı + Invalid guard — ham new Date("YYYY-MM-DD")
+    // UTC gece yarısı üretir (negatif TZ'de gün kayması) ve bozuk string'de 1970'e düşer
     if (!isCopyMode && (transaction as { date_end?: string | null }).date_end) {
-      setDateEnd(new Date((transaction as { date_end?: string | null }).date_end!));
+      setDateEnd(parseDateFromDB((transaction as { date_end?: string | null }).date_end!));
     }
     // Vade yükle (yalnız edit — copy'de tarih bugüne alınır, eski vade anlamsız kalırdı)
     if (!isCopyMode && (transaction as { vade_tarihi?: string | null }).vade_tarihi) {
-      setVadeTarihi(new Date((transaction as { vade_tarihi?: string | null }).vade_tarihi!));
+      setVadeTarihi(parseDateFromDB((transaction as { vade_tarihi?: string | null }).vade_tarihi!));
     }
     setSourceHesapId(transaction.hesap_id || null);
     setHedefHesapId(transaction.hedef_hesap_id || null);

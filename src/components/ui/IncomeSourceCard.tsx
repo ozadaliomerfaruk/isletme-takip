@@ -78,13 +78,12 @@ export function IncomeSourceCard({ item, onPress }: IncomeSourceCardProps) {
 }
 
 const styles = StyleSheet.create({
+  // Yapışık düz-liste görünümü (cariler dili): kutu değil satır, ayrım 1px çizgi
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
   leftSection: { flexDirection: 'row', alignItems: 'center', flex: 1 },

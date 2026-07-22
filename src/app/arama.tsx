@@ -45,7 +45,7 @@ import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
-import { ensureValidDate, formatDateForDB } from '@/lib/date';
+import { ensureValidDate, formatDateForDB, parseDateFromDB } from '@/lib/date';
 import { normalizeTurkish, upperTr } from '@/lib/turkishTextUtils';
 import { isLeaveType, isIncomeType } from '@/constants/islemTypes';
 
@@ -224,7 +224,7 @@ export default function AramaPage() {
 
   const dateInRange = useCallback((dateStr: string | undefined | null): boolean => {
     if (!hasDateFilter || !dateStr) return true;
-    const d = new Date(dateStr);
+    const d = parseDateFromDB(dateStr);
     if (dateFrom) {
       const from = new Date(dateFrom);
       from.setHours(0, 0, 0, 0);
@@ -539,7 +539,7 @@ export default function AramaPage() {
       case 'islem': {
         const typeLabel = t(`transactions:types.${item.data.type}`);
         const parts: string[] = [typeLabel];
-        if (item.data.date) parts.push(formatDateNative(new Date(item.data.date)));
+        if (item.data.date) parts.push(formatDateNative(parseDateFromDB(String(item.data.date))));
         if (item.data.hesap?.name) parts.push(item.data.hesap.name);
         if (item.data.cari?.name) parts.push(item.data.cari.name);
         if (item.data.personel) {
@@ -613,7 +613,7 @@ export default function AramaPage() {
                     <View style={styles.islemTitleRow}>
                       {item.data.date ? (
                         <Text style={styles.islemDate}>
-                          {formatDateNative(new Date(item.data.date))}
+                          {formatDateNative(parseDateFromDB(String(item.data.date)))}
                         </Text>
                       ) : null}
                       <View style={styles.islemNameWrap}>

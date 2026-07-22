@@ -4,6 +4,7 @@ import { Text, Card } from '@/components/ui';
 import { ProductDetailModal } from '@/components/transaction';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { parseDateFromDB } from '@/lib/date';
 import {
   ShoppingCart,
   CreditCard,
@@ -127,7 +128,8 @@ export function EntityTransactionList({
         {displayTransactions.map((transaction, index) => {
           const { Icon, color, label } = getTransactionStyle(transaction.type, t);
           const isLast = index === displayTransactions.length - 1;
-          const dateObj = new Date(transaction.date);
+          // 1970-guard: ham new Date() Hermes'te boşluklu/bozuk string'de Invalid olur
+          const dateObj = parseDateFromDB(transaction.date);
           // İşlemi kendi (hedef taraf) para biriminde göster — yerleşik desen
           const xc = getCrossCurrencyDisplay(transaction);
 

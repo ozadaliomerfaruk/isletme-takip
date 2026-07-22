@@ -30,6 +30,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
 import { getTransactionColor, getTransactionPrefix, showAccentBar } from '@/lib/transactionColors';
 import { toErrorMessage } from '@/lib/errors';
+import { parseDateFromDB } from '@/lib/date';
 import { exportLeaveHistory } from '@/lib/pageExports';
 import type { IslemWithRelations, Not } from '@/types/database';
 
@@ -325,8 +326,9 @@ export default function LeaveHistoryPage() {
       const dateEnd = (islem as { date_end?: string | null }).date_end;
       let dateRangeText: string | null = null;
       if (dateEnd) {
-        const startDate = new Date(islem.date);
-        const endDate = new Date(dateEnd);
+        // 1970-guard: ham new Date() Hermes'te boşluklu/bozuk string'de Invalid olur
+        const startDate = parseDateFromDB(islem.date);
+        const endDate = parseDateFromDB(dateEnd);
         dateRangeText = `${formatDateMedium(startDate)} - ${formatDateMedium(endDate)}`;
       }
 

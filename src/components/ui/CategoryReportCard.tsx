@@ -618,21 +618,19 @@ export function HierarchicalCategoryReportCard({
 }
 
 const styles = StyleSheet.create({
+  // Yapışık düz-liste görünümü (cariler dili): kutu değil satır, ayrım 1px çizgi
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
+  // Alt-kategorili ebeveyn: alt çizgiyi children bloğu taşır (çift çizgi olmasın)
   parentContainer: {
-    marginBottom: 0,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    borderBottomWidth: 0,
   },
   hierarchicalContainer: {
-    marginBottom: spacing.sm,
+    marginBottom: 0,
   },
   header: {
     flexDirection: 'row',
@@ -694,11 +692,8 @@ const styles = StyleSheet.create({
   // Alt kategoriler için stiller
   childrenContainer: {
     backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: colors.border,
-    borderBottomLeftRadius: borderRadius.lg,
-    borderBottomRightRadius: borderRadius.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
     paddingVertical: spacing.xs,
   },
   childContainer: {

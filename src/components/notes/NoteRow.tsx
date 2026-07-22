@@ -10,6 +10,7 @@ import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { supabase } from '@/lib/supabase';
+import { parseDateFromDB } from '@/lib/date';
 import type { Not } from '@/types/database';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -94,7 +95,7 @@ export function NoteRow({
   }, [note.id]);
 
   const formatReminder = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = parseDateFromDB(dateStr);
     const now = new Date();
     const diffMs = date.getTime() - now.getTime();
     const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
