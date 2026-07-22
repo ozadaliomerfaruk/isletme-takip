@@ -28,7 +28,6 @@ import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency } from '@/lib/currency';
-import { formatDateSmart } from '@/lib/date';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
@@ -251,12 +250,13 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
       enabled={canEdit}
       deleteLabel={deleteLabel}
       copyLabel={copyLabel}
+      flush
     >
+      {/* Tarih satıra yazılmaz: bölüm başlığı pill'inde zaten var (yapışık liste dili) */}
       <TransactionRow
         id={islem.id}
         type={islem.type}
         amount={getDisplayAmount(islem, hesapId)}
-        date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}

@@ -61,6 +61,11 @@ import { formatCurrency, formatQuantity } from '@/lib/currency';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
+// Hareket satırları yapışık; ayrım 1px gri çizgi (cariler listesi dili)
+const HareketSeparator = () => (
+  <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: spacing.lg }} />
+);
+
 export default function UrunDetayPage() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -233,7 +238,10 @@ export default function UrunDetayPage() {
     const iade = isIadeYon(yon);
     return (
     <View style={{ paddingHorizontal: spacing.lg }}>
+      {/* Yapışık düz-liste görünümü (cariler dili) — ayrım FlatList ayracından */}
       <ExpandableCard
+        style={{ borderRadius: 0, marginBottom: 0 }}
+        showChevron={false}
         expanded={expandedHareketId === hareket.id}
         onToggle={() => setExpandedHareketId(expandedHareketId === hareket.id ? null : hareket.id)}
         header={
@@ -466,6 +474,7 @@ export default function UrunDetayPage() {
           data={hareketlerLoading ? [] : (hareketler?.filter(h => !pendingDeleteIds.has(h.id)) ?? [])}
           keyExtractor={(h) => h.id}
           renderItem={renderHareket}
+          ItemSeparatorComponent={HareketSeparator}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
           initialNumToRender={10}

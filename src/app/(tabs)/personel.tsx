@@ -50,6 +50,9 @@ import { exportEntityListToExcel, type EntityListCell, type EntityListSummaryLin
 import { exportEntityListToPdf } from '@/lib/entityListPdf';
 import { ShareOptionsSheet, ListPdfPreviewSheet } from '@/components/export';
 
+// Satırlar birbirine yapışık; aralarında yalnız 1px gri ayraç (cariler listesi dili)
+const PersonelListSeparator = () => <View style={styles.separator} />;
+
 export default function PersonelPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -545,6 +548,8 @@ export default function PersonelPage() {
           </TouchableOpacity>
         ) : (
           <ExpandableCard
+            style={styles.flatCard}
+            showChevron={false}
             expanded={expandedPersonelId === personel.id}
             onToggle={() => setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id)}
             header={
@@ -708,6 +713,7 @@ export default function PersonelPage() {
         data={isLoading ? [] : filteredPersonel}
         keyExtractor={(item) => item.id}
         renderItem={renderPersonelItem}
+        ItemSeparatorComponent={PersonelListSeparator}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListHeaderComponent={ListHeader}
@@ -1062,16 +1068,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  // Multi-select styles
+  // Yapışık düz-liste görünümü (cariler dili)
+  flatCard: {
+    borderRadius: 0,
+    marginBottom: 0,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  // Multi-select styles (düz-liste ile uyumlu: köşe/boşluk yok)
   selectedItem: {
     backgroundColor: colors.primaryLight,
-    borderRadius: borderRadius.lg,
   },
   selectableCard: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.md,
   },
   checkbox: {
     marginRight: spacing.sm,

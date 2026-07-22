@@ -303,7 +303,7 @@ export default function LeaveHistoryPage() {
       if (item.type === 'note') {
         const noteData = item.data as Not;
         return (
-          <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
+          <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel} flush>
             <NoteRow
               note={noteData}
               onEdit={() => setEditingNoteId(item.data.id)}
@@ -336,6 +336,7 @@ export default function LeaveHistoryPage() {
           onCopy={() => handleCopyIslem(islem.id)}
           deleteLabel={deleteLabel}
           copyLabel={copyLabel}
+          flush
         >
           <TouchableOpacity
             activeOpacity={0.7}
@@ -635,7 +636,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
     gap: spacing.md,
   },

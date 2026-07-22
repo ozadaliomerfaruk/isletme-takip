@@ -92,7 +92,6 @@ interface PersonelTransactionItemProps {
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
   onCopy: (id: string) => void;
-  formatDateSmart: (date: string) => string;
   t: (key: string) => string;
   currency?: string;
   deleteLabel: string;
@@ -111,7 +110,6 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   onPress,
   onDelete,
   onCopy,
-  formatDateSmart,
   t,
   currency,
   deleteLabel,
@@ -136,12 +134,11 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   const xc = getCrossCurrencyDisplay(islem);
 
   return (
-    <SwipeableRow onDelete={canEdit ? handleDelete : undefined} onCopy={canEdit ? handleCopy : undefined} enabled={canEdit} deleteLabel={deleteLabel} copyLabel={copyLabel}>
+    <SwipeableRow onDelete={canEdit ? handleDelete : undefined} onCopy={canEdit ? handleCopy : undefined} enabled={canEdit} deleteLabel={deleteLabel} copyLabel={copyLabel} flush>
       <TransactionRow
         id={islem.id}
         type={islem.type}
         amount={xc.subText ? xc.mainAmount : Number(islem.amount)}
-        date={formatDateSmart(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
@@ -543,7 +540,7 @@ export default function PersonelHareketleriPage() {
     if (item.type === 'note') {
       const noteData = item.data as Not;
       return (
-        <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel}>
+        <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel} flush>
           <NoteRow
             note={noteData}
             onEdit={() => setEditingNoteId(item.data.id)}
@@ -562,7 +559,6 @@ export default function PersonelHareketleriPage() {
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
         onCopy={handleCopyIslem}
-        formatDateSmart={formatDateSmart}
         t={t}
         currency={personel?.currency}
         deleteLabel={deleteLabel}

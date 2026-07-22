@@ -15,6 +15,9 @@ import { useTaksitPlanListesi, type TaksitPlanOzet } from '@/hooks/useTaksit';
  * Taksit Takip (Faz 3) — işletmedeki tüm taksit planları.
  * Ödenen/kalan değerleri tahsis defterinden türer (get_taksit_plan_listesi RPC).
  */
+// Satırlar yapışık; ayrım 1px gri çizgi (cariler listesi dili)
+const TaksitSeparator = () => <View style={styles.separator} />;
+
 export default function TaksitTakipPage() {
   const { t } = useTranslation(['transactions', 'common', 'clients']);
   const router = useRouter();
@@ -147,6 +150,7 @@ export default function TaksitTakipPage() {
           data={filtreli}
           keyExtractor={(item) => item.plan_id}
           renderItem={renderItem}
+          ItemSeparatorComponent={TaksitSeparator}
           contentContainerStyle={styles.listContent}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
@@ -231,14 +235,17 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: colors.text,
   },
+  // Yapışık düz-liste görünümü (cariler dili): kart boşluğu/köşesi yok, 1px ayraç
   listContent: {
     padding: spacing.lg,
     paddingTop: spacing.sm,
-    gap: spacing.sm,
+  },
+  separator: {
+    height: 1,
+    backgroundColor: colors.border,
   },
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
     padding: spacing.md,
   },
   cardHeader: {

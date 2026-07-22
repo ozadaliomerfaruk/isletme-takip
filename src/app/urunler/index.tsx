@@ -33,6 +33,12 @@ import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 type SortType = 'nameAZ' | 'nameZA' | 'purchaseMost' | 'purchaseLeast' | 'saleMost' | 'saleLeast';
 
+// Satırlar yapışık; ayrım 1px gri çizgi (cariler listesi dili). Satır sarmalayıcısı
+// yatay padding taşıdığından ayraç da aynı hizada başlar.
+const UrunListSeparator = () => (
+  <View style={{ height: 1, backgroundColor: colors.border, marginHorizontal: spacing.lg }} />
+);
+
 export default function UrunlerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -776,6 +782,7 @@ export default function UrunlerPage() {
         data={listData}
         keyExtractor={keyExtractor}
         renderItem={activeTab === 'active' ? renderActiveItem : renderArchivedItem}
+        ItemSeparatorComponent={UrunListSeparator}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         ListHeaderComponent={listHeaderComponent}

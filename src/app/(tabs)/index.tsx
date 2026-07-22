@@ -516,10 +516,15 @@ export default function HomePage() {
                     </Text>
                   </View>
 
-                  {/* Grup İçindeki Hesaplar */}
-                  {groupHesaplar.map((hesap) => (
-                    <View key={hesap.id} style={!hesap.is_active ? styles.passiveItem : undefined}>
+                  {/* Grup İçindeki Hesaplar — yapışık düz satırlar, 1px ayraç (cariler dili) */}
+                  {groupHesaplar.map((hesap, hesapIndex) => (
+                    <View
+                      key={hesap.id}
+                      style={[hesapIndex > 0 && styles.rowDivider, !hesap.is_active && styles.passiveItem]}
+                    >
                       <ExpandableCard
+                        style={styles.flatCard}
+                        showChevron={false}
                         expanded={expandedHesapId === hesap.id}
                         onToggle={() => setExpandedHesapId(expandedHesapId === hesap.id ? null : hesap.id)}
                         header={
@@ -865,6 +870,15 @@ const styles = StyleSheet.create({
   },
   passiveItem: {
     opacity: 0.5,
+  },
+  // Yapışık düz-liste görünümü (cariler dili): kart köşesi/boşluğu yok, 1px ayraç
+  flatCard: {
+    borderRadius: 0,
+    marginBottom: 0,
+  },
+  rowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   actionButtons: {
     flexDirection: 'row',

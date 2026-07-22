@@ -43,6 +43,8 @@ export const ProductRow = memo(function ProductRow({
   return (
     <View style={rowStyles.wrapper}>
       <ExpandableCard
+        style={rowStyles.flatCard}
+        showChevron={false}
         expanded={expanded}
         onToggle={handleToggle}
         header={
@@ -160,6 +162,8 @@ export const ArchivedProductRow = memo(function ArchivedProductRow({
   return (
     <View style={rowStyles.wrapper}>
       <ExpandableCard
+        style={rowStyles.flatCard}
+        showChevron={false}
         expanded={expanded}
         onToggle={handleToggle}
         header={
@@ -202,6 +206,11 @@ export const ArchivedProductRow = memo(function ArchivedProductRow({
 const rowStyles = StyleSheet.create({
   wrapper: {
     paddingHorizontal: spacing.lg,
+  },
+  // Yapışık düz-liste görünümü (cariler dili): kart köşesi/boşluğu yok, ayrım listedeki ayraçtan
+  flatCard: {
+    borderRadius: 0,
+    marginBottom: 0,
   },
   header: {
     flexDirection: 'row',

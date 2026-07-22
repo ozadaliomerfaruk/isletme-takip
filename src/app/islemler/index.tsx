@@ -76,7 +76,6 @@ interface IslemlerTransactionItemProps {
   onDelete: (id: string, description: string) => void;
   onCopy: (id: string) => void;
   onPhotoPress?: (id: string) => void;
-  formatDateMedium: (date: string) => string;
   t: (key: string) => string;
   deleteLabel: string;
   copyLabel: string;
@@ -91,7 +90,6 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   onDelete,
   onCopy,
   onPhotoPress,
-  formatDateMedium,
   t,
   deleteLabel,
   copyLabel,
@@ -125,12 +123,13 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
       enabled={canEdit}
       deleteLabel={deleteLabel}
       copyLabel={copyLabel}
+      flush
     >
+      {/* Tarih satıra yazılmaz: bölüm başlığı pill'inde zaten var (yapışık liste dili) */}
       <TransactionRow
         id={islem.id}
         type={islem.type}
         amount={xc.mainAmount}
-        date={formatDateMedium(islem.date)}
         typeLabel={t(`transactions:types.${islem.type}`)}
         entityText={entityName}
         secondaryText={kategoriName}
@@ -430,7 +429,6 @@ export default function IslemlerPage() {
         onDelete={handleDeleteIslem}
         onCopy={handleCopyIslem}
         onPhotoPress={handleViewPhoto}
-        formatDateMedium={formatDateMedium}
         t={t}
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
@@ -439,7 +437,7 @@ export default function IslemlerPage() {
         urunItems={getUrunItems(islem.id)}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, formatDateMedium, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

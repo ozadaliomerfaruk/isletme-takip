@@ -617,12 +617,15 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 11,
   },
+  // Yapışık düz-liste görünümü (cariler dili): kart boşluğu yok, ayrım 1px çizgi
   itemCard: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
+    borderRadius: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   itemContent: {
     flex: 1,
