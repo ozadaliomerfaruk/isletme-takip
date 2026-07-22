@@ -20,11 +20,15 @@ export function useEkstreLinkOlustur() {
   const { isletme } = useAuthContext();
 
   return useMutation({
-    mutationFn: async (cariId: string): Promise<{ url: string; expiresAt: string }> => {
+    /** gecerlilikGun: gün sayısı; null = SÜRESİZ (sunucu 100 yıl damgalar). */
+    mutationFn: async (
+      { cariId, gecerlilikGun }: { cariId: string; gecerlilikGun: number | null },
+    ): Promise<{ url: string; expiresAt: string }> => {
       if (!isletme?.id) throw new Error('isletme yok');
       const { data, error } = await supabase.rpc('ekstre_link_olustur', {
         p_isletme_id: isletme.id,
         p_cari_id: cariId,
+        p_gecerlilik_gun: gecerlilikGun,
       });
       if (error) throw error;
       const result = data as { token: string; expires_at: string };

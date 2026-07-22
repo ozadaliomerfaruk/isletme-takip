@@ -519,6 +519,14 @@
     "accountShare": "Hesap Paylaş",
     "accountShareDesc": "Kullanıcıya erişim verin",
     "ekstreLink": "Ekstre Linki",
+    "ekstreSure": {
+      "title": "Bağlantı ne kadar geçerli olsun?",
+      "gun1": "1 Gün",
+      "hafta1": "1 Hafta",
+      "ay1": "1 Ay",
+      "yil1": "1 Yıl",
+      "suresiz": "Süresiz"
+    },
     "ekstreLinkDesc": "Cariye web ekstre bağlantısı gönderin (30 gün geçerli)",
     "report": "Rapor",
     "send": "Gönder",

@@ -133,10 +133,10 @@
         const bakiye = Number(veri.bakiye) || 0;
         const borclu = bakiye > 0.009;
         const alacakli = bakiye < -0.009;
+        // Yön metni yok (kullanıcı isteği) — yalnız tutar; renk yönü zaten taşır
         const bakiyeText = borclu
           ? `${fmtMoney(bakiye, cur)}`
           : alacakli ? `${fmtMoney(-bakiye, cur)}` : fmtMoney(0, cur);
-        const yon = borclu ? '(bize borçlu)' : alacakli ? '(biz borçluyuz)' : '';
 
         const acilis = Number(veri.acilis) || 0;
         const devirSatiri = Math.abs(acilis) > 0.009
@@ -167,7 +167,7 @@
           <h1>${esc(veri.cari.name)}</h1>
           <div class="bakiye-kutu">
             <span class="bakiye-etiket">GÜNCEL BAKİYE</span>
-            <span class="bakiye ${borclu ? 'borclu' : alacakli ? 'alacakli' : ''}">${esc(bakiyeText)} <small style="font-size:0.7rem;font-weight:600">${esc(yon)}</small></span>
+            <span class="bakiye ${borclu ? 'borclu' : alacakli ? 'alacakli' : ''}">${esc(bakiyeText)}</span>
             <span class="bakiye-alt">Bu sayfa her açılışta güncel veriyi gösterir</span>
           </div>
           <div class="tablo-kap"><table>
@@ -178,7 +178,9 @@
             <tbody>${devirSatiri + satirlar || '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px">Kayıt bulunamadı</td></tr>'}</tbody>
           </table></div>`;
 
-        if (veri.expires_at) {
+        // Süresiz linkte (100+ yıl ileri damga) geçerlilik satırı gösterilmez
+        const expYil = veri.expires_at ? Number(String(veri.expires_at).slice(0, 4)) : 0;
+        if (veri.expires_at && expYil > 0 && expYil < 2100) {
           document.getElementById('altbilgi').innerHTML =
             `Bu ekstre <a href="https://isletmetakip.vercel.app">İşletme Takip</a> uygulamasıyla oluşturuldu<br>` +
             `Bağlantı ${esc(fmtDate(veri.expires_at))} tarihine kadar geçerlidir`;

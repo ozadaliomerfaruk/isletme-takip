@@ -519,6 +519,14 @@
     "accountShare": "Share Account",
     "accountShareDesc": "Give access to a user",
     "ekstreLink": "Statement Link",
+    "ekstreSure": {
+      "title": "How long should the link stay valid?",
+      "gun1": "1 Day",
+      "hafta1": "1 Week",
+      "ay1": "1 Month",
+      "yil1": "1 Year",
+      "suresiz": "Forever"
+    },
     "ekstreLinkDesc": "Send a web statement link to the contact (valid 30 days)",
     "report": "Report",
     "send": "Send",
