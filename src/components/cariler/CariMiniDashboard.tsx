@@ -8,7 +8,7 @@ import { spacing, borderRadius, shadows, fontSize, fontWeight } from '@/constant
 import { formatCurrency } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { useVadeOzet, type VadeOzetSatiri } from '@/hooks/useIslemTahsis';
-import { useBuAyTaksitOzeti } from '@/hooks/useTaksit';
+import { useBuAyTaksitOzeti, useTaksitPlanListesi } from '@/hooks/useTaksit';
 
 const CARD_PADDING = spacing.lg;
 /** Ana sayfa carousel'inin aksine BİLEREK kısa (kompakt özet). */
@@ -45,6 +45,10 @@ export function CariMiniDashboard({
   const { t } = useTranslation(['clients', 'transactions']);
   const { data: vadeRows } = useVadeOzet();
   const { data: taksitOzet } = useBuAyTaksitOzeti();
+  // Kart görünürlüğü PLAN VARLIĞINA bağlı (bu-ay özetine değil): yeni planın ilk
+  // taksiti çoğu zaman GELECEK ayda başlar — "bu ay boş" diye kartı gizlemek
+  // "taksit ekledim, kart açılmadı" hissi veriyordu (cihaz bulgusu).
+  const { data: taksitPlanlar } = useTaksitPlanListesi();
 
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
@@ -185,7 +189,7 @@ export function CariMiniDashboard({
   // taksit varsa.
   const cards: CardKey[] = ['genel'];
   if (rows.length > 0) cards.push('vade');
-  if ((taksitOzet?.adet ?? 0) > 0) cards.push('taksit');
+  if ((taksitPlanlar?.length ?? 0) > 0) cards.push('taksit');
 
   return (
     <View style={styles.wrapper}>
