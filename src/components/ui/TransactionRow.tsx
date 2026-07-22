@@ -149,7 +149,9 @@ export const TransactionRow = memo(function TransactionRow({
             uyumlu); renk vade durumundan. line2'de olsaydı tutar kolonuna taşardı. */}
         {vadeText ? (
           <View style={styles.vadeRow}>
-            <Text style={[styles.vadeText, { color: VADE_COLORS[vadeState ?? 'future'].fg }]} numberOfLines={1}>
+            {/* Satır sınırı yok: uzun metin (taksit oranı + kalan) kırpılmak yerine sarar;
+                çok satırlı içerik '\n' ile bilinçli bölünebilir */}
+            <Text style={[styles.vadeText, { color: VADE_COLORS[vadeState ?? 'future'].fg }]}>
               {vadeText}
             </Text>
           </View>

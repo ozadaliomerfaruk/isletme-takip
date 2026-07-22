@@ -944,8 +944,9 @@ export default function CariHareketleriPage() {
             itemVadeText = `${t('transactions:taksit.label')} · ${t('transactions:taksit.tamamlandi')}`;
             itemVadeState = 'paid';
           } else {
+            // Oran ve kalan AYRI satırlarda: tek satırda sığmıyor/okunmuyordu
             itemVadeText = itemKalan !== null
-              ? `${taksitOran ?? t('transactions:taksit.label')} · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`
+              ? `${taksitOran ?? t('transactions:taksit.label')}\n${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`
               : (taksitOran ?? t('transactions:taksit.label'));
             itemVadeState = 'future';
             if (!isViewer && canEditItem && (islem.type === 'cari_satis' || islem.type === 'cari_alis')) {
