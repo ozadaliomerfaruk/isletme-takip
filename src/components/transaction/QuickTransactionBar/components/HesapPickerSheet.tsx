@@ -117,6 +117,7 @@ export function HesapPickerSheet({
                 style={styles.bottomSheetList}
                 contentContainerStyle={styles.bottomSheetListContent}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
               >
                 {filteredHesaplar.map((hesap) => {
                   const isSelected = selectedId === hesap.id;

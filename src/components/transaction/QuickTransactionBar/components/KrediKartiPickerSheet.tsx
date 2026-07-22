@@ -80,6 +80,7 @@ export function KrediKartiPickerSheet({
                 style={styles.bottomSheetList}
                 contentContainerStyle={styles.bottomSheetListContent}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
               >
                 {krediKartiHesaplari.map((hesap) => {
                   const isSelected = selectedId === hesap.id;

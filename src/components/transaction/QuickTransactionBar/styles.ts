@@ -378,18 +378,16 @@ export const styles = StyleSheet.create({
     // Alta yüzen arama çubuğu son satırı örtmesin
     paddingBottom: 24 + FLOATING_SEARCH_CLEARANCE,
   },
+  // Yapışık düz-liste standardı: kutu yok, ayrım 1px çizgi; seçili = zemin tintli satır
   bottomSheetItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: colors.surfaceLighter,
-    borderRadius: 12,
-    marginBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   bottomSheetItemSelected: {
     backgroundColor: colors.primaryLight + '30',
-    borderWidth: 1,
-    borderColor: colors.primary,
   },
   bottomSheetItemIcon: {
     width: 40,

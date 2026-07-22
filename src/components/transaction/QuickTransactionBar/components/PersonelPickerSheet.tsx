@@ -111,6 +111,7 @@ export function PersonelPickerSheet({
                 style={styles.bottomSheetList}
                 contentContainerStyle={styles.bottomSheetListContent}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
               >
                 {filteredPersonel.map((personel) => {
                   const isSelected = selectedId === personel.id;

@@ -148,6 +148,7 @@ export function CariPickerSheet({
                 style={styles.bottomSheetList}
                 contentContainerStyle={styles.bottomSheetListContent}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
               >
                 {filteredCariler.map((cari) => {
                   const isSelected = selectedId === cari.id;
@@ -192,8 +193,9 @@ export function CariPickerSheet({
                   );
                 })}
                 {showCreateRow && (
+                  {/* Yeni-ekle satırı: kesikli kutu yerine standart düz satır (renkli ikon+metin yeterli) */}
                   <TouchableOpacity
-                    style={[styles.bottomSheetItem, { borderStyle: 'dashed', borderWidth: 1, borderColor: iconColor }]}
+                    style={styles.bottomSheetItem}
                     onPress={handleCreateNew}
                     disabled={creating}
                   >

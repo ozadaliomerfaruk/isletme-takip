@@ -392,6 +392,7 @@ export function UrunPickerModal({
                 style={styles.content}
                 contentContainerStyle={styles.contentContainer}
                 keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                 nestedScrollEnabled
                 showsVerticalScrollIndicator
                 automaticallyAdjustKeyboardInsets
@@ -666,6 +667,7 @@ export function UrunPickerModal({
                         style={styles.addedPanelScroll}
                         nestedScrollEnabled
                         keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
                       >
                         {urunItems.map((item) => {
                           const lineTotal = calculateUrunLineTotal(item);
