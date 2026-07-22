@@ -22,6 +22,19 @@ const HEADERS_HTML = {
   "X-Robots-Tag": "noindex, nofollow",
 };
 
+// JSON modu (web görüntüleyici için): Supabase, *.supabase.co'dan HTML servis
+// edilmesini engelliyor (text/plain + sandbox CSP'ye çeviriyor — phishing önlemi).
+// Güzel arayüz kendi sitemizde yaşar; bu function ?format=json ile VERİ verir.
+// CORS *: veri zaten yalnız opak token'la erişilir; origin kısıtı gerekmiyor.
+const HEADERS_JSON = {
+  "Content-Type": "application/json; charset=utf-8",
+  "Cache-Control": "no-store",
+  "X-Robots-Tag": "noindex, nofollow",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "content-type",
+};
+
 function esc(s: unknown): string {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -114,11 +127,22 @@ function errorPage(msg: string, status: number): Response {
   return new Response(htmlPage("Ekstre", body), { status, headers: HEADERS_HTML });
 }
 
-Deno.serve(async (req) => {
-  if (req.method !== "GET") return errorPage("Geçersiz istek.", 405);
+function errorJson(msg: string, status: number): Response {
+  return new Response(JSON.stringify({ error: msg }), { status, headers: HEADERS_JSON });
+}
 
-  const token = new URL(req.url).searchParams.get("token") ?? "";
-  if (!/^[0-9a-f]{48}$/.test(token)) return errorPage("Geçersiz bağlantı.", 400);
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: HEADERS_JSON });
+
+  const url = new URL(req.url);
+  const wantsJson = url.searchParams.get("format") === "json";
+  const fail = (msg: string, status: number) =>
+    wantsJson ? errorJson(msg, status) : errorPage(msg, status);
+
+  if (req.method !== "GET") return fail("Geçersiz istek.", 405);
+
+  const token = url.searchParams.get("token") ?? "";
+  if (!/^[0-9a-f]{48}$/.test(token)) return fail("Geçersiz bağlantı.", 400);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -132,10 +156,10 @@ Deno.serve(async (req) => {
     .eq("token", token)
     .maybeSingle();
 
-  if (linkErr) return errorPage("Beklenmeyen bir hata oluştu.", 500);
-  if (!link || link.revoked) return errorPage("Bu bağlantı iptal edilmiş veya geçersiz.", 404);
+  if (linkErr) return fail("Beklenmeyen bir hata oluştu.", 500);
+  if (!link || link.revoked) return fail("Bu bağlantı iptal edilmiş veya geçersiz.", 404);
   if (new Date(link.expires_at).getTime() < Date.now()) {
-    return errorPage("Bu bağlantının süresi dolmuş. İşletmeden yeni bağlantı isteyin.", 410);
+    return fail("Bu bağlantının süresi dolmuş. İşletmeden yeni bağlantı isteyin.", 410);
   }
 
   // En YENİ kayıtlar asla kırpılmaz: DESC çek, sonra ters çevir. Kırpılan eski
@@ -157,7 +181,7 @@ Deno.serve(async (req) => {
       .limit(2000),
   ]);
 
-  if (islemErr || !cari) return errorPage("Beklenmeyen bir hata oluştu.", 500);
+  if (islemErr || !cari) return fail("Beklenmeyen bir hata oluştu.", 500);
 
   const currency = (cari.currency as string) || "TRY";
   const r2 = (v: number) => Math.round(v * 100) / 100;
@@ -168,6 +192,35 @@ Deno.serve(async (req) => {
   const toplamEtki = r2(rows.reduce((s, r) => s + cariDelta(r as Parameters<typeof cariDelta>[0]), 0));
   const gercekBakiye = r2(Number(cari.balance) || 0);
   const acilis = r2(gercekBakiye - toplamEtki);
+
+  // JSON modu: web görüntüleyici (kendi sitemiz) ham veriyi alıp arayüzü kendisi çizer
+  if (wantsJson) {
+    let jb = acilis;
+    const jsonSatirlar = rows.map((r) => {
+      const delta = cariDelta(r as Parameters<typeof cariDelta>[0]);
+      jb = r2(jb + delta);
+      return {
+        tarih: String(r.date).slice(0, 10),
+        tip: r.type,
+        tip_etiket: TIP_ETIKET[r.type as string],
+        aciklama: r.description ?? null,
+        vade_tarihi: r.vade_tarihi ?? null,
+        tutar: delta,
+        bakiye: jb,
+      };
+    });
+    return new Response(
+      JSON.stringify({
+        cari: { name: cari.name, currency },
+        isletme: { name: isletme?.name ?? null },
+        bakiye: gercekBakiye,
+        acilis,
+        satirlar: jsonSatirlar,
+        expires_at: link.expires_at,
+      }),
+      { status: 200, headers: HEADERS_JSON },
+    );
+  }
 
   let bakiye = acilis;
   const acilisSatiri = Math.abs(acilis) > 0.009
