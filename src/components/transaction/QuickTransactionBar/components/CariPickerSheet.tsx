@@ -192,8 +192,8 @@ export function CariPickerSheet({
                     </TouchableOpacity>
                   );
                 })}
+                {/* Yeni-ekle satırı: kesikli kutu yerine standart düz satır (renkli ikon+metin yeterli) */}
                 {showCreateRow && (
-                  {/* Yeni-ekle satırı: kesikli kutu yerine standart düz satır (renkli ikon+metin yeterli) */}
                   <TouchableOpacity
                     style={styles.bottomSheetItem}
                     onPress={handleCreateNew}
