@@ -31,7 +31,7 @@ import {
   ChevronUp,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -929,15 +929,24 @@ export default function CariHareketleriPage() {
         if (isTaksitli) {
           // TAKSİTLİ işlem: işlem vadesi = İLK taksit tarihi; işlem-bütünü kalanla
           // gün hesabı yapılırsa plan yolunda giderken bile "vadesi geçti" çıkar
-          // (yanlış alarm — inceleme bulgusu). Pill tarafsız "Taksit · Kalan: X"
-          // gösterir; gecikme kırılımı Taksit Takip/detayda birim bazında.
+          // (yanlış alarm — inceleme bulgusu). Satır tarafsız "3/12 taksit ödendi ·
+          // Kalan: X" gösterir; gecikme kırılımı Taksit Takip/detayda birim bazında.
+          const birimler = taksitBirimleri?.[islem.id];
+          // Ödenen/toplam taksit ("3/12 taksit ödendi") — birim kalanlarından
+          let taksitOran: string | null = null;
+          if (birimler && birimler.length > 0 && tahsisOzeti) {
+            const odenen = birimler.filter(
+              (tk) => roundCurrency(tk.tutar - (tahsisOzeti.taksitTahsisleri?.[tk.id] ?? 0)) <= 0.009
+            ).length;
+            taksitOran = t('transactions:taksit.odenenOran', { odenen, toplam: birimler.length });
+          }
           if (cariPaidCrude || (itemKalan !== null && itemKalan <= 0.009)) {
             itemVadeText = `${t('transactions:taksit.label')} · ${t('transactions:taksit.tamamlandi')}`;
             itemVadeState = 'paid';
           } else {
             itemVadeText = itemKalan !== null
-              ? `${t('transactions:taksit.label')} · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`
-              : t('transactions:taksit.label');
+              ? `${taksitOran ?? t('transactions:taksit.label')} · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`
+              : (taksitOran ?? t('transactions:taksit.label'));
             itemVadeState = 'future';
             if (!isViewer && canEditItem && (islem.type === 'cari_satis' || islem.type === 'cari_alis')) {
               const prefillType = islem.type === 'cari_satis' ? 'tahsilat' : 'odeme';
@@ -946,7 +955,6 @@ export default function CariHareketleriPage() {
               // taksit 40 binse 40 bin gelsin). İşlem-bütünü kalan DEĞİL — o,
               // "bu ayın taksitini alacaktım, tüm kalanı kaydettim" kazası üretir.
               // Hedefli retahsis zaten bu planın en eski açık taksitinden kapatır.
-              const birimler = taksitBirimleri?.[islem.id];
               if (birimler && tahsisOzeti) {
                 for (const tk of birimler) {
                   const tkKalan = roundCurrency(tk.tutar - (tahsisOzeti.taksitTahsisleri?.[tk.id] ?? 0));
@@ -1351,22 +1359,27 @@ export default function CariHareketleriPage() {
   const ListFooter = useMemo(() => {
     if (!cari || islemlerLoading) return null;
     return (
-      <View style={styles.section}>
+      <>
         {hasNextPage && (
-          <TouchableOpacity
-            style={styles.loadMoreBtn}
-            onPress={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.loadMoreText}>
-              {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loadMoreText}>
+                {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
+              </Text>
+            </TouchableOpacity>
+          </View>
         )}
-        <Card
-          style={styles.hareketCard}
+        {/* Başlangıç bakiyesi: ayrı kart değil, işlem satırlarıyla bitişik düz satır */}
+        <TouchableOpacity
+          style={styles.initialBalanceFlatRow}
           onPress={isBalanceEditable ? handleOpenEditBalance : undefined}
+          disabled={!isBalanceEditable}
+          activeOpacity={0.7}
         >
           <View style={styles.hareketHeader}>
             <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
@@ -1402,8 +1415,8 @@ export default function CariHareketleriPage() {
               )}
             </View>
           </View>
-        </Card>
-      </View>
+        </TouchableOpacity>
+      </>
     );
   }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isBalanceEditable, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
 
@@ -1977,8 +1990,13 @@ const styles = StyleSheet.create({
   hareketInfo: {
     flex: 1,
   },
-  hareketCard: {
-    marginBottom: spacing.sm,
+  // Başlangıç bakiyesi düz satırı — TransactionRow ile aynı dolgu/çizgi (bitişik görünüm)
+  initialBalanceFlatRow: {
+    backgroundColor: colors.surface,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
   },
   // Header right buttons
   headerRightContainer: {
