@@ -7,7 +7,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
-import { useVadeOzet, type VadeOzetSatiri } from '@/hooks/useIslemTahsis';
+import { useVadeOzet, useVadeListesi, type VadeOzetSatiri } from '@/hooks/useIslemTahsis';
 import { useBuAyTaksitOzeti, useTaksitPlanListesi } from '@/hooks/useTaksit';
 
 const CARD_PADDING = spacing.lg;
@@ -50,6 +50,10 @@ export function CariMiniDashboard({
   // taksiti çoğu zaman GELECEK ayda başlar — "bu ay boş" diye kartı gizlemek
   // "taksit ekledim, kart açılmadı" hissi veriyordu (cihaz bulgusu).
   const { data: taksitPlanlar } = useTaksitPlanListesi();
+  // Vade kartı görünürlüğü PLANSIZ vadeli işleme bağlı: vade özeti taksit
+  // birimlerini de sayar; yalnız-taksitli kullanıcıda Vade kartı çıkıp boş
+  // /vade sayfasına götürüyordu (sadelik: kullanılmayan özellik hiç görünmesin).
+  const { data: vadeBirimler } = useVadeListesi();
 
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
@@ -221,7 +225,7 @@ export function CariMiniDashboard({
   // (get_vade_ozet satırı = en az bir açık vadeli birim), Taksit yalnız bu ay
   // taksit varsa.
   const cards: CardKey[] = ['genel'];
-  if (rows.length > 0) cards.push('vade');
+  if ((vadeBirimler ?? []).some((b) => b.taksit_sira == null)) cards.push('vade');
   if ((taksitPlanlar?.length ?? 0) > 0) cards.push('taksit');
 
   return (
