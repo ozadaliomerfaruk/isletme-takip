@@ -242,14 +242,12 @@ export function HeaderSection({
 }
 
 const local = StyleSheet.create({
+  // Yapışık düz görünüm: bar kutu değil — kartla aynı zemin, ayrım headerRow çizgisinden
   flatBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 46,
-    borderRadius: 10,
-    backgroundColor: colors.background,
+    height: 42,
     flexShrink: 1,
-    overflow: 'hidden',
   },
   segment: {
     flexDirection: 'row',
@@ -290,8 +288,8 @@ const local = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.background,
     overflow: 'hidden',
-    marginTop: -6,
-    marginBottom: 12,
+    marginTop: 6,
+    marginBottom: 6,
   },
   vadeMenuItem: {
     flexDirection: 'row',

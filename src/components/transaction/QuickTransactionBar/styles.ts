@@ -62,10 +62,13 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 4,
   },
+  // Yapışık düz-liste görünümü (kullanıcı isteği): kart içindeki satırlar ayrı
+  // kutucuklar değil — bitişik, aralarında ince çizgi. Boşluklar sıfırlandı.
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   dateRangeRow: {
     flex: 1,
@@ -146,11 +149,10 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    marginBottom: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   pickerButtonText: {
     flex: 1,
@@ -308,11 +310,10 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    height: 46,
-    paddingHorizontal: 12,
-    backgroundColor: colors.infoLight,
-    borderRadius: 8,
-    marginBottom: 6,
+    height: 44,
+    paddingHorizontal: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   sourceAccountText: {
     fontSize: 14,
@@ -478,16 +479,15 @@ export const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 2,
   },
-  // Odeme/Tahsilat Satiri
+  // Odeme/Tahsilat Satiri — yapışık düz satır (kutu yok, ince çizgi)
   paymentRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    marginBottom: 6,
+    paddingHorizontal: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   paymentRowLeft: {
     flex: 1,

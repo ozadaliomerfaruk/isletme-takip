@@ -132,8 +132,12 @@ export const HedefBorcSecici = memo(function HedefBorcSecici({
 });
 
 const s = StyleSheet.create({
+  // Yapışık düz görünüm: üstteki satırlarla bitişik, altta ince çizgi
   wrap: {
-    marginTop: spacing.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 12,
