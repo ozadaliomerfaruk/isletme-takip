@@ -103,7 +103,7 @@ export function HesapPickerSheet({
             <View
               style={[
                 styles.bottomSheetContent,
-                { height: windowHeight * 0.85, paddingBottom: insets.bottom },
+                { height: windowHeight * 0.78, paddingBottom: insets.bottom },
               ]}
             >
               <View style={styles.bottomSheetHeader}>
