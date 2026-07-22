@@ -59,6 +59,8 @@ export interface SwipeableRowProps {
   copyLabel?: string;
   /** FlashList recycle güvenliği: değişince açık swipe durumunu kapatır (eski satırın açık hali yeni kayda sızmasın). */
   itemKey?: string | number;
+  /** true: satır altı boşluk yok (bitişik düz-liste görünümü; ayrım satırın kendi çizgisinden). */
+  flush?: boolean;
 }
 
 export function SwipeableRow({
@@ -72,6 +74,7 @@ export function SwipeableRow({
   actionIcon,
   copyLabel,
   itemKey,
+  flush,
 }: SwipeableRowProps) {
   const { t } = useTranslation(['common']);
   const swipeableRef = useRef<SwipeableMethods>(null);
@@ -149,7 +152,7 @@ export function SwipeableRow({
       enableTrackpadTwoFingerGesture
       renderRightActions={renderRightActions}
       onSwipeableWillOpen={handleSwipeOpen}
-      containerStyle={styles.swipeableContainer}
+      containerStyle={flush ? undefined : styles.swipeableContainer}
     >
       {children}
     </ReanimatedSwipeable>

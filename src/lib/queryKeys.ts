@@ -46,8 +46,10 @@ export const queryKeys = {
   // Tahsis defteri (Faz 2 — FIFO ödeme tahsisi; islem_tahsis tablosu + get_vade_ozet RPC)
   islemTahsis: {
     all: () => ['islem-tahsis'] as const,
+    // v2: özete taksitTahsisleri eklendi — disk-persist'teki eski şekilli cache'i
+    // atlatmak için key bump (şema kuralı: sorgu şekli değişince şart)
     byCari: (cariId: string, isletmeId: string) =>
-      ['islem-tahsis', 'cari', cariId, isletmeId] as const,
+      ['islem-tahsis', 'cari-v2', cariId, isletmeId] as const,
     vadeOzet: (isletmeId: string) =>
       ['islem-tahsis', 'vade-ozet', isletmeId] as const,
     vadeliBorclar: (cariId: string, isletmeId: string) =>
@@ -66,6 +68,7 @@ export const queryKeys = {
     byIslem: (islemId: string, isletmeId: string) => ['taksit', 'by-islem', islemId, isletmeId] as const,
     buAy: (isletmeId: string, ay: string) => ['taksit', 'bu-ay', isletmeId, ay] as const,
     cariPlanlar: (cariId: string, isletmeId: string) => ['taksit', 'cari-planlar', cariId, isletmeId] as const,
+    cariBirimler: (cariId: string, isletmeId: string) => ['taksit', 'cari-birimler', cariId, isletmeId] as const,
   },
 
   // Hesaplar

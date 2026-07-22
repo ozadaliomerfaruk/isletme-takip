@@ -29,7 +29,9 @@ export interface TransactionRowProps {
   id: string;
   type: IslemType;
   amount: number | string;
-  date: string;
+  /** Satırda gösterilecek tarih — verilmezse hiç çizilmez (ör. cari detay: tarih
+      zaten bölüm başlığı pill'inde; satırda tekrarına gerek yok). */
+  date?: string;
   typeLabel: string;
   /** Counterparty / entity name — rendered prominently */
   entityText?: string | null;
@@ -124,32 +126,32 @@ export const TransactionRow = memo(function TransactionRow({
           </Text>
         )}
 
-        {/* Line 2: Type label + date + creator */}
-        <View style={styles.line2}>
-          {entityText ? (
-            <Text style={[styles.typeTextSmall, { color: txColor }]} numberOfLines={1}>
-              {typeLabel}
-            </Text>
-          ) : null}
-          {entityText && <Text style={styles.dot}> · </Text>}
-          <Text style={styles.dateText}>{date}</Text>
-          {creatorText ? (
-            <>
-              <Text style={styles.dot}> · </Text>
-              <Text style={styles.creatorText} numberOfLines={1}>{creatorText}</Text>
-            </>
-          ) : null}
-        </View>
+        {/* Line 2: Type label + date + creator — yalnız içerik varsa (tarih opsiyonel) */}
+        {(entityText || date || creatorText) ? (
+          <View style={styles.line2}>
+            {entityText ? (
+              <Text style={[styles.typeTextSmall, { color: txColor }]} numberOfLines={1}>
+                {typeLabel}
+              </Text>
+            ) : null}
+            {entityText && date ? <Text style={styles.dot}> · </Text> : null}
+            {date ? <Text style={styles.dateText}>{date}</Text> : null}
+            {creatorText ? (
+              <>
+                {(entityText || date) ? <Text style={styles.dot}> · </Text> : null}
+                <Text style={styles.creatorText} numberOfLines={1}>{creatorText}</Text>
+              </>
+            ) : null}
+          </View>
+        ) : null}
 
-        {/* Vade pill'i KENDİ satırında — line2 içinde uzun "Kalan/Mahsup·Avans"
-            metni tutar kolonuna taşıyordu; ayrı satırda flexShrink ile kırpılır */}
+        {/* Vade bilgisi KENDİ satırında, DÜZ YAZI (chip yok — liste redesign'ıyla
+            uyumlu); renk vade durumundan. line2'de olsaydı tutar kolonuna taşardı. */}
         {vadeText ? (
           <View style={styles.vadeRow}>
-            <View style={[styles.vadePill, { backgroundColor: VADE_COLORS[vadeState ?? 'future'].bg }]}>
-              <Text style={[styles.vadePillText, { color: VADE_COLORS[vadeState ?? 'future'].fg }]} numberOfLines={1}>
-                {vadeText}
-              </Text>
-            </View>
+            <Text style={[styles.vadeText, { color: VADE_COLORS[vadeState ?? 'future'].fg }]} numberOfLines={1}>
+              {vadeText}
+            </Text>
           </View>
         ) : null}
 
@@ -312,15 +314,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginTop: 2,
   },
-  vadePill: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: borderRadius.full,
-    flexShrink: 1,
-  },
-  vadePillText: {
-    fontSize: 11,
+  vadeText: {
+    fontSize: 13,
     fontWeight: fontWeight.semibold,
+    flexShrink: 1,
   },
   line3: {
     flexDirection: 'row',

@@ -100,6 +100,44 @@ export function useCariTaksitliIslemIds(cariId: string | undefined, enabled = tr
   });
 }
 
+export interface CariTaksitBirim {
+  id: string;
+  sira: number;
+  vade_tarihi: string;
+  tutar: number;
+}
+
+/**
+ * Carinin taksitli planlarındaki BİRİMLER: islem_id → vade sıralı taksit listesi.
+ * Cari detayda swipe "Tahsil Et/Öde" ön-dolusu sıradaki açık taksitin kalanını
+ * bulmak için kullanılır (tahsis toplamlarıyla birlikte).
+ */
+export function useCariTaksitBirimleri(cariId: string | undefined, enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.taksit.cariBirimler(cariId ?? '', isletme?.id ?? ''),
+    enabled: enabled && !!cariId && !!isletme?.id,
+    queryFn: async (): Promise<Record<string, CariTaksitBirim[]>> => {
+      if (!cariId || !isletme?.id) return {};
+      const { data, error } = await supabase
+        .from('taksit_planlari')
+        .select('islem_id, taksitler(id, sira, vade_tarihi, tutar)')
+        .eq('isletme_id', isletme.id)
+        .eq('cari_id', cariId);
+      if (error) throw error;
+      const map: Record<string, CariTaksitBirim[]> = {};
+      for (const plan of (data ?? []) as { islem_id: string; taksitler: CariTaksitBirim[] | null }[]) {
+        const birimler = (plan.taksitler ?? [])
+          .map((tk) => ({ ...tk, tutar: Number(tk.tutar) || 0 }))
+          .sort((a, b) => (a.vade_tarihi < b.vade_tarihi ? -1 : a.vade_tarihi > b.vade_tarihi ? 1 : a.sira - b.sira));
+        map[plan.islem_id] = birimler;
+      }
+      return map;
+    },
+  });
+}
+
 export interface BuAyTaksitOzeti {
   /** Bu ay vadesi gelen ve kalanı açık taksit sayısı (tüm para birimleri). */
   adet: number;

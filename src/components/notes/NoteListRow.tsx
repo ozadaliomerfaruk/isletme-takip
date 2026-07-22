@@ -13,6 +13,8 @@ interface NoteListRowProps {
   onMarkAsTask?: (id: string) => void;
   onPhotoPress?: (photoPath: string) => void;
   deleteLabel?: string;
+  /** Bitişik düz-liste görünümü (cari detay) — satır altı boşluk yok. */
+  flush?: boolean;
 }
 
 /**
@@ -28,12 +30,13 @@ function NoteListRowInner({
   onMarkAsTask,
   onPhotoPress,
   deleteLabel,
+  flush,
 }: NoteListRowProps) {
   const handleEdit = useCallback(() => onEditId(note.id), [onEditId, note.id]);
   const handleDelete = useCallback(() => onDeleteId(note.id), [onDeleteId, note.id]);
 
   return (
-    <SwipeableRow itemKey={note.id} onDelete={handleDelete} deleteLabel={deleteLabel}>
+    <SwipeableRow itemKey={note.id} onDelete={handleDelete} deleteLabel={deleteLabel} flush={flush}>
       <NoteRow
         note={note}
         onEdit={handleEdit}

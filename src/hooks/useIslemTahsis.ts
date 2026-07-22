@@ -22,9 +22,11 @@ export interface CariTahsisOzeti {
   borcTahsisleri: Record<string, number>;
   /** odeme_islem_id → Σtahsis — ödemenin ne kadarı borçlara bağlandı (kalanı avans). */
   odemeTahsisleri: Record<string, number>;
+  /** taksit_id → Σtahsis — taksit biriminin kalanı = taksit.tutar − bu değer. */
+  taksitTahsisleri: Record<string, number>;
 }
 
-const BOS_OZET: CariTahsisOzeti = { borcTahsisleri: {}, odemeTahsisleri: {} };
+const BOS_OZET: CariTahsisOzeti = { borcTahsisleri: {}, odemeTahsisleri: {}, taksitTahsisleri: {} };
 
 /**
  * Bir carinin tüm tahsis satırlarını çekip işlem-bazlı toplamlara indirger.
@@ -41,7 +43,7 @@ export function useCariTahsisOzeti(cariId: string | undefined, enabled = true) {
 
       const { data, error } = await supabase
         .from('islem_tahsis')
-        .select('borc_islem_id, odeme_islem_id, tutar')
+        .select('borc_islem_id, odeme_islem_id, taksit_id, tutar')
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId);
 
@@ -49,6 +51,7 @@ export function useCariTahsisOzeti(cariId: string | undefined, enabled = true) {
 
       const borcTahsisleri: Record<string, number> = {};
       const odemeTahsisleri: Record<string, number> = {};
+      const taksitTahsisleri: Record<string, number> = {};
       for (const row of data ?? []) {
         const tutar = Number(row.tutar) || 0;
         borcTahsisleri[row.borc_islem_id] = roundCurrency(
@@ -57,8 +60,13 @@ export function useCariTahsisOzeti(cariId: string | undefined, enabled = true) {
         odemeTahsisleri[row.odeme_islem_id] = roundCurrency(
           (odemeTahsisleri[row.odeme_islem_id] ?? 0) + tutar,
         );
+        if (row.taksit_id) {
+          taksitTahsisleri[row.taksit_id] = roundCurrency(
+            (taksitTahsisleri[row.taksit_id] ?? 0) + tutar,
+          );
+        }
       }
-      return { borcTahsisleri, odemeTahsisleri };
+      return { borcTahsisleri, odemeTahsisleri, taksitTahsisleri };
     },
   });
 }
