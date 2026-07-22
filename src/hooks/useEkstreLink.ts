@@ -1,15 +1,19 @@
 import { useMutation } from '@tanstack/react-query';
-import { supabase, SUPABASE_PROJECT_URL } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 /**
- * Web-ekstre linki (Faz 4): opak token'lı public HTML ekstre.
+ * Web-ekstre linki (Faz 4): opak token'lı public web ekstresi.
  * Cari başına TEK aktif link — yeni üretim eskisini sunucuda otomatik iptal eder;
  * ekstre_link_iptal ile elle de kapatılabilir. Token dışında hiçbir yetki yok.
+ *
+ * Link SİTEYİ gösterir (docs/ekstre — Vercel): Supabase, *.supabase.co'dan HTML
+ * servisini engelliyor (zorla text/plain+sandbox). Sayfa, edge function'ın
+ * ?format=json ucundan veriyi çekip arayüzü kendisi çizer.
  */
 
 export function ekstreLinkUrl(token: string): string {
-  return `${SUPABASE_PROJECT_URL}/functions/v1/cari-ekstre?token=${token}`;
+  return `https://isletmetakip.vercel.app/ekstre/?token=${token}`;
 }
 
 export function useEkstreLinkOlustur() {

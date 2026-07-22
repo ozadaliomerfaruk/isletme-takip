@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Cari Hesap Ekstresi — İşletme Takip</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      :root { color-scheme: light; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background: linear-gradient(135deg, #0d5c4d 0%, #0a4a3d 100%);
+        min-height: 100vh;
+        color: #333;
+      }
+      .container { max-width: 860px; margin: 0 auto; padding: 24px 16px 40px; }
+      .brand {
+        display: flex; align-items: baseline; justify-content: space-between;
+        color: #fff; padding: 8px 4px 20px;
+      }
+      .brand .app { font-weight: 700; font-size: 1.05rem; letter-spacing: 0.2px; }
+      .brand .tarih { font-size: 0.8rem; opacity: 0.85; }
+      .card {
+        background: #fff; border-radius: 16px; padding: 24px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      }
+      .isletme { color: #6b7280; font-size: 0.82rem; margin-bottom: 2px; }
+      h1 { font-size: 1.35rem; color: #111827; margin-bottom: 14px; }
+      .bakiye-kutu {
+        background: #f6f8f7; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px;
+        display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px;
+      }
+      .bakiye-etiket { color: #6b7280; font-size: 0.82rem; font-weight: 600; }
+      .bakiye { font-size: 1.55rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .bakiye.borclu { color: #0d5c4d; }
+      .bakiye.alacakli { color: #dc2626; }
+      .bakiye-alt { width: 100%; color: #6b7280; font-size: 0.78rem; }
+      .tablo-kap { overflow-x: auto; margin: 0 -8px; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 640px; }
+      th {
+        text-align: left; color: #6b7280; font-weight: 600; font-size: 0.72rem;
+        text-transform: uppercase; letter-spacing: 0.4px;
+        padding: 8px 10px; border-bottom: 2px solid #e5e7eb; white-space: nowrap;
+        position: sticky; top: 0; background: #fff;
+      }
+      td { padding: 9px 10px; border-bottom: 1px solid #f0f1f3; white-space: nowrap; vertical-align: top; }
+      td.aciklama { white-space: normal; min-width: 140px; color: #4b5563; }
+      td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+      .borc { color: #0d5c4d; font-weight: 600; }
+      .alacak { color: #dc2626; font-weight: 600; }
+      .bakiye-col { color: #374151; }
+      .vade { display: block; color: #9ca3af; font-size: 0.72rem; margin-top: 1px; }
+      .devir td { color: #6b7280; font-style: italic; background: #fafbfa; }
+      .foot { text-align: center; color: rgba(255, 255, 255, 0.75); font-size: 0.75rem; margin-top: 20px; line-height: 1.7; }
+      .foot a { color: #fff; }
+      .durum { text-align: center; padding: 56px 16px; color: #6b7280; }
+      .durum h2 { color: #111827; font-size: 1.1rem; margin-bottom: 8px; }
+      .spinner {
+        width: 28px; height: 28px; margin: 0 auto 14px;
+        border: 3px solid #e5e7eb; border-top-color: #0d5c4d; border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="brand">
+        <span class="app">İşletme Takip</span>
+        <span class="tarih" id="bugun"></span>
+      </div>
+      <div class="card" id="icerik">
+        <div class="durum">
+          <div class="spinner"></div>
+          Ekstre yükleniyor…
+        </div>
+      </div>
+      <p class="foot" id="altbilgi">
+        Bu ekstre <a href="https://isletmetakip.vercel.app">İşletme Takip</a> uygulamasıyla oluşturuldu
+      </p>
+    </div>
+
+    <script>
+      // Veri kaynağı: Supabase edge function (?format=json). Token dışında yetki yok;
+      // arayüz burada yaşar çünkü Supabase kendi domain'inden HTML servisini engelliyor.
+      const API = 'https://ulohxpkhesxozwnlnonb.supabase.co/functions/v1/cari-ekstre';
+
+      const esc = (s) => String(s ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const fmtMoney = (n, cur) => {
+        try {
+          return new Intl.NumberFormat('tr-TR', {
+            style: 'currency',
+            currency: cur === 'XAU' || cur === 'XAG' ? 'TRY' : (cur || 'TRY'),
+            minimumFractionDigits: 2,
+          }).format(n);
+        } catch { return n.toFixed(2) + ' ' + cur; }
+      };
+      const fmtDate = (d) => {
+        const p = String(d || '').slice(0, 10).split('-');
+        return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : String(d || '');
+      };
+
+      const icerik = document.getElementById('icerik');
+      document.getElementById('bugun').textContent = new Date().toLocaleDateString('tr-TR');
+
+      function hata(baslik, mesaj) {
+        icerik.innerHTML = `<div class="durum"><h2>${esc(baslik)}</h2><p>${esc(mesaj)}</p></div>`;
+      }
+
+      async function yukle() {
+        const token = new URLSearchParams(location.search).get('token') || '';
+        if (!/^[0-9a-f]{48}$/.test(token)) {
+          hata('Ekstre görüntülenemiyor', 'Bağlantı geçersiz veya eksik. İşletmeden yeni bağlantı isteyin.');
+          return;
+        }
+        let res, veri;
+        try {
+          res = await fetch(`${API}?token=${token}&format=json`);
+          veri = await res.json();
+        } catch {
+          hata('Bağlantı kurulamadı', 'İnternet bağlantınızı kontrol edip sayfayı yenileyin.');
+          return;
+        }
+        if (!res.ok) {
+          hata('Ekstre görüntülenemiyor', veri && veri.error ? veri.error : 'Beklenmeyen bir hata oluştu.');
+          return;
+        }
+
+        const cur = veri.cari.currency || 'TRY';
+        const bakiye = Number(veri.bakiye) || 0;
+        const borclu = bakiye > 0.009;
+        const alacakli = bakiye < -0.009;
+        const bakiyeText = borclu
+          ? `${fmtMoney(bakiye, cur)}`
+          : alacakli ? `${fmtMoney(-bakiye, cur)}` : fmtMoney(0, cur);
+        const yon = borclu ? '(bize borçlu)' : alacakli ? '(biz borçluyuz)' : '';
+
+        const acilis = Number(veri.acilis) || 0;
+        const devirSatiri = Math.abs(acilis) > 0.009
+          ? `<tr class="devir">
+              <td></td><td>Devir / Açılış Bakiyesi</td><td class="aciklama"></td>
+              <td class="num borc">${acilis > 0 ? esc(fmtMoney(acilis, cur)) : ''}</td>
+              <td class="num alacak">${acilis < 0 ? esc(fmtMoney(-acilis, cur)) : ''}</td>
+              <td class="num bakiye-col">${esc(fmtMoney(acilis, cur))}</td>
+            </tr>`
+          : '';
+
+        const satirlar = (veri.satirlar || []).map((s) => {
+          const t = Number(s.tutar) || 0;
+          const vade = s.vade_tarihi ? `<span class="vade">Vade: ${esc(fmtDate(s.vade_tarihi))}</span>` : '';
+          return `<tr>
+            <td>${esc(fmtDate(s.tarih))}</td>
+            <td>${esc(s.tip_etiket || '')}${vade}</td>
+            <td class="aciklama">${esc(s.aciklama || '')}</td>
+            <td class="num borc">${t > 0 ? esc(fmtMoney(t, cur)) : ''}</td>
+            <td class="num alacak">${t < 0 ? esc(fmtMoney(-t, cur)) : ''}</td>
+            <td class="num bakiye-col">${esc(fmtMoney(Number(s.bakiye) || 0, cur))}</td>
+          </tr>`;
+        }).join('');
+
+        document.title = `${veri.cari.name} — Cari Ekstre`;
+        icerik.innerHTML = `
+          <div class="isletme">${esc(veri.isletme.name || '')} · Cari Hesap Ekstresi</div>
+          <h1>${esc(veri.cari.name)}</h1>
+          <div class="bakiye-kutu">
+            <span class="bakiye-etiket">GÜNCEL BAKİYE</span>
+            <span class="bakiye ${borclu ? 'borclu' : alacakli ? 'alacakli' : ''}">${esc(bakiyeText)} <small style="font-size:0.7rem;font-weight:600">${esc(yon)}</small></span>
+            <span class="bakiye-alt">Bu sayfa her açılışta güncel veriyi gösterir</span>
+          </div>
+          <div class="tablo-kap"><table>
+            <thead><tr>
+              <th>Tarih</th><th>İşlem</th><th>Açıklama</th>
+              <th class="num">Borç</th><th class="num">Alacak</th><th class="num">Bakiye</th>
+            </tr></thead>
+            <tbody>${devirSatiri + satirlar || '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:24px">Kayıt bulunamadı</td></tr>'}</tbody>
+          </table></div>`;
+
+        if (veri.expires_at) {
+          document.getElementById('altbilgi').innerHTML =
+            `Bu ekstre <a href="https://isletmetakip.vercel.app">İşletme Takip</a> uygulamasıyla oluşturuldu<br>` +
+            `Bağlantı ${esc(fmtDate(veri.expires_at))} tarihine kadar geçerlidir`;
+        }
+      }
+
+      yukle();
+    </script>
+  </body>
+</html>
