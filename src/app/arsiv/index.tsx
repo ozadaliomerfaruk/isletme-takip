@@ -537,6 +537,11 @@ export default function ArsivPage() {
         ListFooterComponent={ListFooter}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
+        // Klavye açıkken kaydırma: dokunuşlar klavyeyi "yakalamasın" (handled) ve
+        // sürüklerken klavye temizce kapansın (on-drag). Bunlar olmadan yüzen arama
+        // çubuğu, yarım-kalan klavye kare olaylarıyla ekran dışına fırlıyordu.
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }

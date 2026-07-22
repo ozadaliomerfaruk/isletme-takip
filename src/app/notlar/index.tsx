@@ -383,6 +383,9 @@ export default function NotlarPage() {
           keyExtractor={(item) => item.id}
           renderItem={renderNote}
           contentContainerStyle={styles.listContent}
+          // Yüzen arama çubuğu klavye açıkken kaydırmada ekran dışına fırlamasın
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />

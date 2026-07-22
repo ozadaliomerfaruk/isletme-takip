@@ -59,9 +59,10 @@ export function FloatingSearchBar({
   const pillRef = useRef<View>(null);
   const [isFocused, setIsFocused] = useState(false);
   const translateY = useSharedValue(0);
-  // measureInWindow çeviri SONRASI konumu verir; dinlenme konumunu bulmak için
-  // uygulanan ofset ayrıca izlenir.
-  const appliedOffset = useRef(0);
+  // Pill'in DİNLENME (translateY=0) konumundaki alt-kenar Y'si (window coords).
+  // Yalnız dinlenmede ölçülür; kalkıkken önbellekten okunur → birikimli ofset
+  // drift'i ve "çubuğun tepeye fırlayıp takılması" matematiksel olarak imkânsız.
+  const restingBottomRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (autoFocusDelay === undefined) return;
@@ -69,25 +70,28 @@ export function FloatingSearchBar({
     return () => clearTimeout(timer);
   }, [autoFocusDelay]);
 
-  // Ölçüm callback'i asenkron (native köprü) — hızlı show→hide dizisinde bayat
-  // ölçüm sonradan çözülüp çubuğu klavye kapalıyken yukarı taşımasın diye her
-  // klavye olayı jetonlanır; süpersede edilen ölçüm sonucu yok sayılır.
-  const frameToken = useRef(0);
-
   useEffect(() => {
-    // Klavyeyle çakışma ölçüme dayalı: pencere adjustResize ile zaten küçüldüyse
-    // çakışma 0 çıkar ve çeviri yapılmaz (Android liste ekranları); pencere
-    // küçülmediyse (iOS her zaman, Android Modal içi) çubuk klavye üstüne taşınır.
+    // Deterministik konumlama: restingBottom (dinlenme alt-kenarı) YALNIZ translateY
+    // 0 iken ölçülüp önbelleğe alınır; kalkıkken önbellekten okunur. Birikimli ofset
+    // YOK → her kare bağımsız olarak TAM gereken kaldırmayı kurar; drift olamaz,
+    // klavye kapanınca daima 0'a döner. Arka plandaki (modal ardındaki) çubuk modalın
+    // klavyesine tepki verse de bozulmaz — kapanışta kendini sıfırlar.
     const applyFrame = (kbTop: number, duration: number) => {
-      const token = ++frameToken.current;
-      pillRef.current?.measureInWindow((_x, y, _w, h) => {
-        if (token !== frameToken.current) return; // daha yeni bir olay geldi
-        const restingBottom = y + h - appliedOffset.current;
+      const compute = (restingBottom: number) => {
         const overlap = restingBottom + spacing.md - kbTop;
-        const next = overlap > 0 ? -overlap : 0;
-        appliedOffset.current = next;
-        translateY.value = withTiming(next, { duration });
-      });
+        translateY.value = withTiming(overlap > 0 ? -overlap : 0, { duration });
+      };
+      if (translateY.value === 0) {
+        // Dinlenmedeyiz → taze ölç (post-transform değil, temiz) ve önbelleğe al.
+        pillRef.current?.measureInWindow((_x, y, _w, h) => {
+          if (typeof y !== 'number' || typeof h !== 'number') return;
+          restingBottomRef.current = y + h;
+          compute(y + h);
+        });
+      } else if (restingBottomRef.current != null) {
+        // Kalkıkken kararlı önbellekten hesapla (asla post-transform ölçme).
+        compute(restingBottomRef.current);
+      }
     };
 
     if (Platform.OS === 'ios') {
@@ -101,8 +105,6 @@ export function FloatingSearchBar({
       applyFrame(e.endCoordinates.screenY, 150);
     });
     const hide = Keyboard.addListener('keyboardDidHide', () => {
-      frameToken.current++; // bekleyen show ölçümünü geçersiz kıl
-      appliedOffset.current = 0;
       translateY.value = withTiming(0, { duration: 150 });
     });
     return () => {
