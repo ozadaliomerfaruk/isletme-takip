@@ -189,7 +189,8 @@ export function AmountInputSection({
             onNavigateAway={onNavigateAway}
             open={categoryPickerOpen}
             onOpenChange={onCategoryPickerOpenChange}
-            containerStyle={hasRecentChips ? localStyles.categoryPickerTight : undefined}
+            containerStyle={localStyles.categoryPickerTight}
+            triggerStyle={localStyles.categoryTriggerFlat}
           />
         </View>
       )}
@@ -377,11 +378,24 @@ const localStyles = StyleSheet.create({
   categoryPickerTight: {
     marginBottom: 0,
   },
+  // Standart satır görünümü: kutu yok — şeffaf zemin + ince alt çizgi (diğer satırlarla aynı)
+  categoryTriggerFlat: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    borderRadius: 0,
+    height: 44,
+    paddingHorizontal: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
   recentChipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   recentChip: {
     flexDirection: 'row',
@@ -416,7 +430,10 @@ const localStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    marginBottom: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   noteInput: {
     flex: 1,

@@ -60,7 +60,7 @@ export function EntityDisplaySection({
     <>
       {/* Normal Mod: Gelir/Gider için Hesap Bilgisi */}
       {!isCariMode && !isPersonelMode && (type === 'gelir' || type === 'gider') && selectedHesap && (
-        <View style={[styles.sourceAccountRow, { backgroundColor: colors.surfaceLight }]}>
+        <View style={styles.sourceAccountRow}>
           <Wallet size={16} color={colors.primary} />
           <Text style={styles.sourceAccountText}>{selectedHesap.name}</Text>
           <Text
@@ -98,17 +98,9 @@ export function EntityDisplaySection({
         </TouchableOpacity>
       )}
 
-      {/* Cari Modu: Seçili cari bilgisi */}
+      {/* Cari Modu: Seçili cari bilgisi — zemin rengi yok, tip ayrımı ikon renginden */}
       {isCariMode && selectedCari && (
-        <View
-          style={[
-            styles.sourceAccountRow,
-            {
-              backgroundColor:
-                defaultCariType === 'tedarikci' ? colors.orangeLight : colors.primaryLight,
-            },
-          ]}
-        >
+        <View style={styles.sourceAccountRow}>
           {defaultCariType === 'tedarikci' ? (
             <Building2 size={16} color={colors.orange} />
           ) : (
@@ -128,7 +120,7 @@ export function EntityDisplaySection({
 
       {/* Personel Modu: Seçili personel bilgisi */}
       {isPersonelMode && selectedPersonel && (
-        <View style={[styles.sourceAccountRow, { backgroundColor: colors.successLight }]}>
+        <View style={styles.sourceAccountRow}>
           <UserCheck size={16} color={colors.success} />
           <Text style={styles.sourceAccountText}>
             {selectedPersonel.first_name}{selectedPersonel.last_name ? ` ${selectedPersonel.last_name}` : ''}

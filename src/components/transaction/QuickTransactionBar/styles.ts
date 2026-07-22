@@ -160,7 +160,7 @@ export const styles = StyleSheet.create({
     color: colors.text,
   },
   categoryWrapper: {
-    marginBottom: 4,
+    marginBottom: 0,
   },
   descriptionInput: {
     fontSize: 15,
@@ -170,15 +170,14 @@ export const styles = StyleSheet.create({
     marginBottom: 6,
     maxHeight: 60,
   },
+  // Ayırıcı çizgi üstteki satırın alt çizgisinden gelir (standart satır dili)
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     height: 52,
     marginBottom: 6,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: 10,
+    paddingHorizontal: 6,
   },
   scheduledBellIcon: {
     padding: 8,

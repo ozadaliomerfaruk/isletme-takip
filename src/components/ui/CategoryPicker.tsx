@@ -96,6 +96,9 @@ interface CategoryPickerProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   containerStyle?: StyleProp<ViewStyle>;
+  /** Kapalı-durum satırının stil override'ı (ör. QTB düz-liste görünümü:
+   *  kutu yerine çizgili satır). Verilmezse varsayılan kutu görünümü değişmez. */
+  triggerStyle?: StyleProp<ViewStyle>;
 }
 
 export function CategoryPicker({
@@ -112,6 +115,7 @@ export function CategoryPicker({
   open: externalOpen,
   onOpenChange,
   containerStyle,
+  triggerStyle,
 }: CategoryPickerProps) {
   const router = useRouter();
   const { t } = useTranslation(['common', 'categories']);
@@ -228,7 +232,7 @@ export function CategoryPicker({
           </Text>
         ) : null}
         <TouchableOpacity
-          style={[styles.trigger, error && styles.triggerError, disabled && styles.triggerDisabled]}
+          style={[styles.trigger, triggerStyle, error && styles.triggerError, disabled && styles.triggerDisabled]}
           onPress={() => !disabled && setModalVisible(true)}
           activeOpacity={disabled ? 1 : 0.7}
           disabled={disabled}

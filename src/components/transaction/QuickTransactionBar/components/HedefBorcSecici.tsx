@@ -3,7 +3,7 @@ import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { formatCurrency, roundCurrency, toNumber } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCariVadeliBorclar, useCariTahsisOzeti } from '@/hooks/useIslemTahsis';
@@ -146,13 +146,16 @@ const s = StyleSheet.create({
     marginBottom: 4,
   },
   chips: {
-    gap: spacing.xs,
+    gap: 6,
     paddingRight: spacing.md,
   },
+  // Kategori öneri chip'leriyle (AmountInputSection.recentChip) birebir aynı standart
   chip: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 16,
     backgroundColor: colors.surfaceLight,
     borderWidth: 1,
     borderColor: colors.border,
@@ -163,11 +166,10 @@ const s = StyleSheet.create({
   },
   chipText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   chipTextActive: {
     color: colors.primary,
-    fontWeight: '600',
   },
 });
