@@ -1,5 +1,5 @@
 import { TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Share2 } from 'lucide-react-native';
+import { Share as ShareIcon } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { HIT_SLOP } from '@/constants/spacing';
 
@@ -28,7 +28,7 @@ export function ReportExportButton({ onPress, isExporting, accessibilityLabel }:
       {isExporting ? (
         <ActivityIndicator size="small" color={colors.text} />
       ) : (
-        <Share2 size={22} color={colors.text} />
+        <ShareIcon size={22} color={colors.text} />
       )}
     </TouchableOpacity>
   );

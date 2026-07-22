@@ -1,6 +1,6 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, AlertCircle, AlertTriangle, XCircle, Share2 } from 'lucide-react-native';
+import { CheckCircle2, AlertCircle, AlertTriangle, XCircle, Share as ShareIcon } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -59,7 +59,7 @@ export function VerdictCard({ durum, kapanisFarkKurus, currency, onShare }: Verd
         </View>
       </View>
       <TouchableOpacity style={styles.shareButton} onPress={onShare}>
-        <Share2 size={18} color={colors.primary} />
+        <ShareIcon size={18} color={colors.primary} />
         <Text variant="body" bold style={{ color: colors.primary }}>
           {t('share.button')}
         </Text>

@@ -23,7 +23,7 @@ import {
   FileSignature, Scale, ChartLine,
   Monitor, Smartphone, Laptop, Printer, HardDrive, Camera, Tv, Headphones, Cog,
   Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
-  Share2,
+  Share as ShareIcon,
 } from 'lucide-react-native';
 import { Text, Card } from '@/components/ui';
 import { TransactionRow } from '@/components/ui/TransactionRow';
@@ -703,7 +703,7 @@ export default function KategoriDetayPage() {
                 {isExporting ? (
                   <ActivityIndicator size="small" color={colors.text} />
                 ) : (
-                  <Share2 size={22} color={colors.text} />
+                  <ShareIcon size={22} color={colors.text} />
                 )}
               </TouchableOpacity>
             ) : null,

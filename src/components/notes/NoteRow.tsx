@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager, Share } from 'react-native';
-import { Circle, CheckCircle2, Bell, Camera, User, Users, UserCircle, Pencil, Share2 } from 'lucide-react-native';
+import { Circle, CheckCircle2, Bell, Camera, User, Users, UserCircle, Pencil, Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -252,7 +252,7 @@ export function NoteRow({
             </TouchableOpacity>
           )}
           <TouchableOpacity style={styles.actionBtn} onPress={handleShare} activeOpacity={0.7}>
-            <Share2 size={16} color={colors.primary} />
+            <ShareIcon size={16} color={colors.primary} />
             <Text variant="caption" style={styles.actionText}>
               {t('common:buttons.share')}
             </Text>

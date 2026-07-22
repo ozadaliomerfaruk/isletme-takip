@@ -3,7 +3,7 @@ import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Stack } from 'expo-router';
-import { Share2 } from 'lucide-react-native';
+import { Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { GenelTabContent } from '@/components/reports/tabs';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
@@ -126,7 +126,7 @@ export default function GenelRaporPage() {
               {isExporting ? (
                 <ActivityIndicator size="small" color={colors.text} />
               ) : (
-                <Share2 size={22} color={colors.text} />
+                <ShareIcon size={22} color={colors.text} />
               )}
             </TouchableOpacity>
           ),

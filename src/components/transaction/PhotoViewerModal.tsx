@@ -18,7 +18,7 @@ import {
   Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Trash2, RefreshCw, Share2 } from 'lucide-react-native';
+import { X, Trash2, RefreshCw, Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import {
   GestureHandlerRootView,
@@ -382,7 +382,7 @@ export function PhotoViewerModal({
                 {isSharing ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Share2 size={22} color="#FFFFFF" />
+                  <ShareIcon size={22} color="#FFFFFF" />
                 )}
               </TouchableOpacity>
             )}

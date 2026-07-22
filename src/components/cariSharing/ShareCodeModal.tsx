@@ -20,7 +20,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
-import { Link, Copy, Share2, Check, AlertCircle, Eye, Edit3 } from 'lucide-react-native';
+import { Link, Copy, Share as ShareIcon, Check, AlertCircle, Eye, Edit3 } from 'lucide-react-native';
 
 import { Text } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
@@ -272,7 +272,7 @@ export function ShareCodeModal({
                     onPress={handleShare}
                     activeOpacity={0.7}
                   >
-                    <Share2 size={20} color={colors.primary} />
+                    <ShareIcon size={20} color={colors.primary} />
                     <Text style={styles.actionButtonText}>
                       {t('clients:sharing.shareCode')}
                     </Text>

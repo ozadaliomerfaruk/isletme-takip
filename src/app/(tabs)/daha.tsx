@@ -18,7 +18,7 @@ import {
   Coins,
   Upload,
   Archive,
-  Share2,
+  Share as ShareIcon,
   History,
   Bell,
   StickyNote,
@@ -320,7 +320,7 @@ export default function DahaPage() {
           </Text>
           <Card padding="none">
             <MenuItem
-              icon={<Share2 size={22} color={colors.success} />}
+              icon={<ShareIcon size={22} color={colors.success} />}
               label={t('multiUser:shared.pageTitle')}
               onPress={() => router.push('/ayarlar/paylasilan-isletmeler' as Href)}
             />

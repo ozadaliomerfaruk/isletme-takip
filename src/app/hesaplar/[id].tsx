@@ -11,7 +11,7 @@ import {
   Pencil,
   Trash2,
   MoreVertical,
-  Share2,
+  Share as ShareIcon,
   Zap,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
@@ -672,7 +672,7 @@ export default function HesapHareketleriPage() {
         style={styles.headerBtn}
         hitSlop={HIT_SLOP.md}
       >
-        <Share2 size={22} color={colors.text} />
+        <ShareIcon size={22} color={colors.text} />
       </TouchableOpacity>
       <TouchableOpacity
         onPress={() => setShowMenu(true)}

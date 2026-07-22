@@ -3,7 +3,7 @@ import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Touchabl
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, CalendarClock, Share2 } from 'lucide-react-native';
+import { CheckCircle2, CalendarClock, Share as ShareIcon } from 'lucide-react-native';
 import { Text, Button, EmptyState } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
@@ -13,7 +13,9 @@ import { formatDateShort } from '@/lib/date';
 import { useTaksitPlanDetay, type TaksitSatirDetay } from '@/hooks/useTaksit';
 import { useRetahsisOdeme } from '@/hooks/useIslemTahsis';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { exportTaksitPlaniToPdf } from '@/lib/taksitPlanPdf';
+import { exportTaksitPlaniToPdf, type TaksitPlanPdfOptions } from '@/lib/taksitPlanPdf';
+import { ListPdfPreviewSheet } from '@/components/export';
+import type { EntityListExportOptions } from '@/lib/excelExport';
 
 /**
  * Taksit detayı (Faz 3): taksit satırları + tahsis-bazlı ödendi/kalan durumu.
@@ -49,16 +51,17 @@ export default function TaksitDetayPage() {
 
   const currency = detay?.currency ?? 'TRY';
 
-  // Ödeme Planı PDF'i — müşteriye/tedarikçiye gönderilecek plan dökümü
-  const handleSharePdf = useCallback(async () => {
-    if (!detay || pdfSharing) return;
-    setPdfSharing(true);
-    try {
-      const fmt = (iso: string) => {
-        const p = iso.split('-');
-        return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso;
-      };
-      await exportTaksitPlaniToPdf({
+  // Ödeme Planı PDF'i — önce UYGULAMA İÇİ ÖNİZLEME (ekstre PDF akışıyla aynı
+  // desen, kullanıcı isteği), "Paylaş" gerçek üretim + paylaşımı tetikler.
+  const [pdfPreview, setPdfPreview] = useState<TaksitPlanPdfOptions | null>(null);
+
+  const buildPdfOptions = useCallback((): TaksitPlanPdfOptions | null => {
+    if (!detay) return null;
+    const fmt = (iso: string) => {
+      const p = iso.split('-');
+      return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso;
+    };
+    return {
         isletmeName: isletme?.name ?? '',
         cariName: detay.cariName ?? t('transactions:taksit.detayTitle'),
         currency,
@@ -88,16 +91,76 @@ export default function TaksitDetayPage() {
           toplamKalan: t('transactions:taksit.pdfToplamKalan'),
           olusturulma: t('transactions:taksit.pdfOlusturulma'),
         },
-        fileName: `Taksit_Plani_${(detay.cariName ?? 'plan').replace(/[^\p{L}\p{N}]+/gu, '_')}`,
-        shareDialogTitle: t('transactions:taksit.pdfPaylas'),
-        sharingNotSupported: t('transactions:taksit.pdfPaylasilamiyor'),
-      });
+      fileName: `Taksit_Plani_${(detay.cariName ?? 'plan').replace(/[^\p{L}\p{N}]+/gu, '_')}`,
+      shareDialogTitle: t('transactions:taksit.pdfPaylas'),
+      sharingNotSupported: t('transactions:taksit.pdfPaylasilamiyor'),
+    };
+  }, [detay, isletme?.name, currency, bugunStr, t]);
+
+  const handleOpenPdfPreview = useCallback(() => {
+    const opts = buildPdfOptions();
+    if (opts) setPdfPreview(opts);
+  }, [buildPdfOptions]);
+
+  const handleSharePdf = useCallback(async () => {
+    if (!pdfPreview || pdfSharing) return;
+    setPdfSharing(true);
+    try {
+      await exportTaksitPlaniToPdf(pdfPreview);
+      setPdfPreview(null);
     } catch (e) {
       Alert.alert(t('common:status.error'), e instanceof Error ? e.message : String(e));
     } finally {
       setPdfSharing(false);
     }
-  }, [detay, pdfSharing, isletme?.name, currency, bugunStr, t]);
+  }, [pdfPreview, pdfSharing, t]);
+
+  // Önizleme, liste-PDF önizleme bileşeninin (ekstre/liste akışıyla aynı görünüm)
+  // beklediği şekle eşlenir; gerçek PDF yine taksitPlanPdf şablonundan üretilir.
+  const previewOptions = useMemo((): EntityListExportOptions | null => {
+    if (!pdfPreview) return null;
+    const L = pdfPreview.labels;
+    const durumText = { odendi: L.odendi, gecikmis: L.gecikmis, acik: L.acik } as const;
+    return {
+      title: L.baslik,
+      isletmeName: pdfPreview.isletmeName,
+      fileName: pdfPreview.fileName,
+      shareDialogTitle: pdfPreview.shareDialogTitle,
+      sharingNotSupported: pdfPreview.sharingNotSupported,
+      noDataError: '',
+      filterText: pdfPreview.cariName,
+      columns: [
+        { header: L.sira, width: 10 },
+        { header: L.vade, width: 16 },
+        { header: L.tutar, width: 16, align: 'right' },
+        { header: L.odenen, width: 16, align: 'right' },
+        { header: L.kalan, width: 16, align: 'right' },
+        { header: L.durum, width: 14 },
+      ],
+      rows: pdfPreview.satirlar.map((s) => [
+        `${s.sira}.`,
+        s.vadeTarihi,
+        { amount: s.tutar, currency: pdfPreview.currency },
+        { amount: s.odenen, currency: pdfPreview.currency },
+        { amount: s.kalan, currency: pdfPreview.currency },
+        durumText[s.durum],
+      ]),
+      summary: [
+        { label: L.genelToplam, amount: pdfPreview.toplam, currency: pdfPreview.currency },
+        { label: L.toplamOdenen, amount: pdfPreview.odenen, currency: pdfPreview.currency },
+        { label: L.toplamKalan, amount: Math.max(0, pdfPreview.toplam - pdfPreview.odenen), currency: pdfPreview.currency },
+      ],
+      labels: {
+        business: t('common:export.excel.business'),
+        createdAt: t('common:export.excel.createdAt'),
+        recordCount: t('common:export.listExport.recordCount'),
+        filter: t('common:export.listExport.filter'),
+        summary: t('common:export.listExport.summary'),
+        snapshotNote: t('common:export.listExport.snapshotNote'),
+        generatedByApp: t('common:export.listExport.generatedByApp'),
+      },
+    };
+  }, [pdfPreview, t]);
 
   const renderItem = ({ item }: { item: TaksitSatirDetay }) => {
     const odendi = item.kalan <= 0;
@@ -164,12 +227,8 @@ export default function TaksitDetayPage() {
           // Ödeme Planı PDF paylaşımı — plan yüklüyse aktif
           headerRight: detay
             ? () => (
-                <TouchableOpacity onPress={handleSharePdf} disabled={pdfSharing} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  {pdfSharing ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Share2 size={20} color={colors.primary} />
-                  )}
+                <TouchableOpacity onPress={handleOpenPdfPreview} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <ShareIcon size={20} color={colors.primary} />
                 </TouchableOpacity>
               )
             : undefined,
@@ -235,6 +294,15 @@ export default function TaksitDetayPage() {
             }}
           />
         )}
+
+        {/* Ödeme Planı PDF önizlemesi (ekstre/liste PDF akışıyla aynı desen) */}
+        <ListPdfPreviewSheet
+          visible={!!pdfPreview}
+          options={previewOptions}
+          isSharing={pdfSharing}
+          onDismiss={() => setPdfPreview(null)}
+          onShare={handleSharePdf}
+        />
       </SafeAreaView>
     </>
   );

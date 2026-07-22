@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Calendar, X, Share2 } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Calendar, X, Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, CategoryReportCard, Button } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
@@ -128,7 +128,7 @@ export default function NakitAkisiPage() {
               {isExporting ? (
                 <ActivityIndicator size="small" color={colors.text} />
               ) : (
-                <Share2 size={22} color={colors.text} />
+                <ShareIcon size={22} color={colors.text} />
               )}
             </TouchableOpacity>
           ),

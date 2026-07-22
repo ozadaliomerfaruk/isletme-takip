@@ -3,7 +3,7 @@ import Animated, { ZoomIn, FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Zap, ArrowRight, Share2, Phone } from 'lucide-react-native';
+import { Zap, ArrowRight, Share as ShareIcon, Phone } from 'lucide-react-native';
 import { Text, Avatar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, shadows } from '@/constants/spacing';
@@ -93,7 +93,7 @@ export function CariPreviewModal({
   const aksiyonlar = [
     onEkstre && {
       key: 'ekstre',
-      icon: <Share2 size={16} color={colors.primary} />,
+      icon: <ShareIcon size={16} color={colors.primary} />,
       label: t('clients:preview.ekstrePaylas'),
       onPress: () => onEkstre(cari),
     },

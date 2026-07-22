@@ -3,7 +3,7 @@ import { View, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } f
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, CalendarDays, Copy, Plus, Share2 } from 'lucide-react-native';
+import { ArrowLeft, CalendarDays, Copy, Plus, Share as ShareIcon } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 
 import { Text, EmptyState } from '@/components/ui';
@@ -443,7 +443,7 @@ export default function LeaveHistoryPage() {
         </View>
         {leaveTransactions.length > 0 && (
           <TouchableOpacity style={styles.backButton} onPress={handleExport} disabled={isExporting}>
-            <Share2 size={20} color={isExporting ? colors.textMuted : colors.text} />
+            <ShareIcon size={20} color={isExporting ? colors.textMuted : colors.text} />
           </TouchableOpacity>
         )}
       </View>

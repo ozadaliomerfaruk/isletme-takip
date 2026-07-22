@@ -17,7 +17,7 @@ import {
   Link,
   ArrowUpDown,
   MoreVertical,
-  Share2,
+  Share as ShareIcon,
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -387,7 +387,7 @@ export default function CarilerPage() {
 
     options.push({
       label: t('common:buttons.share'),
-      icon: <Share2 size={20} color={colors.primary} />,
+      icon: <ShareIcon size={20} color={colors.primary} />,
       onPress: () => {
         if (actionSheetCari) {
           pendingExportRef.current = actionSheetCari;

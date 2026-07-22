@@ -15,7 +15,7 @@ import {
   MoreVertical,
   Scale,
   X,
-  Share2,
+  Share as ShareIcon,
   Unlink,
   Package,
   BarChart3,
@@ -731,7 +731,7 @@ export default function CariHareketleriPage() {
         style={styles.headerBtn}
         hitSlop={HIT_SLOP.md}
       >
-        <Share2 size={22} color={colors.text} />
+        <ShareIcon size={22} color={colors.text} />
       </TouchableOpacity>
       {!isViewer && (
         <TouchableOpacity
