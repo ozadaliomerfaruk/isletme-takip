@@ -10,6 +10,7 @@ import {
   Platform,
   Keyboard,
   KeyboardEvent,
+  Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
@@ -131,16 +132,16 @@ export function BottomSheet({
   // Close sheet
   const close = useCallback(() => {
     Keyboard.dismiss();
-    Animated.spring(translateY, {
+    // Kapanış da ActionSheet ile aynı: 200ms ease-in
+    Animated.timing(translateY, {
       toValue: screenHeightRef.current,
-      damping: 32,
-      stiffness: 300,
-      mass: 0.8,
+      duration: 200,
+      easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(() => {
       onDismissRef.current();
     });
-    animateBackdrop(0, 220);
+    animateBackdrop(0, 200);
   }, [translateY, animateBackdrop]);
 
   // Store close in ref for PanResponder
@@ -256,12 +257,22 @@ export function BottomSheet({
     if (visible && !hasOpenedRef.current) {
       hasOpenedRef.current = true;
       translateY.setValue(screenHeightRef.current);
-      animateToSnap(currentSnapIndex, 0, 0);
-      animateBackdrop(0.5);
+      // Açılış ActionSheet ile BİREBİR aynı eğri (400ms ease-out cubic) —
+      // yaylı giriş "pat diye oturuyor" hissi veriyordu (kullanıcı geri bildirimi);
+      // sürükleme/klavye snap'leri yay olarak kalır (animateToSnap).
+      Animated.timing(translateY, {
+        toValue: getTargetY(currentSnapIndex, 0),
+        duration: 400,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+      currentSnapIndexRef.current = currentSnapIndex;
+      onSnapChangeRef.current?.(currentSnapIndex);
+      animateBackdrop(0.5, 300);
     } else if (!visible) {
       hasOpenedRef.current = false;
     }
-  }, [visible, animateToSnap, animateBackdrop, currentSnapIndex, translateY]);
+  }, [visible, getTargetY, animateBackdrop, currentSnapIndex, translateY]);
 
   // Sheet açıkken pencere yüksekliği değişirse (iPad Split View / Mac
   // penceresi) aktif snap noktasına yeniden hizala
