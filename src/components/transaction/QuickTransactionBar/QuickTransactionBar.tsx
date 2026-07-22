@@ -70,6 +70,7 @@ import { useCreateUrun } from '@/hooks/useUrunler';
 import { useSettings } from '@/hooks/useSettings';
 import { useIslemTaksitliMi } from '@/hooks/useTaksit';
 import { useRetahsisOdeme } from '@/hooks/useIslemTahsis';
+import { consumePendingCategorySelection } from '@/lib/pendingCategorySelection';
 import type { Currency, Urun } from '@/types/database';
 
 export function QuickTransactionBar({
@@ -319,7 +320,21 @@ export function QuickTransactionBar({
   useFocusEffect(
     useCallback(() => {
       modals.setNavigatedAway(false);
-    }, [modals.setNavigatedAway])
+      // Kategori-ekle sayfasından dönüş: yeni kategori otomatik SEÇİLİR (kullanıcı
+      // isteği — eskiden QTB kapanıyordu). Yalnız görünür instance tüketir; aile
+      // uyuşmazsa (ekle sayfasında tip değiştirildiyse) seçim atlanır.
+      if (visible) {
+        const pending = consumePendingCategorySelection();
+        if (pending && (pending.type === 'gelir' || pending.type === 'gider')) {
+          const family = resolveCategoryFamily(form.type);
+          if (family === pending.type) {
+            form.setKategoriId(pending.id);
+            modals.setSelectedCategoryType(pending.type);
+            modals.setCategoryPickerOpen(false);
+          }
+        }
+      }
+    }, [modals.setNavigatedAway, visible, form.type, form.setKategoriId, modals.setSelectedCategoryType, modals.setCategoryPickerOpen])
   );
 
   // Handle backdrop press - two-step dismiss
@@ -851,7 +866,9 @@ export function QuickTransactionBar({
                 modals.setCategorySkipped(true);
               }
             }}
-            onNavigateAway={onDismiss}
+            // Kategori-ekle'ye giderken QTB KAPANMAZ, gizlenir (ürün akışıyla aynı):
+            // dönüşte form korunur + yeni kategori otomatik seçilir (focus effect)
+            onNavigateAway={() => modals.setNavigatedAway(true)}
             hasPhoto={!!form.photoUri}
             onPickImage={handlePickImage}
             onTakePhoto={handleTakePhoto}

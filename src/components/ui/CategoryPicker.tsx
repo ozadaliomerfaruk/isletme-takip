@@ -180,7 +180,13 @@ export function CategoryPicker({
     setSearchQuery('');
   };
 
+  // İki adımlı kapanış (QTB backdrop'la aynı): klavye açıkken dışarı dokunuş
+  // önce yalnız klavyeyi kapatır — picker'dan istemeden çıkılmaz.
   const handleCloseModal = () => {
+    if (isKeyboardVisible) {
+      Keyboard.dismiss();
+      return;
+    }
     setModalVisible(false);
     setSearchQuery('');
   };
@@ -274,7 +280,7 @@ export function CategoryPicker({
         <TouchableWithoutFeedback onPress={handleCloseModal}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+              <View style={[styles.modalContent, { height: windowHeight * 0.85, paddingBottom: insets.bottom }]}>
                 <View style={styles.modalHeader}>
               <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
               {/* Ana sayfa sticky header'larındaki AddEntityButton ile aynı görünüm.
@@ -299,6 +305,7 @@ export function CategoryPicker({
               contentContainerStyle={styles.categoryListContent}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               {/* Kategori yok seçeneği - arama yokken göster */}
               {optional && !searchQuery.trim() && (

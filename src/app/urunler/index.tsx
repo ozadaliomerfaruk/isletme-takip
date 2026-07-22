@@ -777,6 +777,7 @@ export default function UrunlerPage() {
         keyExtractor={keyExtractor}
         renderItem={activeTab === 'active' ? renderActiveItem : renderArchivedItem}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={listHeaderComponent}
         ListEmptyComponent={listEmptyComponent}
         contentContainerStyle={styles.flatListContent}

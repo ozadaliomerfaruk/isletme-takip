@@ -20,6 +20,7 @@ import { useCreateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { upperTr } from '@/lib/turkishTextUtils';
+import { setPendingCategorySelection } from '@/lib/pendingCategorySelection';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
@@ -64,7 +65,7 @@ export default function KategoriEklePage() {
     try {
       // İşlem kategorileri (gelir/gider) BÜYÜK harf kaydedilir (kullanıcı isteği).
       // Ürün kategorileri hariç (ayrı konu) → olduğu gibi.
-      await createKategori.mutateAsync({
+      const created = await createKategori.mutateAsync({
         name: type === 'urun' ? name.trim() : upperTr(name.trim()),
         type,
         icon,
@@ -73,6 +74,9 @@ export default function KategoriEklePage() {
         mapped_gelir_kategori_id: type === 'urun' ? mappedGelirKategoriId : null,
         mapped_gider_kategori_id: type === 'urun' ? mappedGiderKategoriId : null,
       });
+
+      // QTB'den gelindiyse dönüşte yeni kategori otomatik seçilsin (tek-seferlik köprü)
+      if (created?.id) setPendingCategorySelection(created.id, type);
 
       notifySaved(t('categories:messages.createSuccess'));
       router.back();

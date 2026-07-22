@@ -954,6 +954,7 @@ export default function CarilerPage() {
         renderItem={renderCariItem}
         ItemSeparatorComponent={ListSeparator}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}

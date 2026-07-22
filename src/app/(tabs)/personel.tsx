@@ -709,6 +709,7 @@ export default function PersonelPage() {
         keyExtractor={(item) => item.id}
         renderItem={renderPersonelItem}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}
