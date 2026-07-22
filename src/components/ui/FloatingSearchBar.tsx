@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   Platform,
@@ -60,9 +60,29 @@ export function FloatingSearchBar({
   const [isFocused, setIsFocused] = useState(false);
   const translateY = useSharedValue(0);
   // Pill'in DİNLENME (translateY=0) konumundaki alt-kenar Y'si (window coords).
-  // Yalnız dinlenmede ölçülür; kalkıkken önbellekten okunur → birikimli ofset
-  // drift'i ve "çubuğun tepeye fırlayıp takılması" matematiksel olarak imkânsız.
+  // Yalnız kalkık DEĞİLken ölçülür → post-transform kirlenmesi olmaz; kaldırma
+  // bundan deterministik hesaplanır → birikimli ofset drift'i yok.
   const restingBottomRef = useRef<number | null>(null);
+  // Kalkık mı? JS-thread boolean'ı — UI-thread'deki translateY.value okumaya
+  // GÜVENMEYİZ (Reanimated bunu kare-hassas JS'e yansıtmaz → yanlış "dinlenme").
+  const liftedRef = useRef(false);
+  // Bayat async ölçüm koruması: yeni klavye olayı/kapanış gelince bekleyen
+  // measureInWindow callback'i uygulanmasın (aksi halde çubuk havada asılı kalır).
+  const frameToken = useRef(0);
+
+  // Dinlenme konumunu ölç — yalnız kalkık değilken. Pill onLayout'unda (mount +
+  // rotation/layout) ve ilk olayda çağrılır; token+liftedRef ile yarış-korumalı.
+  const measureResting = useCallback(() => {
+    if (liftedRef.current) return;
+    const token = frameToken.current;
+    requestAnimationFrame(() => {
+      if (liftedRef.current || token !== frameToken.current) return;
+      pillRef.current?.measureInWindow((_x, y, _w, h) => {
+        if (liftedRef.current || token !== frameToken.current) return;
+        if (typeof y === 'number' && typeof h === 'number') restingBottomRef.current = y + h;
+      });
+    });
+  }, []);
 
   useEffect(() => {
     if (autoFocusDelay === undefined) return;
@@ -71,27 +91,18 @@ export function FloatingSearchBar({
   }, [autoFocusDelay]);
 
   useEffect(() => {
-    // Deterministik konumlama: restingBottom (dinlenme alt-kenarı) YALNIZ translateY
-    // 0 iken ölçülüp önbelleğe alınır; kalkıkken önbellekten okunur. Birikimli ofset
-    // YOK → her kare bağımsız olarak TAM gereken kaldırmayı kurar; drift olamaz,
-    // klavye kapanınca daima 0'a döner. Arka plandaki (modal ardındaki) çubuk modalın
-    // klavyesine tepki verse de bozulmaz — kapanışta kendini sıfırlar.
+    // Deterministik + yarış-korumalı: applyFrame ÖLÇMEZ; kararlı restingBottom
+    // önbelleğinden translateY = TAM gereken kaldırmayı kurar. Ölçüm yalnız
+    // measureResting'de (kalkık değilken) yapılır. Her olay frameToken'ı artırır →
+    // bekleyen bayat ölçüm uygulanmaz; kapanışta liftedRef=false + translateY→0.
     const applyFrame = (kbTop: number, duration: number) => {
-      const compute = (restingBottom: number) => {
-        const overlap = restingBottom + spacing.md - kbTop;
-        translateY.value = withTiming(overlap > 0 ? -overlap : 0, { duration });
-      };
-      if (translateY.value === 0) {
-        // Dinlenmedeyiz → taze ölç (post-transform değil, temiz) ve önbelleğe al.
-        pillRef.current?.measureInWindow((_x, y, _w, h) => {
-          if (typeof y !== 'number' || typeof h !== 'number') return;
-          restingBottomRef.current = y + h;
-          compute(y + h);
-        });
-      } else if (restingBottomRef.current != null) {
-        // Kalkıkken kararlı önbellekten hesapla (asla post-transform ölçme).
-        compute(restingBottomRef.current);
-      }
+      frameToken.current++;
+      const restingBottom = restingBottomRef.current;
+      if (restingBottom == null) { measureResting(); return; } // henüz ölçülmedi
+      const overlap = restingBottom + spacing.md - kbTop;
+      const next = overlap > 0 ? -overlap : 0;
+      liftedRef.current = next < 0;
+      translateY.value = withTiming(next, { duration });
     };
 
     if (Platform.OS === 'ios') {
@@ -105,13 +116,15 @@ export function FloatingSearchBar({
       applyFrame(e.endCoordinates.screenY, 150);
     });
     const hide = Keyboard.addListener('keyboardDidHide', () => {
+      frameToken.current++;       // bekleyen show ölçümünü geçersiz kıl
+      liftedRef.current = false;
       translateY.value = withTiming(0, { duration: 150 });
     });
     return () => {
       show.remove();
       hide.remove();
     };
-  }, [translateY]);
+  }, [translateY, measureResting]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -140,6 +153,7 @@ export function FloatingSearchBar({
         <Pressable
           ref={pillRef}
           style={[styles.pill, isFocused && styles.pillFocused]}
+          onLayout={measureResting}
           // Pill'in NERESİNE basılırsa basılsın arama açılır (yalnız yazı satırı değil)
           onPress={() => inputRef.current?.focus()}
         >

@@ -9,16 +9,14 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { ParsedTransaction } from '@/lib/excelImport';
 import { DuplicateInfo } from './useDataImport.types';
 
-/** Açıklamayı karşılaştırma için normalize et (boşluk/büyük-küçük harf farkını yok say). */
-function normalizeDesc(desc: string | null | undefined): string {
-  return (desc || '').trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
 /**
  * Import öncesi duplicate kontrolü
- * Anahtar: tarih + tutar + iç işlem tipi + açıklama.
- * Sadece tarih+tutar kullanmak, aynı gün aynı tutarlı MEŞRU işlemleri yanlışlıkla
- * "duplicate" işaretliyordu; tip+açıklama eklenerek yanlış-pozitifler azaltıldı.
+ * Anahtar: tarih + tutar + iç işlem tipi (islem.type / mappedType).
+ * Yalnız tarih+tutar aynı gün aynı tutarlı MEŞRU işlemleri yanlışlıkla "duplicate"
+ * işaretliyordu → tip eklendi. Açıklama BİLİNÇLİ olarak DIŞARIDA: banka ekstresi
+ * re-export'unda açıklama oynak olabilir (ref no / yürüyen bakiye) → anahtara
+ * koyulursa GERÇEK duplicate KAÇAR ve sessizce çift import olur. Tip aynı formatta
+ * kararlıdır. (Yanlış-pozitif kullanıcıya prompt'la kurtarılır; yanlış-negatif değil.)
  */
 async function checkForDuplicates(
   transactions: ParsedTransaction[],
@@ -34,7 +32,7 @@ async function checkForDuplicates(
   try {
     const { data: existingIslemler, error } = await supabase
       .from('islemler')
-      .select('id, date, amount, type, description')
+      .select('id, date, amount, type')
       .eq('isletme_id', isletmeId)
       .gte('date', uniqueDates[0] + 'T00:00:00')
       .lte('date', uniqueDates[uniqueDates.length - 1] + 'T23:59:59');
@@ -49,7 +47,7 @@ async function checkForDuplicates(
     const existingMap = new Map<string, { id: string; date: string; amount: number }>();
     existingIslemler.forEach(islem => {
       const dateOnly = islem.date.split('T')[0];
-      const key = `${dateOnly}|${islem.amount}|${islem.type ?? ''}|${normalizeDesc(islem.description)}`;
+      const key = `${dateOnly}|${islem.amount}|${islem.type ?? ''}`;
       // İlk eşleşmeyi koru (aynı imzadan birden fazla varsa ilkini duplicate referansı yap)
       if (!existingMap.has(key)) {
         existingMap.set(key, { id: islem.id, date: islem.date, amount: islem.amount });
@@ -59,7 +57,7 @@ async function checkForDuplicates(
     transactions.forEach((tx, idx) => {
       if (!tx.dateValid || !tx.date) return;
       const dateOnly = tx.date.split('T')[0];
-      const key = `${dateOnly}|${tx.amount}|${tx.mappedType ?? ''}|${normalizeDesc(tx.description)}`;
+      const key = `${dateOnly}|${tx.amount}|${tx.mappedType ?? ''}`;
       const existing = existingMap.get(key);
       if (existing) {
         duplicates.set(idx, {

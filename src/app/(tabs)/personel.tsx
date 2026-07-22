@@ -312,9 +312,9 @@ export default function PersonelPage() {
     return options;
   }, [actionSheetPersonel, t, handleEnterSelectMode, handleArchive, handleDelete, canUpdate, canDelete, router]);
 
-  // Personelin kendi not kolonu yok; notlar Notlar modülünde personele iliştirilir.
-  // Aramada isimle birlikte taransın diye personel-notları tek sorguda çekilip
-  // personel_id → içerik haritasına indirgenir (kullanıcı isteği: "notları da arasın").
+  // Arama iki not kaynağını da tarar: (1) personelin kendi `notes` kolonu (satırda
+  // gösterilen, cariler dili) ve (2) Notlar modülünden personele iliştirilen notlar.
+  // İkincisi tek sorguda çekilip personel_id → içerik haritasına indirgenir.
   const { data: personelNotlar } = useNotlar('personel');
   const personelNotMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -329,7 +329,7 @@ export default function PersonelPage() {
   // durunca (veya liste/sıralama değişince) filter+sort tekrar çalışır.
   const filteredPersonel = useMemo(() => (personelList ?? [])
     .filter((p) =>
-      searchMatchesTr(`${p.first_name} ${p.last_name ?? ''} ${personelNotMap[p.id] ?? ''}`, debouncedSearch)
+      searchMatchesTr(`${p.first_name} ${p.last_name ?? ''} ${p.notes ?? ''} ${personelNotMap[p.id] ?? ''}`, debouncedSearch)
     )
     .sort((a, b) => {
       // Aktif olanlar önce
