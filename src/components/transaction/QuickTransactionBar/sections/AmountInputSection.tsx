@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from 'react';
+import { Fragment, useRef, useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Bell, Package, Calculator } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -198,28 +198,33 @@ export function AmountInputSection({
       {/* A1: "son kullanılan" kategori chip'leri — tek dokunuşla kategori seçimi, böylece
           save-anı kategori modalı istisnaya düşer. Ürün seçiliyken kategori devre dışı → gizle. */}
       {hasRecentChips && recentCategories && (
+        // Hap/chip değil — tarih barıyla aynı dil: dikey çizgiyle ayrık düz metin
+        // segmentleri; seçili olan renkli+kalın (standart satır görünümü)
         <View style={localStyles.recentChipsRow}>
-          {recentCategories.map((cat) => {
+          {recentCategories.map((cat, i) => {
             const isSelected = cat.id === kategoriId;
             return (
-              <TouchableOpacity
-                key={cat.id}
-                style={[localStyles.recentChip, isSelected && localStyles.recentChipActive]}
-                onPress={() => onKategoriChange(cat.id)}
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={cat.name}
-              >
-                {cat.color ? (
-                  <View style={[localStyles.recentChipDot, { backgroundColor: cat.color }]} />
-                ) : null}
-                <Text
-                  style={[localStyles.recentChipText, isSelected && localStyles.recentChipTextActive]}
-                  numberOfLines={1}
+              <Fragment key={cat.id}>
+                {i > 0 && <View style={localStyles.recentSegDivider} />}
+                <TouchableOpacity
+                  style={localStyles.recentSeg}
+                  onPress={() => onKategoriChange(cat.id)}
+                  activeOpacity={0.6}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={cat.name}
                 >
-                  {cat.name}
-                </Text>
-              </TouchableOpacity>
+                  {cat.color ? (
+                    <View style={[localStyles.recentChipDot, { backgroundColor: cat.color }]} />
+                  ) : null}
+                  <Text
+                    style={[localStyles.recentSegText, isSelected && localStyles.recentSegTextActive]}
+                    numberOfLines={1}
+                  >
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              </Fragment>
             );
           })}
         </View>
@@ -385,46 +390,45 @@ const localStyles = StyleSheet.create({
     borderRadius: 0,
     height: 44,
     paddingHorizontal: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  // Segment satırı: hap yok — dikey çizgiyle ayrık düz metin (tarih barı dili)
   recentChipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingVertical: 8,
+    alignItems: 'center',
+    height: 38,
     paddingHorizontal: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  recentChip: {
+  recentSeg: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingVertical: 5,
+    gap: 6,
+    height: '100%',
     paddingHorizontal: 10,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
+    flexShrink: 1,
   },
-  recentChipActive: {
-    backgroundColor: colors.primaryLight,
-    borderColor: colors.primary,
+  recentSegDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: colors.border,
   },
   recentChipDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
   },
-  recentChipText: {
-    fontSize: 13,
-    fontWeight: '600',
+  recentSegText: {
+    fontSize: 14,
+    fontWeight: '500',
     color: colors.textSecondary,
     maxWidth: 130,
   },
-  recentChipTextActive: {
+  recentSegTextActive: {
     color: colors.primary,
+    fontWeight: '700',
   },
   noteRow: {
     flexDirection: 'row',
@@ -432,7 +436,7 @@ const localStyles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 6,
     paddingVertical: 4,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   noteInput: {

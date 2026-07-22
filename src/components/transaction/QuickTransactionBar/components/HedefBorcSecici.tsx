@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, Fragment, useEffect, useMemo } from 'react';
 import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
@@ -97,34 +97,37 @@ export const HedefBorcSecici = memo(function HedefBorcSecici({
   if (units.length === 0) return null;
 
   return (
+    // Tarih barıyla aynı dil: dikey çizgiyle ayrık düz metin segmentleri (hap/kutu yok);
+    // seçili segment renkli+kalın. Standart satır: 40px + altta çizgi.
     <View style={s.wrap}>
-      <Text style={s.title}>{t('transactions:vade.hedefBaslik')}</Text>
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.chips}
+        contentContainerStyle={s.segments}
         keyboardShouldPersistTaps="handled"
       >
-        <TouchableOpacity
-          style={[s.chip, !selectedBorcId && s.chipActive]}
-          onPress={() => onSelect(null)}
-          activeOpacity={0.7}
-        >
-          <Text style={[s.chipText, !selectedBorcId && s.chipTextActive]}>
+        <Text style={s.label}>{t('transactions:vade.hedefBaslik')}</Text>
+        <TouchableOpacity style={s.segment} onPress={() => onSelect(null)} activeOpacity={0.6}>
+          <Text style={[s.segmentText, !selectedBorcId && s.segmentTextActive]} numberOfLines={1}>
             {t('transactions:vade.hedefOtomatik')}
           </Text>
         </TouchableOpacity>
         {units.map((u) => (
-          <TouchableOpacity
-            key={u.borcId}
-            style={[s.chip, selectedBorcId === u.borcId && s.chipActive]}
-            onPress={() => onSelect(u.borcId, u.kalan)}
-            activeOpacity={0.7}
-          >
-            <Text style={[s.chipText, selectedBorcId === u.borcId && s.chipTextActive]}>
-              {u.label}
-            </Text>
-          </TouchableOpacity>
+          <Fragment key={u.borcId}>
+            <View style={s.divider} />
+            <TouchableOpacity
+              style={s.segment}
+              onPress={() => onSelect(u.borcId, u.kalan)}
+              activeOpacity={0.6}
+            >
+              <Text
+                style={[s.segmentText, selectedBorcId === u.borcId && s.segmentTextActive]}
+                numberOfLines={1}
+              >
+                {u.label}
+              </Text>
+            </TouchableOpacity>
+          </Fragment>
         ))}
       </ScrollView>
     </View>
@@ -132,44 +135,40 @@ export const HedefBorcSecici = memo(function HedefBorcSecici({
 });
 
 const s = StyleSheet.create({
-  // Yapışık düz görünüm: üstteki satırlarla bitişik, altta ince çizgi
+  // Yapışık standart satır: 40px, altta çizgi
   wrap: {
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    height: 40,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  title: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 4,
-  },
-  chips: {
-    gap: 6,
+  segments: {
+    alignItems: 'center',
+    paddingHorizontal: 6,
     paddingRight: spacing.md,
   },
-  // Kategori öneri chip'leriyle (AmountInputSection.recentChip) birebir aynı standart
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    backgroundColor: colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  chipActive: {
-    backgroundColor: colors.primaryLight,
-    borderColor: colors.primary,
-  },
-  chipText: {
+  label: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
+    color: colors.textMuted,
+    marginRight: 10,
+  },
+  segment: {
+    height: '100%',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  divider: {
+    width: 1,
+    height: 18,
+    backgroundColor: colors.border,
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: '500',
     color: colors.textSecondary,
   },
-  chipTextActive: {
+  segmentTextActive: {
     color: colors.primary,
+    fontWeight: '700',
   },
 });

@@ -67,7 +67,7 @@ export const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   dateRangeRow: {
@@ -151,7 +151,7 @@ export const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 11,
     paddingHorizontal: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   pickerButtonText: {
@@ -311,7 +311,7 @@ export const styles = StyleSheet.create({
     gap: 8,
     height: 44,
     paddingHorizontal: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   sourceAccountText: {
@@ -485,7 +485,7 @@ export const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 10,
     paddingHorizontal: 6,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   paymentRowLeft: {
