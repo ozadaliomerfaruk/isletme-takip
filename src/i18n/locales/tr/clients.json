@@ -62,6 +62,7 @@
     "buAyTaksitYok": "Bu ay vadesi gelen taksit yok",
     "tahsil": "Tahsil",
     "odeme": "Ödeme",
+    "toplam": "Toplam",
     "gecikmisFiltre": "Vadesi geçenler"
   },
   "balance": {

@@ -62,6 +62,7 @@
     "buAyTaksitYok": "No installments due this month",
     "tahsil": "Collect",
     "odeme": "Pay",
+    "toplam": "Total",
     "gecikmisFiltre": "Overdue"
   },
   "balance": {

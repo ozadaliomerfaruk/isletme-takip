@@ -5,14 +5,15 @@ import { CalendarClock, CalendarRange, CheckCircle2 } from 'lucide-react-native'
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, fontSize, fontWeight } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, roundCurrency } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { useVadeOzet, type VadeOzetSatiri } from '@/hooks/useIslemTahsis';
 import { useBuAyTaksitOzeti, useTaksitPlanListesi } from '@/hooks/useTaksit';
 
 const CARD_PADDING = spacing.lg;
-/** Ana sayfa carousel'inin aksine BİLEREK kısa (kompakt özet). */
-const CARD_HEIGHT = 106;
+/** Ana sayfa carousel'inin aksine BİLEREK kısa (kompakt özet).
+    114: taksit kartındaki üç satırlı sütun (bu ay + toplam) sığsın. */
+const CARD_HEIGHT = 114;
 
 /** Kartlar dinamik: veri yoksa kart hiç gösterilmez (kullanıcı isteği). */
 type CardKey = 'genel' | 'vade' | 'taksit';
@@ -154,32 +155,64 @@ export function CariMiniDashboard({
           )}
         </TouchableOpacity>
       )}
-      {item === 'taksit' && (
-        <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onTaksitPress}>
-          {renderHeader(CalendarRange, colors.info, colors.infoLight, t('clients:miniDashboard.buAyTaksitTitle'))}
-          {!taksitOzet || taksitOzet.adet === 0 ? (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyText}>{upperTr(t('clients:miniDashboard.buAyTaksitYok'))}</Text>
-            </View>
-          ) : (
+      {item === 'taksit' && (() => {
+        // Kullanıcı isteği: BU AY değerinin altında KALAN TOPLAM taksit tutarı da
+        // görünsün. Toplamlar plan listesinden (Taksit Takip ile aynı kural:
+        // TRY öncelikli tek para birimi, çapraz-kur toplanmaz).
+        const acikPlanlar = (taksitPlanlar ?? []).filter(
+          (p) => roundCurrency(p.toplam - p.odenen) > 0.009
+        );
+        const tCur = acikPlanlar.some((p) => p.currency === 'TRY')
+          ? 'TRY'
+          : acikPlanlar[0]?.currency || taksitOzet?.currency || 'TRY';
+        const toplamKalan = (tip: 'cari_satis' | 'cari_alis') =>
+          roundCurrency(
+            acikPlanlar
+              .filter((p) => p.currency === tCur && p.type === tip)
+              .reduce((s, p) => s + Math.max(0, p.toplam - p.odenen), 0)
+          );
+        const topTahsil = toplamKalan('cari_satis');
+        const topOde = toplamKalan('cari_alis');
+        const buAyCur = taksitOzet?.currency || tCur;
+        const buAyTahsil = taksitOzet?.tahsilKalan ?? 0;
+        const buAyOde = taksitOzet?.odemeKalan ?? 0;
+        return (
+          <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onTaksitPress}>
+            {renderHeader(CalendarRange, colors.info, colors.infoLight, t('clients:miniDashboard.buAyTaksitTitle'))}
             <View style={styles.statsRow}>
-              {renderStat(t('transactions:taksit.label'), String(taksitOzet.adet), colors.text)}
+              <View style={styles.stat}>
+                <Text style={styles.statLabel} numberOfLines={1}>{upperTr(t('clients:miniDashboard.tahsil'))}</Text>
+                <Text
+                  style={[styles.statValue, { color: buAyTahsil > 0 ? colors.success : colors.textMuted }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.6}
+                >
+                  {formatCurrency(buAyTahsil, buAyCur)}
+                </Text>
+                <Text style={styles.statSub} numberOfLines={1}>
+                  {t('clients:miniDashboard.toplam')}: {formatCurrency(topTahsil, tCur)}
+                </Text>
+              </View>
               <View style={styles.divider} />
-              {renderStat(
-                t('clients:miniDashboard.tahsil'),
-                formatCurrency(taksitOzet.tahsilKalan, taksitOzet.currency),
-                taksitOzet.tahsilKalan > 0 ? colors.success : colors.textMuted
-              )}
-              <View style={styles.divider} />
-              {renderStat(
-                t('clients:miniDashboard.odeme'),
-                formatCurrency(taksitOzet.odemeKalan, taksitOzet.currency),
-                taksitOzet.odemeKalan > 0 ? colors.error : colors.textMuted
-              )}
+              <View style={styles.stat}>
+                <Text style={styles.statLabel} numberOfLines={1}>{upperTr(t('clients:miniDashboard.odeme'))}</Text>
+                <Text
+                  style={[styles.statValue, { color: buAyOde > 0 ? colors.error : colors.textMuted }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.6}
+                >
+                  {formatCurrency(buAyOde, buAyCur)}
+                </Text>
+                <Text style={styles.statSub} numberOfLines={1}>
+                  {t('clients:miniDashboard.toplam')}: {formatCurrency(topOde, tCur)}
+                </Text>
+              </View>
             </View>
-          )}
-        </TouchableOpacity>
-      )}
+          </TouchableOpacity>
+        );
+      })()}
     </View>
   ), [cardWidth, t, borcumuz, alacagimiz, baseCurrency, onGenelPress, onVadePress, onTaksitPress, vadeTemiz, gecAlacak, gecBorc, yaklasan, vadeCur, taksitOzet]);
 
@@ -289,6 +322,12 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: fontSize['2xl'],
     fontWeight: fontWeight.bold,
+    maxWidth: '100%',
+  },
+  statSub: {
+    fontSize: fontSize.sm,
+    color: colors.textMuted,
+    fontWeight: fontWeight.medium,
     maxWidth: '100%',
   },
   divider: {
