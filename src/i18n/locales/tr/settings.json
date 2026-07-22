@@ -330,6 +330,11 @@
       "income": "Gelir Kategorisi",
       "expense": "Gider Kategorisi"
     },
+    "bulk": {
+      "prefix": "Tümü:",
+      "currency": "Para birimi",
+      "currencyTitle": "Para birimini seç"
+    },
     "hints": {
       "categoryToggle": "Dokunarak kategori tipini değiştirebilirsiniz (Gelir ↔ Gider)"
     },
@@ -393,11 +398,19 @@
     "info": {
       "supportedTypes": "Desteklenen İşlem Tipleri"
     },
+    "typeGroups": {
+      "basic": "Temel",
+      "cari": "Cari (Müşteri / Tedarikçi)",
+      "personel": "Personel",
+      "other": "Diğer"
+    },
     "typeDescriptions": {
       "gelir": "GELİR — Gelir işlemleri",
       "gider": "GİDER — Gider işlemleri",
       "cariAlis": "CARİ ALIŞ — Tedarikçiden alış",
       "cariSatis": "CARİ SATIŞ — Müşteriye satış",
+      "cariAlisIade": "CARİ ALIŞ İADE — Tedarikçiye iade",
+      "cariSatisIade": "CARİ SATIŞ İADE — Müşteriden iade",
       "odeme": "ÖDEME — Tedarikçiye ödeme",
       "tahsilat": "TAHSİLAT — Müşteriden tahsilat",
       "transfer": "TRANSFER — Hesaplar arası transfer",
@@ -455,7 +468,7 @@
       "amountInvalidDesc": "{{count}} işlemde geçersiz tutar",
       "amountInvalidSuggestion": "Tutar 0.01 ve üzeri olmalı",
       "typeUnknown": "Bilinmeyen İşlem Tipi",
-      "typeUnknownDesc": "{{count}} işlemde tanınmayan tip",
+      "typeUnknownDesc": "{{count}} işlemde tanınmayan tip — gider olarak alındı",
       "typeUnknownSuggestion": "GELİR, GİDER, TRANSFER vb. standart tipler kullanın",
       "entityNotFound": "Bulunamayan Kayıtlar",
       "entityNotFoundDesc": "{{count}} işlemde hesap/cari bulunamadı",

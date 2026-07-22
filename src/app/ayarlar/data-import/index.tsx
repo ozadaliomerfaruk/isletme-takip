@@ -35,6 +35,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
+import { logEvent } from '@/lib/appEvents';
 import { PendingTransactionForm } from '@/components/import';
 import type { PendingIslemRawData, PendingIslem } from '@/types/database';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -269,17 +270,46 @@ export default function VeriIceAktarPage() {
       [name]: { ...prev[name], cariType: cariType as 'musteri' | 'tedarikci' },
     }));
   };
-  const cycleAccountCurrency = (name: string) => {
-    const currencies = getLocalizedCurrencies(i18n.language);
-    setAccountMappings(prev => {
-      const currentCurrency = prev[name]?.currency || 'TRY';
-      const currentIndex = currencies.findIndex(c => c.code === currentCurrency);
-      const nextIndex = (currentIndex + 1) % currencies.length;
-      return { ...prev, [name]: { ...prev[name], currency: currencies[nextIndex].code } };
-    });
+  const setAccountCurrency = (name: string, currency: string) => {
+    setAccountMappings(prev => ({ ...prev, [name]: { ...prev[name], currency } }));
   };
   const toggleCategoryType = (name: string) => {
     setCategoryMappings(prev => ({ ...prev, [name]: prev[name] === 'gelir' ? 'gider' : 'gelir' }));
+  };
+
+  // Toplu aksiyonlar — aramayla filtrelenmiş, o an görünen öğelere uygulanır
+  const bulkSetEntityType = (names: string[], entityType: 'cari' | 'personel', cariType?: 'musteri' | 'tedarikci') => {
+    setAccountMappings(prev => {
+      const next = { ...prev };
+      for (const n of names) {
+        if (!next[n]) continue;
+        next[n] = entityType === 'cari'
+          ? { ...next[n], type: 'cari', cariType: cariType ?? next[n].cariType ?? 'tedarikci', hesapType: undefined }
+          : { ...next[n], type: 'personel', cariType: undefined, hesapType: undefined };
+      }
+      return next;
+    });
+  };
+  const bulkSetHesapSubType = (names: string[], hesapType: 'nakit' | 'banka' | 'kredi_karti' | 'birikim') => {
+    setAccountMappings(prev => {
+      const next = { ...prev };
+      for (const n of names) if (next[n]) next[n] = { ...next[n], hesapType };
+      return next;
+    });
+  };
+  const bulkSetAccountCurrency = (names: string[], currency: string) => {
+    setAccountMappings(prev => {
+      const next = { ...prev };
+      for (const n of names) if (next[n]) next[n] = { ...next[n], currency };
+      return next;
+    });
+  };
+  const bulkSetCategoryType = (names: string[], type: 'gelir' | 'gider') => {
+    setCategoryMappings(prev => {
+      const next = { ...prev };
+      for (const n of names) next[n] = type;
+      return next;
+    });
   };
 
   // Import execution
@@ -321,6 +351,16 @@ export default function VeriIceAktarPage() {
     const importResult = await runImport(preview, accountMappings, {
       dryRun, skipDuplicates, categoryMappings, translations: progressTranslations,
     });
+    if (importResult.success && !dryRun) {
+      // Özellik kullanım takibi — yalnız sayımlar (PII-siz)
+      logEvent('import_completed', {
+        transactions: importResult.transactionsCreated,
+        accounts: importResult.accountsCreated,
+        clients: importResult.clientsCreated,
+        categories: importResult.categoriesCreated,
+        skipped: importResult.skippedTransactions?.length ?? 0,
+      });
+    }
     if (importResult.success && !dryRun && fileHash) {
       await saveImportHistory(importResult, fileName, fileHash, {
         transactionIds: importResult.transactionIds,
@@ -485,6 +525,8 @@ export default function VeriIceAktarPage() {
     return Object.values(accountMappings).filter(m => m.type === 'cari' || m.type === 'personel').length;
   }, [accountMappings]);
 
+  const currencies = useMemo(() => getLocalizedCurrencies(i18n.language), [i18n.language]);
+
   const filteredAccounts = useMemo(() => {
     const accounts = Object.entries(accountMappings)
       .filter(([_, m]) => m.type === 'hesap')
@@ -636,8 +678,13 @@ export default function VeriIceAktarPage() {
         onToggleEntityType={toggleEntityType}
         onSetHesapSubType={setHesapSubType}
         onSetCariSubType={setCariSubType}
-        onCycleAccountCurrency={cycleAccountCurrency}
+        onSetAccountCurrency={setAccountCurrency}
         onToggleCategoryType={toggleCategoryType}
+        currencies={currencies}
+        onBulkEntityType={bulkSetEntityType}
+        onBulkHesapSubType={bulkSetHesapSubType}
+        onBulkAccountCurrency={bulkSetAccountCurrency}
+        onBulkCategoryType={bulkSetCategoryType}
         t={t}
       />
 

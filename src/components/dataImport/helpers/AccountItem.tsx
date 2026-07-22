@@ -1,5 +1,5 @@
 import { View, TouchableOpacity } from 'react-native';
-import { Building2, ArrowLeftRight } from 'lucide-react-native';
+import { Building2, ArrowLeftRight, ChevronDown } from 'lucide-react-native';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useTranslation } from 'react-i18next';
@@ -36,9 +36,10 @@ export function AccountItem({
             {mapping.currency && (
               <TouchableOpacity
                 onPress={onCurrencyChange}
-                style={[styles.typeBadge, { backgroundColor: colors.primaryLight, marginLeft: 4 }]}
+                style={[styles.typeBadge, { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: colors.primaryLight, marginLeft: 4 }]}
               >
                 <Text variant="caption" style={{ color: colors.primary, fontWeight: '600' }}>{mapping.currency}</Text>
+                <ChevronDown size={12} color={colors.primary} />
               </TouchableOpacity>
             )}
           </View>

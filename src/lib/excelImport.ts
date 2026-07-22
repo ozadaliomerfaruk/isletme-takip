@@ -32,6 +32,7 @@ export interface ParsedTransaction {
   signedAmount: number; // Orijinal işaretli değer (başlangıç bakiyesi için)
   currency: string | null; // BIRIM/CURRENCY kolonundan - ana hesabın para birimi
   isExpense: boolean;
+  typeRecognized: boolean; // İşlem tipi TRANSACTION_TYPE_MAP'te tanındı mı? false → sessizce 'gider' varsayıldı (kullanıcıya uyarı gösterilir)
   dateValid: boolean; // Tarih geçerli mi?
   dateError?: string; // Tarih hatası varsa açıklama
   amountValid: boolean; // Tutar geçerli mi?
@@ -869,6 +870,11 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       // İşlem tipi mapping - context-aware
       // Turkish character normalization for better matching (İ→I, Ş→S, Ğ→G, etc.)
       const normalizedType = normalizeTurkishChars(type || '').toUpperCase();
+      // Tip TRANSACTION_TYPE_MAP'te var mı? Yoksa aşağıda 'gider' varsayılır AMA
+      // bu bilgi kullanıcıya uyarı olarak gösterilsin diye flag'lenir (sessiz coerce yok).
+      const typeRecognized =
+        TRANSACTION_TYPE_MAP[normalizedType] !== undefined ||
+        (!!type && TRANSACTION_TYPE_MAP[type] !== undefined);
       let mappedType = TRANSACTION_TYPE_MAP[normalizedType] || TRANSACTION_TYPE_MAP[type || ''] || 'gider';
       const originalMappedType = mappedType;
 
@@ -985,6 +991,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         signedAmount, // Orijinal işaretli değer (başlangıç bakiyesi için)
         currency,
         isExpense,
+        typeRecognized,
         dateValid,
         dateError,
         amountValid,
@@ -1475,7 +1482,7 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
   };
 
   let validCount = 0;
-  const warningCount = 0;
+  let warningCount = 0;
   let errorCount = 0;
 
   // Her işlemi kontrol et
@@ -1516,15 +1523,17 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
       return;
     }
 
-    // Bilinmeyen işlem tipi
-    if (!tx.mappedType || tx.mappedType === 'unknown') {
-      errorCount++;
+    // Tanınmayan işlem tipi — sessizce 'gider' varsayıldı. İçeri GİRER ama
+    // kullanıcıya UYARI olarak gösterilir (sessiz veri bozulmasını önler).
+    if (tx.type && !tx.typeRecognized) {
+      warningCount++;
       const cat = errorsByCategory.type_unknown;
       cat.count++;
       cat.rows.push(rowNum);
       if (cat.examples.length < 3) {
         cat.examples.push(`"${tx.type}" (satır ${rowNum})`);
       }
+      validCount++; // 'gider' olarak import edilebilir
       return;
     }
 
@@ -1584,10 +1593,10 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
     });
 
     issues.push({
-      type: 'error',
+      type: 'warning',
       category: 'type_unknown',
       messageKey: 'dataImport.validation.typeUnknown',
-      message: `${errorsByCategory.type_unknown.count} transactions with unknown type`,
+      message: `${errorsByCategory.type_unknown.count} transactions with unrecognized type (imported as expense)`,
       count: errorsByCategory.type_unknown.count,
       rows: errorsByCategory.type_unknown.rows.slice(0, 10),
       suggestion: 'Use standard types: INCOME, EXPENSE, TRANSFER, etc.',

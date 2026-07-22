@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import {
   FileSpreadsheet,
   Upload,
@@ -9,6 +9,15 @@ import { Text, Card, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { styles } from '../styles';
+
+// Desteklenen işlem tipleri — kategoriye göre gruplu (anlaşılırlık için).
+// TRANSACTION_TYPE_MAP ile eşleşir; iade tipleri dahil (eksik değil).
+const TYPE_GROUPS: { labelKey: string; keys: string[] }[] = [
+  { labelKey: 'typeGroups.basic', keys: ['gelir', 'gider'] },
+  { labelKey: 'typeGroups.cari', keys: ['cariAlis', 'cariSatis', 'cariAlisIade', 'cariSatisIade', 'odeme', 'tahsilat'] },
+  { labelKey: 'typeGroups.personel', keys: ['personelGider', 'personelOdeme', 'personelTahsilat'] },
+  { labelKey: 'typeGroups.other', keys: ['transfer', 'baslangicBakiyesi'] },
+];
 
 interface ImportHistoryItem {
   id: string;
@@ -77,8 +86,8 @@ export function Step1Select({
             <Text style={styles.stepNumberText}>1</Text>
           </View>
           <View style={styles.stepInfo}>
-            <Text variant="label">{t('dataImport.steps.downloadTemplate')}</Text>
-            <Text variant="caption" color="secondary">
+            <Text variant="body" style={{ fontWeight: '600' }}>{t('dataImport.steps.downloadTemplate')}</Text>
+            <Text variant="bodySmall" color="secondary">
               {t('dataImport.steps.downloadTemplateDesc')}
             </Text>
           </View>
@@ -101,8 +110,8 @@ export function Step1Select({
             <Text style={[styles.stepNumberText, { color: colors.surface }]}>2</Text>
           </View>
           <View style={styles.stepInfo}>
-            <Text variant="label">{t('dataImport.steps.selectFile')}</Text>
-            <Text variant="caption" color="secondary">
+            <Text variant="body" style={{ fontWeight: '600' }}>{t('dataImport.steps.selectFile')}</Text>
+            <Text variant="bodySmall" color="secondary">
               {t('dataImport.steps.selectFileDesc')}
             </Text>
           </View>
@@ -119,22 +128,21 @@ export function Step1Select({
       </Card>
 
       <Card style={styles.infoCard}>
-        <Text variant="label" style={styles.infoTitle}>
+        <Text variant="h3" style={local.supportedTitle}>
           {t('dataImport.info.supportedTypes')}
         </Text>
-        <View style={styles.typesList}>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.gelir')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.gider')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.cariAlis')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.cariSatis')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.odeme')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.tahsilat')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.transfer')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelGider')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelOdeme')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.personelTahsilat')}</Text>
-          <Text variant="caption" color="secondary">• {t('dataImport.typeDescriptions.baslangicBakiyesi')}</Text>
-        </View>
+        {TYPE_GROUPS.map((group) => (
+          <View key={group.labelKey} style={local.typeGroup}>
+            <Text variant="label" style={local.typeGroupLabel}>
+              {t(`dataImport.${group.labelKey}`)}
+            </Text>
+            {group.keys.map((k) => (
+              <Text key={k} color="secondary" style={local.typeItem}>
+                • {t(`dataImport.typeDescriptions.${k}`)}
+              </Text>
+            ))}
+          </View>
+        ))}
       </Card>
 
       {lastImport && lastImport.canUndo && (
@@ -202,3 +210,24 @@ export function Step1Select({
     </View>
   );
 }
+
+const local = StyleSheet.create({
+  supportedTitle: {
+    marginBottom: spacing.md,
+  },
+  typeGroup: {
+    marginBottom: spacing.md,
+  },
+  typeGroupLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  typeItem: {
+    fontSize: 14.5,
+    lineHeight: 21,
+    color: colors.textSecondary,
+    marginBottom: 3,
+  },
+});

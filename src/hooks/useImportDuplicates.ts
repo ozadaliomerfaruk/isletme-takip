@@ -9,9 +9,16 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { ParsedTransaction } from '@/lib/excelImport';
 import { DuplicateInfo } from './useDataImport.types';
 
+/** Açıklamayı karşılaştırma için normalize et (boşluk/büyük-küçük harf farkını yok say). */
+function normalizeDesc(desc: string | null | undefined): string {
+  return (desc || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 /**
  * Import öncesi duplicate kontrolü
- * Aynı tarih + tutar kombinasyonunu kontrol eder
+ * Anahtar: tarih + tutar + iç işlem tipi + açıklama.
+ * Sadece tarih+tutar kullanmak, aynı gün aynı tutarlı MEŞRU işlemleri yanlışlıkla
+ * "duplicate" işaretliyordu; tip+açıklama eklenerek yanlış-pozitifler azaltıldı.
  */
 async function checkForDuplicates(
   transactions: ParsedTransaction[],
@@ -27,7 +34,7 @@ async function checkForDuplicates(
   try {
     const { data: existingIslemler, error } = await supabase
       .from('islemler')
-      .select('id, date, amount')
+      .select('id, date, amount, type, description')
       .eq('isletme_id', isletmeId)
       .gte('date', uniqueDates[0] + 'T00:00:00')
       .lte('date', uniqueDates[uniqueDates.length - 1] + 'T23:59:59');
@@ -42,14 +49,17 @@ async function checkForDuplicates(
     const existingMap = new Map<string, { id: string; date: string; amount: number }>();
     existingIslemler.forEach(islem => {
       const dateOnly = islem.date.split('T')[0];
-      const key = `${dateOnly}|${islem.amount}`;
-      existingMap.set(key, { id: islem.id, date: islem.date, amount: islem.amount });
+      const key = `${dateOnly}|${islem.amount}|${islem.type ?? ''}|${normalizeDesc(islem.description)}`;
+      // İlk eşleşmeyi koru (aynı imzadan birden fazla varsa ilkini duplicate referansı yap)
+      if (!existingMap.has(key)) {
+        existingMap.set(key, { id: islem.id, date: islem.date, amount: islem.amount });
+      }
     });
 
     transactions.forEach((tx, idx) => {
       if (!tx.dateValid || !tx.date) return;
       const dateOnly = tx.date.split('T')[0];
-      const key = `${dateOnly}|${tx.amount}`;
+      const key = `${dateOnly}|${tx.amount}|${tx.mappedType ?? ''}|${normalizeDesc(tx.description)}`;
       const existing = existingMap.get(key);
       if (existing) {
         duplicates.set(idx, {

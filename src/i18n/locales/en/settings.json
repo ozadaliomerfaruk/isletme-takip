@@ -330,6 +330,11 @@
       "income": "Income Category",
       "expense": "Expense Category"
     },
+    "bulk": {
+      "prefix": "All:",
+      "currency": "Currency",
+      "currencyTitle": "Select currency"
+    },
     "hints": {
       "categoryToggle": "Tap to change category type (Income ↔ Expense)"
     },
@@ -393,11 +398,19 @@
     "info": {
       "supportedTypes": "Supported Transaction Types"
     },
+    "typeGroups": {
+      "basic": "Basic",
+      "cari": "Client (Customer / Supplier)",
+      "personel": "Staff",
+      "other": "Other"
+    },
     "typeDescriptions": {
       "gelir": "INCOME — Revenue transactions",
       "gider": "EXPENSE — Expense transactions",
       "cariAlis": "PURCHASE — Supplier purchases",
       "cariSatis": "SALE — Customer sales",
+      "cariAlisIade": "PURCHASE RETURN — Return to supplier",
+      "cariSatisIade": "SALE RETURN — Return from customer",
       "odeme": "PAYMENT — Supplier payments",
       "tahsilat": "COLLECTION — Customer collections",
       "transfer": "TRANSFER — Transfers between accounts",
@@ -455,7 +468,7 @@
       "amountInvalidDesc": "{{count}} transactions have invalid amount",
       "amountInvalidSuggestion": "Amount must be 0.01 or higher",
       "typeUnknown": "Unknown Transaction Type",
-      "typeUnknownDesc": "{{count}} transactions have unrecognized type",
+      "typeUnknownDesc": "{{count}} transactions have unrecognized type — imported as expense",
       "typeUnknownSuggestion": "Use standard types like INCOME, EXPENSE, TRANSFER",
       "entityNotFound": "Missing Records",
       "entityNotFoundDesc": "{{count}} transactions have missing account/client",

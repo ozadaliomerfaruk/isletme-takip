@@ -233,11 +233,11 @@ export function Step2Preview({
                   </View>
                   <View style={styles.issueContent}>
                     <Text variant="caption" color={issue.type === 'error' ? 'error' : 'secondary'}>
-                      {issue.message}
+                      {t(`${issue.messageKey}Desc`, { count: issue.count, defaultValue: issue.message })}
                     </Text>
                     {issue.suggestion && (
                       <Text variant="caption" color="muted" style={styles.issueSuggestion}>
-                        {issue.suggestion}
+                        {t(`${issue.messageKey}Suggestion`, { defaultValue: issue.suggestion })}
                       </Text>
                     )}
                   </View>
