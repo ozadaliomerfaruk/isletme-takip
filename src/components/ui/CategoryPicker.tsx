@@ -280,7 +280,7 @@ export function CategoryPicker({
         <TouchableWithoutFeedback onPress={handleCloseModal}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={[styles.modalContent, { height: windowHeight * 0.78, paddingBottom: insets.bottom }]}>
+              <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
                 <View style={styles.modalHeader}>
               <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
               {/* Ana sayfa sticky header'larındaki AddEntityButton ile aynı görünüm.
