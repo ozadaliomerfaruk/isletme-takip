@@ -14,6 +14,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { X } from 'lucide-react-native';
+import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Text } from '@/components/ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -252,6 +253,11 @@ export function QuickTransactionBar({
   const [taksitAdetDraft, setTaksitAdetDraft] = useState(3);
   const [taksitIlkVadeDraft, setTaksitIlkVadeDraft] = useState<Date>(() => addMonths(new Date(), 1));
   const [showTaksitVadePicker, setShowTaksitVadePicker] = useState(false);
+
+  // Taksit modalı kapanınca satır-içi tarih seçici de kapanır (yeniden açılışta temiz)
+  useEffect(() => {
+    if (!showTaksitConfig) setShowTaksitVadePicker(false);
+  }, [showTaksitConfig]);
 
   // "Nereye sayılsın?" — cari tahsilat/ödemede hedef borç seçimi (create modda).
   // Seçim yoksa Otomatik = sunucu FIFO'su (en eski etkin vade); seçim varsa kayıt
@@ -963,10 +969,34 @@ export function QuickTransactionBar({
                 <Text style={styles.pickerSectionTitle}>{t('transactions:taksit.ilkVade')}</Text>
                 <TouchableOpacity
                   style={taksitStyles.vadeButton}
-                  onPress={() => setShowTaksitVadePicker(true)}
+                  onPress={() => setShowTaksitVadePicker((v) => !v)}
                 >
                   <Text style={taksitStyles.vadeButtonText}>{formatDateMedium(taksitIlkVadeDraft)}</Text>
                 </TouchableOpacity>
+
+                {/* İlk-vade seçici SATIR İÇİ (ayrı Modal DEĞİL): taksit modalı açıkken
+                    ikinci bir RN Modal açmak iOS production'da UI'ı DONDURUYORDU
+                    (eşzamanlı modal sunumu). iOS: spinner inline; Android: native dialog
+                    (RN Modal olmadığı için güvenli). Geçmiş tarih seçilemez. */}
+                {showTaksitVadePicker && (
+                  <View style={taksitStyles.inlinePickerWrap}>
+                    <DateTimePickerRN
+                      value={taksitIlkVadeDraft}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      minimumDate={form.safeDate}
+                      locale={locale}
+                      themeVariant="light"
+                      onChange={(event, d) => {
+                        if (Platform.OS === 'android') {
+                          setShowTaksitVadePicker(false);
+                          if (event.type === 'dismissed') return;
+                        }
+                        if (d) setTaksitIlkVadeDraft(d);
+                      }}
+                    />
+                  </View>
+                )}
 
                 <Text style={taksitStyles.not}>{t('transactions:taksit.aylikNot')}</Text>
 
@@ -992,17 +1022,6 @@ export function QuickTransactionBar({
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-
-      {/* Taksit ilk-vade tarih seçici — geçmiş tarih seçilemez (yanlışlıkla
-          "zaten gecikmiş" plan oluşmasın) */}
-      <DateTimePickerModal
-        visible={showTaksitVadePicker}
-        onDismiss={() => setShowTaksitVadePicker(false)}
-        value={taksitIlkVadeDraft}
-        onChange={setTaksitIlkVadeDraft}
-        locale={locale}
-        minimumDate={form.safeDate}
-      />
 
       {/* DateTime End Picker Modal (for leave usage date range) */}
       {isLeaveUsageType && (
@@ -1209,6 +1228,10 @@ const taksitStyles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 10,
     backgroundColor: colors.background,
+    marginBottom: 8,
+  },
+  inlinePickerWrap: {
+    alignItems: 'center',
     marginBottom: 8,
   },
   vadeButtonText: {
