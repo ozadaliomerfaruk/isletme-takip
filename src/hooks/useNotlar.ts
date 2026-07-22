@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { cancelNoteReminder } from '@/lib/notifications';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
+import { logEvent } from '@/lib/appEvents';
 import type { Not, NotInsert, NotUpdate, NotEntityType } from '@/types/database';
 
 export function useInvalidateNotlar() {
@@ -135,8 +136,9 @@ export function useCreateNot() {
       if (error) throw error;
       return data as Not;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       invalidateRelatedQueries(queryClient, 'not');
+      logEvent('not_created', { entity_type: data?.entity_type ?? null });
     },
   });
 }

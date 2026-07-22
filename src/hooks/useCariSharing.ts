@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
+import { logEvent } from '@/lib/appEvents';
 import type {
   CariLinkWithDetails,
   CariLinkStatus,
@@ -152,6 +153,9 @@ export function useGenerateShareCode() {
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       return { code, expires_at: expiresAt };
     },
+    onSuccess: (_data, variables) => {
+      logEvent('cari_share_created', { permission: variables.permission });
+    },
   });
 }
 
@@ -176,8 +180,9 @@ export function useAcceptShareCode() {
       if (error) throw error;
       return { link_id: data as string };
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       invalidateRelatedQueries(queryClient, 'cariSharing');
+      logEvent('cari_share_accepted', { viewer_type: variables.viewer_type });
     },
   });
 }

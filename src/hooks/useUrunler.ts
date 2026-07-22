@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Urun, UrunInsert, UrunUpdate } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 import { LinkedRecordsError } from '@/lib/errors';
+import { logEvent } from '@/lib/appEvents';
 import i18n from '@/i18n';
 
 /**
@@ -90,8 +91,9 @@ export function useCreateUrun() {
       if (error) throw error;
       return data as Urun;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       invalidateRelatedQueries(queryClient, 'urun');
+      logEvent('urun_created', { currency: data?.currency, birim: data?.birim });
     },
   });
 }

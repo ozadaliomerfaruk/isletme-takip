@@ -523,7 +523,7 @@ export function useTransactionSubmit({
     const __ncStart = Date.now();
     const isOnline = await checkNetworkConnectivity();
     const __ncMs = Date.now() - __ncStart;
-    if (__ncMs > 2000) {
+    if (__DEV__ && __ncMs > 2000) {
       logEvent('save_netcheck_debug', { netcheck_ms: __ncMs, online: isOnline });
     }
     if (!isOnline) {
@@ -1035,7 +1035,7 @@ export function useTransactionSubmit({
       submitInFlightRef.current = false;
       // [GEÇİCİ TEŞHİS — 14 Tem] Yalnız yavaş submit'leri logla (eşik 2sn; ateşle-unut).
       const __submitMs = Date.now() - __submitT0;
-      if (__submitMs > 2000) {
+      if (__DEV__ && __submitMs > 2000) {
         logEvent('save_submit_debug', {
           submit_ms: __submitMs,
           type,

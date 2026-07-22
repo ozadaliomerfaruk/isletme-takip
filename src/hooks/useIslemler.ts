@@ -191,7 +191,8 @@ export function useCreateIslem() {
       } finally {
         // [GEÇİCİ TEŞHİS] Yalnız yavaş kayıtları logla (normal kayıt <1sn → gürültü yok).
         const __totalMs = Date.now() - __t0;
-        if (__totalMs > 2000) {
+        // QTB/auth-hang teşhisi yayında çözüldü → prod telemetri yazma; dev'de tut.
+        if (__DEV__ && __totalMs > 2000) {
           logEvent('save_timing_debug', { ...__timing, total_ms: __totalMs, ok: __ok });
         }
       }
@@ -296,12 +297,13 @@ export function useCreateIslemTaksitli() {
       if (error) throw error;
       return data as Islem;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       invalidateRelatedQueries(queryClient, 'islem');
       logEvent('transaction_created', {
         type: data?.type,
         has_cari: !!data?.cari_id,
         taksitli: true,
+        taksit_sayisi: variables.taksitler?.length,
       });
     },
   });

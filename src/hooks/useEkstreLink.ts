@@ -2,6 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import i18n from '@/i18n';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { logEvent } from '@/lib/appEvents';
 
 /**
  * Web-ekstre linki (Faz 4): opak token'lı public web ekstresi.
@@ -34,6 +35,9 @@ export function useEkstreLinkOlustur() {
       if (error) throw error;
       const result = data as { token: string; expires_at: string };
       return { url: ekstreLinkUrl(result.token), expiresAt: result.expires_at };
+    },
+    onSuccess: (_data, variables) => {
+      logEvent('web_ekstre_generated', { suresiz: variables.gecerlilikGun === null, sure_gun: variables.gecerlilikGun });
     },
   });
 }
