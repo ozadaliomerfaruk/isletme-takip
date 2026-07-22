@@ -1,7 +1,7 @@
 import { View, Modal, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Check, Wallet, Building2, UserCheck } from 'lucide-react-native';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
+import { Text, ModalSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import type { Hesap, Cari, Personel } from '@/types/database';
 import { styles } from './styles';
@@ -47,7 +47,14 @@ export function HesapPickerSheet({
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={[styles.bottomSheetListContent, { paddingBottom: FLOATING_SEARCH_CLEARANCE }]} keyboardShouldPersistTaps="handled">
+              {/* Başlık altında sabit arama çubuğu */}
+              <ModalSearchBar
+                value={searchQuery}
+                onChangeText={onSearchChange}
+                placeholder={t('common:search.searchPlaceholder')}
+              />
+
+              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
                 {filteredHesaplar.map((hesap) => {
                   const isSelected = selectedId === hesap.id;
                   return (
@@ -75,14 +82,6 @@ export function HesapPickerSheet({
                   </View>
                 )}
               </ScrollView>
-
-              {/* Sheet altında yüzen arama çubuğu */}
-              <FloatingSearchBar
-                value={searchQuery}
-                onChangeText={onSearchChange}
-                placeholder={t('common:search.searchPlaceholder')}
-                bottomOffset={16 + insets.bottom + 12}
-              />
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -130,7 +129,14 @@ export function CariPickerSheet({
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={[styles.bottomSheetListContent, { paddingBottom: FLOATING_SEARCH_CLEARANCE }]} keyboardShouldPersistTaps="handled">
+              {/* Başlık altında sabit arama çubuğu */}
+              <ModalSearchBar
+                value={searchQuery}
+                onChangeText={onSearchChange}
+                placeholder={t('clients:search.searchSuppliers')}
+              />
+
+              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
                 {filteredCariler.map((cari) => {
                   const isSelected = selectedId === cari.id;
                   return (
@@ -164,14 +170,6 @@ export function CariPickerSheet({
                   </View>
                 )}
               </ScrollView>
-
-              {/* Sheet altında yüzen arama çubuğu */}
-              <FloatingSearchBar
-                value={searchQuery}
-                onChangeText={onSearchChange}
-                placeholder={t('clients:search.searchSuppliers')}
-                bottomOffset={16 + insets.bottom + 12}
-              />
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -219,7 +217,14 @@ export function PersonelPickerSheet({
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.bottomSheetList} contentContainerStyle={[styles.bottomSheetListContent, { paddingBottom: FLOATING_SEARCH_CLEARANCE }]} keyboardShouldPersistTaps="handled">
+              {/* Başlık altında sabit arama çubuğu */}
+              <ModalSearchBar
+                value={searchQuery}
+                onChangeText={onSearchChange}
+                placeholder={t('staff:search.searchPersonnel')}
+              />
+
+              <ScrollView style={styles.bottomSheetList} contentContainerStyle={styles.bottomSheetListContent} keyboardShouldPersistTaps="handled">
                 {filteredPersonel.map((personel) => {
                   const isSelected = selectedId === personel.id;
                   return (
@@ -255,14 +260,6 @@ export function PersonelPickerSheet({
                   </View>
                 )}
               </ScrollView>
-
-              {/* Sheet altında yüzen arama çubuğu */}
-              <FloatingSearchBar
-                value={searchQuery}
-                onChangeText={onSearchChange}
-                placeholder={t('staff:search.searchPersonnel')}
-                bottomOffset={16 + insets.bottom + 12}
-              />
             </View>
           </TouchableWithoutFeedback>
         </View>

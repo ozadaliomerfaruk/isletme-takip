@@ -2,7 +2,7 @@ import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions } fro
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
+import { ModalSearchBar } from './ModalSearchBar';
 import {
   Tag,
   Search,
@@ -326,6 +326,13 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
               </TouchableOpacity>
             </View>
 
+            {/* Başlık altında sabit arama çubuğu */}
+            <ModalSearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('common:search.searchIcons')}
+            />
+
             <ScrollView
               style={styles.iconGrid}
               contentContainerStyle={styles.iconGridContent}
@@ -381,14 +388,6 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
                 })
               )}
             </ScrollView>
-
-            {/* Sheet altında yüzen arama çubuğu */}
-            <FloatingSearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t('common:search.searchIcons')}
-              bottomOffset={spacing.lg + insets.bottom + spacing.md}
-            />
           </View>
         </View>
       </Modal>
@@ -444,7 +443,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     padding: spacing.md,
-    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
+    paddingBottom: spacing['3xl'],
     gap: spacing.sm,
   },
   iconItem: {

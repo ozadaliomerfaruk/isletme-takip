@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
+import { Text, ModalSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 
 export interface EntityPickerItem {
@@ -76,6 +76,14 @@ export function EntityPickerModal({
                   <X size={24} color={colors.text} />
                 </TouchableOpacity>
               </View>
+
+              {/* Başlık altında sabit arama çubuğu */}
+              <ModalSearchBar
+                value={searchValue}
+                onChangeText={onSearchChange}
+                placeholder={t('common:search.searchPlaceholder')}
+              />
+
               <ScrollView
                 style={styles.list}
                 contentContainerStyle={styles.listContent}
@@ -108,13 +116,6 @@ export function EntityPickerModal({
                 })}
               </ScrollView>
 
-              {/* Sheet altında yüzen arama çubuğu */}
-              <FloatingSearchBar
-                value={searchValue}
-                onChangeText={onSearchChange}
-                placeholder={t('common:search.searchPlaceholder')}
-                bottomOffset={16 + insets.bottom + 12}
-              />
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -155,7 +156,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 12,
-    paddingBottom: 24 + FLOATING_SEARCH_CLEARANCE,
+    paddingBottom: 24,
   },
   item: {
     flexDirection: 'row',

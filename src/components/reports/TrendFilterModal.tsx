@@ -22,7 +22,7 @@ import {
   Tag,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
+import { Text, Button, TabFilter, ModalSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
@@ -276,7 +276,14 @@ export function TrendFilterModal({
             />
           </View>
 
-          {/* List + üzerinde yüzen arama çubuğu (footer'ın üstünde kalır) */}
+          {/* Sekmeler altında sabit arama çubuğu */}
+          <ModalSearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder={t('common:search.searchPlaceholder')}
+          />
+
+          {/* List */}
           <View style={styles.listWrap}>
             <FlatList
               data={filteredItems}
@@ -294,12 +301,6 @@ export function TrendFilterModal({
                   </Text>
                 </View>
               }
-            />
-            <FloatingSearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t('common:search.searchPlaceholder')}
-              bottomOffset={spacing.md}
             />
           </View>
 
@@ -355,7 +356,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   listContainer: {
-    paddingBottom: spacing.md + FLOATING_SEARCH_CLEARANCE,
+    paddingBottom: spacing.md,
   },
   listItem: {
     flexDirection: 'row',

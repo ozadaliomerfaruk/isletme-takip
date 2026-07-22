@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Wallet, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, FloatingSearchBar } from '@/components/ui';
+import { Text, ModalSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
@@ -114,6 +114,13 @@ export function HesapPickerSheet({
                 </TouchableOpacity>
               </View>
 
+              {/* Başlık altında sabit arama çubuğu */}
+              <ModalSearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={t('common:search.searchPlaceholder')}
+              />
+
               <ScrollView
                 style={styles.bottomSheetList}
                 contentContainerStyle={styles.bottomSheetListContent}
@@ -172,14 +179,6 @@ export function HesapPickerSheet({
                   </View>
                 )}
               </ScrollView>
-
-              {/* Sheet altında yüzen arama çubuğu */}
-              <FloatingSearchBar
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={t('common:search.searchPlaceholder')}
-                bottomOffset={16 + insets.bottom + 12}
-              />
             </View>
           </TouchableWithoutFeedback>
         </View>

@@ -7,7 +7,7 @@ import {
   FlatList,
   Pressable,
 } from 'react-native';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
+import { Text, ModalSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { ChevronDown, X, Building2, Users, Check, Link } from 'lucide-react-native';
@@ -170,6 +170,13 @@ export function EntityPicker({
               </TouchableOpacity>
             </View>
 
+            {/* Başlık altında sabit arama çubuğu */}
+            <ModalSearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('common:search.searchPlaceholder')}
+            />
+
             {/* Tümü seçeneği */}
             {!searchQuery && <TouchableOpacity
               style={[styles.listItem, !selectedId && styles.listItemSelected]}
@@ -212,13 +219,6 @@ export function EntityPicker({
               }
             />
 
-            {/* Sheet altında yüzen arama çubuğu */}
-            <FloatingSearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t('common:search.searchPlaceholder')}
-              bottomOffset={spacing.lg + spacing.md}
-            />
           </Pressable>
         </Pressable>
       </Modal>
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   listContainer: {
-    paddingBottom: spacing['2xl'] + FLOATING_SEARCH_CLEARANCE,
+    paddingBottom: spacing['2xl'],
   },
   listItem: {
     flexDirection: 'row',

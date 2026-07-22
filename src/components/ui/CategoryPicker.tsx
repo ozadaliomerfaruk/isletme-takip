@@ -31,7 +31,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
-import { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
+import { ModalSearchBar } from './ModalSearchBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useKategorilerHierarchical, FlattenedCategory } from '@/hooks/useKategoriler';
@@ -300,6 +300,13 @@ export function CategoryPicker({
               )}
             </View>
 
+            {/* Başlık altında sabit arama çubuğu */}
+            <ModalSearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder={t('common:search.searchCategories')}
+            />
+
             <ScrollView
               style={styles.categoryList}
               contentContainerStyle={styles.categoryListContent}
@@ -403,15 +410,6 @@ export function CategoryPicker({
                 </View>
               )}
             </ScrollView>
-
-            {/* Sheet'in altında yüzen arama çubuğu (Apple Notes tarzı).
-                bottomOffset: modal pencere dibine dayandığından home indicator payı. */}
-            <FloatingSearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t('common:search.searchCategories')}
-              bottomOffset={spacing.lg + insets.bottom + spacing.md}
-            />
             </View>
           </TouchableWithoutFeedback>
         </View>
@@ -503,7 +501,7 @@ const styles = StyleSheet.create({
   },
   categoryListContent: {
     padding: spacing.md,
-    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
+    paddingBottom: spacing['3xl'],
   },
   categoryItem: {
     flexDirection: 'row',

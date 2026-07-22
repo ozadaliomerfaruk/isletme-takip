@@ -12,6 +12,7 @@ export { FilterChips } from './FilterChips';
 export type { FilterChipItem } from './FilterChips';
 export { SearchInput } from './SearchInput';
 export { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
+export { ModalSearchBar } from './ModalSearchBar';
 export { EmptyState } from './EmptyState';
 export { DateTimePicker } from './DateTimePicker';
 export { CategoryReportCard, HierarchicalCategoryReportCard } from './CategoryReportCard';

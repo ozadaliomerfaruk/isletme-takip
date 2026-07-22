@@ -16,7 +16,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
-import { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
+import { ModalSearchBar } from './ModalSearchBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { BirimType } from '@/types/database';
@@ -213,6 +213,13 @@ export function UnitPicker({
                   </TouchableOpacity>
                 </View>
 
+                {/* Başlık altında sabit arama çubuğu */}
+                <ModalSearchBar
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={t('products:unitPicker.search')}
+                />
+
                 <ScrollView
                   style={styles.unitList}
                   contentContainerStyle={styles.unitListContent}
@@ -285,14 +292,6 @@ export function UnitPicker({
                     </View>
                   )}
                 </ScrollView>
-
-                {/* Sheet altında yüzen arama çubuğu */}
-                <FloatingSearchBar
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder={t('products:unitPicker.search')}
-                  bottomOffset={spacing.lg + insets.bottom + spacing.md}
-                />
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -368,7 +367,7 @@ const styles = StyleSheet.create({
   },
   unitListContent: {
     padding: spacing.md,
-    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
+    paddingBottom: spacing['3xl'],
   },
   categorySection: {
     marginBottom: spacing.lg,

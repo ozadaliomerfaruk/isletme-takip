@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Package, Plus, Trash2, Check, Pencil, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, Button, UndoSnackbar, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
+import { Text, Button, UndoSnackbar, ModalSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
@@ -353,6 +353,15 @@ export function UrunPickerModal({
                 </TouchableOpacity>
               </View>
 
+              {/* Başlık altında sabit arama çubuğu — ürün ekleme formu açıkken gizli (klavye formda) */}
+              {!addingProduct && (
+                <ModalSearchBar
+                  value={searchQuery}
+                  onChangeText={onSearchQueryChange}
+                  placeholder={t('transactions:stock.searchProduct')}
+                />
+              )}
+
               {/* === Kalıcı "Yeni Ürün Ekle" butonu — arama barının hemen altında, ScrollView DIŞINDA.
                   Yeni isim yazılınca '"x" olarak yeni ekle' (hızlı inline), boş/mevcut isimde
                   "Yeni Ürün Ekle" (tam ekran sayfa). Eski liste-içi dashed satır kaldırıldı. */}
@@ -645,16 +654,6 @@ export function UrunPickerModal({
                   </View>
                 )}
               </ScrollView>
-
-              {/* Yüzen arama çubuğu — ürün ekleme formu açıkken gizli (klavye formda) */}
-              {!addingProduct && (
-                <FloatingSearchBar
-                  value={searchQuery}
-                  onChangeText={onSearchQueryChange}
-                  placeholder={t('transactions:stock.searchProduct')}
-                  bottomOffset={spacing.md}
-                />
-              )}
               </View>
 
               {/* Footer: YUKARI açılan "Eklenen Ürünler" paneli + KDV Dahil özet satırı (tıkla-aç)
@@ -787,7 +786,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.lg + FLOATING_SEARCH_CLEARANCE,
+    paddingBottom: spacing.lg,
   },
   section: {
     marginBottom: spacing.lg,

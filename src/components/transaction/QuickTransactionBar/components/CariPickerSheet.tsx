@@ -13,7 +13,7 @@ import { X, Search, Users, Building2, Check, Plus } from 'lucide-react-native';
 import { ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, FloatingSearchBar } from '@/components/ui';
+import { Text, ModalSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
@@ -145,6 +145,14 @@ export function CariPickerSheet({
                 </TouchableOpacity>
               </View>
 
+              {/* Başlık altında sabit arama çubuğu; açılışta klavyeyi otomatik açar */}
+              <ModalSearchBar
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder={searchPlaceholder}
+                autoFocusDelay={400}
+              />
+
               <ScrollView
                 style={styles.bottomSheetList}
                 contentContainerStyle={styles.bottomSheetListContent}
@@ -233,15 +241,6 @@ export function CariPickerSheet({
                   </View>
                 )}
               </ScrollView>
-
-              {/* Sheet altında yüzen arama çubuğu; açılışta klavyeyi otomatik açar */}
-              <FloatingSearchBar
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder={searchPlaceholder}
-                bottomOffset={16 + insets.bottom + 12}
-                autoFocusDelay={400}
-              />
             </View>
           </TouchableWithoutFeedback>
         </View>

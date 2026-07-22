@@ -9,7 +9,7 @@ import {
   X,
   Coins,
 } from 'lucide-react-native';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
+import { Text, ModalSearchBar } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import type { AccountMapping, ParsedTransaction } from '@/lib/excelImport';
@@ -136,9 +136,16 @@ export function DataImportModal({
             </TouchableOpacity>
           </View>
 
+          {/* Başlık altında sabit arama çubuğu */}
+          <ModalSearchBar
+            value={searchQuery}
+            onChangeText={onSearchChange}
+            placeholder={getSearchPlaceholder()}
+          />
+
           <ScrollView
             style={styles.listContainer}
-            contentContainerStyle={[styles.listContent, { paddingBottom: FLOATING_SEARCH_CLEARANCE + 24 }]}
+            contentContainerStyle={[styles.listContent, { paddingBottom: 24 }]}
             showsVerticalScrollIndicator={true}
             keyboardShouldPersistTaps="handled"
             bounces={true}
@@ -289,14 +296,6 @@ export function DataImportModal({
               </>
             )}
           </ScrollView>
-
-          {/* Sheet altında yüzen arama çubuğu */}
-          <FloatingSearchBar
-            value={searchQuery}
-            onChangeText={onSearchChange}
-            placeholder={getSearchPlaceholder()}
-            bottomOffset={16 + bottomInset + 12}
-          />
 
           {/* Para birimi seçici — döngü badge yerine açılır liste */}
           {currencyPickerFor !== null && (
