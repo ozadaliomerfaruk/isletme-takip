@@ -1,13 +1,13 @@
-import { memo, Fragment, useEffect, useMemo } from 'react';
-import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { memo, useEffect, useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
 import { formatCurrency, roundCurrency, toNumber } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCariVadeliBorclar, useCariTahsisOzeti } from '@/hooks/useIslemTahsis';
 import { useCariTaksitBirimleri } from '@/hooks/useTaksit';
+import { SegmentSelect } from './SegmentSelect';
 
 /**
  * "Nereye sayılsın?" — cari tahsilat/ödeme girerken açık vadeli borç / taksit
@@ -97,78 +97,49 @@ export const HedefBorcSecici = memo(function HedefBorcSecici({
   if (units.length === 0) return null;
 
   return (
-    // Tarih barıyla aynı dil: dikey çizgiyle ayrık düz metin segmentleri (hap/kutu yok);
-    // seçili segment renkli+kalın. Standart satır: 40px + altta çizgi.
+    // TabFilter imzası: gri ray + kayan dolu pill (SegmentSelect). Etiket solda,
+    // ray kalan genişliği alır; standart satır gibi altta çizgi.
     <View style={s.wrap}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.segments}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={s.label}>{t('transactions:vade.hedefBaslik')}</Text>
-        <TouchableOpacity style={s.segment} onPress={() => onSelect(null)} activeOpacity={0.6}>
-          <Text style={[s.segmentText, !selectedBorcId && s.segmentTextActive]} numberOfLines={1}>
-            {t('transactions:vade.hedefOtomatik')}
-          </Text>
-        </TouchableOpacity>
-        {units.map((u) => (
-          <Fragment key={u.borcId}>
-            <View style={s.divider} />
-            <TouchableOpacity
-              style={s.segment}
-              onPress={() => onSelect(u.borcId, u.kalan)}
-              activeOpacity={0.6}
-            >
-              <Text
-                style={[s.segmentText, selectedBorcId === u.borcId && s.segmentTextActive]}
-                numberOfLines={1}
-              >
-                {u.label}
-              </Text>
-            </TouchableOpacity>
-          </Fragment>
-        ))}
-      </ScrollView>
+      <Text style={s.label}>{t('transactions:vade.hedefBaslik')}</Text>
+      <View style={s.trackWrap}>
+        <SegmentSelect
+          options={[
+            { key: AUTO_KEY, label: t('transactions:vade.hedefOtomatik') },
+            ...units.map((u) => ({ key: u.borcId, label: u.label })),
+          ]}
+          selectedKey={selectedBorcId ?? AUTO_KEY}
+          onSelect={(key) => {
+            if (key === AUTO_KEY) {
+              onSelect(null);
+            } else {
+              const u = units.find((x) => x.borcId === key);
+              onSelect(key, u?.kalan);
+            }
+          }}
+        />
+      </View>
     </View>
   );
 });
 
+const AUTO_KEY = '__otomatik__';
+
 const s = StyleSheet.create({
-  // Yapışık standart satır: 40px, altta çizgi
   wrap: {
-    height: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 6,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  segments: {
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingRight: spacing.md,
   },
   label: {
     fontSize: 13,
     fontWeight: '500',
     color: colors.textMuted,
-    marginRight: 10,
   },
-  segment: {
-    height: '100%',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  divider: {
-    width: 1,
-    height: 18,
-    backgroundColor: colors.border,
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  segmentTextActive: {
-    color: colors.primary,
-    fontWeight: '700',
+  trackWrap: {
+    flex: 1,
   },
 });

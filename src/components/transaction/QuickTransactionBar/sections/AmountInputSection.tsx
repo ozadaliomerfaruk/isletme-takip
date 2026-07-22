@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Bell, Package, Calculator } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { parseCurrency, roundCurrency, formatAmountForInput } from '@/lib/curren
 import { useHaptics } from '@/hooks/useHaptics';
 import { TransactionTypeTabs } from '../../TransactionTypeTabs';
 import { PhotoButton } from '../../PhotoButton';
+import { SegmentSelect } from '../components/SegmentSelect';
 import { colors } from '@/constants/colors';
 import { HIT_SLOP } from '@/constants/spacing';
 import { styles } from '../styles';
@@ -198,35 +199,18 @@ export function AmountInputSection({
       {/* A1: "son kullanılan" kategori chip'leri — tek dokunuşla kategori seçimi, böylece
           save-anı kategori modalı istisnaya düşer. Ürün seçiliyken kategori devre dışı → gizle. */}
       {hasRecentChips && recentCategories && (
-        // Hap/chip değil — tarih barıyla aynı dil: dikey çizgiyle ayrık düz metin
-        // segmentleri; seçili olan renkli+kalın (standart satır görünümü)
+        // TabFilter imzası (SegmentSelect): gri ray + kayan dolu pill — seçili
+        // kategori NET, basışta haptic + spring kayış; kategori renk noktası korunur
         <View style={localStyles.recentChipsRow}>
-          {recentCategories.map((cat, i) => {
-            const isSelected = cat.id === kategoriId;
-            return (
-              <Fragment key={cat.id}>
-                {i > 0 && <View style={localStyles.recentSegDivider} />}
-                <TouchableOpacity
-                  style={localStyles.recentSeg}
-                  onPress={() => onKategoriChange(cat.id)}
-                  activeOpacity={0.6}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: isSelected }}
-                  accessibilityLabel={cat.name}
-                >
-                  {cat.color ? (
-                    <View style={[localStyles.recentChipDot, { backgroundColor: cat.color }]} />
-                  ) : null}
-                  <Text
-                    style={[localStyles.recentSegText, isSelected && localStyles.recentSegTextActive]}
-                    numberOfLines={1}
-                  >
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              </Fragment>
-            );
-          })}
+          <SegmentSelect
+            options={recentCategories.map((cat) => ({
+              key: cat.id,
+              label: cat.name,
+              dotColor: cat.color,
+            }))}
+            selectedKey={kategoriId}
+            onSelect={onKategoriChange}
+          />
         </View>
       )}
 
@@ -393,42 +377,12 @@ const localStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  // Segment satırı: hap yok — dikey çizgiyle ayrık düz metin (tarih barı dili)
+  // SegmentSelect sarmalayıcısı: standart satır (altta çizgi)
   recentChipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 38,
+    paddingVertical: 7,
     paddingHorizontal: 6,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  recentSeg: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    height: '100%',
-    paddingHorizontal: 10,
-    flexShrink: 1,
-  },
-  recentSegDivider: {
-    width: 1,
-    height: 18,
-    backgroundColor: colors.border,
-  },
-  recentChipDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  recentSegText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    maxWidth: 130,
-  },
-  recentSegTextActive: {
-    color: colors.primary,
-    fontWeight: '700',
   },
   noteRow: {
     flexDirection: 'row',

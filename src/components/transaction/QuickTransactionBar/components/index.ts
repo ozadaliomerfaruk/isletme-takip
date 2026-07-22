@@ -24,3 +24,5 @@ export { UrunPickerModal } from './UrunPickerModal';
 export type { UrunPickerModalProps } from './UrunPickerModal';
 
 export { HedefBorcSecici } from './HedefBorcSecici';
+export { SegmentSelect } from './SegmentSelect';
+export type { SegmentOption } from './SegmentSelect';
