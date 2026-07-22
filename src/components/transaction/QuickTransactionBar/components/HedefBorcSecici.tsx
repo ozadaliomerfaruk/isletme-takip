@@ -129,7 +129,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingVertical: 7,
+    paddingVertical: 4,
     paddingHorizontal: 6,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

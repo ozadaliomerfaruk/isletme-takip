@@ -107,17 +107,17 @@ const s = StyleSheet.create({
   track: {
     backgroundColor: colors.surfaceLighter,
     borderRadius: borderRadius.lg,
-    height: 36,
+    height: 32,
   },
   content: {
     alignItems: 'center',
-    padding: 3,
+    padding: 2,
   },
-  // left:0 — segment layout.x zaten content padding'ini (3) içerir; translateX ham x alır
+  // left:0 — segment layout.x zaten content padding'ini (2) içerir; translateX ham x alır
   pill: {
     position: 'absolute',
-    top: 3,
-    bottom: 3,
+    top: 2,
+    bottom: 2,
     left: 0,
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,
@@ -126,7 +126,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    height: 30,
+    height: 28,
     paddingHorizontal: 12,
     justifyContent: 'center',
   },

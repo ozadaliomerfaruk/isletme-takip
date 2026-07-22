@@ -246,7 +246,7 @@ const local = StyleSheet.create({
   flatBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 42,
+    height: 38,
     flexShrink: 1,
   },
   segment: {
