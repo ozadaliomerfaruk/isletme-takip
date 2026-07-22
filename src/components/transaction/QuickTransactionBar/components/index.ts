@@ -22,3 +22,5 @@ export type { KrediKartiPickerSheetProps } from './KrediKartiPickerSheet';
 
 export { UrunPickerModal } from './UrunPickerModal';
 export type { UrunPickerModalProps } from './UrunPickerModal';
+
+export { HedefBorcSecici } from './HedefBorcSecici';

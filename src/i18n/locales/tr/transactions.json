@@ -118,6 +118,8 @@
     "gecikenler": "Vadesi Geçen İşlemler",
     "yakinVade": "En yakın vade",
     "gecikenEtiket": "Vadesi geçen",
+    "hedefBaslik": "Nereye sayılsın?",
+    "hedefOtomatik": "Otomatik (en eski vade)",
     "whatsappHatirlat": "WhatsApp ile hatırlat",
     "whatsappMesaj": "Merhaba {{isim}}, {{isletme}} olarak hatırlatmak isteriz: {{tutar}} tutarında vadesi geçmiş bakiyeniz bulunmaktadır. Müsait olduğunuzda ödeme yapabilirseniz seviniriz. İyi günler dileriz."
   },

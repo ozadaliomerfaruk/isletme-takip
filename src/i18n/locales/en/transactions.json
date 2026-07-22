@@ -118,6 +118,8 @@
     "gecikenler": "Overdue Transactions",
     "yakinVade": "Next due",
     "gecikenEtiket": "Overdue",
+    "hedefBaslik": "Apply to which debt?",
+    "hedefOtomatik": "Automatic (oldest due)",
     "whatsappHatirlat": "Remind via WhatsApp",
     "whatsappMesaj": "Hello {{isim}}, this is a friendly reminder from {{isletme}}: you have an overdue balance of {{tutar}}. We would appreciate your payment at your convenience. Thank you."
   },

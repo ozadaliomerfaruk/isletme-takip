@@ -54,7 +54,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari, useCariOzet, type CariOzet } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useCariTahsisOzeti, useCariVadeRozet, useCariVadeliBorclar, useRetahsisOdeme } from '@/hooks/useIslemTahsis';
+import { useCariTahsisOzeti, useCariVadeRozet, useCariVadeliBorclar } from '@/hooks/useIslemTahsis';
 import { useCariTaksitBirimleri } from '@/hooks/useTaksit';
 import { buildWhatsAppUrl, buildTelUrl } from '@/lib/phone';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
@@ -485,9 +485,8 @@ export default function CariHareketleriPage() {
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
   // Faz 2: swipe "Tahsil Et/Öde" — kalan tutar ön-dolu QTB; tahsis kaydırılan satırın
-  // borcuna hedeflenir (retahsis_odeme)
+  // borcuna hedeflenir (retahsis QTB İÇİNDE tetiklenir — defaultHedefBorcId)
   const [tahsilPrefill, setTahsilPrefill] = useState<{ type: 'tahsilat' | 'odeme'; amount?: number; hedefBorcId: string } | null>(null);
-  const retahsis = useRetahsisOdeme();
   // Product detail modal state
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   // Photo viewer state
@@ -1508,8 +1507,9 @@ export default function CariHareketleriPage() {
         />
 
         {/* Faz 2: swipe "Tahsil Et/Öde" — kalan tutar ön-dolu tahsilat/ödeme.
-            Bağlam-hedefli tahsis: kaydırılan SATIRIN borcuna öncelik (retahsis_odeme);
-            genel FIFO carinin başka borcunun daha eski vadesine kaydırabiliyordu. */}
+            Bağlam-hedefli tahsis artık QTB'nin İÇİNDE (defaultHedefBorcId →
+            "Nereye sayılsın?" chip'i seçili açılır; retahsis kaydın hemen ardından
+            QTB tarafından tetiklenir — tek sahip, çift retahsis yok). */}
         <QuickTransactionBar
           visible={!!tahsilPrefill}
           onDismiss={() => setTahsilPrefill(null)}
@@ -1517,14 +1517,9 @@ export default function CariHareketleriPage() {
           defaultCariType={effectiveType}
           defaultType={tahsilPrefill?.type}
           defaultAmount={tahsilPrefill?.amount}
+          defaultHedefBorcId={tahsilPrefill?.hedefBorcId}
           isViewer={isViewer}
-          onSuccess={(islemId) => {
-            const hedef = tahsilPrefill?.hedefBorcId;
-            setTahsilPrefill(null);
-            if (islemId && hedef) {
-              retahsis.mutate({ odemeIslemId: islemId, hedefBorcId: hedef });
-            }
-          }}
+          onSuccess={() => setTahsilPrefill(null)}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
