@@ -11,7 +11,7 @@ import {
   Pressable,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
@@ -35,6 +35,7 @@ export default function PersonelEklePage() {
   usePagePermission({ module: 'personel', action: 'create' });
   const { locale, formatDateNative } = useDateFormat();
   const createPersonel = useCreatePersonel();
+  const insets = useSafeAreaInsets();
 
   // Dile göre varsayılan para birimi
   const defaultCurrency: Currency = i18n.language.startsWith('en') ? 'USD' : 'TRY';
@@ -46,6 +47,7 @@ export default function PersonelEklePage() {
   const [phone, setPhone] = useState('');
   const [position, setPosition] = useState('');
   const [salary, setSalary] = useState('');
+  const [notes, setNotes] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -87,6 +89,7 @@ export default function PersonelEklePage() {
         salary: salary ? parseCurrency(salary) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
         end_date: endDate ? formatDateForDB(endDate) : null,
+        notes: notes.trim() || null,
         balance: finalBalance !== 0 ? finalBalance : undefined,
       });
 
@@ -102,6 +105,7 @@ export default function PersonelEklePage() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
       >
         <ScrollView
           style={styles.scrollView}
@@ -179,6 +183,15 @@ export default function PersonelEklePage() {
               placeholder={t('staff:form.positionPlaceholder')}
               value={position}
               onChangeText={setPosition}
+            />
+
+            <Input
+              label={t('staff:form.note')}
+              placeholder={t('staff:form.notePlaceholder')}
+              multiline
+              numberOfLines={3}
+              value={notes}
+              onChangeText={setNotes}
             />
 
             <Input
@@ -385,27 +398,28 @@ export default function PersonelEklePage() {
             )}
           </View>
 
-          {/* Buttons */}
-          <View style={styles.buttons}>
-            <Button
-              variant="outline"
-              size="lg"
-              onPress={() => router.back()}
-              style={styles.button}
-            >
-              {t('common:buttons.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={createPersonel.isPending}
-              onPress={handleSubmit}
-              style={styles.button}
-            >
-              {t('common:buttons.save')}
-            </Button>
-          </View>
         </ScrollView>
+
+        {/* Sticky footer — kaydet butonu klavyenin altında kalmasın */}
+        <View style={styles.footer}>
+          <Button
+            variant="outline"
+            size="lg"
+            onPress={() => router.back()}
+            style={styles.button}
+          >
+            {t('common:buttons.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            loading={createPersonel.isPending}
+            onPress={handleSubmit}
+            style={styles.button}
+          >
+            {t('common:buttons.save')}
+          </Button>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -449,11 +463,15 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderWidth: 2,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

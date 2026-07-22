@@ -6,6 +6,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Wallet, Check } from 'lucide-react-native';
@@ -118,6 +119,8 @@ export function HesapPickerSheet({
                 contentContainerStyle={styles.bottomSheetListContent}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
+                alwaysBounceVertical
+                onScrollBeginDrag={() => Keyboard.dismiss()}
               >
                 {filteredHesaplar.map((hesap) => {
                   const isSelected = selectedId === hesap.id;

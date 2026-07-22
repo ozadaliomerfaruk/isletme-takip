@@ -6,6 +6,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Users, Building2, Check, Plus } from 'lucide-react-native';
@@ -149,6 +150,10 @@ export function CariPickerSheet({
                 contentContainerStyle={styles.bottomSheetListContent}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
+                // Liste kısa/boş olsa bile sürüklenebilsin ki parmakla kaydırınca
+                // klavye kapansın (on-drag yalnız gerçek scroll'da tetiklenir).
+                alwaysBounceVertical
+                onScrollBeginDrag={() => Keyboard.dismiss()}
               >
                 {filteredCariler.map((cari) => {
                   const isSelected = selectedId === cari.id;

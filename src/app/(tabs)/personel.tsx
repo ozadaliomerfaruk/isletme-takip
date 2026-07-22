@@ -507,6 +507,9 @@ export default function PersonelPage() {
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
   const renderPersonelItem = useCallback(({ item: personel, index }: { item: Personel; index: number }) => {
     const isSelected = selectedIds.has(personel.id);
+    const lq = leaveQuotas?.[personel.id];
+    const hasLeave = !!lq && (lq.hakEdilen > 0 || lq.kullanilan > 0);
+    const hasMeta = !!personel.position || !!personel.phone || hasLeave;
     return (
       <AnimatedListItem index={index}>
       <View style={[!personel.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
@@ -528,7 +531,7 @@ export default function PersonelPage() {
               <Avatar name={`${personel.first_name} ${personel.last_name ?? ''}`} size={40} />
               <View style={styles.personelInfo}>
                 <View style={styles.personelNameRow}>
-                  <Text variant="body">
+                  <Text style={styles.personelName}>
                     {personel.first_name} {personel.last_name ?? ''}
                   </Text>
                   {!personel.is_active && (
@@ -553,43 +556,24 @@ export default function PersonelPage() {
             expanded={expandedPersonelId === personel.id}
             onToggle={() => setExpandedPersonelId(expandedPersonelId === personel.id ? null : personel.id)}
             header={
+              <View style={styles.personelHeaderWrap}>
               <View style={styles.personelHeader}>
                 <Avatar name={`${personel.first_name} ${personel.last_name ?? ''}`} size={40} />
                 <View style={styles.personelInfo}>
                   <View style={styles.personelNameRow}>
-                    <Text variant="body">
+                    <Text style={styles.personelName}>
                       {personel.first_name} {personel.last_name ?? ''}
                     </Text>
                     {!personel.is_active && (
                       <EyeOff size={14} color={colors.textMuted} />
                     )}
                   </View>
-                  <View style={styles.personelMeta}>
-                    {personel.position && (
-                      <>
-                        <Briefcase size={12} color={colors.textMuted} />
-                        <Text variant="caption" color="secondary">
-                          {personel.position}
-                        </Text>
-                      </>
-                    )}
-                    {personel.phone && (
-                      <>
-                        <Phone size={12} color={colors.textMuted} style={{ marginLeft: spacing.sm }} />
-                        <Text variant="caption" color="secondary">
-                          {personel.phone}
-                        </Text>
-                      </>
-                    )}
-                    {leaveQuotas?.[personel.id] && (leaveQuotas[personel.id].hakEdilen > 0 || leaveQuotas[personel.id].kullanilan > 0) && (
-                      <>
-                        <CalendarDays size={12} color={leaveQuotas[personel.id].kalan >= 0 ? colors.success : colors.error} style={{ marginLeft: spacing.sm }} />
-                        <Text variant="caption" color={leaveQuotas[personel.id].kalan >= 0 ? 'success' : 'error'}>
-                          {t('staff:leave.remainingDays', { count: leaveQuotas[personel.id].kalan })}
-                        </Text>
-                      </>
-                    )}
-                  </View>
+                  {/* Personel notu — isim altında, en fazla iki satır (cariler dili) */}
+                  {personel.notes ? (
+                    <Text style={styles.personelNote} numberOfLines={2}>
+                      {personel.notes}
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={styles.personelBalance}>
                   <Text variant="caption" color="secondary">
@@ -618,6 +602,37 @@ export default function PersonelPage() {
                 >
                   <MoreVertical size={20} color={colors.textMuted} />
                 </TouchableOpacity>
+              </View>
+              {/* Meta (pozisyon/telefon/izin) — tam genişlik alt satır, isim hizasında;
+                  sağdaki tutarla çakışmaz. */}
+              {hasMeta && (
+                <View style={styles.personelMeta}>
+                  {personel.position && (
+                    <>
+                      <Briefcase size={12} color={colors.textMuted} />
+                      <Text variant="caption" color="secondary">
+                        {personel.position}
+                      </Text>
+                    </>
+                  )}
+                  {personel.phone && (
+                    <>
+                      <Phone size={12} color={colors.textMuted} style={personel.position ? { marginLeft: spacing.sm } : undefined} />
+                      <Text variant="caption" color="secondary">
+                        {personel.phone}
+                      </Text>
+                    </>
+                  )}
+                  {hasLeave && (
+                    <>
+                      <CalendarDays size={12} color={lq!.kalan >= 0 ? colors.success : colors.error} style={(personel.position || personel.phone) ? { marginLeft: spacing.sm } : undefined} />
+                      <Text variant="caption" color={lq!.kalan >= 0 ? 'success' : 'error'}>
+                        {t('staff:leave.remainingDays', { count: lq!.kalan })}
+                      </Text>
+                    </>
+                  )}
+                </View>
+              )}
               </View>
             }
           >
@@ -974,10 +989,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
   },
+  personelHeaderWrap: {
+    flex: 1,
+  },
   personelHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  personelName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    flexShrink: 1,
   },
   avatar: {
     width: 44,
@@ -995,14 +1019,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  personelNote: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
   passiveItem: {
     opacity: 0.5,
   },
   personelMeta: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.xs,
     marginTop: spacing.xs,
+    paddingLeft: 40 + spacing.md, // avatar(40) + personelHeader gap(md) → isim hizası
   },
   personelBalance: {
     alignItems: 'flex-end',

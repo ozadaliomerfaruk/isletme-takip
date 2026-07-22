@@ -532,11 +532,17 @@ export default function HomePage() {
                             {getHesapIcon(hesap.type, 24)}
                             <View style={styles.hesapInfo}>
                               <View style={styles.hesapNameRow}>
-                                <Text variant="body">{hesap.name}</Text>
+                                <Text style={styles.hesapName}>{hesap.name}</Text>
                                 {!hesap.is_active && (
                                   <EyeOff size={14} color={colors.textMuted} />
                                 )}
                               </View>
+                              {/* Hesap açıklaması — isim altında, en fazla iki satır (cariler dili) */}
+                              {hesap.description ? (
+                                <Text style={styles.hesapNote} numberOfLines={2}>
+                                  {hesap.description}
+                                </Text>
+                              ) : null}
                               {hesap.type === 'kredi_karti' && hesap.payment_due_day && (
                                 <Text variant="caption" color="muted">
                                   {t('accounts:creditCard.paymentDueDayLabel', { day: hesap.payment_due_day })}
@@ -864,6 +870,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
+  },
+  hesapName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    flexShrink: 1,
+  },
+  hesapNote: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 1,
   },
   hesapBalance: {
     alignItems: 'flex-end',

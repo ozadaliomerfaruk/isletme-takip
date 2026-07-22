@@ -284,6 +284,7 @@ export interface Personel {
   currency: Currency;
   start_date: string | null;
   end_date: string | null; // İşten çıkış tarihi
+  notes: string | null;
   is_active: boolean;
   is_archived: boolean;
   created_by: string | null;
@@ -304,6 +305,7 @@ export interface PersonelInsert {
   currency?: Currency;
   start_date?: string | null;
   end_date?: string | null;
+  notes?: string | null;
   is_active?: boolean;
   is_archived?: boolean;
 }
@@ -318,6 +320,7 @@ export interface PersonelUpdate {
   currency?: Currency;
   start_date?: string | null;
   end_date?: string | null;
+  notes?: string | null;
   is_active?: boolean;
   is_archived?: boolean;
 }

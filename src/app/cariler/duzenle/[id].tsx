@@ -8,7 +8,7 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
@@ -32,6 +32,7 @@ export default function CariDuzenlePage() {
   const { data: cari, isLoading } = useCari(id);
   usePagePermission({ module: 'cariler', action: 'update', createdBy: cari?.created_by });
   const updateCari = useUpdateCari();
+  const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState<Currency>('TRY');
@@ -111,6 +112,7 @@ export default function CariDuzenlePage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}

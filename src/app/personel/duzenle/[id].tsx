@@ -12,7 +12,7 @@ import {
   Switch,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
@@ -40,6 +40,7 @@ export default function PersonelDuzenlePage() {
   const { data: personel, isLoading } = usePersonelById(id);
   usePagePermission({ module: 'personel', action: 'update', createdBy: personel?.created_by });
   const updatePersonel = useUpdatePersonel();
+  const insets = useSafeAreaInsets();
 
   const [firstName, setFirstName] = useState('');
   const [currency, setCurrency] = useState<Currency>('TRY');
@@ -47,6 +48,7 @@ export default function PersonelDuzenlePage() {
   const [phone, setPhone] = useState('');
   const [position, setPosition] = useState('');
   const [salary, setSalary] = useState('');
+  const [notes, setNotes] = useState('');
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -62,6 +64,7 @@ export default function PersonelDuzenlePage() {
       setPhone(personel.phone || '');
       setPosition(personel.position || '');
       setSalary(personel.salary ? String(personel.salary) : '');
+      setNotes(personel.notes || '');
       setStartDate(personel.start_date ? parseDateFromDB(personel.start_date) : null);
       setEndDate(personel.end_date ? parseDateFromDB(personel.end_date) : null);
       setIsActive(personel.is_active ?? true);
@@ -92,6 +95,7 @@ export default function PersonelDuzenlePage() {
         salary: salary ? parseCurrency(salary) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
         end_date: endDate ? formatDateForDB(endDate) : null,
+        notes: notes.trim() || null,
         is_active: isActive,
       });
 
@@ -127,6 +131,7 @@ export default function PersonelDuzenlePage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
@@ -188,6 +193,15 @@ export default function PersonelDuzenlePage() {
                 placeholder={t('staff:form.positionPlaceholder')}
                 value={position}
                 onChangeText={setPosition}
+              />
+
+              <Input
+                label={t('staff:form.note')}
+                placeholder={t('staff:form.notePlaceholder')}
+                multiline
+                numberOfLines={3}
+                value={notes}
+                onChangeText={setNotes}
               />
 
               <Input
@@ -389,27 +403,28 @@ export default function PersonelDuzenlePage() {
               </View>
             </View>
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={updatePersonel.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.update')}
-              </Button>
-            </View>
           </ScrollView>
+
+          {/* Sticky footer — güncelle butonu klavyenin altında kalmasın */}
+          <View style={styles.footer}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={updatePersonel.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.update')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -455,11 +470,15 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     borderWidth: 2,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

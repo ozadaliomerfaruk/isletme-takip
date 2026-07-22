@@ -8,7 +8,7 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
 import { Text, Input, Button, Card } from '@/components/ui';
@@ -47,6 +47,7 @@ export default function HesapDuzenlePage() {
   const { data: hesap, isLoading } = useHesap(id);
   usePagePermission({ module: 'hesaplar', action: 'update', createdBy: hesap?.created_by });
   const updateHesap = useUpdateHesap();
+  const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
@@ -125,6 +126,7 @@ export default function HesapDuzenlePage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
@@ -211,27 +213,28 @@ export default function HesapDuzenlePage() {
               </View>
             </View>
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={updateHesap.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.update')}
-              </Button>
-            </View>
           </ScrollView>
+
+          {/* Sticky footer — güncelle butonu klavyenin altında kalmasın */}
+          <View style={styles.footer}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={updateHesap.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.update')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -279,11 +282,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

@@ -6,6 +6,7 @@ import {
   TouchableWithoutFeedback,
   ScrollView,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, UserCheck, Check } from 'lucide-react-native';
@@ -112,6 +113,8 @@ export function PersonelPickerSheet({
                 contentContainerStyle={styles.bottomSheetListContent}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
+                alwaysBounceVertical
+                onScrollBeginDrag={() => Keyboard.dismiss()}
               >
                 {filteredPersonel.map((personel) => {
                   const isSelected = selectedId === personel.id;

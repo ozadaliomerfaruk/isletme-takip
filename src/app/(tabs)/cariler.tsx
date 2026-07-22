@@ -746,9 +746,9 @@ export default function CarilerPage() {
                       <EyeOff size={14} color={colors.textMuted} />
                     )}
                   </View>
-                  {/* Cari oluşturulurken yazılan not — isim altında, tek satır, düz yazı */}
+                  {/* Cari oluşturulurken yazılan not — isim altında, en fazla iki satır, düz yazı */}
                   {cari.notes ? (
-                    <Text style={styles.cariNote} numberOfLines={1}>
+                    <Text style={styles.cariNote} numberOfLines={2}>
                       {cari.notes}
                     </Text>
                   ) : null}

@@ -7,6 +7,7 @@ import {
   TextInput,
   ScrollView,
   Dimensions,
+  Keyboard,
   StyleSheet,
   ActivityIndicator,
   LayoutAnimation,
@@ -393,6 +394,8 @@ export function UrunPickerModal({
                 contentContainerStyle={styles.contentContainer}
                 keyboardShouldPersistTaps="handled"
                 keyboardDismissMode="on-drag"
+                alwaysBounceVertical
+                onScrollBeginDrag={() => Keyboard.dismiss()}
                 nestedScrollEnabled
                 showsVerticalScrollIndicator
                 automaticallyAdjustKeyboardInsets
