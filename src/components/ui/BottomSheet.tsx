@@ -99,11 +99,13 @@ export function BottomSheet({
       const kb = kbHeight ?? keyboardHeightRef.current;
       const toValue = getTargetY(index, kb);
 
+      // App imza eğrisi (TabFilter ile aynı aile): sertlik düşük → sheet "akarak"
+      // gelir; eski 340/36 pat diye oturuyordu (kullanıcı geri bildirimi)
       Animated.spring(translateY, {
         toValue,
         velocity: velocity * -1,
-        damping: 36,
-        stiffness: 340,
+        damping: 24,
+        stiffness: 190,
         mass: 0.8,
         useNativeDriver: true,
       }).start();

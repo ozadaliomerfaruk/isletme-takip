@@ -118,6 +118,11 @@
     "gecikenler": "Overdue Transactions",
     "yakinVade": "Next due",
     "gecikenEtiket": "Overdue",
+    "bolumGecikmis": "Overdue",
+    "bolumIleri": "Upcoming Later",
+    "bosListe": "No transactions with due dates",
+    "bosListeAciklama": "Transactions with a due date or installment plan will be listed here.",
+    "taksitBirim": "Installment {{sira}}/{{toplam}}",
     "hedefBaslik": "Apply to which debt?",
     "hedefOtomatik": "Automatic (oldest due)",
     "whatsappHatirlat": "Remind via WhatsApp",
@@ -163,7 +168,9 @@
     "editEngel": "Amount/type/contact of an installment transaction cannot be changed. Delete the plan and recreate it.",
     "vadeEditEngel": "This transaction has an installment plan — due dates come from the plan and cannot be changed here. View installments in Installment Tracking, or delete and recreate the transaction to change them.",
     "satis": "Sales",
-    "alis": "Purchases"
+    "alis": "Purchases",
+    "fabSatis": "Installment Sale",
+    "fabAlis": "Installment Purchase"
   },
   "messages": {
     "createSuccess": "Transaction saved",

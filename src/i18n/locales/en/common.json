@@ -527,7 +527,7 @@
       "yil1": "1 Year",
       "suresiz": "Forever"
     },
-    "ekstreLinkDesc": "Send a web statement link to the contact (valid 30 days)",
+    "ekstreLinkDesc": "Send a web statement link to the contact — you choose how long it stays valid",
     "report": "Report",
     "send": "Send",
     "cancel": "Cancel",

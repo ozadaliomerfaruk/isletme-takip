@@ -148,6 +148,43 @@ export function useCariVadeRozet(enabled = true) {
   });
 }
 
+export interface VadeBirim {
+  islem_id: string;
+  cari_id: string;
+  type: 'cari_satis' | 'cari_alis';
+  description: string | null;
+  cari_name: string;
+  currency: string;
+  taksit_sira: number | null;
+  taksit_toplam: number | null;
+  vade: string;
+  kalan: number;
+}
+
+/**
+ * Vade Takip sayfası: işletme genelindeki TÜM açık vadeli birimler
+ * (plansız vadeli işlemler + taksit birimleri), vade sıralı, tek istekte.
+ */
+export function useVadeListesi(enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.islemTahsis.vadeListe(isletme?.id ?? ''),
+    enabled: enabled && !!isletme?.id,
+    queryFn: async (): Promise<VadeBirim[]> => {
+      if (!isletme?.id) return [];
+      const { data, error } = await supabase.rpc('get_vade_listesi', {
+        p_isletme_id: isletme.id,
+      });
+      if (error) throw error;
+      return ((data as VadeBirim[]) ?? []).map((b) => ({
+        ...b,
+        kalan: Number(b.kalan) || 0,
+      }));
+    },
+  });
+}
+
 export interface VadeOzetSatiri {
   currency: string;
   gecikmis_alacak: number | null;

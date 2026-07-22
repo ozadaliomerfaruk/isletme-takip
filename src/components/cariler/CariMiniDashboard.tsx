@@ -11,9 +11,11 @@ import { useVadeOzet, type VadeOzetSatiri } from '@/hooks/useIslemTahsis';
 import { useBuAyTaksitOzeti } from '@/hooks/useTaksit';
 
 const CARD_PADDING = spacing.lg;
-const CARD_COUNT = 3;
 /** Ana sayfa carousel'inin aksine BİLEREK kısa (kompakt özet). */
 const CARD_HEIGHT = 106;
+
+/** Kartlar dinamik: veri yoksa kart hiç gösterilmez (kullanıcı isteği). */
+type CardKey = 'genel' | 'vade' | 'taksit';
 
 interface CariMiniDashboardProps {
   /** Cari yönlü toplamlar (useFinancialSummary.payables/receivables.cari). */
@@ -21,10 +23,9 @@ interface CariMiniDashboardProps {
   alacagimiz: number;
   baseCurrency: string;
   onGenelPress?: () => void;
+  /** Vade kartı dokunuşu — Vade Takibi sayfasına gider. */
   onVadePress?: () => void;
   onTaksitPress?: () => void;
-  /** Vade kartı aktif filtre görünümü (listeye gecikmiş filtresi uygulanmışken). */
-  vadeFiltreAktif?: boolean;
 }
 
 /**
@@ -40,7 +41,6 @@ export function CariMiniDashboard({
   onGenelPress,
   onVadePress,
   onTaksitPress,
-  vadeFiltreAktif,
 }: CariMiniDashboardProps) {
   const { t } = useTranslation(['clients', 'transactions']);
   const { data: vadeRows } = useVadeOzet();
@@ -48,7 +48,7 @@ export function CariMiniDashboard({
 
   const [activeIndex, setActiveIndex] = useState(0);
   const activeIndexRef = useRef(0);
-  const listRef = useRef<FlatList<number>>(null);
+  const listRef = useRef<FlatList<CardKey>>(null);
   const { width: windowWidth } = useWindowDimensions();
   const cardWidth = windowWidth - CARD_PADDING * 2;
   const snapInterval = cardWidth + spacing.sm;
@@ -103,9 +103,9 @@ export function CariMiniDashboard({
     </View>
   );
 
-  const renderItem = useCallback(({ index }: { index: number }) => (
+  const renderItem = useCallback(({ item }: { item: CardKey }) => (
     <View style={{ width: cardWidth }}>
-      {index === 0 && (
+      {item === 'genel' && (
         <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onGenelPress}>
           {renderHeader(null, colors.primary, colors.primaryLight, t('clients:miniDashboard.genelTitle'))}
           <View style={styles.statsRow}>
@@ -115,12 +115,11 @@ export function CariMiniDashboard({
           </View>
         </TouchableOpacity>
       )}
-      {index === 1 && (
+      {item === 'vade' && (
         <TouchableOpacity
-          style={[styles.card, vadeFiltreAktif && styles.cardActive]}
+          style={styles.card}
           activeOpacity={0.75}
           onPress={onVadePress}
-          disabled={vadeTemiz && !vadeFiltreAktif}
         >
           {renderHeader(CalendarClock, colors.error, colors.errorLight, t('transactions:vade.cardTitle'))}
           {vadeTemiz ? (
@@ -151,7 +150,7 @@ export function CariMiniDashboard({
           )}
         </TouchableOpacity>
       )}
-      {index === 2 && (
+      {item === 'taksit' && (
         <TouchableOpacity style={styles.card} activeOpacity={0.75} onPress={onTaksitPress}>
           {renderHeader(CalendarRange, colors.info, colors.infoLight, t('clients:miniDashboard.buAyTaksitTitle'))}
           {!taksitOzet || taksitOzet.adet === 0 ? (
@@ -178,17 +177,23 @@ export function CariMiniDashboard({
         </TouchableOpacity>
       )}
     </View>
-  ), [cardWidth, t, borcumuz, alacagimiz, baseCurrency, onGenelPress, onVadePress, onTaksitPress, vadeFiltreAktif, vadeTemiz, gecAlacak, gecBorc, yaklasan, vadeCur, taksitOzet]);
+  ), [cardWidth, t, borcumuz, alacagimiz, baseCurrency, onGenelPress, onVadePress, onTaksitPress, vadeTemiz, gecAlacak, gecBorc, yaklasan, vadeCur, taksitOzet]);
 
-  const data = useRef(Array.from({ length: CARD_COUNT }, (_, i) => i)).current;
+  // Kartlar DİNAMİK (kullanıcı isteği): hiç vadeli/taksitli kayıt yoksa o kart
+  // hiç gösterilmez — Genel Durum her zaman, Vade yalnız açık vadeli birim varsa
+  // (get_vade_ozet satırı = en az bir açık vadeli birim), Taksit yalnız bu ay
+  // taksit varsa.
+  const cards: CardKey[] = ['genel'];
+  if (rows.length > 0) cards.push('vade');
+  if ((taksitOzet?.adet ?? 0) > 0) cards.push('taksit');
 
   return (
     <View style={styles.wrapper}>
       <FlatList
         ref={listRef}
-        data={data}
+        data={cards}
         renderItem={renderItem}
-        keyExtractor={(item) => String(item)}
+        keyExtractor={(item) => item}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -200,11 +205,13 @@ export function CariMiniDashboard({
         extraData={cardWidth}
         getItemLayout={(_, index) => ({ length: snapInterval, offset: snapInterval * index, index })}
       />
-      <View style={styles.dots}>
-        {data.map((i) => (
-          <View key={i} style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]} />
-        ))}
-      </View>
+      {cards.length > 1 && (
+        <View style={styles.dots}>
+          {cards.map((key, i) => (
+            <View key={key} style={[styles.dot, i === activeIndex ? styles.dotActive : styles.dotInactive]} />
+          ))}
+        </View>
+      )}
     </View>
   );
 }

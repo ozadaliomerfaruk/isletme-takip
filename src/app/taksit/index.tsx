@@ -3,13 +3,17 @@ import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { CalendarClock, ChevronRight } from 'lucide-react-native';
-import { Text, EmptyState } from '@/components/ui';
+import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
+import { Text, EmptyState, ActionSheet, type ActionSheetOption } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useTaksitPlanListesi, type TaksitPlanOzet } from '@/hooks/useTaksit';
+import { useCariler } from '@/hooks/useCariler';
+import { CariPickerSheet, type CariPickerMode } from '@/components/transaction/QuickTransactionBar/components';
+import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import type { CariType } from '@/types/database';
 
 /**
  * Taksit Takip (Faz 3) — işletmedeki tüm taksit planları.
@@ -23,6 +27,39 @@ export default function TaksitTakipPage() {
   const router = useRouter();
   const { data: planlar, isLoading, refetch, isRefetching } = useTaksitPlanListesi();
   const [tab, setTab] = useState<'satis' | 'alis'>('satis');
+
+  // FAB → taksitli satış/alış girişi: yön seç → cari seç → QTB (taksit, vade
+  // menüsünden kurulur). Ana sayfa FAB'ındaki cari-seçim deseniyle birebir.
+  const [fabSheetVisible, setFabSheetVisible] = useState(false);
+  const [cariPickerMode, setCariPickerMode] = useState<CariPickerMode | null>(null);
+  const [qtbCari, setQtbCari] = useState<{ id: string; type: CariType; islemTip: 'satis' | 'alis' } | null>(null);
+  const { data: musteriler } = useCariler('musteri');
+  const { data: tedarikciler } = useCariler('tedarikci');
+
+  const fabOptions: ActionSheetOption[] = [
+    {
+      label: t('transactions:taksit.fabSatis'),
+      icon: <TrendingUp size={20} color={colors.success} />,
+      onPress: () => setTimeout(() => setCariPickerMode('customer'), 250),
+    },
+    {
+      label: t('transactions:taksit.fabAlis'),
+      icon: <TrendingDown size={20} color={colors.error} />,
+      onPress: () => setTimeout(() => setCariPickerMode('supplier'), 250),
+    },
+  ];
+
+  const handleCariSelect = useCallback((cariId: string) => {
+    const isCustomer = cariPickerMode === 'customer';
+    setCariPickerMode(null);
+    setTimeout(() => {
+      setQtbCari({
+        id: cariId,
+        type: isCustomer ? 'musteri' : 'tedarikci',
+        islemTip: isCustomer ? 'satis' : 'alis',
+      });
+    }, 300);
+  }, [cariPickerMode]);
 
   const filtreli = useMemo(
     () => (planlar ?? []).filter((p) => (tab === 'satis' ? p.type === 'cari_satis' : p.type === 'cari_alis')),
@@ -167,6 +204,42 @@ export default function TaksitTakipPage() {
             )
           }
         />
+
+        {/* FAB — taksitli satış/alış girişi (kullanıcı isteği) */}
+        <TouchableOpacity
+          style={styles.fab}
+          activeOpacity={0.85}
+          onPress={() => setFabSheetVisible(true)}
+        >
+          <Plus size={26} color={colors.white} />
+        </TouchableOpacity>
+
+        <ActionSheet
+          visible={fabSheetVisible}
+          onClose={() => setFabSheetVisible(false)}
+          title={t('transactions:taksit.configTitle')}
+          options={fabOptions}
+          cancelLabel={t('common:buttons.cancel')}
+        />
+
+        <CariPickerSheet
+          visible={!!cariPickerMode}
+          onDismiss={() => setCariPickerMode(null)}
+          onSelect={handleCariSelect}
+          cariler={cariPickerMode === 'customer' ? (musteriler || []) : (tedarikciler || [])}
+          selectedId={null}
+          mode={cariPickerMode ?? 'customer'}
+        />
+
+        {/* Taksit planı QTB'nin vade menüsünden kurulur (Vade → Taksit) */}
+        <QuickTransactionBar
+          visible={!!qtbCari}
+          onDismiss={() => setQtbCari(null)}
+          defaultCariId={qtbCari?.id}
+          defaultCariType={qtbCari?.type}
+          defaultType={qtbCari?.islemTip}
+          onSuccess={() => setQtbCari(null)}
+        />
       </SafeAreaView>
     </>
   );
@@ -243,6 +316,22 @@ const styles = StyleSheet.create({
   separator: {
     height: 1,
     backgroundColor: colors.border,
+  },
+  fab: {
+    position: 'absolute',
+    right: spacing.lg,
+    bottom: spacing['2xl'],
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
   },
   card: {
     backgroundColor: colors.surface,

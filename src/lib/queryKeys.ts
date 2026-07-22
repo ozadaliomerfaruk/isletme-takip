@@ -58,6 +58,8 @@ export const queryKeys = {
     // şekilli cache'i atlatmak için key bump (şema kuralı: sorgu şekli değişince şart)
     vadeRozet: (isletmeId: string) =>
       ['islem-tahsis', 'vade-rozet-v2', isletmeId] as const,
+    vadeListe: (isletmeId: string) =>
+      ['islem-tahsis', 'vade-liste', isletmeId] as const,
   },
 
   // Taksit (Faz 3 — taksit_planlari/taksitler + get_taksit_plan_listesi RPC)

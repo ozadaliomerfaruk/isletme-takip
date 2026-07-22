@@ -118,6 +118,11 @@
     "gecikenler": "Vadesi Geçen İşlemler",
     "yakinVade": "En yakın vade",
     "gecikenEtiket": "Vadesi geçen",
+    "bolumGecikmis": "Vadesi Geçenler",
+    "bolumIleri": "İleri Tarihli",
+    "bosListe": "Vadeli işlem yok",
+    "bosListeAciklama": "Satış veya alış girerken vade ya da taksit ekleyince burada listelenir.",
+    "taksitBirim": "Taksit {{sira}}/{{toplam}}",
     "hedefBaslik": "Nereye sayılsın?",
     "hedefOtomatik": "Otomatik (en eski vade)",
     "whatsappHatirlat": "WhatsApp ile hatırlat",
@@ -163,7 +168,9 @@
     "editEngel": "Taksitli işlemin tutarı/tipi/carisi değiştirilemez. Planı silip yeniden oluşturun.",
     "vadeEditEngel": "Bu işlem taksitli — vade tarihleri taksit planından gelir ve buradan değiştirilemez. Taksitleri Taksit Takip'ten görebilir, değiştirmek için işlemi silip yeniden oluşturabilirsiniz.",
     "satis": "Satış",
-    "alis": "Alış"
+    "alis": "Alış",
+    "fabSatis": "Taksitli Satış",
+    "fabAlis": "Taksitli Alış"
   },
   "messages": {
     "createSuccess": "İşlem kaydedildi",

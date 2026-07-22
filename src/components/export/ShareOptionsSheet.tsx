@@ -131,16 +131,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     color: colors.text,
   },
+  // Yapışık düz-liste standardı: kutu yok, ayrım 1px çizgi
   option: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   optionIcon: {
     width: 44,

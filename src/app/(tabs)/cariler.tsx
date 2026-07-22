@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import {
   Users,
   History,
@@ -77,8 +77,6 @@ export default function CarilerPage() {
   // kullanır ve useMemo ile sarılır → binlerce caride her tuşta filter+sort tekrarlanmaz.
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');
-  // Mini-dashboard Vade Takibi kartı → listeye "gecikmiş vade" filtresi
-  const [vadeFiltre, setVadeFiltre] = useState(false);
   // Uzun basma önizlemesi (iOS context-menu taklidi, JS)
   const [previewCari, setPreviewCari] = useState<PreviewCari | null>(null);
   // Multi-select state
@@ -474,13 +472,6 @@ export default function CarilerPage() {
     .filter((cari) => {
       // Type filter
       if (filter !== 'all' && cari.type !== filter) return false;
-      // Mini-dashboard "Vade Takibi" kartından gelen gecikmiş filtresi:
-      // yalnız gecikmiş vadesi olan cariler (rozet verisiyle aynı kaynak)
-      if (vadeFiltre) {
-        const rozet = vadeRozetMap?.[cari.id];
-        const gecikmis = rozet && ((Number(rozet.gecikmis_alacak) || 0) > 0 || (Number(rozet.gecikmis_borc) || 0) > 0);
-        if (!gecikmis) return false;
-      }
       // Search filter
       // Ad + cari kartındaki not birlikte aranır (kullanıcı isteği: "notları da arasın")
       if (debouncedSearch && !searchMatchesTr(`${cari.name} ${cari.notes ?? ''}`, debouncedSearch)) return false;
@@ -519,7 +510,7 @@ export default function CarilerPage() {
       // Default: alphabetical
       return a.name.localeCompare(b.name, 'tr');
     }),
-  [mergedCariler, filter, debouncedSearch, sortBy, vadeFiltre, vadeRozetMap]);
+  [mergedCariler, filter, debouncedSearch, sortBy]);
 
   // #8: açık tab'ın (tip filtresi + arama + sıralama uygulanmış) anlık listesini dışa aktar
   const [isExporting, setIsExporting] = useState(false);
@@ -881,20 +872,10 @@ export default function CarilerPage() {
         alacagimiz={receivables.cari}
         baseCurrency={baseCurrency}
         onGenelPress={() => router.push('/raporlar/cari')}
-        onVadePress={() => setVadeFiltre((v) => !v)}
+        // Vade kartı artık listeye chip filtresi değil, Vade Takibi SAYFASINA gider
+        onVadePress={() => router.push('/vade' as Href)}
         onTaksitPress={() => router.push('/taksit')}
-        vadeFiltreAktif={vadeFiltre}
       />
-
-      {/* Aktif gecikmiş-vade filtresi göstergesi */}
-      {vadeFiltre && (
-        <View style={styles.vadeFiltreRow}>
-          <TouchableOpacity style={styles.vadeFiltreChip} onPress={() => setVadeFiltre(false)} activeOpacity={0.7}>
-            <Text style={styles.vadeFiltreChipText}>{t('clients:miniDashboard.gecikmisFiltre')}</Text>
-            <X size={13} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Filtre */}
       <View style={styles.filterContainer}>
@@ -904,13 +885,13 @@ export default function CarilerPage() {
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, payables.cari, receivables.cari, filterOptions, filter, isLoading, baseCurrency, vadeFiltre]);
+  ), [t, router, payables.cari, receivables.cari, filterOptions, filter, isLoading, baseCurrency]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {
     if (isLoading) return null;
     // Arama ya da gecikmiş-vade filtresi aktifken "ilk carinizi ekleyin" yanıltıcı olur
-    const filtered = !!debouncedSearch || vadeFiltre;
+    const filtered = !!debouncedSearch;
     return (
       <EmptyState
         icon={<Users size={48} color={colors.textMuted} />}
@@ -924,7 +905,7 @@ export default function CarilerPage() {
         onAction={filtered ? undefined : () => router.push('/cariler/ekle')}
       />
     );
-  }, [isLoading, debouncedSearch, vadeFiltre, t, router]);
+  }, [isLoading, debouncedSearch, t, router]);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -1205,25 +1186,6 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  vadeFiltreRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  vadeFiltreChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.errorLight,
-  },
-  vadeFiltreChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.error,
   },
   filterContainer: {
     paddingHorizontal: spacing.lg,
