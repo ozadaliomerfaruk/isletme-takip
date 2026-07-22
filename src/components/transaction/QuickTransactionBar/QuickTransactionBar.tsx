@@ -10,6 +10,8 @@ import {
   Keyboard,
   StyleSheet,
   Alert,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { X } from 'lucide-react-native';
 import { Text } from '@/components/ui';
@@ -94,6 +96,7 @@ export function QuickTransactionBar({
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const router = useRouter();
 
   // Refs
@@ -654,6 +657,12 @@ export function QuickTransactionBar({
     ? animation.keyboardHeight
     : insets.bottom + TAB_BAR_HEIGHT + 10;
 
+  // Kart + üstündeki ✕ butonu EKRANA SIĞMALI: içerik uzayınca (hedef chip'leri,
+  // kategori önerileri vs.) kart ekranın üstünden taşıyor ve ✕ görünmez oluyordu.
+  // Üst bölge (tarih/hesap/hedef) gerekirse kendi içinde kayar; tutar + kaydet +
+  // sekmeler HEP görünür kalır. 44 = ✕ (36) + boşluk (8).
+  const cardMaxHeight = Math.max(280, windowHeight - cardBottom - insets.top - 44 - 8);
+
   return (
     <Modal visible={visible && !modals.navigatedAway} transparent animationType="none" statusBarTranslucent>
       {/* Backdrop */}
@@ -683,7 +692,15 @@ export function QuickTransactionBar({
           <X size={20} color={colors.textMuted} />
         </TouchableOpacity>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { maxHeight: cardMaxHeight }]}>
+          {/* Üst bölge: kart maxHeight'i aşarsa yalnız burası kayar (tutar/kaydet sabit).
+              flexGrow:0 → içerik kısayken ekstra yer kaplamaz, davranış değişmez. */}
+          <ScrollView
+            style={qtbLocal.topScroll}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
           {/* Header: Date + Bell */}
           <HeaderSection
             date={form.safeDate}
@@ -803,6 +820,7 @@ export function QuickTransactionBar({
               onSelect={handleHedefSelect}
             />
           ) : null}
+          </ScrollView>
 
           {/* Amount Input Section: Category, Description, Amount, Save, Tabs */}
           <AmountInputSection
@@ -1119,6 +1137,15 @@ export function QuickTransactionBar({
     </Modal>
   );
 }
+
+// Üst bölge kaydırıcısı: kart maxHeight'e çarptığında yalnız üst kısım kayar.
+// flexGrow:0 → içerik kısayken ScrollView fazladan yer KAPLAMAZ (normal görünüm aynı).
+const qtbLocal = StyleSheet.create({
+  topScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
+  },
+});
 
 // FAZ 3 — taksit konfigürasyon modalı yerel stilleri
 const taksitStyles = StyleSheet.create({
