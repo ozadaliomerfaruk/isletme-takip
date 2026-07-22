@@ -25,7 +25,7 @@ import { useUrunler } from '@/hooks/useUrunler';
 import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { isToday, formatDateTimeForDB, ensureValidDate } from '@/lib/date';
-import { formatCurrency, parseCurrency, parseQuantity, formatQuantity } from '@/lib/currency';
+import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
@@ -130,7 +130,7 @@ export default function TopluGirisPage() {
           ...r,
           urunId,
           kdvOrani: urun?.kdv_orani ?? 0,
-          birimFiyat: urun?.alis_fiyati ? String(urun.alis_fiyati) : r.birimFiyat,
+          birimFiyat: urun?.alis_fiyati ? formatAmountForInput(urun.alis_fiyati) : r.birimFiyat,
         };
       }));
     }
@@ -593,7 +593,7 @@ export default function TopluGirisPage() {
                           </Text>
                           {urun.alis_fiyati > 0 && (
                             <Text style={styles.pickerItemPrice}>
-                              {formatCurrency(urun.alis_fiyati)}
+                              {formatCurrency(urun.alis_fiyati, urun.currency)}
                             </Text>
                           )}
                           {urun.kdv_orani > 0 && (

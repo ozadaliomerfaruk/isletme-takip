@@ -331,7 +331,7 @@ export default function IslemDuzenlePage() {
                       </Text>
                       {selectedHesap && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Number(selectedHesap.balance))}
+                          {formatCurrency(Number(selectedHesap.balance), selectedHesap.currency)}
                         </Text>
                       )}
                     </View>
@@ -372,7 +372,7 @@ export default function IslemDuzenlePage() {
                       </Text>
                       {selectedHedefHesap && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedHedefHesap.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Number(selectedHedefHesap.balance))}
+                          {formatCurrency(Number(selectedHedefHesap.balance), selectedHedefHesap.currency)}
                         </Text>
                       )}
                     </View>
@@ -415,7 +415,7 @@ export default function IslemDuzenlePage() {
                       </Text>
                       {selectedCari && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Number(selectedCari.balance))}
+                          {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
                         </Text>
                       )}
                     </View>
@@ -603,7 +603,7 @@ export default function IslemDuzenlePage() {
                             { color: Number(hesap.balance) >= 0 ? colors.success : colors.error },
                           ]}
                         >
-                          {formatCurrency(Number(hesap.balance))}
+                          {formatCurrency(Number(hesap.balance), hesap.currency)}
                         </Text>
                         {isSelected && (
                           <View style={[styles.checkIcon, { backgroundColor: colors.primary }]}>
@@ -701,7 +701,7 @@ export default function IslemDuzenlePage() {
                             { color: Number(cari.balance) >= 0 ? colors.success : colors.error },
                           ]}
                         >
-                          {formatCurrency(Number(cari.balance))}
+                          {formatCurrency(Number(cari.balance), cari.currency)}
                         </Text>
                         {isSelected && (
                           <View style={[styles.checkIcon, { backgroundColor: colors.primary }]}>

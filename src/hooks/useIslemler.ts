@@ -368,7 +368,7 @@ async function safeIncrementBalance(tableName: string, rowId: string, amount: nu
     if (__DEV__) {
       console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
     }
-    throw new Error(`Bakiye güncellenemedi: ${error.message}`);
+    throw new Error(i18n.t('common:errors.balanceUpdateFailed', { detail: error.message }));
   }
 }
 
@@ -420,8 +420,7 @@ async function createIslemLegacy(
       await supabase.from('islemler').delete().eq('id', data.id).eq('isletme_id', isletmeId);
     } catch (rollbackError) {
       throw new Error(
-        'Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. ' +
-        `Lütfen destek ile iletişime geçin. Detay: ${(rollbackError as Error).message}`
+        i18n.t('common:errors.balanceRollbackCritical', { detail: (rollbackError as Error).message })
       );
     }
     throw balanceError;

@@ -26,7 +26,7 @@ import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/d
 import { Text, Button, CategoryPicker } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
-import { parseCurrency, isValidAmount, formatCurrency } from '@/lib/currency';
+import { parseCurrency, isValidAmount, formatCurrency, roundCurrency } from '@/lib/currency';
 import { formatDateTimeForDB, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -350,7 +350,7 @@ export function DailyCashModal({
           createIslem
             .mutateAsync({
               type: 'gelir',
-              amount: parseCurrency(entry.amount),
+              amount: roundCurrency(parseCurrency(entry.amount)),
               hesap_id: entry.hesapId,
               kategori_id: entry.kategoriId,
               description: entry.description || null,

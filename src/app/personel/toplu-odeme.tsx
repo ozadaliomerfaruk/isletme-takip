@@ -386,7 +386,7 @@ export default function TopluOdemePage() {
                         </Text>
                         <Text variant="caption" color={hasDebt ? 'error' : 'secondary'}>
                           {hasDebt
-                            ? `${t('staff:balance.weOwe')}: ${formatCurrency(debtAmount)}`
+                            ? `${t('staff:balance.weOwe')}: ${formatCurrency(debtAmount, personel.currency)}`
                             : t('staff:balance.noBalance')}
                         </Text>
                       </View>
@@ -461,7 +461,7 @@ export default function TopluOdemePage() {
                           <Wallet size={20} color={colors.primary} />
                           <View style={styles.bottomSheetItemContent}>
                             <Text style={styles.bottomSheetItemText}>{hesap.name}</Text>
-                            <Text style={styles.bottomSheetItemBalance}>{formatCurrency(toNumber(hesap.balance))}</Text>
+                            <Text style={styles.bottomSheetItemBalance}>{formatCurrency(toNumber(hesap.balance), hesap.currency)}</Text>
                           </View>
                           {hesap.id === hesapId && <Check size={20} color={colors.primary} />}
                         </TouchableOpacity>

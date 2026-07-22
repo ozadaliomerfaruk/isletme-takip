@@ -417,7 +417,7 @@ export function CreditCardTransactionBar({
     }
 
     try {
-      const parsedAmount = parseCurrency(amount);
+      const parsedAmount = roundCurrency(parseCurrency(amount));
 
       let apiType: IslemType;
       let hesapId: string | null = null;
@@ -635,15 +635,15 @@ export function CreditCardTransactionBar({
             <View style={styles.creditLimitRow}>
               <View style={styles.creditLimitItem}>
                 <Text style={styles.creditLimitLabel}>{t('accounts:creditCard.creditLimit')}</Text>
-                <Text style={styles.creditLimitValue}>{formatCurrency(creditLimit)}</Text>
+                <Text style={styles.creditLimitValue}>{formatCurrency(creditLimit, creditCard.currency)}</Text>
               </View>
               <View style={styles.creditLimitItem}>
                 <Text style={styles.creditLimitLabel}>{t('accounts:creditCard.usedCredit')}</Text>
-                <Text style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(usedCredit)}</Text>
+                <Text style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(usedCredit, creditCard.currency)}</Text>
               </View>
               <View style={styles.creditLimitItem}>
                 <Text style={styles.creditLimitLabel}>{t('accounts:creditCard.availableCredit')}</Text>
-                <Text style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(availableCredit)}</Text>
+                <Text style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(availableCredit, creditCard.currency)}</Text>
               </View>
             </View>
           ) : (

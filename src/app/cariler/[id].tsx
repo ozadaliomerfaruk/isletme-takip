@@ -579,7 +579,7 @@ export default function CariHareketleriPage() {
 
   const handleSaveInitialBalance = async () => {
     if (!cari) return;
-    const absoluteAmount = parseCurrency(newInitialBalance) || 0;
+    const absoluteAmount = roundCurrency(parseCurrency(newInitialBalance) || 0);
     // Yöne göre işareti uygula: debt = pozitif, credit = negatif
     const newInitial = balanceDirection === 'debt' ? absoluteAmount : -absoluteAmount;
 

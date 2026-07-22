@@ -22,6 +22,7 @@
     "musteri": "A customer or company you sell products or services to"
   },
   "form": {
+    "selectClient": "Select contact",
     "name": "Contact Name",
     "namePlaceholder": "Enter contact name",
     "nameSupplierPlaceholder": "E.g., ABC Supplies, Costco",

@@ -208,7 +208,7 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
     // Our own daily rate limit - throw special error (won't be retried)
     if (responseData?.rateLimited) {
       throw new DailyRateLimitError(
-        responseData.error || `Günlük fatura tarama limitine ulaştınız (${responseData.dailyLimit}/gün)`,
+        responseData.error || i18n.t('common:errors.ocrDailyLimit', { limit: responseData.dailyLimit ?? 20 }),
         responseData.dailyLimit ?? 20,
         responseData.remaining ?? 0,
       );
@@ -275,7 +275,7 @@ export async function recognizeInvoicesBatch(imageUris: string[]): Promise<OcrPa
     // Our own daily rate limit - throw special error (won't be retried)
     if (batchData?.rateLimited) {
       throw new DailyRateLimitError(
-        batchData.error || `Günlük fatura tarama limitine ulaştınız (${batchData.dailyLimit}/gün)`,
+        batchData.error || i18n.t('common:errors.ocrDailyLimit', { limit: batchData.dailyLimit ?? 20 }),
         batchData.dailyLimit ?? 20,
         batchData.remaining ?? 0,
       );

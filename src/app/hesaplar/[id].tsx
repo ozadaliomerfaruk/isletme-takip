@@ -27,7 +27,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, roundCurrency } from '@/lib/currency';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
@@ -494,7 +494,7 @@ export default function HesapHareketleriPage() {
 
   const handleSaveInitialBalance = async () => {
     if (!hesap) return;
-    const absoluteAmount = parseCurrency(newInitialBalance) || 0;
+    const absoluteAmount = roundCurrency(parseCurrency(newInitialBalance) || 0);
     const newInitial = balanceDirection === 'debt' ? absoluteAmount : -absoluteAmount;
     // Onay sorusu yok (editör zaten yalnız ilk girişte açık). İşlem yokken açılış ==
     // güncel bakiye olduğu için ikisini birden set ediyoruz.

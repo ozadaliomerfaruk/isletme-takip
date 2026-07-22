@@ -22,6 +22,7 @@
     "musteri": "Ürün/hizmet sattığınız firma veya kişi"
   },
   "form": {
+    "selectClient": "Cari seçin",
     "name": "Cari Adı",
     "namePlaceholder": "Cari adı girin",
     "nameSupplierPlaceholder": "Örn: Metro Market",

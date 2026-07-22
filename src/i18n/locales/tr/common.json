@@ -602,6 +602,9 @@
   },
   "errors": {
     "businessNotFound": "İşletme bulunamadı",
+    "ocrDailyLimit": "Günlük fatura tarama limitine ulaştınız ({{limit}}/gün)",
+    "balanceUpdateFailed": "Bakiye güncellenemedi: {{detail}}",
+    "balanceRollbackCritical": "Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. Lütfen destek ile iletişime geçin. Detay: {{detail}}",
     "accountNotFound": "Hesap bulunamadı veya erişim yetkiniz yok",
     "clientNotFound": "Cari bulunamadı veya erişim yetkiniz yok",
     "staffNotFound": "Personel bulunamadı veya erişim yetkiniz yok",

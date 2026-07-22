@@ -34,7 +34,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, formatAmountForInput, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
+import { formatCurrency, parseCurrency, formatAmountForInput, toNumber, getCrossCurrencyDisplay, roundCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem, MilestoneItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -294,7 +294,7 @@ export default function PersonelHareketleriPage() {
   }, [initialBalance]);
 
   const handleSaveInitialBalance = useCallback(() => {
-    const absoluteAmount = parseCurrency(newInitialBalance) || 0;
+    const absoluteAmount = roundCurrency(parseCurrency(newInitialBalance) || 0);
     // Personelde: credit = pozitif (biz borçluyuz), debt = negatif (personel bize borçlu)
     const newInitial = balanceDirection === 'credit' ? absoluteAmount : -absoluteAmount;
 

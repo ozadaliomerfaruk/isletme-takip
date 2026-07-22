@@ -143,6 +143,14 @@ export function TrendFilterModal({
     return null;
   }
 
+  // Bakiye entity'nin KENDİ para biriminde — ana sembolle basmak yanlış (döviz denetimi)
+  function getItemCurrency(item: FilterableEntity, type: TrendFilterType): string | undefined {
+    if (type === 'hesap' || type === 'cari' || type === 'personel') {
+      return (item as Hesap | Cari | Personel).currency;
+    }
+    return undefined;
+  }
+
   // Get icon for filter type
   function getFilterIcon(type: TrendFilterType) {
     switch (type) {
@@ -201,6 +209,7 @@ export function TrendFilterModal({
   const renderItem = ({ item }: { item: FilterableEntity }) => {
     const name = getItemName(item, filterType);
     const balance = getItemBalance(item, filterType);
+    const itemCurrency = getItemCurrency(item, filterType);
     const isSelected = item.id === selectedId;
 
     return (
@@ -229,7 +238,7 @@ export function TrendFilterModal({
           </Text>
           {balance !== null && (
             <Text variant="caption" color={balance >= 0 ? 'success' : 'error'}>
-              {formatCurrency(balance)}
+              {formatCurrency(balance, itemCurrency)}
             </Text>
           )}
         </View>

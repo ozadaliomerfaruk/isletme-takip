@@ -602,6 +602,9 @@
   },
   "errors": {
     "businessNotFound": "Business not found",
+    "ocrDailyLimit": "You have reached the daily invoice scan limit ({{limit}}/day)",
+    "balanceUpdateFailed": "Balance could not be updated: {{detail}}",
+    "balanceRollbackCritical": "Critical error: the transaction was created but the balance could not be updated or rolled back. Please contact support. Detail: {{detail}}",
     "accountNotFound": "Account not found or access denied",
     "clientNotFound": "Client not found or access denied",
     "staffNotFound": "Staff not found or access denied",

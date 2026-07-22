@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import i18n from '@/i18n';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 
@@ -24,7 +25,7 @@ export function useEkstreLinkOlustur() {
     mutationFn: async (
       { cariId, gecerlilikGun }: { cariId: string; gecerlilikGun: number | null },
     ): Promise<{ url: string; expiresAt: string }> => {
-      if (!isletme?.id) throw new Error('isletme yok');
+      if (!isletme?.id) throw new Error(i18n.t('common:errors.businessNotFound'));
       const { data, error } = await supabase.rpc('ekstre_link_olustur', {
         p_isletme_id: isletme.id,
         p_cari_id: cariId,
@@ -42,7 +43,7 @@ export function useEkstreLinkIptal() {
 
   return useMutation({
     mutationFn: async (cariId: string): Promise<number> => {
-      if (!isletme?.id) throw new Error('isletme yok');
+      if (!isletme?.id) throw new Error(i18n.t('common:errors.businessNotFound'));
       const { data, error } = await supabase.rpc('ekstre_link_iptal', {
         p_isletme_id: isletme.id,
         p_cari_id: cariId,

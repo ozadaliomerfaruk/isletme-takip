@@ -227,7 +227,7 @@ export function useRetahsisOdeme() {
 
   return useMutation({
     mutationFn: async ({ odemeIslemId, hedefBorcId }: { odemeIslemId: string; hedefBorcId: string }) => {
-      if (!isletme?.id) throw new Error('İşletme bulunamadı');
+      if (!isletme?.id) throw new Error(i18n.t('common:errors.businessNotFound'));
       const { data, error } = await supabase.rpc('retahsis_odeme', {
         p_isletme_id: isletme.id,
         p_odeme_islem_id: odemeIslemId,
