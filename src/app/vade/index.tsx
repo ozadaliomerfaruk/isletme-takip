@@ -44,7 +44,9 @@ export default function VadeTakipPage() {
 
   const listData = useMemo((): ListItem[] => {
     const tip = tab === 'satis' ? 'cari_satis' : 'cari_alis';
-    const filtreli = (birimler ?? []).filter((b) => b.type === tip);
+    // Taksit birimleri BİLEREK dışarıda (kullanıcı isteği: taksitler ayrı konu —
+    // Taksit Takip sayfası var); burada yalnız plansız vadeli işlemler listelenir.
+    const filtreli = (birimler ?? []).filter((b) => b.type === tip && b.taksit_sira == null);
 
     const withGun = filtreli.map((b) => ({
       b,

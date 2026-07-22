@@ -121,7 +121,7 @@
     "bolumGecikmis": "Overdue",
     "bolumIleri": "Upcoming Later",
     "bosListe": "No transactions with due dates",
-    "bosListeAciklama": "Transactions with a due date or installment plan will be listed here.",
+    "bosListeAciklama": "Transactions with a due date will be listed here.",
     "taksitBirim": "Installment {{sira}}/{{toplam}}",
     "hedefBaslik": "Apply to which debt?",
     "hedefOtomatik": "Automatic (oldest due)",
