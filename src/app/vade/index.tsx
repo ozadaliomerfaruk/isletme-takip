@@ -229,13 +229,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   sectionHeaderText: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   sectionHeaderCount: {
-    fontSize: 12,
+    fontSize: 13,
     color: colors.textMuted,
   },
   // Yapışık düz satır (cariler dili)

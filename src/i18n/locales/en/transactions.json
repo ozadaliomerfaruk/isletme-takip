@@ -119,7 +119,7 @@
     "yakinVade": "Next due",
     "gecikenEtiket": "Overdue",
     "bolumGecikmis": "Overdue",
-    "bolumIleri": "Upcoming Later",
+    "bolumIleri": "Not Yet Due",
     "bosListe": "No transactions with due dates",
     "bosListeAciklama": "Transactions with a due date will be listed here.",
     "taksitBirim": "Installment {{sira}}/{{toplam}}",

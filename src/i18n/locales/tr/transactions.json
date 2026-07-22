@@ -119,7 +119,7 @@
     "yakinVade": "En yakın vade",
     "gecikenEtiket": "Vadesi geçen",
     "bolumGecikmis": "Vadesi Geçenler",
-    "bolumIleri": "İleri Tarihli",
+    "bolumIleri": "Vadesi Henüz Gelmeyenler",
     "bosListe": "Vadeli işlem yok",
     "bosListeAciklama": "Satış veya alış girerken vade ekleyince burada listelenir.",
     "taksitBirim": "Taksit {{sira}}/{{toplam}}",
