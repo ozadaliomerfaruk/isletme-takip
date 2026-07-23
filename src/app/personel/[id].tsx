@@ -43,7 +43,7 @@ import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
-import { usePersonelById, useDeletePersonel, useUpdatePersonel, usePersonelOzet, type PersonelOzet } from '@/hooks/usePersonel';
+import { usePersonelById, useDeletePersonel, useUpdatePersonel } from '@/hooks/usePersonel';
 import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
 import { OpeningBalanceRow } from '@/components/detail/OpeningBalanceRow';
 import { buildWhatsAppUrl, buildTelUrl } from '@/lib/phone';
@@ -198,8 +198,6 @@ export default function PersonelHareketleriPage() {
   const insets = useSafeAreaInsets();
 
   const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
-  // Dashboard kartı toplamları (RPC — sunucuda toplanır, izin türleri hariç)
-  const { data: personelOzet } = usePersonelOzet(id);
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByPersonel(id!);
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const { data: entityNotes } = useNotlarByEntity('personel', id!);
@@ -633,18 +631,9 @@ export default function PersonelHareketleriPage() {
               : null,
           ].filter(Boolean);
 
-          const oz = (k: keyof PersonelOzet) => personelOzet?.[k]?.toplam ?? 0;
-          const rows: DetailSummaryRow[] = [
-            { label: t('staff:detayOzet.toplamHakedis'), value: formatCurrency(oz('personel_gider'), personel.currency) },
-            { label: t('staff:detayOzet.toplamOdeme'), value: formatCurrency(oz('personel_odeme'), personel.currency) },
-          ];
-          // Personele satış/tahsilat kullanılmışsa göster (nadir yol — boşsa satır yok)
-          if (oz('personel_satis') !== 0) {
-            rows.push({ label: t('staff:detayOzet.toplamSatis'), value: formatCurrency(oz('personel_satis'), personel.currency) });
-          }
-          if (oz('personel_tahsilat') !== 0) {
-            rows.push({ label: t('staff:detayOzet.toplamTahsilat'), value: formatCurrency(oz('personel_tahsilat'), personel.currency) });
-          }
+          // Kullanıcı isteği: personel kartında toplam hakediş/ödeme YOK —
+          // sadece borç/alacak (başlıktaki bakiye) yeterli.
+          const rows: DetailSummaryRow[] = [];
 
           const telUrl = buildTelUrl(personel.phone);
           const waUrl = buildWhatsAppUrl(personel.phone);
@@ -713,7 +702,7 @@ export default function PersonelHareketleriPage() {
         </View>
       </View>
     );
-  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, handleViewLeaveHistory, t, personelOzet, formatDateShort]);
+  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, handleViewLeaveHistory, t, formatDateShort]);
 
   // ============================================================================
   // FlatList Footer (başlangıç bakiyesi kartı)

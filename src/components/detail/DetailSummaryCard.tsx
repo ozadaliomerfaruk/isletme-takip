@@ -26,7 +26,7 @@ interface DetailSummaryCardProps {
 }
 
 /**
- * Detay sayfası özet kartı (cari/personel/ürün ortak) — marka-yeşili zemin,
+ * Detay sayfası özet kartı (cari/personel/ürün ortak) — beyaz zemin (ana sayfa dili),
  * solda başlık + meta, sağda kalan/stok, altında ayraçlı etiket-değer satırları.
  */
 export function DetailSummaryCard({
@@ -80,8 +80,10 @@ export function DetailSummaryCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.summaryCardBg,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -100,13 +102,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    color: colors.white,
+    color: colors.text,
     fontSize: fontSize.xl,
     fontWeight: '800',
     letterSpacing: 0.4,
   },
   subtitle: {
-    color: '#DFF0EA',
+    color: colors.textMuted,
     fontSize: fontSize.sm,
     fontWeight: '500',
   },
@@ -117,7 +119,7 @@ const styles = StyleSheet.create({
     maxWidth: '55%',
   },
   balanceValue: {
-    color: colors.white,
+    color: colors.text,
     fontSize: fontSize['2xl'],
     fontWeight: '800',
   },
@@ -130,24 +132,24 @@ const styles = StyleSheet.create({
   },
   rowDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.28)',
+    backgroundColor: colors.borderLight,
   },
   rowDividerTop: {
-    backgroundColor: 'rgba(255,255,255,0.38)',
+    backgroundColor: colors.border,
   },
   label: {
-    color: '#E9F5F0',
+    color: colors.textMuted,
     fontSize: fontSize.md,
     fontWeight: '600',
     flexShrink: 1,
   },
   value: {
-    color: colors.white,
+    color: colors.text,
     fontSize: fontSize.lg,
     fontWeight: '800',
     flexShrink: 1,
   },
   valueDanger: {
-    color: '#FFC4BD',
+    color: colors.error,
   },
 });

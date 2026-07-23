@@ -1138,7 +1138,7 @@ export default function CariHareketleriPage() {
         <View style={[styles.darkCard, linkedOwnerName && styles.summaryCardLinked]}>
           {linkedOwnerName && (
             <View style={styles.darkLinkedStrip}>
-              <Link size={13} color={colors.white} />
+              <Link size={13} color={colors.primary} />
               <Text style={styles.darkLinkedText} numberOfLines={1}>
                 {t('clients:sharing.linkedBadge')}{'  ·  '}{linkedOwnerName}
               </Text>
@@ -1680,7 +1680,7 @@ export default function CariHareketleriPage() {
 // Özet kartı zemini — marka koyu yeşili (antrasit beğenilmedi; EKLE/primary tonu)
 // Özet kartı — primary'den (#0D5C4D) az daha açık yeşil (kullanıcı isteği); beyaz metin
 // kontrastı korunur.
-const DARK_CARD_BG = colors.summaryCardBg;
+const DARK_CARD_BG = colors.surface;
 
 const styles = StyleSheet.create({
   container: {
@@ -1827,6 +1827,8 @@ const styles = StyleSheet.create({
   darkCard: {
     backgroundColor: DARK_CARD_BG,
     borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
@@ -1840,7 +1842,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   darkLinkedText: {
-    color: '#CDE7DF',
+    color: colors.textSecondary,
     fontSize: fontSize.xs,
     fontWeight: '600',
     flexShrink: 1,
@@ -1977,13 +1979,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   darkTitle: {
-    color: colors.white,
+    color: colors.text,
     fontSize: fontSize.xl,
     fontWeight: '800',
     letterSpacing: 0.4,
   },
   darkType: {
-    color: '#DFF0EA',
+    color: colors.textMuted,
     fontSize: fontSize.sm,
     fontWeight: '500',
   },
@@ -1994,7 +1996,7 @@ const styles = StyleSheet.create({
     maxWidth: '55%',
   },
   darkBalanceValue: {
-    color: colors.white,
+    color: colors.text,
     fontSize: fontSize['2xl'],
     fontWeight: '800',
   },
@@ -2009,26 +2011,26 @@ const styles = StyleSheet.create({
   // Yeşil zeminde ince, hafif saydam ayraç — satırları görsel olarak ayırır
   darkRowDivider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(255,255,255,0.28)',
+    backgroundColor: colors.borderLight,
   },
   darkRowDividerTop: {
-    backgroundColor: 'rgba(255,255,255,0.38)',
+    backgroundColor: colors.border,
   },
-  // Okunurluk: yeşil zeminde neredeyse-beyaz etiketler, kalın beyaz değerler
+  // Beyaz zemin (ana sayfa dili): koyu etiket/değer, kırmızı vurgu
   darkLabel: {
-    color: '#E9F5F0',
+    color: colors.textMuted,
     fontSize: fontSize.md,
     fontWeight: '600',
     flexShrink: 1,
   },
   darkValue: {
-    color: colors.white,
+    color: colors.text,
     fontSize: fontSize.lg,
     fontWeight: '800',
     flexShrink: 1,
   },
   darkValueDanger: {
-    color: '#FFC4BD',
+    color: colors.error,
   },
   summaryRow: {
     flexDirection: 'row',
