@@ -19,6 +19,11 @@ interface DetailSummaryCardProps {
   /** Sağ üst: etiket + büyük değer (ör. Kalan Borcumuz). */
   balanceLabel: string;
   balanceValue: string;
+  /**
+   * Büyük bakiye değerini yön rengiyle boya: true=borç(kırmızı), false=alacak/varlık(yeşil).
+   * undefined → nötr (koyu metin). Para bakiyeli kartlar geçer; ürün(stok) geçmez.
+   */
+  balanceNegative?: boolean;
   /** Alt satırlar (etiket solda, değer sağda; aralarında ince ayraç). */
   rows: DetailSummaryRow[];
   /** Kartın en üstünde opsiyonel şerit (ör. bağlantılı-cari). */
@@ -35,9 +40,13 @@ export function DetailSummaryCard({
   subtitle2,
   balanceLabel,
   balanceValue,
+  balanceNegative,
   rows,
   topStrip,
 }: DetailSummaryCardProps) {
+  const balanceColor = balanceNegative === undefined
+    ? undefined
+    : (balanceNegative ? colors.error : colors.success);
   return (
     <View style={styles.card}>
       {topStrip}
@@ -49,7 +58,12 @@ export function DetailSummaryCard({
         </View>
         <View style={styles.balanceWrap}>
           <Text style={styles.label} numberOfLines={1}>{balanceLabel}</Text>
-          <Text style={styles.balanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+          <Text
+            style={[styles.balanceValue, balanceColor ? { color: balanceColor } : null]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
+          >
             {balanceValue}
           </Text>
         </View>

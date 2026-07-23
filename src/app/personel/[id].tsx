@@ -645,6 +645,7 @@ export default function PersonelHareketleriPage() {
                 subtitle2={meta2Parts.join('  ·  ') || undefined}
                 balanceLabel={bal < 0 ? t('staff:balance.weOwe') : t('staff:balance.theyOwe')}
                 balanceValue={formatCurrency(Math.abs(bal), personel.currency)}
+                balanceNegative={bal < 0}
                 rows={rows}
               />
               {/* Ara / WhatsApp kısayolları — telefon varsa */}

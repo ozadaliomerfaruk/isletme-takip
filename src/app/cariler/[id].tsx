@@ -1158,7 +1158,12 @@ export default function CariHareketleriPage() {
               <Text style={styles.darkLabel} numberOfLines={1}>
                 {displayBalance < 0 ? t('clients:detayOzet.kalanBorc') : t('clients:detayOzet.kalanAlacak')}
               </Text>
-              <Text style={styles.darkBalanceValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+              <Text
+                style={[styles.darkBalanceValue, { color: displayBalance < 0 ? colors.error : colors.success }]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.6}
+              >
                 {formatCurrency(Math.abs(displayBalance), cari.currency)}
               </Text>
             </View>

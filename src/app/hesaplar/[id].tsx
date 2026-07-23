@@ -836,6 +836,7 @@ export default function HesapHareketleriPage() {
               subtitle2={baseEq}
               balanceLabel={(isKrediKarti || bal < 0) ? t('accounts:creditCard.currentDebt') : t('accounts:balance.currentBalance')}
               balanceValue={formatCurrency(Math.abs(bal), hesap.currency)}
+              balanceNegative={bal < 0}
               rows={rows}
             />
           );
