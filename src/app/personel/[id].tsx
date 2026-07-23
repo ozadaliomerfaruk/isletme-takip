@@ -34,7 +34,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, formatAmountForInput, toNumber, getCrossCurrencyDisplay, roundCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, formatAmountForInput, toNumber, getCrossCurrencyDisplay, roundCurrency, calculateTargetAmount } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem, MilestoneItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -106,6 +106,25 @@ interface PersonelTransactionItemProps {
 function getCreatorName(islem: IslemWithRelations): string | null {
   if (!islem.creator) return null;
   return islem.creator.display_name || islem.creator.email || null;
+}
+
+/**
+ * Personel tarafındaki tutar — çapraz-kur (ör. EUR hesaptan TL personele ödeme)
+ * işlemlerde HEDEF (personel) para birimine çevrilmiş tutar; aksi hâlde ham amount.
+ * computeBalanceOps personel bacağını `converted()` ile hareket ettirdiği için bakiye
+ * bununla uzlaşır (cari'deki getCariDisplayAmount ile aynı desen).
+ */
+function getPersonelDisplayAmount(islem: IslemWithRelations): number {
+  const amount = toNumber(islem.amount);
+  const { source_currency, target_currency, exchange_rate } = islem;
+  if (source_currency && target_currency && source_currency !== target_currency && exchange_rate) {
+    try {
+      return calculateTargetAmount(amount, exchange_rate, source_currency, target_currency);
+    } catch {
+      return amount;
+    }
+  }
+  return amount;
 }
 
 /**
@@ -276,7 +295,7 @@ export default function PersonelHareketleriPage() {
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      totalEffect += personelBalanceEffect(islem.type, toNumber(islem.amount));
+      totalEffect += personelBalanceEffect(islem.type, getPersonelDisplayAmount(islem));
     });
 
     return toNumber(personel.balance) - totalEffect;
@@ -291,7 +310,7 @@ export default function PersonelHareketleriPage() {
     let bal = toNumber(personel.balance);
     for (const islem of islemler) {
       map[islem.id] = bal; // bu işlemden SONRAKİ bakiye
-      bal = roundCurrency(bal - personelBalanceEffect(islem.type, toNumber(islem.amount)));
+      bal = roundCurrency(bal - personelBalanceEffect(islem.type, getPersonelDisplayAmount(islem)));
     }
     return map;
   }, [personel, islemler]);

@@ -477,7 +477,9 @@ export default function HesapHareketleriPage() {
         } else {
           totalEffect -= amount;
         }
-      } else if (islem.type === 'gelir' || islem.type === 'cari_tahsilat') {
+      } else if (islem.type === 'gelir' || islem.type === 'cari_tahsilat' || islem.type === 'personel_tahsilat') {
+        // Hesaba GİRİŞ tipleri (computeBalanceOps ile birebir): gelir · cari_tahsilat ·
+        // personel_tahsilat (personelin hesaba geri ödemesi). Diğerleri çıkış.
         totalEffect += amount;
       } else {
         totalEffect -= amount;
@@ -501,7 +503,8 @@ export default function HesapHareketleriPage() {
       let effect = 0;
       if (islem.type === 'transfer') {
         effect = islem.hedef_hesap_id === id ? amount : -amount;
-      } else if (islem.type === 'gelir' || islem.type === 'cari_tahsilat') {
+      } else if (islem.type === 'gelir' || islem.type === 'cari_tahsilat' || islem.type === 'personel_tahsilat') {
+        // Hesaba GİRİŞ tipleri (computeBalanceOps ile birebir) — personel_tahsilat dahil.
         effect = amount;
       } else {
         effect = -amount;
