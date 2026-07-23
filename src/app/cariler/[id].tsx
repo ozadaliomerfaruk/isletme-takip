@@ -875,6 +875,17 @@ export default function CariHareketleriPage() {
     );
   }, [isViewer, cariPaidCrude, vadeDetay, overdueTodayStr]);
 
+  // İşlem-listesi satır kalanı için: islem_id → NET-mahsuplu kalan (plansız = tek birim;
+  // taksitli = birimlerin real_kalan toplamı). Haritada olmayan vadeli kalem = net'e göre
+  // tamamen kapanmış (0). Kart/rozet/akordiyonla aynı _vade_birim_mahsuplu kaynağı.
+  const mahsupluBorcKalan = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const u of vadeDetay ?? []) {
+      m[u.islem_id] = roundCurrency((m[u.islem_id] ?? 0) + u.kalan);
+    }
+    return m;
+  }, [vadeDetay]);
+
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
@@ -924,9 +935,11 @@ export default function CariHareketleriPage() {
       if (p.length === 3) {
         // Faz 2 — tahsis-bazlı kesin kalan (yalnız veri geldiyse; yükleniyor/viewer → null).
         // İşlem tipi owner-canonical (islem.type) — tahsis defteri ham DB üzerindedir.
-        const tahsisToplam = tahsisOzeti?.borcTahsisleri[islem.id] ?? 0;
-        const itemKalan = tahsisOzeti
-          ? Math.max(0, roundCurrency(toNumber(islem.amount) - tahsisToplam))
+        // Kalan = NET-mahsuplu (kart/rozet/akordiyonla aynı kaynak): ham FIFO kalanı
+        // yerine açılış bakiyesi/ters-yön kredileri de düşülmüş kalan. vadeDetay yoksa
+        // (yükleniyor/viewer) → null → Faz 1 davranışı (kalansız vade).
+        const itemKalan = vadeDetay
+          ? (mahsupluBorcKalan[islem.id] ?? 0)
           : null;
         const isTaksitli = taksitliSet.has(islem.id);
 
@@ -988,7 +1001,9 @@ export default function CariHareketleriPage() {
                 ? ` · ${t('transactions:vade.bugunSon')}`
                 : ` · ${t('transactions:vade.gunSonra', { gun: daysUntil })}`;
             // Kısmi tahsis: pill'e kalanı ekle ("Vade: 15.08.2026 · Kalan: ₺500").
-            if (itemKalan !== null && tahsisToplam > 0 && itemKalan > 0) {
+            // Kısmi kalan pill'i: net-mahsuplu kalan TAM tutardan az ise göster (ham
+            // ödeme olmasa da açılış/ters-yön kredisi düşmüş olabilir → yine de "Kalan").
+            if (itemKalan !== null && itemKalan > 0 && itemKalan < roundCurrency(toNumber(islem.amount)) - 0.009) {
               itemVadeText += ` · ${t('transactions:vade.kalan')}: ${formatCurrency(itemKalan, cari?.currency || 'TRY')}`;
             }
             // Swipe hızlı aksiyon: açık vadeli borçta kalanı ön-dolu tahsilat/ödeme aç.
@@ -1052,7 +1067,7 @@ export default function CariHareketleriPage() {
         tahsilAmount={itemTahsilAmount}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, isViewer, taksitliSet, taksitBirimleri]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, vadeDetay, mahsupluBorcKalan, isViewer, taksitliSet, taksitBirimleri]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
