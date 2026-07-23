@@ -27,6 +27,7 @@ import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
+import { formatTime } from '@/lib/date';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import type { TransactionType } from '@/components/transaction/TransactionTypeTabs';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
@@ -139,6 +140,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         id={islem.id}
         type={islem.type}
         amount={xc.subText ? xc.mainAmount : Number(islem.amount)}
+        date={formatTime(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
@@ -167,7 +169,7 @@ export default function PersonelHareketleriPage() {
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'errors', 'multiUser']);
-  const { formatDateSmart, formatDateShort, formatDateMedium } = useDateFormat();
+  const { formatDateShort, formatDateMedium } = useDateFormat();
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
@@ -436,7 +438,7 @@ export default function PersonelHareketleriPage() {
       filtered,
       t('common:date.today'),
       t('common:date.yesterday'),
-      formatDateSmart,
+      formatDateMedium,
     );
 
     // Inject milestone items (start_date, end_date) into the grouped list
@@ -513,9 +515,9 @@ export default function PersonelHareketleriPage() {
       entityNotes ?? [],
       t('common:date.today'),
       t('common:date.yesterday'),
-      formatDateSmart,
+      formatDateMedium,
     );
-  }, [islemler, pendingDeleteIds, t, formatDateSmart, formatDateMedium, personel, entityNotes]);
+  }, [islemler, pendingDeleteIds, t, formatDateMedium, personel, entityNotes]);
 
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');
@@ -567,7 +569,7 @@ export default function PersonelHareketleriPage() {
         currentUserId={user?.id}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateSmart, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, canDelete, user?.id]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, canDelete, user?.id]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

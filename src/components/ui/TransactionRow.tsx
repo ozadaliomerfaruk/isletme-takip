@@ -2,39 +2,48 @@ import React, { memo, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Image as ImageIcon, Package } from 'lucide-react-native';
 import { Text } from './Text';
-import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
-import { spacing, fontSize, fontWeight, borderRadius, HIT_SLOP } from '@/constants/spacing';
+import { spacing, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { useTranslation } from 'react-i18next';
 import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
+import { upperTr } from '@/lib/turkishTextUtils';
 import { isLeaveType } from '@/constants/islemTypes';
 import type { IslemType } from '@/types/database';
 
 // ============================================================================
-// TRANSACTION ROW — Presentational Component (Modernized)
+// TRANSACTION ROW — Presentational Component (sol accent-bar tasarımı)
 // ============================================================================
+// Yuvarlak ikon yerine SOL RENKLİ DİKEY BAR türü belli eder (transactionColors.ts
+// showAccentBar/accent-bar notlarındaki baştan planlanmış dil). İki yerleşim:
+//   • entityAsPrimary=true (Defter/hesap/kategori): 1. satır = KARŞI TARAF ADI,
+//     tür 2. satırda küçük — karışık akışta "kim" öne çıkar.
+//   • entityAsPrimary=false (cari detay): 1. satır = TÜR (renkli) · bağlam
+//     (hesap ya da kategori) — tek-cari defterinde "ne oldu" öne çıkar.
+// Tarih: gün üstteki ayraç başlığında; satırda SAAT (date prop) verilir.
 
-// Vade renk durumu (cari detay). Açık zeminde okunur: Light zemin + Dark metin
-// (salt warning/orange açık zeminde soluk — colors.ts notu).
-export type VadeState = 'paid' | 'overdue' | 'soon' | 'future';
+// Vade renk durumu (cari detay). Soft pill: light zemin + dark metin.
+export type VadeState = 'paid' | 'overdue' | 'soon' | 'future' | 'open';
 const VADE_COLORS: Record<VadeState, { bg: string; fg: string }> = {
   paid:    { bg: colors.successLight, fg: colors.successDark },  // ödendi → yeşil
   overdue: { bg: colors.errorLight,   fg: colors.errorDark },    // bugün/geçmiş → kırmızı
   soon:    { bg: colors.orangeLight,  fg: colors.orangeDark },   // <1 hafta → turuncu
   future:  { bg: colors.warningLight, fg: colors.warningDark },  // >1 hafta → sarı
+  open:    { bg: colors.surfaceLighter, fg: colors.textSecondary }, // vadesiz açık kalan → nötr
 };
 
 export interface TransactionRowProps {
   id: string;
   type: IslemType;
   amount: number | string;
-  /** Satırda gösterilecek tarih — verilmezse hiç çizilmez (ör. cari detay: tarih
-      zaten bölüm başlığı pill'inde; satırda tekrarına gerek yok). */
+  /** Satırda gösterilecek SAAT (ör. "14:30") — gün üstteki ayraçta olduğundan satırda
+      yalnız saat verilir; verilmezse çizilmez (kategori raporu tam tarih geçebilir). */
   date?: string;
   typeLabel: string;
-  /** Counterparty / entity name — rendered prominently */
+  /** Counterparty / entity adı (Defter: cari/personel adı · cari detay: hesap adı). */
   entityText?: string | null;
+  /** true → entityText 1. satır (ad öne); false → tür 1. satır, entityText bağlam. */
+  entityAsPrimary?: boolean;
   secondaryText?: string | null;
   tertiaryText?: string | null;
   /** Opsiyonel ek bağlam satırı (ör. hesap adı) — İşlemler geçmez; kategori raporu geçer. */
@@ -54,10 +63,12 @@ export interface TransactionRowProps {
   overridePrefix?: string;
   /** Creator name shown as a small badge (multi-user mode) */
   creatorText?: string | null;
-  /** Vade etiketi "Vade: GG.AA.YYYY" (vadeli işlemde gösterilir). */
+  /** Vade/taksit etiketi ("Vade: … · Kalan: …" ya da "3/12 taksit … · Kalan: …"). */
   vadeText?: string | null;
   /** Vade renk durumu: paid=yeşil, overdue=kırmızı, soon=turuncu(<1hf), future=sarı(>1hf). */
   vadeState?: VadeState;
+  /** Kapanmış fatura damgası: 'odendi' (alış ödendi) / 'tahsil' (satış tahsil edildi). */
+  paidStamp?: 'odendi' | 'tahsil';
   onPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
   onPhotoPress?: (id: string) => void;
@@ -70,6 +81,7 @@ export const TransactionRow = memo(function TransactionRow({
   date,
   typeLabel,
   entityText,
+  entityAsPrimary = true,
   secondaryText,
   tertiaryText,
   hesapText,
@@ -85,6 +97,7 @@ export const TransactionRow = memo(function TransactionRow({
   creatorText,
   vadeText,
   vadeState,
+  paidStamp,
   onPress,
   onLongPress,
   onPhotoPress,
@@ -102,6 +115,27 @@ export const TransactionRow = memo(function TransactionRow({
     ? `${Math.abs(numAmount)} ${t('staff:leave.days')}`
     : formatCurrency(Math.abs(numAmount), currency);
 
+  // Yerleşim kararı: ad-öne mi tür-öne mi?
+  const nameFirst = entityAsPrimary && !!entityText;
+  // Tür-öne modunda 1. satır yanındaki bağlam: hesap adı (entityText) yoksa kategori.
+  const inlineContext = !nameFirst ? (entityText ?? secondaryText ?? null) : null;
+  const inlineIsCategory = !nameFirst && !entityText && !!secondaryText;
+  // entityText 1. satır bağlamı olarak kullanıldıysa, kategori ayrı satıra düşer.
+  const leftoverCategory = nameFirst
+    ? secondaryText
+    : (entityText ? secondaryText : null);
+
+  // Tür ve kategori BÜYÜK harf (Türkçe-güvenli upperTr — textTransform 'i'→'I' bozar).
+  const typeUpper = upperTr(typeLabel);
+  const inlineDisplay = inlineContext
+    ? (inlineIsCategory ? upperTr(inlineContext) : inlineContext)
+    : null;
+  const categoryUpper = leftoverCategory ? upperTr(leftoverCategory) : null;
+
+  // Vade/taksit metni pill'de tek blok — çok satırlı taksit metnini ' · ' ile düzle.
+  const vadePillText = vadeText ? vadeText.replace(/\s*\n\s*/g, ' · ') : null;
+  const vc = VADE_COLORS[vadeState ?? 'future'];
+
   return (
     <TouchableOpacity
       style={styles.container}
@@ -110,60 +144,71 @@ export const TransactionRow = memo(function TransactionRow({
       activeOpacity={0.7}
       delayLongPress={400}
     >
-      {/* Transaction Icon Circle */}
-      <TransactionIcon type={type} size={40} />
+      {/* Sol accent bar — tür rengi (ikon yerine geçer) */}
+      <View style={[styles.bar, { backgroundColor: txColor }]} />
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Line 1: Entity name (most prominent) */}
-        {entityText ? (
-          <Text style={styles.entityText} numberOfLines={1}>
+        {/* ---- 1. satır ---- */}
+        {nameFirst ? (
+          <Text style={styles.primaryName} numberOfLines={1}>
             {entityText}
           </Text>
         ) : (
-          <Text style={[styles.typeTextPrimary, { color: txColor }]} numberOfLines={1}>
-            {typeLabel}
-          </Text>
+          <View style={styles.l1}>
+            <Text style={[styles.primaryType, { color: txColor }]} numberOfLines={1}>
+              {typeUpper}
+            </Text>
+            {inlineDisplay ? (
+              <>
+                <Text style={styles.sep}>·</Text>
+                <Text
+                  style={inlineIsCategory ? styles.ctxCategory : styles.ctxEntity}
+                  numberOfLines={1}
+                >
+                  {inlineDisplay}
+                </Text>
+              </>
+            ) : null}
+          </View>
         )}
 
-        {/* Line 2: Type label + date + creator — yalnız içerik varsa (tarih opsiyonel) */}
-        {(entityText || date || creatorText) ? (
-          <View style={styles.line2}>
-            {entityText ? (
-              <Text style={[styles.typeTextSmall, { color: txColor }]} numberOfLines={1}>
-                {typeLabel}
+        {/* ---- 2. satır: (ad-öne'de tür) + saat + oluşturan ---- */}
+        {(nameFirst || date || creatorText) ? (
+          <View style={styles.l2}>
+            {nameFirst ? (
+              <Text style={[styles.typeSmall, { color: txColor }]} numberOfLines={1}>
+                {typeUpper}
               </Text>
             ) : null}
-            {entityText && date ? <Text style={styles.dot}> · </Text> : null}
+            {nameFirst && date ? <Text style={styles.sep}>·</Text> : null}
             {date ? <Text style={styles.dateText}>{date}</Text> : null}
             {creatorText ? (
               <>
-                {(entityText || date) ? <Text style={styles.dot}> · </Text> : null}
+                {(nameFirst || date) ? <Text style={styles.sep}>·</Text> : null}
                 <Text style={styles.creatorText} numberOfLines={1}>{creatorText}</Text>
               </>
             ) : null}
           </View>
         ) : null}
 
-        {/* Vade bilgisi KENDİ satırında, DÜZ YAZI (chip yok — liste redesign'ıyla
-            uyumlu); renk vade durumundan. line2'de olsaydı tutar kolonuna taşardı. */}
-        {vadeText ? (
-          <View style={styles.vadeRow}>
-            {/* Satır sınırı yok: uzun metin (taksit oranı + kalan) kırpılmak yerine sarar;
-                çok satırlı içerik '\n' ile bilinçli bölünebilir */}
-            <Text style={[styles.vadeText, { color: VADE_COLORS[vadeState ?? 'future'].fg }]}>
-              {vadeText}
+        {/* ---- Vade / taksit rozeti (soft pill) ---- */}
+        {vadePillText ? (
+          <View style={styles.pillWrap}>
+            <Text style={[styles.pill, { backgroundColor: vc.bg, color: vc.fg }]}>
+              {vadePillText}
             </Text>
           </View>
         ) : null}
 
-        {/* Line 3: Secondary (category) */}
-        {secondaryText ? (
-          <Text style={styles.secondaryText} numberOfLines={1}>
-            {secondaryText}
+        {/* ---- Kategori (bağlamda kullanılmadıysa kendi satırında) ---- */}
+        {categoryUpper ? (
+          <Text style={styles.categoryLine} numberOfLines={1}>
+            {categoryUpper}
           </Text>
         ) : null}
-        {/* Line 3.5: Ürün kalemleri (ad · miktar × birim fiyat) */}
+
+        {/* ---- Ürün kalemleri ---- */}
         {urunItems && urunItems.length > 0 ? (
           <View style={styles.urunList}>
             {urunItems.slice(0, maxUrunItems).map((it, i) => (
@@ -179,19 +224,32 @@ export const TransactionRow = memo(function TransactionRow({
             ) : null}
           </View>
         ) : null}
-        {/* Line 4: Tertiary (note) — no line limit */}
+
+        {/* ---- Not (açıklama) ---- */}
         {tertiaryText ? (
-          <Text style={styles.tertiaryText}>
+          <Text style={styles.noteText}>
             {tertiaryText}
           </Text>
         ) : null}
-        {/* Line 5: Opsiyonel bağlam (hesap adı) — yalnız geçildiğinde */}
+
+        {/* ---- Opsiyonel bağlam (hesap adı) ---- */}
         {hesapText ? (
-          <Text style={styles.secondaryText} numberOfLines={1}>
+          <Text style={styles.noteText} numberOfLines={1}>
             {hesapText}
           </Text>
         ) : null}
       </View>
+
+      {/* Ödendi / Tahsil edildi damgası — kapanmış fatura (kullanıcı isteği) */}
+      {paidStamp ? (
+        <View style={styles.stamp}>
+          <Text style={styles.stampText} numberOfLines={2}>
+            {paidStamp === 'tahsil'
+              ? t('transactions:vade.tahsilDamga')
+              : t('transactions:vade.odendiDamga')}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Amount */}
       <View style={styles.amountContainer}>
@@ -209,7 +267,7 @@ export const TransactionRow = memo(function TransactionRow({
               <ImageIcon size={14} color={colors.primary} style={styles.photoIcon} />
             </TouchableOpacity>
           )}
-          <Text style={[styles.amountText, { color: txColor }]}>
+          <Text style={[styles.amountText, { color: txColor }, paidStamp ? styles.amountPaid : null]}>
             {prefix}{formattedAmount}
           </Text>
         </View>
@@ -224,6 +282,7 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.amount === next.amount
     && prev.type === next.type
     && prev.date === next.date
+    && prev.entityAsPrimary === next.entityAsPrimary
     && prev.hasPhoto === next.hasPhoto
     && prev.hasUrunler === next.hasUrunler
     && prev.urunCount === next.urunCount
@@ -238,11 +297,12 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.overridePrefix === next.overridePrefix
     && prev.creatorText === next.creatorText
     && prev.vadeText === next.vadeText
-    && prev.vadeState === next.vadeState;
+    && prev.vadeState === next.vadeState
+    && prev.paidStamp === next.paidStamp;
 });
 
 // ============================================================================
-// DATE SECTION HEADER — Pill style (WhatsApp inspired)
+// DATE SECTION HEADER — gün ayracı (chip yok, sola dayalı, büyük punto)
 // ============================================================================
 
 export interface DateSectionHeaderProps {
@@ -252,9 +312,7 @@ export interface DateSectionHeaderProps {
 export function DateSectionHeader({ title }: DateSectionHeaderProps) {
   return (
     <View style={styles.sectionHeader}>
-      <View style={styles.pill}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-      </View>
+      <Text style={styles.sectionTitle}>{title}</Text>
     </View>
   );
 }
@@ -263,78 +321,125 @@ export function DateSectionHeader({ title }: DateSectionHeaderProps) {
 // STYLES
 // ============================================================================
 
+const BAR_WIDTH = 4;
+
 const styles = StyleSheet.create({
   container: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 11,
+    paddingLeft: spacing.lg,       // içerik bar'dan sonra başlar
+    paddingRight: spacing.lg,
     backgroundColor: colors.surface,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.borderLight,
     gap: spacing.md,
   },
+  bar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: BAR_WIDTH,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+  },
   content: {
     flex: 1,
-    gap: 2,
+    minWidth: 0,
+    gap: 1,
   },
-  entityText: {
+
+  // 1. satır
+  l1: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  primaryName: {
     fontSize: 15,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+    letterSpacing: 0.1,
+  },
+  primaryType: {
+    fontSize: 15,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 0.3,
+    flexShrink: 0,
+  },
+  ctxEntity: {
+    fontSize: 13.5,
     fontWeight: fontWeight.semibold,
     color: colors.text,
+    flexShrink: 1,
   },
-  typeTextPrimary: {
-    fontSize: 15,
+  ctxCategory: {
+    fontSize: 12.5,
     fontWeight: fontWeight.semibold,
+    color: colors.textMuted,
+    letterSpacing: 0.3,
+    flexShrink: 1,
   },
-  line2: {
+  sep: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginHorizontal: 5,
+  },
+
+  // 2. satır
+  l2: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  typeTextSmall: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    textTransform: 'uppercase' as const,
+  typeSmall: {
+    fontSize: 12.5,
+    fontWeight: fontWeight.bold,
     letterSpacing: 0.3,
-  },
-  dot: {
-    fontSize: fontSize.sm,
-    color: colors.textMuted,
+    flexShrink: 0,
   },
   dateText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.normal,
+    fontSize: 13,
+    fontWeight: fontWeight.medium,
     color: colors.textMuted,
+    fontVariant: ['tabular-nums'],
   },
   creatorText: {
-    fontSize: fontSize.sm,
+    fontSize: 12.5,
     fontWeight: fontWeight.medium,
     color: colors.primary,
     flexShrink: 1,
   },
-  vadeRow: {
+
+  // vade/taksit pill
+  pillWrap: {
     flexDirection: 'row',
-    marginTop: 2,
+    marginTop: 4,
   },
-  vadeText: {
-    fontSize: 13,
-    fontWeight: fontWeight.semibold,
+  pill: {
+    fontSize: 12,
+    fontWeight: fontWeight.bold,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 8,
+    overflow: 'hidden',
+    letterSpacing: 0.1,
     flexShrink: 1,
   },
-  line3: {
-    flexDirection: 'row',
-    alignItems: 'center',
+
+  // kategori / hesap satırı
+  categoryLine: {
+    fontSize: 12.5,
+    fontWeight: fontWeight.semibold,
+    color: colors.textMuted,
+    letterSpacing: 0.3,
   },
-  secondaryText: {
-    fontSize: fontSize.sm,
+  noteText: {
+    fontSize: 12.5,
     fontWeight: fontWeight.normal,
     color: colors.textMuted,
   },
-  tertiaryText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.normal,
-    color: colors.textMuted,
-  },
+
   urunList: {
     gap: 1,
     marginTop: 1,
@@ -348,6 +453,31 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
     color: colors.primary,
+  },
+
+  // tutar
+  // Ödendi/tahsil damgası — hafif eğik yeşil çerçeveli rozet (kauçuk damga hissi)
+  stamp: {
+    borderWidth: 1.5,
+    borderColor: colors.success,
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    transform: [{ rotate: '-8deg' }],
+    opacity: 0.9,
+    maxWidth: 92,
+    alignSelf: 'center',
+  },
+  stampText: {
+    fontSize: 10.5,
+    fontWeight: fontWeight.bold,
+    color: colors.success,
+    letterSpacing: 0.8,
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  amountPaid: {
+    opacity: 0.5,
   },
   amountContainer: {
     alignItems: 'flex-end',
@@ -374,6 +504,8 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 18,
     fontWeight: fontWeight.bold,
+    letterSpacing: -0.3,
+    fontVariant: ['tabular-nums'],
   },
   subAmountText: {
     fontSize: 11,
@@ -381,23 +513,17 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     marginTop: 1,
   },
-  // Pill-style section header (WhatsApp inspired)
+
+  // Gün ayracı — chip yok, sola dayalı, 14px kalın (eskiden 11px pill içindeydi)
   sectionHeader: {
-    alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingTop: 15,
+    paddingBottom: 5,
     paddingHorizontal: spacing.lg,
   },
-  pill: {
-    backgroundColor: colors.surfaceLighter,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.full,
-  },
   sectionTitle: {
-    fontSize: 11,
-    fontWeight: fontWeight.semibold,
-    color: colors.textMuted,
-    textTransform: 'uppercase' as const,
-    letterSpacing: 0.5,
+    fontSize: 14,
+    fontWeight: fontWeight.bold,
+    color: colors.textSecondary,
+    letterSpacing: 0.2,
   },
 });

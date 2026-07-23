@@ -20,6 +20,7 @@ import { Text, FilterChips, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyS
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import type { FilterChipItem } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
+import { formatTime } from '@/lib/date';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -130,6 +131,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
         id={islem.id}
         type={islem.type}
         amount={xc.mainAmount}
+        date={formatTime(islem.date)}
         typeLabel={t(`transactions:types.${islem.type}`)}
         entityText={entityName}
         secondaryText={kategoriName}

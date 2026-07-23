@@ -41,6 +41,8 @@ export interface EntityDisplaySectionProps {
   selectedCari: Cari | null | undefined;
   selectedPersonel: Personel | null | undefined;
   onOpenHesapPicker: () => void;
+  /** Normal modda satış/alış için müşteri/tedarikçi seçici tetiği (direkt QTB girişi). */
+  onOpenCariPicker?: () => void;
 }
 
 export function EntityDisplaySection({
@@ -53,8 +55,9 @@ export function EntityDisplaySection({
   selectedCari,
   selectedPersonel,
   onOpenHesapPicker,
+  onOpenCariPicker,
 }: EntityDisplaySectionProps) {
-  const { t } = useTranslation(['accounts']);
+  const { t } = useTranslation(['accounts', 'clients']);
 
   return (
     <>
@@ -116,6 +119,35 @@ export function EntityDisplaySection({
             {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
           </Text>
         </View>
+      )}
+
+      {/* Normal mod satış/alış: müşteri/tedarikçi SEÇİCİ (direkt QTB girişi — taksit FAB).
+          Cari-modunda (cari sayfasından) cari sabittir; burada değiştirilebilir seçicidir. */}
+      {!isCariMode && !isPersonelMode && (type === 'satis' || type === 'alis') && (
+        <TouchableOpacity style={styles.sourceAccountRow} onPress={onOpenCariPicker}>
+          {type === 'alis' ? (
+            <Building2 size={16} color={colors.orange} />
+          ) : (
+            <Users size={16} color={colors.primary} />
+          )}
+          <Text style={styles.sourceAccountText}>
+            {selectedCari?.name
+              || (type === 'alis'
+                ? t('clients:transactionForm.selectSupplier')
+                : t('clients:transactionForm.selectCustomer'))}
+          </Text>
+          {selectedCari && (
+            <Text
+              style={[
+                styles.balanceText,
+                { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error },
+              ]}
+            >
+              {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
+            </Text>
+          )}
+          <ChevronDown size={16} color={colors.info} />
+        </TouchableOpacity>
       )}
 
       {/* Personel Modu: Seçili personel bilgisi */}

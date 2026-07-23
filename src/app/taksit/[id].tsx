@@ -11,7 +11,6 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useTaksitPlanDetay, type TaksitSatirDetay } from '@/hooks/useTaksit';
-import { useRetahsisOdeme } from '@/hooks/useIslemTahsis';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { exportTaksitPlaniToPdf, type TaksitPlanPdfOptions } from '@/lib/taksitPlanPdf';
 import { ListPdfPreviewSheet } from '@/components/export';
@@ -28,7 +27,6 @@ export default function TaksitDetayPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common']);
   const { data: detay, isLoading, refetch, isRefetching } = useTaksitPlanDetay(id);
-  const retahsis = useRetahsisOdeme();
   const { isletme } = useAuthContext();
 
   const [tahsilVisible, setTahsilVisible] = useState(false);
@@ -285,12 +283,6 @@ export default function TaksitDetayPage() {
             defaultAmount={ilkAcik?.kalan}
             onSuccess={(islemId) => {
               setTahsilVisible(false);
-              // Bağlam-hedefli tahsis: bu ekrandan yapılan tahsilat BU planın en eski
-              // açık taksitine gitsin. Genel FIFO carinin BAŞKA borcunun daha eski
-              // vadesine kaydırabiliyor (kullanıcı bulgusu) — retahsis hedefe çevirir.
-              if (islemId && detay?.islemId) {
-                retahsis.mutate({ odemeIslemId: islemId, hedefBorcId: detay.islemId });
-              }
             }}
           />
         )}

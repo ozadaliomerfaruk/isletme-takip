@@ -138,7 +138,10 @@ export function useQuickTransactionEntities({
     if (type === 'tahsilat') {
       return tahsilatHedefType === 'tedarikci' ? tedarikciCariler : musteriCariler;
     }
-    return musteriCariler;
+    if (type === 'alis') {
+      return tedarikciCariler;   // (direkt QTB) taksitli/normal alış → tedarikçi
+    }
+    return musteriCariler;       // satış (+ varsayılan) → müşteri
   }, [isCariMode, defaultCariType, type, tahsilatHedefType, tedarikciCariler, musteriCariler]);
 
   const selectedCari = useMemo(

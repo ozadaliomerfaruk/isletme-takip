@@ -77,12 +77,7 @@ export interface QuickTransactionBarProps {
   defaultAmount?: number;
   defaultDate?: Date;
   defaultDescription?: string;
-  /** "Nereye sayılsın?" ön-seçimi (ör. cari detayda satır-swipe Tahsil Et/Öde):
-   *  create modda cari tahsilat/ödemede hedef chip'i seçili açılır; kayıt sonrası
-   *  retahsis_odeme bu borca öncelik verir (QTB içinde tetiklenir). */
-  defaultHedefBorcId?: string;
-  /** Başarıda çağrılır; create yolunda oluşan işlemin id'si geçilir (edit'te transactionId).
-   *  Bağlam-hedefli tahsis (retahsis_odeme) için kullanılır. */
+  /** Başarıda çağrılır; create yolunda oluşan işlemin id'si geçilir (edit'te transactionId). */
   onSuccess?: (islemId?: string) => void;
   // Viewer mode: linked cari viewer (hides ödeme/tahsilat tabs)
   isViewer?: boolean;

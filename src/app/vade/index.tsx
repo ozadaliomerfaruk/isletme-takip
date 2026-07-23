@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams, type Href } from 'expo-router';
@@ -38,6 +38,16 @@ export default function VadeTakipPage() {
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
   const { data: birimler, isLoading, refetch, isRefetching } = useVadeListesi();
   const [tab, setTab] = useState<'satis' | 'alis'>(tabParam === 'alis' ? 'alis' : 'satis');
+  // Akıllı varsayılan sekme: kullanıcı elle değiştirmedi + tabParam yoksa, VERİ OLAN
+  // sekmeyle aç. Aksi halde yalnız vadeli ALIŞ olan (Satış boş) işletmede sayfa "vadeli
+  // yok" gösteriyordu — halbuki Alış sekmesinde kayıt var (cihaz bulgusu).
+  const userTouchedTab = useRef(false);
+  useEffect(() => {
+    if (userTouchedTab.current || tabParam || !birimler) return;
+    const hasSatis = birimler.some((b) => b.type === 'cari_satis' && b.taksit_sira == null);
+    const hasAlis = birimler.some((b) => b.type === 'cari_alis' && b.taksit_sira == null);
+    if (!hasSatis && hasAlis) setTab('alis');
+  }, [birimler, tabParam]);
 
   const bugunStr = formatDateForDB(new Date());
   const bugunMs = new Date(bugunStr + 'T00:00:00').getTime();
@@ -145,7 +155,7 @@ export default function VadeTakipPage() {
             <TouchableOpacity
               key={tabKey}
               style={[styles.tabButton, tab === tabKey && styles.tabButtonActive]}
-              onPress={() => setTab(tabKey)}
+              onPress={() => { userTouchedTab.current = true; setTab(tabKey); }}
             >
               <Text style={[styles.tabText, tab === tabKey && styles.tabTextActive]}>
                 {tabKey === 'satis' ? t('transactions:taksit.satis') : t('transactions:taksit.alis')}

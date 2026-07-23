@@ -44,7 +44,6 @@ import {
   TahsilatHedefTypePicker,
   KrediKartiPickerSheet,
   UrunPickerModal,
-  HedefBorcSecici,
 } from './components';
 import {
   HeaderSection,
@@ -70,7 +69,6 @@ import { useCreateCari } from '@/hooks/useCariler';
 import { useCreateUrun } from '@/hooks/useUrunler';
 import { useSettings } from '@/hooks/useSettings';
 import { useIslemTaksitliMi } from '@/hooks/useTaksit';
-import { useRetahsisOdeme } from '@/hooks/useIslemTahsis';
 import { consumePendingCategorySelection } from '@/lib/pendingCategorySelection';
 import type { Currency, Urun } from '@/types/database';
 
@@ -85,7 +83,6 @@ export function QuickTransactionBar({
   defaultAmount,
   defaultDate,
   defaultDescription,
-  defaultHedefBorcId,
   onSuccess,
   isViewer,
   suppressLastUsed,
@@ -259,32 +256,9 @@ export function QuickTransactionBar({
     if (!showTaksitConfig) setShowTaksitVadePicker(false);
   }, [showTaksitConfig]);
 
-  // "Nereye sayılsın?" — cari tahsilat/ödemede hedef borç seçimi (create modda).
-  // Seçim yoksa Otomatik = sunucu FIFO'su (en eski etkin vade); seçim varsa kayıt
-  // sonrası retahsis_odeme o borca öncelik verir. QTB tek sahip: dış akışlar
-  // (cari detay swipe) hedefi defaultHedefBorcId ile geçirir.
-  const [hedefBorcId, setHedefBorcId] = useState<string | null>(null);
-  useEffect(() => {
-    setHedefBorcId(visible ? (defaultHedefBorcId ?? null) : null);
-  }, [visible, defaultHedefBorcId]);
-
-  const retahsis = useRetahsisOdeme();
-
-  const handleHedefSelect = useCallback((borcId: string | null, kalan?: number) => {
-    setHedefBorcId(borcId);
-    // Hedef seçilince tutar o birimin kalanıyla dolar (taksit 40 binse 40 bin);
-    // Otomatik'e dönüşte tutara dokunulmaz.
-    if (borcId && kalan != null) {
-      form.setAmount(roundCurrency(kalan).toString());
-    }
-  }, [form.setAmount]);
-
-  const handleSuccessWithHedef = useCallback((islemId?: string) => {
-    if (islemId && hedefBorcId && mode !== 'edit') {
-      retahsis.mutate({ odemeIslemId: islemId, hedefBorcId });
-    }
-    onSuccess?.(islemId);
-  }, [hedefBorcId, mode, retahsis, onSuccess]);
+  // Ödeme/tahsilat dağıtımı SAF FIFO (en eski borç önce) — sunucu otomatik yapar.
+  // "Nereye sayılsın?" hedeflemesi kaldırıldı (kullanıcı kararı): date-FIFO görünümüyle
+  // çelişiyordu (hedef seçimi ekrana yansımıyordu) + esnaf normu zaten en-eski-önce.
 
   // Edit'te işlem taksitliyse vade segmenti kilitlenir: update_islem_atomik
   // taksitli işlemde vade'yi SESSİZCE korur (taksit satırlarıyla senkron kalmalı);
@@ -401,8 +375,7 @@ export function QuickTransactionBar({
     setShowExchangeRateBar: modals.setShowExchangeRateBar,
     setPendingExchangeData: form.setPendingExchangeData,
     pendingExchangeData: form.pendingExchangeData,
-    // Hedef borç seçiliyse kayıt sonrası retahsis tetiklenir, sonra dış onSuccess
-    onSuccess: handleSuccessWithHedef,
+    onSuccess,
     handleDismiss,
   });
 
@@ -486,7 +459,9 @@ export function QuickTransactionBar({
       ? form.tahsilatHedefType === 'tedarikci'
         ? 'supplier'
         : 'customer'
-      : 'supplier';
+      : form.type === 'satis'
+        ? 'customer'
+        : 'supplier';
 
   // Inline cari oluşturma (v1.5): picker'da aranan isim yoksa "+ ekle" ile
   // formdan çıkmadan cari yaratılır ve otomatik seçilir.
@@ -661,18 +636,6 @@ export function QuickTransactionBar({
   // (Bell) ile BİLİNÇLİ olarak ayrı: bu, var olan borcun ödeme vadesi (scheduled = henüz olmamış işlem).
   const showVade = (form.type === 'alis' || form.type === 'satis') && !form.isScheduled;
 
-  // "Nereye sayılsın?" görünürlüğü: create modda, cari'ye giden tahsilat/ödeme.
-  // Normal modda tahsilat musteri/tedarikci hedefli, ödeme tedarikci hedefli
-  // olduğunda da cari ödemesidir. Viewer'da kapalı (retahsis RLS'e takılır).
-  const showHedefSecici =
-    !form.isEditMode &&
-    !form.isScheduled &&
-    !isViewer &&
-    !!form.cariId &&
-    ((form.type === 'tahsilat' &&
-      (form.isCariMode || form.tahsilatHedefType === 'musteri' || form.tahsilatHedefType === 'tedarikci')) ||
-      (form.type === 'odeme' && (form.isCariMode || form.odemeHedefType === 'tedarikci')));
-
   // Position card above keyboard and tab bar
   const cardBottom = animation.keyboardHeight > 0
     ? animation.keyboardHeight
@@ -779,6 +742,7 @@ export function QuickTransactionBar({
               modals.setHesapPickerTarget('source');
               modals.setShowHesapPicker(true);
             }}
+            onOpenCariPicker={() => modals.setShowCariPicker(true)}
           />
 
           {/* Transfer: Kaynak ve Hedef Hesap */}
@@ -831,16 +795,6 @@ export function QuickTransactionBar({
             />
           )}
 
-          {/* "Nereye sayılsın?" — açık vadeli borç/taksit varsa hedef seçimi */}
-          {showHedefSecici && form.cariId ? (
-            <HedefBorcSecici
-              cariId={form.cariId}
-              yon={form.type === 'tahsilat' ? 'tahsilat' : 'odeme'}
-              currency={entities.selectedCari?.currency}
-              selectedBorcId={hedefBorcId}
-              onSelect={handleHedefSelect}
-            />
-          ) : null}
           </ScrollView>
 
           {/* Amount Input Section: Category, Description, Amount, Save, Tabs */}

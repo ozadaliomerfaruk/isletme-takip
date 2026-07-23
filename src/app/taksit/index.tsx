@@ -1,18 +1,18 @@
-import { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Animated, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, EmptyState, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useTaksitPlanListesi, type TaksitPlanOzet } from '@/hooks/useTaksit';
-import { useCariler } from '@/hooks/useCariler';
-import { CariPickerSheet, type CariPickerMode } from '@/components/transaction/QuickTransactionBar/components';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { CariPickerSheet, type CariPickerMode } from '@/components/transaction/QuickTransactionBar/components';
+import { useCariler } from '@/hooks/useCariler';
 import type { CariType } from '@/types/database';
 
 /**
@@ -28,37 +28,35 @@ export default function TaksitTakipPage() {
   const { data: planlar, isLoading, refetch, isRefetching } = useTaksitPlanListesi();
   const [tab, setTab] = useState<'satis' | 'alis'>('satis');
 
-  // FAB → taksitli satış/alış girişi: yön seç → cari seç → QTB (taksit, vade
-  // menüsünden kurulur). Ana sayfa FAB'ındaki cari-seçim deseniyle birebir.
-  const [fabSheetVisible, setFabSheetVisible] = useState(false);
-  const [cariPickerMode, setCariPickerMode] = useState<CariPickerMode | null>(null);
-  const [qtbCari, setQtbCari] = useState<{ id: string; type: CariType; islemTip: 'satis' | 'alis' } | null>(null);
+  // FAB → taksitli satış/alış: ANA SAYFA FAB'ıyla BİREBİR desen — inline menü (MODAL DEĞİL)
+  // → CariPicker (non-modal bağlamdan açıldığı için modal-üstü-modal DONMASI YOK) → QTB
+  // cari-modunda. Eski ActionSheet(modal) → CariPicker(modal) zinciri iOS'ta donuyordu.
   const { data: musteriler } = useCariler('musteri');
   const { data: tedarikciler } = useCariler('tedarikci');
+  const [showFabMenu, setShowFabMenu] = useState(false);
+  const [showCariPicker, setShowCariPicker] = useState(false);
+  const [cariPickerMode, setCariPickerMode] = useState<CariPickerMode>('customer');
+  const [qtbCari, setQtbCari] = useState<{ id: string; type: CariType } | null>(null);
+  const fabAnim = useRef(new Animated.Value(0)).current;
 
-  const fabOptions: ActionSheetOption[] = [
-    {
-      label: t('transactions:taksit.fabSatis'),
-      icon: <TrendingUp size={20} color={colors.success} />,
-      onPress: () => setTimeout(() => setCariPickerMode('customer'), 250),
-    },
-    {
-      label: t('transactions:taksit.fabAlis'),
-      icon: <TrendingDown size={20} color={colors.error} />,
-      onPress: () => setTimeout(() => setCariPickerMode('supplier'), 250),
-    },
-  ];
+  useEffect(() => {
+    Animated.spring(fabAnim, {
+      toValue: showFabMenu ? 1 : 0,
+      damping: 15,
+      stiffness: 200,
+      useNativeDriver: true,
+    }).start();
+  }, [showFabMenu, fabAnim]);
+
+  const handleFabMenuOption = useCallback((action: () => void) => {
+    setShowFabMenu(false);
+    setTimeout(action, 250); // menü kapanış animasyonu bitince aç
+  }, []);
 
   const handleCariSelect = useCallback((cariId: string) => {
-    const isCustomer = cariPickerMode === 'customer';
-    setCariPickerMode(null);
-    setTimeout(() => {
-      setQtbCari({
-        id: cariId,
-        type: isCustomer ? 'musteri' : 'tedarikci',
-        islemTip: isCustomer ? 'satis' : 'alis',
-      });
-    }, 300);
+    const cariType: CariType = cariPickerMode === 'customer' ? 'musteri' : 'tedarikci';
+    setShowCariPicker(false);
+    setTimeout(() => setQtbCari({ id: cariId, type: cariType }), 300);
   }, [cariPickerMode]);
 
   const filtreli = useMemo(
@@ -205,39 +203,77 @@ export default function TaksitTakipPage() {
           }
         />
 
-        {/* FAB — taksitli satış/alış girişi (kullanıcı isteği) */}
+        {/* FAB Menü - Backdrop (MODAL DEĞİL — non-modal overlay; ana FAB deseni) */}
+        {showFabMenu && (
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowFabMenu(false)}>
+            <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.3)', opacity: fabAnim }]} />
+          </Pressable>
+        )}
+
+        {/* FAB Menü - Taksitli Satış / Alış (inline, yukarı açılır) */}
+        {showFabMenu && (
+          <View style={[styles.fabMenuContainer, { bottom: spacing['2xl'] + 56 + spacing.md }]}>
+            {[
+              {
+                label: t('transactions:taksit.fabSatis'),
+                icon: <TrendingUp size={18} color={colors.success} />,
+                onPress: () => handleFabMenuOption(() => { setCariPickerMode('customer'); setShowCariPicker(true); }),
+                index: 1,
+              },
+              {
+                label: t('transactions:taksit.fabAlis'),
+                icon: <TrendingDown size={18} color={colors.error} />,
+                onPress: () => handleFabMenuOption(() => { setCariPickerMode('supplier'); setShowCariPicker(true); }),
+                index: 0,
+              },
+            ].map((item) => (
+              <Animated.View
+                key={item.label}
+                style={{
+                  opacity: fabAnim,
+                  transform: [
+                    { translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [20 + item.index * 10, 0] }) },
+                    { scale: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) },
+                  ],
+                }}
+              >
+                <TouchableOpacity style={styles.fabMenuItem} onPress={item.onPress} activeOpacity={0.7}>
+                  <View style={styles.fabMenuIcon}>{item.icon}</View>
+                  <Text style={styles.fabMenuLabel}>{item.label}</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            ))}
+          </View>
+        )}
+
+        {/* FAB Button (+ → 45° döner) */}
         <TouchableOpacity
           style={styles.fab}
           activeOpacity={0.85}
-          onPress={() => setFabSheetVisible(true)}
+          onPress={() => setShowFabMenu((prev) => !prev)}
         >
-          <Plus size={26} color={colors.white} />
+          <Animated.View style={{ transform: [{ rotate: fabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+            <Plus size={26} color={colors.white} />
+          </Animated.View>
         </TouchableOpacity>
 
-        <ActionSheet
-          visible={fabSheetVisible}
-          onClose={() => setFabSheetVisible(false)}
-          title={t('transactions:taksit.configTitle')}
-          options={fabOptions}
-          cancelLabel={t('common:buttons.cancel')}
-        />
-
+        {/* Cari Picker (FAB menüsünden — NON-MODAL bağlamdan açılır → donmaz) */}
         <CariPickerSheet
-          visible={!!cariPickerMode}
-          onDismiss={() => setCariPickerMode(null)}
+          visible={showCariPicker}
+          onDismiss={() => setShowCariPicker(false)}
           onSelect={handleCariSelect}
           cariler={cariPickerMode === 'customer' ? (musteriler || []) : (tedarikciler || [])}
           selectedId={null}
-          mode={cariPickerMode ?? 'customer'}
+          mode={cariPickerMode}
         />
 
-        {/* Taksit planı QTB'nin vade menüsünden kurulur (Vade → Taksit) */}
+        {/* Cari seçilince QTB (cari-modu; taksit Vade → Taksit menüsünden kurulur) */}
         <QuickTransactionBar
           visible={!!qtbCari}
           onDismiss={() => setQtbCari(null)}
           defaultCariId={qtbCari?.id}
           defaultCariType={qtbCari?.type}
-          defaultType={qtbCari?.islemTip}
+          defaultType={qtbCari?.type === 'tedarikci' ? 'alis' : 'satis'}
           onSuccess={() => setQtbCari(null)}
         />
       </SafeAreaView>
@@ -332,6 +368,41 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 6,
+    zIndex: 10,
+  },
+  fabMenuContainer: {
+    position: 'absolute',
+    right: spacing.lg,
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+    zIndex: 9,
+  },
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    gap: spacing.sm,
+  },
+  fabMenuIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabMenuLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
   },
   card: {
     backgroundColor: colors.surface,

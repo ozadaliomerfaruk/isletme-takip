@@ -19,6 +19,7 @@ import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection }
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
+import { formatTime } from '@/lib/date';
 import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
@@ -257,6 +258,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         id={islem.id}
         type={islem.type}
         amount={getDisplayAmount(islem, hesapId)}
+        date={formatTime(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}

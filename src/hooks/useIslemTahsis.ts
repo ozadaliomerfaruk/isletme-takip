@@ -200,6 +200,33 @@ export function useCariVadeDetay(cariId: string | undefined, enabled = true) {
 }
 
 /**
+ * Cari detay işlem listesi: her fatura/borç işleminin (cari_alis/cari_satis) NET-mahsuplu
+ * KALAN'ı (islem_id → kalan). Plansız + vadeli faturaları kapsar; ödenen/kapananlar
+ * haritada YER ALMAZ (kalan 0). Satırda "Kalan: X" göstermek için (ödeme satırlarındaki
+ * "Mahsup" yerine). Vade yüzeylerinden ayrı — bu tüm faturaları kapsar, onlar dated-only.
+ */
+export function useCariIslemKalan(cariId: string | undefined, enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.islemTahsis.islemKalan(cariId ?? '', isletme?.id ?? ''),
+    enabled: enabled && !!cariId && !!isletme?.id,
+    queryFn: async (): Promise<Record<string, number>> => {
+      if (!cariId || !isletme?.id) return {};
+      const { data, error } = await supabase.rpc('get_cari_islem_kalan', {
+        p_isletme_id: isletme.id,
+        p_cari_id: cariId,
+      });
+      if (error) throw error;
+      const raw = (data as Record<string, number>) ?? {};
+      const out: Record<string, number> = {};
+      for (const k of Object.keys(raw)) out[k] = Number(raw[k]) || 0;
+      return out;
+    },
+  });
+}
+
+/**
  * Vade Takip sayfası: işletme genelindeki TÜM açık vadeli birimler
  * (plansız vadeli işlemler + taksit birimleri), vade sıralı, tek istekte.
  */
