@@ -161,6 +161,44 @@ export interface VadeBirim {
   kalan: number;
 }
 
+export interface CariVadeDetayBirim {
+  islem_id: string;
+  taksit_id: string | null;
+  type: 'cari_satis' | 'cari_alis';
+  description: string | null;
+  vade: string;
+  /** NET-mahsuplu kalan (get_cari_vade_detay → _vade_birim_mahsuplu). */
+  kalan: number;
+  taksit_sira: number | null;
+  taksit_toplam: number | null;
+}
+
+/**
+ * Bir carinin NET-mahsuplu açık vadeli birimleri (plansız + taksit). Cari detay
+ * "gecikenler akordiyonu" bunu kullanır → ham kalan yerine net'e göre mahsuplu kalan
+ * (özet kartıyla tutarlı; açılış bakiyesi/ters-yön gibi kredilerle hayalet vade çıkmaz).
+ */
+export function useCariVadeDetay(cariId: string | undefined, enabled = true) {
+  const { isletme } = useAuthContext();
+
+  return useQuery({
+    queryKey: queryKeys.islemTahsis.vadeDetay(cariId ?? '', isletme?.id ?? ''),
+    enabled: enabled && !!cariId && !!isletme?.id,
+    queryFn: async (): Promise<CariVadeDetayBirim[]> => {
+      if (!cariId || !isletme?.id) return [];
+      const { data, error } = await supabase.rpc('get_cari_vade_detay', {
+        p_isletme_id: isletme.id,
+        p_cari_id: cariId,
+      });
+      if (error) throw error;
+      return ((data as CariVadeDetayBirim[]) ?? []).map((b) => ({
+        ...b,
+        kalan: Number(b.kalan) || 0,
+      }));
+    },
+  });
+}
+
 /**
  * Vade Takip sayfası: işletme genelindeki TÜM açık vadeli birimler
  * (plansız vadeli işlemler + taksit birimleri), vade sıralı, tek istekte.

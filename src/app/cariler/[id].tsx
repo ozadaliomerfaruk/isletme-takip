@@ -54,7 +54,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { useCari, useDeleteCari, useUpdateCari, useCariOzet, type CariOzet } from '@/hooks/useCariler';
 import { useUnarchiveCari } from '@/hooks/useArchive';
 import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
-import { useCariTahsisOzeti, useCariVadeRozet, useCariVadeliBorclar } from '@/hooks/useIslemTahsis';
+import { useCariTahsisOzeti, useCariVadeRozet, useCariVadeliBorclar, useCariVadeDetay } from '@/hooks/useIslemTahsis';
 import { useCariTaksitBirimleri } from '@/hooks/useTaksit';
 import { buildWhatsAppUrl, buildTelUrl } from '@/lib/phone';
 import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
@@ -827,6 +827,9 @@ export default function CariHareketleriPage() {
   // (kullanıcı isteği: vadesiz cari kartında vade lafı hiç geçmesin)
   const { data: vadeliBorclar } = useCariVadeliBorclar(id, !isViewer);
   const hasVadeliIslem = (vadeliBorclar?.length ?? 0) > 0;
+  // NET-mahsuplu açık vadeli birimler (gecikenler akordiyonu bundan beslenir → ham kalan
+  // yerine net'e göre mahsuplu; kart özetiyle tutarlı, hayalet vade çıkmaz).
+  const { data: vadeDetay } = useCariVadeDetay(id, !isViewer);
   const { data: vadeRozetMap } = useCariVadeRozet(!isViewer);
   const cariVadeOzeti = useMemo(() => {
     // Crude susturucu (liste rozetiyle aynı kural): bakiye ilgili yönde açık değilse
@@ -845,30 +848,32 @@ export default function CariHareketleriPage() {
   // gecikmesi Taksit Takip'te birim bazında izlenir). En eski vade üstte.
   const [gecikenlerOpen, setGecikenlerOpen] = useState(false);
   const gecikmisBorclar = useMemo(() => {
-    if (isViewer || cariPaidCrude || !vadeliBorclar || !tahsisOzeti) return [];
+    if (isViewer || cariPaidCrude || !vadeDetay) return [];
     const out: { id: string; type: string; description: string | null; vade: string; gun: number; kalan: number }[] = [];
-    for (const b of vadeliBorclar) {
-      if (taksitliSet.has(b.id)) continue;
-      if (String(b.vade_tarihi) > overdueTodayStr) continue;
-      const kalan = roundCurrency(toNumber(b.amount) - (tahsisOzeti.borcTahsisleri[b.id] ?? 0));
-      if (kalan <= 0.009) continue;
+    for (const u of vadeDetay) {
+      if (u.taksit_id) continue; // plansız borçlar tek tek; taksit birimleri aşağıda toplu satır
+      if (String(u.vade) > overdueTodayStr) continue; // yalnız gecikmiş
+      // kalan zaten NET-mahsuplu ve > 0 (RPC filtreler)
       const gun = Math.round(
-        (new Date(overdueTodayStr).getTime() - new Date(String(b.vade_tarihi)).getTime()) / 86400000
+        (new Date(overdueTodayStr).getTime() - new Date(String(u.vade)).getTime()) / 86400000
       );
-      out.push({ id: b.id, type: b.type, description: b.description ?? null, vade: String(b.vade_tarihi), gun, kalan });
+      out.push({ id: u.islem_id, type: u.type, description: u.description ?? null, vade: String(u.vade), gun, kalan: u.kalan });
     }
     out.sort((a, b) => (a.vade < b.vade ? -1 : 1));
     return out;
-  }, [isViewer, cariPaidCrude, vadeliBorclar, tahsisOzeti, taksitliSet, overdueTodayStr]);
+  }, [isViewer, cariPaidCrude, vadeDetay, overdueTodayStr]);
 
-  // Kart rozetindeki gecikmiş toplam taksit BİRİMLERİNİ de içerir; akordiyon plansız
-  // borçları listeler. Fark = taksitli planlarda geciken kısım — akordiyonda ayrı
-  // satır olarak gösterilir (yoksa kart kırmızı derken akordiyon hiç çıkmazdı).
+  // Taksitli planlarda geciken kısım — akordiyonda ayrı toplu satır (birim detayı
+  // Taksit Takip'te). NET-mahsuplu vadeDetay'dan doğrudan: geciken taksit birimlerinin
+  // real_kalan toplamı (plansız gecikmişlerle birlikte akordiyon = kart özeti).
   const taksitliGecikmisFark = useMemo(() => {
-    if (!cariVadeOzeti) return 0;
-    const plansiz = gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0);
-    return Math.max(0, roundCurrency(cariVadeOzeti.toplam - plansiz));
-  }, [cariVadeOzeti, gecikmisBorclar]);
+    if (isViewer || cariPaidCrude || !vadeDetay) return 0;
+    return roundCurrency(
+      vadeDetay
+        .filter((u) => u.taksit_id && String(u.vade) <= overdueTodayStr)
+        .reduce((s, u) => roundCurrency(s + u.kalan), 0)
+    );
+  }, [isViewer, cariPaidCrude, vadeDetay, overdueTodayStr]);
 
   const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
     if (item.type === 'header') {

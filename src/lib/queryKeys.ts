@@ -60,6 +60,8 @@ export const queryKeys = {
       ['islem-tahsis', 'vade-rozet-v2', isletmeId] as const,
     vadeListe: (isletmeId: string) =>
       ['islem-tahsis', 'vade-liste', isletmeId] as const,
+    vadeDetay: (cariId: string, isletmeId: string) =>
+      ['islem-tahsis', 'vade-detay', cariId, isletmeId] as const,
   },
 
   // Taksit (Faz 3 — taksit_planlari/taksitler + get_taksit_plan_listesi RPC)
