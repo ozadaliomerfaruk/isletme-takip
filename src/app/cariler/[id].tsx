@@ -1680,7 +1680,7 @@ export default function CariHareketleriPage() {
 // Özet kartı zemini — marka koyu yeşili (antrasit beğenilmedi; EKLE/primary tonu)
 // Özet kartı — primary'den (#0D5C4D) az daha açık yeşil (kullanıcı isteği); beyaz metin
 // kontrastı korunur.
-const DARK_CARD_BG = '#0F6E5B';
+const DARK_CARD_BG = colors.summaryCardBg;
 
 const styles = StyleSheet.create({
   container: {

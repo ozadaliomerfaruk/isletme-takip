@@ -80,7 +80,7 @@ export function DetailSummaryCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.primary,
+    backgroundColor: colors.summaryCardBg,
     borderRadius: borderRadius.xl,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,

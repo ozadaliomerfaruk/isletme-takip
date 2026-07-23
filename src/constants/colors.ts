@@ -3,6 +3,8 @@ export const colors = {
   primary: '#0D5C4D',
   primaryLight: '#E8F5F1',
   primaryDark: '#094539',
+  // Detay sayfası özet kartı zemini — markanın az açık yeşili (cari/hesap/personel/ürün ORTAK)
+  summaryCardBg: '#0F6E5B',
 
   // Arka plan renkleri - Açık tema
   background: '#F5F5F5',

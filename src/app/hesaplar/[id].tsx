@@ -18,6 +18,7 @@ import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
+import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { formatTime } from '@/lib/date';
 import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
@@ -808,60 +809,37 @@ export default function HesapHareketleriPage() {
           </View>
         )}
 
-        {/* Hesap Özeti */}
-        <Card style={styles.summaryCard}>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryIcon}>
-              {getHesapIcon(hesap.type)}
-            </View>
-            <View style={styles.summaryInfo}>
-              <Text variant="caption" color="secondary">
-                {hesap.type === 'kredi_karti' ? t('accounts:creditCard.currentDebt') : t('accounts:balance.currentBalance')}
-              </Text>
-              <Text variant="h2" color={Number(hesap.balance) >= 0 ? 'primary' : 'error'}>
-                {formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}
-              </Text>
-              {/* Farklı para birimindeyse base currency karşılığını göster */}
-              {hesap.currency !== baseCurrency && exchangeRates && (
-                <Text variant="body" color="secondary">
-                  ~{formatCurrency(
-                    convertCurrency(Math.abs(Number(hesap.balance)), hesap.currency, baseCurrency, exchangeRates) ?? 0,
-                    baseCurrency
-                  )}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {/* Kredi Kartı Limit Bilgileri */}
-          {hesap.type === 'kredi_karti' && hesap.credit_limit && hesap.credit_limit > 0 && (
-            <View style={styles.creditLimitSection}>
-              <View style={styles.creditLimitRow}>
-                <View style={styles.creditLimitItem}>
-                  <Text variant="caption" color="secondary">{t('accounts:creditCard.creditLimit')}</Text>
-                  <Text variant="body" style={styles.creditLimitValue}>{formatCurrency(hesap.credit_limit, hesap.currency)}</Text>
-                </View>
-                <View style={styles.creditLimitItem}>
-                  <Text variant="caption" color="secondary">{t('accounts:creditCard.usedCredit')}</Text>
-                  <Text variant="body" style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(Math.abs(Number(hesap.balance)), hesap.currency)}</Text>
-                </View>
-                <View style={styles.creditLimitItem}>
-                  <Text variant="caption" color="secondary">{t('accounts:creditCard.availableCredit')}</Text>
-                  <Text variant="body" style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(Math.max(0, hesap.credit_limit - Math.abs(Number(hesap.balance))), hesap.currency)}</Text>
-                </View>
-              </View>
-            </View>
-          )}
-          {/* Kredi Kartı Son Ödeme Günü */}
-          {paymentDueDayInfo && (
-            <View style={styles.paymentDueDayRow}>
-              <Text variant="caption" color="secondary">{t('accounts:creditCard.paymentDueDay')}</Text>
-              <Text variant="body" style={[styles.creditLimitValue, (paymentDueDayInfo.isToday || paymentDueDayInfo.isTomorrow) && { color: colors.warning }]}>
-                {t('accounts:creditCard.paymentDueDayLabel', { day: paymentDueDayInfo.day })}{paymentDueDayInfo.hint}
-              </Text>
-            </View>
-          )}
-        </Card>
+        {/* Hesap Özeti — cari/personel/ürün ile AYNI koyu-yeşil dashboard kartı */}
+        {(() => {
+          const bal = Number(hesap.balance);
+          const isKrediKarti = hesap.type === 'kredi_karti';
+          const rows: DetailSummaryRow[] = [];
+          if (isKrediKarti && hesap.credit_limit && hesap.credit_limit > 0) {
+            rows.push({ label: t('accounts:creditCard.creditLimit'), value: formatCurrency(hesap.credit_limit, hesap.currency) });
+            rows.push({ label: t('accounts:creditCard.usedCredit'), value: formatCurrency(Math.abs(bal), hesap.currency), danger: true });
+            rows.push({ label: t('accounts:creditCard.availableCredit'), value: formatCurrency(Math.max(0, hesap.credit_limit - Math.abs(bal)), hesap.currency) });
+          }
+          if (paymentDueDayInfo) {
+            rows.push({
+              label: t('accounts:creditCard.paymentDueDay'),
+              value: `${t('accounts:creditCard.paymentDueDayLabel', { day: paymentDueDayInfo.day })}${paymentDueDayInfo.hint}`,
+              danger: paymentDueDayInfo.isToday || paymentDueDayInfo.isTomorrow,
+            });
+          }
+          const baseEq = (hesap.currency !== baseCurrency && exchangeRates)
+            ? `≈ ${formatCurrency(convertCurrency(Math.abs(bal), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}`
+            : undefined;
+          return (
+            <DetailSummaryCard
+              title={upperTr(hesap.name)}
+              subtitle={t(`accounts:typeLabels.${hesap.type}`)}
+              subtitle2={baseEq}
+              balanceLabel={(isKrediKarti || bal < 0) ? t('accounts:creditCard.currentDebt') : t('accounts:balance.currentBalance')}
+              balanceValue={formatCurrency(Math.abs(bal), hesap.currency)}
+              rows={rows}
+            />
+          );
+        })()}
 
         {/* İleri Tarihli İşlemler */}
         <View style={styles.section}>
