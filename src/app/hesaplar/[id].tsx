@@ -7,7 +7,6 @@ import {
   Wallet,
   CreditCard,
   Banknote,
-  CircleDollarSign,
   Pencil,
   Trash2,
   MoreVertical,
@@ -15,10 +14,11 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
+import { OpeningBalanceRow } from '@/components/detail/OpeningBalanceRow';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { formatTime } from '@/lib/date';
 import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
@@ -861,50 +861,35 @@ export default function HesapHareketleriPage() {
   const ListFooter = useMemo(() => {
     if (!hesap || islemlerLoading) return null;
     return (
-      <View style={styles.section}>
+      <View>
         {hasNextPage && (
-          <TouchableOpacity
-            style={styles.loadMoreBtn}
-            onPress={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.loadMoreText}>
-              {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
-            </Text>
-          </TouchableOpacity>
-        )}
-        {/* Başlangıç Bakiyesi — işlem yokken satır tıklanınca düzenlenir (Card onPress);
-            ilk işlemle kilitlenir (onPress undefined → tıklanamaz). Kalem yalnız ipucu. */}
-        <Card
-          style={styles.hareketCard}
-          onPress={isBalanceEditable ? handleOpenEditBalance : undefined}
-        >
-          <View style={styles.hareketHeader}>
-            <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-              <CircleDollarSign size={20} color={colors.primary} />
-            </View>
-            <View style={styles.hareketInfo}>
-              <Text variant="body">{t('accounts:details.initialBalance')}</Text>
-              <Text variant="caption" color="secondary">
-                {t('accounts:details.accountOpening')} • {formatDateShort(hesap?.created_at || '')}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loadMoreText}>
+                {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
               </Text>
-            </View>
-            <View style={styles.initialBalanceRow}>
-              <Text variant="h3" color={initialBalance >= 0 ? 'primary' : 'error'}>
-                {formatCurrency(initialBalance, hesap.currency)}
-              </Text>
-              {isBalanceEditable && (
-                <View style={styles.editBalanceBtn}>
-                  <Pencil size={16} color={colors.primary} />
-                </View>
-              )}
-            </View>
+            </TouchableOpacity>
           </View>
-        </Card>
+        )}
+        {/* Başlangıç Bakiyesi — standart işlem satırı dili; işlem yokken satır
+            tıklanınca düzenlenir (ilk giriş), ilk işlemle kilitlenir. */}
+        <OpeningBalanceRow
+          label={t('accounts:details.initialBalance')}
+          subtitle={`${t('accounts:details.accountOpening')} • ${formatDateShort(hesap?.created_at || '')}`}
+          amount={initialBalance}
+          currency={hesap.currency}
+          editable={isBalanceEditable}
+          onEdit={handleOpenEditBalance}
+        />
+        <View style={styles.footerSpacer} />
       </View>
     );
-  }, [hesap, islemlerLoading, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage, isBalanceEditable, handleOpenEditBalance]);
+  }, [hesap, islemlerLoading, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage, isBalanceEditable, handleOpenEditBalance, formatDateShort]);
 
   // === FlatList ListEmptyComponent ===
   const ListEmpty = useMemo(() => {
@@ -1195,6 +1180,9 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.sm,
+  },
+  footerSpacer: {
+    height: spacing.xl,
   },
   sectionTitle: {
     marginBottom: spacing.lg,

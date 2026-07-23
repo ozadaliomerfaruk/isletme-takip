@@ -11,7 +11,6 @@ import {
   CalendarX2,
   Banknote,
   Zap,
-  CircleDollarSign,
   Pencil,
   Trash2,
   UserCircle,
@@ -20,7 +19,7 @@ import {
   BarChart3,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
@@ -46,6 +45,7 @@ import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { getInitials } from '@/lib/utils';
 import { usePersonelById, useDeletePersonel, useUpdatePersonel, usePersonelOzet, type PersonelOzet } from '@/hooks/usePersonel';
 import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
+import { OpeningBalanceRow } from '@/components/detail/OpeningBalanceRow';
 import { buildWhatsAppUrl, buildTelUrl } from '@/lib/phone';
 import { MessageCircle } from 'lucide-react-native';
 import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
@@ -722,38 +722,32 @@ export default function PersonelHareketleriPage() {
   const ListFooter = useMemo(() => {
     if (!personel) return null;
     return (
-      <View style={styles.section}>
+      <View>
         {hasNextPage && (
-          <TouchableOpacity
-            style={styles.loadMoreBtn}
-            onPress={() => fetchNextPage()}
-            disabled={isFetchingNextPage}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.loadMoreText}>
-              {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
-            </Text>
-          </TouchableOpacity>
-        )}
-        <Card style={styles.hareketCard}>
-          <View style={styles.hareketHeader}>
-            <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-              <CircleDollarSign size={20} color={colors.primary} />
-            </View>
-            <View style={styles.hareketInfo}>
-              <Text variant="body">{t('staff:details.initialBalance')}</Text>
-              <Text variant="caption" color="secondary">
-                {t('staff:details.personelRecord')} • {formatDateShort(personel.created_at)}
+          <View style={styles.section}>
+            <TouchableOpacity
+              style={styles.loadMoreBtn}
+              onPress={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loadMoreText}>
+                {isFetchingNextPage ? t('common:status.loading') : t('common:buttons.showMore')}
               </Text>
-            </View>
-            <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-              {formatCurrency(initialBalance, personel?.currency)}
-            </Text>
+            </TouchableOpacity>
           </View>
-        </Card>
+        )}
+        {/* Başlangıç Bakiyesi — standart işlem satırı dili (işlemli → kilitli/salt) */}
+        <OpeningBalanceRow
+          label={t('staff:details.initialBalance')}
+          subtitle={`${t('staff:details.personelRecord')} • ${formatDateShort(personel.created_at)}`}
+          amount={initialBalance}
+          currency={personel?.currency}
+        />
+        <View style={styles.footerSpacer} />
       </View>
     );
-  }, [personel, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage]);
+  }, [personel, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
 
   // ============================================================================
   // FlatList Empty component
@@ -762,37 +756,19 @@ export default function PersonelHareketleriPage() {
   const ListEmpty = useMemo(() => {
     if (islemlerLoading) return null;
     return (
-      <View style={styles.section}>
-        <Card style={styles.hareketCard}>
-          <View style={styles.hareketHeader}>
-            <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-              <CircleDollarSign size={20} color={colors.primary} />
-            </View>
-            <View style={styles.hareketInfo}>
-              <Text variant="body">{t('staff:details.initialBalance')}</Text>
-              {personel && (
-                <Text variant="caption" color="secondary">
-                  {t('staff:details.personelRecord')} • {formatDateShort(personel.created_at)}
-                </Text>
-              )}
-            </View>
-            <View style={styles.initialBalanceRow}>
-              <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                {formatCurrency(initialBalance, personel?.currency)}
-              </Text>
-              <TouchableOpacity
-                onPress={handleOpenEditBalance}
-                style={styles.editBalanceBtn}
-                hitSlop={HIT_SLOP.sm}
-              >
-                <Pencil size={16} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Card>
+      <View>
+        {/* Başlangıç Bakiyesi — standart işlem satırı dili; işlem yokken düzenlenir */}
+        <OpeningBalanceRow
+          label={t('staff:details.initialBalance')}
+          subtitle={personel ? `${t('staff:details.personelRecord')} • ${formatDateShort(personel.created_at)}` : ''}
+          amount={initialBalance}
+          currency={personel?.currency}
+          editable
+          onEdit={handleOpenEditBalance}
+        />
       </View>
     );
-  }, [islemlerLoading, personel, initialBalance, handleOpenEditBalance, t]);
+  }, [islemlerLoading, personel, initialBalance, handleOpenEditBalance, t, formatDateShort]);
 
   // ============================================================================
   // LOADING / NOT FOUND STATES
@@ -1067,6 +1043,9 @@ const styles = StyleSheet.create({
   section: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing['3xl'],
+  },
+  footerSpacer: {
+    height: spacing.xl,
   },
   // Header'ın son bölümü: 3xl alt boşluk işlem listesini aşağı itiyordu
   sectionTight: {
