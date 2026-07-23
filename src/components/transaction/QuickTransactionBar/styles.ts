@@ -531,4 +531,56 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.success,
   },
+
+  // Ödeme/Tahsilat hedef tipi seçimi — standart işlem satırı dili:
+  // sol aksan bar (ikon kutusu yok) + flat flush satır + ince çizgi ayrımı.
+  hedefList: {
+    paddingBottom: 8,
+  },
+  hedefRow: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingLeft: 20,
+    paddingRight: 16,
+    gap: 12,
+    backgroundColor: colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.borderLight,
+  },
+  hedefRowSelected: {
+    backgroundColor: colors.surfaceLighter,
+  },
+  hedefBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  hedefContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  hedefTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: 0.1,
+  },
+  hedefSubtext: {
+    fontSize: 12.5,
+    color: colors.textMuted,
+  },
+  hedefCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });

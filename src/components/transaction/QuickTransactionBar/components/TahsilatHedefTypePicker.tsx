@@ -5,7 +5,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Users, Building2, UserCheck, Check } from 'lucide-react-native';
+import { X, Check, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
@@ -20,6 +20,32 @@ export interface TahsilatHedefTypePickerProps {
   selectedType: TahsilatHedefType;
 }
 
+const OPTIONS: {
+  type: TahsilatHedefType;
+  nextModal: 'cari' | 'personel';
+  titleKey: string;
+  subtextKey: string;
+}[] = [
+  {
+    type: 'musteri',
+    nextModal: 'cari',
+    titleKey: 'clients:transactionTitles.customerCollection',
+    subtextKey: 'clients:transactionDescriptions.customerCollection',
+  },
+  {
+    type: 'tedarikci',
+    nextModal: 'cari',
+    titleKey: 'clients:transactionTitles.supplierCollection',
+    subtextKey: 'clients:transactionDescriptions.supplierCollection',
+  },
+  {
+    type: 'personel',
+    nextModal: 'personel',
+    titleKey: 'staff:transactionTitles.collection',
+    subtextKey: 'staff:transactionDescriptions.personnelCollection',
+  },
+];
+
 export function TahsilatHedefTypePicker({
   visible,
   onDismiss,
@@ -31,6 +57,9 @@ export function TahsilatHedefTypePicker({
 
   if (!visible) return null;
 
+  // Aksan rengi: tahsilat = para girişi → yeşil (standart işlem satırı dili)
+  const accent = colors.success;
+
   return (
     <Modal
       visible
@@ -41,7 +70,7 @@ export function TahsilatHedefTypePicker({
       <TouchableWithoutFeedback onPress={onDismiss}>
         <View style={styles.bottomSheetOverlay}>
           <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 8 }]}>
               <View style={styles.bottomSheetHeader}>
                 <Text style={styles.bottomSheetTitle}>
                   {t('transactions:form.selectCollectionType')}
@@ -51,114 +80,38 @@ export function TahsilatHedefTypePicker({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.bottomSheetListContent}>
-                {/* Musteri Tahsilati */}
-                <TouchableOpacity
-                  style={[
-                    styles.tahsilatTypeItem,
-                    selectedType === 'musteri' && styles.tahsilatTypeItemSelected,
-                  ]}
-                  onPress={() => onSelect('musteri', 'cari')}
-                >
-                  <View
-                    style={[
-                      styles.bottomSheetItemIcon,
-                      { backgroundColor: colors.successLight },
-                    ]}
-                  >
-                    <Users size={24} color={colors.success} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text
-                      style={[
-                        styles.odemeTypeTitle,
-                        selectedType === 'musteri' && { color: colors.success },
-                      ]}
+              <View style={styles.hedefList}>
+                {OPTIONS.map((opt) => {
+                  const selected = selectedType === opt.type;
+                  return (
+                    <TouchableOpacity
+                      key={opt.type}
+                      style={[styles.hedefRow, selected && styles.hedefRowSelected]}
+                      onPress={() => onSelect(opt.type, opt.nextModal)}
+                      activeOpacity={0.7}
                     >
-                      {t('clients:transactionTitles.customerCollection')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>
-                      {t('clients:transactionDescriptions.customerCollection')}
-                    </Text>
-                  </View>
-                  {selectedType === 'musteri' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.success }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Tedarikci Tahsilati */}
-                <TouchableOpacity
-                  style={[
-                    styles.tahsilatTypeItem,
-                    selectedType === 'tedarikci' && styles.tahsilatTypeItemSelected,
-                  ]}
-                  onPress={() => onSelect('tedarikci', 'cari')}
-                >
-                  <View
-                    style={[
-                      styles.bottomSheetItemIcon,
-                      { backgroundColor: colors.successLight },
-                    ]}
-                  >
-                    <Building2 size={24} color={colors.success} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text
-                      style={[
-                        styles.odemeTypeTitle,
-                        selectedType === 'tedarikci' && { color: colors.success },
-                      ]}
-                    >
-                      {t('clients:transactionTitles.supplierCollection')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>
-                      {t('clients:transactionDescriptions.supplierCollection')}
-                    </Text>
-                  </View>
-                  {selectedType === 'tedarikci' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.success }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Personel Tahsilati */}
-                <TouchableOpacity
-                  style={[
-                    styles.tahsilatTypeItem,
-                    selectedType === 'personel' && styles.tahsilatTypeItemSelected,
-                  ]}
-                  onPress={() => onSelect('personel', 'personel')}
-                >
-                  <View
-                    style={[
-                      styles.bottomSheetItemIcon,
-                      { backgroundColor: colors.successLight },
-                    ]}
-                  >
-                    <UserCheck size={24} color={colors.success} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text
-                      style={[
-                        styles.odemeTypeTitle,
-                        selectedType === 'personel' && { color: colors.success },
-                      ]}
-                    >
-                      {t('staff:transactionTitles.collection')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>
-                      {t('staff:transactionDescriptions.personnelCollection')}
-                    </Text>
-                  </View>
-                  {selectedType === 'personel' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.success }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
+                      <View style={[styles.hedefBar, { backgroundColor: accent }]} />
+                      <View style={styles.hedefContent}>
+                        <Text
+                          style={[styles.hedefTitle, selected && { color: accent }]}
+                          numberOfLines={1}
+                        >
+                          {t(opt.titleKey)}
+                        </Text>
+                        <Text style={styles.hedefSubtext} numberOfLines={1}>
+                          {t(opt.subtextKey)}
+                        </Text>
+                      </View>
+                      {selected ? (
+                        <View style={[styles.hedefCheck, { backgroundColor: accent }]}>
+                          <Check size={13} color="#FFFFFF" />
+                        </View>
+                      ) : (
+                        <ChevronRight size={18} color={colors.textMuted} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           </TouchableWithoutFeedback>

@@ -5,7 +5,7 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { X, Building2, UserCheck, CreditCard, Check } from 'lucide-react-native';
+import { X, Check, ChevronRight } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
 import { Text } from '@/components/ui';
@@ -20,6 +20,32 @@ export interface OdemeHedefTypePickerProps {
   selectedType: OdemeHedefType;
 }
 
+const OPTIONS: {
+  type: OdemeHedefType;
+  nextModal: 'cari' | 'personel' | 'hesap';
+  titleKey: string;
+  subtextKey: string;
+}[] = [
+  {
+    type: 'tedarikci',
+    nextModal: 'cari',
+    titleKey: 'clients:transactionTitles.supplierPayment',
+    subtextKey: 'clients:transactionDescriptions.supplierPayment',
+  },
+  {
+    type: 'staff',
+    nextModal: 'personel',
+    titleKey: 'staff:transactionTitles.payment',
+    subtextKey: 'staff:transactionDescriptions.personnelPayment',
+  },
+  {
+    type: 'kredi_karti',
+    nextModal: 'hesap',
+    titleKey: 'accounts:transactionTitles.creditCardPayment',
+    subtextKey: 'accounts:transactionDescriptions.creditCardPayment',
+  },
+];
+
 export function OdemeHedefTypePicker({
   visible,
   onDismiss,
@@ -31,6 +57,9 @@ export function OdemeHedefTypePicker({
 
   if (!visible) return null;
 
+  // Aksan rengi: ödeme = para çıkışı → turuncu (standart işlem satırı dili)
+  const accent = colors.orange;
+
   return (
     <Modal
       visible
@@ -41,7 +70,7 @@ export function OdemeHedefTypePicker({
       <TouchableWithoutFeedback onPress={onDismiss}>
         <View style={styles.bottomSheetOverlay}>
           <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={[styles.bottomSheetContent, { paddingBottom: insets.bottom + 8 }]}>
               <View style={styles.bottomSheetHeader}>
                 <Text style={styles.bottomSheetTitle}>
                   {t('transactions:form.selectPaymentType')}
@@ -51,114 +80,38 @@ export function OdemeHedefTypePicker({
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.bottomSheetListContent}>
-                {/* Tedarikci Odemesi */}
-                <TouchableOpacity
-                  style={[
-                    styles.odemeTypeItem,
-                    selectedType === 'tedarikci' && styles.odemeTypeItemSelected,
-                  ]}
-                  onPress={() => onSelect('tedarikci', 'cari')}
-                >
-                  <View
-                    style={[
-                      styles.bottomSheetItemIcon,
-                      { backgroundColor: colors.orangeLight },
-                    ]}
-                  >
-                    <Building2 size={24} color={colors.orange} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text
-                      style={[
-                        styles.odemeTypeTitle,
-                        selectedType === 'tedarikci' && { color: colors.orange },
-                      ]}
+              <View style={styles.hedefList}>
+                {OPTIONS.map((opt) => {
+                  const selected = selectedType === opt.type;
+                  return (
+                    <TouchableOpacity
+                      key={opt.type}
+                      style={[styles.hedefRow, selected && styles.hedefRowSelected]}
+                      onPress={() => onSelect(opt.type, opt.nextModal)}
+                      activeOpacity={0.7}
                     >
-                      {t('clients:transactionTitles.supplierPayment')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>
-                      {t('clients:transactionDescriptions.supplierPayment')}
-                    </Text>
-                  </View>
-                  {selectedType === 'tedarikci' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Personel Odemesi */}
-                <TouchableOpacity
-                  style={[
-                    styles.odemeTypeItem,
-                    selectedType === 'staff' && styles.odemeTypeItemSelected,
-                  ]}
-                  onPress={() => onSelect('staff', 'personel')}
-                >
-                  <View
-                    style={[
-                      styles.bottomSheetItemIcon,
-                      { backgroundColor: colors.orangeLight },
-                    ]}
-                  >
-                    <UserCheck size={24} color={colors.orange} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text
-                      style={[
-                        styles.odemeTypeTitle,
-                        selectedType === 'staff' && { color: colors.orange },
-                      ]}
-                    >
-                      {t('staff:transactionTitles.payment')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>
-                      {t('staff:transactionDescriptions.personnelPayment')}
-                    </Text>
-                  </View>
-                  {selectedType === 'staff' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Kredi Karti Odemesi */}
-                <TouchableOpacity
-                  style={[
-                    styles.odemeTypeItem,
-                    selectedType === 'kredi_karti' && styles.odemeTypeItemSelected,
-                  ]}
-                  onPress={() => onSelect('kredi_karti', 'hesap')}
-                >
-                  <View
-                    style={[
-                      styles.bottomSheetItemIcon,
-                      { backgroundColor: colors.orangeLight },
-                    ]}
-                  >
-                    <CreditCard size={24} color={colors.orange} />
-                  </View>
-                  <View style={styles.odemeTypeContent}>
-                    <Text
-                      style={[
-                        styles.odemeTypeTitle,
-                        selectedType === 'kredi_karti' && { color: colors.orange },
-                      ]}
-                    >
-                      {t('accounts:transactionTitles.creditCardPayment')}
-                    </Text>
-                    <Text style={styles.odemeTypeSubtext}>
-                      {t('accounts:transactionDescriptions.creditCardPayment')}
-                    </Text>
-                  </View>
-                  {selectedType === 'kredi_karti' && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
-                      <Check size={14} color="#FFFFFF" />
-                    </View>
-                  )}
-                </TouchableOpacity>
+                      <View style={[styles.hedefBar, { backgroundColor: accent }]} />
+                      <View style={styles.hedefContent}>
+                        <Text
+                          style={[styles.hedefTitle, selected && { color: accent }]}
+                          numberOfLines={1}
+                        >
+                          {t(opt.titleKey)}
+                        </Text>
+                        <Text style={styles.hedefSubtext} numberOfLines={1}>
+                          {t(opt.subtextKey)}
+                        </Text>
+                      </View>
+                      {selected ? (
+                        <View style={[styles.hedefCheck, { backgroundColor: accent }]}>
+                          <Check size={13} color="#FFFFFF" />
+                        </View>
+                      ) : (
+                        <ChevronRight size={18} color={colors.textMuted} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
           </TouchableWithoutFeedback>
