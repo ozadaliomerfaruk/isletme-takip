@@ -857,7 +857,6 @@ export default function CariHareketleriPage() {
 
   // "Vadesi Geçen İşlemler" akordiyonu (plansız borçlar; taksitli planların
   // gecikmesi Taksit Takip'te birim bazında izlenir). En eski vade üstte.
-  const [gecikenlerOpen, setGecikenlerOpen] = useState(false);
   // Cari üstü yatay pager: özet kartı (sf.1) + geciken faturalar carousel'i (sf.2)
   const [vadePage, setVadePage] = useState(0);
   const gecikmisBorclar = useMemo(() => {
@@ -1262,125 +1261,6 @@ export default function CariHareketleriPage() {
           );
         })()}
 
-        {/* Vadesi Geçen İşlemler akordiyonu — hızlı tahsilat + WhatsApp hatırlatma.
-            Taksitli planlardaki gecikme de ayrı satırla temsil edilir (kart rozetiyle tutarlı). */}
-        {(gecikmisBorclar.length > 0 || taksitliGecikmisFark > 0.009) && (
-          <View style={styles.gecikenCard}>
-            <TouchableOpacity
-              style={styles.gecikenHeader}
-              activeOpacity={0.7}
-              onPress={() => setGecikenlerOpen((v) => !v)}
-            >
-              <CalendarClock size={16} color={colors.error} />
-              <Text style={styles.gecikenTitle} numberOfLines={1}>
-                {t('transactions:vade.gecikenler')} ({gecikmisBorclar.length + (taksitliGecikmisFark > 0.009 ? 1 : 0)})
-              </Text>
-              <Text style={styles.gecikenToplam} numberOfLines={1}>
-                {formatCurrency(
-                  roundCurrency(gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0) + taksitliGecikmisFark),
-                  cari.currency
-                )}
-              </Text>
-              {gecikenlerOpen ? (
-                <ChevronUp size={18} color={colors.textMuted} />
-              ) : (
-                <ChevronDown size={18} color={colors.textMuted} />
-              )}
-            </TouchableOpacity>
-
-            {gecikenlerOpen && (
-              <View style={styles.gecikenList}>
-                {gecikmisBorclar.map((b) => {
-                  const tipKey = getCariHareketLabelKey(b.type);
-                  const p = b.vade.split('-');
-                  return (
-                    <View key={b.id} style={styles.gecikenRow}>
-                      <View style={styles.gecikenInfo}>
-                        <Text variant="body" numberOfLines={1} style={styles.gecikenDesc}>
-                          {b.description || t(tipKey)}
-                        </Text>
-                        <Text variant="caption" color="secondary" numberOfLines={1}>
-                          {t('transactions:vade.label')}: {p[2]}.{p[1]}.{p[0]}
-                          {'  ·  '}
-                          <Text variant="caption" style={styles.gecikenGun}>
-                            {t('transactions:vade.gunGecikti', { gun: Math.max(1, b.gun) })}
-                          </Text>
-                        </Text>
-                      </View>
-                      <View style={styles.gecikenSag}>
-                        <Text style={styles.gecikenKalan} numberOfLines={1}>
-                          {formatCurrency(b.kalan, cari.currency)}
-                        </Text>
-                        {!isViewer && canEditTransactions && (
-                          <TouchableOpacity
-                            style={styles.gecikenTahsilBtn}
-                            activeOpacity={0.8}
-                            onPress={() => setTahsilPrefill({
-                              type: cari.type === 'tedarikci' ? 'odeme' : 'tahsilat',
-                              amount: b.kalan,
-                            })}
-                          >
-                            <HandCoins size={13} color={colors.white} />
-                            <Text style={styles.gecikenTahsilText}>
-                              {cari.type === 'tedarikci' ? t('transactions:vade.ode') : t('transactions:vade.tahsilEt')}
-                            </Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-
-                {/* Taksitli planlarda geciken kısım — birim detayı Taksit Takip'te */}
-                {taksitliGecikmisFark > 0.009 && (
-                  <TouchableOpacity
-                    style={styles.gecikenRow}
-                    activeOpacity={0.7}
-                    onPress={() => router.push('/taksit')}
-                  >
-                    <View style={styles.gecikenInfo}>
-                      <Text variant="body" numberOfLines={1} style={styles.gecikenDesc}>
-                        {t('transactions:taksit.label')}
-                      </Text>
-                      <Text variant="caption" color="secondary" numberOfLines={2}>
-                        {t('transactions:taksit.gecikenPlanNot')}
-                      </Text>
-                    </View>
-                    <View style={styles.gecikenSag}>
-                      <Text style={styles.gecikenKalan} numberOfLines={1}>
-                        {formatCurrency(taksitliGecikmisFark, cari.currency)}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                )}
-
-                {/* WhatsApp ile kibar hatırlatma — hazır mesajla sohbet açar */}
-                {(() => {
-                  const toplam = gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0);
-                  const waUrl = buildWhatsAppUrl(
-                    cari.phone,
-                    t('transactions:vade.whatsappMesaj', {
-                      isim: cari.name,
-                      isletme: isletme?.name ?? '',
-                      tutar: formatCurrency(toplam, cari.currency),
-                    })
-                  );
-                  if (!waUrl) return null;
-                  return (
-                    <TouchableOpacity
-                      style={styles.gecikenWaBtn}
-                      activeOpacity={0.8}
-                      onPress={() => Linking.openURL(waUrl)}
-                    >
-                      <MessageCircle size={15} color={colors.white} />
-                      <Text style={styles.gecikenWaText}>{t('transactions:vade.whatsappHatirlat')}</Text>
-                    </TouchableOpacity>
-                  );
-                })()}
-              </View>
-            )}
-          </View>
-        )}
 
         {/* Paylaşım İzin Modu Banner (görüntüleme/tam erişim) — tek yer, kart şeridiyle tekrar etmez */}
         {isViewer && (
@@ -1437,7 +1317,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, gecikenlerOpen, canEditTransactions, isletme?.name, taksitliGecikmisFark, vadePage, router]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, canEditTransactions, isletme?.name, taksitliGecikmisFark, vadePage, router]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -1756,7 +1636,9 @@ export default function CariHareketleriPage() {
 }
 
 // Özet kartı zemini — marka koyu yeşili (antrasit beğenilmedi; EKLE/primary tonu)
-const DARK_CARD_BG = colors.primary;
+// Özet kartı — primary'den (#0D5C4D) az daha açık yeşil (kullanıcı isteği); beyaz metin
+// kontrastı korunur.
+const DARK_CARD_BG = '#0F6E5B';
 
 const styles = StyleSheet.create({
   container: {
