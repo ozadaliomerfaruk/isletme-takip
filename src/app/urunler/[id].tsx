@@ -494,9 +494,11 @@ export default function UrunDetayPage() {
                   urun.kod || null,
                   urun.satis_fiyati > 0 ? `${formatCurrency(urun.satis_fiyati, urun.currency)}/${birim}` : null,
                 ].filter(Boolean);
+                // Değerler tür rengine göre: alış tutarı=kırmızı (maliyet), satış
+                // tutarı=yeşil (gelir); miktarlar nötr.
                 const rows: DetailSummaryRow[] = [
-                  { label: t('products:detayOzet.toplamAlisTutar'), value: formatCurrency(urunOzet?.alisTutar ?? 0, urun.currency) },
-                  { label: t('products:detayOzet.toplamSatisTutar'), value: formatCurrency(urunOzet?.satisTutar ?? 0, urun.currency) },
+                  { label: t('products:detayOzet.toplamAlisTutar'), value: formatCurrency(urunOzet?.alisTutar ?? 0, urun.currency), color: colors.error },
+                  { label: t('products:detayOzet.toplamSatisTutar'), value: formatCurrency(urunOzet?.satisTutar ?? 0, urun.currency), color: colors.success },
                   { label: t('products:detayOzet.toplamAlisMiktar'), value: `${formatQuantity(urunOzet?.alisMiktar ?? 0)} ${birim}` },
                   { label: t('products:detayOzet.toplamSatisMiktar'), value: `${formatQuantity(urunOzet?.satisMiktar ?? 0)} ${birim}` },
                 ];

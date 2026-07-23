@@ -1177,30 +1177,39 @@ export default function CariHareketleriPage() {
               ? roundCurrency(oz('cari_alis') - oz('cari_alis_iade'))
               : roundCurrency(oz('cari_satis') - oz('cari_satis_iade'));
             const odemeTahsilat = isTedarikci ? oz('cari_odeme') : oz('cari_tahsilat');
+            // Bakiye BORÇ yönünde mi? (tedarikçi: biz borçlu <0 · müşteri: bize borçlu >0)
+            // Alacak/fazla-ödeme yönündeyse "vadesi ... borç/alacak" satırları ANLAMSIZ →
+            // gizle (ör. tedarikçiye fazla ödeme: bakiye alacak, borç satırı çelişki yaratır).
+            const isDebtDir = isTedarikci ? displayBalance < -0.01 : displayBalance > 0.01;
             const kalanAbs = Math.abs(displayBalance);
             const gecikmis = cariVadeOzeti?.toplam ?? 0;
             const vadesiGelmemis = Math.max(0, roundCurrency(kalanAbs - gecikmis));
-            const rows: { label: string; value: string; danger?: boolean }[] = [
+            // Değerler tür rengine göre (işlem satırlarıyla aynı dil): alış=kırmızı,
+            // satış=yeşil, ödeme/tahsilat=mavi, vade geçen=kırmızı, gelmemiş=amber.
+            const rows: { label: string; value: string; color?: string }[] = [
               {
                 label: isTedarikci ? t('clients:detayOzet.toplamAlis') : t('clients:detayOzet.toplamSatis'),
                 value: formatCurrency(toplam, cari.currency),
+                color: getEntityPerspectiveColor(isTedarikci ? 'cari_alis' : 'cari_satis'),
               },
               {
                 label: isTedarikci ? t('clients:detayOzet.toplamOdeme') : t('clients:detayOzet.toplamTahsilat'),
                 value: formatCurrency(odemeTahsilat, cari.currency),
+                color: getEntityPerspectiveColor(isTedarikci ? 'cari_odeme' : 'cari_tahsilat'),
               },
             ];
-            // Vade satırları yalnız vadeli işlemi olan caride (kullanıcı isteği:
-            // hiç vade kullanılmadıysa kartta vade lafı geçmesin)
-            if (hasVadeliIslem) {
+            // Vade satırları yalnız vadeli işlemi olan VE bakiye borç yönündeyken
+            // (fazla-ödeme/alacak yönünde borç satırı gösterme — kullanıcı: kafa karıştırıcı).
+            if (hasVadeliIslem && isDebtDir) {
               rows.push({
                 label: isTedarikci ? t('clients:detayOzet.vadesiGecenBorc') : t('clients:detayOzet.vadesiGecenAlacak'),
                 value: formatCurrency(gecikmis, cari.currency),
-                danger: gecikmis > 0,
+                color: gecikmis > 0.009 ? colors.error : undefined,
               });
               rows.push({
                 label: isTedarikci ? t('clients:detayOzet.vadesiGelmemisBorc') : t('clients:detayOzet.vadesiGelmemisAlacak'),
                 value: formatCurrency(vadesiGelmemis, cari.currency),
+                color: vadesiGelmemis > 0.009 ? colors.orange : undefined,
               });
             }
             return (
@@ -1212,7 +1221,7 @@ export default function CariHareketleriPage() {
                     <View style={styles.darkRow}>
                       <Text style={styles.darkLabel} numberOfLines={1}>{r.label}</Text>
                       <Text
-                        style={[styles.darkValue, r.danger && styles.darkValueDanger]}
+                        style={[styles.darkValue, r.color ? { color: r.color } : null]}
                         numberOfLines={1}
                         adjustsFontSizeToFit
                         minimumFontScale={0.7}
@@ -1832,8 +1841,8 @@ const styles = StyleSheet.create({
   darkCard: {
     backgroundColor: DARK_CARD_BG,
     borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,

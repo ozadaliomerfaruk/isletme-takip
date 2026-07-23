@@ -816,14 +816,14 @@ export default function HesapHareketleriPage() {
           const rows: DetailSummaryRow[] = [];
           if (isKrediKarti && hesap.credit_limit && hesap.credit_limit > 0) {
             rows.push({ label: t('accounts:creditCard.creditLimit'), value: formatCurrency(hesap.credit_limit, hesap.currency) });
-            rows.push({ label: t('accounts:creditCard.usedCredit'), value: formatCurrency(Math.abs(bal), hesap.currency), danger: true });
-            rows.push({ label: t('accounts:creditCard.availableCredit'), value: formatCurrency(Math.max(0, hesap.credit_limit - Math.abs(bal)), hesap.currency) });
+            rows.push({ label: t('accounts:creditCard.usedCredit'), value: formatCurrency(Math.abs(bal), hesap.currency), color: colors.error });
+            rows.push({ label: t('accounts:creditCard.availableCredit'), value: formatCurrency(Math.max(0, hesap.credit_limit - Math.abs(bal)), hesap.currency), color: colors.success });
           }
           if (paymentDueDayInfo) {
             rows.push({
               label: t('accounts:creditCard.paymentDueDay'),
               value: `${t('accounts:creditCard.paymentDueDayLabel', { day: paymentDueDayInfo.day })}${paymentDueDayInfo.hint}`,
-              danger: paymentDueDayInfo.isToday || paymentDueDayInfo.isTomorrow,
+              color: (paymentDueDayInfo.isToday || paymentDueDayInfo.isTomorrow) ? colors.orange : undefined,
             });
           }
           const baseEq = (hesap.currency !== baseCurrency && exchangeRates)

@@ -8,6 +8,8 @@ export interface DetailSummaryRow {
   value: string;
   /** Kırmızımsı vurgulu değer (ör. vadesi geçen). */
   danger?: boolean;
+  /** Değeri tür rengine göre boya (danger'ı ezer; verilmezse koyu metin). */
+  color?: string;
 }
 
 interface DetailSummaryCardProps {
@@ -77,7 +79,7 @@ export function DetailSummaryCard({
             <View style={styles.row}>
               <Text style={styles.label} numberOfLines={1}>{r.label}</Text>
               <Text
-                style={[styles.value, r.danger && styles.valueDanger]}
+                style={[styles.value, r.color ? { color: r.color } : (r.danger && styles.valueDanger)]}
                 numberOfLines={1}
                 adjustsFontSizeToFit
                 minimumFontScale={0.7}
@@ -96,8 +98,8 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.lg,
