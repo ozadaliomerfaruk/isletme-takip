@@ -858,6 +858,8 @@ export default function CariHareketleriPage() {
   // "Vadesi Geçen İşlemler" akordiyonu (plansız borçlar; taksitli planların
   // gecikmesi Taksit Takip'te birim bazında izlenir). En eski vade üstte.
   const [gecikenlerOpen, setGecikenlerOpen] = useState(false);
+  // Cari üstü yatay pager: özet kartı (sf.1) + geciken faturalar carousel'i (sf.2)
+  const [vadePage, setVadePage] = useState(0);
   const gecikmisBorclar = useMemo(() => {
     if (isViewer || cariPaidCrude || !vadeDetay) return [];
     const out: { id: string; type: string; description: string | null; vade: string; gun: number; kalan: number }[] = [];
@@ -1076,11 +1078,22 @@ export default function CariHareketleriPage() {
     // Bağlantılı (paylaşılan) cari: ayrı kutu yerine özet kartının çerçevesi yeşil + üstte
     // kompakt "Bağlantılı · {paylaşan işletme}" şeridi gösterilir.
     const linkedOwnerName = (linkStatus?.is_linked && linkStatus.link?.owner_isletme?.name) || undefined;
+    const vadeCardW = Dimensions.get('window').width;
+    const hasGecikenCarousel = gecikmisBorclar.length > 0 || taksitliGecikmisFark > 0.009;
 
     return (
       <View>
-        {/* Cari Özeti — koyu kompakt dashboard (kullanıcının örnek ekranıyla aynı düzen):
-            ortada isim, altında telefon, sağa dayalı değerli satırlar */}
+        {/* Üst YATAY pager: özet kartı (sf.1) + geciken faturalar carousel'i (sf.2, yalnız
+            geciken varsa). Ana liste dikey, bu ScrollView yatay → dik/yatay çakışmaz. */}
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={hasGecikenCarousel}
+          onMomentumScrollEnd={(e) => setVadePage(Math.round(e.nativeEvent.contentOffset.x / vadeCardW))}
+        >
+        <View style={{ width: vadeCardW }}>
+        {/* Cari Özeti — koyu kompakt dashboard (kullanıcının örnek ekranıyla aynı düzen) */}
         <View style={[styles.darkCard, linkedOwnerName && styles.summaryCardLinked]}>
           {linkedOwnerName && (
             <View style={styles.darkLinkedStrip}>
@@ -1167,6 +1180,63 @@ export default function CariHareketleriPage() {
             );
           })()}
         </View>
+        </View>{/* sf.1 (özet) kapanış */}
+
+        {/* Sf.2 — Geciken Faturalar carousel'i (dikey kaydırılır; yalnız geciken varsa) */}
+        {hasGecikenCarousel && (
+          <View style={{ width: vadeCardW }}>
+            <View style={styles.gcCard}>
+              <View style={styles.gcHeader}>
+                <CalendarClock size={15} color={colors.error} />
+                <Text style={styles.gcTitle} numberOfLines={1}>
+                  {t('transactions:vade.gecikenlerBaslik')} ({gecikmisBorclar.length + (taksitliGecikmisFark > 0.009 ? 1 : 0)})
+                </Text>
+                <Text style={styles.gcTotal} numberOfLines={1}>
+                  {formatCurrency(roundCurrency(gecikmisBorclar.reduce((s, b) => roundCurrency(s + b.kalan), 0) + taksitliGecikmisFark), cari.currency)}
+                </Text>
+              </View>
+              <ScrollView nestedScrollEnabled style={styles.gcScroll} showsVerticalScrollIndicator={false}>
+                {gecikmisBorclar.map((b) => {
+                  const p = b.vade.split('-');
+                  return (
+                    <TouchableOpacity
+                      key={b.id}
+                      style={styles.gcItem}
+                      activeOpacity={0.7}
+                      onPress={() => { if (!isViewer && canEditTransactions) setTahsilPrefill({ type: cari.type === 'tedarikci' ? 'odeme' : 'tahsilat', amount: b.kalan }); }}
+                    >
+                      <View style={styles.gcBar} />
+                      <View style={styles.gcInfo}>
+                        <Text style={styles.gcGun} numberOfLines={1}>{t('transactions:vade.gunGecikti', { gun: Math.max(1, b.gun) })}</Text>
+                        <Text style={styles.gcMeta} numberOfLines={1}>{p[2]}.{p[1]}.{p[0]}{b.description ? `  ·  ${b.description}` : ''}</Text>
+                      </View>
+                      <Text style={styles.gcKalan} numberOfLines={1}>{formatCurrency(b.kalan, cari.currency)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {taksitliGecikmisFark > 0.009 && (
+                  <TouchableOpacity style={styles.gcItem} activeOpacity={0.7} onPress={() => router.push('/taksit')}>
+                    <View style={styles.gcBar} />
+                    <View style={styles.gcInfo}>
+                      <Text style={styles.gcGun} numberOfLines={1}>{t('transactions:taksit.label')}</Text>
+                      <Text style={styles.gcMeta} numberOfLines={2}>{t('transactions:taksit.gecikenPlanNot')}</Text>
+                    </View>
+                    <Text style={styles.gcKalan} numberOfLines={1}>{formatCurrency(taksitliGecikmisFark, cari.currency)}</Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        )}
+        </ScrollView>
+
+        {/* Pager noktaları */}
+        {hasGecikenCarousel && (
+          <View style={styles.vadeDots}>
+            <View style={[styles.vadeDot, vadePage === 0 ? styles.vadeDotActive : styles.vadeDotInactive]} />
+            <View style={[styles.vadeDot, vadePage === 1 ? styles.vadeDotActive : styles.vadeDotInactive]} />
+          </View>
+        )}
 
         {/* Ara / WhatsApp kısayolları — telefon varsa (esnaf günlük akışı) */}
         {(() => {
@@ -1367,7 +1437,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, gecikenlerOpen, canEditTransactions, isletme?.name, taksitliGecikmisFark, router]);
+  }, [cari, effectiveType, shouldInvertBalance, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, gecikenlerOpen, canEditTransactions, isletme?.name, taksitliGecikmisFark, vadePage, router]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -1702,6 +1772,92 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     margin: spacing.lg,
+  },
+  // Geciken faturalar carousel'i (üst pager sf.2)
+  gcCard: {
+    marginHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+    paddingBottom: 4,
+    overflow: 'hidden',
+  },
+  gcHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm + 2,
+    paddingBottom: spacing.xs,
+  },
+  gcTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.error,
+    letterSpacing: 0.3,
+  },
+  gcTotal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.error,
+  },
+  gcScroll: {
+    maxHeight: 132,
+  },
+  gcItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.borderLight,
+  },
+  gcBar: {
+    width: 3,
+    height: 30,
+    borderRadius: 2,
+    backgroundColor: colors.error,
+  },
+  gcInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  gcGun: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  gcMeta: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  gcKalan: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.error,
+  },
+  vadeDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: spacing.sm,
+  },
+  vadeDot: {
+    height: 5,
+    borderRadius: 3,
+  },
+  vadeDotActive: {
+    width: 14,
+    backgroundColor: colors.primary,
+  },
+  vadeDotInactive: {
+    width: 5,
+    backgroundColor: colors.border,
   },
   // Bağlantılı (paylaşılan) cari: kart çerçevesi yeşil
   summaryCardLinked: {
