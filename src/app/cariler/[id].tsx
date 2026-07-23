@@ -102,6 +102,9 @@ interface CariTransactionItemProps {
   tahsilLabel?: string;
   /** Ön-dolu tutar (yalnız memo karşılaştırması için — closure tazelensin diye). */
   tahsilAmount?: number;
+  /** Yürüyen bakiye satırı ("Bakiye X") + borç yönü (kırmızı). */
+  runningBalanceText?: string | null;
+  runningBalanceNegative?: boolean;
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -151,6 +154,23 @@ function getCariSubAmount(islem: IslemWithRelations): string | null {
   return null;
 }
 
+/**
+ * Bir işlemin cari bakiyesine NET etkisi (görüntü perspektifinde, işaretli).
+ * Pozitif = bakiyeyi alacak yönüne, negatif = borç yönüne iter.
+ * initialBalance ve yürüyen bakiye AYNI bu tablodan beslenir (tutarlılık).
+ */
+function cariBalanceEffect(type: IslemType, amount: number): number {
+  switch (type) {
+    case 'cari_alis': return -amount;
+    case 'cari_odeme': return amount;
+    case 'cari_satis': return amount;
+    case 'cari_tahsilat': return -amount;
+    case 'cari_alis_iade': return amount;
+    case 'cari_satis_iade': return -amount;
+    default: return 0;
+  }
+}
+
 const CariTransactionItem = memo(function CariTransactionItem({
   islem,
   displayType,
@@ -173,6 +193,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
   paidStamp,
   onTahsil,
   tahsilLabel,
+  runningBalanceText,
+  runningBalanceNegative,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -222,6 +244,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         vadeText={vadeText}
         vadeState={vadeState}
         paidStamp={paidStamp}
+        runningBalanceText={runningBalanceText}
+        runningBalanceNegative={runningBalanceNegative}
         hasPhoto={!!islem.photo_path}
         hasUrunler={(urunItems?.length ?? 0) > 0}
         urunCount={urunItems?.length ?? 0}
@@ -254,7 +278,9 @@ const CariTransactionItem = memo(function CariTransactionItem({
     && prev.tahsilLabel === next.tahsilLabel
     // Taksit ön-dolu tutarı vadeText'i değiştirmeden gelebilir (taksitBirimleri
     // sorgusu geç yüklenince) → closure'ın tazelenmesi için ayrıca karşılaştır.
-    && prev.tahsilAmount === next.tahsilAmount;
+    && prev.tahsilAmount === next.tahsilAmount
+    && prev.runningBalanceText === next.runningBalanceText
+    && prev.runningBalanceNegative === next.runningBalanceNegative;
 });
 
 // ============================================================================
@@ -549,27 +575,35 @@ export default function CariHareketleriPage() {
     islemler.forEach((islem) => {
       const amount = getCariDisplayAmount(islem);
       const needsInvert = shouldInvertTransaction(islem.isletme_id, isletme?.id, typeMismatch);
-      const type = needsInvert
+      const type = (needsInvert
         ? invertCariTransactionType(islem.type as IslemType)
-        : islem.type;
-      if (type === 'cari_alis') {
-        totalEffect -= amount;
-      } else if (type === 'cari_odeme') {
-        totalEffect += amount;
-      } else if (type === 'cari_satis') {
-        totalEffect += amount;
-      } else if (type === 'cari_tahsilat') {
-        totalEffect -= amount;
-      } else if (type === 'cari_alis_iade') {
-        totalEffect += amount;
-      } else if (type === 'cari_satis_iade') {
-        totalEffect -= amount;
-      }
+        : islem.type) as IslemType;
+      totalEffect += cariBalanceEffect(type, amount);
     });
 
     // Viewer perspektifinde bakiye ters cevrilerek gosterilir
     const effectiveBalance = shouldInvertBalance ? -toNumber(cari.balance) : toNumber(cari.balance);
     return effectiveBalance - totalEffect;
+  }, [cari, islemler, isletme?.id, typeMismatch, shouldInvertBalance]);
+
+  // Yürüyen bakiye: her işlem satırında O İŞLEMDEN SONRAKİ cari bakiyesi.
+  // islemler date DESC, created_at DESC (=görüntü sırası) → en yeni işlemden SONRAKİ
+  // bakiye = güncel bakiye; aşağı indikçe her işlemin etkisi geri çıkarılır.
+  // initialBalance ile AYNI effect tablosu → sayfa modeliyle tam tutarlı.
+  const runningBalanceMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (!cari || !islemler) return map;
+    let bal = shouldInvertBalance ? -toNumber(cari.balance) : toNumber(cari.balance);
+    for (const islem of islemler) {
+      map[islem.id] = bal; // bu işlemden SONRAKİ bakiye
+      const amount = getCariDisplayAmount(islem);
+      const needsInvert = shouldInvertTransaction(islem.isletme_id, isletme?.id, typeMismatch);
+      const type = (needsInvert
+        ? invertCariTransactionType(islem.type as IslemType)
+        : islem.type) as IslemType;
+      bal = roundCurrency(bal - cariBalanceEffect(type, amount));
+    }
+    return map;
   }, [cari, islemler, isletme?.id, typeMismatch, shouldInvertBalance]);
 
   // Açılış bakiyesi yalnız İŞLEM YOKKEN ve viewer-olmayan modda düzenlenir (ilk işlemle kilit).
@@ -1037,6 +1071,12 @@ export default function CariHareketleriPage() {
     }
     // NOT: ödeme/tahsilat satırlarında "Mahsup: X" ARTIK gösterilmez (kullanıcı: kafa
     // karıştırıcı + gereksiz — nereye gittiği ilgili faturaların "Kalan"ından okunur).
+    // Yürüyen bakiye: bu işlemden SONRAKİ cari bakiyesi (tutar altında sağa dayalı).
+    const rbVal = runningBalanceMap[islem.id];
+    const itemRunningBalanceText = rbVal !== undefined
+      ? `${t('transactions:bakiyeSatir')} ${formatCurrency(Math.abs(rbVal), cari?.currency || 'TRY')}`
+      : null;
+    const itemRunningBalanceNegative = rbVal !== undefined && rbVal < -0.01;
     return (
       <CariTransactionItem
         islem={islem}
@@ -1061,9 +1101,11 @@ export default function CariHareketleriPage() {
         onTahsil={itemOnTahsil}
         tahsilLabel={itemTahsilLabel}
         tahsilAmount={itemTahsilAmount}
+        runningBalanceText={itemRunningBalanceText}
+        runningBalanceNegative={itemRunningBalanceNegative}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, islemKalanMap, isViewer, taksitliSet, taksitBirimleri]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, cari?.currency, canEditTransactions, canDelete, user?.id, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, islemKalanMap, isViewer, taksitliSet, taksitBirimleri, runningBalanceMap]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

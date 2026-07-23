@@ -68,6 +68,8 @@ interface HesapTransactionItemProps {
   canEdit?: boolean;
   currentUserId?: string;
   urunItems?: UrunKalemOzet[];
+  runningBalanceText?: string | null;
+  runningBalanceNegative?: boolean;
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
@@ -228,6 +230,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   canEdit = true,
   currentUserId,
   urunItems,
+  runningBalanceText,
+  runningBalanceNegative,
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -270,6 +274,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         currency={hesapCurrency}
         urunItems={urunItems}
         subAmount={getCrossCurrencySubText(islem, hesapId)}
+        runningBalanceText={runningBalanceText}
+        runningBalanceNegative={runningBalanceNegative}
         overrideColor={getHesapPerspectiveColor(islem.type, hesapId, islem.hedef_hesap_id)}
         overridePrefix={getHesapPerspectivePrefix(islem.type, hesapId, islem.hedef_hesap_id)}
         onPress={onPress}
@@ -284,7 +290,9 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
     && prev.hesapCurrency === next.hesapCurrency
     && prev.canEdit === next.canEdit
     && prev.currentUserId === next.currentUserId
-    && prev.urunItems === next.urunItems;
+    && prev.urunItems === next.urunItems
+    && prev.runningBalanceText === next.runningBalanceText
+    && prev.runningBalanceNegative === next.runningBalanceNegative;
 });
 
 // ============================================================================
@@ -476,6 +484,30 @@ export default function HesapHareketleriPage() {
     });
 
     return Number(hesap.balance) - totalEffect;
+  }, [hesap, islemler, id, getAmountInAccountCurrency]);
+
+  // Yürüyen bakiye: her işlem satırında O İŞLEMDEN SONRAKİ hesap bakiyesi.
+  // islemler date DESC (=görüntü sırası) → en yeni işlemden sonraki bakiye = güncel;
+  // aşağı indikçe etki geri çıkarılır. calculatedInitialBalance ile AYNI effect tablosu.
+  const runningBalanceMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (!hesap || !islemler) return map;
+    let bal = Number(hesap.balance);
+    for (const islem of islemler) {
+      map[islem.id] = bal; // bu işlemden SONRAKİ bakiye
+      if (isLeaveType(islem.type as IslemType)) continue; // izin işlemi bakiyeyi değiştirmez
+      const amount = getAmountInAccountCurrency(islem as IslemWithRelations);
+      let effect = 0;
+      if (islem.type === 'transfer') {
+        effect = islem.hedef_hesap_id === id ? amount : -amount;
+      } else if (islem.type === 'gelir' || islem.type === 'cari_tahsilat') {
+        effect = amount;
+      } else {
+        effect = -amount;
+      }
+      bal = roundCurrency(bal - effect);
+    }
+    return map;
   }, [hesap, islemler, id, getAmountInAccountCurrency]);
 
   const initialBalance = hesap?.initial_balance !== undefined && hesap?.initial_balance !== null
@@ -733,6 +765,11 @@ export default function HesapHareketleriPage() {
     }
     const islem = item.data;
     const canEditItem = canDelete('islemler', islem.created_by ?? null);
+    const rbVal = runningBalanceMap[islem.id];
+    const itemRunningBalanceText = rbVal !== undefined
+      ? `${t('transactions:bakiyeSatir')} ${formatCurrency(Math.abs(rbVal), (hesap?.currency ?? 'TRY') as Currency)}`
+      : null;
+    const itemRunningBalanceNegative = rbVal !== undefined && rbVal < -0.01;
     return (
       <HesapTransactionItem
         islem={islem}
@@ -748,9 +785,11 @@ export default function HesapHareketleriPage() {
         canEdit={canEditItem}
         currentUserId={user?.id}
         urunItems={getUrunItems(islem.id)}
+        runningBalanceText={itemRunningBalanceText}
+        runningBalanceNegative={itemRunningBalanceNegative}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems]);
+  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems, runningBalanceMap]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

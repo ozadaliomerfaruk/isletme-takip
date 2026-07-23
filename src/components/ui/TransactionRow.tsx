@@ -69,6 +69,10 @@ export interface TransactionRowProps {
   vadeState?: VadeState;
   /** Kapanmış fatura damgası: 'odendi' (alış ödendi) / 'tahsil' (satış tahsil edildi). */
   paidStamp?: 'odendi' | 'tahsil';
+  /** Yürüyen bakiye: tutarın altında sağa dayalı "Bakiye X" (o işlemden SONRAKİ bakiye). */
+  runningBalanceText?: string | null;
+  /** Yürüyen bakiye borç yönünde mi (negatif) → kırmızı vurgusu. */
+  runningBalanceNegative?: boolean;
   onPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
   onPhotoPress?: (id: string) => void;
@@ -98,6 +102,8 @@ export const TransactionRow = memo(function TransactionRow({
   vadeText,
   vadeState,
   paidStamp,
+  runningBalanceText,
+  runningBalanceNegative,
   onPress,
   onLongPress,
   onPhotoPress,
@@ -274,6 +280,14 @@ export const TransactionRow = memo(function TransactionRow({
         {subAmount && (
           <Text style={styles.subAmountText}>{subAmount}</Text>
         )}
+        {runningBalanceText ? (
+          <Text
+            style={[styles.runningBalanceText, runningBalanceNegative ? styles.runningBalanceNeg : null]}
+            numberOfLines={1}
+          >
+            {runningBalanceText}
+          </Text>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -298,7 +312,9 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.creatorText === next.creatorText
     && prev.vadeText === next.vadeText
     && prev.vadeState === next.vadeState
-    && prev.paidStamp === next.paidStamp;
+    && prev.paidStamp === next.paidStamp
+    && prev.runningBalanceText === next.runningBalanceText
+    && prev.runningBalanceNegative === next.runningBalanceNegative;
 });
 
 // ============================================================================
@@ -512,6 +528,18 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.normal,
     color: colors.textMuted,
     marginTop: 1,
+  },
+  // Yürüyen bakiye — tutar altında, sağa dayalı, sakin gri (borç yönünde kırmızı)
+  runningBalanceText: {
+    fontSize: 11.5,
+    fontWeight: fontWeight.medium,
+    color: colors.textMuted,
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
+  },
+  runningBalanceNeg: {
+    color: colors.error,
   },
 
   // Gün ayracı — chip yok, sola dayalı, 14px kalın (eskiden 11px pill içindeydi)

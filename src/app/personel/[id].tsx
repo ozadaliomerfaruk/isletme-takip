@@ -99,11 +99,27 @@ interface PersonelTransactionItemProps {
   copyLabel: string;
   canEdit?: boolean;
   currentUserId?: string;
+  runningBalanceText?: string | null;
+  runningBalanceNegative?: boolean;
 }
 
 function getCreatorName(islem: IslemWithRelations): string | null {
   if (!islem.creator) return null;
   return islem.creator.display_name || islem.creator.email || null;
+}
+
+/**
+ * Bir işlemin personel bakiyesine NET etkisi (işaretli).
+ * initialBalance ve yürüyen bakiye AYNI tablodan beslenir (tutarlılık).
+ */
+function personelBalanceEffect(type: string, amount: number): number {
+  switch (type) {
+    case 'personel_gider': return -amount;
+    case 'personel_odeme': return amount;
+    case 'personel_tahsilat': return -amount;
+    case 'personel_satis': return amount;
+    default: return 0;
+  }
 }
 
 const PersonelTransactionItem = memo(function PersonelTransactionItem({
@@ -117,6 +133,8 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   copyLabel,
   canEdit = true,
   currentUserId,
+  runningBalanceText,
+  runningBalanceNegative,
 }: PersonelTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -148,6 +166,8 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         creatorText={creatorText}
         subAmount={xc.subText}
         currency={xc.subText ? xc.mainCurrency : currency}
+        runningBalanceText={runningBalanceText}
+        runningBalanceNegative={runningBalanceNegative}
         overrideColor={getEntityPerspectiveColor(islem.type)}
         overridePrefix={getEntityPerspectivePrefix(islem.type)}
         onPress={onPress}
@@ -158,7 +178,9 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
     && prev.canEdit === next.canEdit
-    && prev.currentUserId === next.currentUserId;
+    && prev.currentUserId === next.currentUserId
+    && prev.runningBalanceText === next.runningBalanceText
+    && prev.runningBalanceNegative === next.runningBalanceNegative;
 });
 
 // ============================================================================
@@ -256,19 +278,24 @@ export default function PersonelHareketleriPage() {
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
-      const amount = toNumber(islem.amount);
-      if (islem.type === 'personel_gider') {
-        totalEffect -= amount;
-      } else if (islem.type === 'personel_odeme') {
-        totalEffect += amount;
-      } else if (islem.type === 'personel_tahsilat') {
-        totalEffect -= amount;
-      } else if (islem.type === 'personel_satis') {
-        totalEffect += amount;
-      }
+      totalEffect += personelBalanceEffect(islem.type, toNumber(islem.amount));
     });
 
     return toNumber(personel.balance) - totalEffect;
+  }, [personel, islemler]);
+
+  // Yürüyen bakiye: her işlem satırında O İŞLEMDEN SONRAKİ personel bakiyesi.
+  // islemler date DESC (=görüntü sırası) → en yeni işlemden sonraki bakiye = güncel;
+  // aşağı indikçe etki geri çıkarılır. initialBalance ile AYNI effect tablosu.
+  const runningBalanceMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (!personel || !islemler) return map;
+    let bal = toNumber(personel.balance);
+    for (const islem of islemler) {
+      map[islem.id] = bal; // bu işlemden SONRAKİ bakiye
+      bal = roundCurrency(bal - personelBalanceEffect(islem.type, toNumber(islem.amount)));
+    }
+    return map;
   }, [personel, islemler]);
 
   // İzin kotası KANONİK kaynaktan (usePersonelLeaveQuotas) — sayfalı `islemler` listesine
@@ -555,6 +582,11 @@ export default function PersonelHareketleriPage() {
     }
     const islem = item.data;
     const canEditItem = canDelete('islemler', islem.created_by ?? null);
+    const rbVal = runningBalanceMap[islem.id];
+    const itemRunningBalanceText = rbVal !== undefined
+      ? `${t('transactions:bakiyeSatir')} ${formatCurrency(Math.abs(rbVal), personel?.currency)}`
+      : null;
+    const itemRunningBalanceNegative = rbVal !== undefined && rbVal < -0.01;
     return (
       <PersonelTransactionItem
         islem={islem}
@@ -567,9 +599,11 @@ export default function PersonelHareketleriPage() {
         copyLabel={copyLabel}
         canEdit={canEditItem}
         currentUserId={user?.id}
+        runningBalanceText={itemRunningBalanceText}
+        runningBalanceNegative={itemRunningBalanceNegative}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, canDelete, user?.id]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, canDelete, user?.id, runningBalanceMap]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 
