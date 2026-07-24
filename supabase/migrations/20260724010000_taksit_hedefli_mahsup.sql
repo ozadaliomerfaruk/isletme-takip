@@ -46,6 +46,14 @@ AS $function$
         END
       ) AS targeted
     FROM islemler p
+    -- SAME-CARI SAVUNMA (self-heal): hedef fatura AYNI cariye ait olmalı. Ödeme sonradan
+    -- edit'lenip cari'si değişirse pointer başka carinin faturasını gösterebilir → bu join
+    -- bayat/çapraz-cari pointer'ı sessizce düşürür (o ödeme FIFO'ya döner). create-time
+    -- doğrulama var ama read-side de drift'e dayanıklı olsun. Ayrıca hedef fatura silinmişse
+    -- (FK ON DELETE SET NULL zaten NULL yapar) yine düşer.
+    JOIN islemler inv ON inv.id = p.hedef_islem_id
+      AND inv.cari_id = p.cari_id
+      AND inv.type IN ('cari_alis', 'cari_satis')
     WHERE p.isletme_id = p_isletme_id
       AND p.hedef_islem_id IS NOT NULL
       AND p.type IN ('cari_odeme', 'cari_tahsilat')
