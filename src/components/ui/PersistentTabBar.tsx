@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { View, Platform, StyleSheet, Text, type LayoutChangeEvent } from 'react-native';
+import { View, Platform, StyleSheet, Text, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSegments, useRouter, Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,7 @@ import { Home, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } fro
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate, runOnJS } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, interpolate, runOnJS, type SharedValue } from 'react-native-reanimated';
 import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
@@ -94,6 +94,63 @@ const NARROW = 34; // daralınca pill'in her yandan içeri girmesi (YATAY küç�
 /** Bar'ın home-indicator ÜSTÜNDEKİ görsel yüksekliği (üst boşluk + pill). Overlay olduğundan
  *  ekranların alt-boşluğu bunu + gerçek safe-area'yı temizlemeli — _layout modifiedInsets bunu ekler. */
 export const TAB_BAR_CONTENT_HEIGHT = TOP_PAD + PILL_H;
+
+/**
+ * Tek sekme öğesi. İçeriği eskisiyle BİREBİR aynı (ikon + daralınca solan yazı);
+ * tek ekleme, basma geri bildirimi.
+ *
+ * Neden ayrı bileşen: her öğenin "ben mi basıldım" sorusunu soran kendi
+ * useAnimatedStyle'ı olması gerekiyor; hook'lar map içinde çağrılamaz.
+ *
+ * FAB ve arama çubuğundaki his: dokununca hafifçe küçülüp soluyor. Burada da
+ * aynı — ama opacity + transform, ikisi de GPU-birleşimli, layout hesabı yok.
+ */
+function TabBarItem({
+  index,
+  Icon,
+  label,
+  focused,
+  labelAnim,
+  pressedIdx,
+  pressAnim,
+}: {
+  index: number;
+  Icon: LucideIcon;
+  label: string;
+  focused: boolean;
+  labelAnim: StyleProp<ViewStyle>;
+  pressedIdx: SharedValue<number>;
+  pressAnim: SharedValue<number>;
+}) {
+  const pressStyle = useAnimatedStyle(() => {
+    const p = pressedIdx.value === index ? pressAnim.value : 0;
+    return {
+      opacity: 1 - 0.3 * p,
+      transform: [{ scale: 1 - 0.09 * p }],
+    };
+  });
+
+  const color = focused ? colors.primary : colors.textMuted;
+
+  return (
+    <Animated.View
+      style={[styles.tabButton, pressStyle]}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: focused }}
+      accessibilityLabel={label}
+    >
+      <Icon size={27} color={color} strokeWidth={focused ? 2.4 : 2} />
+      <Animated.View style={[styles.labelWrap, labelAnim]}>
+        <Text
+          style={[styles.label, { color, fontWeight: focused ? '700' : '500' }]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      </Animated.View>
+    </Animated.View>
+  );
+}
 
 export function PersistentTabBar() {
   const segments = useSegments();
@@ -207,6 +264,9 @@ export function PersistentTabBar() {
 
   /** Pan gerçekten AKTİFLEŞTİ mi — tıklamada Pan başlar ama aktifleşmez. */
   const dragging = useSharedValue(false);
+  /** Basma geri bildirimi: hangi sekme (-1 = yok) ve ne kadar (0..1). */
+  const pressedIdx = useSharedValue(-1);
+  const pressAnim = useSharedValue(0);
 
   /**
    * TIKLAMA ve SÜRÜKLEME ayrı jestler, yarış halinde.
@@ -232,21 +292,36 @@ export function PersistentTabBar() {
      *
      * Dönüş: hedef indeks (-1 = ölçüm yok).
      */
-    const moveHighlight = (x: number, animated: boolean) => {
+    /** x → sekme indeksi (-1 = ölçüm yok). Saf hesap, yan etkisiz. */
+    const indexAtX = (x: number) => {
       'worklet';
       if (fullRowContent <= 0 || n <= 0) return -1;
       const slot = (fullRowContent - tabBarCollapsed.value * 2 * NARROW) / n;
       if (slot <= 0) return -1;
-      const i = Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
+      return Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
+    };
+
+    const moveHighlight = (x: number, animated: boolean) => {
+      'worklet';
+      const i = indexAtX(x);
+      if (i < 0) return -1;
       if (i !== targetIdx.value) {
         targetIdx.value = i;
         // TIKLAMADA ANINDA (animated=false), YALNIZ SÜRÜKLEMEDE YAY.
         // Tıklamada yay, navigasyonun JS işiyle aynı ana denk geldiği için
         // kare düşürüyordu; anında atlayınca takılacak bir animasyon kalmıyor.
         idx.value = animated ? withSpring(i, SLIDE_SPRING) : i;
-        runOnJS(tick)();
+        // Sürüklemede sınır geçişlerinde tık; tıklamanın tığı onBegin'de
+        // (parmak değince, beklemeden — FAB'daki his gibi).
+        if (animated) runOnJS(tick)();
       }
       return i;
+    };
+
+    /** Basma geri bildirimini bırak (parmak kalkınca / sürükleme devralınca). */
+    const releasePress = () => {
+      'worklet';
+      pressAnim.value = withTiming(0, { duration: 160 });
     };
 
     const pan = Gesture.Pan()
@@ -254,6 +329,7 @@ export function PersistentTabBar() {
       .failOffsetY([-14, 14])
       .onStart((e) => {
         dragging.value = true;
+        releasePress(); // sürükleme başladı — basma efekti sekmeye yapışık kalmasın
         moveHighlight(e.x, true);
       })
       .onUpdate((e) => {
@@ -268,14 +344,25 @@ export function PersistentTabBar() {
     const tap = Gesture.Tap()
       .maxDistance(16)
       .maxDuration(400)
+      .onBegin((e) => {
+        // Parmak DEĞER DEĞMEZ tepki: sekme hafifçe küçülüp solar + haptik.
+        const i = indexAtX(e.x);
+        if (i < 0) return;
+        pressedIdx.value = i;
+        pressAnim.value = withTiming(1, { duration: 90 });
+        runOnJS(tick)();
+      })
       .onEnd((e, success) => {
         if (!success) return;
         const i = moveHighlight(e.x, false);
         if (i >= 0) runOnJS(commitIndex)(i);
+      })
+      .onFinalize(() => {
+        releasePress();
       });
 
     return Gesture.Race(pan, tap);
-  }, [fullRowContent, n, idx, targetIdx, dragging, tick, commitIndex]);
+  }, [fullRowContent, n, idx, targetIdx, dragging, pressedIdx, pressAnim, tick, commitIndex]);
 
   if (activeTab === null) return null;
 
@@ -313,30 +400,18 @@ export function PersistentTabBar() {
                 <Animated.View style={[styles.activePill, activePillAnim]} />
               ) : null}
 
-              {visibleTabs.map((tab) => {
-                const focused = activeTab === tab.key;
-                const color = focused ? colors.primary : colors.textMuted;
-                const Icon = tab.icon;
-                return (
-                  <View
-                    key={tab.key}
-                    style={styles.tabButton}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected: focused }}
-                    accessibilityLabel={t(tab.labelKey)}
-                  >
-                    <Icon size={27} color={color} strokeWidth={focused ? 2.4 : 2} />
-                    <Animated.View style={[styles.labelWrap, labelAnim]}>
-                      <Text
-                        style={[styles.label, { color, fontWeight: focused ? '700' : '500' }]}
-                        numberOfLines={1}
-                      >
-                        {t(tab.labelKey)}
-                      </Text>
-                    </Animated.View>
-                  </View>
-                );
-              })}
+              {visibleTabs.map((tab, i) => (
+                <TabBarItem
+                  key={tab.key}
+                  index={i}
+                  Icon={tab.icon}
+                  label={t(tab.labelKey)}
+                  focused={activeTab === tab.key}
+                  labelAnim={labelAnim}
+                  pressedIdx={pressedIdx}
+                  pressAnim={pressAnim}
+                />
+              ))}
             </View>
           </GestureDetector>
         </Animated.View>
