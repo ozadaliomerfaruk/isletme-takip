@@ -181,14 +181,27 @@ export function PersistentTabBar() {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, []);
 
+  /**
+   * Bağımlılıkları REF'te tutuluyor — commitIndex, dolayısıyla panGesture SABİT kalsın.
+   *
+   * Her navigasyonda `segments` değişiyor ve `visibleTabs` yeni bir dizi oluyordu;
+   * bunlar dependency olsaydı commitIndex → panGesture yeniden üretilir,
+   * GestureDetector native jestleri her sekme değişiminde yeniden bağlardı.
+   * Ard arda sekme değiştirmede hissedilen kare düşmesinin kaynaklarından biri buydu.
+   */
+  const visibleTabsRef = useRef(visibleTabs);
+  visibleTabsRef.current = visibleTabs;
+  const segmentsRef = useRef(segments);
+  segmentsRef.current = segments;
+
   /** Verilen indeksteki sekmeye git. Yalnız parmak kalkınca çağrılır. */
   const commitIndex = useCallback((i: number) => {
-    const tab = visibleTabs[i];
+    const tab = visibleTabsRef.current[i];
     if (!tab) return;
     if (tab.key !== activeTabRef.current) {
-      goToTab(router, segments as string[], tab.route);
+      goToTab(router, segmentsRef.current as string[], tab.route);
     }
-  }, [visibleTabs, router, segments]);
+  }, [router]);
 
   /** Pan gerçekten AKTİFLEŞTİ mi — tıklamada Pan başlar ama aktifleşmez. */
   const dragging = useSharedValue(false);

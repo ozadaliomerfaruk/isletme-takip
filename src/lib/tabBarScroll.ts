@@ -46,9 +46,17 @@ export function useTabBarScroll() {
   }, []);
 }
 
-/** Sekme değişince bar'ı aç + scroll referansını sıfırla (PersistentTabBar kullanır). */
+/**
+ * Sekme değişince bar'ı aç + scroll referansını sıfırla (PersistentTabBar kullanır).
+ *
+ * ZATEN AÇIKSA YAY BAŞLATMA: bu animasyon LAYOUT sürüyor (yükseklik +
+ * marginHorizontal), yani her karesi bir layout hesabı. Koşulsuz çağrıldığında
+ * 0→0 gibi anlamsız bir animasyon bile tam yeni ekranın mount olduğu anda
+ * çalışıp kare düşürüyordu — ard arda sekme değiştirmede hissedilen takılma.
+ */
 export function resetTabBarCollapse() {
   lastY = 0;
+  if (target === 0) return;
   target = 0;
   tabBarCollapsed.value = withSpring(0, COLLAPSE_SPRING);
 }
