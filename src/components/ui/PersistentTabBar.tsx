@@ -124,9 +124,13 @@ function TabBarItem({
 }) {
   const pressStyle = useAnimatedStyle(() => {
     const p = pressedIdx.value === index ? pressAnim.value : 0;
+    // BELLİ BELİRSİZ olmalı: asıl "premium his" camın kendi native tepkisinden
+    // geliyor (isInteractive — parmağın altında kabarma + parlama). Buradaki
+    // JS efekti onu bastırmamalı, yalnız cam yokken (iOS<26/Android) tek başına
+    // yeterli bir ipucu bırakmalı. Bu yüzden değerler kasten çok küçük.
     return {
-      opacity: 1 - 0.3 * p,
-      transform: [{ scale: 1 - 0.09 * p }],
+      opacity: 1 - 0.12 * p,
+      transform: [{ scale: 1 - 0.03 * p }],
     };
   });
 
@@ -380,6 +384,10 @@ export function PersistentTabBar() {
               // tintColor = paketin native API'si (UIGlassEffect.tintColor);
               // backgroundColor camın ÜSTÜNE düz katman koyup lensing'i perdeler.
               tintColor={GLASS_TINT}
+              // iOS 26'nın KENDİ dokunma tepkisi: cam parmağın altında hafifçe
+              // kabarıp parlar. Arama çubuğundaki "premium his" tam olarak bu —
+              // orada GlassSurface'e interactive verdiğimiz için vardı, burada yoktu.
+              isInteractive
               style={[StyleSheet.absoluteFill, styles.glass, radiusAnim]}
             />
           ) : (
