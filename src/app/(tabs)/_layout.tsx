@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { View, TouchableOpacity, Platform, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, Platform, StyleSheet, Easing } from 'react-native';
 import { Home, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
@@ -59,6 +59,31 @@ export default function TabsLayout() {
         tabBarButton: HapticTabButton,
         headerShown: false,
         freezeOnBlur: true, // PERF (P0-3): aktif olmayan sekme ekranlarını dondur
+        // Sekmeler arası geçiş: eskiden 'none' (pat diye değişim). Apple'ın
+        // sekme geçişi çapraz-solma + çok hafif ölçek — ekran "yerine oturur"
+        // gibi görünür. Yalnız opacity + transform sürüyoruz: ikisi de
+        // GPU-birleşimli, layout hesabı yok → büyük listelerde de ucuz.
+        animation: 'fade',
+        sceneStyleInterpolator: ({ current }) => ({
+          sceneStyle: {
+            opacity: current.progress.interpolate({
+              inputRange: [-1, 0, 1],
+              outputRange: [0, 1, 0],
+            }),
+            transform: [
+              {
+                scale: current.progress.interpolate({
+                  inputRange: [-1, 0, 1],
+                  outputRange: [0.97, 1, 0.97],
+                }),
+              },
+            ],
+          },
+        }),
+        transitionSpec: {
+          animation: 'timing',
+          config: { duration: 220, easing: Easing.out(Easing.cubic) },
+        },
         tabBarStyle: {
           display: 'none' as const,
         },

@@ -86,6 +86,20 @@ const PILL_H_COLLAPSED = 52;
  * sekme değişiminde eğri baştan başlamaz, "mekanik" durmaz.
  */
 const SLIDE_SPRING = { duration: 420, dampingRatio: 0.82 };
+
+/**
+ * Aktif sekme "baloncuğu". Eskiden dolu açık yeşildi (#E8F5F1) — saydam camın
+ * üstünde opak bir blob gibi duruyordu. Artık iOS 26 tab bar'larındaki gibi
+ * yarı saydam nötr kapsül: camın bir bölgesi "kabarmış" gibi okunur.
+ *
+ * Renk kimliği baloncukta DEĞİL içerikte: aktif sekmenin ikonu ve yazısı zaten
+ * colors.primary ve daha kalın (Apple da rengi içerikte taşıyor).
+ *
+ * RIM önemli: dolgu bu kadar hafifken baloncuğu okunur kılan şey ince kenar
+ * çizgisi. Kaldırırsan aktif sekme belirsizleşir — bu işlevsel bir gösterge.
+ */
+const BUBBLE_FILL = 'rgba(255,255,255,0.34)';
+const BUBBLE_RIM = 'rgba(255,255,255,0.55)';
 const LABEL_H = 14;
 const TOP_PAD = 6;
 const OUTER_PAD_H = 12;
@@ -311,7 +325,9 @@ const styles = StyleSheet.create({
     top: PILL_INSET + PILL_GAP_V,
     bottom: PILL_INSET + PILL_GAP_V,
     borderCurve: 'continuous',
-    backgroundColor: colors.primaryLight,
+    backgroundColor: BUBBLE_FILL,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: BUBBLE_RIM,
     // borderRadius activePillAnim'de (dış köşeyle birlikte animasyonlu).
   },
   tabButton: {
