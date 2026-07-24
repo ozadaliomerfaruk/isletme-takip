@@ -213,19 +213,54 @@ export function PersistentTabBar() {
     }
   }, [indexAt, visibleTabs, router, segments]);
 
-  /** Son dokunma x'i — onFinalize'ın event'i olmadığı için UI thread'de saklanır. */
+  /** Son dokunma x'i — Pan'ın onFinalize'ında event olmadığı için UI thread'de saklanır. */
   const lastX = useSharedValue(-1);
+  /** Pan gerçekten AKTİFLEŞTİ mi — tıklamada Pan başlar ama aktifleşmez. */
+  const dragging = useSharedValue(false);
 
-  // Bar üstünde TIKLA veya PARMAĞI SÜRÜKLE. Pan bar'a özel, liste scroll'uyla
-  // çakışmaz (bar ayrı overlay). onBegin tıklamayı, onUpdate sürüklemeyi karşılar;
-  // ikisi de yalnız VURGUYU taşır, sayfa onFinalize'da (parmak kalkınca) açılır.
-  const panGesture = useMemo(
-    () => Gesture.Pan()
-      .onBegin((e) => { lastX.value = e.x; runOnJS(hoverAt)(e.x); })
-      .onUpdate((e) => { lastX.value = e.x; runOnJS(hoverAt)(e.x); })
-      .onFinalize(() => { runOnJS(commitAt)(lastX.value); }),
-    [hoverAt, commitAt, lastX]
-  );
+  /**
+   * TIKLAMA ve SÜRÜKLEME ayrı jestler, yarış halinde.
+   *
+   * Tek Pan ile denendi ve tıklama çalışmadı: dokunuş Pan'ı BAŞLATIYOR ama
+   * AKTİFLEŞTİRMİYOR (hareket yok), o yüzden bitiş yolu sürüklemedekinden
+   * farklı işliyordu. Ayrı Tap jesti bu belirsizliği tamamen kaldırır.
+   *
+   * - Tap  → anında o sekmeye geç (maxDistance 16: gerçek parmak birkaç px kayar,
+   *          varsayılan ~2px tolerans sıradan dokunuşları başarısız sayıyor)
+   * - Pan  → sürüklerken YALNIZ vurgu kayar; sayfa parmak kalkınca açılır.
+   *          activeOffsetX: 6px yatay hareket olmadan sürükleme sayılmaz.
+   *          failOffsetY: dikey hareket Pan'ı düşürür (liste scroll'uyla çakışmasın).
+   */
+  const panGesture = useMemo(() => {
+    const pan = Gesture.Pan()
+      .activeOffsetX([-6, 6])
+      .failOffsetY([-14, 14])
+      .onStart((e) => {
+        dragging.value = true;
+        lastX.value = e.x;
+        runOnJS(hoverAt)(e.x);
+      })
+      .onUpdate((e) => {
+        lastX.value = e.x;
+        runOnJS(hoverAt)(e.x);
+      })
+      .onFinalize(() => {
+        if (!dragging.value) return;
+        dragging.value = false;
+        runOnJS(commitAt)(lastX.value);
+      });
+
+    const tap = Gesture.Tap()
+      .maxDistance(16)
+      .maxDuration(400)
+      .onEnd((e, success) => {
+        if (!success) return;
+        runOnJS(hoverAt)(e.x);
+        runOnJS(commitAt)(e.x);
+      });
+
+    return Gesture.Race(pan, tap);
+  }, [hoverAt, commitAt, lastX, dragging]);
 
   if (activeTab === null) return null;
 
