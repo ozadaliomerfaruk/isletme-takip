@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo, type ComponentType } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { View, Platform, StyleSheet, Text, type LayoutChangeEvent } from 'react-native';
 import { useSegments, useRouter, Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,15 +12,8 @@ import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
 import { tabBarCollapsed, resetTabBarCollapse } from '@/lib/tabBarScroll';
+import { AnimatedGlassView } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
-
-// iOS 26 liquid glass (UIGlassEffect). Native modül — eski dev client / eski iOS'ta
-// yok; guard'lı require ile mevcut BlurView görünümüne düşer (crash yok).
-let glassMod: { GlassView: ComponentType<Record<string, unknown>>; isLiquidGlassAvailable: () => boolean } | null = null;
-try { glassMod = require('expo-glass-effect'); } catch { glassMod = null; }
-let LIQUID_GLASS = false;
-try { LIQUID_GLASS = Platform.OS === 'ios' && !!glassMod?.isLiquidGlassAvailable?.(); } catch { LIQUID_GLASS = false; }
-const AnimatedGlassView = LIQUID_GLASS && glassMod ? Animated.createAnimatedComponent(glassMod.GlassView) : null;
 
 type TabConfig = {
   key: string;
