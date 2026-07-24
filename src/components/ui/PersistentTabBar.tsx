@@ -128,7 +128,9 @@ export function PersistentTabBar() {
     // gözle görülür bir sıçrama oluyordu (sekme değişimi yavaşladıkça belirginleşir).
     if (targetIdx.value === activeIndex) return;
     targetIdx.value = activeIndex;
-    idx.value = withSpring(activeIndex, SLIDE_SPRING);
+    // Bar DIŞINDAN gelen geçiş (detaydan dönüş, deep-link, geri jesti): tıklama
+    // gibi anında. Yay yalnız sürüklemeye ait — orada parmağı takip ediyor.
+    idx.value = activeIndex;
   }, [activeIndex, idx, targetIdx]);
 
   useEffect(() => {
@@ -230,7 +232,7 @@ export function PersistentTabBar() {
      *
      * Dönüş: hedef indeks (-1 = ölçüm yok).
      */
-    const moveHighlight = (x: number) => {
+    const moveHighlight = (x: number, animated: boolean) => {
       'worklet';
       if (fullRowContent <= 0 || n <= 0) return -1;
       const slot = (fullRowContent - tabBarCollapsed.value * 2 * NARROW) / n;
@@ -238,7 +240,10 @@ export function PersistentTabBar() {
       const i = Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
       if (i !== targetIdx.value) {
         targetIdx.value = i;
-        idx.value = withSpring(i, SLIDE_SPRING);
+        // TIKLAMADA ANINDA (animated=false), YALNIZ SÜRÜKLEMEDE YAY.
+        // Tıklamada yay, navigasyonun JS işiyle aynı ana denk geldiği için
+        // kare düşürüyordu; anında atlayınca takılacak bir animasyon kalmıyor.
+        idx.value = animated ? withSpring(i, SLIDE_SPRING) : i;
         runOnJS(tick)();
       }
       return i;
@@ -249,10 +254,10 @@ export function PersistentTabBar() {
       .failOffsetY([-14, 14])
       .onStart((e) => {
         dragging.value = true;
-        moveHighlight(e.x);
+        moveHighlight(e.x, true);
       })
       .onUpdate((e) => {
-        moveHighlight(e.x);
+        moveHighlight(e.x, true);
       })
       .onFinalize(() => {
         if (!dragging.value) return;
@@ -265,7 +270,7 @@ export function PersistentTabBar() {
       .maxDuration(400)
       .onEnd((e, success) => {
         if (!success) return;
-        const i = moveHighlight(e.x);
+        const i = moveHighlight(e.x, false);
         if (i >= 0) runOnJS(commitIndex)(i);
       });
 
