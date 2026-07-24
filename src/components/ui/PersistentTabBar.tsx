@@ -171,52 +171,60 @@ export function PersistentTabBar() {
   /** Parmağın ŞU AN üstünde olduğu sekme — navigasyon değil, yalnız işaret. */
   const hoveredRef = useRef(-1);
 
+  /** x → sekme indeksi. Daralmışken slot da dar → güncel tabBarCollapsed ile hesap. */
+  const indexAt = useCallback((x: number) => {
+    if (fullRowContent <= 0 || n <= 0) return -1;
+    const slot = (fullRowContent - tabBarCollapsed.value * 2 * NARROW) / n;
+    if (slot <= 0) return -1;
+    return Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
+  }, [fullRowContent, n]);
+
   /**
    * Parmağın altındaki sekmeyi işaretle: vurgu oraya kayar, haptik tık atar.
    * NAVİGASYON YOK — sürüklerken sayfa değişmez.
    */
   const hoverAt = useCallback((x: number) => {
-    if (fullRowContent <= 0 || n <= 0) return;
-    // Daralmışken slot da dar → tabBarCollapsed.value ile güncel slot (JS'ten okunabilir).
-    const c = tabBarCollapsed.value;
-    const slot = (fullRowContent - c * 2 * NARROW) / n;
-    if (slot <= 0) return;
-    const i = Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
-    if (i === hoveredRef.current) return;
+    const i = indexAt(x);
+    if (i < 0 || i === hoveredRef.current || !visibleTabs[i]) return;
     hoveredRef.current = i;
-    if (!visibleTabs[i]) return;
     idx.value = withSpring(i, SLIDE_SPRING);
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [fullRowContent, n, visibleTabs, idx]);
+  }, [indexAt, visibleTabs, idx]);
 
   /**
    * PARMAK KALKINCA sayfayı aç — sürüklerken değil.
    *
    * Eskiden parmak her sekmeye girdiğinde anında navigasyon vardı: bar boyunca
    * sürüklemek 5 ayrı ekran değişimi tetikliyor, her biri JS thread'inde
-   * mount/render yapıyordu → sürükleme takılıyordu. Şimdi sürüklerken yalnız
-   * vurgu hareket ediyor, ekran bir kez ve en sonda değişiyor.
+   * mount/render yapıyordu → sürükleme takılıyordu.
+   *
+   * İndeksi hoveredRef'ten DEĞİL doğrudan son dokunma konumundan hesaplıyor:
+   * hoveredRef'i dolduran hoverAt runOnJS ile asenkron çalışıyor ve hızlı bir
+   * TIKLAMADA onFinalize ondan önce yetişebiliyordu → tıklama sekme değiştirmiyordu.
    */
-  const commitHover = useCallback(() => {
-    const i = hoveredRef.current;
+  const commitAt = useCallback((x: number) => {
     hoveredRef.current = -1;
+    const i = indexAt(x);
     if (i < 0) return;
     const tab = visibleTabs[i];
     if (!tab) return;
     if (tab.key !== activeTabRef.current) {
       goToTab(router, segments as string[], tab.route);
     }
-  }, [visibleTabs, router, segments]);
+  }, [indexAt, visibleTabs, router, segments]);
+
+  /** Son dokunma x'i — onFinalize'ın event'i olmadığı için UI thread'de saklanır. */
+  const lastX = useSharedValue(-1);
 
   // Bar üstünde TIKLA veya PARMAĞI SÜRÜKLE. Pan bar'a özel, liste scroll'uyla
   // çakışmaz (bar ayrı overlay). onBegin tıklamayı, onUpdate sürüklemeyi karşılar;
   // ikisi de yalnız VURGUYU taşır, sayfa onFinalize'da (parmak kalkınca) açılır.
   const panGesture = useMemo(
     () => Gesture.Pan()
-      .onBegin((e) => { runOnJS(hoverAt)(e.x); })
-      .onUpdate((e) => { runOnJS(hoverAt)(e.x); })
-      .onFinalize(() => { runOnJS(commitHover)(); }),
-    [hoverAt, commitHover]
+      .onBegin((e) => { lastX.value = e.x; runOnJS(hoverAt)(e.x); })
+      .onUpdate((e) => { lastX.value = e.x; runOnJS(hoverAt)(e.x); })
+      .onFinalize(() => { runOnJS(commitAt)(lastX.value); }),
+    [hoverAt, commitAt, lastX]
   );
 
   if (activeTab === null) return null;
