@@ -7,7 +7,7 @@ import { Home, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } fro
 import * as Haptics from 'expo-haptics';
 import { BlurView } from 'expo-blur';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, runOnJS, Easing } from 'react-native-reanimated';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, interpolate, runOnJS } from 'react-native-reanimated';
 import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
@@ -73,11 +73,29 @@ function getActiveTab(segments: string[]): string | null {
   return 'home';
 }
 
-// Floating cam pill ölçüleri
-const ROW_PAD = 6;
-const PILL_INSET = 4;
+// Floating cam pill ölçüleri.
+// EŞMERKEZLİ KÖŞE: iOS 26 iç içe köşeleri eşmerkezli hizalar (iç yarıçap =
+// dış yarıçap − aradaki boşluk). Bu yalnız boşluk HER İKİ eksende eşitse
+// mümkün → yatay (ROW_PAD + PILL_INSET) ile dikey (PILL_INSET + PILL_GAP_V)
+// ikisi de INNER_GAP olmalı. Bozulursa köşeler hizasız kalır; tek tek fark
+// edilmeyen ama toplamda "Apple değil" hissi üreten detay budur.
+const INNER_GAP = 7;
+const ROW_PAD = 4;
+const PILL_INSET = 3; // ROW_PAD + PILL_INSET = INNER_GAP (yatay)
+const PILL_GAP_V = INNER_GAP - PILL_INSET; // dikey de INNER_GAP'e tamamlanır
 const PILL_H = 66;
 const PILL_H_COLLAPSED = 52;
+
+/**
+ * Kayan vurgunun yayı: yalnız transform sürüyor (GPU), o yüzden hafif
+ * eksik-sönümlü — sekmeye varınca minik bir oturma hissi verir. Yay, timing
+ * eğrisinin aksine hedef değişince hızı koruyarak yeniden yönlenir; hızlı
+ * sekme değişiminde eğri baştan başlamaz, "mekanik" durmaz.
+ */
+const SLIDE_SPRING = { duration: 420, dampingRatio: 0.82 };
+
+/** Camın üstündeki tint — çok hafif; ağırlaşırsa cam "buzlu"ya döner. */
+const GLASS_TINT = 'rgba(255,255,255,0.10)';
 const LABEL_H = 14;
 const TOP_PAD = 6;
 const OUTER_PAD_H = 12;
@@ -111,7 +129,7 @@ export function PersistentTabBar() {
       idx.value = activeIndex;
       idxMeasured.current = true;
     } else {
-      idx.value = withTiming(activeIndex, { duration: 240, easing: Easing.out(Easing.cubic) });
+      idx.value = withSpring(activeIndex, SLIDE_SPRING);
     }
   }, [activeIndex, idx]);
 
@@ -135,14 +153,20 @@ export function PersistentTabBar() {
     marginTop: interpolate(tabBarCollapsed.value, [0, 1], [2, 0]),
   }));
   const activePillAnim = useAnimatedStyle(() => {
-    if (fullRowContent <= 0 || n <= 0) {
-      return { width: 0, opacity: 0, transform: [{ translateX: 0 }] };
-    }
     const c = tabBarCollapsed.value;
+    // İç yarıçap = dış yarıçap − INNER_GAP. Dış yarıçap barH/2 olduğundan bu,
+    // iç pill'in de tam kapsül olması demek (yüksekliği barH − 2·INNER_GAP).
+    // Dış köşe animasyonlu → iç köşe de animasyonlu olmalı; sabit bırakılırsa
+    // yalnız tek durumda hizalı olur (eskiden sabit 20: açıkken 6px hatalı).
+    const innerRadius = (interpolate(c, [0, 1], [PILL_H, PILL_H_COLLAPSED]) - INNER_GAP * 2) / 2;
+    if (fullRowContent <= 0 || n <= 0) {
+      return { width: 0, opacity: 0, borderRadius: innerRadius, transform: [{ translateX: 0 }] };
+    }
     const slot = (fullRowContent - c * 2 * NARROW) / n;
     return {
       width: slot - PILL_INSET * 2,
       opacity: 1,
+      borderRadius: innerRadius,
       transform: [{ translateX: idx.value * slot }],
     };
   });
@@ -199,6 +223,9 @@ export function PersistentTabBar() {
             // (overlay lensing'i perdeleyip buzlu gosteriyor).
             <AnimatedGlassView
               glassEffectStyle="regular"
+              // tintColor = paketin native API'si (UIGlassEffect.tintColor);
+              // backgroundColor camın ÜSTÜNE düz katman koyup lensing'i perdeler.
+              tintColor={GLASS_TINT}
               style={[StyleSheet.absoluteFill, styles.glass, radiusAnim]}
             />
           ) : (
@@ -260,10 +287,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   // Liquid glass: köşe geometrisi cam view'ün KENDİ stilinde (native squircle +
-  // rim lighting) — dış clip maskesi ve gölge yok, tint çok hafif.
+  // rim lighting) — dış clip maskesi, gölge ve border YOK. Tint `tintColor`
+  // prop'uyla (styles'ta backgroundColor ile DEĞİL) — bkz. GLASS_TINT.
   glass: {
     borderCurve: 'continuous',
-    backgroundColor: 'rgba(255,255,255,0.10)',
   },
   // iOS<26 + Android fallback: bugüne kadarki görünüm.
   fallbackClip: {
@@ -288,11 +315,13 @@ const styles = StyleSheet.create({
   },
   activePill: {
     position: 'absolute',
+    // Yatay ve dikey boşluk EŞİT (INNER_GAP) — eşmerkezli köşenin ön koşulu.
     left: ROW_PAD + PILL_INSET,
-    top: PILL_INSET + 3,
-    bottom: PILL_INSET + 3,
-    borderRadius: 20,
+    top: PILL_INSET + PILL_GAP_V,
+    bottom: PILL_INSET + PILL_GAP_V,
+    borderCurve: 'continuous',
     backgroundColor: colors.primaryLight,
+    // borderRadius activePillAnim'de (dış köşeyle birlikte animasyonlu).
   },
   tabButton: {
     flex: 1,
