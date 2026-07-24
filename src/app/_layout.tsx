@@ -17,7 +17,7 @@ import { ChangePasswordModal } from '@/components/auth';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { WifiOff } from 'lucide-react-native';
-import { PersistentTabBar } from '@/components/ui/PersistentTabBar';
+import { PersistentTabBar, TAB_BAR_CONTENT_HEIGHT } from '@/components/ui/PersistentTabBar';
 import { goToTab } from '@/lib/tabNav';
 import { colors } from '@/constants/colors';
 import {
@@ -104,7 +104,14 @@ function RootLayoutNav() {
   const needsSetup = useSyncExternalStore(subscribeNeedsSetup, getNeedsSetupSync);
   const pushTokenRegistered = useRef(false);
   const insets = useSafeAreaInsets();
-  const modifiedInsets = useMemo(() => ({ ...insets, bottom: 0 }), [insets]);
+  // OVERLAY tab bar: bar artık akıştan çıkıp içeriğin ÜSTÜNDE float ediyor (gerçek cam efekti).
+  // Eskiden bottom:0'dı (akıştaki bar boşluğu yönetiyordu); şimdi ekranların alt-boşluğu bar'ı
+  // temizlemeli → bottom = gerçek safe-area + bar görsel yüksekliği. insets.bottom kullanan tüm
+  // ekranlar (FAB'lar + inset-bağlı listeler) böylece otomatik bar'ın üstünde kalır.
+  const modifiedInsets = useMemo(
+    () => ({ ...insets, bottom: insets.bottom + TAB_BAR_CONTENT_HEIGHT }),
+    [insets]
+  );
   const isOffline = useNetworkStatus();
 
   // Session tracking: Türkiye saatine göre günde 1 kez kayıt

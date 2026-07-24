@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   Platform,
@@ -18,6 +18,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
 
@@ -54,35 +55,13 @@ export function FloatingSearchBar({
   bottomOffset = spacing.lg,
   autoFocusDelay,
 }: FloatingSearchBarProps) {
+  // Overlay tab bar'ın üstünde kal: insets.bottom (modifiedInsets ile) gerçek safe-area + tab bar
+  // yüksekliğini taşır → çubuk bar'ın arkasında kalmaz, üstünde yüzer.
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation('common');
   const inputRef = useRef<TextInput>(null);
-  const pillRef = useRef<View>(null);
   const [isFocused, setIsFocused] = useState(false);
   const translateY = useSharedValue(0);
-  // Pill'in DİNLENME (translateY=0) konumundaki alt-kenar Y'si (window coords).
-  // Yalnız kalkık DEĞİLken ölçülür → post-transform kirlenmesi olmaz; kaldırma
-  // bundan deterministik hesaplanır → birikimli ofset drift'i yok.
-  const restingBottomRef = useRef<number | null>(null);
-  // Kalkık mı? JS-thread boolean'ı — UI-thread'deki translateY.value okumaya
-  // GÜVENMEYİZ (Reanimated bunu kare-hassas JS'e yansıtmaz → yanlış "dinlenme").
-  const liftedRef = useRef(false);
-  // Bayat async ölçüm koruması: yeni klavye olayı/kapanış gelince bekleyen
-  // measureInWindow callback'i uygulanmasın (aksi halde çubuk havada asılı kalır).
-  const frameToken = useRef(0);
-
-  // Dinlenme konumunu ölç — yalnız kalkık değilken. Pill onLayout'unda (mount +
-  // rotation/layout) ve ilk olayda çağrılır; token+liftedRef ile yarış-korumalı.
-  const measureResting = useCallback(() => {
-    if (liftedRef.current) return;
-    const token = frameToken.current;
-    requestAnimationFrame(() => {
-      if (liftedRef.current || token !== frameToken.current) return;
-      pillRef.current?.measureInWindow((_x, y, _w, h) => {
-        if (liftedRef.current || token !== frameToken.current) return;
-        if (typeof y === 'number' && typeof h === 'number') restingBottomRef.current = y + h;
-      });
-    });
-  }, []);
 
   useEffect(() => {
     if (autoFocusDelay === undefined) return;
@@ -90,41 +69,30 @@ export function FloatingSearchBar({
     return () => clearTimeout(timer);
   }, [autoFocusDelay]);
 
+  // Klavye açılınca çubuğu DOĞRUDAN klavyenin üstüne kaldır — ÖLÇÜMSÜZ, drift-free:
+  // dinlenme konumu (bottomOffset + insets.bottom) BİLİNİYOR → kaldırma = klavye
+  // yüksekliğinden saf hesap. Her açılış AYNI değeri kurar, her kapanış 0 → kümülatif
+  // kayma İMKANSIZ (eski measureInWindow yaklaşımı ölçüm-zamanlamasından drift ediyordu).
   useEffect(() => {
-    // Deterministik + yarış-korumalı: applyFrame ÖLÇMEZ; kararlı restingBottom
-    // önbelleğinden translateY = TAM gereken kaldırmayı kurar. Ölçüm yalnız
-    // measureResting'de (kalkık değilken) yapılır. Her olay frameToken'ı artırır →
-    // bekleyen bayat ölçüm uygulanmaz; kapanışta liftedRef=false + translateY→0.
-    const applyFrame = (kbTop: number, duration: number) => {
-      frameToken.current++;
-      const restingBottom = restingBottomRef.current;
-      if (restingBottom == null) { measureResting(); return; } // henüz ölçülmedi
-      const overlap = restingBottom + spacing.md - kbTop;
-      const next = overlap > 0 ? -overlap : 0;
-      liftedRef.current = next < 0;
-      translateY.value = withTiming(next, { duration });
-    };
-
-    if (Platform.OS === 'ios') {
-      const sub = Keyboard.addListener('keyboardWillChangeFrame', (e: KeyboardEvent) => {
-        applyFrame(e.endCoordinates.screenY, e.duration > 0 ? e.duration : 250);
-      });
-      return () => sub.remove();
-    }
-
-    const show = Keyboard.addListener('keyboardDidShow', (e: KeyboardEvent) => {
-      applyFrame(e.endCoordinates.screenY, 150);
+    const restBottom = bottomOffset + insets.bottom;
+    const GAP = spacing.md;
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, (e: KeyboardEvent) => {
+      const h = e.endCoordinates?.height ?? 0;
+      const dur = Platform.OS === 'ios' && e.duration > 0 ? e.duration : 220;
+      // Yalnız klavye dinlenme konumundan YÜKSEKse yukarı kaldır (aksi halde 0 = yerinde kal).
+      translateY.value = withTiming(Math.min(0, restBottom - h - GAP), { duration: dur });
     });
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
-      frameToken.current++;       // bekleyen show ölçümünü geçersiz kıl
-      liftedRef.current = false;
-      translateY.value = withTiming(0, { duration: 150 });
+    const hideSub = Keyboard.addListener(hideEvt, (e: KeyboardEvent) => {
+      const dur = Platform.OS === 'ios' && e.duration > 0 ? e.duration : 220;
+      translateY.value = withTiming(0, { duration: dur });
     });
     return () => {
-      show.remove();
-      hide.remove();
+      showSub.remove();
+      hideSub.remove();
     };
-  }, [translateY, measureResting]);
+  }, [translateY, bottomOffset, insets.bottom]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -144,16 +112,14 @@ export function FloatingSearchBar({
     <Animated.View
       style={[
         styles.wrapper,
-        { right: spacing.lg + (isActive ? 0 : rightOffset), bottom: bottomOffset },
+        { right: spacing.lg + (isActive ? 0 : rightOffset), bottom: bottomOffset + insets.bottom },
         animStyle,
       ]}
       pointerEvents="box-none"
     >
       <View style={styles.row}>
         <Pressable
-          ref={pillRef}
           style={[styles.pill, isFocused && styles.pillFocused]}
-          onLayout={measureResting}
           // Pill'in NERESİNE basılırsa basılsın arama açılır (yalnız yazı satırı değil)
           onPress={() => inputRef.current?.focus()}
         >

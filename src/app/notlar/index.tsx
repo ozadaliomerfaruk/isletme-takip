@@ -382,7 +382,7 @@ export default function NotlarPage() {
           data={filteredNotes}
           keyExtractor={(item) => item.id}
           renderItem={renderNote}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
           // Yüzen arama çubuğu klavye açıkken kaydırmada ekran dışına fırlamasın
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"

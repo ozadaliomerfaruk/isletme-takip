@@ -953,7 +953,7 @@ export default function HesapHareketleriPage() {
             ListFooterComponent={ListFooter}
             ListEmptyComponent={ListEmpty}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.flatListContent}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }]}
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
           />

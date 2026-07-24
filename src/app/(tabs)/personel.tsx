@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Animated, Alert, RefreshControl, Pressable } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter } from 'expo-router';
 import {
   UserCircle,
@@ -56,6 +57,7 @@ const PersonelListSeparator = () => <View style={styles.separator} />;
 export default function PersonelPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const handleTabScroll = useTabBarScroll();
   const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
   // A2: input anlık searchQuery'ye bağlı; filtre/sıralama debouncedSearch + useMemo ile.
@@ -725,6 +727,8 @@ export default function PersonelPage() {
       />
       <FlatList
         style={styles.scrollView}
+        onScroll={handleTabScroll}
+        scrollEventThrottle={16}
         data={isLoading ? [] : filteredPersonel}
         keyExtractor={(item) => item.id}
         renderItem={renderPersonelItem}
@@ -744,7 +748,7 @@ export default function PersonelPage() {
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
         extraData={{ selectedIds, isSelectMode, sortBy, expandedPersonelId }}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
       />
 
       {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı); sağdaki FAB için boşluk bırakır */}

@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, type Href } from 'expo-router';
 import {
   Users,
@@ -70,6 +71,7 @@ const ListSeparator = () => <View style={styles.separator} />;
 export default function CarilerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const handleTabScroll = useTabBarScroll();
   const { t } = useTranslation(['clients', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -930,6 +932,8 @@ export default function CarilerPage() {
       />
       <FlatList
         style={styles.scrollView}
+        onScroll={handleTabScroll}
+        scrollEventThrottle={16}
         data={isLoading ? [] : filteredCariler}
         keyExtractor={(item) => item.id}
         renderItem={renderCariItem}
@@ -949,7 +953,7 @@ export default function CarilerPage() {
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
         extraData={{ selectedIds, isSelectMode, sortBy, expandedCariId }}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
       />
 
       {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı) */}

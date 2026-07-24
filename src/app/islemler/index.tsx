@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { View, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Receipt,
@@ -162,6 +162,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
 // ============================================================================
 
 export default function IslemlerPage() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common', 'errors']);
   const { formatDateMedium } = useDateFormat();
@@ -531,7 +532,7 @@ export default function IslemlerPage() {
           // yüklüyordu → "Daha Fazla Göster" butonu atlanıyordu. Tek pagination tetikleyicisi artık ListFooter
           // butonu (cariler/[id] & hesaplar ile aynı buton-tabanlı standart).
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.flatListContent}
+          contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
         />
       </SwipeableProvider>
 

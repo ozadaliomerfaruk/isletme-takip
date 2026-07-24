@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, memo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import {
@@ -219,6 +219,7 @@ const UrunRow = memo(function UrunRow({ data, onOpen, onMore }: { data: Urun } &
 });
 
 export default function ArsivPage() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
   const { canUpdate, canDelete } = usePermissions();
@@ -536,7 +537,7 @@ export default function ArsivPage() {
         ListEmptyComponent={ListEmpty}
         ListFooterComponent={ListFooter}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
         // Klavye açıkken kaydırma: dokunuşlar klavyeyi "yakalamasın" (handled) ve
         // sürüklerken klavye temizce kapansın (on-drag). Bunlar olmadan yüzen arama
         // çubuğu, yarım-kalan klavye kare olaylarıyla ekran dışına fırlıyordu.

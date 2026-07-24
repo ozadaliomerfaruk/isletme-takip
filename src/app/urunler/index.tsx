@@ -1,10 +1,11 @@
 ﻿import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
-import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar } from '@/components/ui';
+import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -42,6 +43,7 @@ const UrunListSeparator = () => (
 export default function UrunlerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const handleTabScroll = useTabBarScroll();
   const haptics = useHaptics();
   const { t } = useTranslation(['products', 'common', 'errors', 'reports', 'categories']);
   const { getDateRangeLabel, locale } = useDateFormat();
@@ -779,6 +781,8 @@ export default function UrunlerPage() {
         }
       />
       <FlatList
+        onScroll={handleTabScroll}
+        scrollEventThrottle={16}
         data={listData}
         keyExtractor={keyExtractor}
         renderItem={activeTab === 'active' ? renderActiveItem : renderArchivedItem}
@@ -787,7 +791,7 @@ export default function UrunlerPage() {
         keyboardDismissMode="on-drag"
         ListHeaderComponent={listHeaderComponent}
         ListEmptyComponent={listEmptyComponent}
-        contentContainerStyle={styles.flatListContent}
+        contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}
         maxToRenderPerBatch={10}

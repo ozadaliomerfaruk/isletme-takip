@@ -1542,7 +1542,7 @@ export default function CariHareketleriPage() {
             ListFooterComponent={ListFooter}
             ListEmptyComponent={ListEmpty}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.flatListContent}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }]}
             refreshing={refreshing}
             onRefresh={handleRefresh}
           />

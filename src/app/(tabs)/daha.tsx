@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Switch, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTabBarScroll } from '@/lib/tabBarScroll';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import {
   Receipt,
@@ -220,9 +221,12 @@ export default function DahaPage() {
   const businessName = isletme?.name || t('common:appName');
   const userEmail = user?.email || '';
 
+  const insets = useSafeAreaInsets();
+  const handleTabScroll = useTabBarScroll();
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom }} showsVerticalScrollIndicator={false} onScroll={handleTabScroll} scrollEventThrottle={16}>
         <SharedIsletmeBanner />
         {/* Profile Card */}
         <View style={styles.profileSection}>

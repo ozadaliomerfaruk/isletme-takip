@@ -1,13 +1,26 @@
-import { View, TouchableOpacity, Platform, StyleSheet, Text } from 'react-native';
+import { useEffect, useRef, useState, useCallback, useMemo, type ComponentType } from 'react';
+import { View, Platform, StyleSheet, Text, type LayoutChangeEvent } from 'react-native';
 import { useSegments, useRouter, Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Home, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, interpolate, runOnJS, Easing } from 'react-native-reanimated';
 import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
+import { tabBarCollapsed, resetTabBarCollapse } from '@/lib/tabBarScroll';
 import type { ModuleName } from '@/types/multiUser';
+
+// iOS 26 liquid glass (UIGlassEffect). Native modül — eski dev client / eski iOS'ta
+// yok; guard'lı require ile mevcut BlurView görünümüne düşer (crash yok).
+let glassMod: { GlassView: ComponentType<Record<string, unknown>>; isLiquidGlassAvailable: () => boolean } | null = null;
+try { glassMod = require('expo-glass-effect'); } catch { glassMod = null; }
+let LIQUID_GLASS = false;
+try { LIQUID_GLASS = Platform.OS === 'ios' && !!glassMod?.isLiquidGlassAvailable?.(); } catch { LIQUID_GLASS = false; }
+const AnimatedGlassView = LIQUID_GLASS && glassMod ? Animated.createAnimatedComponent(glassMod.GlassView) : null;
 
 type TabConfig = {
   key: string;
@@ -29,12 +42,8 @@ function getActiveTab(segments: string[]): string | null {
   const first = segments[0];
   const second = segments[1];
 
-  // Auth/onboarding/verify screens - hide tab bar
-  if (first === '(auth)' || first === 'onboarding' || first === 'verify') {
-    return null;
-  }
+  if (first === '(auth)' || first === 'onboarding' || first === 'verify') return null;
 
-  // Inside (tabs) group
   if (first === '(tabs)') {
     if (!second || second === 'index') return 'home';
     if (second === 'cariler') return 'cariler';
@@ -44,7 +53,6 @@ function getActiveTab(segments: string[]): string | null {
     return 'home';
   }
 
-  // Root-level detail screens mapped to parent tab
   if (first === 'cariler') return 'cariler';
   if (first === 'personel') return 'personel';
   if (first === 'urunler') return 'urunler';
@@ -54,7 +62,6 @@ function getActiveTab(segments: string[]): string | null {
   if (first === 'arama') return 'home';
   if (first === 'foto-import') return 'home';
 
-  // "More" related screens
   if (first === 'raporlar') return 'daha';
   if (first === 'ayarlar') return 'daha';
   if (first === 'kategoriler') return 'daha';
@@ -66,27 +73,19 @@ function getActiveTab(segments: string[]): string | null {
   return 'home';
 }
 
-function TabIcon({ Icon, color, focused }: { Icon: LucideIcon; color: string; focused: boolean }) {
-  return (
-    <View style={iconStyles.container}>
-      <Icon size={26} color={color} />
-      {focused && <View style={iconStyles.dot} />}
-    </View>
-  );
-}
+// Floating cam pill ölçüleri
+const ROW_PAD = 6;
+const PILL_INSET = 4;
+const PILL_H = 66;
+const PILL_H_COLLAPSED = 52;
+const LABEL_H = 14;
+const TOP_PAD = 6;
+const OUTER_PAD_H = 12;
+const NARROW = 34; // daralınca pill'in her yandan içeri girmesi (YATAY küçülme)
 
-const iconStyles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-  },
-});
+/** Bar'ın home-indicator ÜSTÜNDEKİ görsel yüksekliği (üst boşluk + pill). Overlay olduğundan
+ *  ekranların alt-boşluğu bunu + gerçek safe-area'yı temizlemeli — _layout modifiedInsets bunu ekler. */
+export const TAB_BAR_CONTENT_HEIGHT = TOP_PAD + PILL_H;
 
 export function PersistentTabBar() {
   const segments = useSegments();
@@ -97,84 +96,216 @@ export function PersistentTabBar() {
 
   const activeTab = getActiveTab(segments as string[]);
 
-  // Hide on auth/onboarding/verify
+  const visibleTabs = TABS.filter((tab) => !tab.module || canAccessModule(tab.module));
+  const n = visibleTabs.length;
+  const activeIndex = Math.max(0, visibleTabs.findIndex((tab) => tab.key === activeTab));
+
+  const [outerW, setOuterW] = useState(0);
+  const fullRowContent = outerW > 0 ? outerW - OUTER_PAD_H * 2 - ROW_PAD * 2 : 0;
+
+  const idx = useSharedValue(0);
+  const idxMeasured = useRef(false);
+
+  useEffect(() => {
+    if (!idxMeasured.current) {
+      idx.value = activeIndex;
+      idxMeasured.current = true;
+    } else {
+      idx.value = withTiming(activeIndex, { duration: 240, easing: Easing.out(Easing.cubic) });
+    }
+  }, [activeIndex, idx]);
+
+  useEffect(() => {
+    resetTabBarCollapse();
+  }, [activeTab]);
+
+  const barAnim = useAnimatedStyle(() => ({
+    marginHorizontal: OUTER_PAD_H + interpolate(tabBarCollapsed.value, [0, 1], [0, NARROW]),
+    height: interpolate(tabBarCollapsed.value, [0, 1], [PILL_H, PILL_H_COLLAPSED]),
+  }));
+  // Kapsül köşesi = yükseklik/2. iOS 26 camı köşeyi kendi native corner
+  // configuration'ıyla çizer (squircle + rim lighting) — radius CAM view'ün
+  // stilinde olmalı, dış sarmalayıcıda RN clip maskesi OLMAMALI.
+  const radiusAnim = useAnimatedStyle(() => ({
+    borderRadius: interpolate(tabBarCollapsed.value, [0, 1], [PILL_H, PILL_H_COLLAPSED]) / 2,
+  }));
+  const labelAnim = useAnimatedStyle(() => ({
+    height: interpolate(tabBarCollapsed.value, [0, 1], [LABEL_H, 0]),
+    opacity: interpolate(tabBarCollapsed.value, [0, 1], [1, 0]),
+    marginTop: interpolate(tabBarCollapsed.value, [0, 1], [2, 0]),
+  }));
+  const activePillAnim = useAnimatedStyle(() => {
+    if (fullRowContent <= 0 || n <= 0) {
+      return { width: 0, opacity: 0, transform: [{ translateX: 0 }] };
+    }
+    const c = tabBarCollapsed.value;
+    const slot = (fullRowContent - c * 2 * NARROW) / n;
+    return {
+      width: slot - PILL_INSET * 2,
+      opacity: 1,
+      transform: [{ translateX: idx.value * slot }],
+    };
+  });
+
+  const onOuterLayout = useCallback((e: LayoutChangeEvent) => {
+    setOuterW(e.nativeEvent.layout.width);
+  }, []);
+
+  // Sekmeye git (tıklama VEYA sürükleme). activeTab ref'i: hızlı sürüklemede segments
+  // gecikirse mükerrer navigasyonu ele. hoveredRef: yalnız parmağın üstündeki sekme değişince git.
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  const hoveredRef = useRef(-1);
+
+  const selectAt = useCallback((x: number) => {
+    if (fullRowContent <= 0 || n <= 0) return;
+    // Daralmışken slot da dar → tabBarCollapsed.value ile güncel slot (JS'ten okunabilir).
+    const c = tabBarCollapsed.value;
+    const slot = (fullRowContent - c * 2 * NARROW) / n;
+    if (slot <= 0) return;
+    const i = Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
+    if (i === hoveredRef.current) return;
+    hoveredRef.current = i;
+    const tab = visibleTabs[i];
+    if (!tab) return;
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (tab.key !== activeTabRef.current) {
+      goToTab(router, segments as string[], tab.route);
+    }
+  }, [fullRowContent, n, visibleTabs, router, segments]);
+
+  const resetHover = useCallback(() => { hoveredRef.current = -1; }, []);
+
+  // Bar üstünde TIKLA veya PARMAĞI SÜRÜKLE → altındaki sekmeye geç (canlı). Pan bar'a özel,
+  // liste scroll'uyla çakışmaz (bar ayrı overlay). onBegin tıklamayı, onUpdate sürüklemeyi karşılar.
+  const panGesture = useMemo(
+    () => Gesture.Pan()
+      .onBegin((e) => { runOnJS(resetHover)(); runOnJS(selectAt)(e.x); })
+      .onUpdate((e) => { runOnJS(selectAt)(e.x); })
+      .onFinalize(() => { runOnJS(resetHover)(); }),
+    [selectAt, resetHover]
+  );
+
   if (activeTab === null) return null;
 
-  const tabBarHeight = 52 + insets.bottom;
-  const tabBarPaddingBottom = 8 + insets.bottom;
-
-  const handlePress = (tab: TabConfig) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    // (tabs) DIŞINDAKİ bir ekrandan (detay/rapor/form) sekmeye basınca kök Stack'i mevcut (tabs)'a
-    // COLLAPSE et (dismissTo/POP_TO); İÇİNDEYKEN sekme geçişi (navigate/JUMP_TO). Detay: src/lib/tabNav.ts.
-    // ⚠️ Eski kod düz `router.navigate` kullanıyordu — RN7'de navigate var-olan (tabs)'a POP'lamadığı
-    // için her basışta YENİ (tabs) kopyası yığıyordu (sonsuz swipe-back + gezindikçe yavaşlama).
-    goToTab(router, segments as string[], tab.route);
-  };
+  const bottomInset = insets.bottom > 0 ? insets.bottom : 10;
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          height: tabBarHeight,
-          paddingBottom: tabBarPaddingBottom,
-        },
-      ]}
-    >
-      {TABS.map((tab) => {
-        // Permission check
-        if (tab.module && !canAccessModule(tab.module)) return null;
+    <View style={styles.outer} pointerEvents="box-none" onLayout={onOuterLayout}>
+      <View pointerEvents="box-none" style={{ paddingTop: TOP_PAD, paddingBottom: bottomInset }}>
+        <Animated.View style={barAnim}>
+          {AnimatedGlassView ? (
+            // Gerçek liquid glass: tint çok hafif, üstünde beyaz overlay YOK
+            // (overlay lensing'i perdeleyip buzlu gosteriyor).
+            <AnimatedGlassView
+              glassEffectStyle="regular"
+              style={[StyleSheet.absoluteFill, styles.glass, radiusAnim]}
+            />
+          ) : (
+            // iOS<26 + Android: bugünkü görünüm (blur + frost overlay), clip'li.
+            <Animated.View style={[StyleSheet.absoluteFill, styles.fallbackClip, radiusAnim]}>
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 70 : 24}
+                tint="light"
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.pillOverlay} />
+            </Animated.View>
+          )}
 
-        const focused = activeTab === tab.key;
-        const color = focused ? colors.primary : colors.textMuted;
+          <GestureDetector gesture={panGesture}>
+            <View style={styles.row}>
+              {fullRowContent > 0 ? (
+                <Animated.View style={[styles.activePill, activePillAnim]} />
+              ) : null}
 
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            style={styles.tabButton}
-            activeOpacity={0.7}
-            onPress={() => handlePress(tab)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: focused }}
-          >
-            <TabIcon Icon={tab.icon} color={color} focused={focused} />
-            <Text
-              style={[
-                styles.label,
-                { color },
-              ]}
-              numberOfLines={1}
-            >
-              {t(tab.labelKey)}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+              {visibleTabs.map((tab) => {
+                const focused = activeTab === tab.key;
+                const color = focused ? colors.primary : colors.textMuted;
+                const Icon = tab.icon;
+                return (
+                  <View
+                    key={tab.key}
+                    style={styles.tabButton}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: focused }}
+                    accessibilityLabel={t(tab.labelKey)}
+                  >
+                    <Icon size={27} color={color} strokeWidth={focused ? 2.4 : 2} />
+                    <Animated.View style={[styles.labelWrap, labelAnim]}>
+                      <Text
+                        style={[styles.label, { color, fontWeight: focused ? '700' : '500' }]}
+                        numberOfLines={1}
+                      >
+                        {t(tab.labelKey)}
+                      </Text>
+                    </Animated.View>
+                  </View>
+                );
+              })}
+            </View>
+          </GestureDetector>
+        </Animated.View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+  },
+  // Liquid glass: köşe geometrisi cam view'ün KENDİ stilinde (native squircle +
+  // rim lighting) — dış clip maskesi ve gölge yok, tint çok hafif.
+  glass: {
+    borderCurve: 'continuous',
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  // iOS<26 + Android fallback: bugüne kadarki görünüm.
+  fallbackClip: {
+    overflow: 'hidden',
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.06)',
+    // GLASS: iOS'ta ŞEFFAF — BlurView alttaki içeriği buğulandırsın (beyazı değil). Android: beyaz.
+    backgroundColor: Platform.OS === 'android' ? colors.surface : 'transparent',
+    elevation: 8,
+  },
+  pillOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    // iOS: ÇOK hafif frost — alttan kayan içerik camdan net görünsün (açık içerikte cam belirginleşsin).
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.9)',
+  },
+  row: {
+    flex: 1,
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderTopColor: colors.borderLight,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 0,
+    paddingHorizontal: ROW_PAD,
+    alignItems: 'stretch',
+  },
+  activePill: {
+    position: 'absolute',
+    left: ROW_PAD + PILL_INSET,
+    top: PILL_INSET + 3,
+    bottom: PILL_INSET + 3,
+    borderRadius: 20,
+    backgroundColor: colors.primaryLight,
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 8,
+    gap: 0,
+  },
+  labelWrap: {
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     fontSize: 10,
-    fontWeight: '500',
-    marginTop: 4,
-    marginBottom: 4,
   },
 });
