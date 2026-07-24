@@ -210,23 +210,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  // GEOMETRİ (iki yolda da): cam kendi köşesini native çizer, RN clip yok.
+  /**
+   * DİKKAT — dolgu/kenar/gölge burada, yani HER İKİ YOLDA da uygulanıyor.
+   *
+   * Normalde cam yolunda bunlar olmamalı (native rim lighting'i perdeler). Ama
+   * cihazda cam yüzey hiç çizilmedi: tint'i 0.22'ye çıkarmak ve yapıyı tab
+   * bar'ınkiyle aynı hale getirmek de değiştirmedi — yani pill görünmezdi.
+   * Görünür bir arama çubuğu, cam görünümünden önce gelir.
+   *
+   * Cam gerçek build'de çizildiği doğrulanınca bunlar tekrar pillFallback'e
+   * taşınabilir (aşağıdaki blok yerinde duruyor, boş).
+   */
   pill: {
     flex: 1,
     height: BAR_HEIGHT,
     borderRadius: BAR_HEIGHT / 2,
-  },
-  // Cam yolunda arka plan/border/gölge YOK: native rim lighting ve lensing'i
-  // perdeler, pill "yapıştırılmış sticker" gibi durur. Bunlar yalnız fallback'te.
-  pillFallback: {
-    // Yarı saydam (opak beyaz değil): altındaki liste hafifçe seziliyor.
-    // Blur EKLENMEDİ — blur `overflow: hidden` ister, o da gölgeyi yok eder.
-    // Açık zeminde pill'i GÖRÜNÜR kılan şey dolgu değil kenar + gölge:
-    // beyaz dolgu beyaz kartların üstünde kaybolur (bkz. FALLBACK_RIM).
     backgroundColor: FALLBACK_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: FALLBACK_RIM,
     ...FALLBACK_SHADOW,
+  },
+  pillFallback: {
+    // (dolgu/kenar/gölge geçici olarak `pill`e taşındı — bkz. yukarıdaki not)
   },
   pillFallbackFocused: {
     borderColor: colors.primary,
@@ -254,17 +259,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Dolgu/kenar/gölge burada — bkz. `pill` üstündeki not (her iki yolda da).
   dismissButton: {
     width: BAR_HEIGHT,
     height: BAR_HEIGHT,
     borderRadius: BAR_HEIGHT / 2,
-  },
-  dismissFallback: {
     backgroundColor: FALLBACK_SURFACE,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: FALLBACK_RIM,
     ...FALLBACK_SHADOW,
   },
+  dismissFallback: {},
   dismissInner: {
     flex: 1,
     alignItems: 'center',

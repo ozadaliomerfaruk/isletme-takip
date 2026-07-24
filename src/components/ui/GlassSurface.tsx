@@ -126,7 +126,7 @@ export const FALLBACK_FROST =
  * ayakta tutan tek şey bu dolgu. 0.45'te tamamen kayboluyordu.
  */
 export const FALLBACK_SURFACE =
-  Platform.OS === 'ios' ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.80)';
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.88)';
 
 /**
  * Fallback yüzeylerin kenar çizgisi — AÇIK ZEMİNDE ŞEKLİ TANIMLAYAN ŞEY BUDUR.
