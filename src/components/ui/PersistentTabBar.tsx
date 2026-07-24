@@ -12,7 +12,7 @@ import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
 import { tabBarCollapsed, resetTabBarCollapse } from '@/lib/tabBarScroll';
-import { AnimatedGlassView, GLASS_TINT } from './GlassSurface';
+import { AnimatedGlassView, GLASS_TINT, FALLBACK_FROST } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
 
 type TabConfig = {
@@ -294,8 +294,9 @@ const styles = StyleSheet.create({
   },
   pillOverlay: {
     ...StyleSheet.absoluteFillObject,
-    // iOS: ÇOK hafif frost — alttan kayan içerik camdan net görünsün (açık içerikte cam belirginleşsin).
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.9)',
+    // Frost katmanı — alttan kayan içerik görünsün diye hafif. Değer
+    // GlassSurface'ta ortak (cam yolundaki tint'le birlikte ayarlanır).
+    backgroundColor: FALLBACK_FROST,
   },
   row: {
     flex: 1,

@@ -81,8 +81,29 @@ export function GlassContainer({
   );
 }
 
+// ============================================================================
+// SAYDAMLIK AYARLARI — yüzen kontrol katmanının tamamı buradan ayarlanır.
+// İki YOL var ve ayrı ayrı ayarlanır:
+//   • Cam yolu (iOS 26+): GLASS_TINT
+//   • Fallback (iOS<26, Android, camsız dev client): FALLBACK_* değerleri
+// Artırırken sınır OKUNABİLİRLİK: bar'ın altından koyu/yoğun bir liste
+// satırı geçerken sekme yazıları ve arama placeholder'ı hâlâ okunmalı.
+// ============================================================================
+
 /** Camın üstündeki ortak tint — ÇOK hafif; ağırlaşırsa cam "buzlu"ya döner. */
-export const GLASS_TINT = 'rgba(255,255,255,0.10)';
+export const GLASS_TINT = 'rgba(255,255,255,0.04)';
+
+/** Fallback'te blur üstüne konan frost katmanı (tab bar gibi blur'lu yüzeyler). */
+export const FALLBACK_FROST =
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)';
+
+/**
+ * Fallback'te blur'suz yüzeylerin (arama pill'i, kapatma X'i) arka planı.
+ * Yarı saydam: altındaki liste hafifçe seziliyor ama metin okunur kalıyor.
+ * Android'de blur yok → daha opak, yoksa yazı zeminde kaybolur.
+ */
+export const FALLBACK_SURFACE =
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.94)';
 
 /**
  * GlassContainer için ortak `spacing`. Apple'ın kalibrasyonu (Landmarks/

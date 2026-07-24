@@ -20,7 +20,7 @@ import { Search, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
-import { GlassSurface, GlassContainer, GLASS_MERGE_SPACING } from './GlassSurface';
+import { GlassSurface, GlassContainer, GLASS_MERGE_SPACING, FALLBACK_SURFACE } from './GlassSurface';
 
 const BAR_HEIGHT = 52;
 
@@ -210,7 +210,9 @@ const styles = StyleSheet.create({
   // Cam yolunda arka plan/border/gölge YOK: native rim lighting ve lensing'i
   // perdeler, pill "yapıştırılmış sticker" gibi durur. Bunlar yalnız fallback'te.
   pillFallback: {
-    backgroundColor: colors.surface,
+    // Yarı saydam (opak beyaz değil): altındaki liste hafifçe seziliyor.
+    // Blur EKLENMEDİ — blur `overflow: hidden` ister, o da gölgeyi yok eder.
+    backgroundColor: FALLBACK_SURFACE,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.lg,
@@ -247,7 +249,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
   },
   dismissFallback: {
-    backgroundColor: colors.surface,
+    backgroundColor: FALLBACK_SURFACE,
     borderWidth: 1,
     borderColor: colors.border,
     ...shadows.lg,
