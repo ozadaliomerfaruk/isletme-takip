@@ -165,13 +165,17 @@ export function PersistentTabBar() {
     setOuterW(e.nativeEvent.layout.width);
   }, []);
 
-  // Sekmeye git (tıklama VEYA sürükleme). activeTab ref'i: hızlı sürüklemede segments
-  // gecikirse mükerrer navigasyonu ele. hoveredRef: yalnız parmağın üstündeki sekme değişince git.
+  // activeTab ref'i: hızlı sürüklemede segments gecikirse mükerrer navigasyonu eler.
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
+  /** Parmağın ŞU AN üstünde olduğu sekme — navigasyon değil, yalnız işaret. */
   const hoveredRef = useRef(-1);
 
-  const selectAt = useCallback((x: number) => {
+  /**
+   * Parmağın altındaki sekmeyi işaretle: vurgu oraya kayar, haptik tık atar.
+   * NAVİGASYON YOK — sürüklerken sayfa değişmez.
+   */
+  const hoverAt = useCallback((x: number) => {
     if (fullRowContent <= 0 || n <= 0) return;
     // Daralmışken slot da dar → tabBarCollapsed.value ile güncel slot (JS'ten okunabilir).
     const c = tabBarCollapsed.value;
@@ -180,24 +184,39 @@ export function PersistentTabBar() {
     const i = Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
     if (i === hoveredRef.current) return;
     hoveredRef.current = i;
+    if (!visibleTabs[i]) return;
+    idx.value = withSpring(i, SLIDE_SPRING);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [fullRowContent, n, visibleTabs, idx]);
+
+  /**
+   * PARMAK KALKINCA sayfayı aç — sürüklerken değil.
+   *
+   * Eskiden parmak her sekmeye girdiğinde anında navigasyon vardı: bar boyunca
+   * sürüklemek 5 ayrı ekran değişimi tetikliyor, her biri JS thread'inde
+   * mount/render yapıyordu → sürükleme takılıyordu. Şimdi sürüklerken yalnız
+   * vurgu hareket ediyor, ekran bir kez ve en sonda değişiyor.
+   */
+  const commitHover = useCallback(() => {
+    const i = hoveredRef.current;
+    hoveredRef.current = -1;
+    if (i < 0) return;
     const tab = visibleTabs[i];
     if (!tab) return;
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (tab.key !== activeTabRef.current) {
       goToTab(router, segments as string[], tab.route);
     }
-  }, [fullRowContent, n, visibleTabs, router, segments]);
+  }, [visibleTabs, router, segments]);
 
-  const resetHover = useCallback(() => { hoveredRef.current = -1; }, []);
-
-  // Bar üstünde TIKLA veya PARMAĞI SÜRÜKLE → altındaki sekmeye geç (canlı). Pan bar'a özel,
-  // liste scroll'uyla çakışmaz (bar ayrı overlay). onBegin tıklamayı, onUpdate sürüklemeyi karşılar.
+  // Bar üstünde TIKLA veya PARMAĞI SÜRÜKLE. Pan bar'a özel, liste scroll'uyla
+  // çakışmaz (bar ayrı overlay). onBegin tıklamayı, onUpdate sürüklemeyi karşılar;
+  // ikisi de yalnız VURGUYU taşır, sayfa onFinalize'da (parmak kalkınca) açılır.
   const panGesture = useMemo(
     () => Gesture.Pan()
-      .onBegin((e) => { runOnJS(resetHover)(); runOnJS(selectAt)(e.x); })
-      .onUpdate((e) => { runOnJS(selectAt)(e.x); })
-      .onFinalize(() => { runOnJS(resetHover)(); }),
-    [selectAt, resetHover]
+      .onBegin((e) => { runOnJS(hoverAt)(e.x); })
+      .onUpdate((e) => { runOnJS(hoverAt)(e.x); })
+      .onFinalize(() => { runOnJS(commitHover)(); }),
+    [hoverAt, commitHover]
   );
 
   if (activeTab === null) return null;
