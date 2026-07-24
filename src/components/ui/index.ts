@@ -54,6 +54,7 @@ export {
   AnimatedGlassView,
   LIQUID_GLASS,
   GLASS_TINT,
+  GLASS_TINT_SUBTLE,
   GLASS_MERGE_SPACING,
   FLOATING_CONTROL_SIZE,
 } from './GlassSurface';

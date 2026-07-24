@@ -91,11 +91,26 @@ export function GlassContainer({
 // ============================================================================
 
 /**
- * Camın üstündeki tint. TINT YOK: camın en saydam hali, sistem neyi çiziyorsa o.
- * Buradan daha ileri gitmenin tek yolu `glassEffectStyle`'ı 'clear'a çevirmek
- * (GlassSurface prop'u) — o da açık zeminde fazla kaybolabilir, cihazda görülmeli.
+ * Camın üstündeki tint — KÜÇÜK, AYRIK kontroller için (arama pill'i, kapatma
+ * X'i, FAB, menü satırları).
+ *
+ * DERS: tint tamamen kaldırılınca (transparent) bu yüzeyler AÇIK ZEMİNDE
+ * tamamen kayboldu — içerik (ikon, yazı) havada duruyor gibi görünüyordu.
+ * Sebep: iOS 26 camı arkasındaki rengi örnekler; arka plan #F5F5F5 ve kartlar
+ * beyazken tint'siz cam da beyaza yakın çıkar, native rim lighting tek başına
+ * küçük bir kapsülü ayırmaya yetmez. Koyu temalı uygulamalarda (WhatsApp) bu
+ * sorun yok — orada açık cam koyu zeminde kendiliğinden ayrışır.
+ *
+ * Yani açık temada tint yalnız estetik değil, yüzeyin VAR OLMASINI sağlıyor.
  */
-export const GLASS_TINT = 'transparent';
+export const GLASS_TINT = 'rgba(255,255,255,0.22)';
+
+/**
+ * BÜYÜK yüzeyler için tint (tab bar). Büyük bir kapsül kendi boyutu ve
+ * içindekilerle zaten okunur; burada saydamlık öncelikli, o yüzden çok daha
+ * hafif. Aynı değeri küçük kontrollere vermek onları görünmez yapar.
+ */
+export const GLASS_TINT_SUBTLE = 'rgba(255,255,255,0.06)';
 
 /** Fallback'te blur üstüne konan frost katmanı (tab bar gibi blur'lu yüzeyler). */
 export const FALLBACK_FROST =

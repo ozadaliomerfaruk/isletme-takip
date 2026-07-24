@@ -12,7 +12,7 @@ import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
 import { tabBarCollapsed, resetTabBarCollapse } from '@/lib/tabBarScroll';
-import { AnimatedGlassView, GLASS_TINT, FALLBACK_FROST, FALLBACK_BLUR_INTENSITY } from './GlassSurface';
+import { AnimatedGlassView, GLASS_TINT_SUBTLE, FALLBACK_FROST, FALLBACK_BLUR_INTENSITY } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
 
 type TabConfig = {
@@ -88,18 +88,20 @@ const PILL_H_COLLAPSED = 52;
 const SLIDE_SPRING = { duration: 420, dampingRatio: 0.82 };
 
 /**
- * Aktif sekme "baloncuğu". Eskiden dolu açık yeşildi (#E8F5F1) — saydam camın
- * üstünde opak bir blob gibi duruyordu. Artık iOS 26 tab bar'larındaki gibi
- * yarı saydam nötr kapsül: camın bir bölgesi "kabarmış" gibi okunur.
+ * Aktif sekme "baloncuğu" — yarı saydam kapsül, dolu açık yeşil (#E8F5F1)
+ * değil: saydam camın üstünde opak bir blob gibi duruyordu.
  *
- * Renk kimliği baloncukta DEĞİL içerikte: aktif sekmenin ikonu ve yazısı zaten
- * colors.primary ve daha kalın (Apple da rengi içerikte taşıyor).
+ * NEDEN BEYAZ DEĞİL: bir tur beyaz denendi (0.34 dolgu + beyaz kenar) ve
+ * TAMAMEN GÖRÜNMEZ oldu. Uygulama açık temalı — arka plan #F5F5F5, kartlar
+ * beyaz; beyaz bir baloncuk beyazın üstünde ayrışmaz. Koyu temalı uygulamalarda
+ * (WhatsApp) beyaz baloncuk çalışır, bizde çalışmaz.
  *
- * RIM önemli: dolgu bu kadar hafifken baloncuğu okunur kılan şey ince kenar
- * çizgisi. Kaldırırsan aktif sekme belirsizleşir — bu işlevsel bir gösterge.
+ * Marka renginin düşük alfası hem açık zeminde ayrışıyor hem de aktif sekmenin
+ * ikon/yazı rengiyle (colors.primary) aynı aileden — kimlik korunuyor.
+ * Kenar dolgudan güçlü: dolgu bu kadar hafifken şekli okunur kılan şey odur.
  */
-const BUBBLE_FILL = 'rgba(255,255,255,0.34)';
-const BUBBLE_RIM = 'rgba(255,255,255,0.55)';
+const BUBBLE_FILL = 'rgba(13,92,77,0.14)'; // colors.primary #0D5C4D
+const BUBBLE_RIM = 'rgba(13,92,77,0.28)';
 const LABEL_H = 14;
 const TOP_PAD = 6;
 const OUTER_PAD_H = 12;
@@ -229,7 +231,7 @@ export function PersistentTabBar() {
               glassEffectStyle="regular"
               // tintColor = paketin native API'si (UIGlassEffect.tintColor);
               // backgroundColor camın ÜSTÜNE düz katman koyup lensing'i perdeler.
-              tintColor={GLASS_TINT}
+              tintColor={GLASS_TINT_SUBTLE}
               style={[StyleSheet.absoluteFill, styles.glass, radiusAnim]}
             />
           ) : (
