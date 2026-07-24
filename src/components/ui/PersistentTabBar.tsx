@@ -12,7 +12,7 @@ import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
 import { tabBarCollapsed, resetTabBarCollapse } from '@/lib/tabBarScroll';
-import { AnimatedGlassView, GLASS_TINT, FALLBACK_FROST } from './GlassSurface';
+import { AnimatedGlassView, GLASS_TINT, FALLBACK_FROST, FALLBACK_BLUR_INTENSITY } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
 
 type TabConfig = {
@@ -222,7 +222,7 @@ export function PersistentTabBar() {
             // iOS<26 + Android: bugünkü görünüm (blur + frost overlay), clip'li.
             <Animated.View style={[StyleSheet.absoluteFill, styles.fallbackClip, radiusAnim]}>
               <BlurView
-                intensity={Platform.OS === 'ios' ? 70 : 24}
+                intensity={FALLBACK_BLUR_INTENSITY}
                 tint="light"
                 style={StyleSheet.absoluteFill}
               />

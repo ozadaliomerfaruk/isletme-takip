@@ -91,11 +91,11 @@ export function GlassContainer({
 // ============================================================================
 
 /** Camın üstündeki ortak tint — ÇOK hafif; ağırlaşırsa cam "buzlu"ya döner. */
-export const GLASS_TINT = 'rgba(255,255,255,0.04)';
+export const GLASS_TINT = 'rgba(255,255,255,0.02)';
 
 /** Fallback'te blur üstüne konan frost katmanı (tab bar gibi blur'lu yüzeyler). */
 export const FALLBACK_FROST =
-  Platform.OS === 'ios' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.85)';
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.80)';
 
 /**
  * Fallback'te blur'suz yüzeylerin (arama pill'i, kapatma X'i) arka planı.
@@ -103,7 +103,15 @@ export const FALLBACK_FROST =
  * Android'de blur yok → daha opak, yoksa yazı zeminde kaybolur.
  */
 export const FALLBACK_SURFACE =
-  Platform.OS === 'ios' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.94)';
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.88)';
+
+/**
+ * Fallback blur yoğunluğu. Saydamlıkta en güçlü kaldıraç BUDUR: frost katmanını
+ * kısmak bir yere kadar gider, asıl beyazlatmayı blur'un kendisi yapar.
+ * Düşürdükçe arkadaki içerik daha keskin görünür — çok düşerse "camlı" değil
+ * "yarı saydam plastik" hissi başlar.
+ */
+export const FALLBACK_BLUR_INTENSITY = Platform.OS === 'ios' ? 45 : 24;
 
 /**
  * GlassContainer için ortak `spacing`. Apple'ın kalibrasyonu (Landmarks/
@@ -160,7 +168,7 @@ export function GlassSurface({
   tintColor = GLASS_TINT,
   interactive = false,
   fallbackBlur = false,
-  fallbackIntensity = Platform.OS === 'ios' ? 70 : 24,
+  fallbackIntensity = FALLBACK_BLUR_INTENSITY,
   fallbackOverlay,
   children,
 }: GlassSurfaceProps) {
