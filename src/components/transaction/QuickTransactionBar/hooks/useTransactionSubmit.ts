@@ -782,10 +782,12 @@ export function useTransactionSubmit({
     // Submit transaction
     isSavingRef.current = true;
     setIsSaving(true);
-    // P1b: kayıt 8 sn'yi aşarsa "kaydediliyor…" bilgisi ver (donmadı hissi; ölü-soket turu sürebilir).
+    // P1b: kayıt 3 sn'yi aşarsa "kaydediliyor…" bilgisi ver (donmadı hissi; bayat-soket turu
+    // sürebilir). Eşik 8sn→3sn indirildi: yavaş kayıtlar ort ~9sn (app_events) → 8sn'de kullanıcı
+    // çoktan donmuş sanıyordu. Sıcak sokette normal kayıt <1sn olduğundan 3sn yanlış-pozitif üretmez.
     __slowTimer = setTimeout(() => {
       showToast(t('transactions:messages.savingSlow'), 'info');
-    }, 8000);
+    }, 3000);
 
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

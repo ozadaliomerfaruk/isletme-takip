@@ -70,6 +70,7 @@ import { useCreateUrun } from '@/hooks/useUrunler';
 import { useSettings } from '@/hooks/useSettings';
 import { useIslemTaksitliMi } from '@/hooks/useTaksit';
 import { consumePendingCategorySelection } from '@/lib/pendingCategorySelection';
+import { checkNetworkConnectivity } from '@/lib/supabase';
 import type { Currency, Urun } from '@/types/database';
 
 export function QuickTransactionBar({
@@ -385,7 +386,15 @@ export function QuickTransactionBar({
   // Bar her açılışında belleği diskten tazele (aynı oturumda yapılan kayıtlar yansısın;
   // kayıt useTransactionSubmit içinde fire-and-forget diske yazılır).
   useEffect(() => {
-    if (visible) lastUsed.reload();
+    if (visible) {
+      lastUsed.reload();
+      // SOKET ISITMA (kaydet-asılması fix'i): bayat idle keep-alive soketi kayıt anında
+      // 3-5sn stall yapıyordu (app_events teşhisi: netcheck maks 5sn, submit ort ~9sn,
+      // ~2-3dk hareketsizlik sonrası). Bar açılınca hafif bir sağlık isteği (fire-and-forget)
+      // soketi TAZELER; bayat-soket cezası kullanıcı formu doldururken arka planda yutulur →
+      // Kaydet'e basıldığında netcheck + RPC sıcak sokette hızlı biter.
+      void checkNetworkConnectivity();
+    }
   }, [visible, lastUsed.reload]);
 
   // Mevcut işlem tipinin kategori ailesi (gelir/gider) — doğrulama + prefill anahtarı.
