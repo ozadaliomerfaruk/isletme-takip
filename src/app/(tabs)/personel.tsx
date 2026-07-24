@@ -27,7 +27,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -759,7 +759,7 @@ export default function PersonelPage() {
         value={searchQuery}
         onChangeText={setSearchQuery}
         placeholder={t('staff:search.searchPersonnel')}
-        rightOffset={56 + spacing.md}
+        rightOffset={FAB_SIZE + spacing.md}
         onActiveChange={setSearchActive}
       />
 
@@ -779,7 +779,7 @@ export default function PersonelPage() {
       {!isSelectMode && fabMenuVisible && (
         <GlassContainer
           spacing={GLASS_MERGE_SPACING}
-          style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}
+          style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
         >
           {[
             {

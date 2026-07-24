@@ -114,6 +114,17 @@ export const FALLBACK_SURFACE =
 export const FALLBACK_BLUR_INTENSITY = Platform.OS === 'ios' ? 45 : 24;
 
 /**
+ * Alt bölgedeki YÜZEN KONTROLLERİN ortak yüksekliği: FAB, arama pill'i ve
+ * kapatma X'i. Üçü de aynı taban çizgisine (bottom = spacing.lg + insets.bottom)
+ * çıpalı olduğundan, yükseklik eşit olunca DİKEY MERKEZLERİ de tam hizalanır.
+ *
+ * Neden ortak sabit: eskiden üçü ayrı ayrı yazılıydı (56 / 52 / 44) ve gözle
+ * görülür şekilde ayrışmışlardı. Cam erimesi merkez hizasına duyarlıdır —
+ * hizasızsa birleşme akışkan değil "yamuk damla" görünür.
+ */
+export const FLOATING_CONTROL_SIZE = 56;
+
+/**
  * GlassContainer için ortak `spacing`. Apple'ın kalibrasyonu (Landmarks/
  * BadgesView): rozet arası 14 < spacing 16 < yığın↔buton 20 — yani spacing,
  * BİRLEŞMESİNİ istediğin boşluktan büyük, AYRI kalmasını istediğinden küçük.

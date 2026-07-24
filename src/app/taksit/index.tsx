@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, EmptyState, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING } from '@/components/ui';
+import { Text, EmptyState, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
@@ -214,7 +214,7 @@ export default function TaksitTakipPage() {
         {showFabMenu && (
           <GlassContainer
             spacing={GLASS_MERGE_SPACING}
-            style={[styles.fabMenuContainer, { bottom: spacing['2xl'] + 56 + spacing.md }]}
+            style={[styles.fabMenuContainer, { bottom: spacing['2xl'] + FAB_SIZE + spacing.md }]}
           >
             {[
               {

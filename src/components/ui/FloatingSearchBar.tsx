@@ -20,9 +20,16 @@ import { Search, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
-import { GlassSurface, GlassContainer, GLASS_MERGE_SPACING, FALLBACK_SURFACE } from './GlassSurface';
+import {
+  GlassSurface,
+  GlassContainer,
+  GLASS_MERGE_SPACING,
+  FALLBACK_SURFACE,
+  FLOATING_CONTROL_SIZE,
+} from './GlassSurface';
 
-const BAR_HEIGHT = 52;
+/** FAB ile ORTAK yükseklik — alt bölgedeki yüzen kontroller aynı hizada durur. */
+const BAR_HEIGHT = FLOATING_CONTROL_SIZE;
 
 /** Listelerin contentContainer paddingBottom'una eklenecek boşluk —
  *  son satır yüzen arama çubuğunun altında kalmasın. */
@@ -43,7 +50,7 @@ interface FloatingSearchBarProps {
   /** Arama "aktif" (odak VEYA metin var) durumu değişince tetiklenir.
    *  Sağ altta FAB olan ekranlar bunu dinleyip FAB'ı gizler: aktifken pill tam
    *  genişliğe açılıp FAB'ın altına girer ve kapatma X'ini tamamen örter
-   *  (X 44px, FAB 56px, ikisi de sağda ve aynı taban çizgisinde). */
+   *  (X ve FAB aynı boyutta, ikisi de sağda ve aynı taban çizgisinde). */
   onActiveChange?: (active: boolean) => void;
 }
 
@@ -181,7 +188,7 @@ export function FloatingSearchBar({
                 hitSlop={HIT_SLOP.sm}
                 accessibilityRole="button"
               >
-                <X size={20} color={colors.text} />
+                <X size={22} color={colors.text} />
               </TouchableOpacity>
             </GlassSurface>
           </Animated.View>
@@ -244,9 +251,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dismissButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: BAR_HEIGHT,
+    height: BAR_HEIGHT,
+    borderRadius: BAR_HEIGHT / 2,
   },
   dismissFallback: {
     backgroundColor: FALLBACK_SURFACE,

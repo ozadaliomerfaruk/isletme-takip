@@ -6,7 +6,7 @@ import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
-import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING } from '@/components/ui';
+import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -812,7 +812,7 @@ export default function UrunlerPage() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={t('products:search.placeholder')}
-          rightOffset={activeTab === 'active' ? 56 + spacing.md : 0}
+          rightOffset={activeTab === 'active' ? FAB_SIZE + spacing.md : 0}
           onActiveChange={setSearchActive}
         />
       )}
@@ -899,7 +899,7 @@ export default function UrunlerPage() {
       {activeTab === 'active' && fabMenuVisible && (
         <GlassContainer
           spacing={GLASS_MERGE_SPACING}
-          style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}
+          style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
         >
           {[
             {

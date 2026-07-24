@@ -2,9 +2,10 @@ import { type ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { GlassSurface, LIQUID_GLASS } from './GlassSurface';
+import { GlassSurface, LIQUID_GLASS, FLOATING_CONTROL_SIZE } from './GlassSurface';
 
-export const FAB_SIZE = 56;
+/** Alt bölgedeki yüzen kontrollerle ORTAK — ayrı bir sayı yazma, bkz. sabit. */
+export const FAB_SIZE = FLOATING_CONTROL_SIZE;
 
 interface GlassFabProps {
   onPress: () => void;

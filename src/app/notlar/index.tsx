@@ -21,6 +21,7 @@ import {
   SwipeableRow,
   SwipeableProvider,
   GlassFab,
+  FAB_SIZE,
 } from '@/components/ui';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
@@ -411,7 +412,7 @@ export default function NotlarPage() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={t('common:notes.searchPlaceholder')}
-          rightOffset={56 + spacing.md}
+          rightOffset={FAB_SIZE + spacing.md}
           onActiveChange={setSearchActive}
         />
 
