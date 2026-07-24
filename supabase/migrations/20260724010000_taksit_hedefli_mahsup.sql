@@ -31,15 +31,18 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
 AS $function$
   WITH pay_target AS (
     -- Hedefli ödeme/tahsilatların faturaya sayılacak CARİ-PARA tutarı (çapraz-kurda çevrilmiş).
+    -- İKİ-YABANCI (source≠target & ikisi de ≠TRY) HARİÇ: tek stored rate ile bakiye-etkisi
+    -- SQL'de güvenle kurulamaz → hedefleme düşer (FIFO); create_islem_atomik de pointer'ı
+    -- NULL bırakır (yok-sayılan pointer saklanmaz). 0 vaka; Σ drift riski kapanır.
     SELECT p.hedef_islem_id AS islem_id,
       SUM(
         CASE
           WHEN p.source_currency IS NULL OR p.target_currency IS NULL
                OR p.source_currency = p.target_currency OR COALESCE(p.exchange_rate,0) <= 0
             THEN p.amount
-          WHEN p.source_currency = 'TRY' THEN p.amount / p.exchange_rate   -- TRY→yabancı
-          WHEN p.target_currency = 'TRY' THEN p.amount * p.exchange_rate   -- yabancı→TRY
-          ELSE p.amount * p.exchange_rate                                  -- iki-yabancı (nadir; kaynak→TRY)
+          WHEN p.source_currency = 'TRY' THEN p.amount / p.exchange_rate   -- TRY→yabancı (balance ile birebir)
+          WHEN p.target_currency = 'TRY' THEN p.amount * p.exchange_rate   -- yabancı→TRY (balance ile birebir)
+          ELSE p.amount                                                    -- erişilmez (iki-yabancı WHERE'de hariç)
         END
       ) AS targeted
     FROM islemler p
@@ -47,6 +50,10 @@ AS $function$
       AND p.hedef_islem_id IS NOT NULL
       AND p.type IN ('cari_odeme', 'cari_tahsilat')
       AND (p_cari_id IS NULL OR p.cari_id = p_cari_id)
+      -- iki-yabancı hariç (güvenli degradasyon)
+      AND NOT (p.source_currency IS NOT NULL AND p.target_currency IS NOT NULL
+               AND p.source_currency <> p.target_currency
+               AND p.source_currency <> 'TRY' AND p.target_currency <> 'TRY')
     GROUP BY p.hedef_islem_id
   ),
   birim AS (
@@ -61,12 +68,13 @@ AS $function$
       i.date AS tx_date, i.created_at,
       COALESCE(tk.tutar, i.amount) AS birim_tutar,
       i.amount AS inv_total,                                  -- fatura toplam (taksit için Σtaksit = amount)
-      COALESCE((SELECT targeted FROM pay_target pt WHERE pt.islem_id = i.id), 0) AS targeted,
+      COALESCE(pt.targeted, 0) AS targeted,                   -- LEFT JOIN (korelasyonlu alt-sorgu DEĞİL → tek geçiş)
       GREATEST(0, -c.balance) AS net_borc,
       GREATEST(0,  c.balance) AS net_alacak
     FROM islemler i
     JOIN cariler c ON c.id = i.cari_id
     LEFT JOIN taksitler tk ON tk.islem_id = i.id AND tk.isletme_id = i.isletme_id
+    LEFT JOIN pay_target pt ON pt.islem_id = i.id
     WHERE i.isletme_id = p_isletme_id
       AND i.cari_id IS NOT NULL
       AND i.type IN ('cari_satis', 'cari_alis')
@@ -107,3 +115,8 @@ AS $function$
 $function$;
 
 REVOKE EXECUTE ON FUNCTION public._vade_birim_mahsuplu(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+-- Hedefli ödeme NADİR → partial index pay_target build'ini bedava tutar (Fable kaldıracı).
+CREATE INDEX IF NOT EXISTS idx_islemler_hedef_islem
+  ON public.islemler (hedef_islem_id)
+  WHERE hedef_islem_id IS NOT NULL;
