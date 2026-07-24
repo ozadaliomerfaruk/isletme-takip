@@ -157,7 +157,15 @@ export interface GlassSurfaceProps {
   glassStyle?: 'regular' | 'clear';
   /** Camın üstündeki tint. Verilmezse GLASS_TINT. */
   tintColor?: string;
-  /** Cam dokunuşa fiziksel tepki versin mi (butonlar için). */
+  /**
+   * iOS 26'nın kendi dokunma tepkisi: cam parmağın altında hafifçe kabarıp
+   * parlar. VARSAYILAN AÇIK — bu his liquid glass'ın ayrılmaz parçası, her
+   * yüzeyde standart olmalı; kapatmak bilinçli bir istisna olsun.
+   *
+   * ÖNEMLİ: efekt yalnız cam view DOKUNUŞU GÖRÜRSE çalışır. İçerik camın
+   * ÇOCUĞU olmalı; camı arka planda bırakıp dokunuşu üstteki bir kardeş
+   * katmana verirsen bu prop hiçbir şey yapmaz.
+   */
   interactive?: boolean;
   /**
    * Cam yokken altına BlurView koy. Varsayılan false — çoğu yüzeyin fallback'i
@@ -183,7 +191,7 @@ export function GlassSurface({
   fallbackStyle,
   glassStyle = 'regular',
   tintColor = GLASS_TINT,
-  interactive = false,
+  interactive = true,
   fallbackBlur = false,
   fallbackIntensity = FALLBACK_BLUR_INTENSITY,
   fallbackOverlay,

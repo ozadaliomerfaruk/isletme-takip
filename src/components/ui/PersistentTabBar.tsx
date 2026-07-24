@@ -372,57 +372,68 @@ export function PersistentTabBar() {
 
   const bottomInset = insets.bottom > 0 ? insets.bottom : 10;
 
+  /** Bar'ın içi — cam ve fallback yollarının İKİSİNDE de aynı, tek yerde tanımlı. */
+  const barContent = (
+    <GestureDetector gesture={panGesture}>
+      <View style={styles.row}>
+        {fullRowContent > 0 ? (
+          <Animated.View style={[styles.activePill, activePillAnim]} />
+        ) : null}
+
+        {visibleTabs.map((tab, i) => (
+          <TabBarItem
+            key={tab.key}
+            index={i}
+            Icon={tab.icon}
+            label={t(tab.labelKey)}
+            focused={activeTab === tab.key}
+            labelAnim={labelAnim}
+            pressedIdx={pressedIdx}
+            pressAnim={pressAnim}
+          />
+        ))}
+      </View>
+    </GestureDetector>
+  );
+
   return (
     <View style={styles.outer} pointerEvents="box-none" onLayout={onOuterLayout}>
       <View pointerEvents="box-none" style={{ paddingTop: TOP_PAD, paddingBottom: bottomInset }}>
-        <Animated.View style={barAnim}>
-          {AnimatedGlassView ? (
-            // Gerçek liquid glass: tint çok hafif, üstünde beyaz overlay YOK
-            // (overlay lensing'i perdeleyip buzlu gosteriyor).
-            <AnimatedGlassView
-              glassEffectStyle="regular"
-              // tintColor = paketin native API'si (UIGlassEffect.tintColor);
-              // backgroundColor camın ÜSTÜNE düz katman koyup lensing'i perdeler.
-              tintColor={GLASS_TINT}
-              // iOS 26'nın KENDİ dokunma tepkisi: cam parmağın altında hafifçe
-              // kabarıp parlar. Arama çubuğundaki "premium his" tam olarak bu —
-              // orada GlassSurface'e interactive verdiğimiz için vardı, burada yoktu.
-              isInteractive
-              style={[StyleSheet.absoluteFill, styles.glass, radiusAnim]}
+        {AnimatedGlassView ? (
+          /**
+           * Cam, bar'ın KENDİSİ — arka planda duran ayrı bir katman DEĞİL.
+           *
+           * Eskiden cam absoluteFill bir kardeş katmandı ve dokunuşları üstteki
+           * jest katmanı tüketiyordu; bu yüzden isInteractive hiçbir şey
+           * yapmıyordu (iOS 26'nın dokunma tepkisi camın dokunuşu GÖRMESİNİ
+           * gerektirir). İçerik artık camın ÇOCUĞU — arama çubuğundaki
+           * GlassSurface ile aynı yapı, oradaki his de bu yüzden vardı.
+           *
+           * Köşe yarıçapı camın kendi stilinde (native squircle + rim lighting);
+           * dış sarmalayıcıda RN clip maskesi YOK.
+           */
+          <AnimatedGlassView
+            glassEffectStyle="regular"
+            // tintColor = paketin native API'si (UIGlassEffect.tintColor);
+            // backgroundColor camın ÜSTÜNE düz katman koyup lensing'i perdeler.
+            tintColor={GLASS_TINT}
+            isInteractive
+            style={[styles.glass, barAnim, radiusAnim]}
+          >
+            {barContent}
+          </AnimatedGlassView>
+        ) : (
+          // iOS<26 + Android: bugünkü görünüm (blur + frost overlay), clip'li.
+          <Animated.View style={[styles.fallbackClip, barAnim, radiusAnim]}>
+            <BlurView
+              intensity={FALLBACK_BLUR_INTENSITY}
+              tint="light"
+              style={StyleSheet.absoluteFill}
             />
-          ) : (
-            // iOS<26 + Android: bugünkü görünüm (blur + frost overlay), clip'li.
-            <Animated.View style={[StyleSheet.absoluteFill, styles.fallbackClip, radiusAnim]}>
-              <BlurView
-                intensity={FALLBACK_BLUR_INTENSITY}
-                tint="light"
-                style={StyleSheet.absoluteFill}
-              />
-              <View style={styles.pillOverlay} />
-            </Animated.View>
-          )}
-
-          <GestureDetector gesture={panGesture}>
-            <View style={styles.row}>
-              {fullRowContent > 0 ? (
-                <Animated.View style={[styles.activePill, activePillAnim]} />
-              ) : null}
-
-              {visibleTabs.map((tab, i) => (
-                <TabBarItem
-                  key={tab.key}
-                  index={i}
-                  Icon={tab.icon}
-                  label={t(tab.labelKey)}
-                  focused={activeTab === tab.key}
-                  labelAnim={labelAnim}
-                  pressedIdx={pressedIdx}
-                  pressAnim={pressAnim}
-                />
-              ))}
-            </View>
-          </GestureDetector>
-        </Animated.View>
+            <View style={styles.pillOverlay} />
+            {barContent}
+          </Animated.View>
+        )}
       </View>
     </View>
   );
