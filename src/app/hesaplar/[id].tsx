@@ -770,10 +770,13 @@ export default function HesapHareketleriPage() {
     const islem = item.data;
     const canEditItem = canDelete('islemler', islem.created_by ?? null);
     const rbVal = runningBalanceMap[islem.id];
-    const itemRunningBalanceText = rbVal !== undefined
+    // Kredi kartında satır-satır yürüyen bakiye GÖSTERME (kullanıcı isteği): özet kartındaki
+    // kullanılan/kalan limit yeterli, satırlarda bakiye gereksiz.
+    const showRunningBalance = rbVal !== undefined && hesap?.type !== 'kredi_karti';
+    const itemRunningBalanceText = showRunningBalance
       ? `${t('transactions:bakiyeSatir')} ${formatCurrency(Math.abs(rbVal), (hesap?.currency ?? 'TRY') as Currency)}`
       : null;
-    const itemRunningBalanceNegative = rbVal !== undefined && rbVal < -0.01;
+    const itemRunningBalanceNegative = showRunningBalance && rbVal < -0.01;
     return (
       <HesapTransactionItem
         islem={islem}
@@ -793,7 +796,7 @@ export default function HesapHareketleriPage() {
         runningBalanceNegative={itemRunningBalanceNegative}
       />
     );
-  }, [id, hesap?.currency, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems, runningBalanceMap]);
+  }, [id, hesap?.currency, hesap?.type, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems, runningBalanceMap]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

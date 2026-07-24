@@ -160,6 +160,18 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
 
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = t(labelKey);
+  // İzin KULLANIMI: satır-2'de saat yerine izin tarih(ler)ini göster (saat izin için anlamsız).
+  // Çok günlü → "başlangıç → bitiş"; tek günlü → tek tarih. select('*') date_end'i getirir.
+  const izinDateEnd = (islem as { date_end?: string | null }).date_end;
+  const fmtGun = (s: string) => { const p = s.slice(0, 10).split('-'); return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : s; };
+  const izinTarihText = islem.type === 'personel_izin_kullanimi'
+    ? (izinDateEnd && izinDateEnd.slice(0, 10) !== islem.date.slice(0, 10)
+        ? `${fmtGun(islem.date)} → ${fmtGun(izinDateEnd)}`
+        : fmtGun(islem.date))
+    : null;
+  // İzin (kullanım + hakkı) parayı hareket ettirmez (bakiye etkisi 0) → yürüyen bakiyeyi
+  // GÖSTERME (izne bakiye yazmak kafa karıştırıcı; komşu para satırıyla aynı değer çıkardı).
+  const isIzin = islem.type === 'personel_izin_kullanimi' || islem.type === 'personel_izin_hakki';
   // Ödeme/tahsilat işlemlerinde hangi hesaba yapıldığını göster (ok ile yön belirt)
   const entityText = (islem.type === 'personel_odeme' || islem.type === 'personel_tahsilat')
     ? islem.hesap?.name
@@ -177,7 +189,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         id={islem.id}
         type={islem.type}
         amount={xc.subText ? xc.mainAmount : Number(islem.amount)}
-        date={formatTime(islem.date)}
+        date={izinTarihText ?? formatTime(islem.date)}
         typeLabel={typeLabel}
         entityText={entityText}
         secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
@@ -185,8 +197,8 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         creatorText={creatorText}
         subAmount={xc.subText}
         currency={xc.subText ? xc.mainCurrency : currency}
-        runningBalanceText={runningBalanceText}
-        runningBalanceNegative={runningBalanceNegative}
+        runningBalanceText={isIzin ? null : runningBalanceText}
+        runningBalanceNegative={isIzin ? undefined : runningBalanceNegative}
         overrideColor={getEntityPerspectiveColor(islem.type)}
         overridePrefix={getEntityPerspectivePrefix(islem.type)}
         onPress={onPress}
