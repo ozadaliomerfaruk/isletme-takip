@@ -84,6 +84,17 @@ export function GlassContainer({
 /** Camın üstündeki ortak tint — ÇOK hafif; ağırlaşırsa cam "buzlu"ya döner. */
 export const GLASS_TINT = 'rgba(255,255,255,0.10)';
 
+/**
+ * GlassContainer için ortak `spacing`. Apple'ın kalibrasyonu (Landmarks/
+ * BadgesView): rozet arası 14 < spacing 16 < yığın↔buton 20 — yani spacing,
+ * BİRLEŞMESİNİ istediğin boşluktan büyük, AYRI kalmasını istediğinden küçük.
+ *
+ * Bizim boşluklarımız: grup içi spacing.sm = 8 (arama pill'i↔X, FAB menü
+ * satırları), gruplar arası spacing.md = 12 (menü↔FAB). 8 < 10 < 12 → grup içi
+ * erir, gruplar ayrı kalır. Bu sabiti değiştirmeden önce iki boşluğu da kontrol et.
+ */
+export const GLASS_MERGE_SPACING = 10;
+
 export interface GlassSurfaceProps {
   /**
    * HER İKİ yolda uygulanan stil: geometri (boyut, köşe yarıçapı, flex).

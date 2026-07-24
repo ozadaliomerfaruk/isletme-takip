@@ -20,7 +20,7 @@ import { Search, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
-import { GlassSurface, GlassContainer } from './GlassSurface';
+import { GlassSurface, GlassContainer, GLASS_MERGE_SPACING } from './GlassSurface';
 
 const BAR_HEIGHT = 52;
 
@@ -131,7 +131,7 @@ export function FloatingSearchBar({
       {/* Pill ile kapatma X'i AYNI kontrol grubu → tek GlassContainer'da eritilir
           (Apple'ın ToolbarItemGroup dili). spacing, aradaki boşluktan (spacing.sm=8)
           büyük seçildi ki birleşsinler; FAB farklı ağaçta olduğu için etkilenmez. */}
-      <GlassContainer spacing={10} style={styles.row}>
+      <GlassContainer spacing={GLASS_MERGE_SPACING} style={styles.row}>
         <GlassSurface
           style={styles.pill}
           fallbackStyle={[styles.pillFallback, isFocused && styles.pillFallbackFocused]}

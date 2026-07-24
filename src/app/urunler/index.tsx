@@ -6,7 +6,7 @@ import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
-import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab } from '@/components/ui';
+import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -897,7 +897,10 @@ export default function UrunlerPage() {
 
       {/* FAB Menu Items */}
       {activeTab === 'active' && fabMenuVisible && (
-        <View style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}>
+        <GlassContainer
+          spacing={GLASS_MERGE_SPACING}
+          style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}
+        >
           {[
             {
               label: t('products:bulk.stockIn'),
@@ -937,17 +940,10 @@ export default function UrunlerPage() {
                 }],
               }}
             >
-              <TouchableOpacity
-                style={styles.fabMenuItem}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.fabMenuIcon}>{item.icon}</View>
-                <Text style={styles.fabMenuLabel}>{item.label}</Text>
-              </TouchableOpacity>
+              <GlassFabMenuItem icon={item.icon} label={item.label} onPress={item.onPress} />
             </Animated.View>
           ))}
-        </View>
+        </GlassContainer>
       )}
 
       {/* FAB Button — arama aktifken de çekilir: pill tam genişliğe açılıp FAB'ın

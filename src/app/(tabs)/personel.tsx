@@ -27,7 +27,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassFab } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -777,7 +777,10 @@ export default function PersonelPage() {
 
       {/* FAB Menu Items */}
       {!isSelectMode && fabMenuVisible && (
-        <View style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}>
+        <GlassContainer
+          spacing={GLASS_MERGE_SPACING}
+          style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}
+        >
           {[
             {
               label: t('staff:bulkActions.addPayment'),
@@ -817,17 +820,10 @@ export default function PersonelPage() {
                 }],
               }}
             >
-              <TouchableOpacity
-                style={styles.fabMenuItem}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.fabMenuIcon}>{item.icon}</View>
-                <Text style={styles.fabMenuLabel}>{item.label}</Text>
-              </TouchableOpacity>
+              <GlassFabMenuItem icon={item.icon} label={item.label} onPress={item.onPress} />
             </Animated.View>
           ))}
-        </View>
+        </GlassContainer>
       )}
 
       {/* FAB Button — arama aktifken de çekilir: pill tam genişliğe açılıp FAB'ın
@@ -1076,33 +1072,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     zIndex: 9,
   },
-  fabMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-    gap: spacing.sm,
-  },
-  fabMenuIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabMenuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
+  // fabMenuItem / fabMenuIcon / fabMenuLabel → GlassFabMenuItem'a taşındı.
   // Yapışık düz-liste görünümü (cariler dili)
   flatCard: {
     borderRadius: 0,
