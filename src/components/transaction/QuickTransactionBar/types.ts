@@ -77,6 +77,9 @@ export interface QuickTransactionBarProps {
   defaultAmount?: number;
   defaultDate?: Date;
   defaultDescription?: string;
+  /** Faz 2 hedefleme: fatura satırından "öde/tahsil et" ile açıldıysa hedef fatura islem_id'si.
+   *  Oluşan cari ödeme/tahsilat işlemine hedef_islem_id olarak yazılır → o fatura öncelikli kapanır. */
+  hedefIslemId?: string | null;
   /** Başarıda çağrılır; create yolunda oluşan işlemin id'si geçilir (edit'te transactionId). */
   onSuccess?: (islemId?: string) => void;
   // Viewer mode: linked cari viewer (hides ödeme/tahsilat tabs)

@@ -85,6 +85,9 @@ interface UseTransactionSubmitOptions {
   sourceHesapId: string | null;
   cariId: string | null;
   personelId: string | null;
+  /** Faz 2 hedefleme: satır-swipe "öde/tahsil et" jestinden gelen hedef fatura islem_id'si.
+   *  Yalnız create + cari ödeme/tahsilat'ta p_new_row.hedef_islem_id olarak yazılır. */
+  hedefIslemId?: string | null;
 
   // Entities
   hesaplar: Hesap[] | undefined;
@@ -204,6 +207,7 @@ export function useTransactionSubmit({
   sourceHesapId,
   cariId,
   personelId,
+  hedefIslemId,
   hesaplar,
   cariler,
   personelList,
@@ -371,9 +375,18 @@ export function useTransactionSubmit({
         ? formatDateForDB(vadeTarihi)
         : null;
 
+      // Faz 2 — fatura-hedefli ödeme/tahsilat: satır-swipe "öde/tahsil et" jestinden gelen
+      // hedef fatura pointer'ı (niyet-sakla-tutar-sakla-ma). YALNIZ create + cari ödeme/tahsilat'ta
+      // yazılır (edit'e DOKUNMA → update_islem_atomik hedef_islem_id bilmez, mevcut pointer korunur).
+      // Genel ödemede hedefIslemId yok → alan hiç eklenmez → RPC'de NULL (bugünkü SAF FIFO).
+      // Sunucu ayrıca doğrular (aynı cari + alis/satis + iki-yabancı değil); uyumsuz → NULL degrade.
+      if (!isEditMode && hedefIslemId && (type === 'tahsilat' || (type === 'odeme' && odemeHedefType === 'tedarikci'))) {
+        data.hedef_islem_id = hedefIslemId;
+      }
+
       return data;
     },
-    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd, vadeTarihi, urunItems.length, isEditMode]
+    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd, vadeTarihi, urunItems.length, isEditMode, hedefIslemId]
   );
 
   // Check cross-currency

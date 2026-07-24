@@ -1,9 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import i18n from '@/i18n';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useToast } from '@/contexts/ToastContext';
-import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
+import { queryKeys } from '@/lib/queryKeys';
 import { roundCurrency } from '@/lib/currency';
 
 /**
@@ -260,40 +258,7 @@ export function useVadeOzet(enabled = true) {
   });
 }
 
-/**
- * Bir ödemenin tahsislerini söküp HEDEF BORCA öncelik vererek yeniden dağıtır
- * (retahsis_odeme RPC — Faz 2'nin düzeltme yolu; balance'a DOKUNMAZ).
- * Kullanım: bağlam-hedefli tahsilat — taksit detayındaki "Tahsil Et" ve cari
- * detayındaki satır-swipe "Tahsil Et" o borca/plana gitmeli; genel FIFO carinin
- * BAŞKA borcunun daha eski vadesine kaydırabiliyor (kullanıcı bulgusu, 21 Tem).
- */
-export function useRetahsisOdeme() {
-  const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
-  const { showToast } = useToast();
-
-  return useMutation({
-    mutationFn: async ({ odemeIslemId, hedefBorcId }: { odemeIslemId: string; hedefBorcId: string }) => {
-      if (!isletme?.id) throw new Error(i18n.t('common:errors.businessNotFound'));
-      const { data, error } = await supabase.rpc('retahsis_odeme', {
-        p_isletme_id: isletme.id,
-        p_odeme_islem_id: odemeIslemId,
-        p_hedef_borc: hedefBorcId,
-      });
-      if (error) throw error;
-      return data as { tahsis_adet: number; avans: number };
-    },
-    // Retry: retahsis idempotent (tüm tahsisleri söküp yeniden dağıtır) — geçici
-    // ağ hatasında sessizce genel-FIFO'da kalmasın diye 2 kez daha denenir.
-    retry: 2,
-    onSuccess: () => {
-      invalidateRelatedQueries(queryClient, 'islem');
-    },
-    onError: () => {
-      // SESSİZ KALMA (denetim bulgusu): para kaydedildi ama hedefe yönlendirilemedi —
-      // genel FIFO'da (carinin en eski vadesinde) kaldı. Kullanıcı bilsin.
-      showToast(i18n.t('transactions:vade.hedefTahsisHata'), 'error');
-      invalidateRelatedQueries(queryClient, 'islem');
-    },
-  });
-}
+// NOT: useRetahsisOdeme (retahsis_odeme RPC sarmalayıcısı) Faz 2'de EMEKLİ edildi —
+// hedefleme artık create-anında hedef_islem_id pointer'ıyla (create_islem_atomik) yapılıyor,
+// okuma-tarafı da net-bakiye iki-aşama mahsuba geçtiği için islem_tahsis defterini okumuyor.
+// retahsis_odeme SERVER RPC'si KALDI (yayınlanmış eski build'ler çağırıyor; zararsız ölü-yazım).

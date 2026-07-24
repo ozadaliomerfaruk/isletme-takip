@@ -17,9 +17,9 @@ import { ListPdfPreviewSheet } from '@/components/export';
 import type { EntityListExportOptions } from '@/lib/excelExport';
 
 /**
- * Taksit detayı (Faz 3): taksit satırları + tahsis-bazlı ödendi/kalan durumu.
- * "Tahsil Et/Öde" → en eski açık taksitin kalanı ön-dolu QTB (FIFO sunucuda —
- * ödeme zaten en eski vadeye gider, hedef seçtirmeye gerek yok).
+ * Taksit detayı (Faz 3): taksit satırları + net-bakiye ödendi/kalan durumu.
+ * "Tahsil Et/Öde" → ilk açık taksitin kalanı ön-dolu QTB; ödeme BU PLANA hedeflenir
+ * (Faz 2 hedef_islem_id = planın faturası) → öndeki başka borca kaymaz, plan kapanır.
  * Tüm meta (para birimi, cari, tip) detay sorgusunun KENDİSİNDEN gelir —
  * deep-link/soğuk açılışta liste sorgusu beklenmez.
  */
@@ -281,9 +281,8 @@ export default function TaksitDetayPage() {
             defaultCariType={detay.type === 'cari_satis' ? 'musteri' : 'tedarikci'}
             defaultType={detay.type === 'cari_satis' ? 'tahsilat' : 'odeme'}
             defaultAmount={ilkAcik?.kalan}
-            onSuccess={(islemId) => {
-              setTahsilVisible(false);
-            }}
+            hedefIslemId={detay.islemId}
+            onSuccess={() => setTahsilVisible(false)}
           />
         )}
 

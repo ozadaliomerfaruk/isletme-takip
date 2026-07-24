@@ -105,6 +105,8 @@ export interface CariTaksitBirim {
   sira: number;
   vade_tarihi: string;
   tutar: number;
+  /** Ait olduğu plan id'si — cari detayda geciken-plan satırından /taksit/[planId] navigasyonu için. */
+  plan_id: string;
 }
 
 /**
@@ -122,14 +124,14 @@ export function useCariTaksitBirimleri(cariId: string | undefined, enabled = tru
       if (!cariId || !isletme?.id) return {};
       const { data, error } = await supabase
         .from('taksit_planlari')
-        .select('islem_id, taksitler(id, sira, vade_tarihi, tutar)')
+        .select('id, islem_id, taksitler(id, sira, vade_tarihi, tutar)')
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId);
       if (error) throw error;
       const map: Record<string, CariTaksitBirim[]> = {};
-      for (const plan of (data ?? []) as { islem_id: string; taksitler: CariTaksitBirim[] | null }[]) {
-        const birimler = (plan.taksitler ?? [])
-          .map((tk) => ({ ...tk, tutar: Number(tk.tutar) || 0 }))
+      for (const plan of (data ?? []) as { id: string; islem_id: string; taksitler: Omit<CariTaksitBirim, 'plan_id'>[] | null }[]) {
+        const birimler: CariTaksitBirim[] = (plan.taksitler ?? [])
+          .map((tk) => ({ ...tk, tutar: Number(tk.tutar) || 0, plan_id: plan.id }))
           .sort((a, b) => (a.vade_tarihi < b.vade_tarihi ? -1 : a.vade_tarihi > b.vade_tarihi ? 1 : a.sira - b.sira));
         map[plan.islem_id] = birimler;
       }
