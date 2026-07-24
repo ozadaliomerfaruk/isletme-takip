@@ -65,19 +65,18 @@ export function GlassContainer({
   pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
   children?: ReactNode;
 }) {
-  // Cam yoksa düz View — `spacing` aktarılmaz (View tanımaz), düzen aynı kalır.
-  if (!LIQUID_GLASS || !glassMod) {
-    return (
-      <View style={style} pointerEvents={pointerEvents}>
-        {children}
-      </View>
-    );
-  }
-  const GC = glassMod.GlassContainer;
+  // ŞU AN DEVRE DIŞI — düz View olarak davranıyor.
+  //
+  // Neden: cihazda cam yüzeylerin görünmemesi araştırılırken native container
+  // şüphelilerden biriydi (çocuklarının cam efektini kendisi koordine ediyor).
+  // Yüzeylerin GÖRÜNÜR olması, erimenin varlığından önce gelir; erime hiç
+  // görülmemiş spekülatif bir kazanç. Yapı korunuyor: çağrı yerleri olduğu gibi
+  // kalıyor, tek satır geri açılıp gerçek build'de tek başına denenebilir.
+  void spacing;
   return (
-    <GC spacing={spacing} style={style} pointerEvents={pointerEvents}>
+    <View style={style} pointerEvents={pointerEvents}>
       {children}
-    </GC>
+    </View>
   );
 }
 
@@ -241,15 +240,33 @@ export function GlassSurface({
 }: GlassSurfaceProps) {
   if (LIQUID_GLASS && glassMod) {
     const GV = glassMod.GlassView;
+    // Cam ARKA PLAN KATMANI olarak çiziliyor, içeriği SARMIYOR.
+    //
+    // Neden: cam view'i içerik sarmalayıcısı olarak kullandığımızda (children
+    // doğrudan içine) yüzey cihazda hiç çizilmedi — ikon/yazı duruyordu, cam
+    // yoktu. Tab bar'da çalışan yapı bu değil: orada cam çocuksuz bir
+    // absoluteFill katmanı, içerik onun KARDEŞİ. Doğrulanmış yapı bu, hepsi
+    // ona hizalandı.
+    //
+    // Köşe yarıçapı dış stilden çıkarılıp cam katmanına da veriliyor — cam
+    // kendi native köşesini çizer, dış View'de clip YOK.
+    const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
+    const radius = flat?.borderRadius;
     return (
-      <GV
-        glassEffectStyle={glassStyle}
-        tintColor={tintColor}
-        isInteractive={interactive}
-        style={[styles.glass, style]}
-      >
+      <View style={style}>
+        <GV
+          glassEffectStyle={glassStyle}
+          tintColor={tintColor}
+          isInteractive={interactive}
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFill,
+            styles.glass,
+            radius != null ? { borderRadius: radius } : null,
+          ]}
+        />
         {children}
-      </GV>
+      </View>
     );
   }
 
