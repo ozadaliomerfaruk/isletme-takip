@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Animated, Alert, RefreshControl, Pressable } from 'react-native';
+import ReAnimated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter } from 'expo-router';
@@ -60,6 +61,8 @@ export default function PersonelPage() {
   const handleTabScroll = useTabBarScroll();
   const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
+  // Arama aktifken (odak veya metin) FAB çekilir — bkz. FloatingSearchBar.onActiveChange
+  const [searchActive, setSearchActive] = useState(false);
   // A2: input anlık searchQuery'ye bağlı; filtre/sıralama debouncedSearch + useMemo ile.
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');
@@ -757,6 +760,7 @@ export default function PersonelPage() {
         onChangeText={setSearchQuery}
         placeholder={t('staff:search.searchPersonnel')}
         rightOffset={56 + spacing.md}
+        onActiveChange={setSearchActive}
       />
 
       {/* FAB Backdrop */}
@@ -826,27 +830,34 @@ export default function PersonelPage() {
         </View>
       )}
 
-      {/* FAB Button */}
-      {!isSelectMode && (
-        <TouchableOpacity
+      {/* FAB Button — arama aktifken de çekilir: pill tam genişliğe açılıp FAB'ın
+          altına girer ve kapatma X'ini (44px) tamamen örterdi. Süre X'lerle aynı (150ms). */}
+      {!isSelectMode && !searchActive && (
+        <ReAnimated.View
           style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-          onPress={() => {
-            haptics.light();
-            setFabMenuVisible(!fabMenuVisible);
-          }}
-          activeOpacity={0.8}
+          entering={FadeIn.duration(150)}
+          exiting={FadeOut.duration(150)}
         >
-          <Animated.View style={{
-            transform: [{
-              rotate: fabAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0deg', '45deg'],
-              }),
-            }],
-          }}>
-            <Plus size={24} color={colors.surface} />
-          </Animated.View>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.fabTouchable}
+            onPress={() => {
+              haptics.light();
+              setFabMenuVisible(!fabMenuVisible);
+            }}
+            activeOpacity={0.8}
+          >
+            <Animated.View style={{
+              transform: [{
+                rotate: fabAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '45deg'],
+                }),
+              }],
+            }}>
+              <Plus size={24} color={colors.surface} />
+            </Animated.View>
+          </TouchableOpacity>
+        </ReAnimated.View>
       )}
 
       {/* Quick Transaction Bar */}
@@ -1068,6 +1079,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 10,
+  },
+  /** FAB'ın dokunma yüzeyi — konum/görsel stil sarmalayıcı ReAnimated.View'de. */
+  fabTouchable: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   fabMenuContainer: {
     position: 'absolute',

@@ -1,5 +1,6 @@
 ﻿import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
+import ReAnimated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
@@ -48,6 +49,8 @@ export default function UrunlerPage() {
   const { t } = useTranslation(['products', 'common', 'errors', 'reports', 'categories']);
   const { getDateRangeLabel, locale } = useDateFormat();
   const [searchQuery, setSearchQuery] = useState('');
+  // Arama aktifken (odak veya metin) FAB çekilir — bkz. FloatingSearchBar.onActiveChange
+  const [searchActive, setSearchActive] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>(CATEGORY_FILTER_ALL);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -810,6 +813,7 @@ export default function UrunlerPage() {
           onChangeText={setSearchQuery}
           placeholder={t('products:search.placeholder')}
           rightOffset={activeTab === 'active' ? 56 + spacing.md : 0}
+          onActiveChange={setSearchActive}
         />
       )}
 
@@ -946,27 +950,34 @@ export default function UrunlerPage() {
         </View>
       )}
 
-      {/* FAB Button */}
-      {activeTab === 'active' && (
-        <TouchableOpacity
+      {/* FAB Button — arama aktifken de çekilir: pill tam genişliğe açılıp FAB'ın
+          altına girer ve kapatma X'ini (44px) tamamen örterdi. Süre X'lerle aynı (150ms). */}
+      {activeTab === 'active' && !searchActive && (
+        <ReAnimated.View
           style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-          onPress={() => {
-            haptics.light();
-            setFabMenuVisible(!fabMenuVisible);
-          }}
-          activeOpacity={0.8}
+          entering={FadeIn.duration(150)}
+          exiting={FadeOut.duration(150)}
         >
-          <Animated.View style={{
-            transform: [{
-              rotate: fabAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: ['0deg', '45deg'],
-              }),
-            }],
-          }}>
-            <Plus size={24} color={colors.surface} />
-          </Animated.View>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.fabTouchable}
+            onPress={() => {
+              haptics.light();
+              setFabMenuVisible(!fabMenuVisible);
+            }}
+            activeOpacity={0.8}
+          >
+            <Animated.View style={{
+              transform: [{
+                rotate: fabAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: ['0deg', '45deg'],
+                }),
+              }],
+            }}>
+              <Plus size={24} color={colors.surface} />
+            </Animated.View>
+          </TouchableOpacity>
+        </ReAnimated.View>
       )}
       <UndoSnackbar
         visible={undoSnackbar.visible}

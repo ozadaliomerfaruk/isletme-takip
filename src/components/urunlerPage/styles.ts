@@ -241,6 +241,12 @@ export const styles = StyleSheet.create({
     elevation: 8,
     zIndex: 10,
   },
+  /** FAB'ın dokunma yüzeyi — konum/görsel stil sarmalayıcı ReAnimated.View'de. */
+  fabTouchable: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   fabMenuContainer: {
     position: 'absolute',
     right: spacing.lg,

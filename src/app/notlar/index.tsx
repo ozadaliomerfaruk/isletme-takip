@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
+import ReAnimated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
@@ -88,6 +89,8 @@ export default function NotlarPage() {
   const [filter, setFilter] = useState<FilterKey>('all');
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'done'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  // Arama aktifken (odak veya metin) FAB çekilir — bkz. FloatingSearchBar.onActiveChange
+  const [searchActive, setSearchActive] = useState(false);
   // A2: input anlık searchQuery'ye bağlı; filtreleme debouncedSearch'ü kullanır.
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [modalVisible, setModalVisible] = useState(false);
@@ -408,16 +411,26 @@ export default function NotlarPage() {
           onChangeText={setSearchQuery}
           placeholder={t('common:notes.searchPlaceholder')}
           rightOffset={56 + spacing.md}
+          onActiveChange={setSearchActive}
         />
 
-        {/* FAB */}
-        <TouchableOpacity
-          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <Plus size={24} color={colors.surface} />
-        </TouchableOpacity>
+        {/* FAB — arama aktifken çekilir: pill tam genişliğe açılıp FAB'ın altına
+            girer ve kapatma X'ini tamamen örterdi. Süre X'lerle aynı (150ms). */}
+        {!searchActive && (
+          <ReAnimated.View
+            style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(150)}
+          >
+            <TouchableOpacity
+              style={styles.fabTouchable}
+              onPress={() => setModalVisible(true)}
+              activeOpacity={0.8}
+            >
+              <Plus size={24} color={colors.surface} />
+            </TouchableOpacity>
+          </ReAnimated.View>
+        )}
 
         {/* Create Modal */}
         <NoteInputModal
@@ -570,5 +583,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 8,
     zIndex: 10,
+  },
+  /** FAB'ın dokunma yüzeyi — konum/görsel stil sarmalayıcı ReAnimated.View'de. */
+  fabTouchable: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

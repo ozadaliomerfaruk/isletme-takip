@@ -40,6 +40,11 @@ interface FloatingSearchBarProps {
   /** Verilirse mount'ta bu gecikmeyle (ms) input'a odaklanır — sheet açılış
    *  animasyonu bitince klavyeyi açmak için. */
   autoFocusDelay?: number;
+  /** Arama "aktif" (odak VEYA metin var) durumu değişince tetiklenir.
+   *  Sağ altta FAB olan ekranlar bunu dinleyip FAB'ı gizler: aktifken pill tam
+   *  genişliğe açılıp FAB'ın altına girer ve kapatma X'ini tamamen örter
+   *  (X 44px, FAB 56px, ikisi de sağda ve aynı taban çizgisinde). */
+  onActiveChange?: (active: boolean) => void;
 }
 
 /**
@@ -54,6 +59,7 @@ export function FloatingSearchBar({
   rightOffset = 0,
   bottomOffset = spacing.lg,
   autoFocusDelay,
+  onActiveChange,
 }: FloatingSearchBarProps) {
   // Overlay tab bar'ın üstünde kal: insets.bottom (modifiedInsets ile) gerçek safe-area + tab bar
   // yüksekliğini taşır → çubuk bar'ın arkasında kalmaz, üstünde yüzer.
@@ -101,6 +107,11 @@ export function FloatingSearchBar({
   // Aktifken (odak ya da metin varken) pill tam genişliğe açılır ve sağında
   // aramayı tamamen kapatan yuvarlak X belirir (Apple Notes davranışı).
   const isActive = isFocused || value.length > 0;
+
+  // Ekranı haberdar et — FAB'lı ekranlar bu sırada FAB'ı çeker (yoksa X'in üstüne biner).
+  useEffect(() => {
+    onActiveChange?.(isActive);
+  }, [isActive, onActiveChange]);
 
   const handleDismiss = () => {
     onChangeText('');
