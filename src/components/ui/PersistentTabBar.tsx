@@ -112,16 +112,24 @@ export function PersistentTabBar() {
   const fullRowContent = outerW > 0 ? outerW - OUTER_PAD_H * 2 - ROW_PAD * 2 : 0;
 
   const idx = useSharedValue(0);
+  /** Vurgunun ŞU AN hedeflediği sekme — aynı hedefe ikinci yay başlatmamak için. */
+  const targetIdx = useSharedValue(0);
   const idxMeasured = useRef(false);
 
   useEffect(() => {
     if (!idxMeasured.current) {
       idx.value = activeIndex;
+      targetIdx.value = activeIndex;
       idxMeasured.current = true;
-    } else {
-      idx.value = withSpring(activeIndex, SLIDE_SPRING);
+      return;
     }
-  }, [activeIndex, idx]);
+    // Jest vurguyu zaten oraya yolladıysa DOKUNMA. Aksi halde navigasyon bitince
+    // uçuş halindeki yay aynı hedefe yeniden başlatılıyor, hız sıfırlanıyor ve
+    // gözle görülür bir sıçrama oluyordu (sekme değişimi yavaşladıkça belirginleşir).
+    if (targetIdx.value === activeIndex) return;
+    targetIdx.value = activeIndex;
+    idx.value = withSpring(activeIndex, SLIDE_SPRING);
+  }, [activeIndex, idx, targetIdx]);
 
   useEffect(() => {
     resetTabBarCollapse();
@@ -168,53 +176,20 @@ export function PersistentTabBar() {
   // activeTab ref'i: hızlı sürüklemede segments gecikirse mükerrer navigasyonu eler.
   const activeTabRef = useRef(activeTab);
   activeTabRef.current = activeTab;
-  /** Parmağın ŞU AN üstünde olduğu sekme — navigasyon değil, yalnız işaret. */
-  const hoveredRef = useRef(-1);
 
-  /** x → sekme indeksi. Daralmışken slot da dar → güncel tabBarCollapsed ile hesap. */
-  const indexAt = useCallback((x: number) => {
-    if (fullRowContent <= 0 || n <= 0) return -1;
-    const slot = (fullRowContent - tabBarCollapsed.value * 2 * NARROW) / n;
-    if (slot <= 0) return -1;
-    return Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
-  }, [fullRowContent, n]);
-
-  /**
-   * Parmağın altındaki sekmeyi işaretle: vurgu oraya kayar, haptik tık atar.
-   * NAVİGASYON YOK — sürüklerken sayfa değişmez.
-   */
-  const hoverAt = useCallback((x: number) => {
-    const i = indexAt(x);
-    if (i < 0 || i === hoveredRef.current || !visibleTabs[i]) return;
-    hoveredRef.current = i;
-    idx.value = withSpring(i, SLIDE_SPRING);
+  const tick = useCallback(() => {
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [indexAt, visibleTabs, idx]);
+  }, []);
 
-  /**
-   * PARMAK KALKINCA sayfayı aç — sürüklerken değil.
-   *
-   * Eskiden parmak her sekmeye girdiğinde anında navigasyon vardı: bar boyunca
-   * sürüklemek 5 ayrı ekran değişimi tetikliyor, her biri JS thread'inde
-   * mount/render yapıyordu → sürükleme takılıyordu.
-   *
-   * İndeksi hoveredRef'ten DEĞİL doğrudan son dokunma konumundan hesaplıyor:
-   * hoveredRef'i dolduran hoverAt runOnJS ile asenkron çalışıyor ve hızlı bir
-   * TIKLAMADA onFinalize ondan önce yetişebiliyordu → tıklama sekme değiştirmiyordu.
-   */
-  const commitAt = useCallback((x: number) => {
-    hoveredRef.current = -1;
-    const i = indexAt(x);
-    if (i < 0) return;
+  /** Verilen indeksteki sekmeye git. Yalnız parmak kalkınca çağrılır. */
+  const commitIndex = useCallback((i: number) => {
     const tab = visibleTabs[i];
     if (!tab) return;
     if (tab.key !== activeTabRef.current) {
       goToTab(router, segments as string[], tab.route);
     }
-  }, [indexAt, visibleTabs, router, segments]);
+  }, [visibleTabs, router, segments]);
 
-  /** Son dokunma x'i — Pan'ın onFinalize'ında event olmadığı için UI thread'de saklanır. */
-  const lastX = useSharedValue(-1);
   /** Pan gerçekten AKTİFLEŞTİ mi — tıklamada Pan başlar ama aktifleşmez. */
   const dragging = useSharedValue(false);
 
@@ -232,22 +207,44 @@ export function PersistentTabBar() {
    *          failOffsetY: dikey hareket Pan'ı düşürür (liste scroll'uyla çakışmasın).
    */
   const panGesture = useMemo(() => {
+    /**
+     * Vurguyu parmağın altındaki sekmeye taşı — TAMAMEN UI THREAD'DE.
+     *
+     * Eskiden bu runOnJS ile JS thread'inde yapılıyordu; sekme değişiminde JS
+     * thread navigasyon ve ekran mount'uyla dolduğu için yay geç başlıyor,
+     * hareket takılıyordu. Burada yayı UI thread'i sürüyor → JS ne kadar meşgul
+     * olursa olsun vurgu akıcı. JS'e yalnız haptik bırakıldı.
+     *
+     * Dönüş: hedef indeks (-1 = ölçüm yok).
+     */
+    const moveHighlight = (x: number) => {
+      'worklet';
+      if (fullRowContent <= 0 || n <= 0) return -1;
+      const slot = (fullRowContent - tabBarCollapsed.value * 2 * NARROW) / n;
+      if (slot <= 0) return -1;
+      const i = Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
+      if (i !== targetIdx.value) {
+        targetIdx.value = i;
+        idx.value = withSpring(i, SLIDE_SPRING);
+        runOnJS(tick)();
+      }
+      return i;
+    };
+
     const pan = Gesture.Pan()
       .activeOffsetX([-6, 6])
       .failOffsetY([-14, 14])
       .onStart((e) => {
         dragging.value = true;
-        lastX.value = e.x;
-        runOnJS(hoverAt)(e.x);
+        moveHighlight(e.x);
       })
       .onUpdate((e) => {
-        lastX.value = e.x;
-        runOnJS(hoverAt)(e.x);
+        moveHighlight(e.x);
       })
       .onFinalize(() => {
         if (!dragging.value) return;
         dragging.value = false;
-        runOnJS(commitAt)(lastX.value);
+        if (targetIdx.value >= 0) runOnJS(commitIndex)(targetIdx.value);
       });
 
     const tap = Gesture.Tap()
@@ -255,12 +252,12 @@ export function PersistentTabBar() {
       .maxDuration(400)
       .onEnd((e, success) => {
         if (!success) return;
-        runOnJS(hoverAt)(e.x);
-        runOnJS(commitAt)(e.x);
+        const i = moveHighlight(e.x);
+        if (i >= 0) runOnJS(commitIndex)(i);
       });
 
     return Gesture.Race(pan, tap);
-  }, [hoverAt, commitAt, lastX, dragging]);
+  }, [fullRowContent, n, idx, targetIdx, dragging, tick, commitIndex]);
 
   if (activeTab === null) return null;
 
