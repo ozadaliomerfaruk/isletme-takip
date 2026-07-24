@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, EmptyState } from '@/components/ui';
+import { Text, EmptyState, GlassFab } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
@@ -247,15 +247,16 @@ export default function TaksitTakipPage() {
         )}
 
         {/* FAB Button (+ → 45° döner) */}
-        <TouchableOpacity
+        <GlassFab
           style={styles.fab}
-          activeOpacity={0.85}
+          iconSize={26}
           onPress={() => setShowFabMenu((prev) => !prev)}
-        >
-          <Animated.View style={{ transform: [{ rotate: fabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
-            <Plus size={26} color={colors.white} />
-          </Animated.View>
-        </TouchableOpacity>
+          renderIcon={({ color, size }) => (
+            <Animated.View style={{ transform: [{ rotate: fabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+              <Plus size={size} color={color} />
+            </Animated.View>
+          )}
+        />
 
         {/* Cari Picker (FAB menüsünden — NON-MODAL bağlamdan açılır → donmaz) */}
         <CariPickerSheet
@@ -353,21 +354,11 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
     bottom: spacing['2xl'],
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
     zIndex: 10,
   },
   fabMenuContainer: {

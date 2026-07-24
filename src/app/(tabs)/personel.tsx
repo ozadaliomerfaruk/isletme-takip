@@ -27,7 +27,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassFab } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -838,25 +838,24 @@ export default function PersonelPage() {
           entering={FadeIn.duration(150)}
           exiting={FadeOut.duration(150)}
         >
-          <TouchableOpacity
-            style={styles.fabTouchable}
+          <GlassFab
             onPress={() => {
               haptics.light();
               setFabMenuVisible(!fabMenuVisible);
             }}
-            activeOpacity={0.8}
-          >
-            <Animated.View style={{
-              transform: [{
-                rotate: fabAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '45deg'],
-                }),
-              }],
-            }}>
-              <Plus size={24} color={colors.surface} />
-            </Animated.View>
-          </TouchableOpacity>
+            renderIcon={({ color, size }) => (
+              <Animated.View style={{
+                transform: [{
+                  rotate: fabAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '45deg'],
+                  }),
+                }],
+              }}>
+                <Plus size={size} color={color} />
+              </Animated.View>
+            )}
+          />
         </ReAnimated.View>
       )}
 
@@ -1064,27 +1063,11 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   // FAB Styles
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
-  },
-  /** FAB'ın dokunma yüzeyi — konum/görsel stil sarmalayıcı ReAnimated.View'de. */
-  fabTouchable: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   fabMenuContainer: {
     position: 'absolute',

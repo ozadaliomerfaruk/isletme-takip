@@ -6,7 +6,7 @@ import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
-import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from '@/components/ui';
+import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -958,25 +958,24 @@ export default function UrunlerPage() {
           entering={FadeIn.duration(150)}
           exiting={FadeOut.duration(150)}
         >
-          <TouchableOpacity
-            style={styles.fabTouchable}
+          <GlassFab
             onPress={() => {
               haptics.light();
               setFabMenuVisible(!fabMenuVisible);
             }}
-            activeOpacity={0.8}
-          >
-            <Animated.View style={{
-              transform: [{
-                rotate: fabAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: ['0deg', '45deg'],
-                }),
-              }],
-            }}>
-              <Plus size={24} color={colors.surface} />
-            </Animated.View>
-          </TouchableOpacity>
+            renderIcon={({ color, size }) => (
+              <Animated.View style={{
+                transform: [{
+                  rotate: fabAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', '45deg'],
+                  }),
+                }],
+              }}>
+                <Plus size={size} color={color} />
+              </Animated.View>
+            )}
+          />
         </ReAnimated.View>
       )}
       <UndoSnackbar

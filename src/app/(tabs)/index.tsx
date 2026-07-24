@@ -24,7 +24,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, GlassFab } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -691,25 +691,25 @@ export default function HomePage() {
       )}
 
       {/* FAB Button */}
-      <TouchableOpacity
+      <GlassFab
         style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
         onPress={() => {
           haptics.light();
           setShowFabMenu((prev) => !prev);
         }}
-        activeOpacity={0.8}
-      >
-        <Animated.View style={{
-          transform: [{
-            rotate: fabAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0deg', '45deg'],
-            }),
-          }],
-        }}>
-          <Plus size={24} color={colors.surface} />
-        </Animated.View>
-      </TouchableOpacity>
+        renderIcon={({ color, size }) => (
+          <Animated.View style={{
+            transform: [{
+              rotate: fabAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '45deg'],
+              }),
+            }],
+          }}>
+            <Plus size={size} color={color} />
+          </Animated.View>
+        )}
+      />
 
       {/* DailyCashModal */}
       <DailyCashModal
@@ -912,20 +912,10 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: spacing.xs,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
   },
   fabMenuContainer: {
