@@ -12,7 +12,7 @@ import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
 import { tabBarCollapsed, resetTabBarCollapse } from '@/lib/tabBarScroll';
-import { AnimatedGlassView } from './GlassSurface';
+import { AnimatedGlassView, GLASS_TINT } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
 
 type TabConfig = {
@@ -86,9 +86,6 @@ const PILL_H_COLLAPSED = 52;
  * sekme değişiminde eğri baştan başlamaz, "mekanik" durmaz.
  */
 const SLIDE_SPRING = { duration: 420, dampingRatio: 0.82 };
-
-/** Camın üstündeki tint — çok hafif; ağırlaşırsa cam "buzlu"ya döner. */
-const GLASS_TINT = 'rgba(255,255,255,0.10)';
 const LABEL_H = 14;
 const TOP_PAD = 6;
 const OUTER_PAD_H = 12;

@@ -19,6 +19,9 @@ let glassMod: {
   isLiquidGlassAvailable: () => boolean;
 } | null = null;
 try {
+  // Koşullu yükleme: modül binary'de yoksa statik import bundle'ı patlatır,
+  // require try/catch ile yakalanabilir.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   glassMod = require('expo-glass-effect');
 } catch {
   glassMod = null;
@@ -51,28 +54,61 @@ export const AnimatedGlassView =
  * NOT: Apple'ın açılış morph'u `glassEffectID` + namespace ile çalışır;
  * expo-glass-effect bu API'yi dışa vermiyor → bizde yalnız yakınlık-erimesi var.
  */
-export const GlassContainer: ComponentType<{
+export function GlassContainer({
+  spacing,
+  style,
+  pointerEvents,
+  children,
+}: {
   spacing?: number;
   style?: StyleProp<ViewStyle>;
   pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
   children?: ReactNode;
-}> = (glassMod?.GlassContainer as never) ?? (View as never);
+}) {
+  // Cam yoksa düz View — `spacing` aktarılmaz (View tanımaz), düzen aynı kalır.
+  if (!LIQUID_GLASS || !glassMod) {
+    return (
+      <View style={style} pointerEvents={pointerEvents}>
+        {children}
+      </View>
+    );
+  }
+  const GC = glassMod.GlassContainer;
+  return (
+    <GC spacing={spacing} style={style} pointerEvents={pointerEvents}>
+      {children}
+    </GC>
+  );
+}
+
+/** Camın üstündeki ortak tint — ÇOK hafif; ağırlaşırsa cam "buzlu"ya döner. */
+export const GLASS_TINT = 'rgba(255,255,255,0.10)';
 
 export interface GlassSurfaceProps {
-  /** Kapsayıcı stil — KÖŞE YARIÇAPI dahil (cam kendi native köşesini çizer). */
-  style?: StyleProp<ViewStyle>;
   /**
-   * 'regular' = standart cam; 'clear' = daha saydam (odak/vurgu durumları için).
-   * Odak göstergesini renkli çerçeveyle değil bu geçişle vermek native dildir.
+   * HER İKİ yolda uygulanan stil: geometri (boyut, köşe yarıçapı, flex).
+   * Görsel dolgu (arka plan, border, gölge) buraya DEĞİL fallbackStyle'a —
+   * cam yolunda bunlar native rim lighting'i perdeler.
+   */
+  style?: StyleProp<ViewStyle>;
+  /** YALNIZ cam yokken uygulanır: bugünkü opak görünüm (bg + border + gölge). */
+  fallbackStyle?: StyleProp<ViewStyle>;
+  /**
+   * 'regular' = standart cam; 'clear' = daha saydam (medya üstü içerik için).
+   * Odak/etkin durumu renkli çerçeveyle değil bu geçişle vermek native dildir.
    */
   glassStyle?: 'regular' | 'clear';
-  /** Camın üstündeki tint. ÇOK hafif tutulmalı — ağırlaşırsa cam "buzlu"ya döner. */
+  /** Camın üstündeki tint. Verilmezse GLASS_TINT. */
   tintColor?: string;
   /** Cam dokunuşa fiziksel tepki versin mi (butonlar için). */
   interactive?: boolean;
-  /** Cam YOKKEN kullanılacak blur yoğunluğu. */
+  /**
+   * Cam yokken altına BlurView koy. Varsayılan false — çoğu yüzeyin fallback'i
+   * bugünkü opak görünüm olmalı (blur, arkası hareketli olan yüzeyler için).
+   */
+  fallbackBlur?: boolean;
   fallbackIntensity?: number;
-  /** Cam YOKKEN blur üstüne konan düz katman (okunabilirlik). */
+  /** fallbackBlur ile birlikte: blur üstüne konan düz katman (okunabilirlik). */
   fallbackOverlay?: string;
   children?: ReactNode;
 }
@@ -87,9 +123,11 @@ export interface GlassSurfaceProps {
  */
 export function GlassSurface({
   style,
+  fallbackStyle,
   glassStyle = 'regular',
-  tintColor,
+  tintColor = GLASS_TINT,
   interactive = false,
+  fallbackBlur = false,
   fallbackIntensity = Platform.OS === 'ios' ? 70 : 24,
   fallbackOverlay,
   children,
@@ -101,20 +139,25 @@ export function GlassSurface({
         glassEffectStyle={glassStyle}
         tintColor={tintColor}
         isInteractive={interactive}
-        style={style}
+        style={[styles.glass, style]}
       >
         {children}
       </GV>
     );
   }
 
-  // Fallback: iOS<26 + Android + camsız dev client. Blur clip'li olmalı
-  // (cam yolundan farklı olarak burada köşeyi RN kırpıyor).
+  // Fallback: iOS<26 + Android + camsız dev client.
+  // Blur varsa köşeyi RN kırpmalı (cam yolunda bunu native köşe yapıyordu);
+  // blur yoksa kırpma YOK — gölge overflow:hidden ile birlikte çizilmez.
   return (
-    <View style={[styles.fallback, style]}>
-      <BlurView intensity={fallbackIntensity} tint="light" style={StyleSheet.absoluteFill} />
-      {fallbackOverlay ? (
-        <View style={[StyleSheet.absoluteFill, { backgroundColor: fallbackOverlay }]} />
+    <View style={[fallbackBlur && styles.clip, style, fallbackStyle]}>
+      {fallbackBlur ? (
+        <>
+          <BlurView intensity={fallbackIntensity} tint="light" style={StyleSheet.absoluteFill} />
+          {fallbackOverlay ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: fallbackOverlay }]} />
+          ) : null}
+        </>
       ) : null}
       {children}
     </View>
@@ -122,7 +165,10 @@ export function GlassSurface({
 }
 
 const styles = StyleSheet.create({
-  fallback: {
+  glass: {
+    borderCurve: 'continuous',
+  },
+  clip: {
     overflow: 'hidden',
     borderCurve: 'continuous',
   },
