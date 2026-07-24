@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, EmptyState, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
+import { Text, EmptyState } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
@@ -212,10 +212,7 @@ export default function TaksitTakipPage() {
 
         {/* FAB Menü - Taksitli Satış / Alış (inline, yukarı açılır) */}
         {showFabMenu && (
-          <GlassContainer
-            spacing={GLASS_MERGE_SPACING}
-            style={[styles.fabMenuContainer, { bottom: spacing['2xl'] + FAB_SIZE + spacing.md }]}
-          >
+          <View style={[styles.fabMenuContainer, { bottom: spacing['2xl'] + 56 + spacing.md }]}>
             {[
               {
                 label: t('transactions:taksit.fabSatis'),
@@ -240,23 +237,25 @@ export default function TaksitTakipPage() {
                   ],
                 }}
               >
-                <GlassFabMenuItem icon={item.icon} label={item.label} onPress={item.onPress} />
+                <TouchableOpacity style={styles.fabMenuItem} onPress={item.onPress} activeOpacity={0.7}>
+                  <View style={styles.fabMenuIcon}>{item.icon}</View>
+                  <Text style={styles.fabMenuLabel}>{item.label}</Text>
+                </TouchableOpacity>
               </Animated.View>
             ))}
-          </GlassContainer>
+          </View>
         )}
 
         {/* FAB Button (+ → 45° döner) */}
-        <GlassFab
+        <TouchableOpacity
           style={styles.fab}
-          iconSize={26}
+          activeOpacity={0.85}
           onPress={() => setShowFabMenu((prev) => !prev)}
-          renderIcon={({ color, size }) => (
-            <Animated.View style={{ transform: [{ rotate: fabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
-              <Plus size={size} color={color} />
-            </Animated.View>
-          )}
-        />
+        >
+          <Animated.View style={{ transform: [{ rotate: fabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+            <Plus size={26} color={colors.white} />
+          </Animated.View>
+        </TouchableOpacity>
 
         {/* Cari Picker (FAB menüsünden — NON-MODAL bağlamdan açılır → donmaz) */}
         <CariPickerSheet
@@ -354,11 +353,21 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
   },
-  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
     bottom: spacing['2xl'],
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 6,
     zIndex: 10,
   },
   fabMenuContainer: {
@@ -368,7 +377,33 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     zIndex: 9,
   },
-  // fabMenuItem / fabMenuIcon / fabMenuLabel → GlassFabMenuItem'a taşındı.
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    gap: spacing.sm,
+  },
+  fabMenuIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabMenuLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
   card: {
     backgroundColor: colors.surface,
     padding: spacing.md,

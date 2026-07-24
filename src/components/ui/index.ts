@@ -48,14 +48,4 @@ export { TransactionIcon } from './TransactionIcon';
 export { AnimatedNumber } from './AnimatedNumber';
 export { AnimatedListItem } from './AnimatedListItem';
 export { PersistentTabBar } from './PersistentTabBar';
-export {
-  GlassSurface,
-  GlassContainer,
-  AnimatedGlassView,
-  LIQUID_GLASS,
-  GLASS_TINT,
-  GLASS_TINT_SUBTLE,
-  GLASS_MERGE_SPACING,
-  FLOATING_CONTROL_SIZE,
-} from './GlassSurface';
-export { GlassFab, GlassFabMenuItem, FAB_SIZE } from './GlassFab';
+export { GlassSurface, GlassContainer, AnimatedGlassView, LIQUID_GLASS } from './GlassSurface';
