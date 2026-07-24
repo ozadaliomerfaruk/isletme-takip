@@ -2,7 +2,7 @@ import { type ReactNode } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { GlassSurface, LIQUID_GLASS, FLOATING_CONTROL_SIZE } from './GlassSurface';
+import { GlassSurface, FLOATING_CONTROL_SIZE } from './GlassSurface';
 
 /** Alt bölgedeki yüzen kontrollerle ORTAK — ayrı bir sayı yazma, bkz. sabit. */
 export const FAB_SIZE = FLOATING_CONTROL_SIZE;
@@ -44,13 +44,14 @@ export function GlassFab({
   accessibilityLabel,
   disabled,
 }: GlassFabProps) {
-  // Camda sembol marka renginde, dolu diskte beyaz.
-  const iconColor = LIQUID_GLASS ? color : colors.surface;
-
   return (
     <GlassSurface
-      style={[styles.fab, style]}
-      fallbackStyle={[styles.fabFallback, { backgroundColor: color }]}
+      // DOLGU + GÖLGE HER İKİ YOLDA DA (normalde yalnız fallback'te olmalı):
+      // cam yüzey cihazda çizilmiyor, cam yolunda fallbackStyle yok sayıldığı
+      // için FAB'lar tamamen görünmezdi. Görünür buton, cam görünümünden önce
+      // gelir. Cam doğrulanınca bunlar fabFallback'e geri taşınır (blok yerinde).
+      style={[styles.fab, { backgroundColor: color }, styles.fabFallback, style]}
+      fallbackStyle={styles.fabFallback}
       interactive
     >
       <TouchableOpacity
@@ -61,7 +62,9 @@ export function GlassFab({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
       >
-        {renderIcon({ color: iconColor, size: iconSize })}
+        {/* Dolu renkli disk üstünde sembol beyaz (cam gövde + renkli sembol
+            deseni cam çizilmediği için şimdilik devre dışı). */}
+        {renderIcon({ color: colors.surface, size: iconSize })}
       </TouchableOpacity>
     </GlassSurface>
   );
@@ -88,7 +91,12 @@ interface GlassFabMenuItemProps {
  */
 export function GlassFabMenuItem({ icon, label, onPress }: GlassFabMenuItemProps) {
   return (
-    <GlassSurface style={styles.menuItem} fallbackStyle={styles.menuItemFallback} interactive>
+    <GlassSurface
+      // Dolgu + gölge her iki yolda da — bkz. GlassFab'deki not.
+      style={[styles.menuItem, styles.menuItemFallback]}
+      fallbackStyle={styles.menuItemFallback}
+      interactive
+    >
       <TouchableOpacity
         style={styles.menuItemInner}
         onPress={onPress}
@@ -96,7 +104,7 @@ export function GlassFabMenuItem({ icon, label, onPress }: GlassFabMenuItemProps
         accessibilityRole="button"
         accessibilityLabel={label}
       >
-        {LIQUID_GLASS ? icon : <View style={styles.menuIconCircle}>{icon}</View>}
+        <View style={styles.menuIconCircle}>{icon}</View>
         <Text style={styles.menuLabel}>{label}</Text>
       </TouchableOpacity>
     </GlassSurface>
