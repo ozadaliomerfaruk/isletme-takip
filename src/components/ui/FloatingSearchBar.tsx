@@ -19,12 +19,14 @@ import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
-import { spacing, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
+import { spacing, fontSize, HIT_SLOP } from '@/constants/spacing';
 import {
   GlassSurface,
   GlassContainer,
   GLASS_MERGE_SPACING,
   FALLBACK_SURFACE,
+  FALLBACK_RIM,
+  FALLBACK_SHADOW,
   FLOATING_CONTROL_SIZE,
 } from './GlassSurface';
 
@@ -219,10 +221,12 @@ const styles = StyleSheet.create({
   pillFallback: {
     // Yarı saydam (opak beyaz değil): altındaki liste hafifçe seziliyor.
     // Blur EKLENMEDİ — blur `overflow: hidden` ister, o da gölgeyi yok eder.
+    // Açık zeminde pill'i GÖRÜNÜR kılan şey dolgu değil kenar + gölge:
+    // beyaz dolgu beyaz kartların üstünde kaybolur (bkz. FALLBACK_RIM).
     backgroundColor: FALLBACK_SURFACE,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: FALLBACK_RIM,
+    ...FALLBACK_SHADOW,
   },
   pillFallbackFocused: {
     borderColor: colors.primary,
@@ -257,9 +261,9 @@ const styles = StyleSheet.create({
   },
   dismissFallback: {
     backgroundColor: FALLBACK_SURFACE,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: FALLBACK_RIM,
+    ...FALLBACK_SHADOW,
   },
   dismissInner: {
     flex: 1,

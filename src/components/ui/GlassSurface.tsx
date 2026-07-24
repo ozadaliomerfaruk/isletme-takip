@@ -115,6 +115,36 @@ export const FALLBACK_SURFACE =
   Platform.OS === 'ios' ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.80)';
 
 /**
+ * Fallback yüzeylerin kenar çizgisi — AÇIK ZEMİNDE ŞEKLİ TANIMLAYAN ŞEY BUDUR.
+ *
+ * Beyaz dolgu, açık gri arka plan (#F5F5F5) ve beyaz kartların üstünde kaybolur;
+ * kontrastı yaratan dolgu DEĞİL kenar + gölgedir. Bu yüzden "görünmüyor"
+ * şikayetinin doğru çözümü alfayı yükseltmek değil (yüzeyi opaklaştırır, saydam
+ * görünüm gider), kenarı belirginleştirmektir.
+ *
+ * colors.border (#E5E7EB) bu iş için fazla açıktı — arka planla neredeyse aynı.
+ * WhatsApp/Instagram'da bu sorun yok çünkü onlar koyu temada; açık temada
+ * saydam yüzey ancak kenarıyla okunur.
+ */
+export const FALLBACK_RIM = 'rgba(0,0,0,0.15)';
+
+/**
+ * Fallback yüzeylerin gölgesi. shadows.lg (opaklık 0.1, yayılım 16) açık gri
+ * zeminde neredeyse görünmüyordu — daha derli toplu ve belirgin: yüzey
+ * "içeriğin ÜSTÜNDE yüzüyor" okunsun.
+ */
+export const FALLBACK_SHADOW = Platform.select({
+  ios: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+  },
+  android: { elevation: 6 },
+  default: {},
+});
+
+/**
  * Fallback blur yoğunluğu. Saydamlıkta en güçlü kaldıraç BUDUR: frost katmanını
  * kısmak bir yere kadar gider, asıl beyazlatmayı blur'un kendisi yapar.
  *
