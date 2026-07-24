@@ -105,9 +105,14 @@ export const FALLBACK_FROST =
  * Fallback'te blur'suz yüzeylerin (arama pill'i, kapatma X'i) arka planı.
  * Yarı saydam: altındaki liste seziliyor ama metin okunur kalıyor.
  * Android'de blur yok → daha opak, yoksa yazı zeminde kaybolur.
+ *
+ * DİKKAT — bu değer FALLBACK_FROST kadar düşürülemez: tab bar'ın altında blur
+ * var, dolgu sıfıra yaklaşsa bile yüzeyin varlığı kalır. Buradaki yüzeylerde
+ * blur YOK (gölgeyi korumak için; blur `overflow: hidden` ister), yani onları
+ * ayakta tutan tek şey bu dolgu. 0.45'te tamamen kayboluyordu.
  */
 export const FALLBACK_SURFACE =
-  Platform.OS === 'ios' ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.80)';
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.80)';
 
 /**
  * Fallback blur yoğunluğu. Saydamlıkta en güçlü kaldıraç BUDUR: frost katmanını
