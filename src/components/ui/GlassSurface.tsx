@@ -90,28 +90,34 @@ export function GlassContainer({
 // satırı geçerken sekme yazıları ve arama placeholder'ı hâlâ okunmalı.
 // ============================================================================
 
-/** Camın üstündeki ortak tint — ÇOK hafif; ağırlaşırsa cam "buzlu"ya döner. */
-export const GLASS_TINT = 'rgba(255,255,255,0.02)';
+/**
+ * Camın üstündeki tint. TINT YOK: camın en saydam hali, sistem neyi çiziyorsa o.
+ * Buradan daha ileri gitmenin tek yolu `glassEffectStyle`'ı 'clear'a çevirmek
+ * (GlassSurface prop'u) — o da açık zeminde fazla kaybolabilir, cihazda görülmeli.
+ */
+export const GLASS_TINT = 'transparent';
 
 /** Fallback'te blur üstüne konan frost katmanı (tab bar gibi blur'lu yüzeyler). */
 export const FALLBACK_FROST =
-  Platform.OS === 'ios' ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.80)';
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.70)';
 
 /**
  * Fallback'te blur'suz yüzeylerin (arama pill'i, kapatma X'i) arka planı.
- * Yarı saydam: altındaki liste hafifçe seziliyor ama metin okunur kalıyor.
+ * Yarı saydam: altındaki liste seziliyor ama metin okunur kalıyor.
  * Android'de blur yok → daha opak, yoksa yazı zeminde kaybolur.
  */
 export const FALLBACK_SURFACE =
-  Platform.OS === 'ios' ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.88)';
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.80)';
 
 /**
  * Fallback blur yoğunluğu. Saydamlıkta en güçlü kaldıraç BUDUR: frost katmanını
  * kısmak bir yere kadar gider, asıl beyazlatmayı blur'un kendisi yapar.
- * Düşürdükçe arkadaki içerik daha keskin görünür — çok düşerse "camlı" değil
- * "yarı saydam plastik" hissi başlar.
+ *
+ * SINIR: düştükçe arkadaki içerik bulanık değil KESKİN görünmeye başlar; o
+ * noktadan sonra "cam" değil "yarı saydam plastik" hissi verir. 32 civarı bu
+ * eşiğe yakın — daha da saydam isteniyorsa blur'u değil FALLBACK_SURFACE'ı düşür.
  */
-export const FALLBACK_BLUR_INTENSITY = Platform.OS === 'ios' ? 45 : 24;
+export const FALLBACK_BLUR_INTENSITY = Platform.OS === 'ios' ? 32 : 24;
 
 /**
  * Alt bölgedeki YÜZEN KONTROLLERİN ortak yüksekliği: FAB, arama pill'i ve
