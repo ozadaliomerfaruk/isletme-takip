@@ -181,23 +181,21 @@ export function useBuAyTaksitOzeti(enabled = true) {
       if (error) throw error;
       if (!taksitler || taksitler.length === 0) return bos;
 
-      const { data: tahsisler, error: tErr } = await supabase
-        .from('islem_tahsis')
-        .select('taksit_id, tutar')
-        .eq('isletme_id', isletme.id)
-        .in('taksit_id', taksitler.map((tk) => tk.id));
+      // TEK MOTOR: per-taksit kalan net-bakiyeden (get_cari_taksit_kalan, işletme geneli)
+      // — eski islem_tahsis okuması KALDIRILDI.
+      const { data: kalanRows, error: tErr } = await supabase
+        .rpc('get_cari_taksit_kalan', { p_isletme_id: isletme.id });
       if (tErr) throw tErr;
 
-      const odenenMap: Record<string, number> = {};
-      for (const t of tahsisler ?? []) {
-        if (!t.taksit_id) continue;
-        odenenMap[t.taksit_id] = roundCurrency((odenenMap[t.taksit_id] ?? 0) + (Number(t.tutar) || 0));
+      const kalanMap: Record<string, number> = {};
+      for (const r of (kalanRows as { taksit_id: string; real_kalan: number }[]) ?? []) {
+        if (r.taksit_id) kalanMap[r.taksit_id] = roundCurrency(Number(r.real_kalan) || 0);
       }
 
       type Satir = { kalan: number; type: string; currency: string };
       const acik: Satir[] = [];
       for (const tk of taksitler) {
-        const kalan = roundCurrency((Number(tk.tutar) || 0) - (odenenMap[tk.id] ?? 0));
+        const kalan = roundCurrency(kalanMap[tk.id] ?? (Number(tk.tutar) || 0));
         if (kalan <= 0.009) continue;
         const islemRaw = (tk as { islem?: unknown }).islem;
         const islem = (Array.isArray(islemRaw) ? islemRaw[0] : islemRaw) as
@@ -264,12 +262,10 @@ export function useTaksitPlanDetay(planId: string | undefined) {
       if (!taksitler || taksitler.length === 0) return null;
 
       const islemId = taksitler[0].islem_id as string;
-      const [{ data: tahsisler, error: tErr }, { data: islem, error: iErr }] = await Promise.all([
-        supabase
-          .from('islem_tahsis')
-          .select('taksit_id, tutar')
-          .eq('isletme_id', isletme.id)
-          .eq('borc_islem_id', islemId),
+      // TEK MOTOR: per-taksit kalan artık net-bakiyeden (get_cari_taksit_kalan) —
+      // eski islem_tahsis defteri okuması KALDIRILDI (Taksit ↔ Vade çelişkisi biter).
+      const [{ data: kalanRows, error: kErr }, { data: islem, error: iErr }] = await Promise.all([
+        supabase.rpc('get_cari_taksit_kalan', { p_isletme_id: isletme.id }),
         supabase
           .from('islemler')
           .select('id, cari_id, type, cari:cariler(name, currency)')
@@ -277,25 +273,27 @@ export function useTaksitPlanDetay(planId: string | undefined) {
           .eq('isletme_id', isletme.id)
           .single(),
       ]);
-      if (tErr) throw tErr;
+      if (kErr) throw kErr;
       if (iErr) throw iErr;
 
-      const odenenMap: Record<string, number> = {};
-      for (const t of tahsisler ?? []) {
-        if (!t.taksit_id) continue;
-        odenenMap[t.taksit_id] = roundCurrency((odenenMap[t.taksit_id] ?? 0) + (Number(t.tutar) || 0));
+      const kalanMap: Record<string, number> = {};
+      for (const r of (kalanRows as { islem_id: string; taksit_id: string; real_kalan: number }[]) ?? []) {
+        if (r.islem_id === islemId && r.taksit_id) {
+          kalanMap[r.taksit_id] = roundCurrency(Number(r.real_kalan) || 0);
+        }
       }
 
       const satirlar = taksitler.map((tk) => {
         const tutar = Number(tk.tutar) || 0;
-        const odenen = odenenMap[tk.id] ?? 0;
+        // RPC tüm taksit birimlerini döner (kalan 0 dahil); eksikse (anomali) tam açık say.
+        const kalan = Math.max(0, roundCurrency(kalanMap[tk.id] ?? tutar));
         return {
           id: tk.id,
           sira: tk.sira,
           vade_tarihi: String(tk.vade_tarihi),
           tutar,
-          odenen,
-          kalan: Math.max(0, roundCurrency(tutar - odenen)),
+          odenen: Math.max(0, roundCurrency(tutar - kalan)),
+          kalan,
         };
       });
 

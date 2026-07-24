@@ -18,19 +18,16 @@ import { roundCurrency } from '@/lib/currency';
  */
 
 export interface CariTahsisOzeti {
-  /** borc_islem_id → Σtahsis (kuruş-yuvarlanmış). Kalan = amount − bu değer. */
-  borcTahsisleri: Record<string, number>;
-  /** odeme_islem_id → Σtahsis — ödemenin ne kadarı borçlara bağlandı (kalanı avans). */
-  odemeTahsisleri: Record<string, number>;
-  /** taksit_id → Σtahsis — taksit biriminin kalanı = taksit.tutar − bu değer. */
-  taksitTahsisleri: Record<string, number>;
+  /** taksit_id → net-bakiye KALAN (get_cari_taksit_kalan). Kalan DOĞRUDAN bu değer. */
+  taksitKalanlari: Record<string, number>;
 }
 
-const BOS_OZET: CariTahsisOzeti = { borcTahsisleri: {}, odemeTahsisleri: {}, taksitTahsisleri: {} };
+const BOS_OZET: CariTahsisOzeti = { taksitKalanlari: {} };
 
 /**
- * Bir carinin tüm tahsis satırlarını çekip işlem-bazlı toplamlara indirger.
- * Satır sayısı cari başına sınırlıdır (ödeme×borç kesişimi); tek istekte gelir.
+ * Carinin taksit birimlerinin NET-BAKİYE kalanı (get_cari_taksit_kalan RPC).
+ * TEK MOTOR: eski islem_tahsis defteri okuması KALDIRILDI → Taksit ↔ Vade tek gerçek.
+ * Yalnız taksit_id → kalan döner (borc/odeme tahsis şekli tüketilmiyordu).
  */
 export function useCariTahsisOzeti(cariId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
@@ -41,32 +38,17 @@ export function useCariTahsisOzeti(cariId: string | undefined, enabled = true) {
     queryFn: async (): Promise<CariTahsisOzeti> => {
       if (!cariId || !isletme?.id) return BOS_OZET;
 
-      const { data, error } = await supabase
-        .from('islem_tahsis')
-        .select('borc_islem_id, odeme_islem_id, taksit_id, tutar')
-        .eq('isletme_id', isletme.id)
-        .eq('cari_id', cariId);
-
+      const { data, error } = await supabase.rpc('get_cari_taksit_kalan', {
+        p_isletme_id: isletme.id,
+        p_cari_id: cariId,
+      });
       if (error) throw error;
 
-      const borcTahsisleri: Record<string, number> = {};
-      const odemeTahsisleri: Record<string, number> = {};
-      const taksitTahsisleri: Record<string, number> = {};
-      for (const row of data ?? []) {
-        const tutar = Number(row.tutar) || 0;
-        borcTahsisleri[row.borc_islem_id] = roundCurrency(
-          (borcTahsisleri[row.borc_islem_id] ?? 0) + tutar,
-        );
-        odemeTahsisleri[row.odeme_islem_id] = roundCurrency(
-          (odemeTahsisleri[row.odeme_islem_id] ?? 0) + tutar,
-        );
-        if (row.taksit_id) {
-          taksitTahsisleri[row.taksit_id] = roundCurrency(
-            (taksitTahsisleri[row.taksit_id] ?? 0) + tutar,
-          );
-        }
+      const taksitKalanlari: Record<string, number> = {};
+      for (const r of (data as { taksit_id: string; real_kalan: number }[]) ?? []) {
+        if (r.taksit_id) taksitKalanlari[r.taksit_id] = roundCurrency(Number(r.real_kalan) || 0);
       }
-      return { borcTahsisleri, odemeTahsisleri, taksitTahsisleri };
+      return { taksitKalanlari };
     },
   });
 }

@@ -993,7 +993,7 @@ export default function CariHareketleriPage() {
           let taksitOran: string | null = null;
           if (birimler && birimler.length > 0 && tahsisOzeti) {
             const odenen = birimler.filter(
-              (tk) => roundCurrency(tk.tutar - (tahsisOzeti.taksitTahsisleri?.[tk.id] ?? 0)) <= 0.009
+              (tk) => roundCurrency(tahsisOzeti.taksitKalanlari?.[tk.id] ?? tk.tutar) <= 0.009
             ).length;
             taksitOran = t('transactions:taksit.odenenOran', { odenen, toplam: birimler.length });
           }
@@ -1015,7 +1015,7 @@ export default function CariHareketleriPage() {
               // Hedefli retahsis zaten bu planın en eski açık taksitinden kapatır.
               if (birimler && tahsisOzeti) {
                 for (const tk of birimler) {
-                  const tkKalan = roundCurrency(tk.tutar - (tahsisOzeti.taksitTahsisleri?.[tk.id] ?? 0));
+                  const tkKalan = roundCurrency(tahsisOzeti.taksitKalanlari?.[tk.id] ?? tk.tutar);
                   if (tkKalan > 0.009) { itemTahsilAmount = tkKalan; break; }
                 }
               }
