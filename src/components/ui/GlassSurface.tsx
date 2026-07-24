@@ -65,18 +65,19 @@ export function GlassContainer({
   pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
   children?: ReactNode;
 }) {
-  // ŞU AN DEVRE DIŞI — düz View olarak davranıyor.
-  //
-  // Neden: cihazda cam yüzeylerin görünmemesi araştırılırken native container
-  // şüphelilerden biriydi (çocuklarının cam efektini kendisi koordine ediyor).
-  // Yüzeylerin GÖRÜNÜR olması, erimenin varlığından önce gelir; erime hiç
-  // görülmemiş spekülatif bir kazanç. Yapı korunuyor: çağrı yerleri olduğu gibi
-  // kalıyor, tek satır geri açılıp gerçek build'de tek başına denenebilir.
-  void spacing;
+  // Cam yoksa düz View — `spacing` aktarılmaz (View tanımaz), düzen aynı kalır.
+  if (!LIQUID_GLASS || !glassMod) {
+    return (
+      <View style={style} pointerEvents={pointerEvents}>
+        {children}
+      </View>
+    );
+  }
+  const GC = glassMod.GlassContainer;
   return (
-    <View style={style} pointerEvents={pointerEvents}>
+    <GC spacing={spacing} style={style} pointerEvents={pointerEvents}>
       {children}
-    </View>
+    </GC>
   );
 }
 
@@ -90,26 +91,11 @@ export function GlassContainer({
 // ============================================================================
 
 /**
- * Camın üstündeki tint — KÜÇÜK, AYRIK kontroller için (arama pill'i, kapatma
- * X'i, FAB, menü satırları).
- *
- * DERS: tint tamamen kaldırılınca (transparent) bu yüzeyler AÇIK ZEMİNDE
- * tamamen kayboldu — içerik (ikon, yazı) havada duruyor gibi görünüyordu.
- * Sebep: iOS 26 camı arkasındaki rengi örnekler; arka plan #F5F5F5 ve kartlar
- * beyazken tint'siz cam da beyaza yakın çıkar, native rim lighting tek başına
- * küçük bir kapsülü ayırmaya yetmez. Koyu temalı uygulamalarda (WhatsApp) bu
- * sorun yok — orada açık cam koyu zeminde kendiliğinden ayrışır.
- *
- * Yani açık temada tint yalnız estetik değil, yüzeyin VAR OLMASINI sağlıyor.
+ * Camın üstündeki tint. TINT YOK: camın en saydam hali, sistem neyi çiziyorsa o.
+ * Buradan daha ileri gitmenin tek yolu `glassEffectStyle`'ı 'clear'a çevirmek
+ * (GlassSurface prop'u) — o da açık zeminde fazla kaybolabilir, cihazda görülmeli.
  */
-export const GLASS_TINT = 'rgba(255,255,255,0.22)';
-
-/**
- * BÜYÜK yüzeyler için tint (tab bar). Büyük bir kapsül kendi boyutu ve
- * içindekilerle zaten okunur; burada saydamlık öncelikli, o yüzden çok daha
- * hafif. Aynı değeri küçük kontrollere vermek onları görünmez yapar.
- */
-export const GLASS_TINT_SUBTLE = 'rgba(255,255,255,0.06)';
+export const GLASS_TINT = 'transparent';
 
 /** Fallback'te blur üstüne konan frost katmanı (tab bar gibi blur'lu yüzeyler). */
 export const FALLBACK_FROST =
@@ -119,44 +105,9 @@ export const FALLBACK_FROST =
  * Fallback'te blur'suz yüzeylerin (arama pill'i, kapatma X'i) arka planı.
  * Yarı saydam: altındaki liste seziliyor ama metin okunur kalıyor.
  * Android'de blur yok → daha opak, yoksa yazı zeminde kaybolur.
- *
- * DİKKAT — bu değer FALLBACK_FROST kadar düşürülemez: tab bar'ın altında blur
- * var, dolgu sıfıra yaklaşsa bile yüzeyin varlığı kalır. Buradaki yüzeylerde
- * blur YOK (gölgeyi korumak için; blur `overflow: hidden` ister), yani onları
- * ayakta tutan tek şey bu dolgu. 0.45'te tamamen kayboluyordu.
  */
 export const FALLBACK_SURFACE =
-  Platform.OS === 'ios' ? 'rgba(255,255,255,0.82)' : 'rgba(255,255,255,0.88)';
-
-/**
- * Fallback yüzeylerin kenar çizgisi — AÇIK ZEMİNDE ŞEKLİ TANIMLAYAN ŞEY BUDUR.
- *
- * Beyaz dolgu, açık gri arka plan (#F5F5F5) ve beyaz kartların üstünde kaybolur;
- * kontrastı yaratan dolgu DEĞİL kenar + gölgedir. Bu yüzden "görünmüyor"
- * şikayetinin doğru çözümü alfayı yükseltmek değil (yüzeyi opaklaştırır, saydam
- * görünüm gider), kenarı belirginleştirmektir.
- *
- * colors.border (#E5E7EB) bu iş için fazla açıktı — arka planla neredeyse aynı.
- * WhatsApp/Instagram'da bu sorun yok çünkü onlar koyu temada; açık temada
- * saydam yüzey ancak kenarıyla okunur.
- */
-export const FALLBACK_RIM = 'rgba(0,0,0,0.15)';
-
-/**
- * Fallback yüzeylerin gölgesi. shadows.lg (opaklık 0.1, yayılım 16) açık gri
- * zeminde neredeyse görünmüyordu — daha derli toplu ve belirgin: yüzey
- * "içeriğin ÜSTÜNDE yüzüyor" okunsun.
- */
-export const FALLBACK_SHADOW = Platform.select({
-  ios: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-  },
-  android: { elevation: 6 },
-  default: {},
-});
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.80)';
 
 /**
  * Fallback blur yoğunluğu. Saydamlıkta en güçlü kaldıraç BUDUR: frost katmanını
@@ -240,33 +191,15 @@ export function GlassSurface({
 }: GlassSurfaceProps) {
   if (LIQUID_GLASS && glassMod) {
     const GV = glassMod.GlassView;
-    // Cam ARKA PLAN KATMANI olarak çiziliyor, içeriği SARMIYOR.
-    //
-    // Neden: cam view'i içerik sarmalayıcısı olarak kullandığımızda (children
-    // doğrudan içine) yüzey cihazda hiç çizilmedi — ikon/yazı duruyordu, cam
-    // yoktu. Tab bar'da çalışan yapı bu değil: orada cam çocuksuz bir
-    // absoluteFill katmanı, içerik onun KARDEŞİ. Doğrulanmış yapı bu, hepsi
-    // ona hizalandı.
-    //
-    // Köşe yarıçapı dış stilden çıkarılıp cam katmanına da veriliyor — cam
-    // kendi native köşesini çizer, dış View'de clip YOK.
-    const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
-    const radius = flat?.borderRadius;
     return (
-      <View style={style}>
-        <GV
-          glassEffectStyle={glassStyle}
-          tintColor={tintColor}
-          isInteractive={interactive}
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFill,
-            styles.glass,
-            radius != null ? { borderRadius: radius } : null,
-          ]}
-        />
+      <GV
+        glassEffectStyle={glassStyle}
+        tintColor={tintColor}
+        isInteractive={interactive}
+        style={[styles.glass, style]}
+      >
         {children}
-      </View>
+      </GV>
     );
   }
 

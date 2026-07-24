@@ -20,6 +20,8 @@ import {
   EmptyState,
   SwipeableRow,
   SwipeableProvider,
+  GlassFab,
+  FAB_SIZE,
 } from '@/components/ui';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
@@ -410,7 +412,7 @@ export default function NotlarPage() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={t('common:notes.searchPlaceholder')}
-          rightOffset={56 + spacing.md}
+          rightOffset={FAB_SIZE + spacing.md}
           onActiveChange={setSearchActive}
         />
 
@@ -422,13 +424,11 @@ export default function NotlarPage() {
             entering={FadeIn.duration(150)}
             exiting={FadeOut.duration(150)}
           >
-            <TouchableOpacity
-              style={styles.fabTouchable}
+            <GlassFab
+              color={colors.warning}
               onPress={() => setModalVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Plus size={24} color={colors.surface} />
-            </TouchableOpacity>
+              renderIcon={({ color, size }) => <Plus size={size} color={color} />}
+            />
           </ReAnimated.View>
         )}
 
@@ -568,26 +568,10 @@ const styles = StyleSheet.create({
   separator: {
     height: spacing.md,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.warning,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
-  },
-  /** FAB'ın dokunma yüzeyi — konum/görsel stil sarmalayıcı ReAnimated.View'de. */
-  fabTouchable: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
 });

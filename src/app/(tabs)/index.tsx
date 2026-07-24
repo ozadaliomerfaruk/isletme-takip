@@ -24,7 +24,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -633,7 +633,10 @@ export default function HomePage() {
 
       {/* FAB Menü - Seçenekler (yukarı doğru açılır) */}
       {showFabMenu && (
-        <View style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}>
+        <GlassContainer
+          spacing={GLASS_MERGE_SPACING}
+          style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
+        >
           {[
             {
               label: t('clients:types.tedarikci'),
@@ -677,39 +680,32 @@ export default function HomePage() {
                 }],
               }}
             >
-              <TouchableOpacity
-                style={styles.fabMenuItem}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.fabMenuIcon}>{item.icon}</View>
-                <Text style={styles.fabMenuLabel}>{item.label}</Text>
-              </TouchableOpacity>
+              <GlassFabMenuItem icon={item.icon} label={item.label} onPress={item.onPress} />
             </Animated.View>
           ))}
-        </View>
+        </GlassContainer>
       )}
 
       {/* FAB Button */}
-      <TouchableOpacity
+      <GlassFab
         style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
         onPress={() => {
           haptics.light();
           setShowFabMenu((prev) => !prev);
         }}
-        activeOpacity={0.8}
-      >
-        <Animated.View style={{
-          transform: [{
-            rotate: fabAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0deg', '45deg'],
-            }),
-          }],
-        }}>
-          <Plus size={24} color={colors.surface} />
-        </Animated.View>
-      </TouchableOpacity>
+        renderIcon={({ color, size }) => (
+          <Animated.View style={{
+            transform: [{
+              rotate: fabAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '45deg'],
+              }),
+            }],
+          }}>
+            <Plus size={size} color={color} />
+          </Animated.View>
+        )}
+      />
 
       {/* DailyCashModal */}
       <DailyCashModal
@@ -912,20 +908,10 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: spacing.xs,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
   },
   fabMenuContainer: {
@@ -935,31 +921,5 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     zIndex: 9,
   },
-  fabMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-    gap: spacing.sm,
-  },
-  fabMenuIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabMenuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
+  // fabMenuItem / fabMenuIcon / fabMenuLabel → GlassFabMenuItem'a taşındı.
 });

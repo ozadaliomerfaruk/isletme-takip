@@ -31,7 +31,7 @@ import {
   ChevronUp,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -1696,13 +1696,11 @@ export default function CariHareketleriPage() {
               entityId={id!}
               style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
             />
-            <TouchableOpacity
+            <GlassFab
               style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
               onPress={() => setQuickBarVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Zap size={24} color={colors.surface} />
-            </TouchableOpacity>
+              renderIcon={({ color, size }) => <Zap size={size} color={color} />}
+            />
           </>
         )}
 
@@ -2189,20 +2187,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
   },
   fabSmall: {

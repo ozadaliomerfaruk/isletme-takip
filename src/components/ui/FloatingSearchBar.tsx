@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
   type KeyboardEvent,
 } from 'react-native';
 import Animated, {
@@ -20,11 +19,17 @@ import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
+import { spacing, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
+import {
+  GlassSurface,
+  GlassContainer,
+  GLASS_MERGE_SPACING,
+  FALLBACK_SURFACE,
+  FLOATING_CONTROL_SIZE,
+} from './GlassSurface';
 
-/** FAB ile ORTAK yükseklik (56) — alt bölgedeki yüzen kontroller aynı taban
- *  çizgisine çıpalı, yükseklik eşit olunca dikey merkezleri de hizalanır. */
-const BAR_HEIGHT = 56;
+/** FAB ile ORTAK yükseklik — alt bölgedeki yüzen kontroller aynı hizada durur. */
+const BAR_HEIGHT = FLOATING_CONTROL_SIZE;
 
 /** Listelerin contentContainer paddingBottom'una eklenecek boşluk —
  *  son satır yüzen arama çubuğunun altında kalmasın. */
@@ -45,7 +50,7 @@ interface FloatingSearchBarProps {
   /** Arama "aktif" (odak VEYA metin var) durumu değişince tetiklenir.
    *  Sağ altta FAB olan ekranlar bunu dinleyip FAB'ı gizler: aktifken pill tam
    *  genişliğe açılıp FAB'ın altına girer ve kapatma X'ini tamamen örter
-   *  (X 44px, FAB 56px, ikisi de sağda ve aynı taban çizgisinde). */
+   *  (X ve FAB aynı boyutta, ikisi de sağda ve aynı taban çizgisinde). */
   onActiveChange?: (active: boolean) => void;
 }
 
@@ -130,54 +135,65 @@ export function FloatingSearchBar({
       ]}
       pointerEvents="box-none"
     >
-      <View style={styles.row}>
-        <Pressable
-          style={[styles.pill, isFocused && styles.pillFocused]}
-          // Pill'in NERESİNE basılırsa basılsın arama açılır (yalnız yazı satırı değil)
-          onPress={() => inputRef.current?.focus()}
+      {/* Pill ile kapatma X'i AYNI kontrol grubu → tek GlassContainer'da eritilir
+          (Apple'ın ToolbarItemGroup dili). spacing, aradaki boşluktan (spacing.sm=8)
+          büyük seçildi ki birleşsinler; FAB farklı ağaçta olduğu için etkilenmez. */}
+      <GlassContainer spacing={GLASS_MERGE_SPACING} style={styles.row}>
+        <GlassSurface
+          style={styles.pill}
+          fallbackStyle={[styles.pillFallback, isFocused && styles.pillFallbackFocused]}
+          interactive
         >
-          <Search size={20} color={isFocused ? colors.primary : colors.textMuted} />
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={placeholder ?? t('common:search.searchPlaceholder')}
-            placeholderTextColor={colors.textMuted}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            returnKeyType="search"
-          />
-          {value.length > 0 && (
-            <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
-              {/* İçerideki X: yalnızca yazılanı siler, odak korunur */}
-              <TouchableOpacity
-                onPress={() => {
-                  onChangeText('');
-                  inputRef.current?.focus();
-                }}
-                hitSlop={HIT_SLOP.sm}
-                style={styles.clearButton}
-              >
-                <X size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-        </Pressable>
+          <Pressable
+            style={styles.pillInner}
+            // Pill'in NERESİNE basılırsa basılsın arama açılır (yalnız yazı satırı değil)
+            onPress={() => inputRef.current?.focus()}
+          >
+            <Search size={20} color={isFocused ? colors.primary : colors.textMuted} />
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              value={value}
+              onChangeText={onChangeText}
+              placeholder={placeholder ?? t('common:search.searchPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              returnKeyType="search"
+            />
+            {value.length > 0 && (
+              <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
+                {/* İçerideki X: yalnızca yazılanı siler, odak korunur */}
+                <TouchableOpacity
+                  onPress={() => {
+                    onChangeText('');
+                    inputRef.current?.focus();
+                  }}
+                  hitSlop={HIT_SLOP.sm}
+                  style={styles.clearButton}
+                >
+                  <X size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </Pressable>
+        </GlassSurface>
         {isActive && (
           <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
             {/* Dışarıdaki X: aramayı tamamen kapatır (metin + klavye) */}
-            <TouchableOpacity
-              onPress={handleDismiss}
-              style={styles.dismissButton}
-              hitSlop={HIT_SLOP.sm}
-              accessibilityRole="button"
-            >
-              <X size={22} color={colors.text} />
-            </TouchableOpacity>
+            <GlassSurface style={styles.dismissButton} fallbackStyle={styles.dismissFallback} interactive>
+              <TouchableOpacity
+                onPress={handleDismiss}
+                style={styles.dismissInner}
+                hitSlop={HIT_SLOP.sm}
+                accessibilityRole="button"
+              >
+                <X size={22} color={colors.text} />
+              </TouchableOpacity>
+            </GlassSurface>
           </Animated.View>
         )}
-      </View>
+      </GlassContainer>
     </Animated.View>
   );
 }
@@ -192,21 +208,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  // GEOMETRİ (iki yolda da): cam kendi köşesini native çizer, RN clip yok.
   pill: {
+    flex: 1,
+    height: BAR_HEIGHT,
+    borderRadius: BAR_HEIGHT / 2,
+  },
+  // Cam yolunda arka plan/border/gölge YOK: native rim lighting ve lensing'i
+  // perdeler, pill "yapıştırılmış sticker" gibi durur. Bunlar yalnız fallback'te.
+  pillFallback: {
+    // Yarı saydam (opak beyaz değil): altındaki liste hafifçe seziliyor.
+    // Blur EKLENMEDİ — blur `overflow: hidden` ister, o da gölgeyi yok eder.
+    backgroundColor: FALLBACK_SURFACE,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.lg,
+  },
+  pillFallbackFocused: {
+    borderColor: colors.primary,
+  },
+  // Camda odak göstergesi ÇERÇEVE DEĞİL: büyüteç ikonu yeşile döner (aşağıda,
+  // isFocused ile) — Apple'ın arama alanı da odakta çerçeve eklemez.
+  pillInner: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    height: BAR_HEIGHT,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
-    ...shadows.lg,
-  },
-  pillFocused: {
-    borderColor: colors.primary,
   },
   input: {
     flex: 1,
@@ -226,11 +254,16 @@ const styles = StyleSheet.create({
     width: BAR_HEIGHT,
     height: BAR_HEIGHT,
     borderRadius: BAR_HEIGHT / 2,
-    backgroundColor: colors.surface,
+  },
+  dismissFallback: {
+    backgroundColor: FALLBACK_SURFACE,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadows.lg,
+  },
+  dismissInner: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.lg,
   },
 });
