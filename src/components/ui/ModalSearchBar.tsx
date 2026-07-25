@@ -3,7 +3,7 @@ import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize, HIT_SLOP } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 
 interface ModalSearchBarProps {
   value: string;
@@ -79,7 +79,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: colors.text,
-    fontSize: fontSize.lg,
+    // Yüzen arama çubuğuyla AYNI punto (17 = iOS gövde metni) — iki arama
+    // yüzeyi aynı boyutta okunsun.
+    fontSize: 17,
     paddingVertical: 0,
   },
   clearButton: {

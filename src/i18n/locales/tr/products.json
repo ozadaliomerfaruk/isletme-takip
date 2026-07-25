@@ -47,7 +47,7 @@
   },
   "unitPicker": {
     "title": "Birim Seç",
-    "search": "Birim ara..."
+    "search": "Birim arayın"
   },
   "notFoundDescription": "Bu ürün mevcut değil veya silinmiş olabilir.",
   "detayOzet": {
@@ -105,7 +105,7 @@
     "message": "\"{{name}}\" adında bir ürün zaten kayıtlı. Yine de yeni bir ürün olarak eklensin mi?"
   },
   "search": {
-    "placeholder": "Ürün, kategori ara..."
+    "placeholder": "Ürün, kategori arayın"
   },
   "filter": {
     "all": "Tümü",

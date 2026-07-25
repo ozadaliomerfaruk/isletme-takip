@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
-import { spacing, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
+import { spacing, shadows, HIT_SLOP } from '@/constants/spacing';
 import {
   GlassSurface,
   GlassContainer,
@@ -245,7 +245,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     color: colors.text,
-    fontSize: fontSize.lg,
+    // 17 = iOS gövde metni; Apple'ın arama alanı bu puntoyu kullanıyor.
+    // fontSize.lg (16) bir tık küçük kalıyordu — ölçeğe yeni bir adım eklemek
+    // yerine burada sabit, çünkü bu değer iOS'un kendi tipografisine bağlı.
+    fontSize: 17,
     paddingVertical: 0,
   },
   clearButton: {

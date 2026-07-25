@@ -284,12 +284,12 @@
       "skipped": "Atlanan ({{count}})"
     },
     "search": {
-      "transactions": "İşlem ara...",
-      "accounts": "Hesap ara...",
-      "clientsStaff": "Cari veya personel ara...",
-      "categories": "Kategori ara...",
-      "skipped": "Atlanan işlem ara...",
-      "default": "Ara..."
+      "transactions": "İşlem arayın",
+      "accounts": "Hesap arayın",
+      "clientsStaff": "Cari veya personel arayın",
+      "categories": "Kategori arayın",
+      "skipped": "Atlanan işlem arayın",
+      "default": "Arayın"
     },
     "empty": {
       "transactions": "İşlem bulunamadı",

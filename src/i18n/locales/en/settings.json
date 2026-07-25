@@ -289,7 +289,7 @@
       "clientsStaff": "Search contacts or staff...",
       "categories": "Search categories...",
       "skipped": "Search skipped...",
-      "default": "Search..."
+      "default": "Search"
     },
     "empty": {
       "transactions": "No transactions found",

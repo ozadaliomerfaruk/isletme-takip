@@ -109,7 +109,7 @@
   },
   "search": {
     "search": "Search",
-    "searchPlaceholder": "Search...",
+    "searchPlaceholder": "Search",
     "searching": "Searching...",
     "noResults": "No results found",
     "noResultsFor": "No results found for \"{{query}}\"",

@@ -116,15 +116,15 @@
   },
   "search": {
     "search": "Ara",
-    "searchPlaceholder": "Ara...",
+    "searchPlaceholder": "Arayın",
     "noResults": "Sonuç bulunamadı",
     "noResultsFor": "\"{{query}}\" için sonuç bulunamadı",
-    "globalSearch": "Hesap, cari, personel ara...",
+    "globalSearch": "Hesap, cari, personel arayın",
     "clearSearch": "Aramayı Temizle",
     "searching": "Aranıyor...",
     "tryDifferent": "Farklı bir arama terimi deneyin",
-    "searchIcons": "İkon ara...",
-    "searchCategories": "Kategori ara...",
+    "searchIcons": "İkon arayın",
+    "searchCategories": "Kategori arayın",
     "resultCount": "{{count}} sonuç bulundu",
     "showAll": "Tümünü Gör ({{count}})",
     "searchHint": "İsim, not veya ürün kodu ile arayın",
@@ -568,7 +568,7 @@
       "itemCount": "Arşivde {{count}} öğe bulunuyor"
     },
     "search": {
-      "placeholder": "Arşivde ara..."
+      "placeholder": "Arşivde arayın"
     }
   },
   "photo": {
@@ -660,7 +660,7 @@
     "filterStaff": "Personel",
     "filterProducts": "Ürünler",
     "filterGeneral": "Genel",
-    "searchPlaceholder": "Notlarda ara...",
+    "searchPlaceholder": "Notlarda arayın",
     "confirmDelete": "Bu notu silmek istediğinize emin misiniz?",
     "confirmDeleteTitle": "Notu Sil",
     "createSuccess": "Not eklendi",
