@@ -54,7 +54,7 @@
     "title": "Filter Trend",
     "types": {
       "hesap": "Account",
-      "cari": "Client",
+      "cari": "Contact",
       "kategori": "Category",
       "personel": "Staff"
     },

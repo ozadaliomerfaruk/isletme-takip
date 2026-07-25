@@ -22,7 +22,7 @@
     "steps": {
       "sector": "Choose your sector",
       "banka": "Add a bank account",
-      "cari": "Add your first client",
+      "cari": "Add your first contact",
       "islem": "Add your first transaction"
     }
   },
@@ -265,6 +265,13 @@
     "overpayment": "Overpayment",
     "advance": "Advance"
   },
+  "notifications": {
+    "channels": {
+      "defaultName": "General",
+      "scheduledName": "Scheduled Transactions",
+      "scheduledDescription": "Reminders for scheduled transactions"
+    }
+  },
   "tax": {
     "vat": "VAT"
   },
@@ -309,7 +316,7 @@
     "all": "All",
     "other": "Other",
     "account": "Account",
-    "client": "Client",
+    "client": "Contact",
     "staff": "Staff",
     "transactions": "Transactions",
     "title": "Title",
@@ -442,7 +449,7 @@
       "clientStatement": "CLIENT STATEMENT",
       "staffStatement": "STAFF STATEMENT",
       "account": "Account",
-      "client": "Client",
+      "client": "Contact",
       "staff": "Staff",
       "period": "Period",
       "createdAt": "Created",
@@ -499,13 +506,13 @@
     "genelDurumExcel": {
       "reportTitle": "Financial Overview Report",
       "generalStatus": "GENERAL STATUS",
-      "netValue": "NET VALUE",
+      "netValue": "NET WORTH",
       "accounts": "ACCOUNTS",
       "accountBalances": "ACCOUNT BALANCES",
       "accountName": "ACCOUNT NAME",
       "balance": "BALANCE",
       "creditCardBalances": "CREDIT CARD DEBTS",
-      "clientStatus": "CLIENT STATUS",
+      "clientStatus": "CONTACT STATUS",
       "personnelStatus": "STAFF STATUS",
       "personnelReceivables": "STAFF RECEIVABLES",
       "personnelDebt": "STAFF DEBT",
@@ -660,7 +667,7 @@
     "noNotes": "No notes yet",
     "allNotes": "All Notes",
     "filterAccounts": "Accounts",
-    "filterClients": "Clients",
+    "filterClients": "Contacts",
     "filterStaff": "Staff",
     "filterProducts": "Products",
     "filterGeneral": "General",
@@ -672,7 +679,7 @@
     "deleteSuccess": "Note deleted",
     "contentRequired": "Note content is required",
     "entityHesap": "ACCOUNT",
-    "entityCari": "CLIENT",
+    "entityCari": "CONTACT",
     "entityPersonel": "STAFF",
     "entityPersonelIzin": "LEAVE",
     "entityUrun": "PRODUCT",

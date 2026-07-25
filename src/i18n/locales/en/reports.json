@@ -90,7 +90,7 @@
     "general": "General",
     "expenseAnalysis": "Expense",
     "incomeAnalysis": "Income",
-    "client": "Client",
+    "client": "Contact",
     "personnel": "Staff",
     "comparison": "Compare",
     "summary": "Summary",
@@ -99,8 +99,8 @@
   "summary": {
     "generalStatus": "General Status",
     "conversionIncomplete": "Exchange rates unavailable; some foreign-currency balances were excluded from totals.",
-    "netValue": "Net Value",
-    "netAssets": "Net Assets",
+    "netValue": "Net Worth",
+    "netAssets": "Total Assets",
     "assets": "Assets",
     "liabilities": "Liabilities",
     "receivables": "Receivables",
@@ -123,7 +123,7 @@
   "sections": {
     "accountBalances": "ACCOUNT BALANCES",
     "creditCardBalances": "CREDIT CARD BALANCES",
-    "clientStatus": "CLIENT STATUS",
+    "clientStatus": "CONTACT STATUS",
     "personnelStatus": "STAFF STATUS",
     "categoryDistribution": "CATEGORY DISTRIBUTION",
     "categoryFilter": "CATEGORY FILTER",
@@ -227,7 +227,7 @@
     "expense": "Expense",
     "byCategory": "By Category",
     "byAccount": "By Account",
-    "byClient": "By Client"
+    "byClient": "By Contact"
   },
   "export": {
     "export": "Export",
@@ -286,7 +286,7 @@
     "period": "Period"
   },
   "entityPicker": {
-    "selectClient": "Select Client",
+    "selectClient": "Select Contact",
     "selectStaff": "Select Staff",
     "selected": "Selected",
     "viewAll": "View all",

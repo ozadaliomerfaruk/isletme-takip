@@ -15,6 +15,7 @@ import {
   ImportPreview,
   AccountMapping,
   ParsedTransaction,
+  SkipReason,
   chunkArray,
 } from '@/lib/excelImport';
 import { IslemInsert, IslemType } from '@/types/database';
@@ -47,6 +48,22 @@ export type {
   DuplicateInfo,
   ProgressTranslations,
 } from './useDataImport.types';
+
+/**
+ * Yapısal atlama gerekçesini kullanıcının dilinde metne çevirir.
+ *
+ * Motor (excelImport) artık metin ÜRETMİYOR; { code, params } döndürüyor. Metin
+ * BURADA üretiliyor — böylece İngilizce arayüzde "Account not found" ile
+ * "Tutar boş veya bulunamadı" aynı listede yan yana çıkmıyor.
+ *
+ * Not: üretilen metin skippedTransactions üzerinden DB'ye de yazılıyor (skip_reason),
+ * yani kayıt İÇE AKTARMA ANINDAKİ dilde saklanır — i18n'den gelen diğer 12 gerekçeyle
+ * aynı davranış. Eski kayıtlar Türkçe kalır (geriye dönük veri; render değişmez).
+ */
+function renderSkipReason(reason: SkipReason | undefined, fallbackCode: string): string {
+  const code = reason?.code || fallbackCode;
+  return i18n.t('settings:dataImport.skipReasons.' + code, { ...(reason?.params ?? {}) });
+}
 
 export function useDataImport() {
   const { isletme } = useAuthContext();
@@ -133,17 +150,17 @@ export function useDataImport() {
           // Validation checks
           if (!tx.dateValid) {
             skipped++;
-            skippedTransactions.push({ transaction: tx, reason: tx.dateError || 'Geçersiz tarih', rowNumber });
+            skippedTransactions.push({ transaction: tx, reason: renderSkipReason(tx.dateReason, 'invalidDate'), rowNumber });
             continue;
           }
           if (!tx.amountValid) {
             skipped++;
-            skippedTransactions.push({ transaction: tx, reason: tx.amountError || 'Geçersiz tutar', rowNumber });
+            skippedTransactions.push({ transaction: tx, reason: renderSkipReason(tx.amountReason, 'invalidAmount'), rowNumber });
             continue;
           }
           if (!tx.entityValid) {
             skipped++;
-            skippedTransactions.push({ transaction: tx, reason: tx.entityError || i18n.t('settings:dataImport.skipReasons.missingEntity'), rowNumber });
+            skippedTransactions.push({ transaction: tx, reason: renderSkipReason(tx.entityReason, 'missingEntity'), rowNumber });
             continue;
           }
 
@@ -243,7 +260,7 @@ export function useDataImport() {
 
           if (finalAmount <= 0) {
             skipped++;
-            skippedTransactions.push({ transaction: tx, reason: `Tutar sıfır veya negatif: ${tx.amount}`, rowNumber });
+            skippedTransactions.push({ transaction: tx, reason: renderSkipReason({ code: 'amountTooSmall' }, 'amountTooSmall'), rowNumber });
             continue;
           }
 
@@ -300,7 +317,7 @@ export function useDataImport() {
         } catch (err) {
           errors.push(`İşlem hatası: ${err}`);
           skipped++;
-          skippedTransactions.push({ transaction: tx, reason: `Beklenmeyen hata: ${err}`, rowNumber });
+          skippedTransactions.push({ transaction: tx, reason: renderSkipReason({ code: 'unknownError' }, 'unknownError'), rowNumber });
         }
       }
 
@@ -315,7 +332,7 @@ export function useDataImport() {
           errors.push(`Batch insert hatası: ${error.message}`);
           islemIndices.forEach((idx) => {
             const tx = transactions[idx];
-            skippedTransactions.push({ transaction: tx, reason: `Veritabanı hatası: ${error.message}`, rowNumber: idx + 2 });
+            skippedTransactions.push({ transaction: tx, reason: renderSkipReason({ code: 'dbError', params: { message: error.message } }, 'dbError'), rowNumber: idx + 2 });
           });
           skipped += islemler.length;
         } else {
@@ -464,8 +481,8 @@ export function useDataImport() {
     });
 
     const skippedList: SkippedTransaction[] = [
-      ...invalidDateTransactions.map(tx => ({ transaction: tx, reason: tx.dateError || 'Geçersiz tarih', rowNumber: tx.rowNumber || 0 })),
-      ...invalidAmountTransactions.map(tx => ({ transaction: tx, reason: tx.amountError || 'Geçersiz tutar', rowNumber: tx.rowNumber || 0 })),
+      ...invalidDateTransactions.map(tx => ({ transaction: tx, reason: renderSkipReason(tx.dateReason, 'invalidDate'), rowNumber: tx.rowNumber || 0 })),
+      ...invalidAmountTransactions.map(tx => ({ transaction: tx, reason: renderSkipReason(tx.amountReason, 'invalidAmount'), rowNumber: tx.rowNumber || 0 })),
     ];
 
     const simulationResult: ImportResult = {

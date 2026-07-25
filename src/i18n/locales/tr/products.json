@@ -65,6 +65,7 @@
     "salesReturn": "Satış İadesi",
     "adjustment": "Düzeltme",
     "quantity": "Miktar",
+    "autoDescription": "{{name}} - {{qty}} {{unit}}",
     "amount": "Tutar",
     "unitPrice": "Birim Fiyat",
     "monthlyReport": "Aylık Özet",

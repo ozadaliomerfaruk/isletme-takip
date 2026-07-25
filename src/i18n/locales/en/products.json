@@ -65,6 +65,7 @@
     "salesReturn": "Sales Return",
     "adjustment": "Adjustment",
     "quantity": "Quantity",
+    "autoDescription": "{{name}} - {{qty}} {{unit}}",
     "amount": "Amount",
     "unitPrice": "Unit Price",
     "monthlyReport": "Monthly Summary",
@@ -173,8 +174,8 @@
     "selectNone": "Select None"
   },
   "cariLink": {
-    "toggle": "Link to Client Account",
-    "selectClient": "Select Client",
+    "toggle": "Link to Contact",
+    "selectClient": "Select Contact",
     "supplier": "Supplier",
     "customer": "Customer",
     "linkedTo": "Linked to {{name}}",
@@ -195,7 +196,7 @@
     "error": "Error during export",
     "product": "Product",
     "movementType": "Movement Type",
-    "client": "Client",
+    "client": "Contact",
     "quantity": "Quantity",
     "unit": "Unit",
     "unitPrice": "Unit Price",

@@ -492,7 +492,22 @@ export default function VeriIceAktarPage() {
   const handleExportSkipped = async () => {
     if (!result?.skippedTransactions.length) return;
     try {
-      const buffer = exportSkippedTransactionsToExcel(result.skippedTransactions);
+      // Başlıklar ve sayfa adı çağırandan geçer (dosya tamamen Türkçe başlıklıydı)
+      const buffer = exportSkippedTransactionsToExcel(result.skippedTransactions, {
+        rowNo: t('settings:dataImport.skippedExcel.rowNo'),
+        reason: t('settings:dataImport.skippedExcel.reason'),
+        date: t('settings:dataImport.skippedExcel.date'),
+        type: t('settings:dataImport.skippedExcel.type'),
+        description: t('settings:dataImport.skippedExcel.description'),
+        category: t('settings:dataImport.skippedExcel.category'),
+        account: t('settings:dataImport.skippedExcel.account'),
+        staff: t('settings:dataImport.skippedExcel.staff'),
+        supplier: t('settings:dataImport.skippedExcel.supplier'),
+        customer: t('settings:dataImport.skippedExcel.customer'),
+        counterAccount: t('settings:dataImport.skippedExcel.counterAccount'),
+        amount: t('settings:dataImport.skippedExcel.amount'),
+        sheetName: t('settings:dataImport.skippedExcel.sheetName'),
+      });
       const uint8Array = new Uint8Array(buffer);
       let binary = '';
       const chunkSize = 8192;

@@ -39,18 +39,23 @@ export async function registerForPushNotificationsAsync(
     return null;
   }
 
-  // Android için channel oluştur
+  // Android için channel oluştur.
+  // name/description Android SİSTEM AYARLARINDA kullanıcıya gösterilir (Ayarlar >
+  // Uygulamalar > Bildirimler) — sabit İngilizce yazılmışlardı, Türk kullanıcı orada
+  // "Scheduled Transactions" görüyordu (aynı dosyada bildirim GÖVDELERİ i18n'den
+  // geliyor). Kanal metadata'sı aynı channelId ile tekrar çağrıldığında yenilenir,
+  // yani mevcut kullanıcılarda da bir sonraki açılışta düzelir.
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
-      name: 'Default',
+      name: i18n.t('common:notifications.channels.defaultName'),
       importance: Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#0D5C4D',
     });
 
     await Notifications.setNotificationChannelAsync('scheduled-transactions', {
-      name: 'Scheduled Transactions',
-      description: 'Reminders for scheduled transactions',
+      name: i18n.t('common:notifications.channels.scheduledName'),
+      description: i18n.t('common:notifications.channels.scheduledDescription'),
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#F59E0B',

@@ -193,7 +193,7 @@
       "viewDetails": "View Details",
       "downloadExcel": "Download Excel",
       "continueAnyway": "Continue Anyway",
-      "convertToClient": "Make Client",
+      "convertToClient": "Make Contact",
       "convertToAccount": "Make Account",
       "undoImport": "Undo"
     },
@@ -208,7 +208,7 @@
       "tedarikci": "Supplier"
     },
     "entityTypes": {
-      "cari": "Client",
+      "cari": "Contact",
       "personel": "Staff"
     },
     "template": {
@@ -321,7 +321,7 @@
     },
     "badges": {
       "account": "ACCOUNT",
-      "client": "CLIENT",
+      "client": "CONTACT",
       "staff": "STAFF",
       "income": "INCOME",
       "expense": "EXPENSE"
@@ -422,7 +422,7 @@
     "results": {
       "category": "Category",
       "account": "Account",
-      "client": "Client",
+      "client": "Contact",
       "staff": "Staff",
       "transaction": "Transaction",
       "startingBalance": "Opening Balance",
@@ -503,7 +503,38 @@
       "staffNotFound": "Staff not found: \"{{name}}\"",
       "accountBalanceAlreadySet": "Opening balance already set for this account (current: {{balance}})",
       "clientBalanceAlreadySet": "Opening balance already set for this client (current opening balance: {{balance}})",
-      "staffBalanceAlreadySet": "Opening balance already set for this staff member (current opening balance: {{balance}})"
+      "staffBalanceAlreadySet": "Opening balance already set for this staff member (current opening balance: {{balance}})",
+      "invalidDate": "Invalid date",
+      "invalidAmount": "Invalid amount",
+      "amountEmpty": "Amount is empty or missing",
+      "amountInvalidValue": "Invalid amount value: \"{{value}}\"",
+      "amountTooSmall": "Amount cannot be zero or too small",
+      "dateMissing": "Date is missing",
+      "dateExcelInvalid": "Invalid Excel date value: {{value}}",
+      "dateUnrecognized": "Unrecognized date format: \"{{value}}\"",
+      "dateUnexpectedType": "Unexpected date type: {{value}}",
+      "invalidMonth": "Invalid month: {{month}}",
+      "invalidDay": "Invalid day: {{day}}",
+      "typeMissing": "Transaction type is missing",
+      "dbError": "Database error: {{message}}",
+      "batchInsertError": "Batch insert error: {{message}}",
+      "silentFailure": "The row failed silently (server returned no record)",
+      "unknownError": "Unknown error"
+    },
+    "skippedExcel": {
+      "rowNo": "ROW NO",
+      "reason": "SKIP REASON",
+      "date": "DATE",
+      "type": "TRANSACTION TYPE",
+      "description": "DESCRIPTION",
+      "category": "CATEGORY",
+      "account": "ACCOUNT",
+      "staff": "STAFF",
+      "supplier": "SUPPLIER",
+      "customer": "CUSTOMER",
+      "counterAccount": "COUNTER ACCOUNT",
+      "amount": "AMOUNT",
+      "sheetName": "Skipped Transactions"
     }
   },
   "account": {

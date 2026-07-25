@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, HesapType } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
-import { toNumber, roundCurrency } from '@/lib/currency';
+import { toNumber, roundCurrency, formatQuantity } from '@/lib/currency';
 import { urunHareketYon, aileNetIsaret, isAlisAilesi, isSatisAilesi } from '@/lib/urunHareket';
 import i18n from '@/i18n';
 
@@ -984,6 +984,11 @@ export interface CreateUrunHareketWithCariInput {
   aciklama?: string;
   date?: string;
   hesap_id?: string | null;
+  /**
+   * Ürünün birim KODU ('adet' | 'kg' | 'lt' ...). Otomatik açıklamada çevirisi kullanılır.
+   * Verilmezse 'adet' varsayılır (eski davranış). Çağıran zaten urun nesnesine sahip.
+   */
+  birim?: string | null;
 }
 
 /**
@@ -1019,7 +1024,18 @@ export function useCreateUrunHareketWithCari() {
           amount: totalAmount,
           cari_id: input.cari_id,
           hesap_id: input.hesap_id ?? null,
-          description: input.aciklama || `${input.urun_ad} - ${input.miktar} adet`,
+          // Otomatik açıklama DB'YE YAZILIR (sonradan çevrilemez) — bu yüzden sabit
+          // Türkçe "adet" ve ham miktar interpolasyonu kabul edilemez: İngilizce
+          // kullanıcının İşlemler listesinde kalıcı olarak "Cement - 2.5 adet" kalıyordu
+          // ve ham interpolasyon her zaman NOKTA bastığı için TR kullanıcı 5.977 kg'ı
+          // "5977" okuyabiliyordu. formatQuantity + birim çevirisi ile üretiliyor.
+          description:
+            input.aciklama ||
+            i18n.t('products:stock.autoDescription', {
+              name: input.urun_ad,
+              qty: formatQuantity(input.miktar),
+              unit: i18n.t(`products:units.${input.birim || 'adet'}`),
+            }),
           date: input.date || new Date().toISOString(),
         },
         p_balance_ops: [{
@@ -1092,8 +1108,9 @@ export function useCreateBulkUrunHareketWithCari() {
         return acc + subtotal + kdv;
       }, 0);
 
-      // Ürün adları listesi (açıklama için)
-      const urunListesi = input.items.map(i => `${i.urun_ad} (${i.miktar})`).join(', ');
+      // Ürün adları listesi (açıklama için). Miktar formatQuantity'den geçer: ham
+      // interpolasyon her zaman NOKTA basıyordu (TR'de 5.977 kg → "5977" okunabiliyor).
+      const urunListesi = input.items.map(i => `${i.urun_ad} (${formatQuantity(i.miktar)})`).join(', ');
 
       // ATOMİK: tek islem + cari bakiye + N ürün hareketi TEK transaction
       // (create_islem_with_urun_atomik). Önceden ardışık adımlar + yutulan best-effort

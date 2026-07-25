@@ -27,7 +27,7 @@
     "clientDetails": "Contact Details",
     "clientTransactions": "Contact History",
     "clientPayment": "Client Payment",
-    "clientCollection": "Payment from Client",
+    "clientCollection": "Contact Collection",
     "clientPurchase": "Purchase from Supplier",
     "clientSale": "Sale to Customer",
     "personnel": "Staff",
@@ -94,7 +94,7 @@
     "income": "Income",
     "expense": "Expense",
     "transfer": "Transfer",
-    "client": "Client",
+    "client": "Contact",
     "personnel": "Staff"
   }
 }

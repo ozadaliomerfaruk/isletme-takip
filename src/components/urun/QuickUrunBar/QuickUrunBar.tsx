@@ -290,6 +290,8 @@ export function QuickUrunBar({
           kdv_orani: kdvOrani,
           cari_id: selectedCariId,
           date: formatDateTimeForDB(tarih),
+          // Otomatik açıklamada birimin ÇEVİRİSİ kullanılsın (sabit "adet" değil)
+          birim: urun.birim,
         });
 
         handleDismiss();

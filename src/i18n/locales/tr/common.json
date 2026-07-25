@@ -272,6 +272,13 @@
     "overpayment": "Fazla Ödeme",
     "advance": "Avans"
   },
+  "notifications": {
+    "channels": {
+      "defaultName": "Genel",
+      "scheduledName": "İleri Tarihli İşlemler",
+      "scheduledDescription": "İleri tarihli işlemler için hatırlatmalar"
+    }
+  },
   "tax": {
     "vat": "KDV"
   },

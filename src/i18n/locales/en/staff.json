@@ -66,7 +66,7 @@
   "actions": {
     "addExpense": "Add Expense",
     "makePayment": "Make Payment",
-    "getCollection": "Receive Payment",
+    "getCollection": "Collect Payment",
     "viewTransactions": "View History",
     "editPersonnel": "Edit Staff Member",
     "deletePersonnel": "Delete Staff Member",
@@ -76,7 +76,7 @@
   "transactionTypes": {
     "expense": "Staff Expense",
     "payment": "Staff Payment",
-    "collection": "Payment from Staff",
+    "collection": "Staff Collection",
     "salary": "Salary",
     "advance": "Advance",
     "bonus": "Bonus",
@@ -85,7 +85,7 @@
   "transactionTitles": {
     "addExpense": "Add Staff Expense",
     "makePayment": "Staff Payment",
-    "getCollection": "Payment from Staff",
+    "getCollection": "Collect Payment",
     "expense": "Staff Expense",
     "payment": "Staff Payment",
     "collection": "Staff Collection"
@@ -171,7 +171,7 @@
   "transactionLabels": {
     "gider": "Expense",
     "odeme": "Payment",
-    "tahsilat": "Payment Received",
+    "tahsilat": "Collection",
     "satis": "Sale",
     "izinHakki": "Leave Entitlement",
     "izinKullanimi": "Leave Used"
