@@ -471,7 +471,7 @@ export default function ArsivPage() {
   );
 
   // Header (arama + sekmeler) — memoize'lı ELEMENT (islemler deseni): aynı tip aynı konumda
-  // reconcile edildiğinden SearchInput yazarken focus'unu KAYBETMEZ.
+  // reconcile edildiğinden arama alanı yazarken focus'unu KAYBETMEZ.
   const ListHeader = useMemo(
     () => (
       <View>

@@ -147,12 +147,6 @@
   },
   "currency": {
     "title": "Currency",
-    "selectCurrency": "Select currency",
-    "TRY": "Turkish Lira",
-    "USD": "US Dollar",
-    "EUR": "Euro",
-    "GBP": "British Pound",
-    "XAU": "Gold (gram)",
-    "XAG": "Silver (gram)"
+    "selectCurrency": "Select currency"
   }
 }

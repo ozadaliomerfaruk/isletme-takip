@@ -3,6 +3,13 @@
 > **Bu dosya nedir?** Repodaki tüm plan/doküman dosyalarının ana endeksi + silinen planlardan taşınan açık işler.
 > 11 Haziran 2026'da yapılan plan denetimiyle oluşturuldu (14 dosya kodla karşılaştırıldı).
 > İşi bitmiş/terk edilmiş 8 plan silindi (listesi en altta — içerikleri git geçmişinde durur).
+>
+> **25 Temmuz 2026 budaması:** dört satır daha düştü — `test-dosyasi.md` (endeks var olmayan
+> bir dosyayı gösteriyordu), `README.txt` (secret/keystore yedekleme haritası — uygulama
+> reposunun işi değil, kişisel not; üstelik repo PUBLIC), `ONBOARDING-PLANI.md` (kendi silme
+> koşulu sağlandı: yeni akış `kurulum*.tsx` + `useSetupProgress` ile uygulandı), `hesap.md`
+> (onboarding v2 maskot mockup'ı — v2 kararı geri alındı, yani "kullanılmayacaksa sil"
+> notunun cevabı belli oldu). İçerikleri git geçmişinde durur.
 
 ---
 
@@ -12,16 +19,12 @@
 |---|---|---|
 | [WEB_PLAN.md](WEB_PLAN.md) | Web sürümü (Next.js) implementasyon planı | Aktif. ⚠️ Faz 0.8'e Apple client secret JWT yenileme notu eklendi (10 Haziran) — web auth'tan önce zorunlu |
 | [docs/PLAY_STORE_PLAN.md](docs/PLAY_STORE_PLAN.md) | Play Store yayın/kurulum planı | Kod tarafı hazır, store prosedürleri yarım. **Güncellenmeli:** "iOS yayınlanmadı" bilgisi bayat (iOS yayında, v1.4.0). Bu haftaki Play görünürlük/ASO işinin referansı |
-| [test-dosyasi.md](test-dosyasi.md) | ~300 senaryoluk manuel test kontrol listesi | Aktif, v1.4.0'da geçerli. Sürüm öncesi regresyon testlerinde kullan |
 | [docs/coklu-kullanici.md](docs/coklu-kullanici.md) | Çoklu kullanıcı sisteminin referans dokümanı (v5) | Sistem kodda tam uygulanmış; kalıcı referans |
-| [README.txt](README.txt) | Secret/keystore yedekleme ve kurulum rehberi | Güncel; git dışı gizli dosyaların haritası |
 
 ## 🤔 Karar Bekleyen Dosyalar
 
 | Dosya | Bekleyen karar |
 |---|---|
-| [ONBOARDING-PLANI.md](ONBOARDING-PLANI.md) | Eski onboarding planı (anonim giriş omurgalı, 3 Haziran). **KARAR VERİLDİ (11 Haziran): anonim giriş YAPILMAYACAK** — kayıt aşamasında kullanıcılar zaten kaydoluyor, dökülme kayıt sonrasında. Yeni onboarding planı (tek sektör sorusu → otomatik Kasa/Banka → inline cari → kutlama + bildirim izni) yazılınca bu dosya silinecek |
-| [hesap.md](hesap.md) | "Hesap" maskotu + onboarding mockup v2 (Mayıs). **Karar: maskot/tasarım dili kullanılacak mı?** Kullanılmayacaksa sil |
 | [docs/iap-yapilacaklar.md](docs/iap-yapilacaklar.md) | RevenueCat abonelik planı — hiç uygulanmadı. **Karar: paralı plan (IAP) hâlâ hedef mi?** WEB_PLAN Faz 4.6 (monetizasyon) ile ilişkili; hedefse tut, vazgeçildiyse sil |
 | [docs/app-store-marketing-plan.md](docs/app-store-marketing-plan.md) | App Store ASO/pazarlama planı (v1.2.2 dönemi). İçindeki iOS anahtar kelimeleri Play ASO işinde kullanılacak — **ASO işi bitince silinebilir** |
 

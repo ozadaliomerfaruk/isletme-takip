@@ -81,7 +81,7 @@ export default function CarilerPage() {
   const { t } = useTranslation(['clients', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  // A2: SearchInput value'su anlık searchQuery'ye bağlı; filtre/sıralama debouncedSearch
+  // A2: arama alanının value'su anlık searchQuery'ye bağlı; filtre/sıralama debouncedSearch
   // kullanır ve useMemo ile sarılır → binlerce caride her tuşta filter+sort tekrarlanmaz.
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [sortBy, setSortBy] = useState<'name' | 'balanceHigh' | 'balanceLow'>('name');

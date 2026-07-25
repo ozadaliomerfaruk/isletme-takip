@@ -26,7 +26,9 @@ const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 
 let googleSigninConfigured = false;
 function getGoogleSignin() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, global-require
+  // Tembel require BİLİNÇLİ: Google Signin native modülü import edildiği anda
+  // yapılandırma bekliyor; üstte import edilirse Expo Go'da açılışta patlıyor.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { GoogleSignin } = require('@react-native-google-signin/google-signin');
   if (!googleSigninConfigured) {
     GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });

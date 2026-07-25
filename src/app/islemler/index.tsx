@@ -169,7 +169,7 @@ export default function IslemlerPage() {
   const { canDelete } = usePermissions();
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  // A2: SearchInput value'su searchQuery'ye (anlık) bağlı kalır; yalnız filtreleme/gruplama
+  // A2: arama alanının value'su searchQuery'ye (anlık) bağlı kalır; yalnız filtreleme/gruplama
   // debouncedSearch'ü kullanır → binlerce işlemde her tuşta tüm liste yeniden filtrelenmez.
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [showLongLoadingMessage, setShowLongLoadingMessage] = useState(false);

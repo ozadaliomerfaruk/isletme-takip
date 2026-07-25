@@ -10,20 +10,16 @@ export { TabHeader, TAB_HEADER_ESTIMATED_HEIGHT } from './TabHeader';
 export { TabFilter } from './TabFilter';
 export { FilterChips } from './FilterChips';
 export type { FilterChipItem } from './FilterChips';
-// SearchInput barrel'dan ÇIKARILDI: hiçbir ekranda kullanılmıyordu ve arama dili
-// İKİ yüzeyli — ana liste sekmelerinde FloatingSearchBar (alta yüzen, cam),
-// modal/picker'larda ModalSearchBar (üste sabit). Üçüncü bir varyantın oto-tamamlamada
-// bunların yanında çıkması, sonraki ekranın yanlışını seçmesine davetiye. Dosya
-// duruyor (geri dönülebilir olsun) ama dışa açık değil.
+// ARAMA DİLİ İKİ YÜZEYLİ — üçüncüsünü EKLEME:
+//   ana liste sekmeleri → FloatingSearchBar (alta yüzen, cam)
+//   modal / picker      → ModalSearchBar   (üste sabit, cam + GLASS_TINT_CONTROL)
 export { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
 export { ModalSearchBar } from './ModalSearchBar';
 export { EmptyState } from './EmptyState';
 export { DateTimePicker } from './DateTimePicker';
 export { CategoryReportCard, HierarchicalCategoryReportCard } from './CategoryReportCard';
-// AccountReportCard barrel'dan ÇIKARILDI: kullanılmıyor ve eski "kutu" dilinde
-// kalmış — kardeşleri (IncomeSourceCard, CategoryReportCard) yapışık satır diline
-// geçti. Rapor kartı gerekirse onlardan biri örnek alınmalı, bu değil.
-
+// Yeni rapor kartı gerekirse IncomeSourceCard / CategoryReportCard örnek alınmalı
+// (yapışık satır dili). Eski "kutu" dilindeki AccountReportCard silindi.
 export { IncomeSourceCard } from './IncomeSourceCard';
 export { IconPicker } from './IconPicker';
 export { ColorPicker } from './ColorPicker';
@@ -35,8 +31,6 @@ export { NotificationBell } from './NotificationBell';
 export { ReminderSettings, type ReminderConfig } from './ReminderSettings';
 export { BottomSheet } from './BottomSheet';
 export { AmountInput } from './AmountInput';
-// OptionRow barrel'dan ÇIKARILDI: tek referansı bu satırdı. ActionSheet'in kendi
-// yerel OptionRow'u var (ayrı bileşen) — aynı ada iki şey olması karıştırıyordu.
 
 export { BalanceDirectionSelector, type BalanceDirection } from './BalanceDirectionSelector';
 export { ActionSheet, type ActionSheetOption } from './ActionSheet';
