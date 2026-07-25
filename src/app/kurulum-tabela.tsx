@@ -6,12 +6,12 @@
  */
 import { useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Store } from 'lucide-react-native';
 
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { logEvent } from '@/lib/appEvents';
 
 export default function KurulumTabela() {
+  const footerInset = useFooterBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['auth']);
   const { isletme, refreshIsletme } = useAuthContext();
@@ -46,7 +47,7 @@ export default function KurulumTabela() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text variant="caption" style={styles.stepLabel}>
@@ -73,12 +74,12 @@ export default function KurulumTabela() {
         />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: spacing.lg + footerInset }]}>
         <Button variant="primary" size="lg" fullWidth onPress={handleContinue} loading={saving}>
           {t('auth:setup.tabela.continue')}
         </Button>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

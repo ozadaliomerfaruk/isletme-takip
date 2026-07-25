@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowRightLeft, LogOut, UserPlus, ChevronRight } from 'lucide-react-native';

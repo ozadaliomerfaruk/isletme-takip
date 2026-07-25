@@ -8,11 +8,11 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, Lock, Building2, KeyRound, CheckCircle, ArrowLeft } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength } from '@/components/ui';
+import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +21,7 @@ import { toErrorMessage } from '@/lib/errors';
 type Step = 'register' | 'otp' | 'success';
 
 export default function RegisterPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['auth', 'common', 'errors']);
 
@@ -173,7 +174,7 @@ export default function RegisterPage() {
   // Success screen
   if (step === 'success') {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen top>
         <View style={styles.centerContainer}>
           <CheckCircle size={64} color={colors.success} style={styles.icon} />
           <Text variant="h2" center style={styles.title}>
@@ -192,18 +193,18 @@ export default function RegisterPage() {
             {t('auth:register.continue')}
           </Button>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -361,7 +362,7 @@ export default function RegisterPage() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

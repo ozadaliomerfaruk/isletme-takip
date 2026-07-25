@@ -1,7 +1,6 @@
 import { useState, useMemo, type ReactNode } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Trash2, Pencil, Calendar, Users, Wallet, Tag, User, FileText, Info } from 'lucide-react-native';
 import { Stack } from 'expo-router';

@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   type ViewToken,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,7 +19,8 @@ import {
   FileSpreadsheet,
   ChevronRight,
 } from 'lucide-react-native';
-import { Text, Button } from '@/components/ui';
+import { Text, Button, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { getNeedsSetupSync } from '@/lib/setupFlow';
@@ -37,6 +37,7 @@ interface OnboardingSlide {
 }
 
 export default function OnboardingScreen() {
+  const footerInset = useFooterBottomPadding();
   const { t } = useTranslation(['auth', 'common']);
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -175,7 +176,7 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
       {/* Skip Button */}
       <View style={styles.header}>
         <TouchableOpacity onPress={skipOnboarding} style={styles.skipButton}>
@@ -207,7 +208,7 @@ export default function OnboardingScreen() {
       </View>
 
       {/* Footer */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: spacing.xl + footerInset }]}>
         <Paginator />
 
         <View style={styles.buttonContainer}>
@@ -230,7 +231,7 @@ export default function OnboardingScreen() {
           )}
         </View>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

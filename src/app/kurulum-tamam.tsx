@@ -7,12 +7,11 @@
  */
 import { useState } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, BarChart3, BellRing } from 'lucide-react-native';
 
-import { Text, Button } from '@/components/ui';
+import { Text, Button, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -56,7 +55,7 @@ export default function KurulumTamam() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
       <View style={styles.content}>
         <View style={styles.celebration}>
           <View style={styles.checkContainer}>
@@ -111,7 +110,7 @@ export default function KurulumTamam() {
           </TouchableOpacity>
         </View>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

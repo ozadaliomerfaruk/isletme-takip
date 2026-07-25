@@ -2,7 +2,6 @@ import { upperTr } from '@/lib/turkishTextUtils';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';

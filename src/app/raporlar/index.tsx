@@ -2,7 +2,6 @@ import { upperTr } from '@/lib/turkishTextUtils';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import { TabFilter, Screen } from '@/components/ui';
 import { FinanceKPIGrid, TrendChartWidget, CategoryDonutWidget } from '@/widgets/finance';

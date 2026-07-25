@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect } from 'react';
 import { Screen } from '@/components/ui';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
 import { Stack } from 'expo-router';
 import { Share as ShareIcon } from 'lucide-react-native';

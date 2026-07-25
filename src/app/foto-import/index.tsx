@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Platform, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { BackButton } from '@/components/ui/BackButton';

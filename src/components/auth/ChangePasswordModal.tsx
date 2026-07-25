@@ -9,10 +9,10 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Lock, KeyRound, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength } from '@/components/ui';
+import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength, Screen, ModalInsets } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +25,7 @@ interface ChangePasswordModalProps {
 }
 
 export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePasswordModalProps) {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['auth', 'common', 'errors']);
 
   const [password, setPassword] = useState('');
@@ -128,13 +129,18 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
       presentationStyle="pageSheet"
       onRequestClose={handleClose}
     >
-      <SafeAreaView style={styles.container}>
+      {/* MODAL sınıfı: ayrı native pencerede açılıyor, tab bar burada çizilmiyor.
+          ModalInsets alt ağaca GERÇEK insets'i verir — olmadan Screen ve
+          useContentBottomPadding _layout'un bar'lı değerini alır ve modal içinde
+          ~72px hayalet boşluk doğar (yeni kapatılan sınıf bu dosyada geri açılırdı). */}
+      <ModalInsets>
+      <Screen top>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
@@ -220,7 +226,8 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </Screen>
+      </ModalInsets>
     </Modal>
   );
 }

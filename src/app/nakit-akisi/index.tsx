@@ -1,7 +1,6 @@
 import { upperTr } from '@/lib/turkishTextUtils';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useCallback } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';

@@ -1,6 +1,5 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Text, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';

@@ -13,7 +13,21 @@ export function getActiveTab(segments: readonly string[]): string | null {
   const first = segments[0];
   const second = segments[1];
 
-  if (first === '(auth)' || first === 'onboarding' || first === 'verify') return null;
+  // Bar'ın HİÇ çizilmediği akışlar. Kurulum da buraya dahil: ilk kayıt öncesi,
+  // kullanıcının henüz verisi yok ve sekmelere gitmesi istenmiyor — bara orada
+  // yer yok. Önceden listede olmadığı için varsayılana ('home') düşüyor ve
+  // kurulum ekranlarında bar çiziliyordu.
+  //
+  // Tek-kaynak refaktörünün satın aldığı şey tam bu: karar burada değişince
+  // inset'ler kendiliğinden uyar, hiçbir ekrana dokunmak gerekmez.
+  if (
+    first === '(auth)' ||
+    first === 'onboarding' ||
+    first === 'verify' ||
+    first.startsWith('kurulum')
+  ) {
+    return null;
+  }
 
   if (first === '(tabs)') {
     if (!second || second === 'index') return 'home';

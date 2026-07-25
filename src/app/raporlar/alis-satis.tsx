@@ -2,7 +2,6 @@ import { upperTr } from '@/lib/turkishTextUtils';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
 import { Stack, useRouter, Href } from 'expo-router';
 import { Package, ShoppingCart, Store, ChevronDown, ChevronUp } from 'lucide-react-native';

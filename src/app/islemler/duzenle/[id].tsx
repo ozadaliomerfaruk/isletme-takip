@@ -14,7 +14,6 @@ import {
   Dimensions,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown, Wallet, X, Search, Check, Users, UserCheck, Bell } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';

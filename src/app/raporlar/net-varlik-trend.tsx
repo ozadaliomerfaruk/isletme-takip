@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, ScrollView, StyleSheet, RefreshControl, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LineChart } from 'react-native-gifted-charts';
