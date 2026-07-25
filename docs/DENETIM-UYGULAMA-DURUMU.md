@@ -76,27 +76,33 @@ Ertelenen bulgular (`bulgular.json` içinde `file` alanından bulunur):
 
 ---
 
-## DURUM
+## DURUM — TAMAMLANDI
 
 - [x] Denetim tamamlandı, rapor commit'li (`c66ade8`)
 - [x] Paralel session'ın işi commit'li, hiçbir şey kayıp değil
 - [x] Bulgu verisi repoya alındı (`docs/denetim/`)
-- [ ] **10 kümenin düzeltmeleri** — `apply-frontend-audit-fixes` workflow'u koşuyor
-      (düzelt → bağımsız doğrula → gerekirse onar). 86 bulgu hedefte.
-- [ ] Küme çıktılarının gruplu commit'i
-- [ ] Ertelenen 9 bulgu (yeni koda karşı yeniden doğrulanarak)
-- [ ] `npx tsc --noEmit`
-- [ ] `npx eslint .`
-- [ ] `npx jest`
-- [ ] `npx expo export --platform ios` (gerçek Metro bundle derlemesi)
-- [ ] Çıkan hataların düzeltilmesi
-- [ ] Sayfa sayfa kontrol listesi (`docs/SABAH-KONTROL-LISTESI.md`)
+- [x] **10 kümenin düzeltmeleri** — 84 bulgu; her küme bağımsız bir ajan tarafından
+      `git diff` okunarak doğrulandı, regresyon bulunanlar aynı turda onarıldı
+- [x] Küme çıktılarının gruplu commit'i (10 commit)
+- [x] Dosya kilidi yüzünden atlanan 2 iş (vade header kaydı + personel çift boşluk)
+- [x] Ertelenen 9 bulgu (yeni koda karşı yeniden doğrulanarak)
+- [x] `npx tsc --noEmit` → 0 hata
+- [x] `npx eslint .` → 0 hata (115 uyarı, hepsinin eski olduğu diff'e karşı kanıtlandı)
+- [x] `npx jest` → 312/312
+- [x] `npx expo export --platform ios` → 4045 modül, temiz
+- [x] Sayfa sayfa kontrol listesi → `docs/SABAH-KONTROL-LISTESI.md`
 
-## Yeni oturumda nereden devam edilir
+**95/95 bulgu uygulandı.** Kalan tek şey CİHAZDA GÖRSEL DOĞRULAMA — kontrol listesi
+tam onun için yazıldı.
 
-1. `git log --oneline -15` ve `git status` ile nerede kalındığını gör.
-2. Yukarıdaki DURUM listesinde ilk işaretsiz maddeden devam et.
-3. Küme düzeltmeleri yarım kaldıysa: `docs/denetim/cNN.json` dosyasındaki bulguları
-   tek tek koda karşı doğrula — hangisinin uygulandığı `git diff`/`git log -p` ile görülür.
-4. **Commit disiplini:** iş bitmeden de commit at. `git add -A` yerine dokunduğun yolları
-   açıkça stage'le; aynı repoda başka bir session çalışıyor olabilir.
+Bilinçli olarak yapılmayanlar kontrol listesinin sonunda listeli. Karar bekleyen tek
+teknik borç: `Screen.footer` prop'u — sözleşme metni onu 2. yol olarak gösteriyor ama
+primitif klavye açıkken hatalı davranıyor; bugün hiçbir ekran kullanmıyor.
+
+## Bu turdan çıkan ders (bir sonraki toplu düzeltme için)
+
+Paralel oturum riski gerçek: bir ajan `contentPaddingBottom` kullanımını yazdı ama
+session limitine takılıp hook tanımını ekleyemeden öldü — derlenmez bir dosya bıraktı.
+Doğrulama ajanı da aynı limitle ölmüştü, yani hata yakalanmadan geçebilirdi.
+**Ders:** her toplu turdan sonra `tsc` ANA OTURUMDA koşturulur; ajanın "FIXED" demesi
+kanıt değildir.
