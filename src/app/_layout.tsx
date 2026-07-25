@@ -20,6 +20,7 @@ import { WifiOff } from 'lucide-react-native';
 import { PersistentTabBar, TAB_BAR_CONTENT_HEIGHT } from '@/components/ui/PersistentTabBar';
 import { goToTab } from '@/lib/tabNav';
 import { isTabBarVisible } from '@/lib/tabBarVisibility';
+import { RealInsetsContext } from '@/components/ui/ModalInsets';
 import { colors } from '@/constants/colors';
 import {
   registerForPushNotificationsAsync,
@@ -311,6 +312,10 @@ function RootLayoutNav() {
         </View>
       )}
       <View style={{ flex: 1 }}>
+      {/* GERÇEK insets ayrıca yayınlanıyor: modallar (ayrı native pencerede
+          açıldıkları için tab bar oralarda çizilmez) alt ağaçları için bunu
+          kullanır — bkz. ModalInsets. */}
+      <RealInsetsContext.Provider value={insets}>
       <SafeAreaInsetsContext.Provider value={modifiedInsets}>
       <Stack
         screenOptions={{
@@ -945,6 +950,7 @@ function RootLayoutNav() {
         />
       </Stack>
       </SafeAreaInsetsContext.Provider>
+      </RealInsetsContext.Provider>
       <PersistentTabBar />
       {__DEV__ && <NavDepthLogger />}
       </View>

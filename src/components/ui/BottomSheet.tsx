@@ -15,6 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { borderRadius } from '@/constants/spacing';
+import { ModalInsets } from './ModalInsets';
 import * as Haptics from 'expo-haptics';
 
 const DISMISS_THRESHOLD = 150;
@@ -305,6 +306,10 @@ export function BottomSheet({
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+      {/* Modal AYRI NATIVE PENCEREDE: tab bar burada çizilmiyor, dolayısıyla
+          insets override'sız GERÇEK değere dönmeli — yoksa ~72px hayalet alt
+          boşluk kalır. Bkz. ModalInsets. */}
+      <ModalInsets>
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
@@ -332,6 +337,7 @@ export function BottomSheet({
         {/* Content */}
         <View style={styles.content}>{children}</View>
       </Animated.View>
+      </ModalInsets>
     </Modal>
   );
 }
