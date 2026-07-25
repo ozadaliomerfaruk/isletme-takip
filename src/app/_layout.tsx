@@ -364,7 +364,13 @@ function RootLayoutNav() {
           options={{
             presentation: 'card',
             headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
+            // PİLOT (yalnız bu ekran): `headerStyle.backgroundColor` KASITLI OLARAK
+            // VERİLMİYOR. Verildiğinde native bar'a opak dolgu dayatılıyor ve iOS 26'nın
+            // kendi cam malzemesi eziliyor — buton kapsülleri cam, altlarındaki şerit
+            // opak beyaz (colors.surface #FFFFFF) kalıyordu; sayfa zemini ise #F5F5F5,
+            // yani TabHeader'da çözdüğümüz "header sayfadan beyaz" tutarsızlığının aynısı.
+            // Kaldırınca bar'ı sistem çiziyor. Diğer 49 yerde hâlâ duruyor; cihaz turu
+            // sonrası ya hepsi kaldırılacak ya bu geri konacak.
             headerTintColor: colors.text,
             headerTitle: t('clients:titles.clientTransactions'),
             headerShadowVisible: false,
