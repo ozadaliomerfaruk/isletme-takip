@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ensureValidDate, parseDateFromDB } from '@/lib/date';
-import { roundCurrency, toNumber, cleanAmountInput } from '@/lib/currency';
+import { roundCurrency, toNumber, cleanAmountInput, formatAmountForInput } from '@/lib/currency';
 import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, UrunItem } from '../types';
 import type { CariType, Currency, BirimType } from '@/types/database';
 import { useIslem } from '@/hooks/useIslemler';
@@ -337,7 +337,11 @@ export function useQuickTransactionForm({
     setType(mappedState.type);
     // Emniyet: tutar alanına her zaman 2-ondalık yaz (parseCurrency TR locale'de
     // 3-ondalık değeri ~1000x şişirme riskine karşı defense-in-depth).
-    setAmount(roundCurrency(toNumber(transaction.amount)).toString());
+    // formatAmountForInput ŞART: .toString() JS'in NOKTA'sını yazıyordu, alan ise
+    // cleanAmountInput'tan geçiyor ve o locale ondalığı dışındaki her şeyi SİLİYOR
+    // → TR'de "150.5" alana dokunulduğu anda "1505" oluyordu (10x). roundCurrency
+    // 2-ondalık tavanı için kalıyor; formatAmountForInput ayracı locale'e çeviriyor.
+    setAmount(formatAmountForInput(roundCurrency(toNumber(transaction.amount))));
     setDescription(transaction.description || '');
 
     // Copy mode: set date to today; Edit mode: use original date
@@ -430,7 +434,8 @@ export function useQuickTransactionForm({
       // Dışarıdan ön-doldurma — copy modda uygulanmaz (kaynak işlem yüklemesi ezilmesin)
       if (!isCopyMode && !prefillAppliedRef.current) {
         prefillAppliedRef.current = true;
-        if (defaultAmount != null) setAmount(roundCurrency(defaultAmount).toString());
+        // bkz. yukarıdaki formatAmountForInput notu (nokta → cleanAmountInput siler)
+        if (defaultAmount != null) setAmount(formatAmountForInput(roundCurrency(defaultAmount)));
         if (defaultDate) setDate(ensureValidDate(defaultDate));
         if (defaultDescription) setDescription(defaultDescription);
       }

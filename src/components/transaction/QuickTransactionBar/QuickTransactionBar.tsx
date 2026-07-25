@@ -10,7 +10,7 @@ import { useRouter, useFocusEffect, type Href } from 'expo-router';
 
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
 import { colors } from '@/constants/colors';
-import { roundCurrency, parseCurrency, formatCurrency } from '@/lib/currency';
+import { roundCurrency, parseCurrency, formatCurrency, formatAmountForInput } from '@/lib/currency';
 import { addDays, addMonths } from '@/lib/date';
 
 import { getTransactionTypeColor } from '../TransactionTypeTabs';
@@ -1090,7 +1090,9 @@ export function QuickTransactionBar({
           // noktadan sonraki 3 haneyi binlik ayracı sanıp noktayı siliyor ve tutarı
           // ~1000x şişiriyor (2692.828 → 2692828). roundCurrency 2 ondalık garanti eder.
           if (total > 0) {
-            form.setAmount(roundCurrency(total).toString());
+            // NOKTA yazmak yasak: alan cleanAmountInput'tan geçiyor ve locale
+            // ondalığı dışındaki ayracı siler (TR'de "489.65" → "48965", 100x).
+            form.setAmount(formatAmountForInput(roundCurrency(total)));
           }
         }}
         currency={userCurrency}

@@ -10,7 +10,7 @@ import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/d
 import { Text, Button, CategoryPicker, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
-import { parseCurrency, isValidAmount, formatCurrency, roundCurrency } from '@/lib/currency';
+import { parseCurrency, isValidAmount, formatCurrency, roundCurrency, cleanAmountInput } from '@/lib/currency';
 import { formatDateTimeForDB, ensureValidDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -293,8 +293,10 @@ export function DailyCashModal({
 
   // Handle amount change
   const handleAmountChange = useCallback((hesapId: string, text: string) => {
-    const cleaned = text.replace(/[^0-9,.]/g, '');
-    updateEntry(hesapId, 'amount', cleaned);
+    // Merkezî temizleyici: locale'e göre binliği atar, ondalığı 2 haneye kısar ve tek
+    // ayraç bırakır. Ham regex (birden çok ayraç + sınırsız ondalık) parseCurrency'nin
+    // "3-ondalık" tuzağına düşüp tutarı ~1000x şişirebiliyordu.
+    updateEntry(hesapId, 'amount', cleanAmountInput(text));
   }, [updateEntry]);
 
   // Handle save

@@ -35,6 +35,7 @@ import {
   safeParseExchangeRate,
   formatCurrencyInput,
   unformatCurrencyInput,
+  cleanAmountInput,
   formatAmountForInput,
   isValidAmount,
   isValidBalance,
@@ -514,6 +515,90 @@ describe('unformatCurrencyInput', () => {
 });
 
 // ============================================================================
+// cleanAmountInput - tuş-tuş ham giriş temizleme (binlik at, ondalık max 2)
+// ============================================================================
+describe('cleanAmountInput (tr-TR varsayılan)', () => {
+  it('binlik ayracını atar ve ondalığı 2 haneye kırpar', () => {
+    expect(cleanAmountInput('2.000,567')).toBe('2000,56');
+    expect(cleanAmountInput('2692,828')).toBe('2692,82');
+  });
+
+  it('rakam/ondalık dışı her şeyi siler, yazmaya devam eden girişi bozmaz', () => {
+    expect(cleanAmountInput('₺1.234,5 abc')).toBe('1234,5');
+    expect(cleanAmountInput('abc')).toBe('');
+    expect(cleanAmountInput('')).toBe('');
+    // Kullanıcı henüz ondalığı yazmadı: ayraç korunur ki tuş kaybolmasın
+    expect(cleanAmountInput('100,')).toBe('100,');
+  });
+
+  it('birden fazla ondalık ayracı kırpılır', () => {
+    expect(cleanAmountInput('1,2,3')).toBe('1,2');
+  });
+
+  it('iki nokta TR locale de binlik sayılıp atılır', () => {
+    expect(cleanAmountInput('1.2.3')).toBe('123');
+  });
+
+  // REGRESYON (3-ondalık ~1000x): giriş yüzeyleri eskiden ham
+  // `text.replace(/[^0-9,.]/g, '')` kullanıyordu; değeri olduğu gibi bıraktığı için
+  // parseCurrency TR locale'de noktadan sonraki 3 haneyi binlik ayracı sanıp noktayı
+  // siliyor ve tutarı ~1000x şişiriyordu. cleanAmountInput çıktısı en fazla 2 ondalık
+  // taşıdığı için parseCurrency'nin o dalı artık hiç tetiklenemez.
+  it('çıktısı parseCurrency ile ~1000x şişmez', () => {
+    // Tuzağın kendisi (mevcut davranışın belgesi): 3 haneli nokta binlik sanılır
+    expect(parseCurrency('2692.828')).toBe(2692828);
+    // Temizlenmiş giriş 2 ondalıkta kalır → şişme yok
+    expect(parseCurrency(cleanAmountInput('2.692,828'))).toBeCloseTo(2692.82, 2);
+    expect(parseCurrency(cleanAmountInput('2692,828'))).toBeCloseTo(2692.82, 2);
+  });
+
+  it('idempotent: kendi çıktısı tekrar verilince değişmez', () => {
+    expect(cleanAmountInput(cleanAmountInput('2.000,567'))).toBe('2000,56');
+  });
+});
+
+// ============================================================================
+// TOHUM ↔ TEMİZLEYİCİ GİDİŞ-DÖNÜŞÜ  (regresyon kalkanı)
+//
+// Giriş alanları tuş-tuş cleanAmountInput'tan geçiyor ve o LOCALE ondalığı dışındaki
+// her ayracı SİLER (TR'de nokta binlik sayılıp atılır — bu kasıtlı, 1000x tuzağına
+// karşı). Dolayısıyla alana PROGRAMLI yazılan (tohumlanan) değer de locale ayracıyla
+// yazılmak ZORUNDA. Tohum `.toString()` ile yazılırsa JS her zaman NOKTA basar ve
+// kullanıcı alana dokunduğu ilk anda değer 10x/100x şişer.
+//
+// Bu hata QTB'de (düzenleme tohumu, defaultAmount, ürün toplamı) ÜRETİMDE canlıydı;
+// aşağıdaki testler tohum tarafının formatAmountForInput kullanmaya devam etmesini
+// garanti eder. Biri tekrar `.toString()`e dönerse bu blok kırılır.
+// ============================================================================
+describe('tohum ↔ cleanAmountInput gidiş-dönüşü (10x/100x şişme kalkanı)', () => {
+  const seedThenTouch = (v: number) => parseCurrency(cleanAmountInput(formatAmountForInput(roundCurrency(v))));
+
+  it('TR locale: tohumlanan değer alana dokunulunca DEĞİŞMEZ', () => {
+    expect(seedThenTouch(150.5)).toBeCloseTo(150.5, 2);
+    expect(seedThenTouch(489.65)).toBeCloseTo(489.65, 2);
+    expect(seedThenTouch(1234.56)).toBeCloseTo(1234.56, 2);
+    expect(seedThenTouch(5000)).toBe(5000);
+  });
+
+  it('TR locale: YANLIŞ tohum (.toString) şişmeyi GERÇEKTEN üretiyor — testin gerekçesi', () => {
+    // Belge amaçlı: düzeltmenin neye karşı olduğunu sabitler.
+    expect(parseCurrency(cleanAmountInput(roundCurrency(150.5).toString()))).toBe(1505);
+    expect(parseCurrency(cleanAmountInput(roundCurrency(489.65).toString()))).toBe(48965);
+  });
+
+  it('en-US locale: aynı gidiş-dönüş bozulmaz', () => {
+    setMockCurrency('USD', '$', 'en-US');
+    try {
+      expect(seedThenTouch(150.5)).toBeCloseTo(150.5, 2);
+      expect(seedThenTouch(489.65)).toBeCloseTo(489.65, 2);
+      expect(seedThenTouch(5000)).toBe(5000);
+    } finally {
+      setMockCurrency(TR_DEFAULT.code, TR_DEFAULT.symbol, TR_DEFAULT.locale);
+    }
+  });
+});
+
+// ============================================================================
 // Locale-bilinçli giriş/parse (ana para birimi USD/GBP -> en-US/en-GB)
 // Bug: ana=USD iken "1234.56" girişi sessizce bozuluyordu (123456'ya şişiyordu)
 // ============================================================================
@@ -597,6 +682,15 @@ describe('en-US locale (ana para birimi USD/GBP)', () => {
   describe('unformatCurrencyInput', () => {
     it('binlik virgüllerini kaldırmalı, ondalık noktayı korumalı', () => {
       expect(unformatCurrencyInput('2,000.50')).toBe('2000.50');
+    });
+  });
+
+  describe('cleanAmountInput', () => {
+    it('binlik virgülü atılmalı, nokta ondalık 2 haneyle sınırlı olmalı', () => {
+      expect(cleanAmountInput('2,000.567')).toBe('2000.56');
+      expect(cleanAmountInput('1.2.3')).toBe('1.2');
+      // en-* locale'de virgül binliktir → tamamı atılır
+      expect(cleanAmountInput('1,2,3')).toBe('123');
     });
   });
 });

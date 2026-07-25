@@ -21,7 +21,7 @@ import { TransactionTypeTabs, TransactionType, getTransactionTypeColor } from '.
 import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
 import { Hesap, IslemType, IslemInsert, IleriTarihliIslemInsert, Urun, Currency } from '@/types/database';
-import { parseCurrency, formatCurrency, isValidAmount, roundCurrency } from '@/lib/currency';
+import { parseCurrency, formatCurrency, isValidAmount, roundCurrency, cleanAmountInput, formatAmountForInput } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -514,8 +514,10 @@ export function CreditCardTransactionBar({
   ]);
 
   const handleAmountChange = useCallback((text: string) => {
-    const cleaned = text.replace(/[^0-9,.]/g, '');
-    setAmount(cleaned);
+    // Merkezî temizleyici: locale'e göre binliği atar, ondalığı 2 haneye kısar ve tek
+    // ayraç bırakır. Ham regex (birden çok ayraç + sınırsız ondalık) parseCurrency'nin
+    // "3-ondalık" tuzağına düşüp tutarı ~1000x şişirebiliyordu.
+    setAmount(cleanAmountInput(text));
   }, []);
 
   const handleHesapSelect = useCallback((id: string) => {
@@ -914,7 +916,9 @@ export function CreditCardTransactionBar({
         searchQuery={urunSearchQuery}
         onSearchQueryChange={setUrunSearchQuery}
         onTotalChange={(total) => {
-          if (total > 0) setAmount(roundCurrency(total).toString());
+          // NOKTA yazmak yasak: alan cleanAmountInput'tan geçiyor ve locale ondalığı
+          // dışındaki ayracı siler (TR'de "489.65" → "48965", 100x şişme).
+          if (total > 0) setAmount(formatAmountForInput(roundCurrency(total)));
         }}
         currency={userCurrency}
         islemYonu="alis"
