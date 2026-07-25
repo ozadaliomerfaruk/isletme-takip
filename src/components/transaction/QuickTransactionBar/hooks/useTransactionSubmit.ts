@@ -12,6 +12,7 @@ import { useCreateUrunHareket, useReapplyUrunHareketlerForIslem } from '@/hooks/
 import { parseCurrency, isValidAmount, roundCurrency, toNumber } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB, addMonths } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
+import { resolveHedefIslemId } from '@/lib/hedefTahsis';
 import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode, UrunItem } from '../types';
 import type { Currency, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -381,13 +382,14 @@ export function useTransactionSubmit({
         ? formatDateForDB(vadeTarihi)
         : null;
 
-      // Faz 2 — fatura-hedefli ödeme/tahsilat: satır-swipe "öde/tahsil et" jestinden gelen
-      // hedef fatura pointer'ı (niyet-sakla-tutar-sakla-ma). YALNIZ create + cari ödeme/tahsilat'ta
-      // yazılır (edit'e DOKUNMA → update_islem_atomik hedef_islem_id bilmez, mevcut pointer korunur).
-      // Genel ödemede hedefIslemId yok → alan hiç eklenmez → RPC'de NULL (bugünkü SAF FIFO).
-      // Sunucu ayrıca doğrular (aynı cari + alis/satis + iki-yabancı değil); uyumsuz → NULL degrade.
-      if (!isEditMode && hedefIslemId && (type === 'tahsilat' || (type === 'odeme' && odemeHedefType === 'tedarikci'))) {
-        data.hedef_islem_id = hedefIslemId;
+      // Faz 2 — fatura-hedefli ödeme/tahsilat pointer'ı. Kural (create-only + yalnız cari
+      // tahsilat/tedarikçi ödemesi) lib/hedefTahsis.ts'te TEK KAYNAK ve jest'le kilitli:
+      // sessiz bozulma sınıfı, çünkü edit'te yanlışlıkla yazılırsa hata çıkmaz, yalnız
+      // eski hedefleme kaybolur. Sunucu ayrıca doğrular (aynı cari + alis/satis +
+      // iki-yabancı değil); uyumsuz → NULL degrade.
+      const hedefPointer = resolveHedefIslemId({ isEditMode, hedefIslemId, type, odemeHedefType });
+      if (hedefPointer) {
+        data.hedef_islem_id = hedefPointer;
       }
 
       return data;
