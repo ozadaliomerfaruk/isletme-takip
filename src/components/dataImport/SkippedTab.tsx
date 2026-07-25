@@ -1,6 +1,7 @@
 import { View, ScrollView, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Trash2, FileCheck } from 'lucide-react-native';
 import { Text, EmptyState } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { SkippedTransactionCard } from '@/components/import/SkippedTransactionCard';
 import type { PendingIslem } from '@/types/database';
@@ -30,10 +31,14 @@ export function SkippedTab({
   formatDateMedium,
   t,
 }: SkippedTabProps) {
+  // Aynı ekranın "İçe aktar" sekmesiyle aynı alt boşluk: sabit 32px cam tab bar'ı
+  // temizlemiyor, son atlanan kart bar'ın altında kalıyordu
+  const contentPaddingBottom = useContentBottomPadding();
+
   return (
     <ScrollView
       style={styles.scrollView}
-      contentContainerStyle={styles.skippedContent}
+      contentContainerStyle={[styles.skippedContent, { paddingBottom: contentPaddingBottom }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl

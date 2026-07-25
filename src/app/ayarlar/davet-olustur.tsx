@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import { Copy, Check } from 'lucide-react-native';
-import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Input, Button, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { RoleSelector } from '@/components/multiUser/RoleSelector';
 import { PermissionEditor } from '@/components/multiUser/PermissionEditor';
 import { colors } from '@/constants/colors';
@@ -19,6 +19,7 @@ import { useRequireOwner } from '@/hooks/usePagePermission';
 export default function DavetOlusturPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['multiUser', 'common']);
   useRequireOwner();
   const createInvite = useCreateInvite();
@@ -62,28 +63,39 @@ export default function DavetOlusturPage() {
   };
 
   return (
-    <Screen top>
+    <>
+      {/* Başlık: kardeş ayarlar ekranlarıyla (paylasilan-isletmeler, islem-gecmisi)
+          aynı yerleşik native header — elle çizilen başlık hizası/geri düğmesi
+          farkı yaratıyordu */}
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          headerTitle: t('multiUser:invites.title'),
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex1}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
       >
-      {/* Header */}
-      <View style={styles.header}>
-        <BackButton />
-        <View style={styles.headerCenter}>
-          <Text variant="h3">{t('multiUser:invites.title')}</Text>
-          <Text variant="caption" color="muted">{t('multiUser:invites.subtitle')}</Text>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
-
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
       >
+        {/* Açıklama: native header'a geçerken elle çizilen başlıkla birlikte
+            düşmüştü — metin kullanıcıya görünmeye devam etmeli */}
+        <View style={styles.section}>
+          <Text variant="caption" color="muted">
+            {t('multiUser:invites.subtitle')}
+          </Text>
+        </View>
+
         {!generatedCode ? (
           <>
             {/* Rol Seçimi */}
@@ -120,7 +132,7 @@ export default function DavetOlusturPage() {
             </View>
 
             {/* Oluştur Butonu */}
-            <View style={[styles.section, { marginBottom: spacing['3xl'] }]}>
+            <View style={styles.section}>
               <Button
                 onPress={handleGenerateCode}
                 loading={createInvite.isPending}
@@ -180,25 +192,12 @@ export default function DavetOlusturPage() {
         )}
       </ScrollView>
       </KeyboardAvoidingView>
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
   scrollView: {
     flex: 1,
   },

@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Animated, Pressable } from 'react-native';
 import { Stack, useRouter, type Href } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
 import { Text, EmptyState, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
@@ -24,6 +25,9 @@ const TaksitSeparator = () => <View style={styles.separator} />;
 
 export default function TaksitTakipPage() {
   const contentPaddingBottom = useContentBottomPadding();
+  // Yüzen kontrolün alt boşluğu KENDİSİNE ait: cam tab bar overlay çizildiği için
+  // insets.bottom olmadan FAB bar'ın arkasında kalıyordu (diğer FAB'larla aynı kalıp).
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation(['transactions', 'common', 'clients']);
   const router = useRouter();
   const { data: planlar, isLoading, refetch, isRefetching } = useTaksitPlanListesi();
@@ -215,7 +219,7 @@ export default function TaksitTakipPage() {
         {showFabMenu && (
           <GlassContainer
             spacing={GLASS_MERGE_SPACING}
-            style={[styles.fabMenuContainer, { bottom: spacing['2xl'] + FAB_SIZE + spacing.md }]}
+            style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
           >
             {[
               {
@@ -251,7 +255,7 @@ export default function TaksitTakipPage() {
 
         {/* FAB Button (+ → 45° döner) */}
         <GlassFab
-          style={styles.fab}
+          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
           iconSize={26}
           onPress={() => setShowFabMenu((prev) => !prev)}
           renderIcon={({ color, size }) => (
@@ -361,7 +365,6 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: spacing['2xl'],
     zIndex: 10,
   },
   fabMenuContainer: {

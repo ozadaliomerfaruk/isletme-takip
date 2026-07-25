@@ -5,12 +5,12 @@ import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { AlertTriangle, Scale } from 'lucide-react-native';
-import { EmptyState, Text } from '@/components/ui';
+import { EmptyState, Screen, Text } from '@/components/ui';
 import { ReportStep, SelectStep } from '@/components/mutabakat';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import type { TransactionType } from '@/components/transaction/QuickTransactionBar/types';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { parseDateFromDB } from '@/lib/date';
 import {
@@ -472,7 +472,7 @@ export default function MutabakatPage() {
     : [];
 
   return (
-    <View style={styles.container}>
+    <Screen>
       {step === 'select' && (
         <SelectStep
           cariName={cari.name}
@@ -581,15 +581,11 @@ export default function MutabakatPage() {
           }
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -610,7 +606,7 @@ const styles = StyleSheet.create({
   },
   blokBirincil: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing['2xl'],
     marginTop: spacing.md,

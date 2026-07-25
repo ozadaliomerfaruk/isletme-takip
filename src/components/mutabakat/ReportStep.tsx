@@ -4,6 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, ChevronDown, ChevronRight, HelpCircle, ListPlus, Lock, Sparkles } from 'lucide-react-native';
 import { Text } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -93,6 +94,9 @@ export function ReportStep({
   onAddRow, addedRows, skippedRows, queueTotal, onStartQueue,
 }: ReportStepProps) {
   const { t } = useTranslation('mutabakat');
+  // Cam tab bar bu rotada da çiziliyor; sabit 32px son satırları bar'ın altında
+  // bırakıyordu. Hook erken return'den (hicIslemYok) ÖNCE çağrılmalı.
+  const contentPaddingBottom = useContentBottomPadding();
   const [matchedOpen, setMatchedOpen] = useState(false);
   const [kilitliOpen, setKilitliOpen] = useState(false);
   // Toplu ekleme kırmızı-devam durumunda KAPALI (spec 5.3 — asıl felaket senaryosu
@@ -722,7 +726,7 @@ export function ReportStep({
       getItemType={(item) => item.kind}
       // Savunmacı: renderItem ileride useCallback'lenirse satır durumları donmasın
       extraData={{ addedRows, skippedRows, matchedOpen, kilitliOpen }}
-      contentContainerStyle={styles.listContent}
+      contentContainerStyle={{ ...styles.listContent, paddingBottom: contentPaddingBottom }}
     />
   );
 }

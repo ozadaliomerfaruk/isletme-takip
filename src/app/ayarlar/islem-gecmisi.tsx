@@ -203,7 +203,7 @@ export default function IslemGecmisiPage() {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.chipScroll}
-        contentContainerStyle={[styles.chipRow, { paddingBottom: contentPaddingBottom }]}
+        contentContainerStyle={styles.chipRow}
       >
         {MODULE_FILTERS.map((f) => {
           const active = moduleFilter === f.key;
@@ -221,7 +221,12 @@ export default function IslemGecmisiPage() {
         })}
       </ScrollView>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {/* Alt boşluk YATAY chip şeridine değil, kaydırılan DİKEY listeye ait */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.section}>
           {isLoading ? (
             <Card>
