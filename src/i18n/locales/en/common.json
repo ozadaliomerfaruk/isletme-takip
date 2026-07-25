@@ -437,7 +437,7 @@
     },
     "listExport": {
       "snapshotNote": "This report is a snapshot reflecting the state at the moment it was created. It does not include later changes.",
-      "generatedByApp": "Generated with the İşletme Takip app.",
+      "generatedByApp": "Generated with the Small Business Finance app.",
       "recordCount": "Record Count",
       "filter": "Filter",
       "search": "Search",

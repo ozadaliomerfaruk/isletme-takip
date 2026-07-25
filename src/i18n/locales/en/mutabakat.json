@@ -241,7 +241,7 @@
     "tutarItem": "• {{desc}} — yours {{theirs}}, mine {{ours}}",
     "gorunmeyenDonem": "The transactions in this statement line up but a {{amount}} difference remains; I think the issue is in an older period. Could you share a full/older statement if possible?",
     "bakiyeReferans": "As of {{date}}, the balance on my side: {{ours}}",
-    "footer": "— Prepared with the İşletme Takip app 📘",
+    "footer": "— Prepared with the Small Business Finance app 📘",
     "itemLine": "• {{date}} {{desc}} — {{amount}}"
   },
   "queue": {
