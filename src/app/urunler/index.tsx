@@ -6,7 +6,7 @@ import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
-import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
+import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -59,6 +59,9 @@ export default function UrunlerPage() {
   const [fabMenuVisible, setFabMenuVisible] = useState(false);
   const [sortType, setSortType] = useState<SortType>('nameAZ');
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
+  /** Cam header akıştan çıktığı için yer kaplamıyor → listenin üst boşluğu bu.
+   *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
+  const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
   const [activeTab] = useState<'active' | 'archived'>('active');
   // Dönem özeti gösterimi: miktar mı tutar mı (per-ürün giriş/çıkış pill'leri)
   const [ozetMode, setOzetMode] = useState<'miktar' | 'tutar'>('miktar');
@@ -764,8 +767,39 @@ export default function UrunlerPage() {
   }
 
   return (
-    <Screen top>
+    // Screen'e `top` VERİLMİYOR — cam modda üst safe-area boşluğunu TabHeader
+    // kendisi taşıyor, Screen de verirse boşluk iki kez sayılır.
+    <Screen>
+      {/* Cam nav bar: header akıştan çıkıp listenin ÜSTÜNDE yüzüyor, liste onun
+          arkasından akıyor. Bu yüzden header listeden SONRA render ediliyor
+          (üstte boyansın) ve listenin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
+      <FlatList
+        onScroll={handleTabScroll}
+        scrollEventThrottle={16}
+        data={listData}
+        keyExtractor={keyExtractor}
+        renderItem={activeTab === 'active' ? renderActiveItem : renderArchivedItem}
+        ItemSeparatorComponent={UrunListSeparator}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        ListHeaderComponent={listHeaderComponent}
+        ListEmptyComponent={listEmptyComponent}
+        contentContainerStyle={[styles.flatListContent, { paddingTop: headerH, paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+        showsVerticalScrollIndicator={false}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
+        extraData={listExtraData}
+        refreshControl={
+          // progressViewOffset: spinner cam header'ın ALTINDA belirsin, arkasında değil.
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} progressViewOffset={headerH} colors={[colors.primary]} tintColor={colors.primary} />
+        }
+      />
+
       <TabHeader
+        glass
+        onHeightChange={setHeaderH}
         title={t('products:title')}
         right={
           <>
@@ -781,28 +815,6 @@ export default function UrunlerPage() {
             )}
             <AddEntityButton />
           </>
-        }
-      />
-      <FlatList
-        onScroll={handleTabScroll}
-        scrollEventThrottle={16}
-        data={listData}
-        keyExtractor={keyExtractor}
-        renderItem={activeTab === 'active' ? renderActiveItem : renderArchivedItem}
-        ItemSeparatorComponent={UrunListSeparator}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        ListHeaderComponent={listHeaderComponent}
-        ListEmptyComponent={listEmptyComponent}
-        contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
-        showsVerticalScrollIndicator={false}
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        removeClippedSubviews={Platform.OS === 'android'}
-        extraData={listExtraData}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
         }
       />
 

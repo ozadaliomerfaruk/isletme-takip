@@ -22,7 +22,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassIconButton, Screen } from '@/components/ui';
+import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, GlassIconButton, Screen } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -104,6 +104,9 @@ export default function CarilerPage() {
 
   // Sort ActionSheet
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
+  /** Cam header akıştan çıktığı için yer kaplamıyor → listenin üst boşluğu bu.
+   *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
+  const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
   const sortSheetOptions: ActionSheetOption[] = [
     { label: t('common:sort.balanceHighLow'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceHigh' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceHigh') },
     { label: t('common:sort.balanceLowHigh'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceLow' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceLow') },
@@ -910,8 +913,42 @@ export default function CarilerPage() {
   }, [isLoading, debouncedSearch, t, router]);
 
   return (
-    <Screen top>
+    // Screen'e `top` VERİLMİYOR — cam modda üst safe-area boşluğunu TabHeader
+    // kendisi taşıyor, Screen de verirse boşluk iki kez sayılır.
+    <Screen>
+      {/* Cam nav bar: header akıştan çıkıp listenin ÜSTÜNDE yüzüyor, liste onun
+          arkasından akıyor. Bu yüzden header listeden SONRA render ediliyor
+          (üstte boyansın) ve listenin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
+      <FlatList
+        style={styles.scrollView}
+        onScroll={handleTabScroll}
+        scrollEventThrottle={16}
+        data={isLoading ? [] : filteredCariler}
+        keyExtractor={(item) => item.id}
+        renderItem={renderCariItem}
+        ItemSeparatorComponent={ListSeparator}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        ListHeaderComponent={ListHeader}
+        ListEmptyComponent={ListEmpty}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          // progressViewOffset: spinner cam header'ın ALTINDA belirsin, arkasında değil.
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} progressViewOffset={headerH} colors={[colors.primary]} tintColor={colors.primary} />
+        }
+        // Performans optimizasyonları
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={true}
+        // Extra data for re-renders when these change
+        extraData={{ selectedIds, isSelectMode, sortBy, expandedCariId }}
+        contentContainerStyle={[styles.listContainer, { paddingTop: headerH, paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+      />
+
       <TabHeader
+        glass
+        onHeightChange={setHeaderH}
         title={t('clients:titles.clients')}
         right={
           <>
@@ -931,31 +968,6 @@ export default function CarilerPage() {
             <AddEntityButton />
           </>
         }
-      />
-      <FlatList
-        style={styles.scrollView}
-        onScroll={handleTabScroll}
-        scrollEventThrottle={16}
-        data={isLoading ? [] : filteredCariler}
-        keyExtractor={(item) => item.id}
-        renderItem={renderCariItem}
-        ItemSeparatorComponent={ListSeparator}
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        ListHeaderComponent={ListHeader}
-        ListEmptyComponent={ListEmpty}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
-        }
-        // Performans optimizasyonları
-        initialNumToRender={10}
-        maxToRenderPerBatch={10}
-        windowSize={5}
-        removeClippedSubviews={true}
-        // Extra data for re-renders when these change
-        extraData={{ selectedIds, isSelectMode, sortBy, expandedCariId }}
-        contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
       />
 
       {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı) */}

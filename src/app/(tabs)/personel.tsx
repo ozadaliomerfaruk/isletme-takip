@@ -27,7 +27,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -129,6 +129,9 @@ export default function PersonelPage() {
 
   // Sort ActionSheet
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
+  /** Cam header akıştan çıktığı için yer kaplamıyor → listenin üst boşluğu bu.
+   *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
+  const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
   const sortSheetOptions: ActionSheetOption[] = [
     { label: t('common:sort.balanceHighLow'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceHigh' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceHigh') },
     { label: t('common:sort.balanceLowHigh'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceLow' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceLow') },
@@ -712,22 +715,13 @@ export default function PersonelPage() {
   }, [isLoading, debouncedSearch, t, router]);
 
   return (
-    <Screen top>
-      <TabHeader
-        title={t('staff:titles.personnel')}
-        subtitle={personelList && personelList.length > 0 ? t('staff:messages.personnelCount', { count: personelList.length }) : undefined}
-        right={
-          <>
-            <GlassIconButton onPress={() => { haptics.light(); setShareSheetVisible(true); }} disabled={isExporting}>
-              <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
-            </GlassIconButton>
-            <GlassIconButton onPress={() => setSortSheetVisible(true)}>
-              <ArrowUpDown size={18} color={colors.primary} />
-            </GlassIconButton>
-            <AddEntityButton />
-          </>
-        }
-      />
+    // Screen'e `top` VERİLMİYOR — bilinçli: cam modda üst safe-area boşluğunu
+    // TabHeader kendisi taşıyor, Screen de verirse boşluk iki kez sayılır.
+    <Screen>
+      {/* CAM NAV BAR PİLOTU (yalnız bu ekran): header akıştan çıkıp listenin
+          ÜSTÜNDE yüzüyor, liste onun arkasından akıyor — çentiğin altından da.
+          Bu yüzden header listeden SONRA render ediliyor (üstte boyansın) ve
+          listenin üst boşluğu ölçülen header yüksekliğine eşitleniyor. */}
       <FlatList
         style={styles.scrollView}
         onScroll={handleTabScroll}
@@ -742,7 +736,8 @@ export default function PersonelPage() {
         ListEmptyComponent={ListEmpty}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+          // progressViewOffset: spinner cam header'ın ALTINDA belirsin, arkasında değil.
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} progressViewOffset={headerH} colors={[colors.primary]} tintColor={colors.primary} />
         }
         // Performans optimizasyonları
         initialNumToRender={10}
@@ -751,7 +746,25 @@ export default function PersonelPage() {
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
         extraData={{ selectedIds, isSelectMode, sortBy, expandedPersonelId }}
-        contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+        contentContainerStyle={[styles.listContainer, { paddingTop: headerH, paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+      />
+
+      <TabHeader
+        glass
+        onHeightChange={setHeaderH}
+        title={t('staff:titles.personnel')}
+        subtitle={personelList && personelList.length > 0 ? t('staff:messages.personnelCount', { count: personelList.length }) : undefined}
+        right={
+          <>
+            <GlassIconButton onPress={() => { haptics.light(); setShareSheetVisible(true); }} disabled={isExporting}>
+              <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
+            </GlassIconButton>
+            <GlassIconButton onPress={() => setSortSheetVisible(true)}>
+              <ArrowUpDown size={18} color={colors.primary} />
+            </GlassIconButton>
+            <AddEntityButton />
+          </>
+        }
       />
 
       {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı); sağdaki FAB için boşluk bırakır */}

@@ -23,7 +23,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -58,6 +58,9 @@ export default function HomePage() {
   const { getDateRangeLabel } = useDateFormat();
 
   const [isCancelling, setIsCancelling] = useState(false);
+  /** Cam header akıştan çıktığı için yer kaplamıyor → içeriğin üst boşluğu bu.
+   *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
+  const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
   const [dailyCashModalVisible, setDailyCashModalVisible] = useState(false);
   const [financialModalVisible, setFinancialModalVisible] = useState(false);
 
@@ -375,29 +378,21 @@ export default function HomePage() {
 
 
   return (
-    <Screen top>
-      {/* Sabit (sticky) header — scroll dışında, üstte yapışık */}
-      <TabHeader
-        title={isletme?.name ?? t('navigation:tabs.home')}
-        onTitlePress={() => router.push('/ayarlar/paylasilan-isletmeler')}
-        right={
-          <>
-            <GlassIconButton onPress={() => router.push('/arama')} accessibilityLabel={t('common:search.title')}>
-              <Search size={20} color={colors.text} />
-            </GlassIconButton>
-            <NotificationBell />
-            <AddEntityButton />
-          </>
-        }
-      />
+    // Screen'e `top` VERİLMİYOR — cam modda üst safe-area boşluğunu TabHeader
+    // kendisi taşıyor, Screen de verirse boşluk iki kez sayılır.
+    <Screen>
+      {/* Cam nav bar: header akıştan çıkıp içeriğin ÜSTÜNDE yüzüyor, sayfa onun
+          arkasından akıyor. Bu yüzden header ScrollView'dan SONRA render ediliyor
+          (üstte boyansın) ve içeriğin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: insets.bottom }}
+        contentContainerStyle={{ paddingTop: headerH, paddingBottom: insets.bottom }}
         showsVerticalScrollIndicator={false}
         onScroll={handleTabScroll}
         scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+          // progressViewOffset: spinner cam header'ın ALTINDA belirsin, arkasında değil.
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} progressViewOffset={headerH} colors={[colors.primary]} tintColor={colors.primary} />
         }
       >
         {/* Shared İşletme Banner */}
@@ -617,6 +612,22 @@ export default function HomePage() {
           )}
         </View>
       </ScrollView>
+
+      <TabHeader
+        glass
+        onHeightChange={setHeaderH}
+        title={isletme?.name ?? t('navigation:tabs.home')}
+        onTitlePress={() => router.push('/ayarlar/paylasilan-isletmeler')}
+        right={
+          <>
+            <GlassIconButton onPress={() => router.push('/arama')} accessibilityLabel={t('common:search.title')}>
+              <Search size={20} color={colors.text} />
+            </GlassIconButton>
+            <NotificationBell />
+            <AddEntityButton />
+          </>
+        }
+      />
 
       {/* FAB Menü - Backdrop */}
       {showFabMenu && (
