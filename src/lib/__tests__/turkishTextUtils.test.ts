@@ -1,4 +1,15 @@
-import { upperTr, textIncludes, normalizeTurkish, searchMatchesTr } from '../turkishTextUtils';
+// upperTr artık dile duyarlı → testte dili değiştirebilmek için i18next mock'lanır
+jest.mock('i18next', () => ({ language: 'tr' }));
+
+import i18n from 'i18next';
+import { upperTr, upperTrData, textIncludes, normalizeTurkish, searchMatchesTr } from '../turkishTextUtils';
+
+function setLanguage(lang: string) {
+  (i18n as unknown as { language: string }).language = lang;
+}
+
+// Her test Türkçe arayüzden başlar; dil-duyarlılık testleri kendi dilini kurar
+beforeEach(() => setLanguage('tr'));
 
 describe('upperTr — Türkçe-doğru büyük harf', () => {
   it('küçük i → İ (noktalı), ı → I (noktasız)', () => {
@@ -26,6 +37,45 @@ describe('upperTr — Türkçe-doğru büyük harf', () => {
 
   it('boş metin sorun çıkarmaz', () => {
     expect(upperTr('')).toBe('');
+  });
+});
+
+describe('upperTr — dil duyarlılığı (t() çıkışını sarıyor)', () => {
+  it('dil "en" iken standart büyütme: noktalı İ ÜRETMEZ', () => {
+    setLanguage('en');
+    expect(upperTr('Note (Optional)')).toBe('NOTE (OPTIONAL)');
+    expect(upperTr('Daily')).toBe('DAILY');
+    expect(upperTr('Quantity')).toBe('QUANTITY');
+    expect(upperTr('Confirm Password')).toBe('CONFIRM PASSWORD');
+  });
+
+  it('dil "tr" iken Türkçe kural sürer', () => {
+    setLanguage('tr');
+    expect(upperTr('istanbul')).toBe('İSTANBUL');
+    expect(upperTr('ISPARTA')).toBe('ISPARTA'); // noktasız I korunur
+    expect(upperTr('ısırgan')).toBe('ISIRGAN'); // ı → I
+  });
+
+  it('bölgesel kod "tr-TR" de Türkçe sayılır', () => {
+    setLanguage('tr-TR');
+    expect(upperTr('istanbul')).toBe('İSTANBUL');
+  });
+});
+
+// REGRESYON KALKANI: upperTrData ASLA dile duyarlı yapılmamalı — yapılırsa aynı
+// kategori adı iki dilde iki farklı string olur ve kayıt ikilenir (kategoriler/ekle).
+describe('upperTrData — dilden BAĞIMSIZ olmalı (kategori ikilenmesi regresyonu)', () => {
+  it('hem tr hem en dilinde aynı sonucu verir', () => {
+    setLanguage('tr');
+    expect(upperTrData('istanbul')).toBe('İSTANBUL');
+    setLanguage('en');
+    expect(upperTrData('istanbul')).toBe('İSTANBUL');
+  });
+
+  it('noktasız ı → I kuralı dilden bağımsız', () => {
+    setLanguage('en');
+    expect(upperTrData('ısırgan')).toBe('ISIRGAN');
+    expect(upperTrData('Müşteri')).toBe('MÜŞTERİ');
   });
 });
 

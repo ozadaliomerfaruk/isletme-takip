@@ -19,7 +19,7 @@ import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categ
 import { useCreateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
-import { upperTr } from '@/lib/turkishTextUtils';
+import { upperTrData } from '@/lib/turkishTextUtils';
 import { setPendingCategorySelection } from '@/lib/pendingCategorySelection';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -66,8 +66,10 @@ export default function KategoriEklePage() {
     try {
       // İşlem kategorileri (gelir/gider) BÜYÜK harf kaydedilir (kullanıcı isteği).
       // Ürün kategorileri hariç (ayrı konu) → olduğu gibi.
+      // upperTrData: yazma yolu dile duyarlı OLMAMALI, yoksa aynı ad iki dilde
+      // iki farklı kayda bölünür (ISTANBUL / İSTANBUL).
       const created = await createKategori.mutateAsync({
-        name: type === 'urun' ? name.trim() : upperTr(name.trim()),
+        name: type === 'urun' ? name.trim() : upperTrData(name.trim()),
         type,
         icon,
         color,

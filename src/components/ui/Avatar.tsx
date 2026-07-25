@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from './Text';
+import { upperTr } from '@/lib/turkishTextUtils';
 
 // 10 pastel renk paleti - WhatsApp tarzı
 const AVATAR_COLORS = [
@@ -27,7 +28,11 @@ function hashName(name: string): number {
 function getInitial(name: string): string {
   const trimmed = name.trim();
   if (!trimmed) return '?';
-  return trimmed.charAt(0).toLocaleUpperCase('tr-TR');
+  // Sabit 'tr-TR' yerine tek kaynak upperTr. DAVRANIŞ İKİ DİLDE DE DEĞİŞTİ:
+  // Hermes'te toLocaleUpperCase('tr-TR') locale argümanını yok sayıyor (bkz.
+  // turkishTextUtils.ts başındaki not), yani eskiden Türkçe'de de "ismail" → "I"
+  // çıkıyordu. Artık Türkçe'de doğru şekilde "İ", İngilizce'de "I".
+  return upperTr(trimmed.charAt(0));
 }
 
 interface AvatarProps {
