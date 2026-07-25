@@ -427,6 +427,22 @@ function RootLayoutNav() {
             fullScreenGestureEnabled: false,
           }}
         />
+        {/* Vade Takibi: kök Stack'e kaydedilmediği için global headerShown:false
+            geçerli kalıyordu — sayfa içi <Stack.Screen options={{ headerTitle }} />
+            yalnız metni geçiyor, header'ı AÇMIYOR. Sonuç: başlıksız + geri butonsuz
+            (yalnız kenar-swipe ile çıkılan) bir ekran. Taksit için bir kez yaşanmış
+            olan hatanın aynısı; kardeşiyle birebir aynı seçenekler. */}
+        <Stack.Screen
+          name="vade/index"
+          options={{
+            presentation: 'card',
+            headerShown: true,
+            headerStyle: { backgroundColor: colors.surface },
+            headerTintColor: colors.text,
+            headerShadowVisible: false,
+            fullScreenGestureEnabled: false,
+          }}
+        />
         <Stack.Screen
           name="taksit/[id]"
           options={{

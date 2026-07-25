@@ -847,7 +847,7 @@ export default function PersonelHareketleriPage() {
             maxToRenderPerBatch={10}
             windowSize={7}
             removeClippedSubviews={false}
-            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }, { paddingBottom: contentPaddingBottom }]}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: contentPaddingBottom }]}
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
           />
