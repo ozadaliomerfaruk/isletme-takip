@@ -323,10 +323,10 @@ function RootLayoutNav() {
           contentStyle: { backgroundColor: colors.background },
           animation: 'slide_from_right',
           gestureEnabled: true,
-          // Twitter-tarzı: ekranın HERHANGİ bir yerinden sola-swipe ile geri (yalnız kenar değil).
-          // ⚠️ Yatay hareket kullanan yüzeylerle (SwipeableRow, DashboardCarousel, yatay chip/scroll,
-          // grafik scrub) çakışabilir — cihaz testi şart.
-          fullScreenGestureEnabled: true,
+          // KENARDAN swipe-back (standart iOS): yalnız ekranın sol kenarından başlayan sola-swipe
+          // geri döner. Tam-ekran swipe (kullanıcı kararı, geri alındı) çok hassastı — aşağı
+          // kaydırırken/yatay yüzeylerde (SwipeableRow, carousel, grafik scrub) yanlışlıkla geri dönüyordu.
+          fullScreenGestureEnabled: false,
           freezeOnBlur: true, // PERF (P0-3): üstüne ekran gelen kök-Stack ekranlarını dondur (bkz. enableFreeze)
           headerBackTitle: t('common:buttons.back'),
           headerBackVisible: true,
