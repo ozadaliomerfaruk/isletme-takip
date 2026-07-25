@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import * as Crypto from 'expo-crypto';
 import { encode as base64Encode } from 'base64-arraybuffer';
 import { formatDateForDB, formatDateTimeForDB } from './date';
+import { parseCurrency } from './currency';
 
 // ============================================================================
 // TYPES
@@ -145,29 +146,31 @@ export function parseKarsiHesap(value: string): ParsedKarsiHesap {
   const trimmed = value.trim();
 
   // Köşeli parantez içinde değer var mı kontrol et
-  // Format: "Hesap Adı [-123,45 TRY]" veya "Hesap Adı [10 g]" veya "Hesap Adı [123.45]"
-  const bracketRegex = /^(.+?)\s*\[([+-]?\d+(?:[.,]\d+)?)\s*([A-Za-z]{1,5})?\]$/;
+  // Format: "Hesap Adı [-123,45 TRY]" veya "Hesap Adı [10 g]" veya "Hesap Adı [1,234.56]"
+  //
+  // Ayraç grubu BİLEREK geniş ([\d.,]+): eski desen tek ayraç grubuna izin verdiği için
+  // İngiliz biçimli "1,234.56" HİÇ eşleşmiyordu → bracket yok sayılıp çapraz-kur hiç
+  // tespit edilmiyordu (transfer 1:1 yazılıyordu). Sayıyı ayrıştırma işi burada değil,
+  // parseCurrency'de: nokta+virgül birlikteyse SONDAKİ ayracı ondalık sayar (locale'den
+  // bağımsız), tek ayraçta gerçek binlik kalıbını ayırt eder. Dosyaya özel ikinci bir
+  // ayraç mantığı yazmak (eski hâl) "1.234"ü 1,234'e düşürüp kuru ~1000x saptırıyordu.
+  const bracketRegex = /^(.+?)\s*\[([+-]?[\d.,]+)\s*([A-Za-z]{1,5})?\]$/;
   const match = trimmed.match(bracketRegex);
 
   if (match) {
     const name = match[1].trim();
-    // Sayı formatı tespiti:
-    // - Virgül varsa Türkçe format: 58.750,00 → nokta binlik ayracı, virgül ondalık
-    // - Sadece nokta varsa İngilizce format: 1234.56 → nokta ondalık
-    const raw = match[2];
-    let amountStr: string;
-    if (raw.includes(',')) {
-      // Türkçe: noktaları sil (binlik ayracı), virgülü noktaya çevir
-      amountStr = raw.replace(/\./g, '').replace(',', '.');
-    } else {
-      // İngilizce veya tam sayı: nokta ondalık ayracı, olduğu gibi bırak
-      amountStr = raw;
-    }
-    const amount = Math.abs(parseFloat(amountStr));
+    const parsed = parseCurrency(match[2]);
     const rawUnit = match[3] || null;
     const currency = rawUnit ? resolveUnitAlias(rawUnit, name) : 'TRY';
 
-    return { name, amount, currency };
+    // Okunamayan tutarı 0'a DÜŞÜRME: 0 "bedelsiz işlem" gibi görünür ve kur türetiminde
+    // bölme hatası doğurur. amount hiç dönmezse tüketici bracket'i yok sayar (satır
+    // yine içe aktarılır, yalnız çapraz-kur bilgisi olmadan).
+    if (!isFinite(parsed)) {
+      return { name, currency };
+    }
+
+    return { name, amount: Math.abs(parsed), currency };
   }
 
   // Parantez yoksa sadece hesap adı döndür
@@ -792,8 +795,12 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         amountValid = false;
         amountError = 'Tutar boş veya bulunamadı';
       } else {
-        const parsedAmount = Number(rawAmount);
-        if (isNaN(parsedAmount)) {
+        // Hücre sayısalsa doğrudan kullan; METİN biçimli hücrede Number("1.234,56") NaN
+        // döndürüp geçerli satırı reddediyordu → metin dalı merkezî parseCurrency'ye
+        // bağlandı (nokta/virgül karışımını locale'den bağımsız çözer).
+        const parsedAmount =
+          typeof rawAmount === 'number' ? rawAmount : parseCurrency(String(rawAmount));
+        if (isNaN(parsedAmount) || !isFinite(parsedAmount)) {
           amountValid = false;
           amountError = `Geçersiz tutar değeri: "${rawAmount}"`;
         } else {

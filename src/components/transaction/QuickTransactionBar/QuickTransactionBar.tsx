@@ -365,6 +365,7 @@ export function QuickTransactionBar({
     setShowExchangeRateBar: modals.setShowExchangeRateBar,
     setPendingExchangeData: form.setPendingExchangeData,
     pendingExchangeData: form.pendingExchangeData,
+    editOriginal: form.editOriginal,
     onSuccess,
     handleDismiss,
   });
@@ -933,7 +934,9 @@ export function QuickTransactionBar({
                 {showTaksitVadePicker && (
                   <View style={taksitStyles.inlinePickerWrap}>
                     <DateTimePickerRN
-                      value={taksitIlkVadeDraft}
+                      // iOS spinner, value < minimumDate iken ÇÖKÜYOR (form tarihi ilk-vadeden
+                      // sonraya alınmışsa olur). value'yu minimumDate'e kelepçele → çökme yok.
+                      value={taksitIlkVadeDraft.getTime() < form.safeDate.getTime() ? form.safeDate : taksitIlkVadeDraft}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                       minimumDate={form.safeDate}
@@ -1067,6 +1070,9 @@ export function QuickTransactionBar({
           sourceAmount={form.pendingExchangeData.sourceAmount}
           sourceCurrency={form.pendingExchangeData.sourceCurrency}
           targetCurrency={form.pendingExchangeData.targetCurrency}
+          // Düzenlemede işlemin KAYITLI kuru (A6): bar bugünün kuruyla dolup tarihsel
+          // kuru sessizce ezmesin. Yeni kayıtta null → eski davranış (bugünün kuru).
+          initialRate={form.pendingExchangeData.initialRate}
           onConfirm={submit.handleExchangeRateConfirm}
         />
       )}

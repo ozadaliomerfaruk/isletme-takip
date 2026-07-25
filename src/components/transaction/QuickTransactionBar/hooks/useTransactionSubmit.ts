@@ -21,6 +21,7 @@ import { logEvent } from '@/lib/appEvents'; // [GEÇİCİ TEŞHİS — auth-hang
 import { useToast } from '@/contexts/ToastContext';
 import { recordLastUsed } from '@/lib/lastUsedSelections';
 import { getCategoryType } from '../utils/categoryTypeMapper';
+import type { EditOriginalSnapshot } from './useQuickTransactionForm';
 
 interface Hesap {
   id: string;
@@ -46,6 +47,8 @@ interface PendingExchangeData {
   sourceCurrency: Currency;
   targetCurrency: Currency;
   sourceAmount: number;
+  /** Düzenlemede kur alanına ön-dolacak KAYITLI kur (bkz. ExchangeRateBar.initialRate). */
+  initialRate?: number | null;
 }
 
 interface UseTransactionSubmitOptions {
@@ -113,6 +116,8 @@ interface UseTransactionSubmitOptions {
 
   // Exchange rate state
   pendingExchangeData: PendingExchangeData | null;
+  /** Düzenlemeye açılan işlemin kur/alan açılış hâli (A6 — tarihsel kuru koru). */
+  editOriginal: EditOriginalSnapshot | null;
 
   // Callbacks
   onSuccess?: (islemId?: string) => void;
@@ -225,6 +230,7 @@ export function useTransactionSubmit({
   setShowExchangeRateBar,
   setPendingExchangeData,
   pendingExchangeData,
+  editOriginal,
   onSuccess,
   handleDismiss,
 }: UseTransactionSubmitOptions): UseTransactionSubmitReturn {
@@ -392,21 +398,51 @@ export function useTransactionSubmit({
   // Check cross-currency
   const checkCrossCurrency = useCallback(
     (parsedAmount: number): boolean => {
+      /**
+       * İki bacağın para birimi farklıysa kur barını aç ve "kaydı durdur" (true) döndür.
+       * Beş dalın hepsi bu kapıdan geçiyor — beş kopya yerine tek karar noktası, çünkü
+       * A6 kuralı (düzenlemede tarihsel kuru koru) her dalda AYNI şekilde geçerli.
+       */
+      const openBarIfCross = (
+        sourceCurr: string | undefined,
+        targetCurr: string | undefined
+      ): boolean => {
+        const source = sourceCurr || 'TRY';
+        const target = targetCurr || 'TRY';
+        if (!isCrossCurrency(source, target)) return false;
+
+        // A6 — DÜZENLEME: kayıtlı kur var ve para birimi çifti AYNI ise, yalnızca tutar
+        // da değişmemişse kur barını hiç açma. Aksi halde 6 ay önceki bir EUR ödemesinin
+        // sadece açıklamasını düzeltmek kur barını açıyor, bar BUGÜNÜN kuruyla doluyor ve
+        // onay reverse(eski)+apply(yeni) ile bakiyeyi kur farkı kadar kaydırıyordu.
+        // Bar açılmadığında kur alanları update patch'ine HİÇ girmiyor → RPC'ye giden
+        // mergedRow eski kuru koruyor → net bakiye etkisi sıfır.
+        const recorded = editOriginal?.exchange;
+        const pairSame =
+          !!recorded && recorded.sourceCurrency === source && recorded.targetCurrency === target;
+
+        if (isEditMode && pairSame && roundCurrency(parsedAmount) === editOriginal!.baseline.amount) {
+          return false;
+        }
+
+        setPendingExchangeData({
+          sourceCurrency: source as Currency,
+          targetCurrency: target as Currency,
+          sourceAmount: parsedAmount,
+          // Çift aynıysa alan KAYITLI kurla dolar (bugünün kuru ipucu olarak gösterilir);
+          // çift değiştiyse eski kur anlamsız → bugünün kuru.
+          initialRate: pairSame ? recorded!.exchangeRate : null,
+        });
+        setShowExchangeRateBar(true);
+        return true;
+      };
+
+      const accCurrency = (id: string | null | undefined) =>
+        hesaplar?.find((h) => h.id === id)?.currency;
+
       // Transfer cross-currency check
       if (type === 'transfer' && hesapId && hedefHesapId) {
-        const sourceAcc = hesaplar?.find((h) => h.id === hesapId);
-        const targetAcc = hesaplar?.find((h) => h.id === hedefHesapId);
-        const sourceCurr = sourceAcc?.currency || 'TRY';
-        const targetCurr = targetAcc?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, targetCurr)) {
-          setPendingExchangeData({
-            sourceCurrency: sourceCurr as Currency,
-            targetCurrency: targetCurr as Currency,
-            sourceAmount: parsedAmount,
-          });
-          setShowExchangeRateBar(true);
-          return true;
-        }
+        if (openBarIfCross(accCurrency(hesapId), accCurrency(hedefHesapId))) return true;
       }
 
       // Kredi kartı ödemesi (API'de 'transfer' olarak saklanır): ödeyen hesap ile kart hesabı
@@ -414,75 +450,30 @@ export function useTransactionSubmit({
       // type==='transfer' yakalar; kredi kartı ödemesi type==='odeme' olduğundan atlanıp
       // tutar kart bakiyesine 1:1 (çevrilmeden) uygulanıyordu (yanlış bakiye).
       if (type === 'odeme' && odemeHedefType === 'kredi_karti' && hesapId && hedefHesapId) {
-        const sourceAcc = hesaplar?.find((h) => h.id === hesapId);
-        const targetAcc = hesaplar?.find((h) => h.id === hedefHesapId);
-        const sourceCurr = sourceAcc?.currency || 'TRY';
-        const targetCurr = targetAcc?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, targetCurr)) {
-          setPendingExchangeData({
-            sourceCurrency: sourceCurr as Currency,
-            targetCurrency: targetCurr as Currency,
-            sourceAmount: parsedAmount,
-          });
-          setShowExchangeRateBar(true);
-          return true;
-        }
+        if (openBarIfCross(accCurrency(hesapId), accCurrency(hedefHesapId))) return true;
       }
 
       // Payment/collection cross-currency check - compare hesap currency with cari currency
       if (['odeme', 'tahsilat'].includes(type) && sourceHesapId && cariId) {
-        const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
         const targetCari = cariler?.find((c) => c.id === cariId);
-        const sourceCurr = sourceAcc?.currency || 'TRY';
-        const targetCurr = targetCari?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, targetCurr)) {
-          setPendingExchangeData({
-            sourceCurrency: sourceCurr as Currency,
-            targetCurrency: targetCurr as Currency,
-            sourceAmount: parsedAmount,
-          });
-          setShowExchangeRateBar(true);
-          return true;
-        }
+        if (openBarIfCross(accCurrency(sourceHesapId), targetCari?.currency)) return true;
       }
 
       // Normal mode personel payment cross-currency check - compare hesap currency with personel currency
       if (!isPersonelMode && type === 'odeme' && odemeHedefType === 'staff' && hesapId && personelId) {
-        const sourceAcc = hesaplar?.find((h) => h.id === hesapId);
         const targetPersonel = personelList?.find((p) => p.id === personelId);
-        const sourceCurr = sourceAcc?.currency || 'TRY';
-        const targetCurr = targetPersonel?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, targetCurr)) {
-          setPendingExchangeData({
-            sourceCurrency: sourceCurr as Currency,
-            targetCurrency: targetCurr as Currency,
-            sourceAmount: parsedAmount,
-          });
-          setShowExchangeRateBar(true);
-          return true;
-        }
+        if (openBarIfCross(accCurrency(hesapId), targetPersonel?.currency)) return true;
       }
 
       // Personel mode cross-currency check - compare hesap currency with personel currency
       if (isPersonelMode && ['personel_odeme_tab', 'personel_tahsilat_tab'].includes(type) && sourceHesapId && personelId) {
-        const sourceAcc = hesaplar?.find((h) => h.id === sourceHesapId);
         const targetPersonel = personelList?.find((p) => p.id === personelId);
-        const sourceCurr = sourceAcc?.currency || 'TRY';
-        const targetCurr = targetPersonel?.currency || 'TRY';
-        if (isCrossCurrency(sourceCurr, targetCurr)) {
-          setPendingExchangeData({
-            sourceCurrency: sourceCurr as Currency,
-            targetCurrency: targetCurr as Currency,
-            sourceAmount: parsedAmount,
-          });
-          setShowExchangeRateBar(true);
-          return true;
-        }
+        if (openBarIfCross(accCurrency(sourceHesapId), targetPersonel?.currency)) return true;
       }
 
       return false;
     },
-    [type, hesapId, hedefHesapId, sourceHesapId, cariId, personelId, odemeHedefType, hesaplar, cariler, personelList, isCariMode, isPersonelMode, setPendingExchangeData, setShowExchangeRateBar]
+    [type, hesapId, hedefHesapId, sourceHesapId, cariId, personelId, odemeHedefType, hesaplar, cariler, personelList, isPersonelMode, isEditMode, editOriginal, setPendingExchangeData, setShowExchangeRateBar]
   );
 
   // Handle save

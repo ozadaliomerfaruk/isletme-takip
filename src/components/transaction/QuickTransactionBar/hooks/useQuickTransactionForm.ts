@@ -45,6 +45,22 @@ interface PendingExchangeData {
   sourceCurrency: Currency;
   targetCurrency: Currency;
   sourceAmount: number;
+  /** Düzenlemede kur alanına ön-dolacak KAYITLI kur (bkz. ExchangeRateBar.initialRate). */
+  initialRate?: number | null;
+}
+
+/** Düzenlemeye açılan işlemin kur kararını etkileyen açılış değerleri. */
+export interface EditOriginalSnapshot {
+  /** Kayıtlı kur üçlüsü — yalnız çapraz-kurlu kayıtlarda dolu. */
+  exchange: { sourceCurrency: string; targetCurrency: string; exchangeRate: number } | null;
+  /** Kur-ilgili alanların açılış değerleri (değişip değişmediğini anlamak için). */
+  baseline: {
+    amount: number;
+    hesapId: string | null;
+    hedefHesapId: string | null;
+    cariId: string | null;
+    personelId: string | null;
+  };
 }
 
 interface UseQuickTransactionFormReturn {
@@ -102,6 +118,13 @@ interface UseQuickTransactionFormReturn {
   // Exchange rate state
   pendingExchangeData: PendingExchangeData | null;
   setPendingExchangeData: (data: PendingExchangeData | null) => void;
+
+  /**
+   * Düzenlenen işlemin AÇILIŞ hâli — çapraz-kur kararını vermek için.
+   * `exchange`: kayıtlı kur üçlüsü (varsa). `baseline`: kur-ilgili alanların ilk değerleri.
+   * Bunlar olmadan her kaydet basışı kur barını açıp bugünün kuruyla tarihsel kuru eziyordu.
+   */
+  editOriginal: EditOriginalSnapshot | null;
 
   // Urun items (alış/satış/iade işlemlerinde urun hareketi)
   urunItems: UrunItem[];
@@ -222,6 +245,10 @@ export function useQuickTransactionForm({
   // Exchange rate state
   const [pendingExchangeData, setPendingExchangeData] = useState<PendingExchangeData | null>(null);
 
+  // Düzenlemeye açılan işlemin kur/alan açılış hâli (A6). Copy modda BİLEREK boş kalır:
+  // kopya yeni bir işlem, kuru bugünden alınmalı.
+  const [editOriginal, setEditOriginal] = useState<EditOriginalSnapshot | null>(null);
+
   // Urun items state (alış/satış/iade işlemlerinde urun hareketi)
   const [urunItems, setUrunItems] = useState<UrunItem[]>([]);
 
@@ -285,6 +312,7 @@ export function useQuickTransactionForm({
     setOdemeHedefType(null);
     setTahsilatHedefType(null);
     setPendingExchangeData(null);
+    setEditOriginal(null);
     setUrunItems([]); // Urun items'ı temizle
     setEditDataLoaded(false);
     setIsCariMode(!!defaultCariId);
@@ -398,6 +426,28 @@ export function useQuickTransactionForm({
         birim: (hareket.urunler?.birim || 'adet') as BirimType,
       }));
       setUrunItems(loadedUrunItems);
+    }
+
+    // A6: kur kararı için açılış hâlini sakla (yalnız EDIT — kopya yeni işlemdir,
+    // kuru bugünden alınmalı). Bu sayede yalnız açıklama/tarih düzeltilirken kur barı
+    // hiç açılmıyor ve kayıtlı tarihsel kur bozulmadan kalıyor.
+    if (!isCopyMode) {
+      const rawRate = toNumber((transaction as { exchange_rate?: number | string | null }).exchange_rate);
+      const sc = (transaction as { source_currency?: string | null }).source_currency;
+      const tc = (transaction as { target_currency?: string | null }).target_currency;
+      setEditOriginal({
+        exchange:
+          rawRate > 0 && sc && tc
+            ? { sourceCurrency: sc, targetCurrency: tc, exchangeRate: rawRate }
+            : null,
+        baseline: {
+          amount: roundCurrency(toNumber(transaction.amount)),
+          hesapId: transaction.hesap_id || null,
+          hedefHesapId: transaction.hedef_hesap_id || null,
+          cariId: transaction.cari_id || null,
+          personelId: transaction.personel_id || null,
+        },
+      });
     }
 
     setEditDataLoaded(true);
@@ -581,6 +631,7 @@ export function useQuickTransactionForm({
     // Exchange rate state
     pendingExchangeData,
     setPendingExchangeData,
+    editOriginal,
 
     // Urun items
     urunItems,

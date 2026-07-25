@@ -21,7 +21,7 @@ jest.mock('expo-crypto', () => ({
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
 }));
 
-import { calculateFileHash } from '../excelImport';
+import { calculateFileHash, parseKarsiHesap } from '../excelImport';
 
 // ============================================================================
 // Bug #4: File hash fallback collision riski
@@ -79,5 +79,64 @@ describe('Bug #4: calculateFileHash', () => {
     const hash = await calculateFileHash(buffer);
 
     expect(hash).not.toMatch(/^fallback-/);
+  });
+});
+
+// ============================================================================
+// A2b: Köşeli parantez tutarı — kur TÜRETİMİNİN girdisi (para yazma yolu)
+//
+// useDataImport bu tutarı ana tutarla oranlayarak exchange_rate ÜRETİYOR. Yani
+// buradaki ayraç hatası doğrudan DB'ye yanlış kur, dolayısıyla yanlış bakiye yazar.
+// Testler tr-TR locale mock'u altında koşuyor (dosyanın başındaki getCurrentCurrency).
+// ============================================================================
+describe('A2b: parseKarsiHesap tutar ayrıştırması', () => {
+  it('Türk biçimi: binlik nokta + ondalık virgül', () => {
+    expect(parseKarsiHesap('Nakit (Kasa) [58.750,00 TRY]')).toEqual({
+      name: 'Nakit (Kasa)',
+      amount: 58750,
+      currency: 'TRY',
+    });
+  });
+
+  it('İngiliz biçimi ARTIK eşleşiyor: eski desen tek ayraç grubu istediği için "1,234.56" hiç yakalanmıyordu', () => {
+    expect(parseKarsiHesap('Vadesiz USD [1,234.56 USD]')).toEqual({
+      name: 'Vadesiz USD',
+      amount: 1234.56,
+      currency: 'USD',
+    });
+  });
+
+  it('binlikli tam sayı ondalığa düşmüyor ("1.234" → 1234, eski hâlde 1,234)', () => {
+    expect(parseKarsiHesap('Kasa [1.234 TRY]').amount).toBe(1234);
+  });
+
+  it('negatif bracket tutarı mutlak değere çevrilir (yön tipten geliyor)', () => {
+    expect(parseKarsiHesap('Nakit (Kasa) [-58750 TRY]')).toEqual({
+      name: 'Nakit (Kasa)',
+      amount: 58750,
+      currency: 'TRY',
+    });
+  });
+
+  it('yalın ondalık: virgül de nokta da ondalık olarak okunur', () => {
+    expect(parseKarsiHesap('X [12,50 TRY]').amount).toBe(12.5);
+    expect(parseKarsiHesap('X [12.50 TRY]').amount).toBe(12.5);
+  });
+
+  it('birim yoksa TRY varsayılır', () => {
+    expect(parseKarsiHesap('Kasa [100]')).toEqual({ name: 'Kasa', amount: 100, currency: 'TRY' });
+  });
+
+  it('okunamayan tutar 0 DEĞİL: amount hiç dönmez (0 "bedelsiz işlem" gibi görünürdü)', () => {
+    const parsed = parseKarsiHesap('Kasa [,. TRY]');
+    expect(parsed.name).toBe('Kasa');
+    expect(parsed.amount).toBeUndefined();
+    // Tüketici `parsed.amount ? ...` ile kontrol ediyor → bracket yok sayılır, satır
+    // yine içe aktarılır (yalnız çapraz-kur bilgisi olmadan).
+  });
+
+  it('parantez yoksa yalnız ad döner', () => {
+    expect(parseKarsiHesap('Ziraat Bankası')).toEqual({ name: 'Ziraat Bankası' });
+    expect(parseKarsiHesap('')).toEqual({ name: '' });
   });
 });

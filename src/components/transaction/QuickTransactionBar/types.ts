@@ -105,6 +105,11 @@ export interface PendingExchangeData {
   sourceCurrency: Currency;
   targetCurrency: Currency;
   sourceAmount: number;
+  /**
+   * Kur alanının ön-dolacağı değer. Düzenlemede işlemin KAYITLI kuru geçilir;
+   * null/undefined ise bar bugünün kuruyla dolar (yeni kayıt davranışı).
+   */
+  initialRate?: number | null;
 }
 
 // Form state (for future hook extraction)
