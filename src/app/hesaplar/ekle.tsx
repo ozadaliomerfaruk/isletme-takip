@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
 import { Text, Input, Button, Card, CurrencyPicker, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreateHesap } from '@/hooks/useHesaplar';
@@ -30,6 +31,7 @@ export default function HesapEklePage() {
   usePagePermission({ module: 'hesaplar', action: 'create' });
   const createHesap = useCreateHesap();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
   const { canUseBirikim } = usePermissions();
 
   // Birikim tipi yalnızca birikim iznine sahip kullanıcıya gösterilir (RLS ile uyumlu).
@@ -99,10 +101,11 @@ export default function HesapEklePage() {
       >
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, spacing['3xl']) + spacing.xl }
-          ]}
+          // Güvenli alan payı BURADA GEREKMİYOR: footer kaydırmanın DIŞINDA,
+          // sabit duruyor ve alt boşluğu kendisi taşıyor. insets.bottom
+          // eklenirse (artık tab bar yüksekliğini de içeriyor) form gereksiz
+          // yere kısalır — klavye açıkken boşluk iyice büyür.
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -198,8 +201,11 @@ export default function HesapEklePage() {
         {/* Sticky footer — kaydet butonu klavyenin altında kalmasın.
             Alt boşluk FOOTER'IN KENDİSİNDE (Screen'in `footer` prop'u DEĞİL):
             footer KeyboardAvoidingView'ün İÇİNDE kalmak zorunda, yoksa klavye
-            açılınca yükselmez. insets.bottom overlay tab bar'ı da temizler. */}
-        <View style={[styles.footer, { paddingBottom: spacing.md + insets.bottom }]}>
+            açılınca yükselmez.
+            Güvenli alan payı KLAVYEYE DUYARLI (bkz. useFooterBottomPadding):
+            klavye açıkken tab bar/home indicator klavyenin altında kalır,
+            eklenirse footer ile klavye arasında kocaman boşluk açılır. */}
+        <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
           <Button
             variant="outline"
             size="lg"
