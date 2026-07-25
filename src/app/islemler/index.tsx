@@ -540,10 +540,14 @@ export default function IslemlerPage() {
         />
       </SwipeableProvider>
 
-      {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı) */}
+      {/* Alta sabit yüzen arama çubuğu (Apple Notes tarzı) — geri-al snackbar'ı
+          görünürken yukarı itilir: ikisi aynı taban çizgisinde duruyor ve zIndex'i
+          büyük olan snackbar pill'i tamamen örtüyordu (arama "kayboldu" şikayeti).
+          48 = snackbar'ın iç yüksekliği (paddingVertical spacing.md + satır). */}
       <FloatingSearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
+        bottomOffset={undoSnackbar.visible ? spacing.lg + 48 + spacing.sm : spacing.lg}
       />
 
       {/* Edit Transaction Bar */}

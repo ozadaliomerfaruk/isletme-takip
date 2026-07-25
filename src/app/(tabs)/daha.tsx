@@ -480,7 +480,9 @@ export default function DahaPage() {
           activeOpacity={1}
           onPress={() => setLanguageModalVisible(false)}
         >
-          <View style={styles.modalContent}>
+          {/* Kart backdrop'un çocuğu — responder'ı burada yakalamazsak karta yapılan
+              dokunuş ebeveyne bubble edip modalı kapatıyor (bkz. arama.tsx:877) */}
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
               <Text variant="h3">{t('settings:language.selectLanguage')}</Text>
               <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
@@ -523,7 +525,8 @@ export default function DahaPage() {
           activeOpacity={1}
           onPress={() => setCurrencyModalVisible(false)}
         >
-          <View style={styles.modalContent}>
+          {/* Aynı gerekçe: kart dokunuşu backdrop'a sızıp modalı kapatmasın */}
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
               <Text variant="h3">{t('settings:currency.selectCurrency')}</Text>
               <TouchableOpacity onPress={() => setCurrencyModalVisible(false)}>

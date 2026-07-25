@@ -1,6 +1,5 @@
 import { useState, useCallback, useMemo, memo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import {
@@ -16,7 +15,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Card, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyState, ActionSheet, type ActionSheetOption, Screen } from '@/components/ui';
-import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
@@ -220,11 +219,10 @@ const UrunRow = memo(function UrunRow({ data, onOpen, onMore }: { data: Urun } &
 });
 
 export default function ArsivPage() {
-  const insets = useSafeAreaInsets();
+  const contentPaddingBottom = useContentBottomPadding({ search: true });
   const router = useRouter();
   const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
   const { canUpdate, canDelete } = usePermissions();
-  const footerInset = useFooterBottomPadding();
   const [activeTab, setActiveTab] = useState<TabType>('hepsi');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -518,8 +516,10 @@ export default function ArsivPage() {
 
   const ListFooter = useMemo(
     () =>
+      // Footer'a alt inset EKLENMEZ: onu zaten contentContainerStyle taşıyor,
+      // burada tekrar eklenirse "N kayıt" yazısının altında çift boşluk kalır.
       totalArchived > 0 ? (
-        <View style={[styles.footer, { paddingBottom: spacing.xl + footerInset }]}>
+        <View style={styles.footer}>
           <Text variant="caption" color="secondary">
             {t('common:archive.messages.itemCount', { count: totalArchived })}
           </Text>
@@ -539,7 +539,7 @@ export default function ArsivPage() {
         ListEmptyComponent={ListEmpty}
         ListFooterComponent={ListFooter}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+        contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
         // Klavye açıkken kaydırma: dokunuşlar klavyeyi "yakalamasın" (handled) ve
         // sürüklerken klavye temizce kapansın (on-drag). Bunlar olmadan yüzen arama
         // çubuğu, yarım-kalan klavye kare olaylarıyla ekran dışına fırlıyordu.

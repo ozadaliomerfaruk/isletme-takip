@@ -83,7 +83,8 @@ const ENTITY_TYPE_LABEL_KEYS: Record<NotEntityType, string> = {
 };
 
 export default function NotlarPage() {
-  const contentPaddingBottom = useContentBottomPadding();
+  // search: true → yüzen arama pill'inin payını (FLOATING_SEARCH_CLEARANCE) hook kendisi ekler
+  const contentPaddingBottom = useContentBottomPadding({ search: true });
   const { t } = useTranslation(['common', 'navigation']);
   const { formatDateTime } = useDateFormat();
   const { showToast } = useToast();
@@ -340,12 +341,14 @@ export default function NotlarPage() {
       <SwipeableProvider>
         {/* Filters */}
         <View style={styles.filtersContainer}>
+          {/* YATAY şeride alt boşluk VERİLMEZ — contentContainer paddingBottom'u
+              içerik yüksekliğini büyütür, chip'lerin altına hayalet şerit koyar */}
           <FlatList
             horizontal
             data={ENTITY_FILTERS}
             keyExtractor={(item) => item.key}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[styles.filtersList, { paddingBottom: contentPaddingBottom }]}
+            contentContainerStyle={styles.filtersList}
             renderItem={({ item: f }) => (
               <TouchableOpacity
                 style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
@@ -390,7 +393,7 @@ export default function NotlarPage() {
           data={filteredNotes}
           keyExtractor={(item) => item.id}
           renderItem={renderNote}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }, { paddingBottom: contentPaddingBottom }]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           // Yüzen arama çubuğu klavye açıkken kaydırmada ekran dışına fırlamasın
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"

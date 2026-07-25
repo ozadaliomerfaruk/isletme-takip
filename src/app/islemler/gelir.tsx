@@ -144,8 +144,9 @@ export default function GelirEklePage() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
+            {/* Sayfa-içi başlık (native header ile çift) kaldırıldı; satırda yalnız
+                ileri-tarihli zil butonu kaldı, sağa dayalı */}
             <View style={styles.headerRow}>
-              <Text variant="h2" style={styles.headerTitle}>{t('transactions:titles.addIncome')}</Text>
               <TouchableOpacity
                 style={[styles.bellButton, isIleriTarihli && styles.bellButtonActive]}
                 onPress={() => {
@@ -315,9 +316,8 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
   },
-  headerTitle: { flex: 1 },
   bellButton: {
     width: 44,
     height: 44,
