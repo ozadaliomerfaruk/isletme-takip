@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TouchableWithoutFeedback, Dimensions, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TouchableWithoutFeedback, TextInput } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
@@ -7,7 +8,7 @@ import { Check, Calendar } from 'lucide-react-native';
 import { Text, Button, Card, CategoryPicker, CurrencyInput, Screen, Modal } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -26,7 +27,7 @@ export default function TopluGiderPage() {
   usePagePermission({ module: 'personel', action: 'create' });
   const createIslem = useCreateIslem();
   const { locale, formatDateMedium } = useDateFormat();
-  const windowHeight = Dimensions.get('window').height;
+  const insets = useSafeAreaInsets();
 
   // Varsayılan tarih: Bu ayın son günü 23:59
   const getDefaultDate = () => {
@@ -212,6 +213,10 @@ export default function TopluGiderPage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          // KAV frame'i EBEVEYNE göre ölçülüyor; native header'lı ekranda offset
+          // verilmezse padding header+durum çubuğu kadar eksik kalıyor ve sabit
+          // footer (Kaydet) klavyenin arkasında kalıyor. Diğer formlarla aynı satır.
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
@@ -513,9 +518,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     gap: spacing.lg,
   },
   summary: {
@@ -561,26 +566,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginHorizontal: spacing.xl,
   },
   pickerTitle: {
-    fontSize: 18,
+    fontSize: fontSize.xl,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   pickerSection: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   pickerSectionTitle: {
-    fontSize: 14,
+    fontSize: fontSize.md,
     fontWeight: '500',
     color: colors.textMuted,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   datePickerStyle: {
@@ -590,16 +595,16 @@ const styles = StyleSheet.create({
     height: 120,
   },
   pickerDoneButton: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 10,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing['2xl'],
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
   },
   pickerDoneText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.white,
+    fontSize: fontSize.lg,
     fontWeight: '600',
   },
 });

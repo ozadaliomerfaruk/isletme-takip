@@ -8,7 +8,7 @@ import { Check, Wallet, ChevronDown, X, Calendar } from 'lucide-react-native';
 import { Text, Button, Card, CategoryPicker, CurrencyInput, Screen, Modal } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
@@ -19,6 +19,64 @@ import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import type { Hesap } from '@/types/database';
+
+/**
+ * Hesap seçici alt sayfası — AYRI BİLEŞEN, çünkü insets Modal'ın İÇİNDE okunmalı.
+ * Sayfa gövdesindeki useSafeAreaInsets() _layout'un override'lı (tab bar dahil)
+ * değerini döndürüyor; modal ayrı native pencerede açıldığı için bar orada
+ * çizilmiyor → sayfadan taşınan değer ~72px hayalet alt boşluk bırakıyordu.
+ * ModalInsets yalnız modal ağacının İÇİNDEKİ okumaları gerçek değere düzeltir.
+ */
+function HesapPickerSheet({
+  hesaplar,
+  selectedId,
+  title,
+  onSelect,
+  onClose,
+}: {
+  hesaplar: Hesap[];
+  selectedId: string | null;
+  title: string;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const windowHeight = Dimensions.get('window').height;
+
+  return (
+    <TouchableWithoutFeedback onPress={onClose}>
+      <View style={styles.bottomSheetOverlay}>
+        <TouchableWithoutFeedback onPress={() => {}}>
+          <View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>{title}</Text>
+              <TouchableOpacity onPress={onClose} style={styles.bottomSheetCloseBtn}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.bottomSheetList}>
+              {hesaplar.map((hesap) => (
+                <TouchableOpacity
+                  key={hesap.id}
+                  style={[styles.bottomSheetItem, hesap.id === selectedId && styles.bottomSheetItemSelected]}
+                  onPress={() => onSelect(hesap.id)}
+                >
+                  <Wallet size={20} color={colors.primary} />
+                  <View style={styles.bottomSheetItemContent}>
+                    <Text style={styles.bottomSheetItemText}>{hesap.name}</Text>
+                    <Text style={styles.bottomSheetItemBalance}>{formatCurrency(toNumber(hesap.balance), hesap.currency)}</Text>
+                  </View>
+                  {hesap.id === selectedId && <Check size={20} color={colors.primary} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableWithoutFeedback>
+      </View>
+    </TouchableWithoutFeedback>
+  );
+}
 
 export default function TopluOdemePage() {
   const router = useRouter();
@@ -28,7 +86,6 @@ export default function TopluOdemePage() {
   usePagePermission({ module: 'personel', action: 'create' });
   const createIslem = useCreateIslem();
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
   const { locale, formatDateMedium } = useDateFormat();
 
   // Varsayılan tarih: Bu ayın son günü 23:59
@@ -250,6 +307,10 @@ export default function TopluOdemePage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          // KAV frame'i EBEVEYNE göre ölçülüyor; native header'lı ekranda offset
+          // verilmezse padding header+durum çubuğu kadar eksik kalıyor ve sabit
+          // footer (Kaydet) klavyenin arkasında kalıyor. Diğer formlarla aynı satır.
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
@@ -428,39 +489,16 @@ export default function TopluOdemePage() {
             animationType="slide"
             onRequestClose={() => setShowHesapPicker(false)}
           >
-            <TouchableWithoutFeedback onPress={() => setShowHesapPicker(false)}>
-              <View style={styles.bottomSheetOverlay}>
-                <TouchableWithoutFeedback onPress={() => {}}>
-                  <View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>
-                    <View style={styles.bottomSheetHeader}>
-                      <Text style={styles.bottomSheetTitle}>{t('accounts:titles.selectAccount')}</Text>
-                      <TouchableOpacity onPress={() => setShowHesapPicker(false)} style={styles.bottomSheetCloseBtn}>
-                        <X size={24} color={colors.text} />
-                      </TouchableOpacity>
-                    </View>
-                    <ScrollView style={styles.bottomSheetList}>
-                      {availableHesaplar.map((hesap) => (
-                        <TouchableOpacity
-                          key={hesap.id}
-                          style={[styles.bottomSheetItem, hesap.id === hesapId && styles.bottomSheetItemSelected]}
-                          onPress={() => {
-                            setHesapId(hesap.id);
-                            setShowHesapPicker(false);
-                          }}
-                        >
-                          <Wallet size={20} color={colors.primary} />
-                          <View style={styles.bottomSheetItemContent}>
-                            <Text style={styles.bottomSheetItemText}>{hesap.name}</Text>
-                            <Text style={styles.bottomSheetItemBalance}>{formatCurrency(toNumber(hesap.balance), hesap.currency)}</Text>
-                          </View>
-                          {hesap.id === hesapId && <Check size={20} color={colors.primary} />}
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                </TouchableWithoutFeedback>
-              </View>
-            </TouchableWithoutFeedback>
+            <HesapPickerSheet
+              hesaplar={availableHesaplar}
+              selectedId={hesapId}
+              title={t('accounts:titles.selectAccount')}
+              onSelect={(id) => {
+                setHesapId(id);
+                setShowHesapPicker(false);
+              }}
+              onClose={() => setShowHesapPicker(false)}
+            />
           </Modal>
         )}
 
@@ -641,9 +679,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     gap: spacing.lg,
   },
   summary: {
@@ -742,26 +780,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginHorizontal: spacing.xl,
   },
   pickerTitle: {
-    fontSize: 18,
+    fontSize: fontSize.xl,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   pickerSection: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   pickerSectionTitle: {
-    fontSize: 14,
+    fontSize: fontSize.md,
     fontWeight: '500',
     color: colors.textMuted,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   datePickerStyle: {
@@ -771,16 +809,16 @@ const styles = StyleSheet.create({
     height: 120,
   },
   pickerDoneButton: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 10,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing['2xl'],
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
   },
   pickerDoneText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.white,
+    fontSize: fontSize.lg,
     fontWeight: '600',
   },
 });

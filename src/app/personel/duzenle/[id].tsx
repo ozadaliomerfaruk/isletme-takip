@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Pressable, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +18,41 @@ import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+
+/**
+ * Tarih seçici alt sayfası — AYRI BİLEŞEN, çünkü güvenli alan Modal'ın İÇİNDE
+ * okunmalı: ModalInsets yalnız modal ağacının içindeki useSafeAreaInsets'i
+ * gerçek değere düzeltir. Alt boşluk verilmezse 'Tamam' butonu home
+ * indicator'ın altında kalıyor.
+ */
+function DatePickerSheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Pressable style={styles.datePickerModalOverlay} onPress={onClose}>
+      <Pressable
+        style={[styles.datePickerModalContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+        onPress={(e) => e.stopPropagation()}
+      >
+        <View style={styles.datePickerModalHeader}>
+          <Text variant="h3">{title}</Text>
+          <TouchableOpacity onPress={onClose}>
+            <X size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+        {children}
+      </Pressable>
+    </Pressable>
+  );
+}
 
 export default function PersonelDuzenlePage() {
   const router = useRouter();
@@ -228,20 +263,10 @@ export default function PersonelDuzenlePage() {
               {/* iOS için DateTimePicker Modal */}
               {Platform.OS === 'ios' && showDatePicker && (
                 <Modal visible={showDatePicker} transparent animationType="slide">
-                  <Pressable
-                    style={styles.datePickerModalOverlay}
-                    onPress={() => setShowDatePicker(false)}
+                  <DatePickerSheet
+                    title={t('staff:form.startDate')}
+                    onClose={() => setShowDatePicker(false)}
                   >
-                    <Pressable
-                      style={styles.datePickerModalContent}
-                      onPress={(e) => e.stopPropagation()}
-                    >
-                      <View style={styles.datePickerModalHeader}>
-                        <Text variant="h3">{t('staff:form.startDate')}</Text>
-                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                          <X size={24} color={colors.text} />
-                        </TouchableOpacity>
-                      </View>
                       <DateTimePicker
                         value={ensureValidDate(startDate || new Date())}
                         mode="date"
@@ -264,8 +289,7 @@ export default function PersonelDuzenlePage() {
                       >
                         {t('common:buttons.ok')}
                       </Button>
-                    </Pressable>
-                  </Pressable>
+                  </DatePickerSheet>
                 </Modal>
               )}
 
@@ -318,20 +342,10 @@ export default function PersonelDuzenlePage() {
               {/* iOS için End Date DateTimePicker Modal */}
               {Platform.OS === 'ios' && showEndDatePicker && (
                 <Modal visible={showEndDatePicker} transparent animationType="slide">
-                  <Pressable
-                    style={styles.datePickerModalOverlay}
-                    onPress={() => setShowEndDatePicker(false)}
+                  <DatePickerSheet
+                    title={t('staff:form.endDate')}
+                    onClose={() => setShowEndDatePicker(false)}
                   >
-                    <Pressable
-                      style={styles.datePickerModalContent}
-                      onPress={(e) => e.stopPropagation()}
-                    >
-                      <View style={styles.datePickerModalHeader}>
-                        <Text variant="h3">{t('staff:form.endDate')}</Text>
-                        <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                          <X size={24} color={colors.text} />
-                        </TouchableOpacity>
-                      </View>
                       <DateTimePicker
                         value={ensureValidDate(endDate || new Date())}
                         mode="date"
@@ -354,8 +368,7 @@ export default function PersonelDuzenlePage() {
                       >
                         {t('common:buttons.ok')}
                       </Button>
-                    </Pressable>
-                  </Pressable>
+                  </DatePickerSheet>
                 </Modal>
               )}
 

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Pressable } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
-import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection, Screen, Modal } from '@/components/ui';
+import { Text, Input, Button, CurrencyPicker, BalanceDirectionSelector, type BalanceDirection, Screen, Modal } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
@@ -14,10 +14,44 @@ import { formatDateForDB, ensureValidDate } from '@/lib/date';
 import { parseCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
-import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+
+/**
+ * Tarih seçici alt sayfası — AYRI BİLEŞEN, çünkü güvenli alan Modal'ın İÇİNDE
+ * okunmalı: ModalInsets yalnız modal ağacının içindeki useSafeAreaInsets'i
+ * gerçek değere düzeltir. Alt boşluk verilmezse 'Tamam' butonu home
+ * indicator'ın altında kalıyor.
+ */
+function DatePickerSheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Pressable style={styles.datePickerModalOverlay} onPress={onClose}>
+      <Pressable
+        style={[styles.datePickerModalContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+        onPress={(e) => e.stopPropagation()}
+      >
+        <View style={styles.datePickerModalHeader}>
+          <Text variant="h3">{title}</Text>
+          <TouchableOpacity onPress={onClose}>
+            <X size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+        {children}
+      </Pressable>
+    </Pressable>
+  );
+}
 
 export default function PersonelEklePage() {
   const router = useRouter();
@@ -31,7 +65,6 @@ export default function PersonelEklePage() {
 
   // Dile göre varsayılan para birimi
   const defaultCurrency: Currency = i18n.language.startsWith('en') ? 'USD' : 'TRY';
-  const currencies = getLocalizedCurrencies(i18n.language);
 
   const [firstName, setFirstName] = useState('');
   const [currency, setCurrency] = useState<Currency>(defaultCurrency);
@@ -105,44 +138,16 @@ export default function PersonelEklePage() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text variant="h2">{t('staff:titles.addPersonnel')}</Text>
-          </View>
+          {/* Sayfa-içi başlık kaldırıldı — native header aynı başlığı zaten yazıyor
+              (cariler/hesaplar ekle formlarıyla aynı temizlik) */}
 
-          {/* Para Birimi Seçimi */}
+          {/* Para Birimi — cari/hesap ekle ile aynı: CurrencyPicker (dropdown + modal) */}
           <View style={styles.section}>
-            <Text variant="label" color="secondary" style={styles.sectionTitle}>
-              {t('staff:form.currency')}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.currencyGrid}
-            >
-              {currencies.map((curr) => (
-                <Card
-                  key={curr.code}
-                  variant={currency === curr.code ? 'elevated' : 'outlined'}
-                  padding="sm"
-                  onPress={() => setCurrency(curr.code as Currency)}
-                  style={[
-                    styles.currencyCard,
-                    currency === curr.code && styles.currencyCardActive,
-                  ]}
-                >
-                  <Text
-                    variant="body"
-                    style={{
-                      color: currency === curr.code ? colors.primary : colors.text,
-                      fontWeight: currency === curr.code ? '600' : '400',
-                    }}
-                  >
-                    {curr.symbol} {curr.code}
-                  </Text>
-                </Card>
-              ))}
-            </ScrollView>
+            <CurrencyPicker
+              value={currency}
+              onChange={setCurrency}
+              label={t('staff:form.currency')}
+            />
           </View>
 
           {/* Form */}
@@ -242,20 +247,10 @@ export default function PersonelEklePage() {
             {/* iOS için DateTimePicker Modal */}
             {Platform.OS === 'ios' && showDatePicker && (
               <Modal visible={showDatePicker} transparent animationType="slide">
-                <Pressable
-                  style={styles.datePickerModalOverlay}
-                  onPress={() => setShowDatePicker(false)}
+                <DatePickerSheet
+                  title={t('staff:form.startDate')}
+                  onClose={() => setShowDatePicker(false)}
                 >
-                  <Pressable
-                    style={styles.datePickerModalContent}
-                    onPress={(e) => e.stopPropagation()}
-                  >
-                    <View style={styles.datePickerModalHeader}>
-                      <Text variant="h3">{t('staff:form.startDate')}</Text>
-                      <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                        <X size={24} color={colors.text} />
-                      </TouchableOpacity>
-                    </View>
                     <DateTimePicker
                       value={ensureValidDate(startDate || new Date())}
                       mode="date"
@@ -278,8 +273,7 @@ export default function PersonelEklePage() {
                     >
                       {t('common:buttons.ok')}
                     </Button>
-                  </Pressable>
-                </Pressable>
+                </DatePickerSheet>
               </Modal>
             )}
 
@@ -332,20 +326,10 @@ export default function PersonelEklePage() {
             {/* iOS için End Date DateTimePicker Modal */}
             {Platform.OS === 'ios' && showEndDatePicker && (
               <Modal visible={showEndDatePicker} transparent animationType="slide">
-                <Pressable
-                  style={styles.datePickerModalOverlay}
-                  onPress={() => setShowEndDatePicker(false)}
+                <DatePickerSheet
+                  title={t('staff:form.endDate')}
+                  onClose={() => setShowEndDatePicker(false)}
                 >
-                  <Pressable
-                    style={styles.datePickerModalContent}
-                    onPress={(e) => e.stopPropagation()}
-                  >
-                    <View style={styles.datePickerModalHeader}>
-                      <Text variant="h3">{t('staff:form.endDate')}</Text>
-                      <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                        <X size={24} color={colors.text} />
-                      </TouchableOpacity>
-                    </View>
                     <DateTimePicker
                       value={ensureValidDate(endDate || new Date())}
                       mode="date"
@@ -368,8 +352,7 @@ export default function PersonelEklePage() {
                     >
                       {t('common:buttons.ok')}
                     </Button>
-                  </Pressable>
-                </Pressable>
+                </DatePickerSheet>
               </Modal>
             )}
 
@@ -429,31 +412,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    // Sayfa-içi başlık kaldırıldı; üst boşluk artık içeriğin kendisinde (cariler/ekle deseni)
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
   },
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    marginBottom: spacing.md,
-  },
-  currencyGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
-  currencyCard: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  currencyCardActive: {
-    borderColor: colors.primary,
-    borderWidth: 2,
   },
   footer: {
     flexDirection: 'row',

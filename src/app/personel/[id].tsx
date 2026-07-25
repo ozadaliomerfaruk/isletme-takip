@@ -345,6 +345,10 @@ export default function PersonelHareketleriPage() {
     router.push({ pathname: '/personel/izin-gecmisi/[id]', params: { id: id! } });
   }, [id]);
 
+  // Açılış bakiyesi düzenleme YETKİYE bağlı (hesap/cari detayıyla aynı kural):
+  // güncelleme yetkisi olmayan üye kalem ikonunu görmemeli, satır da tıklanmamalı.
+  const isBalanceEditable = canUpdate('personel', personel?.created_by ?? null);
+
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
     // Personelde: pozitif = credit (biz borçluyuz), negatif = debt (personel bize borçlu)
@@ -786,12 +790,12 @@ export default function PersonelHareketleriPage() {
           subtitle={personel ? `${t('staff:details.personelRecord')} • ${formatDateShort(personel.created_at)}` : ''}
           amount={initialBalance}
           currency={personel?.currency}
-          editable
-          onEdit={handleOpenEditBalance}
+          editable={isBalanceEditable}
+          onEdit={isBalanceEditable ? handleOpenEditBalance : undefined}
         />
       </View>
     );
-  }, [islemlerLoading, personel, initialBalance, handleOpenEditBalance, t, formatDateShort]);
+  }, [islemlerLoading, personel, initialBalance, isBalanceEditable, handleOpenEditBalance, t, formatDateShort]);
 
   // ============================================================================
   // LOADING / NOT FOUND STATES

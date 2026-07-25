@@ -2,10 +2,11 @@ import { useState, useMemo, useCallback } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, CalendarDays, Copy, Plus, Share as ShareIcon } from 'lucide-react-native';
+import { CalendarDays, Plus, Share as ShareIcon } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
+import { GlassFab } from '@/components/ui/GlassFab';
 
 import { Text, EmptyState, Screen } from '@/components/ui';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
@@ -14,7 +15,7 @@ import { DateSectionHeader } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { usePersonel } from '@/hooks/usePersonel';
 import { useAllLeaveByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
 import { useNotlarByEntity, useDeleteNot, useUpdateNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
@@ -431,25 +432,29 @@ export default function LeaveHistoryPage() {
   );
 
   return (
-    <Screen>
-      {/* Header */}
-      <View style={styles.header}>
-        <BackButton icon={ArrowLeft} style={styles.backButton} />
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>{t('staff:leave.leaveHistory')}</Text>
-          {personel && (
-            <Text style={styles.headerSubtitle}>
-              {personel.first_name} {personel.last_name || ''}
-            </Text>
-          )}
-        </View>
-        {leaveTransactions.length > 0 && (
-          <TouchableOpacity style={styles.backButton} onPress={handleExport} disabled={isExporting}>
-            <ShareIcon size={20} color={isExporting ? colors.textMuted : colors.text} />
-          </TouchableOpacity>
-        )}
-      </View>
-
+    <>
+      {/* Başlık TEK yerden: rota zaten native header ile kayıtlı; sayfa içi header
+          çizmek başlığı ve geri butonunu ikiye katlıyordu (kardeş detay sayfalarının
+          deseni = Stack.Screen + headerLeft/headerRight).
+          Başlık BAĞLAMLI: hangi personelin izinlerine bakıldığı başka hiçbir yerde
+          yazmıyor — kardeş detay sayfası (personel/[id]) da adı başlığa koyuyor.
+          Personel henüz yüklenmemişken statik 'İzin Geçmişi'ne düşer. */}
+      <Stack.Screen
+        options={{
+          headerTitle: personel
+            ? `${personel.first_name} ${personel.last_name || ''}`.trim()
+            : t('staff:leave.leaveHistory'),
+          headerBackVisible: false,
+          headerLeft: () => <BackButton size={28} />,
+          headerRight: () =>
+            leaveTransactions.length > 0 ? (
+              <TouchableOpacity onPress={handleExport} disabled={isExporting} hitSlop={HIT_SLOP.md}>
+                <ShareIcon size={20} color={isExporting ? colors.textMuted : colors.text} />
+              </TouchableOpacity>
+            ) : null,
+        }}
+      />
+      <Screen>
       {/* Content */}
       <SwipeableProvider>
         <FlatList
@@ -521,17 +526,18 @@ export default function LeaveHistoryPage() {
         onSuccess={() => setShowNewLeaveBar(false)}
       />
 
-      {/* FABs */}
-      <View style={[styles.fabContainer, { bottom: insets.bottom + 16 }]}>
-        <AddNoteButton entityType="personel_izin" entityId={id!} />
-        <TouchableOpacity
-          style={styles.fab}
-          activeOpacity={0.8}
-          onPress={() => setShowNewLeaveBar(true)}
-        >
-          <Plus size={24} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      {/* FABs — kardeş detay sayfalarıyla aynı taban/aralık: ana FAB cam (GlassFab),
+          not FAB'ı 70px yukarıda ayrı konumlanır (yan yana cam+opak görünmesin). */}
+      <AddNoteButton
+        entityType="personel_izin"
+        entityId={id!}
+        style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
+      />
+      <GlassFab
+        style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+        onPress={() => setShowNewLeaveBar(true)}
+        renderIcon={({ color, size }) => <Plus size={size} color={color} />}
+      />
 
       <UndoSnackbar
         visible={undoSnackbar.visible}
@@ -560,7 +566,8 @@ export default function LeaveHistoryPage() {
         entityId={id!}
         existingPhotoPath={editingNote?.photo_path}
       />
-    </Screen>
+      </Screen>
+    </>
   );
 }
 
@@ -568,32 +575,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
-    backgroundColor: colors.surface,
-  },
-  backButton: {
-    padding: spacing.xs,
-    marginRight: spacing.sm,
-  },
-  headerTitleContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 2,
   },
   listContent: {
     flexGrow: 1,
@@ -691,24 +672,9 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: fontWeight.bold,
   },
-  fabContainer: {
+  fab: {
     position: 'absolute',
     right: spacing.lg,
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  fab: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    zIndex: 10,
   },
 });
