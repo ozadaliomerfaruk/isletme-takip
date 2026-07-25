@@ -14,7 +14,7 @@ import { Text, Card } from '@/components/ui';
 import { SkeletonSummaryCard, SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize, fontWeight } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
 import { toNumber } from '@/lib/currency';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -75,6 +75,11 @@ export function GenelTabContent(_props: TabContentProps) {
   const normalHesaplarToplam = sumBalances(normalHesaplar);
   const krediKartiToplam = sumBalances(krediKartiHesaplar);
 
+  /** Net/fark kolonları: negatifte işaret ŞART (renk tek ayırt edici olmamalı).
+   *  Pozitifte '+' basmıyoruz — net durum kartlarında yerleşik dil işaretsiz pozitif. */
+  const signedCurrency = (v: number) =>
+    v < 0 ? formatCurrencyWithSign(v, baseCurrency) : formatCurrency(v, baseCurrency);
+
   return (
     <>
       {/* Genel Durum Ozet Karti */}
@@ -96,7 +101,10 @@ export function GenelTabContent(_props: TabContentProps) {
                 { color: netValue >= 0 ? colors.success : colors.error },
               ]}
             >
-              {netValue >= 0 ? '+' : ''}{formatCurrency(netValue, baseCurrency)}
+              {/* formatCurrency MUTLAK değer basar: pozitifte '+' varken negatifte hiçbir
+                  işaret çıkmıyordu → −50.000 ile +50.000 birebir aynı metin, tek ayırt
+                  edici renk. formatCurrencyWithSign iki yönde de işaret koyar. */}
+              {formatCurrencyWithSign(netValue, baseCurrency)}
             </Text>
             <Text variant="caption" color="secondary">
               {t('reports:summary.netValue')}
@@ -289,7 +297,7 @@ export function GenelTabContent(_props: TabContentProps) {
                 {t('reports:summary.netStatus')}
               </Text>
               <Text variant="h3" color={totalReceivables - totalPayables >= 0 ? 'success' : 'error'} style={styles.cardTotal}>
-                {formatCurrency(totalReceivables - totalPayables, baseCurrency)}
+                {signedCurrency(totalReceivables - totalPayables)}
               </Text>
             </View>
           </Card>
@@ -333,7 +341,7 @@ export function GenelTabContent(_props: TabContentProps) {
                 {t('reports:summary.netStatus')}
               </Text>
               <Text variant="h3" color={personelReceivables - personelDebt >= 0 ? 'success' : 'error'} style={styles.cardTotal}>
-                {formatCurrency(personelReceivables - personelDebt, baseCurrency)}
+                {signedCurrency(personelReceivables - personelDebt)}
               </Text>
             </View>
           </Card>

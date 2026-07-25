@@ -5,7 +5,7 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { Building2, Users, TrendingUp, TrendingDown, ArrowRight, CalendarDays } from 'lucide-react-native';
 import { Cari, Personel, IslemWithRelations } from '@/types/database';
-import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatCurrency, formatCurrencyWithSign, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { useTranslation } from 'react-i18next';
 
 type EntityType = 'cari' | 'personel';
@@ -27,33 +27,45 @@ export function EntitySummaryCard({
 }: EntitySummaryCardProps) {
   const { t } = useTranslation(['reports', 'transactions', 'staff']);
 
+  /**
+   * Kalemin tutarı — ALTINDAKİ LİSTEYLE AYNI MOTORDAN (getCrossCurrencyDisplay).
+   *
+   * Eskiden ham `toNumber(tx.amount)` toplanıyordu; ödeme/tahsilat tiplerinde tutar
+   * KAYNAK hesabın para birimindedir, kart ise toplamı entity.currency etiketiyle
+   * basıyor. Sonuç: özet kartı "Toplam Satış: €3.200,00" derken hemen altındaki
+   * satırlar "€100,00" gösteriyordu (kur katı kadar sapma). mainAmount hedef tarafın
+   * (cari/personel) para birimindeki tutar → etiket ile sayı artık aynı şeyi söylüyor.
+   * Çapraz-kur olmayan kalemlerde mainAmount = ham tutar (davranış değişmez).
+   */
+  const txAmount = (tx: IslemWithRelations): number => getCrossCurrencyDisplay(tx).mainAmount;
+
   // Metrikleri hesapla
   const metrics = useMemo(() => {
     if (type === 'cari') {
       // Cari için: alışlar, satışlar, ödemeler, tahsilatlar
       const alislar = transactions
         .filter((tx) => tx.type === 'cari_alis')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const alisIadeleri = transactions
         .filter((tx) => tx.type === 'cari_alis_iade')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const satislar = transactions
         .filter((tx) => tx.type === 'cari_satis')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const satisIadeleri = transactions
         .filter((tx) => tx.type === 'cari_satis_iade')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const odemeler = transactions
         .filter((tx) => tx.type === 'cari_odeme')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const tahsilatlar = transactions
         .filter((tx) => tx.type === 'cari_tahsilat')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const netAlislar = alislar - alisIadeleri;
       const netSatislar = satislar - satisIadeleri;
@@ -74,19 +86,19 @@ export function EntitySummaryCard({
       // Personel için: giderler, ödemeler
       const giderler = transactions
         .filter((tx) => tx.type === 'personel_gider')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const odemeler = transactions
         .filter((tx) => tx.type === 'personel_odeme')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const tahsilatlar = transactions
         .filter((tx) => tx.type === 'personel_tahsilat')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       const satislar = transactions
         .filter((tx) => tx.type === 'personel_satis')
-        .reduce((sum, tx) => sum + toNumber(tx.amount), 0);
+        .reduce((sum, tx) => sum + txAmount(tx), 0);
 
       // Dönem içi bakiye değişimi (kanonik applyBalanceChange ile hizalı):
       //   personel_odeme (+), personel_satis (+); personel_gider (-), personel_tahsilat (-)
@@ -269,7 +281,9 @@ export function EntitySummaryCard({
             color={metrics.balanceChange >= 0 ? 'success' : 'error'}
             style={styles.balanceValue}
           >
-            {metrics.balanceChange >= 0 ? '+' : ''}{formatCurrency(metrics.balanceChange, entity.currency)}
+            {/* Negatif değişimde işaret yoktu (pozitifte '+' vardı) → azalış artış gibi
+                okunuyordu; formatCurrencyWithSign iki yönde de işaret koyar. */}
+            {formatCurrencyWithSign(metrics.balanceChange, entity.currency)}
           </Text>
         </View>
         <View style={styles.balanceRow}>

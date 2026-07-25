@@ -84,6 +84,12 @@ export function EntityTransactionList({
 
   // Ürün detay modalı (kutu ikonu standart davranışı — cari detay sayfasıyla AYNI).
   const [productModalIslemId, setProductModalIslemId] = useState<string | null>(null);
+  // Ürün detay modalının para birimi: satır tutarının hesaplandığı AYNI değer.
+  const productModalCurrency = productModalIslemId
+    ? getCrossCurrencyDisplay(
+        transactions.find((tr) => tr.id === productModalIslemId) ?? { type: '', amount: 0 }
+      ).mainCurrency
+    : undefined;
 
   const openEdit = (transaction: IslemWithRelations) => {
     if (onTransactionPressExternal) {
@@ -211,6 +217,8 @@ export function EntityTransactionList({
       {/* Ürünlü işleme tıklanınca alttan ürün detay modalı (paylaşılan, tek standart) */}
       <ProductDetailModal
         islemId={productModalIslemId}
+        // Satırdaki tutarla AYNI para birimi (kutu ikonu ≠ satır çelişkisi)
+        currency={productModalCurrency}
         onDismiss={() => setProductModalIslemId(null)}
         onEdit={handleProductEdit}
       />

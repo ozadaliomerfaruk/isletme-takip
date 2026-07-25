@@ -187,6 +187,11 @@ export default function IslemlerPage() {
 
   const { isletme, user } = useAuthContext();
   const { data: islemler, isLoading, isFetching, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemler();
+
+  // Ürün detay modalının para birimi: satırın TransactionRow'a verdiği AYNI değer.
+  const productDetailCurrency = productDetailIslemId
+    ? getCrossCurrencyDisplay(((islemler || []).find((i) => i.id === productDetailIslemId) ?? { type: '', amount: 0 })).mainCurrency
+    : undefined;
   // Ürün kalemleri (satırda önizleme) — tek batch sorgu, N+1 yok
   const islemIdList = useMemo(() => (islemler || []).map((i) => i.id), [islemler]);
   const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
@@ -569,6 +574,8 @@ export default function IslemlerPage() {
       {/* Ürün Detay Modal — ürünlü işleme tıklanınca (cariler ile aynı standart) */}
       <ProductDetailModal
         islemId={productDetailIslemId}
+        // Satırdaki TransactionRow ile AYNI para birimi (kutu ikonu ≠ satır çelişkisi)
+        currency={productDetailCurrency}
         onDismiss={() => setProductDetailIslemId(null)}
         onEdit={(islemId) => {
           setProductDetailIslemId(null);

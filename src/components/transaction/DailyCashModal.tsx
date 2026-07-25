@@ -17,6 +17,7 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getHesapIconConfig } from '@/lib/icons';
+import { getCurrencySymbol } from '@/constants/currencies';
 import { Hesap } from '@/types/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -418,15 +419,20 @@ export function DailyCashModal({
     setShowSettings((prev) => !prev);
   }, []);
 
-  // Calculate total amount
-  const totalAmount = useMemo(() => {
-    return entries.reduce((sum, entry) => {
+  // Toplam — PARA BİRİMİ BAŞINA. Her satır ayrı bir HESABA ait ve tutar o hesabın
+  // para biriminde giriliyor; düz toplama "100 USD + 100 TRY"yi ana para birimi
+  // sembolüyle "₺200" yazıyordu (gerçek ~₺3.400). Kur bu ekranda sorulmadığı için
+  // çevirmek de yalan olur → her para birimi ayrı satır (cariler.tsx byCur deseni).
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<string, number>();
+    entries.forEach((entry) => {
       if (entry.amount && isValidAmount(entry.amount)) {
-        return sum + parseCurrency(entry.amount);
+        const cur = getHesap(entry.hesapId)?.currency || 'TRY';
+        map.set(cur, (map.get(cur) ?? 0) + parseCurrency(entry.amount));
       }
-      return sum;
-    }, 0);
-  }, [entries]);
+    });
+    return Array.from(map.entries());
+  }, [entries, getHesap]);
 
   if (!visible) return null;
 
@@ -455,9 +461,16 @@ export function DailyCashModal({
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Text variant="h3">{t('transactions:dailyCash.title')}</Text>
-              <Text variant="h2" style={styles.totalAmount}>
-                {formatCurrency(totalAmount)}
-              </Text>
+              {/* Para birimi başına ayrı satır (karışık para birimi düz toplanmaz) */}
+              {totalsByCurrency.length === 0 ? (
+                <Text variant="h2" style={styles.totalAmount}>{formatCurrency(0)}</Text>
+              ) : (
+                totalsByCurrency.map(([cur, total]) => (
+                  <Text key={cur} variant="h2" style={styles.totalAmount}>
+                    {formatCurrency(total, cur)}
+                  </Text>
+                ))
+              )}
             </View>
             <View style={styles.headerRight}>
               <TouchableOpacity
@@ -585,6 +598,12 @@ export function DailyCashModal({
                             {hesap.name}
                           </Text>
                         </View>
+                        {/* Satırın para birimi: hangi hesaba giriliyorsa onun sembolü.
+                            Önceden hiç gösterilmiyordu; USD hesaba girilen tutar
+                            footer'da ₺ sembolüyle toplanıyordu. */}
+                        <Text variant="caption" color="secondary" style={styles.entryCurrency}>
+                          {getCurrencySymbol(hesap.currency)}
+                        </Text>
                         <TextInput
                           style={styles.amountInput}
                           placeholder="0"
@@ -786,6 +805,9 @@ const styles = StyleSheet.create({
   },
   hiddenText: {
     textDecorationLine: 'line-through',
+  },
+  entryCurrency: {
+    marginRight: 4,
   },
   amountInput: {
     backgroundColor: colors.surfaceLight,

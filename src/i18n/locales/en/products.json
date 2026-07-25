@@ -165,6 +165,8 @@
     "selectProduct": "Select Product",
     "noProducts": "No products added yet",
     "noEntries": "Enter a quantity for at least one product",
+    "currencyMismatchTitle": "Currency mismatch",
+    "currencyMismatch": "When a contact is linked, all products in a bulk entry must share the same currency; the selected rows contain {{currencies}}. Save products of different currencies separately, or remove the contact link (stock only).",
     "success": "{{count}} product movements saved",
     "partialError": "{{success}} product(s) saved, {{failed}} failed. Failed rows stayed on screen; you can retry (saved ones were removed, no double entry).",
     "selectAll": "Select All",

@@ -165,6 +165,8 @@
     "selectProduct": "Ürün Seç",
     "noProducts": "Henüz ürün eklenmedi",
     "noEntries": "En az bir ürün için miktar girin",
+    "currencyMismatchTitle": "Para birimi uyuşmuyor",
+    "currencyMismatch": "Cari bağlı toplu kayıtta tüm ürünler AYNI para biriminde olmalı; seçili satırlarda {{currencies}} var. Farklı para birimli ürünleri ayrı ayrı kaydedin ya da cari bağlantısını kaldırın (yalnız stok girer).",
     "success": "{{count}} adet ürün hareketi kaydedildi",
     "partialError": "{{success}} ürün kaydedildi, {{failed}} başarısız oldu. Başarısız satırlar ekranda kaldı; tekrar deneyebilirsiniz (kaydedilenler çıkarıldı, çift kayıt olmaz).",
     "selectAll": "Tümünü Seç",

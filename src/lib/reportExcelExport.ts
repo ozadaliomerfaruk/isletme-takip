@@ -7,10 +7,19 @@ import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, toNumber } from './currency';
+import { formatCurrency, formatCurrencyWithSign, toNumber } from './currency';
 import { IslemWithRelations } from '@/types/database';
 import type { ProductReportItem } from '@/hooks/useProductReport';
 import type { CashFlowItem } from '@/hooks/useCashFlowByCategory';
+
+/**
+ * Net/fark hücreleri: negatifte İŞARETLİ yaz. Excel'de tek ayırt edici RENKTİ; renk
+ * fark edilmediğinde zarar/borç rakamı kâr/alacak okunuyordu (metin hücresi olduğu için
+ * Excel'in kendi negatif biçimi de devreye girmiyor).
+ */
+function signedCurrencyText(v: number, ccy?: string | null): string {
+  return v < 0 ? formatCurrencyWithSign(v, ccy) : formatCurrency(v, ccy);
+}
 
 // ============================================================================
 // STYLE DEFINITIONS
@@ -824,7 +833,7 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
   ws[`D${rowIdx}`] = { v: t.payables, s: headerStyle };
   rowIdx++;
 
-  ws[`A${rowIdx}`] = { v: formatCurrency(netValue, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 11, color: { rgb: netValue >= 0 ? '22C55E' : 'EF4444' } } } };
+  ws[`A${rowIdx}`] = { v: signedCurrencyText(netValue, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 11, color: { rgb: netValue >= 0 ? '22C55E' : 'EF4444' } } } };
   ws[`B${rowIdx}`] = { v: formatCurrency(totalAccounts, baseCurrency), s: currencyCellStyle };
   ws[`C${rowIdx}`] = { v: formatCurrency(totalReceivables, baseCurrency), s: currencyCellStyle };
   ws[`D${rowIdx}`] = { v: formatCurrency(totalPayables, baseCurrency), s: currencyCellStyle };
@@ -880,7 +889,7 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
   ws[`A${rowIdx}`] = { v: formatCurrency(cariReceivables, baseCurrency), s: { ...currencyCellStyle, font: { sz: 10, color: { rgb: '22C55E' } } } };
   ws[`B${rowIdx}`] = { v: formatCurrency(cariPayables, baseCurrency), s: { ...currencyCellStyle, font: { sz: 10, color: { rgb: 'EF4444' } } } };
   const cariNet = cariReceivables - cariPayables;
-  ws[`C${rowIdx}`] = { v: formatCurrency(cariNet, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 10, color: { rgb: cariNet >= 0 ? '22C55E' : 'EF4444' } } } };
+  ws[`C${rowIdx}`] = { v: signedCurrencyText(cariNet, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 10, color: { rgb: cariNet >= 0 ? '22C55E' : 'EF4444' } } } };
   rowIdx += 2;
 
   // ---- Personnel Status ----
@@ -895,7 +904,7 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
   ws[`A${rowIdx}`] = { v: formatCurrency(personelReceivables, baseCurrency), s: { ...currencyCellStyle, font: { sz: 10, color: { rgb: '22C55E' } } } };
   ws[`B${rowIdx}`] = { v: formatCurrency(personelDebt, baseCurrency), s: { ...currencyCellStyle, font: { sz: 10, color: { rgb: 'EF4444' } } } };
   const personelNet = personelReceivables - personelDebt;
-  ws[`C${rowIdx}`] = { v: formatCurrency(personelNet, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 10, color: { rgb: personelNet >= 0 ? '22C55E' : 'EF4444' } } } };
+  ws[`C${rowIdx}`] = { v: signedCurrencyText(personelNet, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 10, color: { rgb: personelNet >= 0 ? '22C55E' : 'EF4444' } } } };
 
   ws['!ref'] = `A1:D${rowIdx}`;
   ws['!cols'] = [

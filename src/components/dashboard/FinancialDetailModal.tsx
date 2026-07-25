@@ -9,7 +9,7 @@ import { Text, AnimatedNumber } from '@/components/ui';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, getLocaleSeparators } from '@/lib/currency';
 import { getCurrentCurrency } from '@/hooks/useSettings';
 import { useMonthSummary, type PeriodType } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
@@ -64,13 +64,15 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
   const cashFlowTotal = totalInflow + totalOutflow;
   const inflowPercent = cashFlowTotal > 0 ? (totalInflow / cashFlowTotal) * 100 : 50;
 
+  // Ayraçlar TEK kaynaktan (getLocaleSeparators). Eski hâlde değişken adı `isEnglish`
+  // olmasına rağmen içine 'de' locale'i de konmuştu → EUR ana para biriminde ayraçlar
+  // ters basılıyordu (hesap satırıyla çelişiyordu).
   const currencyConfig = useMemo(() => {
-    const config = getCurrentCurrency();
-    const isEnglish = config.locale.startsWith('en') || config.locale.startsWith('de');
+    const seps = getLocaleSeparators();
     return {
-      prefix: config.symbol,
-      decimalSeparator: isEnglish ? ('.' as const) : (',' as const),
-      thousandsSeparator: isEnglish ? (',' as const) : ('.' as const),
+      prefix: getCurrentCurrency().symbol,
+      decimalSeparator: seps.decimal as '.' | ',',
+      thousandsSeparator: seps.thousands as '.' | ',',
     };
   }, []);
 

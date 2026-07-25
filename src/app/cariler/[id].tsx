@@ -44,7 +44,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, toNumber, calculateTargetAmount, roundCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, toNumber, calculateTargetAmount, roundCurrency, getCrossCurrencyDisplay } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -306,6 +306,7 @@ export default function CariHareketleriPage() {
   // Viewer ise sahibin işlemlerini de çek: kendi isletme_id filtresi atlanır, erişimi RLS
   // (view_linked_islemler) yalnız bağlı cari ile sınırlar → güvenli, RLS'e dokunulmaz.
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByCari(id!, !!isViewer);
+
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: entityNotes } = useNotlarByEntity('cari', id!);
   const { canUpdate, canDelete, canAccessModule } = usePermissions();
@@ -360,6 +361,12 @@ export default function CariHareketleriPage() {
   const [tahsilPrefill, setTahsilPrefill] = useState<{ type: 'tahsilat' | 'odeme'; amount?: number; targetIslemId?: string } | null>(null);
   // Product detail modal state
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
+  // Ürün detay modalının para birimi: satırın TransactionRow'a verdiği AYNI değer
+  // (getCrossCurrencyDisplay). Prop geçilmezse modal ANA para birimi sembolünü basıyor
+  // ve aynı kalem satırda "× €5,00", kutu ikonunda "× ₺5,00" görünüyordu.
+  const productDetailCurrency = productDetailIslemId
+    ? getCrossCurrencyDisplay(((islemler || []).find((i) => i.id === productDetailIslemId) ?? { type: '', amount: 0 })).mainCurrency
+    : undefined;
   // Photo viewer state
   const [photoViewerIslemId, setPhotoViewerIslemId] = useState<string | null>(null);
   const [notePhotoPath, setNotePhotoPath] = useState<string | null>(null);
@@ -1431,6 +1438,9 @@ export default function CariHareketleriPage() {
         {/* Ürün Detay Modal */}
         <ProductDetailModal
           islemId={productDetailIslemId}
+          // Satırda TransactionRow'a geçirilen AYNI para birimi: kutu ikonuna basınca
+          // kalem "× ₺5,00" değil satırdaki gibi "× €5,00" görünsün.
+          currency={productDetailCurrency}
           onDismiss={() => setProductDetailIslemId(null)}
           onEdit={(islemId) => {
             setProductDetailIslemId(null);

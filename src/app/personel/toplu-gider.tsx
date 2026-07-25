@@ -96,17 +96,20 @@ export default function TopluGiderPage() {
     setAmounts(prev => ({ ...prev, [personelId]: value }));
   };
 
-  // Toplam tutar hesapla
-  const totalAmount = useMemo(() => {
-    let total = 0;
+  // Toplam tutar — PARA BİRİMİ BAŞINA. personel_gider tutarı personelin KENDİ para
+  // biriminde okunuyor; düz toplama "100 USD + 100 TRY"yi "₺200" diye yazıyordu.
+  // Kur burada satır satır sorulamadığı için çevirmek de yalan olur → ayrı satırlar.
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<string, number>();
     selectedPersonel.forEach(id => {
       const amount = parseCurrency(amounts[id] || '0');
       if (amount > 0) {
-        total += amount;
+        const cur = activePersonel.find(p => p.id === id)?.currency || 'TRY';
+        map.set(cur, (map.get(cur) ?? 0) + amount);
       }
     });
-    return total;
-  }, [selectedPersonel, amounts]);
+    return Array.from(map.entries());
+  }, [selectedPersonel, amounts, activePersonel]);
 
   // Seçili personel sayısı
   const selectedCount = useMemo(() => {
@@ -330,6 +333,8 @@ export default function TopluGiderPage() {
                         onChangeText={(val) => handleAmountChange(personel.id, val)}
                         style={styles.amountInput}
                         placeholder="0"
+                        // Tutar personelin para biriminde girilir; alanın öneki de öyle olmalı
+                        currency={personel.currency}
                       />
                     </View>
                   </TouchableOpacity>
@@ -344,9 +349,16 @@ export default function TopluGiderPage() {
               <Text variant="caption" color="secondary">
                 {selectedCount} {t('staff:titles.personnel')}
               </Text>
-              <Text variant="h3" color="error">
-                {formatCurrency(totalAmount)}
-              </Text>
+              {/* Para birimi başına ayrı satır — karışık para birimi düz toplanmaz */}
+              {totalsByCurrency.length === 0 ? (
+                <Text variant="h3" color="error">{formatCurrency(0)}</Text>
+              ) : (
+                totalsByCurrency.map(([cur, total]) => (
+                  <Text key={cur} variant="h3" color="error">
+                    {formatCurrency(total, cur)}
+                  </Text>
+                ))
+              )}
             </View>
             <Button
               variant="primary"

@@ -134,6 +134,18 @@ export default function TopluCikisPage() {
     return rows.filter(r => r.urunId && parseQuantity(r.miktar) > 0);
   }, [rows]);
 
+  /** Satırın para birimi = SEÇİLEN ÜRÜNÜN para birimi (ürün yoksa ana para birimi).
+   *  Birim fiyat ön-doldurması ürünün alis/satis_fiyati'ndan geliyor ve o fiyat ürünün
+   *  para birimindedir; picker de öyle gösteriyor. Giriş alanının ANA para birimi
+   *  sembolünü basması bu yüzden çelişkiydi. */
+  const rowCurrency = (row: StockRow): string => getUrunById(row.urunId)?.currency || currency;
+
+  /** Dolu satırlarda birden fazla para birimi var mı (cari bağlıyken kaydı engeller). */
+  const rowCurrencies = useMemo(
+    () => Array.from(new Set(validRows.map((r) => urunler?.find((u) => u.id === r.urunId)?.currency || currency))),
+    [validRows, urunler, currency]
+  );
+
   // Total amount (subtotal without KDV)
   const totalAmount = useMemo(() => {
     let total = 0;
@@ -169,16 +181,31 @@ export default function TopluCikisPage() {
       totalKdv += subtotal * (r.kdvOrani / 100);
     });
     const grandTotal = totalAmount + totalKdv;
+    // Tek para birimi varsa onunla göster; karışıksa kayıt zaten engelleniyor
+    // (aşağıdaki handleSave guard'ı) ama gösterim yine ana para birimine düşmesin.
+    const ccy = rowCurrencies.length === 1 ? rowCurrencies[0] : currency;
     return {
-      subtotalDisplay: formatCurrency(totalAmount),
-      kdvDisplay: totalKdv > 0 ? formatCurrency(totalKdv) : undefined,
-      totalDisplay: formatCurrency(grandTotal),
+      subtotalDisplay: formatCurrency(totalAmount, ccy),
+      kdvDisplay: totalKdv > 0 ? formatCurrency(totalKdv, ccy) : undefined,
+      totalDisplay: formatCurrency(grandTotal, ccy),
     };
-  }, [cariLinkEnabled, totalAmount, validRows]);
+  }, [cariLinkEnabled, totalAmount, validRows, rowCurrencies, currency]);
 
   const handleSave = async () => {
     if (validRows.length === 0) {
       Alert.alert(t('common:status.error'), t('products:bulk.noEntries'));
+      return;
+    }
+
+    // KARIŞIK PARA BİRİMİ + CARİ: cari bağlıyken TÜM satırlar TEK cari işlemine
+    // (tek tutar, tek para birimi) yazılıyor. Farklı para birimli ürünleri düz
+    // toplamak carinin bakiyesini kalıcı bozar → isimlendirilmiş net hatayla engelle.
+    // (Cari-SIZ modda her satır ayrı stok hareketi olduğu için sorun yok.)
+    if (cariLinkEnabled && selectedCariId && rowCurrencies.length > 1) {
+      Alert.alert(
+        t('products:bulk.currencyMismatchTitle'),
+        t('products:bulk.currencyMismatch', { currencies: rowCurrencies.join(', ') })
+      );
       return;
     }
 
@@ -402,7 +429,7 @@ export default function TopluCikisPage() {
                             keyboardType="decimal-pad"
                           />
                           <Text style={styles.inputUnit}>
-                            {getCurrencySymbol(currency)}
+                            {getCurrencySymbol(rowCurrency(row))}
                           </Text>
                         </View>
                       </View>
@@ -439,13 +466,13 @@ export default function TopluCikisPage() {
                       <View style={styles.rowTotalRow}>
                         {cariLinkEnabled && rowKdv > 0 ? (
                           <Text style={styles.rowTotalLabel}>
-                            {formatCurrency(rowSubtotal)} + {formatCurrency(rowKdv)} {t('common:currency.vat')} =
+                            {formatCurrency(rowSubtotal, rowCurrency(row))} + {formatCurrency(rowKdv, rowCurrency(row))} {t('common:currency.vat')} =
                           </Text>
                         ) : (
                           <Text style={styles.rowTotalLabel}>{t('common:total')}:</Text>
                         )}
                         <Text style={styles.rowTotalAmount}>
-                          {formatCurrency(rowSubtotal + rowKdv)}
+                          {formatCurrency(rowSubtotal + rowKdv, rowCurrency(row))}
                         </Text>
                       </View>
                     )}
@@ -467,8 +494,23 @@ export default function TopluCikisPage() {
               <Text style={styles.footerCount}>
                 {validRows.length} {t('products:title').toLowerCase()}
               </Text>
+              {/* Karışık para biriminde düz toplam basmak yalan olur → para birimi
+                  başına ayrı satır (tek para birimiyse tek satır, görünüm aynı). */}
               {totalAmount > 0 && (
-                <Text style={styles.footerAmount}>{formatCurrency(totalAmount)}</Text>
+                rowCurrencies.length <= 1 ? (
+                  <Text style={styles.footerAmount}>{formatCurrency(totalAmount, rowCurrencies[0] ?? currency)}</Text>
+                ) : (
+                  <View>
+                    {rowCurrencies.map((cur) => (
+                      <Text key={cur} style={styles.footerAmount}>
+                        {formatCurrency(
+                          validRows.filter((r) => rowCurrency(r) === cur).reduce((sum, r) => sum + getRowSubtotal(r), 0),
+                          cur
+                        )}
+                      </Text>
+                    ))}
+                  </View>
+                )
               )}
             </View>
             <Button

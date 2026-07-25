@@ -5,7 +5,7 @@ import { Text, Card } from '@/components/ui';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
@@ -36,7 +36,9 @@ export function QuickInsights({ dateRange }: QuickInsightsProps) {
     {
       id: 'net',
       label: t('reports:home.netPosition'),
-      value: `${generalStatus >= 0 ? '+' : ''}${formatCurrency(generalStatus)}`,
+      // formatCurrency mutlak değer basar → negatifte '+' de '-' de yoktu, iki yön
+      // birebir aynı metin görünüyordu. İki yönde de işaret koy.
+      value: formatCurrencyWithSign(generalStatus),
       color: generalStatus >= 0 ? colors.success : colors.error,
       icon: generalStatus >= 0 ? TrendingUp : TrendingDown,
     },

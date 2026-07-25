@@ -30,7 +30,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, roundCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, roundCurrency, getCrossCurrencyDisplay } from '@/lib/currency';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
@@ -314,6 +314,7 @@ export default function HesapHareketleriPage() {
 
   const { data: hesap, isLoading: hesapLoading, refetch: refetchHesap } = useHesap(id!);
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByHesap(id!);
+
   // Ürün kalemleri (satırda önizleme) — tek batch sorgu, N+1 yok
   const islemIdList = useMemo(() => (islemler || []).map((i) => i.id), [islemler]);
   const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
@@ -360,6 +361,10 @@ export default function HesapHareketleriPage() {
   const [showEditBar, setShowEditBar] = useState(false);
   // Ürün detay modal state (ürünlü işleme tıklanınca)
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
+  // Ürün detay modalının para birimi: satırın TransactionRow'a verdiği AYNI değer.
+  const productDetailCurrency = productDetailIslemId
+    ? getCrossCurrencyDisplay(((islemler || []).find((i) => i.id === productDetailIslemId) ?? { type: '', amount: 0 })).mainCurrency
+    : undefined;
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
@@ -1023,6 +1028,8 @@ export default function HesapHareketleriPage() {
       {/* Ürün Detay Modal — ürünlü işleme tıklanınca (cariler ile aynı standart) */}
       <ProductDetailModal
         islemId={productDetailIslemId}
+        // Satırdaki TransactionRow ile AYNI para birimi (kutu ikonu ≠ satır çelişkisi)
+        currency={productDetailCurrency}
         onDismiss={() => setProductDetailIslemId(null)}
         onEdit={(islemId) => {
           setProductDetailIslemId(null);

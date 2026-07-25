@@ -50,12 +50,39 @@ export function roundCurrency(value: number): number {
  * parseCurrency("43,27")    // 43.27
  */
 /**
- * Aktif (ana) para biriminin locale'ine göre binlik/ondalık ayraçlarını döndürür.
+ * PARA BİRİMİ → SAYI LOCALE'İ: TEK EŞLEME.
+ *
+ * Neden tek yerde — formatCurrency'nin iki dalı çelişiyordu: ikinci argümanla
+ * USD/EUR/GBP için KOŞULSUZ 'en-US', argümansız dalda ana para biriminin locale'i
+ * (useSettings: EUR → de-DE). Sonuç: ana para birimi EUR olan kullanıcı hesap
+ * satırında "€1.234,56", grup toplamında "€1,234.56" görüyordu — binlik ve ondalık
+ * TAM TERS. Üstelik girişi okuyan katman (parseCurrency / cleanAmountInput /
+ * formatAmountForInput, hepsi getLocaleSeparators'a dayanıyor) EUR için ondalık
+ * VİRGÜL varsayıyor; yani doğru cevap zaten de-DE'ydi ve gösterim ondan sapıyordu.
+ * XAU/XAG (gram) Türkçe biçimde yazılır — tr-TR.
+ */
+const CURRENCY_LOCALES: Record<string, string> = {
+  TRY: 'tr-TR',
+  USD: 'en-US',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  XAU: 'tr-TR',
+  XAG: 'tr-TR',
+};
+
+/** Verilen para biriminin sayı locale'i; kod yoksa ANA para biriminin locale'i. */
+export function getCurrencyLocale(code?: Currency | string | null): string {
+  if (!code) return getCurrentCurrency().locale;
+  return CURRENCY_LOCALES[code] ?? getCurrentCurrency().locale;
+}
+
+/**
+ * Binlik/ondalık ayraçlar. Kod verilmezse AKTİF (ana) para birimine göre.
  * en-US / en-GB (USD/GBP): ondalık '.', binlik ','
  * tr-TR / de-DE (TRY/EUR): ondalık ',', binlik '.'
  */
-function getLocaleSeparators(): { decimal: string; thousands: string } {
-  const locale = getCurrentCurrency().locale;
+export function getLocaleSeparators(code?: Currency | string | null): { decimal: string; thousands: string } {
+  const locale = getCurrencyLocale(code);
   return locale.startsWith('en')
     ? { decimal: '.', thousands: ',' }
     : { decimal: ',', thousands: '.' };
@@ -232,39 +259,16 @@ export function safeParseExchangeRate(value: string | number | null | undefined)
 export function formatCurrency(amount: number, accountCurrency?: Currency | string | null): string {
   const abs = Math.abs(amount);
 
-  // Hesap para birimi verilmişse onu kullan
-  if (accountCurrency) {
-    const symbol = getCurrencySymbol(accountCurrency as Currency);
-
-    // Altın/Gümüş için özel format: "1.234,56 gr"
-    if (isPreciousMetal(accountCurrency as Currency)) {
-      return `${new Intl.NumberFormat('tr-TR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(abs)} ${symbol}`;
-    }
-
-    // USD/EUR/GBP için İngilizce format: "$1,234.56"
-    if (accountCurrency === 'USD' || accountCurrency === 'EUR' || accountCurrency === 'GBP') {
-      return `${symbol}${new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(abs)}`;
-    }
-
-    // TRY için Türkçe format: "₺1.234,56"
-    return `${symbol}${new Intl.NumberFormat('tr-TR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(abs)}`;
-  }
-
-  // Hesap para birimi verilmemişse kullanıcının ayarına göre formatla
-  const currencyConfig = getCurrentCurrency();
-  return `${currencyConfig.symbol}${new Intl.NumberFormat(currencyConfig.locale, {
+  // Locale TEK eşlemeden (getCurrencyLocale): argümanlı ve argümansız dallar artık
+  // aynı kaynağı kullanıyor, 'en-US' sabiti kaldırıldı.
+  const symbol = getCurrencySymbol(accountCurrency as Currency);
+  const formatted = new Intl.NumberFormat(getCurrencyLocale(accountCurrency), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(abs)}`;
+  }).format(abs);
+
+  // Altın/Gümüş: sembol SONDA ("1.234,56 gr")
+  return isPreciousMetal(accountCurrency as Currency) ? `${formatted} ${symbol}` : `${symbol}${formatted}`;
 }
 
 /**
@@ -342,9 +346,10 @@ export function formatQuantity(value: number | string | null | undefined): strin
  * formatPercentage(45.5) // "45,5%"
  */
 export function formatPercentage(value: number, decimals: number = 1): string {
-  const currencyConfig = getCurrentCurrency();
-  const decimalSeparator = currencyConfig.locale.startsWith('tr') ? ',' : '.';
-  return `${value.toFixed(decimals).replace('.', decimalSeparator)}%`;
+  // `startsWith('tr')` kontrolü getLocaleSeparators ile ÇELİŞİYORDU: EUR (de-DE) ana
+  // para biriminde ondalık virgül beklenirken burada nokta basılıyordu.
+  const { decimal } = getLocaleSeparators();
+  return `${value.toFixed(decimals).replace('.', decimal)}%`;
 }
 
 /**
@@ -358,32 +363,25 @@ export function formatPercentage(value: number, decimals: number = 1): string {
  */
 export function formatCurrencyCompact(amount: number, accountCurrency?: Currency | string | null): string {
   const abs = Math.abs(amount);
-
-  // Hesap para birimine göre ayarları belirle
-  let symbol: string;
-  let decimalSeparator: string;
-
-  if (accountCurrency) {
-    symbol = getCurrencySymbol(accountCurrency as Currency);
-    // USD/EUR/GBP için nokta (formatCurrency bunlarda en-US formatı kullanır), diğerleri için virgül
-    decimalSeparator = (accountCurrency === 'USD' || accountCurrency === 'EUR' || accountCurrency === 'GBP') ? '.' : ',';
-  } else {
-    const currencyConfig = getCurrentCurrency();
-    symbol = currencyConfig.symbol;
-    decimalSeparator = currencyConfig.locale.startsWith('tr') ? ',' : '.';
-  }
+  const symbol = getCurrencySymbol(accountCurrency as Currency);
+  // Ayraç TEK eşlemeden — eski elle kontrol ('USD'|'EUR'|'GBP' → '.', diğeri ',')
+  // getLocaleSeparators ile çelişiyordu (EUR'da ondalık virgül olmalı).
+  const { decimal } = getLocaleSeparators(accountCurrency);
 
   // Altın/Gümüş için sembol sonda olmalı
   const isMetalCurrency = isPreciousMetal(accountCurrency as Currency);
+  // İşaret KORUNUR: kısaltılmış negatif değer ("−₺1,2M") aksi halde pozitiften
+  // ayırt edilemiyordu (formatCurrency mutlak değer basar).
+  const sign = amount < 0 ? '-' : '';
 
   if (abs >= 1_000_000) {
-    const formatted = (abs / 1_000_000).toFixed(1).replace('.', decimalSeparator);
-    return isMetalCurrency ? `${formatted}M ${symbol}` : `${symbol}${formatted}M`;
+    const formatted = (abs / 1_000_000).toFixed(1).replace('.', decimal);
+    return isMetalCurrency ? `${sign}${formatted}M ${symbol}` : `${sign}${symbol}${formatted}M`;
   }
 
   if (abs >= 10_000) {
-    const formatted = (abs / 1_000).toFixed(1).replace('.', decimalSeparator);
-    return isMetalCurrency ? `${formatted}K ${symbol}` : `${symbol}${formatted}K`;
+    const formatted = (abs / 1_000).toFixed(1).replace('.', decimal);
+    return isMetalCurrency ? `${sign}${formatted}K ${symbol}` : `${sign}${symbol}${formatted}K`;
   }
 
   return formatCurrency(amount, accountCurrency);

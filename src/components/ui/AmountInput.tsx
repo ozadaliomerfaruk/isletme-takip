@@ -22,7 +22,7 @@ export interface AmountInputProps {
   onSubmit?: () => void;
   editable?: boolean;
   onPress?: () => void;
-  /** Para birimi - belirtilmezse TRY kullanılır */
+  /** Para birimi — verilmezse ANA para biriminin sembolü basılır (sabit ₺ değil). */
   currency?: Currency;
 }
 

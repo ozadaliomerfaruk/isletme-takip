@@ -8,7 +8,7 @@ import {
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { Text } from './Text';
-import { formatCurrencyInput } from '@/lib/currency';
+import { formatCurrencyInput, formatAmountForInput } from '@/lib/currency';
 import { getCurrencySymbol } from '@/constants/currencies';
 import type { Currency } from '@/types/database';
 
@@ -19,7 +19,7 @@ interface CurrencyInputProps {
   error?: string;
   placeholder?: string;
   style?: StyleProp<TextStyle>;
-  /** Para birimi - belirtilmezse TRY kullanılır */
+  /** Para birimi — verilmezse ANA para biriminin sembolü basılır (sabit ₺ değil). */
   currency?: Currency;
   /** Özel prefix - belirtilirse para birimi sembolü yerine bu gösterilir */
   prefix?: string;
@@ -30,12 +30,15 @@ export function CurrencyInput({
   value,
   onChangeText,
   error,
-  placeholder = '0,00',
+  placeholder,
   style,
   currency,
   prefix,
 }: CurrencyInputProps) {
   const currencySymbol = prefix ?? getCurrencySymbol(currency);
+  // Placeholder locale'den üretilir: sabit '0,00' ana para birimi USD/GBP olan
+  // kullanıcıda alan içi biçimlendirme nokta ondalıkla çalışırken virgül gösteriyordu.
+  const resolvedPlaceholder = placeholder ?? formatAmountForInput(0, 2);
   // Doğrudan value'dan hesapla - gereksiz useState kaldırıldı
   const displayValue = formatCurrencyInput(value) || '';
 
@@ -58,7 +61,7 @@ export function CurrencyInput({
           style={[styles.input, style]}
           value={displayValue}
           onChangeText={handleChangeText}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           placeholderTextColor={colors.textMuted}
           keyboardType="decimal-pad"
         />

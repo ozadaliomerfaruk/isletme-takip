@@ -19,7 +19,11 @@ function setMockCurrency(code: string, symbol: string, locale: string) {
 const TR_DEFAULT = { code: 'TRY', symbol: '₺', locale: 'tr-TR' };
 
 jest.mock('@/constants/currencies', () => ({
-  getCurrencySymbol: (code: string) => {
+  // GERÇEK davranışın aynısı (constants/currencies.ts:29-35): kod YOKSA sabit '₺' değil
+  // ANA para biriminin sembolü döner. Mock bunu taklit etmezse formatCurrency'nin
+  // argümansız dalı testte "undefined1.234,56" üretir ama üretimde doğrudur.
+  getCurrencySymbol: (code?: string | null) => {
+    if (!code) return mockCurrencyConfig.symbol;
     const symbols: Record<string, string> = { TRY: '₺', USD: '$', EUR: '€', GBP: '£' };
     return symbols[code] || code;
   },
@@ -41,6 +45,12 @@ import {
   isValidBalance,
   getBalanceInfo,
   calculateBalanceSummary,
+  formatCurrency,
+  formatCurrencyWithSign,
+  formatCurrencyCompact,
+  formatPercentage,
+  getCurrencyLocale,
+  getLocaleSeparators,
 } from '../currency';
 
 // ============================================================================
@@ -692,5 +702,90 @@ describe('en-US locale (ana para birimi USD/GBP)', () => {
       // en-* locale'de virgül binliktir → tamamı atılır
       expect(cleanAmountInput('1,2,3')).toBe('123');
     });
+  });
+});
+
+// ============================================================================
+// A10: para birimi → locale TEK eşleme (formatCurrency'nin iki dalı artık ÇELİŞMİYOR)
+//
+// Eski hâl: ikinci argümanla USD/EUR/GBP → koşulsuz 'en-US'; argümansız dalda ana
+// para biriminin locale'i (EUR → de-DE). Ana para birimi EUR olan kullanıcı hesap
+// satırında "€1.234,56", grup toplamında "€1,234.56" görüyordu (ayraçlar tam ters).
+// Doğru cevap de-DE'dir: giriş katmanı (parseCurrency/cleanAmountInput/
+// formatAmountForInput → getLocaleSeparators) EUR için ondalık VİRGÜL varsayıyor.
+// ============================================================================
+describe('A10: locale eşlemesi tek kaynak', () => {
+  afterEach(() => setMockCurrency(TR_DEFAULT.code, TR_DEFAULT.symbol, TR_DEFAULT.locale));
+
+  it('getCurrencyLocale sabit eşlemeyi döndürür', () => {
+    expect(getCurrencyLocale('TRY')).toBe('tr-TR');
+    expect(getCurrencyLocale('USD')).toBe('en-US');
+    expect(getCurrencyLocale('EUR')).toBe('de-DE');
+    expect(getCurrencyLocale('GBP')).toBe('en-GB');
+    expect(getCurrencyLocale('XAU')).toBe('tr-TR');
+  });
+
+  it('kod verilmezse ANA para biriminin locale\'i', () => {
+    setMockCurrency('USD', '$', 'en-US');
+    expect(getCurrencyLocale()).toBe('en-US');
+    expect(getCurrencyLocale(null)).toBe('en-US');
+  });
+
+  it('EUR: iki dal da AYNI ayracı basar (nokta binlik + virgül ondalık)', () => {
+    // argümanlı dal
+    expect(formatCurrency(1234.56, 'EUR')).toBe('€1.234,56');
+    // argümansız dal (ana para birimi EUR)
+    setMockCurrency('EUR', '€', 'de-DE');
+    expect(formatCurrency(1234.56)).toBe('€1.234,56');
+  });
+
+  it('USD/GBP: nokta ondalık, virgül binlik (davranış değişmedi)', () => {
+    expect(formatCurrency(1234.56, 'USD')).toBe('$1,234.56');
+    expect(formatCurrency(1234.56, 'GBP')).toBe('£1,234.56');
+  });
+
+  it('TRY: virgül ondalık, nokta binlik (davranış değişmedi)', () => {
+    expect(formatCurrency(1234.56, 'TRY')).toBe('₺1.234,56');
+  });
+
+  it('getLocaleSeparators para birimine göre de çalışır (parseCurrency ile aynı varsayım)', () => {
+    expect(getLocaleSeparators('EUR')).toEqual({ decimal: ',', thousands: '.' });
+    expect(getLocaleSeparators('USD')).toEqual({ decimal: '.', thousands: ',' });
+  });
+
+  it('formatPercentage ana para biriminin ondalığını kullanır (startsWith(\'tr\') çelişkisi kalktı)', () => {
+    expect(formatPercentage(45.5)).toBe('45,5%'); // TRY
+    setMockCurrency('EUR', '€', 'de-DE');
+    expect(formatPercentage(45.5)).toBe('45,5%'); // de-DE de virgül
+    setMockCurrency('USD', '$', 'en-US');
+    expect(formatPercentage(45.5)).toBe('45.5%');
+  });
+});
+
+// ============================================================================
+// A5: negatif tutarda işaret KAYBOLMAMALI
+// formatCurrency mutlak değer basar (bilinçli: yön kelimesi öne yazıldığında
+// "Borç -₺500" daha kötü okunur). Net/fark kolonları bu yüzden işaretli
+// varyantı kullanmak ZORUNDA — aksi halde −50.000 ile +50.000 aynı metin.
+// ============================================================================
+describe('A5: işaretli para formatı', () => {
+  it('formatCurrency mutlak değer basar (sözleşme sabit)', () => {
+    expect(formatCurrency(-1234.56, 'TRY')).toBe('₺1.234,56');
+  });
+
+  it('formatCurrencyWithSign iki yönde de işaret koyar', () => {
+    expect(formatCurrencyWithSign(1234.56, 'TRY')).toBe('+₺1.234,56');
+    expect(formatCurrencyWithSign(-1234.56, 'TRY')).toBe('-₺1.234,56');
+  });
+
+  it('formatCurrencyCompact eksiyi KORUR (eskiden Math.abs ile siliniyordu)', () => {
+    expect(formatCurrencyCompact(-1_234_567, 'TRY')).toBe('-₺1,2M');
+    expect(formatCurrencyCompact(1_234_567, 'TRY')).toBe('₺1,2M');
+    expect(formatCurrencyCompact(-12_345, 'TRY')).toBe('-₺12,3K');
+  });
+
+  it('formatCurrencyCompact ayracı da tek eşlemeden alır', () => {
+    expect(formatCurrencyCompact(1_234_567, 'EUR')).toBe('€1,2M');
+    expect(formatCurrencyCompact(1_234_567, 'USD')).toBe('$1.2M');
   });
 });

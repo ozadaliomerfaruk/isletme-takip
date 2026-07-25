@@ -10,7 +10,7 @@ import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { logEvent } from '@/lib/appEvents';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize } from '@/constants/spacing';
-import { formatCurrency, formatCurrencyCompact, formatQuantity } from '@/lib/currency';
+import { formatCurrency, formatCurrencyWithSign, formatCurrencyCompact, formatQuantity } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
@@ -22,8 +22,14 @@ import { useNetWorthLenses, LensMode } from '@/hooks/useNetWorthLenses';
  * zaman değerini göstermek. Son nokta canlı "genel durum"a demirlidir.
  */
 // ccy: para birimi kodu ('TRY'|'USD'|'EUR'|'GBP'...) ya da 'gram' (altın).
+//
+// İŞARET: gram dalı formatQuantity ile eksiyi KORUYOR, para dalı formatCurrency ile
+// KAYBEDİYORDU (mutlak değer basar). Aynı satır mercek TRY iken "₺5.000", gram'a
+// çevrilince "-100 gr" görünüyordu — düşüş artıştan ayırt edilemiyordu. Negatifte
+// işaretli format kullan (pozitifte işaretsiz kalsın; tablo dili öyle).
 function fmtValue(v: number, ccy: string): string {
-  return ccy === 'gram' ? `${formatQuantity(v)} gr` : formatCurrency(v, ccy);
+  if (ccy === 'gram') return `${formatQuantity(v)} gr`;
+  return v < 0 ? formatCurrencyWithSign(v, ccy) : formatCurrency(v, ccy);
 }
 function fmtCompact(v: number, ccy: string): string {
   return ccy === 'gram' ? `${formatQuantity(v)}` : formatCurrencyCompact(v, ccy);
@@ -130,7 +136,9 @@ export default function NetVarlikTrendPage() {
       <View style={styles.deltaCell}>
         <Icon size={14} color={color} />
         <Text style={[styles.deltaText, { color }]} numberOfLines={1}>
-          {up ? '+' : ''}{fmtValue(change, dispCcy)}
+          {/* Simetrik işaret: artışta '+', düşüşte fmtValue'nun '-'si. Eşik altı
+              (±0,005) değişim "sıfır" sayılır — aksi halde -0,001 "−₺0,00" yazıyordu. */}
+          {up ? '+' : ''}{fmtValue(up || down ? change : 0, dispCcy)}
         </Text>
       </View>
     );

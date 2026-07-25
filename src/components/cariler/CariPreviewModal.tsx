@@ -7,7 +7,7 @@ import { Zap, ArrowRight, Share as ShareIcon, Phone } from 'lucide-react-native'
 import { Text, Avatar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, shadows } from '@/constants/spacing';
-import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatCurrency, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -51,7 +51,11 @@ function useSonIslemler(cariId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('islemler')
-        .select('id, type, amount, date, hesap:hesaplar!hesap_id(name)')
+        // source/target/exchange_rate + hesap.currency: getCrossCurrencyDisplay'in ihtiyacı.
+        // Bunlar çekilmezse ödeme/tahsilat satırı KAYNAK hesabın tutarını carinin para
+        // birimi etiketiyle basıyordu → önizlemede "€3.200,00", detay sayfasında aynı
+        // kayıt "€100,00" (cari detayı doğru olan taraf).
+        .select('id, type, amount, date, source_currency, target_currency, exchange_rate, hesap:hesaplar!hesap_id(name,currency)')
         .eq('isletme_id', isletme!.id)
         .eq('cari_id', cariId!)
         .order('date', { ascending: false })
@@ -176,8 +180,18 @@ export function CariPreviewModal({
                 const tip = islem.type as IslemType;
                 const renk = getEntityPerspectiveColor(tip);
                 const onek = getEntityPerspectivePrefix(tip);
-                const hesapRaw = (islem as { hesap?: { name: string } | { name: string }[] | null }).hesap;
+                const hesapRaw = (islem as { hesap?: { name: string; currency?: string | null } | { name: string; currency?: string | null }[] | null }).hesap;
                 const hesap = Array.isArray(hesapRaw) ? hesapRaw[0] : hesapRaw;
+                // Tutar cari detayıyla AYNI motordan: ana satır hedef (cari) para biriminde.
+                const xc = getCrossCurrencyDisplay({
+                  type: islem.type,
+                  amount: islem.amount,
+                  source_currency: (islem as { source_currency?: string | null }).source_currency,
+                  target_currency: (islem as { target_currency?: string | null }).target_currency,
+                  exchange_rate: (islem as { exchange_rate?: number | null }).exchange_rate,
+                  hesap: hesap ? { currency: hesap.currency } : null,
+                  cari: { currency: cari.currency },
+                });
                 return (
                   <View key={islem.id} style={styles.islemRow}>
                     <Text variant="caption" color="secondary" style={styles.islemDate}>
@@ -196,7 +210,7 @@ export function CariPreviewModal({
                       ) : null}
                     </View>
                     <Text variant="caption" style={[styles.islemAmount, { color: renk }]} numberOfLines={1}>
-                      {onek}{formatCurrency(toNumber(islem.amount), cari.currency)}
+                      {onek}{formatCurrency(xc.mainAmount, xc.mainCurrency ?? cari.currency)}
                     </Text>
                   </View>
                 );
