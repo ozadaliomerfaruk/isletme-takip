@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, ExpandableCard, EmptyState, Screen } from '@/components/ui';
+import { OzetModeToggle } from '@/components/urunlerPage/OzetModeToggle';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -557,26 +558,8 @@ export default function UrunDetayPage() {
                       <View style={styles.ozetHeaderRow}>
                         <Text variant="label" style={{ fontSize: 16 }}>{t('products:stock.monthlyReport')}</Text>
                         {/* Miktar / Tutar gecisi — header icindeki dokunma kartı acip kapatmaz */}
-                        <View style={styles.ozetToggle}>
-                          <TouchableOpacity
-                            style={[styles.ozetToggleBtn, ozetMode === 'miktar' && styles.ozetToggleBtnActive]}
-                            onPress={() => setOzetMode('miktar')}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={[styles.ozetToggleText, ozetMode === 'miktar' && styles.ozetToggleTextActive]}>
-                              {upperTr(t('products:stock.quantity'))}
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.ozetToggleBtn, ozetMode === 'tutar' && styles.ozetToggleBtnActive]}
-                            onPress={() => setOzetMode('tutar')}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={[styles.ozetToggleText, ozetMode === 'tutar' && styles.ozetToggleTextActive]}>
-                              {upperTr(t('products:stock.amount'))}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
+                        {/* Paylaşılan bileşen: ürün LİSTESİNDEKİ geçişin AYNISI */}
+                        <OzetModeToggle mode={ozetMode} onChange={setOzetMode} />
                       </View>
                     }
                   >
@@ -879,31 +862,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  ozetToggle: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.full,
-    padding: 2,
-  },
-  // Liste sayfasındaki Miktar/Tutar geçişiyle BİREBİR aynı ölçüler (urunler/index.tsx
-  // ozetToggleStyles): aynı kontrol iki yüzeyde farklı puntoyla duruyordu (14/600 vs
-  // 12/700) ve etiketler burada büyük harfe çevrilmiyordu.
-  ozetToggleBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-    borderRadius: borderRadius.full,
-  },
-  ozetToggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  ozetToggleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-  },
-  ozetToggleTextActive: {
-    color: colors.white,
-  },
+  // Miktar/Tutar geçişinin stilleri artık paylaşılan OzetModeToggle bileşeninde.
   // Pill renkleri: giriş = ALIŞ → kırmızı, çıkış = SATIŞ → yeşil (gelir/gider mantığı)
   aylikPillIn: {
     backgroundColor: colors.errorLight,

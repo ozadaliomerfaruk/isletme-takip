@@ -27,7 +27,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
+import { Text, FloatingSearchBar, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -46,6 +46,7 @@ import type { Personel } from '@/types/database';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { exportEntityListToExcel, type EntityListCell, type EntityListSummaryLine, type EntityListExportOptions } from '@/lib/excelExport';
@@ -58,6 +59,9 @@ const PersonelListSeparator = () => <View style={styles.separator} />;
 export default function PersonelPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  /** search: true → FLOATING_SEARCH_CLEARANCE'ı hook'un kendisi ekler; alt boşluk
+   *  hem cam tab bar'ı hem yüzen arama pill'ini TEK kaynaktan temizler. */
+  const contentPaddingBottom = useContentBottomPadding({ search: true });
   const handleTabScroll = useTabBarScroll();
   const listRef = useRef<FlatList>(null);
   useRegisterScrollToTop('personel', () => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
@@ -749,7 +753,7 @@ export default function PersonelPage() {
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
         extraData={{ selectedIds, isSelectMode, sortBy, expandedPersonelId }}
-        contentContainerStyle={[styles.listContainer, { paddingTop: headerH, paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+        contentContainerStyle={[styles.listContainer, { paddingTop: headerH, paddingBottom: contentPaddingBottom }]}
       />
 
       <TabHeader
@@ -1016,7 +1020,9 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
+    // Alt boşluk BURADA DEĞİL: inline paddingBottom (contentPaddingBottom) onu
+    // eziyordu, yani buradaki değer ölüydü. İki yerde iki farklı cevap olması
+    // "hangisi geçerli?" tuzağı kuruyor — tek kaynak useContentBottomPadding.
   },
   personelHeaderWrap: {
     flex: 1,

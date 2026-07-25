@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
 import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, FloatingSearchBar, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen, SkeletonAccountList } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
+import { OzetModeToggle } from '@/components/urunlerPage/OzetModeToggle';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
 import { styles } from '@/components/urunlerPage/styles';
@@ -15,7 +16,7 @@ import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
+import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useUrunler, useArchiveUrun, usePermanentDeleteUrun, countUrunLinkedMovements } from '@/hooks/useUrunler';
 import { toErrorMessage } from '@/lib/errors';
@@ -648,26 +649,8 @@ export default function UrunlerPage() {
               </View>
             )}
 
-            <View style={ozetToggleStyles.toggle}>
-              <TouchableOpacity
-                style={[ozetToggleStyles.btn, ozetMode === 'miktar' && ozetToggleStyles.btnActive]}
-                onPress={() => { haptics.light(); setOzetMode('miktar'); }}
-                activeOpacity={0.8}
-              >
-                <Text style={[ozetToggleStyles.txt, ozetMode === 'miktar' && ozetToggleStyles.txtActive]}>
-                  {upperTr(t('products:stock.quantity'))}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[ozetToggleStyles.btn, ozetMode === 'tutar' && ozetToggleStyles.btnActive]}
-                onPress={() => { haptics.light(); setOzetMode('tutar'); }}
-                activeOpacity={0.8}
-              >
-                <Text style={[ozetToggleStyles.txt, ozetMode === 'tutar' && ozetToggleStyles.txtActive]}>
-                  {upperTr(t('products:stock.amount'))}
-                </Text>
-              </TouchableOpacity>
-            </View>
+            {/* Paylaşılan bileşen: ürün detayındaki geçişin AYNISI (iki kopya ayrışıyordu) */}
+            <OzetModeToggle mode={ozetMode} onChange={setOzetMode} onPressFeedback={haptics.light} />
           </View>
         </View>
       )}
@@ -1022,28 +1005,3 @@ export default function UrunlerPage() {
 
 // Miktar / Tutar geçiş anahtarı (ürün detay sayfasındaki toggle ile aynı görünüm;
 // dönem gezinme satırının sağında konumlanır)
-const ozetToggleStyles = StyleSheet.create({
-  toggle: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.full,
-    padding: 2,
-  },
-  btn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 5,
-    borderRadius: borderRadius.full,
-  },
-  btnActive: {
-    backgroundColor: colors.primary,
-  },
-  txt: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    color: colors.textSecondary,
-  },
-  txtActive: {
-    color: colors.white,
-  },
-});
