@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, CategoryPicker, UnitPicker } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { BirimType, KdvOrani } from '@/types/database';
@@ -58,6 +59,7 @@ interface UrunFormProps {
 
 export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }: UrunFormProps) {
   const { t } = useTranslation(['products', 'common', 'transactions']);
+  const contentPaddingBottom = useContentBottomPadding();
 
   const [ad, setAd] = useState(DEFAULT_VALUES.ad);
   const [kod, setKod] = useState(DEFAULT_VALUES.kod);
@@ -111,7 +113,11 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
+          // A SINIFI: butonlar sabit footer DEĞİL, kaydırma içeriğinin parçası
+          // (aşağıda, ScrollView'ın içinde). Dolayısıyla alt boşluk İÇERİĞE
+          // ait — eskiden sabit spacing['3xl'] idi ve overlay tab bar'ı
+          // temizlemiyordu, butonlar bar'ın altında kalıyordu.
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"

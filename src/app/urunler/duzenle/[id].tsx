@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/ui';
+import { Text , Screen } from '@/components/ui';
 import { UrunForm, type UrunFormValues } from '@/components/urun/UrunForm';
 import { colors } from '@/constants/colors';
 import { useUrun, useUpdateUrun } from '@/hooks/useUrunler';
@@ -73,11 +72,11 @@ export default function UrunDuzenlePage() {
     return (
       <>
         {stackScreen}
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <Screen>
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        </SafeAreaView>
+        </Screen>
       </>
     );
   }
@@ -86,11 +85,11 @@ export default function UrunDuzenlePage() {
     return (
       <>
         {stackScreen}
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <Screen>
           <View style={styles.loadingContainer}>
             <Text color="secondary">{t('errors:product.notFound')}</Text>
           </View>
-        </SafeAreaView>
+        </Screen>
       </>
     );
   }
@@ -98,7 +97,7 @@ export default function UrunDuzenlePage() {
   return (
     <>
       {stackScreen}
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <UrunForm
           mode="edit"
           initialValues={initialValues}
@@ -106,7 +105,7 @@ export default function UrunDuzenlePage() {
           onSubmit={handleSubmit}
           onCancel={() => router.back()}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

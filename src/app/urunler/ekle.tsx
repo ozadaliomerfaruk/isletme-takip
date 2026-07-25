@@ -1,9 +1,8 @@
-import { StyleSheet, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Screen } from '@/components/ui';
+import { Alert } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { UrunForm, type UrunFormValues } from '@/components/urun/UrunForm';
-import { colors } from '@/constants/colors';
 import { useCreateUrun } from '@/hooks/useUrunler';
 import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { useSettings } from '@/hooks/useSettings';
@@ -99,21 +98,16 @@ export default function UrunEklePage() {
           headerBackTitle: t('navigation:back.back'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <UrunForm
           mode="create"
           submitting={createUrun.isPending || createUrunHareket.isPending}
           onSubmit={handleSubmit}
           onCancel={() => router.back()}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-});
+// container stili Screen'e taşındı (flex + arka plan orada).
