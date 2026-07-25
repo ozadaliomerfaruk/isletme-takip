@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Pressable, TextInput, Platform, KeyboardAvoidingView, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   X,
@@ -57,13 +58,16 @@ export function NoteInputModal({
   initialData,
   isEditing = false,
   loading = false,
-  entityType,
+  entityType: _entityType,
   entityId: _entityId,
   existingPhotoPath,
   hideUserAssignment,
 }: NoteInputModalProps) {
   const { t, i18n } = useTranslation(['common']);
   const inputRef = useRef<TextInput>(null);
+  // Sheet ekranın dibine yaslı: Kaydet/İptal home indicator'ın altında kalmasın.
+  // Modal içeriği ModalInsets ile sarılı olduğundan bu değer GERÇEK (bar'sız).
+  const insets = useSafeAreaInsets();
 
   const [content, setContent] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
@@ -251,7 +255,7 @@ export function NoteInputModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Pressable style={styles.backdrop} onPress={handleDismiss} />
-        <View style={styles.container}>
+        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
           {/* Header */}
           <View style={styles.header}>
             <Text variant="h3">
@@ -493,7 +497,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: borderRadius.xl,
     paddingTop: spacing.lg,
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    // paddingBottom inline: Math.max(insets.bottom, spacing.xl)
     maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -4 },

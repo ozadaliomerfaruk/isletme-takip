@@ -24,7 +24,6 @@ import * as Haptics from 'expo-haptics';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { Text } from './Text';
-import { ModalInsets } from './ModalInsets';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 80;
@@ -271,10 +270,8 @@ export function ActionSheet({
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
-      {/* Modal AYRI NATIVE PENCEREDE: tab bar burada çizilmiyor, dolayısıyla
-          insets override'sız GERÇEK değere dönmeli — yoksa ~72px hayalet alt
-          boşluk kalır. Bkz. ModalInsets. */}
-      <ModalInsets>
+      {/* ui/Modal içeriği ModalInsets ile sarar: buradaki insets GERÇEK
+          (tab bar'sız) değerdir, elle sarmaya gerek yok. */}
       <GestureHandlerRootView style={styles.container}>
         {/* Blur Backdrop */}
         <Pressable style={StyleSheet.absoluteFill} onPress={handleClose}>
@@ -351,7 +348,6 @@ export function ActionSheet({
           </Animated.View>
         </GestureDetector>
       </GestureHandlerRootView>
-      </ModalInsets>
     </Modal>
   );
 }

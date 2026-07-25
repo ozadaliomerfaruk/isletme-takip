@@ -1,7 +1,8 @@
 import { type ReactNode } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
+import { Text } from './Text';
 import { GlassSurface, LIQUID_GLASS, FLOATING_CONTROL_SIZE } from './GlassSurface';
 
 /** Alt bölgedeki yüzen kontrollerle ORTAK — ayrı bir sayı yazma, bkz. sabit. */
@@ -113,7 +114,9 @@ export function GlassFabMenuItem({ icon, label, onPress }: GlassFabMenuItemProps
         accessibilityLabel={label}
       >
         {LIQUID_GLASS ? icon : <View style={styles.menuIconCircle}>{icon}</View>}
-        <Text style={styles.menuLabel}>{label}</Text>
+        {/* Ölçek ui Text'in variant'ından: ham Text + elle fontSize, komşusu
+            ActionSheet satırlarından ayrı bir ölçekte okunuyordu. */}
+        <Text variant="body" style={styles.menuLabel}>{label}</Text>
       </TouchableOpacity>
     </GlassSurface>
   );
@@ -170,8 +173,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   menuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
+    // Yalnız ölçeğe ait OLMAYAN fark: menü satırı vurgulu okunmalı.
+    fontWeight: fontWeight.semibold,
   },
 });

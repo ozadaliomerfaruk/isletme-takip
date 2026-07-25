@@ -9,6 +9,8 @@ import {
 import { ChevronRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { Text } from './Text';
+import { colors } from '@/constants/colors';
+import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 
 export interface OptionRowProps {
   icon: React.ReactNode;
@@ -102,7 +104,7 @@ export function OptionRow({
           {showChevron && !disabled && (
             <ChevronRight
               size={20}
-              color="#86868B"
+              color={colors.textMuted}
               style={styles.chevron}
             />
           )}
@@ -113,10 +115,12 @@ export function OptionRow({
 }
 
 const styles = StyleSheet.create({
+  // Renk/ölçü paletten: elle yazılan Apple sistem grileri paletle çakışıyordu
+  // (ör. ikincil metin #86868B açık zeminde 3.1:1 ile WCAG AA'nın altındaydı).
   container: {
-    backgroundColor: '#F5F5F7',
-    borderRadius: 12,
-    marginBottom: 8,
+    backgroundColor: colors.surfaceLight,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.04,
@@ -124,13 +128,13 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   containerError: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.errorLight,
   },
   touchable: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     minHeight: 56,
   },
   iconContainer: {
@@ -140,14 +144,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   label: {
-    fontSize: 17,
+    fontSize: fontSize.lg,
     fontWeight: '400',
-    color: '#1D1D1F',
-    marginLeft: 12,
+    color: colors.text,
+    marginLeft: spacing.md,
     flex: 1,
   },
   labelDisabled: {
-    color: '#86868B',
+    color: colors.textMuted,
   },
   valueContainer: {
     flexDirection: 'row',
@@ -155,17 +159,20 @@ const styles = StyleSheet.create({
     maxWidth: '45%',
   },
   value: {
-    fontSize: 17,
+    fontSize: fontSize.lg,
     fontWeight: '400',
-    color: '#86868B',
+    color: colors.textSecondary,
   },
+  // Placeholder/pasif metin METİN tokenı olmalı: colors.border bir ÇİZGİ tonu
+  // (#E5E7EB), surfaceLight zemininde 1.24:1 ile fiilen görünmez kalıyordu.
+  // Hiyerarşi tondan geliyor: dolu değer textSecondary, boş/pasif textMuted.
   valuePlaceholder: {
-    color: '#C7C7CC',
+    color: colors.textMuted,
   },
   valueDisabled: {
-    color: '#C7C7CC',
+    color: colors.textMuted,
   },
   chevron: {
-    marginLeft: 4,
+    marginLeft: spacing.xs,
   },
 });

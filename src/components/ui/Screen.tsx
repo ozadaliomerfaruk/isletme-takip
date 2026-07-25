@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 
 /**
  * ══════════════════════════════════════════════════════════════════════════
@@ -48,11 +49,22 @@ export function Screen({ children, footer, footerStyle, top = false, style }: Sc
   return (
     <View style={[styles.container, top && { paddingTop: insets.top }, style]}>
       {children}
-      {footer ? (
-        <View style={[{ paddingBottom: insets.bottom }, footerStyle]}>{footer}</View>
-      ) : null}
+      {footer ? <ScreenFooter style={footerStyle}>{footer}</ScreenFooter> : null}
     </View>
   );
+}
+
+/**
+ * Footer'ın alt boşluğu KLAVYEYE DUYARLI olmak zorunda: klavye açıkken
+ * KeyboardAvoidingView footer'ı zaten yukarı kaldırıyor, insets.bottom koşulsuz
+ * eklenirse arada ~118px boşluk açılıyor (bkz. useFooterBottomPadding).
+ *
+ * Hook neden ayrı bileşende: footer'sız ekranlara klavye dinleyicisi binmesin —
+ * Screen uygulamadaki HER ekranın kökü.
+ */
+function ScreenFooter({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
+  const footerInset = useFooterBottomPadding();
+  return <View style={[{ paddingBottom: footerInset }, style]}>{children}</View>;
 }
 
 const styles = StyleSheet.create({

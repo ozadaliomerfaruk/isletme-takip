@@ -88,13 +88,12 @@ export function AccountReportCard({ item, type, onPress }: AccountReportCardProp
 }
 
 const styles = StyleSheet.create({
+  // Yapışık düz-liste görünümü (cariler dili): kutu değil satır, ayrım 1px çizgi
   container: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
     padding: spacing.md,
-    marginBottom: spacing.xs,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   header: {
     flexDirection: 'row',

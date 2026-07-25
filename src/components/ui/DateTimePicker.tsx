@@ -1,11 +1,11 @@
 import { Modal } from './Modal';
 import { useState, useMemo, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Calendar, Clock } from 'lucide-react-native';
 import { Text } from './Text';
-import { Button } from './Button';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -33,6 +33,10 @@ export function DateTimePicker({
 }: DateTimePickerProps) {
   const { t } = useTranslation('common');
   const { locale, formatDateNative, formatTimeNative } = useDateFormat();
+  // Alta yaslı iOS modalında spinner'ın son satırı home indicator şeridine
+  // girmesin (sürüklenen kontrol → sistem jestiyle çakışıyordu). Modal ayrı
+  // native pencerede olduğundan ModalInsets bu değeri GERÇEK (bar'sız) verir.
+  const insets = useSafeAreaInsets();
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -118,7 +122,7 @@ export function DateTimePicker({
         onRequestClose={() => handleIOSCancel(pickerType)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.md }]}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => handleIOSCancel(pickerType)}>
                 <Text variant="body" color="secondary">{t('common:buttons.cancel')}</Text>
@@ -265,7 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
-    paddingBottom: spacing['2xl'],
+    // paddingBottom inline: insets.bottom + spacing.md
   },
   modalHeader: {
     flexDirection: 'row',

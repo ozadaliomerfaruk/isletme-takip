@@ -1,5 +1,5 @@
 import { Modal } from './Modal';
-import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -121,7 +121,7 @@ import {
 } from 'lucide-react-native';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { CATEGORY_ICONS } from '@/constants/categoryIcons';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 
@@ -315,82 +315,89 @@ export function IconPicker({ value, onChange, color = colors.primary }: IconPick
         transparent={true}
         onRequestClose={handleClose}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-            <View style={styles.modalHeader}>
-              <Text variant="h3">{t('common:select.selectIcon')}</Text>
-              <TouchableOpacity
-                onPress={handleClose}
-                style={styles.closeButton}
-              >
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Başlık altında sabit arama çubuğu */}
-            <ModalSearchBar
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder={t('common:search.searchIcons')}
-            />
-
-            <ScrollView
-              style={styles.iconGrid}
-              contentContainerStyle={styles.iconGridContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {filteredIcons.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Search size={48} color={colors.textMuted} />
-                  <Text variant="body" color="secondary" style={styles.emptyText}>
-                    {t('common:search.noResultsFor', { query: searchQuery })}
-                  </Text>
+        {/* Kardeş picker'larla ortak kapanma jesti: dış katman backdrop'a
+            dokununca kapatır, iç katman dokunuşu yutar (bkz. UnitPicker). */}
+        <TouchableWithoutFeedback onPress={handleClose}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                <View style={styles.modalHeader}>
+                  <Text variant="h3">{t('common:select.selectIcon')}</Text>
+                  <TouchableOpacity
+                    onPress={handleClose}
+                    style={styles.closeButton}
+                    hitSlop={HIT_SLOP.md}
+                  >
+                    <X size={24} color={colors.text} />
+                  </TouchableOpacity>
                 </View>
-              ) : (
-                filteredIcons.map((icon) => {
-                  const IconComponent = ICON_MAP[icon.name];
-                  if (!IconComponent) return null;
 
-                  const isSelected = value === icon.name;
+                {/* Başlık altında sabit arama çubuğu */}
+                <ModalSearchBar
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  placeholder={t('common:search.searchIcons')}
+                />
 
-                  return (
-                    <TouchableOpacity
-                      key={icon.name}
-                      style={[
-                        styles.iconItem,
-                        isSelected && styles.iconItemSelected,
-                        isSelected && { borderColor: color },
-                      ]}
-                      onPress={() => handleSelect(icon.name)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[
-                        styles.iconItemInner,
-                        { backgroundColor: isSelected ? color + '20' : colors.surfaceLighter }
-                      ]}>
-                        <IconComponent size={24} color={isSelected ? color : colors.textSecondary} />
-                      </View>
-                      <Text
-                        variant="caption"
-                        color={isSelected ? 'primary' : 'secondary'}
-                        numberOfLines={1}
-                        style={styles.iconLabel}
-                      >
-                        {icon.label}
+                <ScrollView
+                  style={styles.iconGrid}
+                  contentContainerStyle={styles.iconGridContent}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  {filteredIcons.length === 0 ? (
+                    <View style={styles.emptyState}>
+                      <Search size={48} color={colors.textMuted} />
+                      <Text variant="body" color="secondary" style={styles.emptyText}>
+                        {t('common:search.noResultsFor', { query: searchQuery })}
                       </Text>
-                      {isSelected && (
-                        <View style={[styles.checkBadge, { backgroundColor: color }]}>
-                          <Check size={12} color={colors.white} />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-            </ScrollView>
+                    </View>
+                  ) : (
+                    filteredIcons.map((icon) => {
+                      const IconComponent = ICON_MAP[icon.name];
+                      if (!IconComponent) return null;
+
+                      const isSelected = value === icon.name;
+
+                      return (
+                        <TouchableOpacity
+                          key={icon.name}
+                          style={[
+                            styles.iconItem,
+                            isSelected && styles.iconItemSelected,
+                            isSelected && { borderColor: color },
+                          ]}
+                          onPress={() => handleSelect(icon.name)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[
+                            styles.iconItemInner,
+                            { backgroundColor: isSelected ? color + '20' : colors.surfaceLighter }
+                          ]}>
+                            <IconComponent size={24} color={isSelected ? color : colors.textSecondary} />
+                          </View>
+                          <Text
+                            variant="caption"
+                            color={isSelected ? 'primary' : 'secondary'}
+                            numberOfLines={1}
+                            style={styles.iconLabel}
+                          >
+                            {icon.label}
+                          </Text>
+                          {isSelected && (
+                            <View style={[styles.checkBadge, { backgroundColor: color }]}>
+                              <Check size={12} color={colors.white} />
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </>
   );
