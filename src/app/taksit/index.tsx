@@ -233,7 +233,9 @@ export default function TaksitTakipPage() {
               <Animated.View
                 key={item.label}
                 style={{
-                  opacity: fabAnim,
+                  // OPACITY YOK: içerideki satır cam (GlassFabMenuItem) ve cam
+                  // yüzeyin atasında alpha<1 malzemeyi çökertiyor — yazı görünür,
+                  // kapsül kaybolur. Geçiş yalnız transform ile. Bkz. GlassSurface.
                   transform: [
                     { translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [20 + item.index * 10, 0] }) },
                     { scale: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) },

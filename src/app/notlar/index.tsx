@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
-import ReAnimated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
@@ -421,8 +421,8 @@ export default function NotlarPage() {
         {!searchActive && (
           <ReAnimated.View
             style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-            entering={FadeIn.duration(150)}
-            exiting={FadeOut.duration(150)}
+            entering={ZoomIn.duration(150)}
+            exiting={ZoomOut.duration(150)}
           >
             <GlassFab
               color={colors.warning}

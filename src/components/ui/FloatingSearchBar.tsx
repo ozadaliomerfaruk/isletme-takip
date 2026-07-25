@@ -14,6 +14,8 @@ import Animated, {
   withTiming,
   FadeIn,
   FadeOut,
+  ZoomIn,
+  ZoomOut,
 } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
@@ -162,6 +164,8 @@ export function FloatingSearchBar({
               returnKeyType="search"
             />
             {value.length > 0 && (
+              // Bu X cam yüzeyin TORUNU (pill'in içinde), ATASI değil — alt
+              // katmana alpha vermek cam view'in kendisini etkilemez, fade kalabilir.
               <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
                 {/* İçerideki X: yalnızca yazılanı siler, odak korunur */}
                 <TouchableOpacity
@@ -179,7 +183,9 @@ export function FloatingSearchBar({
           </Pressable>
         </GlassSurface>
         {isActive && (
-          <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
+          // ZoomIn/Out (fade DEĞİL): içerideki buton cam ve cam yüzeyin atasında
+          // alpha<1 malzemeyi çökertiyor. Zoom yalnız transform sürer. Bkz. GlassSurface.
+          <Animated.View entering={ZoomIn.duration(150)} exiting={ZoomOut.duration(150)}>
             {/* Dışarıdaki X: aramayı tamamen kapatır (metin + klavye) */}
             <GlassSurface style={styles.dismissButton} fallbackStyle={styles.dismissFallback} interactive>
               <TouchableOpacity

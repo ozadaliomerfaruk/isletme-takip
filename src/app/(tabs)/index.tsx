@@ -666,7 +666,9 @@ export default function HomePage() {
             <Animated.View
               key={item.label}
               style={{
-                opacity: fabAnim,
+                // OPACITY YOK: içerideki satır cam (GlassFabMenuItem) ve cam
+                // yüzeyin atasında alpha<1 malzemeyi çökertiyor — yazı görünür,
+                // kapsül kaybolur. Geçiş yalnız transform ile. Bkz. GlassSurface.
                 transform: [{
                   translateY: fabAnim.interpolate({
                     inputRange: [0, 1],

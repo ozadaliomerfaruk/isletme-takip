@@ -1,6 +1,6 @@
 ﻿import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
-import ReAnimated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
@@ -926,7 +926,9 @@ export default function UrunlerPage() {
             <Animated.View
               key={item.label}
               style={{
-                opacity: fabAnim,
+                // OPACITY YOK: içerideki satır cam (GlassFabMenuItem) ve cam
+                // yüzeyin atasında alpha<1 malzemeyi çökertiyor — yazı görünür,
+                // kapsül kaybolur. Geçiş yalnız transform ile. Bkz. GlassSurface.
                 transform: [{
                   translateY: fabAnim.interpolate({
                     inputRange: [0, 1],
@@ -951,8 +953,8 @@ export default function UrunlerPage() {
       {activeTab === 'active' && !searchActive && (
         <ReAnimated.View
           style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-          entering={FadeIn.duration(150)}
-          exiting={FadeOut.duration(150)}
+          entering={ZoomIn.duration(150)}
+          exiting={ZoomOut.duration(150)}
         >
           <GlassFab
             onPress={() => {
