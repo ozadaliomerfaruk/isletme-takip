@@ -64,6 +64,8 @@ export function getActiveTab(segments: readonly string[]): string | null {
   if (first === 'arsiv') return 'daha';
   if (first === 'taksit') return 'daha';
   if (first === 'yasal') return 'daha';
+  if (first === 'yardim') return 'daha';
+  if (first === 'gelistirici-notu') return 'daha';
 
   return 'home';
 }

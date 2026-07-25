@@ -2,7 +2,7 @@
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
 import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTabBarScroll } from '@/lib/tabBarScroll';
+import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
@@ -46,6 +46,8 @@ export default function UrunlerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const handleTabScroll = useTabBarScroll();
+  const listRef = useRef<FlatList>(null);
+  useRegisterScrollToTop('urunler', () => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
   const haptics = useHaptics();
   const { t } = useTranslation(['products', 'common', 'errors', 'reports', 'categories']);
   const { getDateRangeLabel, locale } = useDateFormat();
@@ -784,6 +786,7 @@ export default function UrunlerPage() {
           arkasından akıyor. Bu yüzden header listeden SONRA render ediliyor
           (üstte boyansın) ve listenin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
       <FlatList
+        ref={listRef}
         onScroll={handleTabScroll}
         scrollEventThrottle={16}
         data={isLoading ? [] : listData}

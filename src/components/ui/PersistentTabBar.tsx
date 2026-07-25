@@ -11,7 +11,7 @@ import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, int
 import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
-import { tabBarCollapsed, resetTabBarCollapse } from '@/lib/tabBarScroll';
+import { tabBarCollapsed, resetTabBarCollapse, scrollTabToTop } from '@/lib/tabBarScroll';
 import { getActiveTab } from '@/lib/tabBarVisibility';
 import { AnimatedGlassView, GLASS_TINT, FALLBACK_FROST, FALLBACK_BLUR_INTENSITY } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
@@ -230,8 +230,15 @@ export function PersistentTabBar() {
   const commitIndex = useCallback((i: number) => {
     const tab = visibleTabsRef.current[i];
     if (!tab) return;
-    if (tab.key !== activeTabRef.current) {
-      goToTab(router, segmentsRef.current as string[], tab.route);
+    const seg = segmentsRef.current as string[];
+    const onTabRoot = seg[0] === '(tabs)';
+    // Aktif sekme + ZATEN kökündeyiz → o sekmenin listesini en üste kaydır.
+    // Aksi halde köke git: farklı sekme (JUMP) VEYA aynı sekmenin alt-sayfası
+    // (ör. cari detay → Cariler'e basınca cari listesine dön = dismissTo/POP_TO).
+    if (tab.key === activeTabRef.current && onTabRoot) {
+      scrollTabToTop(tab.key);
+    } else {
+      goToTab(router, seg, tab.route);
     }
   }, [router]);
 

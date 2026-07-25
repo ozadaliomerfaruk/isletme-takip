@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Linking } from 'react-native';
-import { useTabBarScroll } from '@/lib/tabBarScroll';
+import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import {
@@ -223,10 +223,12 @@ export default function DahaPage() {
 
   const insets = useSafeAreaInsets();
   const handleTabScroll = useTabBarScroll();
+  const scrollRef = useRef<ScrollView>(null);
+  useRegisterScrollToTop('daha', () => scrollRef.current?.scrollTo({ y: 0, animated: true }));
 
   return (
     <Screen top>
-      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom }} showsVerticalScrollIndicator={false} onScroll={handleTabScroll} scrollEventThrottle={16}>
+      <ScrollView ref={scrollRef} style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom }} showsVerticalScrollIndicator={false} onScroll={handleTabScroll} scrollEventThrottle={16}>
         <SharedIsletmeBanner />
         {/* Profile Card */}
         <View style={styles.profileSection}>

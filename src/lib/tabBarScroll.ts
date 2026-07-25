@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import type { NativeSyntheticEvent, NativeScrollEvent } from 'react-native';
 import { makeMutable, withSpring } from 'react-native-reanimated';
 
@@ -66,4 +66,25 @@ export function resetTabBarCollapse() {
   if (target === 0) return;
   target = 0;
   tabBarCollapsed.value = withSpring(0, COLLAPSE_SPRING);
+}
+
+// ── Sekme re-press → en üste kaydır ──────────────────────────────────────────
+// Aktif sekmeye (zaten kökündeyken) yeniden basınca o sekmenin listesi en üste kayar.
+// Her sekme ekranı kendi scroll fonksiyonunu kaydeder; PersistentTabBar aktif olanı çağırır.
+const scrollToTopHandlers: Record<string, () => void> = {};
+
+/** Sekme ekranı mount'ta çağırır: bu sekmenin "en üste kaydır" fonksiyonunu kaydeder. */
+export function useRegisterScrollToTop(tabKey: string, handler: () => void) {
+  const ref = useRef(handler);
+  ref.current = handler;
+  useEffect(() => {
+    const fn = () => ref.current();
+    scrollToTopHandlers[tabKey] = fn;
+    return () => { if (scrollToTopHandlers[tabKey] === fn) delete scrollToTopHandlers[tabKey]; };
+  }, [tabKey]);
+}
+
+/** PersistentTabBar: aktif sekmeye yeniden basınca çağrılır → o sekme en üste kayar. */
+export function scrollTabToTop(tabKey: string) {
+  scrollToTopHandlers[tabKey]?.();
 }
