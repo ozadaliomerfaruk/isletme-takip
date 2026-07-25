@@ -1,0 +1,84 @@
+{
+ "cluster": "c02",
+ "ownedFiles": [
+  "src/app/notlar/index.tsx",
+  "src/app/arsiv/index.tsx",
+  "src/app/islemler/index.tsx",
+  "src/app/islemler/gelir.tsx",
+  "src/app/(tabs)/daha.tsx"
+ ],
+ "findings": [
+  {
+   "file": "src/app/notlar/index.tsx",
+   "line": 348,
+   "title": "Yatay filtre çubuğuna alt boşluk uygulanmış — chip'lerin altında ~106px hayalet boşluk",
+   "category": "alt-bosluk",
+   "severity": "high",
+   "detail": "YATAY (horizontal) filtre FlatList'inin contentContainerStyle'ına `paddingBottom: contentPaddingBottom` verilmiş. Yatay listede contentContainer'ın paddingBottom'u içerik YÜKSEKLİĞİNİ büyütür; liste flex ile sınırlanmadığı için (filtersContainer:493-495 sadece paddingVertical) sarmalayıcı da büyür. insets.bottom (34) + tab bar (72) = ~106px'lik boş bir şerit chip'lerle görev alt-filtreleri/not listesi arasına giriyor. Bu, b1ea0d4 numaralı otomatik Screen taşımasının yan hasarı — alt boşluk KAYDIRMA İÇERİĞİNE aittir, ama buradaki kaydırma yatay ve ekranın TEPESİNDE.",
+   "evidence": "src/app/notlar/index.tsx:343-348 `<FlatList horizontal ... contentContainerStyle={[styles.filtersList, { paddingBottom: contentPaddingBottom }]}` ; :86 `const contentPaddingBottom = useContentBottomPadding();` ; styles.filtersList :496-499 (yalnız paddingHorizontal + gap). Taşıma commit'i: `git show b1ea0d4 -- src/app/notlar/index.tsx` bu satırı `contentContainerStyle={styles.filtersList}` → dizi haline getiriyor. AYNI SINIF HATA alan dışında da var: src/app/ayarlar/islem-gecmisi.tsx:202-206 (horizontal ScrollView chipRow + contentPaddingBottom).",
+   "fix": "Satır 348'i `contentContainerStyle={styles.filtersList}` haline geri al — yatay filtre şeridinin alt boşlukla hiçbir ilgisi yok.",
+   "id": 1,
+   "verifyNote": "notlar/index.tsx:348 gerçekten yatay FlatList'in contentContainerStyle'ına contentPaddingBottom veriyor; filtersContainer (493-495) yalnız paddingVertical, yani sarmalayıcı flex ile sınırlı değil → yatay şeridin içerik yüksekliği insets.bottom+TAB_BAR_CONTENT_HEIGHT kadar büyür. notlar rotası tabBarVisibility.ts:58 ile 'daha' → bar görünür → insets override'lı (~106px). Ekranın TEPESİNDEKİ yatay şeridin alt boşlukla ilgisi yok; sözleşme ihlali."
+  },
+  {
+   "file": "src/app/notlar/index.tsx",
+   "line": 393,
+   "title": "Not listesi yüzen arama çubuğu payını kaybetti (son satır çubuğun altında)",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "contentContainerStyle dizisinde en SONDAKİ paddingBottom kazanır: `{ paddingBottom: contentPaddingBottom }` bir öncekindeki `insets.bottom + FLOATING_SEARCH_CLEARANCE`'ı eziyor. contentPaddingBottom, hook `{ search: true }` olmadan çağrıldığı için yalnız insets.bottom döndürüyor → 80px'lik (FLOATING_SEARCH_CLEARANCE = 56 + 16) arama çubuğu payı yok oldu. Sayfada FloatingSearchBar VAR (satır 414), dolayısıyla listenin son notu yüzen arama pill'inin altında kalıyor. Hook zaten bu iş için `search` seçeneği sunuyor.",
+   "evidence": "src/app/notlar/index.tsx:393 `contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }, { paddingBottom: contentPaddingBottom }]}` ; :86 `useContentBottomPadding()` (search verilmemiş) ; :414-420 FloatingSearchBar. Hook sözleşmesi: src/hooks/useContentBottomPadding.ts:5-10 ve :22-26 (`search: true` ise FLOATING_SEARCH_CLEARANCE kendiliğinden eklenir). Sabit: src/components/ui/FloatingSearchBar.tsx:38 `FLOATING_SEARCH_CLEARANCE = BAR_HEIGHT + spacing.lg`. Arama çubuğu olan diğer listeler payı koruyor: src/app/arsiv/index.tsx:542, src/app/(tabs)/cariler.tsx:958, src/app/urunler/index.tsx:797, src/app/(tabs)/personel.tsx:746.",
+   "fix": "Satır 86'yı `useContentBottomPadding({ search: true })` yap ve satır 393'ü tek boşlukla sadeleştir: `contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}` (artık insets ve FLOATING_SEARCH_CLEARANCE import'una gerek kalmaz).",
+   "id": 2,
+   "verifyNote": "notlar/index.tsx:393 dizide iki paddingBottom var, SONUNCU kazanıyor: contentPaddingBottom (:86 useContentBottomPadding() — search seçeneği YOK) = yalnız insets.bottom. Hook (useContentBottomPadding.ts:26) FLOATING_SEARCH_CLEARANCE'ı ancak search:true ile ekliyor; sayfada FloatingSearchBar :414'te gerçekten var. Yani 72px'lik pill payı kayboldu, son not yüzen çubuğun altında kalıyor. Severity 'high' biraz abartılı: içerik kırpılmıyor, yalnız son satır pill'in arkasında kalıyor → medium."
+  },
+  {
+   "file": "src/app/arsiv/index.tsx",
+   "line": 522,
+   "title": "Arşiv listesinin dibinde çift sayılan alt boşluk (~190px boşluk)",
+   "category": "alt-bosluk",
+   "severity": "low",
+   "detail": "contentContainerStyle zaten `insets.bottom + FLOATING_SEARCH_CLEARANCE` (34+80=114) veriyor; buna ek olarak liste İÇİNDEKİ ListFooter kendi kendine `spacing.xl + footerInset` (20+34) daha ekliyor, üstüne styles.footer'ın paddingVertical'ı (20) biniyor. \"N kayıt\" yazısının altında ~190px boş alan kalıyor. Ayrıca useFooterBottomPadding SÖZLEŞME GEREĞİ sabit alt aksiyon çubuğu içindir (klavye açıkken 0 döner), kaydırma içindeki bir liste footer'ı için değil — burada klavye açıkken liste dibi 34px kısalıyor. Bonus: satır 528'deki useMemo bağımlılıklarında footerInset yok, yani klavye durumu değişince değer bayat kalıyor.",
+   "evidence": "src/app/arsiv/index.tsx:519-529 `ListFooter = useMemo(... <View style={[styles.footer, { paddingBottom: spacing.xl + footerInset }]}> ..., [totalArchived, t])` ; :542 `contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}` ; :673-676 `footer: { alignItems:'center', paddingVertical: spacing.xl }` ; :227 `const footerInset = useFooterBottomPadding();`. Hook sözleşmesi: src/hooks/useFooterBottomPadding.ts başlık yorumu (\"Sabit alt aksiyon çubuğunun ... klavye AÇIK → 0\"). Screen sözleşmesi: src/components/ui/Screen.tsx:8-15.",
+   "fix": "ListFooter'dan `footerInset`'i (ve useFooterBottomPadding import'unu) kaldır — `paddingBottom: spacing.xl` yeterli; alt inset'i zaten contentContainerStyle taşıyor. Tutarlılık için satır 542'yi `useContentBottomPadding({ search: true })` ile değiştir.",
+   "id": 8,
+   "verifyNote": "arsiv/index.tsx:522 ListFooter paddingBottom = spacing.xl + footerInset (footerInset = useFooterBottomPadding → override'lı insets.bottom, yani bar dahil) ve :542 contentContainer zaten insets.bottom + FLOATING_SEARCH_CLEARANCE veriyor → çift sayım gerçek. useMemo dep dizisi [totalArchived, t] — footerInset yok, klavye durumu değişince bayat kalıyor (doğru). Etki yalnız fazla beyaz alan; erişilemeyen içerik yok → low."
+  },
+  {
+   "file": "src/app/islemler/gelir.tsx",
+   "line": 148,
+   "title": "Gelir ekle / işlem düzenle: native header başlığı sayfa içinde tekrar ediyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "gelir.tsx ScrollView'ün başında `<Text variant=\"h2\">{t('transactions:titles.addIncome')}</Text>` yazıyor; _layout aynı rotanın native header'ına birebir aynı anahtarı veriyor → 'Gelir Ekle' iki kez görünüyor. Aynı kalıp islemler/duzenle'de de var (orada sayfa-içi başlık 'Gelir Düzenle' biçiminde, header ise 'İşlem Düzenle' — iki farklı başlık üst üste). Cari/hesap ekle formlarında bu bilinçli olarak kaldırılmıştı, işlem formlarında kalmış. Not: bu satırdaki Bell butonu korunmalı, kaldırılacak olan yalnız başlık metni.",
+   "evidence": "src/app/islemler/gelir.tsx:146-148 (`<View style={styles.header}><View style={styles.headerRow}><Text variant=\"h2\" style={styles.headerTitle}>{t('transactions:titles.addIncome')}</Text>`) ile src/app/_layout.tsx:469-479 (`name=\"islemler/gelir\" ... headerTitle: t('transactions:titles.addIncome')`). İkinci örnek: src/app/islemler/duzenle/[id].tsx:262 (`<Text variant=\"h2\">{t(\\`transactions:types.${islemType}\\`)} {t('common:buttons.edit')}</Text>`) ile src/app/_layout.tsx:480-490 (`headerTitle: t('transactions:titles.editTransaction')`) ve ayrıca sayfanın kendi Stack.Screen'i src/app/islemler/duzenle/[id].tsx:242-246. Karşı örnek: src/app/hesaplar/ekle.tsx:120-121 yorumu.",
+   "fix": "gelir.tsx:148'deki h2'yi kaldır, headerRow'da yalnız Bell butonunu bırak (`justifyContent: 'flex-end'`); duzenle/[id].tsx:262'de de başlığı kaldırıp 'tür değiştirilemez' açıklamasını (satır 263-265) tek başına bırak.",
+   "id": 31,
+   "verifyNote": "islemler/gelir.tsx:148 `<Text variant=\"h2\">{t('transactions:titles.addIncome')}</Text>` ile _layout.tsx:469-479 `headerTitle: t('transactions:titles.addIncome')` aynı anahtar, headerShown:true → başlık iki kez. islemler/duzenle/[id].tsx:262 sayfa-içi 'Gelir Düzenle' vs :242-246 + _layout:487 header 'İşlem Düzenle' → iki farklı başlık üst üste. Karşı örnek gerçek: hesaplar/ekle.tsx:120-121 yorumu 'sayfa-içi başlık (native header ile çift) kaldırıldı' diyor. Bilinçli bir istisna yok."
+  },
+  {
+   "file": "src/app/(tabs)/daha.tsx",
+   "line": 483,
+   "title": "Dil/Para birimi modallarında kartın üstüne basmak modalı kapatıyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Modal içeriği (`modalContent`) doğrudan, arka planı kapatan `TouchableOpacity`'nin ÇOCUĞU olarak konumlanmış ve düz bir `View` olduğu için dokunuşu tutmuyor. RN responder sistemi dokunuşu ebeveyne bubble ettiğinden başlığa, boşluğa ya da seçenekler arasındaki dolguya basmak `onPress` → modal kapanıyor. Kullanıcı dil seçmek için modalın herhangi bir boş yerine dokunduğunda modal seçim yapılmadan kapanır. Aynı hata iki modalda da var (dil ve para birimi).",
+   "evidence": "src/app/(tabs)/daha.tsx:478-483 `<TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setLanguageModalVisible(false)}>` → `<View style={styles.modalContent}>` (guard yok); aynısı :521-526 para birimi modalında. Doğru iki kalıp aynı kod tabanında mevcut: (a) src/app/arama.tsx:876-877 `<View style={styles.modalContent} onStartShouldSetResponder={() => true}>`, (b) src/components/transaction/ProductDetailModal.tsx:40-43 backdrop'u KARDEŞ absolute TouchableOpacity yapıp içeriği dışına alıyor. `modalOverlay` gerçekten tüm ekranı kaplıyor: daha.tsx:625-631 `flex:1, justifyContent:'center', alignItems:'center', padding: spacing.lg`.",
+   "fix": "daha.tsx:483 ve :526'daki `<View style={styles.modalContent}>` satırlarına `onStartShouldSetResponder={() => true}` ekle (arama.tsx:877 ile birebir), ya da backdrop'u ProductDetailModal'daki gibi kardeş katmana çıkar.",
+   "id": 54,
+   "verifyNote": "daha.tsx:478-511 ve :521-...: modalContent düz bir <View> ve backdrop TouchableOpacity'sinin ÇOCUĞU; RN responder'ı yakalamadığı için başlığa/dolguya/boşluğa dokunuş ebeveyne gidip onPress ile modalı kapatıyor. modalOverlay (:625-631) tüm ekranı kaplıyor. Aynı kod tabanında iki doğru kalıp mevcut (arama.tsx:877 onStartShouldSetResponder, isletme.tsx:356 Pressable+stopPropagation, ProductDetailModal kardeş backdrop). İki modalda da aynı hata."
+  },
+  {
+   "file": "src/app/islemler/index.tsx",
+   "line": 605,
+   "title": "UndoSnackbar ile FloatingSearchBar aynı taban çizgisinde — snackbar arama çubuğunu tamamen örtüyor",
+   "category": "yuzen-kontrol",
+   "severity": "medium",
+   "detail": "İki yüzen kontrol de aynı çıpaya oturuyor ve dikeyde neredeyse birebir çakışıyor: snackbar `insets.bottom+12`'den ~48px yükseliyor (yani [+12,+60]), arama pill'i `insets.bottom+16`'dan 56px yükseliyor (yani [+16,+72]). Snackbar zIndex 999 taşıdığı için üste biniyor ve pill'in 56px'inin ~44'ünü kapatıyor. Sonuç: bir işlemi kaydırarak sildikten sonra geri-al penceresi boyunca arama çubuğu hem görünmez hem tıklanamaz oluyor; kullanıcı 'arama kayboldu' yaşıyor. Aynı çift ürünler sayfasında da var. Yüzen kontrollerin ortak taban çizgisi kuralı, aynı anda GÖRÜNEN iki kontrol için ayrışma gerektiriyor — FloatingSearchBar bunun için `bottomOffset` prop'unu açmış ama hiçbir çağıran kullanmıyor.",
+   "evidence": "src/app/islemler/index.tsx:544-547 `<FloatingSearchBar .../>` ve :605-611 `<UndoSnackbar visible={undoSnackbar.visible} .../>` (ikisi de koşulsuz, aynı ağaçta). Ölçüler: src/components/ui/UndoSnackbar.tsx:88 `{ bottom: insets.bottom + spacing.md, ... }`, :135 `zIndex: 999`, :154-157 `snackbarInner.paddingVertical: spacing.md`; src/components/ui/FloatingSearchBar.tsx:135 `bottom: bottomOffset + insets.bottom`, :68 `bottomOffset = spacing.lg`, :34 `BAR_HEIGHT = FLOATING_CONTROL_SIZE` (56). Aynı çakışma: src/app/urunler/index.tsx:811-818 (FloatingSearchBar) + :979-984 (UndoSnackbar). `bottomOffset` hiçbir çağırandan geçilmiyor (grep: yalnız FloatingSearchBar.tsx içinde geçiyor).",
+   "fix": "Snackbar görünürken arama çubuğunu yukarı it: iki ekranda da `<FloatingSearchBar bottomOffset={undoSnackbar.visible ? spacing.lg + 48 + spacing.sm : spacing.lg} />` (prop zaten var, klavye hesabı da bunu kullanıyor). Alternatif olarak UndoSnackbar'ın `bottom`'ına ekranın 'yüzen kontrol yığını' yüksekliğini geçir.",
+   "id": 56,
+   "verifyNote": "islemler/index.tsx:544 FloatingSearchBar ve :605 UndoSnackbar koşulsuz aynı ağaçta. UndoSnackbar.tsx:88 bottom = insets.bottom + spacing.md, zIndex 999 (:135), iç paddingVertical spacing.md → ~[+12,+60]; FloatingSearchBar.tsx:135 bottom = spacing.lg + insets.bottom, BAR_HEIGHT 56 → [+16,+72]. Dikey çakışma büyük ve snackbar üstte. bottomOffset prop'u (:48,:69) hiçbir çağırandan geçilmiyor. urunler/index'te de aynı çift var."
+  }
+ ]
+}

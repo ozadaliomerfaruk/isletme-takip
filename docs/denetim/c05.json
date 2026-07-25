@@ -1,0 +1,145 @@
+{
+ "cluster": "c05",
+ "ownedFiles": [
+  "src/app/personel/ekle.tsx",
+  "src/app/personel/duzenle/[id].tsx",
+  "src/app/personel/toplu-gider.tsx",
+  "src/app/personel/toplu-odeme.tsx",
+  "src/app/personel/izin-gecmisi/[id].tsx",
+  "src/app/personel/[id].tsx"
+ ],
+ "findings": [
+  {
+   "file": "src/app/personel/toplu-gider.tsx",
+   "line": 212,
+   "title": "Toplu gider: KeyboardAvoidingView'de keyboardVerticalOffset yok → Kaydet butonu klavyenin altında kalıyor",
+   "category": "alt-bosluk",
+   "severity": "high",
+   "detail": "Ekranın sabit footer'ı (satır 337 `<View style={[styles.footer, ...]}>`) KeyboardAvoidingView'ün içinde ve satır içi CurrencyInput'lara (satır 323) dokununca klavye açılıyor. KAV `behavior=\"padding\"` ile çalışıyor ama `keyboardVerticalOffset` verilmemiş. RN'in KAV'i padding'i `frame.y + frame.height - (keyboardFrame.screenY - offset)` ile hesaplıyor ve `_frame` EBEVEYNE GÖRE ölçülüyor (node_modules/react-native/Libraries/Components/Keyboard/KeyboardAvoidingView.js: `this._frame = event.nativeEvent.layout` + `_relativeKeyboardHeight`). Native stack header'ı olan bu ekranda KAV'in tepesi pencere tepesinden `insets.top + header(44)` kadar aşağıda başlıyor; offset verilmediği için hesaplanan padding tam o kadar EKSİK kalıyor. Sonuç: kullanıcı bir personelin tutarını yazarken footer (özet + Kaydet) ~90px klavyenin ARKASINDA kalıyor; klavyeyi kapatmadan kaydedemiyor.",
+   "evidence": "src/app/personel/toplu-gider.tsx:212-215 (`<KeyboardAvoidingView behavior={...} style={styles.keyboardView}>` — offset prop'u YOK) + footer src/app/personel/toplu-gider.tsx:337. Aynı desendeki diğer sabit-footer'lı formların HEPSİ offset veriyor: src/app/cariler/ekle.tsx:106-110, src/app/cariler/duzenle/[id].tsx:114-118, src/app/hesaplar/ekle.tsx:105-109, src/app/hesaplar/duzenle/[id].tsx:128-132, src/app/personel/ekle.tsx:97-101, src/app/personel/duzenle/[id].tsx:122-126 — hepsinde `keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}`. Mekanizma doğrulaması: node_modules/react-native/Libraries/Components/Keyboard/KeyboardAvoidingView.js (_onLayout + _relativeKeyboardHeight).",
+   "fix": "`useSafeAreaInsets()` import edip diğer altı formla aynı satırı ekle: `keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}`.",
+   "id": 28,
+   "verifyNote": "toplu-gider.tsx:212-215 KeyboardAvoidingView behavior='padding' ama keyboardVerticalOffset YOK; sabit footer (:337) KAV'in içinde ve satır içi tutar input'ları (:325) klavyeyi açıyor. Native header'lı diğer altı form (personel/ekle.tsx:100, personel/duzenle:125, cariler/hesaplar ekle-düzenle) hepsi insets.top+44 offset'i veriyor. KAV frame'i ebeveyne göre ölçüldüğü için padding tam header+status bar kadar eksik kalıyor → Kaydet klavyenin arkasında."
+  },
+  {
+   "file": "src/app/personel/toplu-odeme.tsx",
+   "line": 250,
+   "title": "Toplu ödeme: KeyboardAvoidingView'de keyboardVerticalOffset yok → Kaydet butonu klavyenin altında kalıyor",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "toplu-gider ile birebir aynı bozukluk: sabit footer (satır 401) KAV içinde, satır içi CurrencyInput (satır 386) klavyeyi açıyor, ama KAV'e `keyboardVerticalOffset` verilmemiş. Native header yüksekliği kadar (iOS'ta ~insets.top+44) eksik padding hesaplanıyor, footer'daki toplam tutar + Kaydet butonu klavyenin arkasında kalıyor. Bu dosyada `insets` zaten mevcut (satır 30 `const insets = useSafeAreaInsets()`), yani düzeltmenin maliyeti tek satır.",
+   "evidence": "src/app/personel/toplu-odeme.tsx:250-253 (`<KeyboardAvoidingView behavior={...} style={styles.keyboardView}>`, offset yok) + footer satır 401 + insets zaten var satır 30. Karşılaştırma: src/app/personel/ekle.tsx:97-101 ve src/app/personel/duzenle/[id].tsx:122-126 aynı sabit-footer desenini `keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}` ile kuruyor.",
+   "fix": "satır 250-253'teki KAV'e `keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}` ekle (insets zaten satır 30'da hazır).",
+   "id": 29,
+   "verifyNote": "toplu-odeme.tsx:250-253 KAV'de keyboardVerticalOffset yok; ekranda native Stack header var (:244-248) ve sabit footer (:401) KAV içinde, satır içi CurrencyInput (:386) klavyeyi açıyor. insets satır 30'da mevcut. Kardeş formlar (personel/ekle.tsx:100) tam bu offset'i veriyor. Kullanıcı klavyeyi kapatarak devam edebildiği için severity medium."
+  },
+  {
+   "file": "src/app/personel/ekle.tsx",
+   "line": 109,
+   "title": "Personel ekle: native header başlığı sayfa içinde ikinci kez yazılıyor (çift başlık)",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Sayfa, ScrollView'ün en üstünde `<Text variant=\"h2\">{t('staff:titles.addPersonnel')}</Text>` çiziyor; _layout aynı rota için native header'a AYNI i18n anahtarını veriyor. Kullanıcı ekranda 'Personel Ekle' yazısını iki kez görüyor. Kardeş ekle formlarında bu bilinçli olarak temizlenmiş — cariler/ekle ve hesaplar/ekle'de yorum satırlarıyla belgelenmiş. Personel/ekle bu temizlikten atlanmış tek ekran.",
+   "evidence": "src/app/personel/ekle.tsx:108-111 (`{/* Header */} <View style={styles.header}><Text variant=\"h2\">{t('staff:titles.addPersonnel')}</Text></View>`) ile src/app/_layout.tsx:457-467 (`name=\"personel/ekle\" ... headerTitle: t('staff:titles.addPersonnel')`). Kanıtlı karşı örnekler: src/app/cariler/ekle.tsx:117 (`{/* Cari Tipi Seçimi — başlık kaldırıldı, kutular yukarı dayalı */}`) ve src/app/hesaplar/ekle.tsx:120-121 (`{/* Hesap Tipi — sayfa-içi başlık (native header ile çift) ... kaldırıldı */}`).",
+   "fix": "satır 108-111'deki header View'ini kaldır; boşluğu cariler/ekle'deki gibi `scrollContent.paddingTop: spacing.md` ile ver (styles.header ve styles.scrollContent buna göre sadeleşir).",
+   "id": 30,
+   "verifyNote": "personel/ekle.tsx:108-111 ScrollView'ün en üstünde <Text variant=\"h2\">{t('staff:titles.addPersonnel')}</Text> çiziyor; _layout.tsx:458-467 aynı rota için headerShown:true + headerTitle AYNI anahtar. Kardeş formlarda bu bilinçli temizlenmiş (cariler/ekle.tsx:117 ve hesaplar/ekle.tsx yorumları). Çift başlık gerçek."
+  },
+  {
+   "file": "src/app/personel/ekle.tsx",
+   "line": 118,
+   "title": "Personel ekle para birimi seçimi paylaşılan CurrencyPicker yerine elle yapılmış yatay kart şeridi",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Cari ve hesap ekleme formları para birimini paylaşılan `CurrencyPicker` (etiket + dropdown tetikleyici + alt sayfa, erişilebilirlik rolleri ve HIT_SLOP dahil) ile soruyor. Personel ekle ise aynı soruyu yatay kaydırılan Card şeridiyle soruyor: farklı görsel dil, ekranın dışına taşan seçenekler (kaydırılabildiği belli değil), para birimi ADI yok (yalnız sembol+kod) ve erişilebilirlik prop'ları yok. Aynı akıştaki üç 'ekle' formundan biri diğer ikisinden ayrışıyor.",
+   "evidence": "src/app/personel/ekle.tsx:113-146 (`<ScrollView horizontal ...>` + `currencies.map(curr => <Card ... onPress={() => setCurrency(...)}`) ve stiller :445-457. Karşı örnekler: src/app/cariler/ekle.tsx:146-149 (`{/* Para Birimi — hesap ekle ile aynı: CurrencyPicker (dropdown + modal) */} <CurrencyPicker value={currency} onChange={setCurrency} />`) ve src/app/hesaplar/ekle.tsx:150-156. Bileşen: src/components/ui/CurrencyPicker.tsx:99-141 (etiket + tetikleyici, accessibilityRole/Label/Hint).",
+   "fix": "personel/ekle.tsx:113-146'yı `<CurrencyPicker value={currency} onChange={setCurrency} label={t('staff:form.currency')} />` ile değiştir; currencyGrid/currencyCard/currencyCardActive stillerini ve `getLocalizedCurrencies` importunu kaldır.",
+   "id": 34,
+   "verifyNote": "personel/ekle.tsx:113-146 yatay ScrollView + Card şeridi; cariler/ekle.tsx:146-148 ve hesaplar/ekle.tsx:152 paylaşılan CurrencyPicker kullanıyor (üstelik cariler'deki yorum 'hesap ekle ile aynı' diyerek birleştirme niyetini belgelemiş). Üç 'ekle' formundan biri ayrışıyor; şeritte para birimi adı ve erişilebilirlik prop'ları da yok."
+  },
+  {
+   "file": "src/app/personel/ekle.tsx",
+   "line": 506,
+   "title": "Tarih seçici alt sayfası güvenli alanı hiç eklemiyor — 'Tamam' butonu home indicator'ın üstüne biniyor",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "iOS tarih seçici Modal'ının içeriği ekranın dibine yapışıyor ve alt boşluk olarak yalnız `padding: spacing.lg` (16px) taşıyor. Home indicator'lı cihazlarda güvenli alan 34px; 'Tamam' butonu göstergenin altında kalıyor, alttan yukarı sürükleme jestiyle çakışıyor. Aynı ekranda başka bir alt sayfa (toplu-ödeme hesap seçici) güvenli alanı ekliyor, paylaşılan CurrencyPicker de ekliyor — yani aynı üründe üç farklı davranış var. Not: ui/Modal içeriği ModalInsets ile sardığı için, alt sayfanın İÇİNDE çağrılan useSafeAreaInsets() doğru (tab bar'sız) değeri döndürür.",
+   "evidence": "src/app/personel/ekle.tsx:506-511 (`datePickerModalContent: { backgroundColor, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg }` — paddingBottom/insets yok), kullanımı :249-252 ve ikinci kopya :339-342. Aynı stil src/app/personel/duzenle/[id].tsx:504-509. Güvenli alanı EKLEYEN karşı örnekler: src/app/personel/toplu-odeme.tsx:434 (`{ height: windowHeight * 0.5, paddingBottom: insets.bottom }`) ve src/components/ui/CurrencyPicker.tsx:163-166 (`paddingBottom: insets.bottom + spacing.lg`). Mekanizma: src/components/ui/Modal.tsx:22-28 + src/components/ui/ModalInsets.tsx:27-33.",
+   "fix": "Alt sayfa gövdesini Modal'ın İÇİNDE render edilen küçük bir bileşene al (veya ModalInsets'in altında useSafeAreaInsets çağır) ve `paddingBottom: Math.max(insets.bottom, spacing.lg)` uygula; personel/duzenle'deki ikiz stile de aynısını yap.",
+   "id": 36,
+   "verifyNote": "personel/ekle.tsx:501-511 overlay justifyContent:'flex-end' + içerik padding: spacing.lg (16) — paddingBottom/insets yok; sheet'in en altındaki 'Tamam' Button'u (:274-280) home indicator (34) alanına giriyor. Aynı stil personel/duzenle/[id].tsx:504-509. Aynı üründe toplu-odeme.tsx:434 ve CurrencyPicker.tsx:163-166 insets.bottom ekliyor. ui/Modal ModalInsets ile sardığı için insets burada gerçek değeri döner."
+  },
+  {
+   "file": "src/app/personel/toplu-odeme.tsx",
+   "line": 434,
+   "title": "Hesap seçici alt sayfasında ~72px hayalet alt boşluk: modal dışında okunan (override'lı) insets içeride uygulanıyor",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "`insets` sayfa gövdesinde okunuyor (satır 30), yani _layout'un override'lı değeri — gerçek güvenli alan + TAB_BAR_CONTENT_HEIGHT. Bu değer Modal'ın İÇİNDEKİ alt sayfaya paddingBottom olarak veriliyor; ama modal ayrı native pencerede açıldığı için tab bar orada çizilmiyor. Sonuç: hesap listesinin altında bar yüksekliği kadar (~72px) boş alan, sabit yükseklikli (windowHeight*0.5) sayfada listenin gereksiz kısalması. ModalInsets tam olarak bu hatayı çözmek için var ama yalnız modalın İÇİNDE useSafeAreaInsets çağıran bileşenler için çalışıyor; burada değer dışarıdan kapatılıp taşınıyor.",
+   "evidence": "src/app/personel/toplu-odeme.tsx:30 (`const insets = useSafeAreaInsets();` — sayfa gövdesi, override'lı bağlam) ve :434 (`<View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>` — Modal'ın içi, satır 425). Mekanizma ve rakam src/components/ui/ModalInsets.tsx:13-25'te birebir yazılı ('bar'ın GÖRÜNMEDİĞİ her sheet'te ~72px hayalet alt boşluk'), sağlayıcı src/components/ui/Modal.tsx:22-28, override src/app/_layout.tsx:117-121. Aynı desen paylaşılan bileşenlerde de var (src/components/ui/ActionSheet.tsx:156 + :296, src/components/ui/CurrencyPicker.tsx:31 + :165), yani düzeltme tekil değil ortak yapılmalı.",
+   "fix": "Alt sayfa gövdesini Modal'ın içinde render edilen bir bileşene taşı ve insets'i ORADA oku (ModalInsets sayesinde gerçek değer gelir); ya da RealInsetsContext'i doğrudan tüketen bir `useRealInsets()` hook'u ekleyip modal içi tüm sheet'lerde onu kullan.",
+   "id": 37,
+   "verifyNote": "toplu-odeme.tsx:30 insets sayfa gövdesinde (override'lı bağlam) okunuyor ve :434'te Modal'ın (ui/Modal, :8 import) İÇİNDEKİ sheet'e paddingBottom olarak veriliyor. ModalInsets yalnız modal içinde çağrılan useSafeAreaInsets'i düzeltir (ModalInsets.tsx:27-33), dışarıda kapatılan değeri değil → sabit yükseklikli (windowHeight*0.5) sheet'in altında ~72px hayalet boşluk."
+  },
+  {
+   "file": "src/app/personel/toplu-gider.tsx",
+   "line": 511,
+   "title": "Toplu işlem footer'ları diğer form footer'larından farklı zemin ve çizgi kullanıyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Personel alanındaki iki sabit alt aksiyon çubuğu `backgroundColor: colors.surface` + `borderTopWidth: 1` kullanıyor; aynı alandaki diğer dört form (personel ekle/düzenle dahil) `colors.background` + `StyleSheet.hairlineWidth` kullanıyor. Kullanıcı personel sekmesinden toplu ödemeye geçtiğinde alt çubuğun tonu ve üst çizgisinin kalınlığı değişiyor.",
+   "evidence": "src/app/personel/toplu-gider.tsx:511-520 (`borderTopWidth: 1`, `backgroundColor: colors.surface`) ve src/app/personel/toplu-odeme.tsx:639-648 (aynı). Karşı örnekler: src/app/personel/ekle.tsx:458-467, src/app/personel/duzenle/[id].tsx:464-473, src/app/cariler/ekle.tsx:261-270, src/app/hesaplar/ekle.tsx:273-282 — hepsi `borderTopWidth: StyleSheet.hairlineWidth`, `borderTopColor: colors.border`, `backgroundColor: colors.background`.",
+   "fix": "Her iki toplu ekranda footer stilini `backgroundColor: colors.background` + `borderTopWidth: StyleSheet.hairlineWidth` yap (yerleşim/gap aynı kalabilir).",
+   "id": 41,
+   "verifyNote": "toplu-gider.tsx:511-520 ve toplu-odeme.tsx:639-648 footer'ları borderTopWidth 1 + colors.surface; personel/ekle.tsx:458-467 ve kardeşleri StyleSheet.hairlineWidth + colors.background. Ertelenen 'form footer + TabHeader pilotu' maddesi içeriğin başlığın altından akması mimarisiyle ilgili, zemin/çizgi tonuyla değil. Küçük ama gerçek."
+  },
+  {
+   "file": "src/app/personel/toplu-gider.tsx",
+   "line": 556,
+   "title": "Tarih seçici modal stilleri sabitler yerine hardcoded hex/px, üstelik iki dosyada birebir kopya",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Tarih/saat seçici alt bloğu `#FFFFFF`, 16/20/18/12/24 gibi ham piksel ve font boyutlarıyla yazılmış; renk ve ölçü sabitleri (colors.surface, spacing, borderRadius, fontSize) baypas ediliyor. Aynı ~50 satırlık stil bloğu toplu-gider ve toplu-odeme'de birebir kopyalanmış, dolayısıyla ileride tema/ölçü değişimi iki yerde ıskalanacak. Ayrıca `windowHeight` toplu-gider'de hesaplanıyor ama hiç kullanılmıyor (ölü kod).",
+   "evidence": "src/app/personel/toplu-gider.tsx:556-604 (`pickerContainer: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 20, marginHorizontal: 20 }`, `pickerTitle: { fontSize: 18 }`, `pickerDoneButton: { paddingVertical: 12, borderRadius: 10 }`, `pickerDoneText: { color: '#FFFFFF', fontSize: 16 }`) ve birebir kopyası src/app/personel/toplu-odeme.tsx:737-785. Ölü kod: src/app/personel/toplu-gider.tsx:29 (`const windowHeight = Dimensions.get('window').height;` — dosyada başka kullanımı yok). Sabitler: src/constants/spacing.ts:3-34 (spacing/borderRadius/fontSize).",
+   "fix": "Blokları `colors.surface`, `colors.white`, `spacing.*`, `borderRadius.*`, `fontSize.*` ile yeniden yaz ve ortak bir `DateTimeSheet` bileşenine çıkar (ui/DateTimePicker zaten var — o kullanılabiliyorsa iki kopya da silinir); toplu-gider:29'daki kullanılmayan windowHeight'ı kaldır.",
+   "id": 42,
+   "verifyNote": "toplu-gider.tsx:563-604 pickerContainer/pickerTitle/pickerDoneButton/pickerDoneText gerçekten '#FFFFFF' ve ham 16/20/18/12/24 değerleriyle yazılmış; toplu-odeme.tsx:744-782'de birebir kopyası var. toplu-gider.tsx:29'daki windowHeight dosyada başka hiç kullanılmıyor (grep tek satır) → ölü kod. Low doğru."
+  },
+  {
+   "file": "src/app/personel/izin-gecmisi/[id].tsx",
+   "line": 436,
+   "title": "İzin geçmişinde ÇİFT başlık: native Stack header + sayfa içi header",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Route `personel/izin-gecmisi/[id]` kök Stack'te headerShown:true + headerTitle:'İzin Geçmişi' ile kayıtlı, üstelik global screenOptions headerBackVisible:true. Sayfa ise ayrıca kendi header satırını çiziyor (BackButton + 'İzin Geçmişi' + personel adı + paylaş). Sonuç: üst üste iki başlık çubuğu, iki 'İzin Geçmişi' yazısı ve iki geri butonu. Sayfada hiç `Stack.Screen` yok, yani native header'ı bastıran/özelleştiren bir şey de yok. Kardeş detay sayfalarının hepsi tek yol kullanıyor: Stack.Screen options + headerLeft=<BackButton/>.",
+   "evidence": "src/app/personel/izin-gecmisi/[id].tsx:436-451 sayfa içi `<View style={styles.header}>` + :437 `<BackButton icon={ArrowLeft} .../>` + :439 başlık; dosyada `Stack` importu/kullanımı yok (import satırı :5 `useLocalSearchParams, router`). src/app/_layout.tsx:803-814 `name=\"personel/izin-gecmisi/[id]\" ... headerShown: true, headerTitle: t('staff:leave.leaveHistory')`, :332 `headerBackVisible: true`. Karşılaştırma: src/app/personel/[id].tsx:824-831, src/app/hesaplar/[id].tsx:939-946, src/app/cariler/[id].tsx:1524-1535 — üçü de sayfa içi header çizmiyor, Stack.Screen + BackButton kullanıyor.",
+   "fix": "Sayfa içi header bloğunu (satır 436-451) kaldırıp diğer detay sayfalarındaki desene geç: `<Stack.Screen options={{ headerTitle: ..., headerBackVisible: false, headerLeft: () => <BackButton size={28} />, headerRight: () => <paylaş butonu> }} />`. Alternatif olarak _layout'taki kaydı headerShown:false yap — ama o zaman `<Screen top>` gerekir; tercih edilen tutarlı yol birincisi.",
+   "id": 62,
+   "verifyNote": "_layout.tsx:804-814 rotayı headerShown:true + headerTitle:'İzin Geçmişi' ile kaydediyor; sayfada Stack importu/kullanımı YOK (grep boş) ve :434-451 kendi header'ını (BackButton + aynı başlık + paylaş) çiziyor. Kardeş detay sayfaları Stack.Screen + headerLeft deseniyle tek başlık kullanıyor. Çift başlık + çift geri gerçek; ancak işlevsel veri kaybı yok, salt görsel → medium."
+  },
+  {
+   "file": "src/app/personel/izin-gecmisi/[id].tsx",
+   "line": 527,
+   "title": "İzin geçmişi FAB'ı hâlâ eski opak disk; komşusundaki not FAB'ı cam",
+   "category": "yuzen-kontrol",
+   "severity": "medium",
+   "detail": "Bu ekranda ana FAB elle yazılmış opak TouchableOpacity (56px, colors.primary, kendi gölgesi, ikon rengi hardcoded '#fff'), hemen üstündeki AddNoteButton ise GlassFab (44px cam). Yani kullanıcı 8px arayla bir cam bir opak iki yüzen buton görüyor — AddNoteButton'ın kendi yorumunun 'düzeltildi' dediği tam durum. Ayrıca dikey aralık burada spacing.sm=8, diğer detay sayfalarında 14 (not FAB'ı bottom+70, ana FAB 56 @ bottom) — yüzen kontrol taban/aralık sözleşmesi de ayrışıyor. `bottom: insets.bottom + 16` de sabit yerine ham sayı.",
+   "evidence": "src/app/personel/izin-gecmisi/[id].tsx:525-534 `<View style={[styles.fabContainer, { bottom: insets.bottom + 16 }]}>` içinde `<AddNoteButton .../>` + `<TouchableOpacity style={styles.fab} activeOpacity={0.8}>` `<Plus size={24} color=\"#fff\" />`; :694-713 styles.fabContainer gap: spacing.sm + styles.fab (56/28/colors.primary/shadow/elevation). Karşılaştırma: src/app/personel/[id].tsx:935-944, src/app/cariler/[id].tsx:1696-1705, src/app/hesaplar/[id].tsx:1085-1096 — üçünde de `<GlassFab style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}>` + AddNoteButton `bottom: spacing.lg + insets.bottom + 70`. src/components/notes/AddNoteButton.tsx:88-91 yorumu bu tutarsızlığı açıkça 'uygulamanın en görünür yeri' diye anlatıyor; src/components/ui/GlassFab.tsx:32-84 doğru tarif.",
+   "fix": "styles.fab'ı sil; `<GlassFab style={[styles.fab, { bottom: spacing.lg + insets.bottom }]} onPress={() => setShowNewLeaveBar(true)} renderIcon={({color,size}) => <Plus size={size} color={color} />} />` kullan ve AddNoteButton'ı diğer sayfalardaki gibi `bottom: spacing.lg + insets.bottom + 70` ile ayrı konumlandır (fabContainer'ı kaldır).",
+   "id": 63,
+   "verifyNote": "personel/izin-gecmisi/[id].tsx:525-534 elle yazılmış opak FAB (styles.fab :701-713 → 56/28/colors.primary/shadow/elevation, ikon color=\"#fff\") ile hemen üstünde AddNoteButton (GlassFab 44px, AddNoteButton.tsx:86-91 yorumu bu tutarsızlığı 'uygulamanın en görünür yeri' diye açıkça anlatıyor). Kardeş detay sayfalarının üçü de GlassFab kullanıyor (cariler/[id]:1701, hesaplar/[id]:1090, personel gibi). fabContainer gap spacing.sm ve bottom: insets.bottom + 16 ham sayı da doğrulandı. Ertelenen kapsamda değil (kart/satır/QTB değil, FAB)."
+  },
+  {
+   "file": "src/app/personel/[id].tsx",
+   "line": 789,
+   "title": "Personel başlangıç bakiyesi yetki kontrolü olmadan düzenlenebilir görünüyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Personel detayında boş listedeki başlangıç bakiyesi satırı `editable` sabit true veriliyor; hiçbir izin kontrolü yok. Aynı satır hesap detayında `canUpdate('hesaplar', ...)`, cari detayında `!isViewer` koşuluna bağlı. Sonuç: 'personel' modülünde güncelleme yetkisi olmayan üye satırda kalem ikonunu görür, satır tıklanabilir olur ve BalanceEditorModal açılır — üç sayfada aynı kontrolün disabled görselini üç farklı kural belirliyor. Sayfa `canUpdate`'i zaten import edip menüde kullanıyor, yani veri elinin altında.",
+   "evidence": "src/app/personel/[id].tsx:784-791 `<OpeningBalanceRow ... editable onEdit={handleOpenEditBalance} />` (koşulsuz); :240 `const { canUpdate, canDelete, canAccessModule } = usePermissions();`; :856 menüde `visible: canUpdate('personel', personel?.created_by ?? null)` kullanılıyor. Karşılaştırma: src/app/hesaplar/[id].tsx:525-526 `const isBalanceEditable = !!islemler && islemler.length === 0 && canUpdate('hesaplar', hesap?.created_by ?? null);` → :895 `editable={isBalanceEditable}`; src/app/cariler/[id].tsx:614 `const isBalanceEditable = !isViewer && !!islemler && islemler.length === 0;` → :1447-1448.",
+   "fix": "`const isBalanceEditable = canUpdate('personel', personel?.created_by ?? null);` türet ve ListEmpty'de `editable={isBalanceEditable} onEdit={isBalanceEditable ? handleOpenEditBalance : undefined}` geç (OpeningBalanceRow zaten canEdit=false'ta kalemi gizleyip TouchableOpacity'yi View'e düşürüyor).",
+   "id": 68,
+   "verifyNote": "personel/[id].tsx:784-791 OpeningBalanceRow 'editable' koşulsuz true, onEdit koşulsuz; sayfa canUpdate'i zaten kullanıyor (:240, menüde :856). hesaplar/[id].tsx:525-526 isBalanceEditable = işlem yok && canUpdate('hesaplar',...) → :895; cariler/[id].tsx !isViewer koşulu. Yetkisiz üye kalem ikonunu görüp modalı açabiliyor; üç sayfada üç farklı kural."
+  }
+ ]
+}

@@ -1,0 +1,45 @@
+{
+ "cluster": "c10",
+ "ownedFiles": [
+  "src/components/transaction/PhotoViewerModal.tsx",
+  "src/app/foto-import/review.tsx"
+ ],
+ "findings": [
+  {
+   "file": "src/components/transaction/PhotoViewerModal.tsx",
+   "line": 355,
+   "title": "Cam butonların atasına opacity animasyonu uygulanıyor (ALTIN KURAL ihlali)",
+   "category": "cam-kurali",
+   "severity": "high",
+   "detail": "PhotoViewerModal'ın header'ı ve alt aksiyon çubuğu `uiAnimatedStyle` ({ opacity: backdropOpacity.value }) ile animasyonlanıyor; bu iki Animated.View'ün ÇOCUKLARI GlassSurface. Kapatma sürüklemesinde backdropOpacity 1 → 0.3'e iniyor, yani cam yüzeylerin ATASI alpha<1 oluyor → offscreen render pass → cam arkasını örnekleyemez, malzeme çöker. Kullanıcı fotoğrafı aşağı sürüklerken kapat/paylaş yuvarlakları ve Değiştir/Sil butonlarının cam yüzeyi kaybolur, ikon/yazı havada asılı kalır (klasik belirti: içerik görünür, yüzey yok). Aynı sorun Modal'ın animationType=\"fade\" açılış/kapanışında da tetiklenir. Bu modal dört detay sayfasının hepsinde kullanılıyor (cari/hesap/personel foto + not fotoğrafı).",
+   "evidence": "PhotoViewerModal.tsx:335-337 `const uiAnimatedStyle = useAnimatedStyle(() => ({ opacity: backdropOpacity.value }))`; :355 `<Animated.View style={[styles.header, {paddingTop...}, uiAnimatedStyle]}>` → içinde :357 ve :371 `<GlassSurface style={styles.roundButton} colorScheme=\"dark\">`; :411 `<Animated.View style={[styles.bottomActions, {...}, uiAnimatedStyle]}>` → içinde :413 ve :431 `<GlassSurface ...>`; :237-242 backdropOpacity interpolate [1, 0.3]; :346 `animationType=\"fade\"`. Karşılaştırma: src/components/ui/UndoSnackbar.tsx:75-89 aynı problemi yorumla belgeleyip görünürlüğü YALNIZ transform (translateY) ile veriyor; src/components/ui/GlassSurface.tsx:6-22 kuralın kendisi.",
+   "fix": "uiAnimatedStyle'ı cam yüzeylerden kaldır. Sürükleme sırasında gizlenme isteniyorsa header/footer'a translateY (yukarı/aşağı kayma) uygula (UndoSnackbar deseni) ya da opacity'yi camın İÇİNDEKİ TouchableOpacity/ikon katmanına indir. Modal için animationType=\"none\" + kendi transform geçişin.",
+   "id": 61,
+   "verifyNote": "PhotoViewerModal.tsx:335-337 uiAnimatedStyle = { opacity: backdropOpacity.value } ve bu stil :355 header ile :411 bottomActions Animated.View'lerine uygulanıyor; ikisinin de doğrudan çocukları GlassSurface (:357, :371, :413, :431). :237-242 sürüklemede backdropOpacity 1→0.3'e iniyor, yani cam yüzeylerin ATASI alpha<1 oluyor — GlassSurface'taki ALTIN KURAL'ın birebir ihlali (UndoSnackbar.tsx:75-89 aynı problemi transform ile çözüyor). Dört detay sayfasında kullanılan bileşen."
+  },
+  {
+   "file": "src/app/foto-import/review.tsx",
+   "line": 714,
+   "title": "Uc picker modali ModalSearchBar yerine elle yazilmis arama kutusu kullaniyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Urun / Cari / Hesap picker'larinin ucu de kendi arama kutusunu ciziyor (ham TextInput + Search ikonu, temizleme X'i yok, autoFocus dogrudan). Kod tabanindaki diger 13 modal/picker ModalSearchBar kullaniyor: cam pill gorunumu, 17px punto, X ile temizleme ve sheet animasyonu bitince odaklanan autoFocusDelay. Burada arama yuzeyi farkli punto (16), farkli kose/dolgu ve temizleme butonu olmadan cizildigi icin ayni is iki farkli dilde gorunuyor. Ayrica pickerContainer sabit marginTop: 50 ile konumlaniyor (safe-area degil) ve pickerList'in alt boslugu yok, son satir home indicator'a dayaniyor.",
+   "evidence": "src/app/foto-import/review.tsx:714-724 (urun), :772-782 (cari), :845-855 (hesap) elle yazilmis '<View style={styles.pickerSearchContainer}><Search .../><TextInput ... autoFocus /></View>' | :1024-1030 'pickerContainer: { flex: 1, ..., marginTop: 50, borderTopLeftRadius: 20 }' | :1058-1060 'pickerList: { flex: 1 }' (contentContainerStyle yok). STANDART BILESEN: src/components/ui/ModalSearchBar.tsx:26-74 (GlassSurface + GLASS_TINT_CONTROL + HIT_SLOP.sm'li X + autoFocusDelay); kullanan 13 dosya arasinda ayni ozellikteki src/components/transaction/QuickTransactionBar/components/UrunPickerModal.tsx:7 ve src/components/dataImport/DataImportModal.tsx:12 var.",
+   "fix": "Uc picker'da da pickerSearchContainer bloklarini '@/components/ui' ModalSearchBar ile degistir (autoFocusDelay ver), marginTop: 50 yerine insets.top tabanli deger kullan ve pickerList'e contentContainerStyle={{ paddingBottom: insets.bottom }} ekle.",
+   "id": 83,
+   "verifyNote": "review.tsx:713-724 (ve cari/hesap eşlerinde aynı blok) ham TextInput + Search ikonu, temizleme X'i yok, doğrudan autoFocus; :1024-1030 pickerContainer marginTop: 50 sabit; :1058-1060 pickerList contentContainerStyle'sız. Standart ModalSearchBar 13 dosyada kullanılıyor (UrunPickerModal, CariPickerSheet, HesapPickerSheet, CategoryPicker…). Tutarsızlık gerçek; ancak ekran erişilemez bir akışta (foto-import'a giriş noktası yok) ve tümü kozmetik → low."
+  },
+  {
+   "file": "src/app/foto-import/review.tsx",
+   "line": 1121,
+   "title": "Uyari bannerlarinda sari-ustune-sari metin: colors.warning, warningLight zemininde okunmuyor",
+   "category": "erisilebilirlik",
+   "severity": "low",
+   "detail": "colors.ts bu tuzagi acikca belgeliyor ve tam bu durum icin warningDark tonunu tanimliyor, ancak iki uyari banner'i metni parlak colors.warning (#EAB308) ile colors.warningLight (#FEF9C3) zemin uzerine yaziyor. Kontrast orani ~1.8:1 (WCAG AA govde metni icin 4.5:1 gerekir), yani 'not tipi belge uyarisi' ve 'bekleyen irsaliye - cift stok korumasi' uyarilari pratikte okunamiyor; ikisi de kullaniciyi veri bozulmasindan koruyan mesajlar.",
+   "evidence": "src/app/foto-import/review.tsx:1109-1122 'notWarningBanner: { ..., backgroundColor: colors.warningLight, borderColor: colors.warning }' + 'notWarningText: { flex: 1, color: colors.warning }' | :1180-1197 'irsaliyeBanner: { backgroundColor: colors.warningLight, ... }' + \"irsaliyeBannerText: { fontWeight: '600', color: colors.warning }\". KURAL: src/constants/colors.ts:30-37 'Koyu vurgu tonlari - acik (...Light) zeminler UZERINDE metin icin. warning/orange gibi parlak tonlar acik zeminde okunmuyordu (sari-ustu-sari); metinde bu koyu ton, ikon/nokta/cizgide parlak ton kullanilir.' warningDark: '#854D0E'. Text bileseni bu tonu variant olarak da sunuyor: src/components/ui/Text.tsx:10 ve :39 'warningDark: colors.warningDark'.",
+   "fix": "Iki stilde de metin rengini colors.warningDark yap (ikon ve border colors.warning kalabilir), ya da Text'e color=\"warningDark\" gec.",
+   "id": 84,
+   "verifyNote": "review.tsx:1114-1121 ve :1185-1196 metin colors.warning (#EAB308) zemin colors.warningLight (#FEF9C3) — colors.ts:30-37 tam bu tuzağı yorumla yasaklayıp warningDark tanımlıyor, yani ihlal belgeli kurala karşı. Severity düşürüldü: foto-import ekranına uygulamada hiçbir giriş noktası yok (grep: yalnız FotoImportContext içinden push), yani şu an kullanıcıya görünmüyor."
+  }
+ ]
+}

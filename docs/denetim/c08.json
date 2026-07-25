@@ -1,0 +1,111 @@
+{
+ "cluster": "c08",
+ "ownedFiles": [
+  "src/app/ayarlar/isletme.tsx",
+  "src/app/ayarlar/hesap-sil.tsx",
+  "src/app/ayarlar/paylasilan-isletmeler.tsx",
+  "src/app/kurulum.tsx",
+  "src/app/kurulum-tamam.tsx",
+  "src/app/onboarding.tsx",
+  "src/app/verify.tsx",
+  "src/constants/sectors.ts"
+ ],
+ "findings": [
+  {
+   "file": "src/app/ayarlar/hesap-sil.tsx",
+   "line": 64,
+   "title": "Hesap silme formu kaydirilamiyor: klavye acilinca onay butonu kirpiliyor",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "KeyboardAvoidingView var ama icinde ScrollView YOK; icerik duz bir View (flex:1). behavior='padding' klavye yuksekligi kadar alti kirpinca sabit yukseklikli cocuklar (6 satirlik uyari karti + onay input'u + buton satiri) tasip kesiliyor ve kaydirma imkani olmadigi icin 'Hesabi Sil' butonu klavye acikken ekrandan cikiyor. Kullanicinin isletme adini yazmasi ZORUNLU oldugundan klavye mutlaka aciliyor. Ayrica bu rotada tab bar cizildigi halde hicbir alt guvenli alan payi yok (content'te sadece padding: spacing.lg).",
+   "evidence": "src/app/ayarlar/hesap-sil.tsx:60-63 KeyboardAvoidingView, :64 '<View style={styles.content}>' (ScrollView yok), :106-112 onay Input'u, :114-134 buton satiri, :149-152 'content: { flex: 1, padding: spacing.lg }'. Ayni klasordeki dogru kalip: src/app/ayarlar/isletme.tsx:201-210 KAV > ScrollView(keyboardShouldPersistTaps + contentPaddingBottom); src/components/auth/ChangePasswordModal.tsx:129-137 ayni kalip. Tab bar gorunur: src/lib/tabBarVisibility.ts:51.",
+   "fix": "content'i ScrollView'a cevir (contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}, keyboardShouldPersistTaps='handled') ya da buton satirini <Screen footer={...}> ile ver.",
+   "id": 79,
+   "verifyNote": "ayarlar/hesap-sil.tsx:60-63 KeyboardAvoidingView (behavior padding) içinde :64 düz `<View style={styles.content}>` (:149-152 flex:1, padding lg) — ScrollView YOK. İçerik yüksek (64px ikon + başlık + açıklama + 6 satırlık uyarı kartı :77-96 + etiket + isim + Input :106-112 + buton satırı :114-134) ve işletme adını yazmak zorunlu olduğundan klavye mutlaka açılıyor → alt kırpılıyor, kaydırma imkânı yok. Aynı klasörde doğru kalıp var (ayarlar/isletme.tsx KAV > ScrollView). medium yerinde."
+  },
+  {
+   "file": "src/app/kurulum-tamam.tsx",
+   "line": 59,
+   "title": "Kurulum 3/3 tek kaydirilamayan kurulum ekrani; kucuk cihazda 'Simdi degil' cikisi kirpilabilir",
+   "category": "alt-bosluk",
+   "severity": "low",
+   "detail": "Kurulum akisindaki diger uc ekranin ucu de ScrollView + flexGrow:1 kullaniyor; yalnizca kurulum-tamam duz View kullaniyor ve justifyContent:'center'. Icerik yigini yuksek (100px onay dairesi + h1 + alt yazi + ipucu karti + bildirim karti + lg buton + 'Simdi degil' baglantisi). Kucuk ekranda (SE sinifi) veya buyuk yazi tipi ayarinda icerik kabin yuksekligini asar; center hizalama yuzunden hem ustten hem alttan kirpilir ve kullanici izin sorusunu atlamak icin gereken 'Simdi degil' baglantisina ulasamaz. Ayrica alt guvenli alan payi da yok (content'te sadece padding: spacing.xl = 20 < home indicator 34).",
+   "evidence": "src/app/kurulum-tamam.tsx:59 '<View style={styles.content}>', :106-110 'notNowButton' (yiginin en alt elemani), :122-126 \"content: { flex: 1, padding: spacing.xl, justifyContent: 'center' }\". Kardesler ScrollView kullaniyor: src/app/kurulum.tsx:110 '<ScrollView ... contentContainerStyle={[styles.scroll, { paddingBottom: contentPaddingBottom }]}>' + :191-195 'scroll: { flexGrow: 1, ... }'; src/app/kurulum-tabela.tsx:61 ScrollView + :87 footerInset; src/app/kurulum-ilk-kayit.tsx:49 ScrollView + :93 footerInset. Bu rotalarda bar cizilmiyor (src/lib/tabBarVisibility.ts:23-30 'kurulum' -> null), yani gereken tek sey gercek safe-area.",
+   "fix": "content'i ScrollView'a cevir (contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: spacing.xl }}) ve alt boslugu useContentBottomPadding() ile ver - kardes uc kurulum ekraniyla ayni kalip.",
+   "id": 80,
+   "verifyNote": "kurulum-tamam.tsx:59 düz View, :122-126 flex:1 + justifyContent:'center', ScrollView yok ve alt güvenli alan payı yok; kardeş üç kurulum ekranı (kurulum, kurulum-tabela, kurulum-ilk-kayit) ScrollView + flexGrow kullanıyor. Yığın yüksek (100px daire + h1 + 2 kart + lg buton + link) → SE sınıfı/büyük yazı tipinde kırpılma riski gerçek. Ancak kırpılma yalnız sınır durumda oluşuyor (normal cihazda merkezleme boşluk bırakıyor) → low."
+  },
+  {
+   "file": "src/app/ayarlar/isletme.tsx",
+   "line": 538,
+   "title": "Elle yazilmis iki alt sheet guvenli alani yok sayiyor (sabit paddingBottom)",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "Sifre degistirme ve sektor secim modallarinin ikisi de ayni modalContent stilini paylasiyor ve alt boslugu sabit spacing['2xl'] (24px) veriyor. iPhone home indicator alani 34px; yani sifre modalinin 'Sifre Degistir' butonu ve sektor listesinin son satiri home indicator seridine giriyor, kaydirma jesti ile dokunma catisiyor. Uygulamanin kendi sheet primitifi bunu dogru yapiyor.",
+   "evidence": "src/app/ayarlar/isletme.tsx:350-401 sifre modali ve :404-441 sektor modali (ikisi de style={styles.modalContent}) | :533-539 \"modalContent: { backgroundColor: colors.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.lg, paddingBottom: spacing['2xl'] }\" (insets yok; ayrica borderRadius 20 hardcoded, borderRadius['2xl'] var) | :586-588 'sectorList: { maxHeight: 360 }'. PRIMITIF DOGRU YAPIYOR: src/components/ui/BottomSheet.tsx:34 'const insets = useSafeAreaInsets();' ve :314 'paddingBottom: kbVisible ? 0 : insets.bottom'. Modal sarmalayicisi zaten gercek insets'i sagliyor: src/components/ui/Modal.tsx:22-27 + src/components/ui/ModalInsets.tsx:27-33.",
+   "fix": "Iki sheet'i de '@/components/ui' BottomSheet'e tasi; kalinacaksa en azindan useSafeAreaInsets() ile paddingBottom: spacing.lg + insets.bottom ver ve 20 yerine borderRadius['2xl'] kullan.",
+   "id": 81,
+   "verifyNote": "isletme.tsx:350-401 ve :404-441 iki sheet de styles.modalContent kullanıyor; :533-539'da paddingBottom spacing['2xl']=24 sabit, dosyada modal için insets okuması yok, ayrıca borderRadius 20 hardcoded (borderRadius['2xl'] mevcut). Primitif BottomSheet.tsx:34+314 insets.bottom veriyor, Modal sarmalayıcısı gerçek inset'i sağlıyor — yani doğru değere erişim var ama kullanılmıyor."
+  },
+  {
+   "file": "src/app/ayarlar/isletme.tsx",
+   "line": 366,
+   "title": "Ayarlar'daki sifre degistirme sifre gucu gostergesini ve zayif-sifre kapisini atliyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Uygulamada sifre BELIRLEYEN uc yuzey var; ikisi PasswordStrengthIndicator gosterip 'weak' sifreyi reddediyor, Ayarlar > Isletme Bilgileri icindeki ucuncusu ne gostergeyi ciziyor ne de gucu kontrol ediyor (yalnizca uzunluk >= 6). Sonuc: ayni kullanici sifre sifirlama akisindan zayif sifre koyamiyor ama Ayarlar'dan koyabiliyor; ayrica ayni isi yapan iki modal gorsel olarak da tamamen farkli (biri ikonlu pageSheet, digeri sade alt sheet).",
+   "evidence": "src/app/ayarlar/isletme.tsx:119-136 validatePassword (yalniz 'newPassword.length < 6' kontrolu, passwordStrength state'i yok) ve :366-386 modalForm (yalniz iki Input, PasswordStrengthIndicator YOK). KARSILASTIRMA: src/components/auth/ChangePasswordModal.tsx:52-54 \"else if (passwordStrength === 'weak') newErrors.password = t('errors:auth.passwordWeak');\" ve :176-181 '<PasswordStrengthIndicator password={password} onStrengthChange={setPasswordStrength} />'; src/app/(auth)/register.tsx:63-65 ayni gate ve :272-277 ayni gosterge.",
+   "fix": "Ayarlar'daki elle yazilmis modali kaldirip mevcut ChangePasswordModal bilesenini kullan (tek kaynak); kalinacaksa PasswordStrengthIndicator + weak-gate'i ChangePasswordModal.tsx:52-54/176-181 ile birebir ekle.",
+   "id": 82,
+   "verifyNote": "ayarlar/isletme.tsx:119-136 validatePassword yalnız length<6 kontrolü yapıyor ve :366-386 modalForm'da PasswordStrengthIndicator yok; ChangePasswordModal.tsx:52 ve register.tsx:63 aynı iş için `passwordStrength === 'weak'` kapısı + gösterge kullanıyor (grep doğruladı). Aynı kullanıcı bir yüzeyden koyamadığı zayıf şifreyi Ayarlar'dan koyabiliyor — gerçek politika tutarsızlığı."
+  },
+  {
+   "file": "src/app/ayarlar/paylasilan-isletmeler.tsx",
+   "line": 322,
+   "title": "Kullanici/davet satirlarindaki aksiyonlar 23-32px dokunma hedefi, hitSlop yok",
+   "category": "erisilebilirlik",
+   "severity": "low",
+   "detail": "Bu ekrandaki uc satir-ici aksiyon da 44px'lik minimum dokunma hedefinin cok altinda ve hicbirinde hitSlop yok: 'Isletmeden ayril' (32x32 kutu, yikici aksiyon), 'Gecis yap' (paddingVertical spacing.xs=4 + caption 12pt = ~23px) ve 'Daveti iptal et' (paddingVertical spacing.xs=4 = ~23px, yikici aksiyon). Iki yikici aksiyonun bu kadar kucuk ve birbirine yakin olmasi yanlis dokunus riskini de artiriyor. Kod tabaninda tam bu is icin HIT_SLOP sabitleri var ve baska yerlerde kullaniliyor.",
+   "evidence": "src/app/ayarlar/paylasilan-isletmeler.tsx:322-328 leaveButton TouchableOpacity + :437-444 'leaveButton: { width: 32, height: 32, ... }' | :313-321 switchButton + :428-436 'switchButton: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm, ... }' | :237-244 cancelInvite TouchableOpacity + :394-397 'cancelButton: { paddingVertical: spacing.xs, paddingHorizontal: spacing.sm }'. spacing.xs=4 ve caption/label fontSize.sm=12 (src/constants/spacing.ts:4,26 ve src/components/ui/Text.tsx:25-26). SABIT VAR VE KULLANILIYOR: src/constants/spacing.ts:87-91 HIT_SLOP; src/components/ui/BackButton.tsx:42 'hitSlop={HIT_SLOP.sm}'; src/components/ui/ModalSearchBar.tsx:64 'hitSlop={HIT_SLOP.sm}'; src/components/auth/ChangePasswordModal.tsx:143 'hitSlop={HIT_SLOP.md}'.",
+   "fix": "Uc TouchableOpacity'ye de hitSlop={HIT_SLOP.md} ekle ve leaveButton'i 32 yerine en az 40x40 yap (ya da hitSlop ile 44'e tamamla).",
+   "id": 86,
+   "verifyNote": "paylasilan-isletmeler.tsx:313-327 iki TouchableOpacity'de hitSlop yok; :428-444 switchButton paddingVertical spacing.xs (≈24-28px yükseklik) ve leaveButton 32x32; :237-244 cancelInvite de aynı. HIT_SLOP standardı kod tabanında mevcut ve kullanılıyor. Gerçek ama nadir kullanılan bir ayar ekranında kozmetik/erişilebilirlik nüansı → low."
+  },
+  {
+   "file": "src/app/onboarding.tsx",
+   "line": 182,
+   "title": "Onboarding 'Atla' butonunun dokunma hedefi ~31px, hitSlop da yok",
+   "category": "erisilebilirlik",
+   "severity": "low",
+   "detail": "Bes slaytlik tanitim karuselinden cikmanin tek kestirme yolu sag ustteki 'Atla'. Dokunma hedefi 8px dolgu + 12pt label = ~31px, 44px esiginin altinda ve hitSlop verilmemis. Ayni ekrandaki 'Ileri' butonu (paddingVertical spacing.md=12) 44px'i tutturuyor, yani ekranin kendi icinde bile tutarsiz.",
+   "evidence": "src/app/onboarding.tsx:182-186 '<TouchableOpacity onPress={skipOnboarding} style={styles.skipButton}><Text variant=\"label\" ...>' | :249-251 'skipButton: { padding: spacing.sm }' (spacing.sm=8, src/constants/spacing.ts:5) | label fontSize.sm=12 (src/components/ui/Text.tsx:26 + src/constants/spacing.ts:26) -> 8+~15+8 = ~31px. Ayni dosyada tutan buton: :298-307 \"nextButton: { paddingVertical: spacing.md, paddingHorizontal: spacing['2xl'], ... }\" (12+~20+12 = 44). HIT_SLOP sabiti mevcut: src/constants/spacing.ts:87-91.",
+   "fix": "skipButton'a hitSlop={HIT_SLOP.md} ekle veya padding'i spacing.md'ye cikar.",
+   "id": 87,
+   "verifyNote": "onboarding.tsx:182-186 skipButton'da hitSlop yok; stil :249-251 `padding: spacing.sm` (=8, spacing.ts:5) ve variant=\"label\" fontSize.sm=12 → dikey hedef ~31px. Aynı dosyada nextButton paddingVertical spacing.md ile 44'ü tutturuyor, HIT_SLOP sabiti de mevcut (spacing.ts:87-91). Gerçek ama tek satırlık, düşük etkili a11y kusuru → low."
+  },
+  {
+   "file": "src/app/verify.tsx",
+   "line": 98,
+   "title": "verify.tsx Screen primitifini baypas ediyor, ikizi reset-password kullaniyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "verify.tsx ile (auth)/reset-password.tsx ayni isi yapiyor (deep-link token isleyip yukleniyor/hata ekrani gosteren gecis sayfasi) ve gorsel olarak birebir ayni yiginda (ActivityIndicator + Text, ya da h2 hata + aciklama). reset-password <Screen top> kullaniyor, verify ise ham View ile flex/backgroundColor'i elle yaziyor ve ust guvenli alan payi almiyor. Ikisinin de headerShown:false oldugu icin verify'da icerik teorik olarak status bar'a girebilir (pratikte icerik dikey ortali oldugu icin gorunmuyor, ama sozlesme baypas edilmis durumda).",
+   "evidence": "src/app/verify.tsx:98 ve :113 '<View style={styles.container}>' + :122-129 \"container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background, padding: spacing.xl }\" (Screen import edilmemis; :6 yalniz Text) | IKIZI: src/app/(auth)/reset-password.tsx:10 \"import { Text, Screen } from '@/components/ui'\", :103 '<Screen top>' hata dali, :120 '<Screen top>' yukleniyor dali, :136-141 ayni centerContainer stili. Ikisi de headerShown:false: src/app/_layout.tsx:347 (verify) ve :341 ((auth)).",
+   "fix": "verify.tsx'te ham View'lari <Screen top> ile sar ve container stilinden flex/backgroundColor'i cikar (yalniz centerContainer hizalamasi kalsin) - reset-password.tsx:103-128 ile ayni yapi.",
+   "id": 88,
+   "verifyNote": "verify.tsx:98/:113 ham View + :122-129 container'da flex/backgroundColor elle; Screen import edilmemiş. İkizi (auth)/reset-password.tsx:103,:120 <Screen top> + aynı centerContainer stili. Sözleşme baypası gerçek, görünür etkisi yok (içerik dikey ortalı) → low doğru."
+  },
+  {
+   "file": "src/app/ayarlar/isletme.tsx",
+   "line": 18,
+   "title": "SECTORS dizisi kurulum.tsx ile birebir kopyalanmis (ikon + hardcoded hex renkler)",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "12 sektorun id/ikon/renk eslesmesi iki dosyada ayri ayri tanimli ve tamamen ayni degerleri tasiyor. Bugun ayni gorunuyorlar ama tek kaynak olmadigi icin biri guncellenince kurulum ekrani ile Ayarlar > Isletme Bilgileri'ndeki ayni sektorun ikonu/rengi ayrisir. Ayrica renkler '@/constants/colors' yerine dogrudan hex olarak yazilmis (12 x 2 = 24 hardcoded deger).",
+   "evidence": "src/app/ayarlar/isletme.tsx:18-31 \"const SECTORS: { id: IsletmeSector; icon: LucideIcon; color: string }[] = [{ id: 'market_bakkal', icon: ShoppingBasket, color: '#10B981' }, ...]\" | src/app/kurulum.tsx:38-51 birebir ayni dizi, ayni sira, ayni hex'ler. Ikisi de ayni i18n anahtarlarini kullaniyor (isletme.tsx:259 ve kurulum.tsx:144 'auth:setup.sector.options.${id}').",
+   "fix": "Diziyi tek bir module tasi (or. src/constants/sectors.ts) ve iki ekran da oradan import etsin; renkleri mumkun oldugunca colors sabitlerine (success/warning/info/orange...) esle.",
+   "id": 89,
+   "verifyNote": "isletme.tsx:18-31 ve kurulum.tsx:38-51 SECTORS dizisi birebir aynı (aynı sıra, aynı ikonlar, aynı 12 hex). Tek kaynak yok, renkler palet dışında. low doğru."
+  }
+ ]
+}

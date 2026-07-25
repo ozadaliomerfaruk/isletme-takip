@@ -1,0 +1,134 @@
+{
+ "cluster": "c06",
+ "ownedFiles": [
+  "src/app/urunler/[id].tsx",
+  "src/app/urunler/toplu-giris.tsx",
+  "src/app/urunler/toplu-cikis.tsx",
+  "src/components/urunlerPage/ProductRow.tsx",
+  "src/components/urunlerPage/styles.ts",
+  "src/components/urun/UrunForm.tsx",
+  "src/components/urun/QuickUrunBar/QuickUrunBar.tsx"
+ ],
+ "findings": [
+  {
+   "file": "src/components/urun/UrunForm.tsx",
+   "line": 111,
+   "title": "UrunForm'da keyboardVerticalOffset sabit 100 — diğer formlarda insets.top + 44",
+   "category": "yuzen-kontrol",
+   "severity": "low",
+   "detail": "Ürün ekle/düzenle formu klavye ofsetini sihirli sayı olarak 100 veriyor. Doğru değer 'pencere tepesi ile KAV tepesi arası' = insets.top + header yüksekliği; bu cihaza göre değişiyor (iPhone SE ~64, standart çentik ~91, Dynamic Island ~103). Sabit 100 küçük cihazlarda klavye ile içerik arasında ~36px fazla boşluk, büyük çentikli cihazlarda birkaç px eksik bırakıyor. Alanın geri kalanındaki altı form aynı ofseti insets'ten türetiyor.",
+   "evidence": "src/components/urun/UrunForm.tsx:108-112 (`keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}`). Karşı örnekler: src/app/cariler/ekle.tsx:109, src/app/cariler/duzenle/[id].tsx:117, src/app/hesaplar/ekle.tsx:108, src/app/hesaplar/duzenle/[id].tsx:131, src/app/personel/ekle.tsx:100, src/app/personel/duzenle/[id].tsx:125 — hepsi `Platform.OS === 'ios' ? insets.top + 44 : 0`. Bileşenin tüketicileri: src/app/urunler/ekle.tsx:102-107, src/app/urunler/duzenle/[id].tsx:101-107 (ikisi de native header'lı: src/app/_layout.tsx:883-904).",
+   "fix": "`useSafeAreaInsets()` ile `keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}` yap; ileride tek yerden yönetmek için bu ifadeyi `useFormKeyboardOffset()` gibi bir hook'a çıkarmak da uygun.",
+   "id": 39,
+   "verifyNote": "UrunForm.tsx:111 `keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}` doğrulandı; personel/duzenle/[id].tsx:125 dahil altı formun hepsi `insets.top + 44` türetiyor. Sihirli sayı + cihaza göre yanlış ofset; etkisi küçük olduğundan low doğru."
+  },
+  {
+   "file": "src/app/urunler/toplu-giris.tsx",
+   "line": 559,
+   "title": "Toplu giriş/çıkış ürün seçici modalinde alt güvenli alan yok — son satır home indicator altında",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "Ürün seçici modal tam ekran (pickerModal flex:1, iOS'ta yalnız üstten 56px boşluk) ve içindeki ScrollView'a hiç contentContainerStyle verilmemiş; kapsayıcıda da paddingBottom yok. Liste ekranın en alt kenarında bitiyor → son ürün satırı home indicator'ın altında kalıyor, alt yarısı sistem jest alanına giriyor. Uygulamadaki diğer iki ürün/birim seçici bu boşluğu açıkça veriyor.",
+   "evidence": "src/app/urunler/toplu-giris.tsx:559 `<ScrollView style={styles.flex} keyboardShouldPersistTaps=\"handled\">` (contentContainerStyle yok) + styles.pickerModal src/app/urunler/toplu-giris.tsx:918-924 (flex:1, marginTop var, paddingBottom YOK). Birebir aynısı src/app/urunler/toplu-cikis.tsx:559 ve 918-924. Karşılaştırma: src/components/transaction/QuickTransactionBar/components/UrunPickerModal.tsx:320-324 `{ height: windowHeight * 0.92, paddingBottom: insets.bottom }`; src/components/ui/UnitPicker.tsx:206 `{ height: windowHeight * 0.7, paddingBottom: insets.bottom }` + UnitPicker.tsx:369-372 `unitListContent: { paddingBottom: spacing['3xl'] }`. Modal zaten ModalInsets ile sarılı (src/components/ui/Modal.tsx:22-28) → useSafeAreaInsets burada GERÇEK safe-area döner.",
+   "fix": "Her iki dosyada ScrollView'a `contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }}` ver (useSafeAreaInsets zaten import edilebilir) ya da styles.pickerModal'a `paddingBottom: insets.bottom` ekle — UrunPickerModal/UnitPicker ile aynı olur.",
+   "id": 44,
+   "verifyNote": "toplu-giris.tsx:559 ScrollView contentContainerStyle'sız ve :918-924 pickerModal flex:1, yalnız marginTop var, paddingBottom yok; ScrollView'den sonra kapsayıcı içinde başka öğe de yok (:609-611) → son satır home indicator altında. Aynısı toplu-cikis.tsx. UrunPickerModal ve UnitPicker insets.bottom ekliyor. Modal ModalInsets ile sarılı, insets gerçek değeri döner."
+  },
+  {
+   "file": "src/app/urunler/toplu-giris.tsx",
+   "line": 541,
+   "title": "Toplu giriş/çıkış ürün seçicide elle yazılmış arama kutusu — ModalSearchBar baypası",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Aynı işi yapan (modal içinde ürün ara) üç yüzeyden ikisi ortak ModalSearchBar bileşenini kullanıyor, toplu giriş/çıkış ise kendi View+TextInput kutusunu çiziyor. Sonuç görünür şekilde farklı: ModalSearchBar 48px yüksekliğinde, borderRadius.full, GLASS_TINT_CONTROL'lü cam pill ve 17pt yazı; buradaki kutu 12px köşeli, düz bordürlü, 15pt yazı. Kullanıcı QTB ürün seçiciden toplu giriş seçicisine geçince aynı işlemin arama alanını farklı görüyor; ayrıca cam dili bu yüzeyde hiç yok.",
+   "evidence": "src/app/urunler/toplu-giris.tsx:541-556 (`<View style={styles.searchBar}><Search…/><TextInput style={styles.searchInput} …/>`) + stil src/app/urunler/toplu-giris.tsx:947-964 (borderRadius 12, fontSize 15); aynısı src/app/urunler/toplu-cikis.tsx:541-556. Karşılaştırma: src/components/transaction/QuickTransactionBar/components/UrunPickerModal.tsx:344-349 `<ModalSearchBar value={searchQuery} … />`; src/components/ui/UnitPicker.tsx:218-222 `<ModalSearchBar … />`; bileşenin kendi dokümanı src/components/ui/ModalSearchBar.tsx:17-25 ve tint kuralı ModalSearchBar.tsx:45-49.",
+   "fix": "searchBar/searchInput bloklarını `<ModalSearchBar value={productSearch} onChangeText={setProductSearch} placeholder={t('products:bulk.selectProduct')} autoFocusDelay={300} />` ile değiştir; styles.searchBar + styles.searchInput'u sil.",
+   "id": 45,
+   "verifyNote": "toplu-giris.tsx:541-556 modal içinde elle View+TextInput arama kutusu; aynı işi yapan UrunPickerModal ve UnitPicker ModalSearchBar kullanıyor. ModalSearchBar.tsx:17-25 kendini 'modal/sheet içi standart' olarak tanımlıyor ve :45-49 cam+GLASS_TINT_CONTROL veriyor. Aynı kopya toplu-cikis.tsx'te de var."
+  },
+  {
+   "file": "src/app/urunler/[id].tsx",
+   "line": 453,
+   "title": "Ürün detay header butonlarında hitSlop ve padding yok (22-24px dokunma hedefi)",
+   "category": "erisilebilirlik",
+   "severity": "medium",
+   "detail": "Ürün detay sayfasının Stack header'ındaki Excel ve üç-nokta butonları çıplak TouchableOpacity: ne padding ne hitSlop var, dokunma hedefi ikon boyutuna eşit (22px ve 24px) — 44px eşiğinin çok altında. Aynı ailedeki cari ve hesap detay sayfalarında bu butonlar hem `styles.headerBtn` (padding: spacing.xs) hem `hitSlop={HIT_SLOP.md}` alıyor. Ayrıca gruptaki boşluk sabitten değil, satır içi `gap: 12` ile veriliyor.",
+   "evidence": "src/app/urunler/[id].tsx:451-462 → `<View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}><TouchableOpacity onPress={() => setExportSheetVisible(true)}><FileSpreadsheet size={22} …/></TouchableOpacity>… <TouchableOpacity onPress={() => setMenuVisible(true)}><MoreVertical size={24} …/></TouchableOpacity>` (hitSlop/style YOK). Karşılaştırma: src/app/cariler/[id].tsx:758-769 (`style={styles.headerBtn}` + `hitSlop={HIT_SLOP.md}`) ve stil cariler/[id].tsx:2151-2159 (`headerRightContainer: { gap: spacing.xs, marginRight: spacing.sm }`, `headerBtn: { padding: spacing.xs }`); src/app/hesaplar/[id].tsx:710-721 aynı desen.",
+   "fix": "İki TouchableOpacity'ye `style={styles.headerBtn}` (padding: spacing.xs) + `hitSlop={HIT_SLOP.md}` ekle; satır içi `gap: 12` yerine cariler/hesaplar'daki gibi `gap: spacing.xs, marginRight: spacing.sm` taşıyan bir stil kullan.",
+   "id": 46,
+   "verifyNote": "urunler/[id].tsx:451-462 headerRight'taki iki TouchableOpacity tamamen çıplak — ne style ne hitSlop; hedef 22px/24px. Kardeş detay sayfaları (cariler/[id].tsx:758-779, hesaplar/[id].tsx) styles.headerBtn + hitSlop={HIT_SLOP.md} veriyor. Ayrıca satır içi gap:12 sabitleri baypas ediyor. Gruptaki 12px boşluk hitSlop eklemeye de yeterli."
+  },
+  {
+   "file": "src/components/urunlerPage/ProductRow.tsx",
+   "line": 278,
+   "title": "Giriş/çıkış pill renkleri iki dosyada ham hex olarak kopyalanmış",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Alış/satış pill zeminleri palet sabitleri yerine ham hex ile yazılmış ve aynı değerler iki ayrı dosyada tekrarlanıyor (tek seferlik semantik-olmayan değer değil, paylaşılan bir tasarım kararı). Üstelik düzeltme pill'inin '#FEF9C3' değeri colors.warningLight ile birebir aynı ve aynı dosya birkaç yüz satır yukarıda zaten colors.warningLight/errorLight/successLight kullanıyor — yani dosya kendi içinde iki dilde konuşuyor. Palet değişirse bu pill'ler geride kalır.",
+   "evidence": "src/components/urunlerPage/ProductRow.tsx:278 `pillIn: { backgroundColor: '#FEF2F2' }` ve 289 `pillOut: { backgroundColor: '#ECFDF5' }`. Aynı değerler src/app/urunler/[id].tsx:908 ve 919'da tekrar; ayrıca [id].tsx:930 `aylikPillDuzeltme: { backgroundColor: '#FEF9C3' }` = colors.warningLight (src/constants/colors.ts:24) ve [id].tsx:938 `color: '#A16207'` (paletteki warningDark '#854D0E' değil). Buna karşılık aynı dosyada [id].tsx:249-251 `colors.warningLight / colors.errorLight / colors.successLight` kullanılıyor.",
+   "fix": "En azından '#FEF9C3'→colors.warningLight yap; kalan iki tonu colors.ts'e semantik ad ile ekle (ör. purchasePillBg / salePillBg) ve pill stillerini iki dosyada tekrar etmek yerine tek bir paylaşılan stil modülünden al.",
+   "id": 49,
+   "verifyNote": "ProductRow.tsx:278/289 ve urunler/[id].tsx:908/919'da aynı ham hex'ler ('#FEF2F2', '#ECFDF5') iki dosyada tekrar ediyor — tek seferlik değer değil, paylaşılan tasarım kararı. [id].tsx:930 '#FEF9C3' colors.ts:24 warningLight ile birebir aynı ve :938 '#A16207' paletteki warningDark (#854D0E) değil; aynı dosya başka yerde palet sabitlerini kullanıyor. low doğru."
+  },
+  {
+   "file": "src/components/urun/QuickUrunBar/QuickUrunBar.tsx",
+   "line": 3,
+   "title": "QuickUrunBar ham react-native Text kullanıyor (RNText), kardeşi QuickTransactionBar primitifi kullanıyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Ürün sayfalarının ikisinin de açtığı QuickUrunBar, metinlerin tamamını react-native'in Text'ini `RNText` diye yeniden adlandırarak çiziyor; yani '@/components/ui' → Text primitifi (variant/color ölçeği) tamamen baypas ediliyor ve her yazı boyutu/rengi elle yazılıyor. Aynı işi yapan kardeş bileşen QuickTransactionBar primitifi kullanıyor. Tipografi ölçeği değişirse bu bar geride kalır.",
+   "evidence": "src/components/urun/QuickUrunBar/QuickUrunBar.tsx:3 `import { …, Text as RNText, … } from 'react-native'`; kullanım: 367, 370, 395, 415, 433, 455, 469, 498, 523, 548, 570, 589, 604. Karşılaştırma: src/components/transaction/QuickTransactionBar/QuickTransactionBar.tsx:5 `import { Text, Modal } from '@/components/ui'` ve dosyada RNText kullanımı 0 (grep -c \"RNText\" → 0); primitif tanımı src/components/ui/Text.tsx:44-65.",
+   "fix": "`Text as RNText` importunu kaldır, '@/components/ui' → Text kullan; sabit fontSize/color yazan stilleri uygun variant/color'a çevir (ör. urunName → variant=\"body\", urunStock → variant=\"caption\" color=\"secondary\").",
+   "id": 50,
+   "verifyNote": "QuickUrunBar.tsx:3 gerçekten `Text as RNText` import ediyor ve dosyada 21 kullanım var; kardeş QuickTransactionBar.tsx:2 react-native'den Text almıyor, '@/components/ui' → Text kullanıyor. Yerleşik kural 'ham <Text> react-native'den gelmemeli' ile çelişiyor. QTB'nin ertelenen işi CAM dönüşümü — bu bulgu tipografi primitifi hakkında, o kapsamda değil. Low doğru."
+  },
+  {
+   "file": "src/components/urunlerPage/styles.ts",
+   "line": 16,
+   "title": "Paylaşılan flatListContent alt boşluğu cam tab bar'ı temizlemiyor (yalnız çağrı yerindeki override kurtarıyor)",
+   "category": "alt-bosluk",
+   "severity": "low",
+   "detail": "styles.ts'teki flatListContent, listenin alt boşluğunu sabit `spacing['3xl']` (32px) + arama payı olarak tanımlıyor. Bu değer overlay cam tab bar yüksekliğini içermiyor — sözleşme gereği bu boşluk insets.bottom'dan (override'lı) gelmeli. Şu an ekran bunu çağrı yerinde ezdiği için görünür bir hata yok, ama stil ölü ve yanıltıcı: bu paylaşılan stili başka bir liste (ör. yeni bir ürün alt sayfası) override'sız kullanırsa son satır bar'ın altında kalır.",
+   "evidence": "src/components/urunlerPage/styles.ts:16-18 `flatListContent: { paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE }`. Çağrı yeri src/app/urunler/index.tsx:797 `contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}` → dizi ikinci elemanı kazanıyor, styles.ts değeri hiç uygulanmıyor. Doğru kaynak: src/hooks/useContentBottomPadding.ts:24-27 (`insets.bottom + (search ? FLOATING_SEARCH_CLEARANCE : 0)`) ve kural src/components/ui/Screen.tsx:8-15.",
+   "fix": "styles.ts:17'deki paddingBottom'ı stilden çıkar (yalnız geometri kalsın) ve ekranda `contentContainerStyle={{ paddingBottom: useContentBottomPadding({ search: true }) }}` kullan — sabit bir daha kimseyi yanıltmaz.",
+   "id": 51,
+   "verifyNote": "urunlerPage/styles.ts:16-18 flatListContent sabit `spacing['3xl'] + FLOATING_SEARCH_CLEARANCE` ve tek tüketici urunler/index.tsx:797 ikinci eleman ile eziyor → değer ölü. Bunun kod tabanında bilinçli olarak temizlenmiş bir anti-desen olduğu belgeli: islemler/index.tsx:637-639 yorumu 'paddingBottom BURADA DEĞİL… bırakılsaydı üstü örtülen ölü bir değer olurdu' diyor; cariler/hesaplar/personel detaylarında flatListContent boş bırakılmış. low yerinde."
+  },
+  {
+   "file": "src/app/urunler/[id].tsx",
+   "line": 451,
+   "title": "Ürün detayı header sağ butonlarında hitSlop/padding yok (22-24px dokunma hedefi)",
+   "category": "erisilebilirlik",
+   "severity": "medium",
+   "detail": "Ürün detayının header sağ grubu ham TouchableOpacity kullanıyor: ne `styles.headerBtn` dolgusu ne `hitSlop` var. Dokunma hedefi ikon kutusu kadar, yani 22×22 ve 24×24 px — 44px eşiğinin çok altında. Diğer üç detay sayfasında aynı butonlar padding: spacing.xs + HIT_SLOP.md ile ~44px'e çıkarılmış. Ayrıca kapsayıcıda `gap: 12` ham sayı (diğerlerinde gap: spacing.xs + marginRight: spacing.sm) ve dışa aktarma ikonu burada yeşil FileSpreadsheet iken diğer üçünde nötr renkli Share ikonu.",
+   "evidence": "src/app/urunler/[id].tsx:451-462 `headerRight: () => (<View style={{ flexDirection:'row', alignItems:'center', gap:12 }}><TouchableOpacity onPress={...}><FileSpreadsheet size={22} color={colors.success} /></TouchableOpacity><TouchableOpacity onPress={...}><MoreVertical size={24} color={colors.text} /></TouchableOpacity></View>)` — style/hitSlop yok. Karşılaştırma: src/app/hesaplar/[id].tsx:708-725 ve src/app/personel/[id].tsx:453-485 ve src/app/cariler/[id].tsx:756-790 → hepsinde `style={styles.headerBtn}` (padding: spacing.xs) + `hitSlop={HIT_SLOP.md}`, kapsayıcı `styles.headerRightContainer` (gap: spacing.xs, marginRight: spacing.sm).",
+   "fix": "urunler/[id].tsx'e `headerRightContainer` + `headerBtn` stillerini diğer üç sayfadakiyle birebir ekle, iki TouchableOpacity'ye `style={styles.headerBtn} hitSlop={HIT_SLOP.md}` ver; HIT_SLOP'u '@/constants/spacing'ten import et. Dışa aktarma ikonunu da Share (colors.text) ile hizala.",
+   "id": 64,
+   "verifyNote": "urunler/[id].tsx:451-462 headerRight'ta iki TouchableOpacity style'sız ve hitSlop'suz (ikon kutusu 22/24px dokunma hedefi), kapsayıcıda ham gap:12. hesaplar/[id].tsx:708-724, personel/[id].tsx:453-484 ve cariler/[id].tsx aynı butonları styles.headerBtn + HIT_SLOP.md ile veriyor. Dokunma hedefi eşiği ihlali → medium uygun."
+  },
+  {
+   "file": "src/app/urunler/[id].tsx",
+   "line": 661,
+   "title": "Ürün detayında ⋮ menüsü elle yazılmış alt-sheet; diğer üçü DetailActionMenu (sağ-üst dropdown)",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Aynı ⋮ aksiyonu dört detay sayfasında iki farklı şeye açılıyor: cari/hesap/personel'de sağ üstten inen küçük dropdown (DetailActionMenu), üründe ekranın altından çıkan tam genişlikte bottom sheet. Konum, animasyon (fade+aşağıdan yerine fade+dropdown), köşe yarıçapı, ayraç dili ve satır dolgusu farklı. Ayrıca ürün sheet'i alt boşluğu `paddingBottom: spacing['3xl']` (32) ile sabitliyor — home-indicator'lı cihazda gerçek insets.bottom (34) bunun üstünde, son satır göstergeye yapışır; DetailActionMenu üstte olduğu için bu sorunu hiç yaşamıyor.",
+   "evidence": "src/app/urunler/[id].tsx:661-712 `<Modal visible={menuVisible} transparent animationType=\"fade\">` + `styles.modalOverlay` (:990-994 justifyContent:'flex-end') + `styles.menuContent` (:995-1001 borderTopLeftRadius, paddingBottom: spacing['3xl']) + elle yazılmış menuItem/menuDivider satırları. Karşılaştırma: src/app/hesaplar/[id].tsx:965-972, src/app/personel/[id].tsx:852-859, src/app/cariler/[id].tsx:1553-1564 → üçü de `<DetailActionMenu visible=... actions=[{icon,label,visible,danger,onPress}] />`; src/components/detail/DetailActionMenu.tsx:55-63 backdrop `justifyContent:'flex-start', alignItems:'flex-end', paddingTop:60`.",
+   "fix": "urunler/[id].tsx'teki Modal bloğunu ve modalOverlay/menuContent/menuItem/menuDivider stillerini silip `<DetailActionMenu visible={menuVisible} onClose={() => setMenuVisible(false)} actions={[{icon: Pencil, label: t('products:editProduct'), visible: canEdit, onPress: ...}, {icon: urun.is_archived ? ArchiveRestore : Archive, label: ..., visible: canEdit, iconColor: ..., onPress: ...}, {icon: Trash2, label: t('common:buttons.delete'), visible: canRemove, danger: true, onPress: handleDelete}]} />` kullan.",
+   "id": 65,
+   "verifyNote": "urunler/[id].tsx:661-712 elle yazılmış alt-sheet (modalOverlay :990-994 justifyContent 'flex-end', menuContent :995-1001 borderTop*Radius + paddingBottom spacing['3xl']); diğer üç detay sayfası DetailActionMenu kullanıyor (hesaplar/[id].tsx:965-972 vb.) ve o bileşen sağ-üst dropdown (DetailActionMenu.tsx:55-63). Konum/animasyon/ayraç dili farklı; sabit 32px alt boşluk da insets.bottom'un altında. Ertelenen kapsamda değil (ActionSheet/BottomSheet cam dönüşümü ayrı konu)."
+  },
+  {
+   "file": "src/app/urunler/[id].tsx",
+   "line": 907,
+   "title": "Aylık özet pill'lerinde palet dışı hardcoded hex renkler",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Aylık özet pill'lerinin zemin/metin renkleri elle hex yazılmış ve paletteki karşılıklarıyla aynı değil: '#FEF2F2' (colors.errorLight = #FEE2E2), '#ECFDF5' (colors.successLight = #D1FAE5), '#A16207' (colors.warningDark = #854D0E). Aynı ekranda hareket satırı ikon kutuları colors.errorLight/successLight/warningLight kullanıyor, yani tek sayfada iki farklı kırmızı-açık ve iki farklı yeşil-açık ton yan yana geliyor. Palet dosyası değişirse bu pill'ler eski tonda kalır.",
+   "evidence": "src/app/urunler/[id].tsx:907-939 `aylikPillIn.backgroundColor: '#FEF2F2'`, `aylikPillOut.backgroundColor: '#ECFDF5'`, `aylikPillDuzeltme.backgroundColor: '#FEF9C3'`, `aylikPillDuzeltmeText.color: '#A16207'`. Aynı dosyada :245-252 satır ikonu `colors.errorLight / colors.successLight / colors.warningLight`. src/constants/colors.ts:20-24,33-37 → successLight '#D1FAE5', errorLight '#FEE2E2', warningLight '#FEF9C3', warningDark '#854D0E'.",
+   "fix": "aylikPillIn → colors.errorLight, aylikPillOut → colors.successLight, aylikPillDuzeltme → colors.warningLight, aylikPillDuzeltmeText → colors.warningDark.",
+   "id": 72,
+   "verifyNote": "urunler/[id].tsx:907-939 '#FEF2F2', '#ECFDF5', '#A16207' elle yazılmış; colors.ts:20-24,33-37'de errorLight '#FEE2E2', successLight '#D1FAE5', warningDark '#854D0E' — tonlar palet karşılıklarıyla aynı değil ve aynı dosyada (:245-252) hareket ikonları palet sabitlerini kullanıyor. Kozmetik → low doğru."
+  }
+ ]
+}

@@ -1,0 +1,150 @@
+{
+ "cluster": "c01",
+ "ownedFiles": [
+  "src/app/taksit/index.tsx",
+  "src/app/taksit/[id].tsx",
+  "src/components/mutabakat/ReportStep.tsx",
+  "src/components/mutabakat/SelectStep.tsx",
+  "src/app/mutabakat/[cariId].tsx",
+  "src/app/ayarlar/davet-olustur.tsx",
+  "src/app/ayarlar/islem-gecmisi.tsx",
+  "src/components/dataImport/SkippedTab.tsx",
+  "src/components/dataImport/styles.ts",
+  "src/app/ayarlar/data-import/index.tsx",
+  "src/components/ocrImport/OcrInvoiceList.tsx"
+ ],
+ "findings": [
+  {
+   "file": "src/app/taksit/index.tsx",
+   "line": 364,
+   "title": "Taksit FAB'ı cam tab bar'ın ARKASINDA kalıyor (insets.bottom yok)",
+   "category": "yuzen-kontrol",
+   "severity": "high",
+   "detail": "styles.fab `bottom: spacing['2xl']` (=24) ile çıpalanmış; insets.bottom YOK. Overlay tab bar ekranın altında `insets.bottom + TAB_BAR_CONTENT_HEIGHT` (iPhone'da 34+72=106px) yer kaplıyor ve PersistentTabBar _layout'ta Stack'ten SONRA çizildiği için FAB'ın zIndex:10'u onu kurtarmıyor. 56px'lik FAB dipten 24–80px bandında duruyor, yani tamamen bar'ın altında kalıyor. Aynı hata satır 218'deki fabMenuContainer'da da var (`spacing['2xl'] + FAB_SIZE + spacing.md` = 92 → menü de bar bandının içinde). Sonuç: Taksit Takip sayfasında \"taksitli satış/alış ekle\" butonu görünmüyor/basılamıyor — sayfanın TEK yazma girişi bu.",
+   "evidence": "src/app/taksit/index.tsx:361-366 `fab: { position:'absolute', right: spacing.lg, bottom: spacing['2xl'], zIndex:10 }` ve :218 `{ bottom: spacing['2xl'] + FAB_SIZE + spacing.md }`. KARŞILAŞTIRMA — uygulamadaki DİĞER TÜM FAB'lar insets.bottom kullanıyor: src/app/notlar/index.tsx:426 `bottom: spacing.lg + insets.bottom`, src/app/urunler/index.tsx:955 ve :902, src/app/(tabs)/index.tsx:692 ve :637, src/app/(tabs)/personel.tsx:845, src/app/cariler/[id].tsx:1702, src/app/hesaplar/[id].tsx:1091, src/app/personel/[id].tsx:941. Bar yüksekliği: src/components/ui/PersistentTabBar.tsx:65 `TAB_BAR_CONTENT_HEIGHT = TOP_PAD + PILL_H` (6+66=72), src/app/_layout.tsx:118-121 modifiedInsets. taksit/index tek istisna.",
+   "fix": "`const insets = useSafeAreaInsets();` ekleyip fab'ı `style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}`, menüyü `{ bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }` yap; styles.fab'tan `bottom` satırını kaldır (urunler/index.tsx:955 ile birebir aynı kalıp).",
+   "id": 0,
+   "verifyNote": "taksit/index.tsx:364 fab bottom = spacing['2xl'] (24) ve :218 menü bottom = 24+56+12, ikisi de insets.bottom içermiyor. Rota 'taksit' → tabBarVisibility.ts:60 'daha' → bar çiziliyor, _layout modifiedInsets alt bandı 34+72=106'ya çıkarıyor. GlassFab style={styles.fab} inline bottom override'ı da yok (satır 253-254). FAB tamamen bar bandının içinde; sayfanın tek yazma girişi. Diğer tüm FAB'lar (index.tsx:692 vb.) insets.bottom kullanıyor."
+  },
+  {
+   "file": "src/components/mutabakat/ReportStep.tsx",
+   "line": 725,
+   "title": "Mutabakat raporunun son satırları cam tab bar'ın altında kalıyor",
+   "category": "alt-bosluk",
+   "severity": "high",
+   "detail": "Rapor FlashList'inin contentContainerStyle'ı sabit `paddingBottom: spacing['3xl']` (=32). Mutabakat rotasında overlay tab bar ÇİZİLİYOR (getActiveTab varsayılana düşüp 'home' döndürüyor) ve bar `insets.bottom + 72` (iPhone'da ~106px) kaplıyor. Yani listenin son ~74px'i bar'ın altında kalıyor — bu, raporun EN ALTINDAKİ \"Eşleşen kalemler\" / \"Kilitli kalemler\" grubunun son satırlarına ve açıldığında yüzlerce satırlık listenin sonuna denk geliyor. Alandaki diğer tüm listeler inset'i içeriğe geçiriyor; mutabakat bu geçişte atlanmış (dosya Screen'e de taşınmamış).",
+   "evidence": "src/components/mutabakat/ReportStep.tsx:725 `contentContainerStyle={styles.listContent}` ve :759-761 `listContent: { paddingBottom: spacing['3xl'] }`. Bar'ın çizildiği: src/lib/tabBarVisibility.ts:58 `return 'home'` (mutabakat için özel kayıt yok) + src/app/_layout.tsx:117-121 `modifiedInsets.bottom = insets.bottom + TAB_BAR_CONTENT_HEIGHT`; src/components/ui/PersistentTabBar.tsx:65 (=72). KARŞILAŞTIRMA: src/app/taksit/index.tsx:190, src/app/vade/index.tsx:173, src/app/personel/izin-gecmisi/[id].tsx:466 hepsi `{ paddingBottom: contentPaddingBottom }`; src/app/arsiv/index.tsx:542 `insets.bottom + FLOATING_SEARCH_CLEARANCE`.",
+   "fix": "ReportStep'e `useContentBottomPadding()` ekleyip `contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}` yap (styles.listContent'teki sabit 32'yi görsel taban olarak bırakabilirsin, inline değer üzerine yazar).",
+   "id": 3,
+   "verifyNote": "ReportStep.tsx:725 gerçekten `contentContainerStyle={styles.listContent}` ve :759-761 sabit `paddingBottom: spacing['3xl']` (=32). tabBarVisibility.ts'te 'mutabakat' için kayıt yok → :63 default 'home' → bar çiziliyor ve _layout insets.bottom'a TAB_BAR_CONTENT_HEIGHT ekliyor. ReportStep FlashList'i [cariId].tsx'te flex:1 container'ın tek çocuğu, yani ekranın dibine kadar iniyor; 32px overlay bar'ı (~106px) temizlemiyor → listenin son satırları kalıcı olarak bar'ın altında, kaydırarak da ulaşılamıyor. Aynı alandaki taksit/vade/arsiv ekranları inset'i içeriğe geçiriyor. İçerik kalıcı erişilemez olduğu için high yerinde."
+  },
+  {
+   "file": "src/components/mutabakat/SelectStep.tsx",
+   "line": 113,
+   "title": "Mutabakat dosya-seçme adımının alt boşluğu bar'ı temizlemiyor",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "ScrollView'in contentContainerStyle'ında `paddingBottom: spacing['3xl']` (=32) sabit; overlay tab bar ~106px kaplıyor. Küçük ekranda içerik (hero + cari kartı + 3 adım + yükleme kartı + iki açıklama satırı) kaydırmaya girdiğinde en alttaki para birimi/format notları ve gerektiğinde \"Dosya Yükle\" kartının alt kenarı bar'ın altında kalıyor. Mutabakatın ilk ekranı bu ve tek CTA burada.",
+   "evidence": "src/components/mutabakat/SelectStep.tsx:23 `<ScrollView contentContainerStyle={styles.container}>` ve :110-114 `container: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing['3xl'] }`. Bar burada da çiziliyor: src/lib/tabBarVisibility.ts:58 (mutabakat kaydı yok → 'home'). KARŞILAŞTIRMA: aynı yapıdaki form/ScrollView ekranları contentPaddingBottom kullanıyor — src/app/raporlar/index.tsx:131, src/app/kurulum.tsx:110, src/app/islemler/gelir.tsx:142.",
+   "fix": "SelectStep'e `useContentBottomPadding()` ekle ve `contentContainerStyle={[styles.container, { paddingBottom: contentPaddingBottom }]}` yap.",
+   "id": 5,
+   "verifyNote": "SelectStep.tsx:23 + 110-114 sabit paddingBottom spacing['3xl']=32; useSafeAreaInsets/useContentBottomPadding hiç yok. Ebeveyn mutabakat/[cariId].tsx:475 düz <View>, ek alt boşluk vermiyor. 'mutabakat' tabBarVisibility'de listelenmediği için varsayılan 'home' → bar çiziliyor, ~106px kaplıyor. Kardeş ScrollView ekranları (raporlar/index.tsx:131) hook'u kullanıyor."
+  },
+  {
+   "file": "src/app/taksit/[id].tsx",
+   "line": 324,
+   "title": "Plan tamamen ödendiğinde taksit listesinin son satırı tab bar'ın altında kalıyor",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "listContent'in paddingBottom'u sabit `spacing['3xl']` (=32). Alt boşluğu pratikte akıştaki footer (Tahsil Et/Öde butonu) sağlıyor — ama o footer YALNIZCA açık taksit varken (`detay?.type && ilkAcik`) render ediliyor. Plan tamamen ödendiğinde footer kaybolduğu için liste ekranın dibine kadar uzuyor ve son taksit satırı (~106px'lik) cam bar'ın altında kalıyor. Yani \"tamamlanmış plan\" görünümünde son taksitin ödendi damgası okunmuyor.",
+   "evidence": "src/app/taksit/[id].tsx:253 `contentContainerStyle={styles.listContent}` ve :322-326 `listContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'], flexGrow: 1 }`; :269 `{detay?.type && ilkAcik && (` koşullu footer, :270 `paddingBottom: spacing.lg + footerInset`. KARŞILAŞTIRMA: kardeş sayfa src/app/taksit/index.tsx:190 `{ paddingBottom: contentPaddingBottom }` kullanıyor; src/app/vade/index.tsx:173 aynı.",
+   "fix": "`useContentBottomPadding()` ekleyip `contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}` yap; footer varken zaten akışta yer kapladığı için çift sayım olmaz (footer kaydırma içeriğinin dışında).",
+   "id": 6,
+   "verifyNote": "taksit/[id].tsx:253 sabit styles.listContent kullanıyor, :324 paddingBottom: spacing['3xl'] (32). Rota tabBarVisibility.ts:60 ile 'daha' sekmesine bağlı → bar görünür, gereken pay ~106px (insets override + TAB_BAR_CONTENT_HEIGHT). Alt boşluğu veren footer :269'da `detay?.type && ilkAcik` koşullu, plan tamamen ödendiğinde hiç render edilmiyor. Screen da footer prop'u almıyor. Kardeş sayfalar (taksit/index, vade/index) contentPaddingBottom kullanıyor."
+  },
+  {
+   "file": "src/app/mutabakat/[cariId].tsx",
+   "line": 475,
+   "title": "Mutabakat, alandaki tek ekran olarak <Screen> yerine ham <View> kullanıyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Kök kap ham `<View style={styles.container}>`; alandaki (ve genel taşımadaki) diğer tüm ekranlar `<Screen>` kullanıyor. Pratik sonucu bugün küçük (Screen yalnız arka plan + isteğe bağlı top inset veriyor), ama alt-boşluk sözleşmesinin tek giriş noktası Screen olduğu için bu ekran gelecekteki her düzenlemede yeniden atlanıyor — nitekim bu turda da alt boşluk (ReportStep/SelectStep) tam burada eksik çıktı. Ek olarak satır 613'te `borderRadius: 12` sabiti elle yazılmış; kod tabanında karşılığı borderRadius.lg.",
+   "evidence": "src/app/mutabakat/[cariId].tsx:475 `<View style={styles.container}>` ve :588-592 `container: { flex:1, backgroundColor: colors.background }` (Screen'in kendi container'ıyla birebir aynı, bkz. src/components/ui/Screen.tsx:58-63); :611-617 `blokBirincil: { ... borderRadius: 12 ... }`. TAŞINMIŞ EMSALLER: src/app/arsiv/index.tsx:532 `<Screen>`, src/app/notlar/index.tsx:339, src/app/vade/index.tsx:152, src/app/taksit/index.tsx:145, src/app/taksit/[id].tsx:236.",
+   "fix": "`<View style={styles.container}>` → `<Screen>` (ve styles.container'ı sil); satır 613'teki 12'yi `borderRadius.lg` yap.",
+   "id": 11,
+   "verifyNote": "mutabakat/[cariId].tsx:475 `<View style={styles.container}>` ve :588-592 container = {flex:1, backgroundColor: colors.background} — Screen.tsx:58-63 ile birebir aynı; taksit/vade/notlar/arsiv gibi taşınmış emsallerin hepsi <Screen> kullanıyor. :613'te de borderRadius 12 elle yazılmış, karşılığı borderRadius.lg=12 (spacing.ts:18) mevcut. Bugün görsel etkisi yok, alt-boşluk sözleşmesinin tek giriş noktasını atlaması yönüyle tutarsızlık — low."
+  },
+  {
+   "file": "src/app/taksit/[id].tsx",
+   "line": 229,
+   "title": "Taksit detay header sağ butonu diğer detay ekranlarından farklı (hitSlop/boyut/renk)",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Native stack header'ının sağındaki paylaş butonu inline `{ top:10, bottom:10, left:10, right:10 }` hitSlop objesiyle, 20px ikonla ve primary renkle çiziliyor. Aynı işi yapan diğer detay ekranları (cari/hesap detayı) HIT_SLOP.md sabitini, 22px ikonu ve colors.text'i kullanıyor. Görsel olarak taksit detayında ikon hem daha küçük hem yeşil kalıyor — aynı aileden ekranlarda iki farklı header dili.",
+   "evidence": "src/app/taksit/[id].tsx:229-231 `<TouchableOpacity onPress={handleOpenPdfPreview} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}><ShareIcon size={20} color={colors.primary} />`. KARŞILAŞTIRMA: src/app/hesaplar/[id].tsx:710-715 `<TouchableOpacity ... style={styles.headerBtn} hitSlop={HIT_SLOP.md}><ShareIcon size={22} color={colors.text} />` ; src/app/cariler/[id].tsx:756-762 aynı headerRightElement kalıbı (styles.headerRightContainer :2151-2156). Sabit: src/constants/spacing.ts:87-91 `HIT_SLOP.md = {10,10,10,10}` (birebir aynı değer, elle yazılmış).",
+   "fix": "`hitSlop={HIT_SLOP.md}` (import '@/constants/spacing'), `size={22}`, `color={colors.text}` yap — hesaplar/[id].tsx:710-715 ile aynı hale gelsin.",
+   "id": 12,
+   "verifyNote": "taksit/[id].tsx:229-230 inline hitSlop objesi + size 20 + colors.primary; hesaplar/[id].tsx:710-716 ve personel/[id].tsx:470-476 styles.headerBtn + HIT_SLOP.md + size 22 + colors.text. HIT_SLOP.md (spacing.ts:89) birebir aynı değer, elle yazılmış. Yorum/gerekçe yok, ertelenen kapsamda değil."
+  },
+  {
+   "file": "src/app/ayarlar/islem-gecmisi.tsx",
+   "line": 206,
+   "title": "contentPaddingBottom yanlis ScrollView'a verilmis: yatay chip seridine, dikey listeye degil",
+   "category": "alt-bosluk",
+   "severity": "high",
+   "detail": "useContentBottomPadding() sonucu (satir 31) YATAY modul-filtre ScrollView'inin contentContainerStyle'ina konmus (satir 206). Iki ayri hasar: (1) chipScroll flexGrow:0 oldugu icin yuksekligini icereginden alir, dolayisiyla chip seridinin altina ~106px olu bosluk acilir ve sekme/filtre ile liste arasinda kocaman bir delik olusur; (2) asil dikey ScrollView (satir 224) hicbir contentContainerStyle almiyor, yani son denetim satiri cam tab bar'in ALTINDA kalir, kullanici en eski kayitlari goremez.",
+   "evidence": "src/app/ayarlar/islem-gecmisi.tsx:31 'const contentPaddingBottom = useContentBottomPadding();' | :202-207 '<ScrollView horizontal ... contentContainerStyle={[styles.chipRow, { paddingBottom: contentPaddingBottom }]}>' | :224 '<ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>' (contentContainerStyle YOK) | :291-294 'chipScroll: { flexGrow: 0, marginBottom: spacing.md }'. Tab bar bu rotada gorunur: src/lib/tabBarVisibility.ts:51 \"if (first === 'ayarlar') return 'daha';\" | src/app/_layout.tsx:119 'bottom: insets.bottom + (tabBarVisible ? TAB_BAR_CONTENT_HEIGHT : 0)' | src/components/ui/PersistentTabBar.tsx:65 'TAB_BAR_CONTENT_HEIGHT = TOP_PAD + PILL_H' = 6+66 = 72 (+ gercek safe-area ~34 = ~106px). Dogru kalip ayni klasorde: src/app/ayarlar/paylasilan-isletmeler.tsx:127 ayni hook'u ana dikey ScrollView'a veriyor.",
+   "fix": "Satir 206'daki paddingBottom'i yatay chip ScrollView'dan kaldir (yalniz 'styles.chipRow' kalsin) ve satir 224'teki dikey ScrollView'a tasi: contentContainerStyle={{ paddingBottom: contentPaddingBottom }}.",
+   "id": 74,
+   "verifyNote": "ayarlar/islem-gecmisi.tsx:31 hook, :206'da YATAY chip ScrollView'ün contentContainerStyle'ına veriliyor (chipScroll flexGrow:0, :291-294 → şerit ~106px şişer); asıl dikey ScrollView :224 hiçbir contentContainerStyle almıyor → son denetim satırı cam tab bar'ın altında. Rota tabBarVisibility.ts:56 ile 'daha' → bar görünür, _layout.tsx insets override'ı da bunu doğruluyor. Aynı klasördeki paylasilan-isletmeler.tsx doğru kalıbı kullanıyor. İki yönlü gerçek hasar."
+  },
+  {
+   "file": "src/components/ocrImport/OcrInvoiceList.tsx",
+   "line": 136,
+   "title": "Foto-import fatura listesinin sabit alt aksiyon cubugu cam tab bar'in altinda kaliyor",
+   "category": "alt-bosluk",
+   "severity": "low",
+   "detail": "Bu bilesen ekranin dibine cipali bir aksiyon cubugu ciziyor (toplam tutar + 'Daha Ekle' + 'Hepsini Kaydet' birincil butonu) ama alt bosluk sozlesmesinin ucuncu maddesini hic uygulamiyor: ne useFooterBottomPadding ne insets.bottom var, yalnizca paddingVertical: spacing.md. /foto-import rotasinda tab bar cizildigi icin cubugun alt ~106px'i cam bar'in arkasinda kalir ve toplu kayit akisinin ANA butonu ('Hepsini Kaydet') tamamen orulur.",
+   "evidence": "src/components/ocrImport/OcrInvoiceList.tsx:74-110 footer JSX (son eleman satir 100-107 'Hepsini Kaydet' Button size=lg) | :136-143 'footer: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderTopWidth: 1, ... }' (insets yok) | dosyada 'insets' / 'SafeArea' / 'BottomPadding' gecmiyor (grep bos dondu). Ekran sarmalayicisi ek bosluk koymuyor: src/app/foto-import/index.tsx:106 '<Screen>' ve :133-142 '<OcrInvoiceList ... />' (Screen footer prop'u kullanilmamis; src/components/ui/Screen.tsx:51-53 alt boslugu YALNIZ footer prop'u verilirse ekliyor). Tab bar gorunur: src/lib/tabBarVisibility.ts:48 \"if (first === 'foto-import') return 'home';\". KARDES EKRAN DOGRU YAPIYOR: src/app/foto-import/review.tsx:7 useFooterBottomPadding import, :583 'style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}'.",
+   "fix": "OcrInvoiceList'e useFooterBottomPadding() ekle ve footer'i review.tsx ile ayni sekilde ver: style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}.",
+   "id": 75,
+   "verifyNote": "OcrInvoiceList.tsx:74-110 footer ekranın dibinde (container flex:1, liste + footer kardeş) ve :136-143 stilinde yalnız paddingVertical: spacing.md — dosyada insets/SafeArea/BottomPadding hiç geçmiyor; foto-import/index.tsx:106 <Screen> footer prop'suz; tabBarVisibility.ts:53 foto-import → 'home' yani bar çiziliyor. Kardeş review.tsx:583 doğru deseni (spacing.md + footerInset) kullanıyor. ANCAK: /foto-import'a uygulamada HİÇBİR giriş noktası yok (grep: yalnız _layout kaydı ve context'in kendi router.push'u) — OCR UI'sinin olmaması bilinçli, dolayısıyla kullanıcı bu ekranı göremiyor → high abartılı, low."
+  },
+  {
+   "file": "src/components/dataImport/SkippedTab.tsx",
+   "line": 36,
+   "title": "Veri ice aktar 'Atlananlar' sekmesi sabit alt bosluk kullaniyor, ayni ekranin diger sekmesi inset-farkinda",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "Ayni ekranin iki sekmesi alt boslugu farkli hesapliyor. 'Ice aktar' sekmesi useContentBottomPadding() kullaniyor (index.tsx:610) ama 'Atlananlar' sekmesi styles.skippedContent icindeki sabit paddingBottom: spacing['3xl'] (=32px) ile yetiniyor. Gerekli bosluk ~106px (safe-area 34 + TAB_BAR_CONTENT_HEIGHT 72), yani son atlanan islem karti ve 'Tumunu sil' aksiyonu cam tab bar'in altinda kaliyor; kullanici en alttaki kaydi duzeltmek icin dokunamiyor.",
+   "evidence": "src/components/dataImport/SkippedTab.tsx:34-36 '<ScrollView style={styles.scrollView} contentContainerStyle={styles.skippedContent} ...>' | src/components/dataImport/styles.ts:55-58 \"skippedContent: { padding: spacing.lg, paddingBottom: spacing['3xl'] }\" (32px sabit, inset yok) | AYNI EKRANIN DIGER DALI DOGRU: src/app/ayarlar/data-import/index.tsx:52 'const contentPaddingBottom = useContentBottomPadding();' ve :609-610 'contentContainerStyle={{ paddingBottom: contentPaddingBottom }}'. Tab bar bu rotada gorunur: src/lib/tabBarVisibility.ts:51 | PersistentTabBar.tsx:65 TAB_BAR_CONTENT_HEIGHT=72.",
+   "fix": "SkippedTab'a bottomPadding prop'u gecir (index.tsx zaten contentPaddingBottom'u hesapliyor) veya bilesenin icinde useContentBottomPadding() cagirip contentContainerStyle={[styles.skippedContent, { paddingBottom: contentPaddingBottom }]} yap.",
+   "id": 76,
+   "verifyNote": "SkippedTab.tsx:34-36 contentContainerStyle=styles.skippedContent, styles.ts:55-58 paddingBottom sabit spacing['3xl'] (32); aynı ekranın diğer dalı index.tsx:610 useContentBottomPadding() kullanıyor. Rota ayarlar/data-import → tabBarVisibility:56 'daha' → bar görünür, gereken ~106px. Son kart bar'ın altında kalıyor. Yalnız listenin son öğesini etkilediği ve 'Tümünü sil' satırı listenin ÜSTÜNDE (:53-60) olduğu için high değil, medium."
+  },
+  {
+   "file": "src/app/ayarlar/davet-olustur.tsx",
+   "line": 209,
+   "title": "Davet olustur ekrani alt bosluk sozlesmesini hic uygulamiyor (kardeslerinden tek farkli olan)",
+   "category": "alt-bosluk",
+   "severity": "high",
+   "detail": "ayarlar/ klasorundeki tek ekran ki useContentBottomPadding'i hic import etmiyor. scrollContent sabit paddingBottom: spacing.xl (20px), en alttaki bolume de marginBottom: spacing['3xl'] (32px) verilmis; toplam ~52px. Bu rotada gerekli bosluk ~106px (safe-area + TAB_BAR_CONTENT_HEIGHT 72), yani ekranin TEK aksiyonu olan 'Kod Olustur' butonu cam tab bar'in altinda yarim kaliyor. Kod uretildikten sonraki dalda da 'Tamam' butonu ayni riski tasiyor.",
+   "evidence": "src/app/ayarlar/davet-olustur.tsx:1-17 import blogu (useContentBottomPadding YOK) | :85 'contentContainerStyle={styles.scrollContent}' | :208-210 'scrollContent: { paddingBottom: spacing.xl }' | :123-131 \"<View style={[styles.section, { marginBottom: spacing['3xl'] }]}>\" icindeki 'Kod Olustur' Button. Kardesleri hepsi hook'u kullaniyor: ayarlar/isletme.tsx:2+207, ayarlar/islem-gecmisi.tsx:2+31, ayarlar/paylasilan-isletmeler.tsx:2+127, ayarlar/data-import/index.tsx:2+52. Tab bar gorunur: src/lib/tabBarVisibility.ts:51 | PersistentTabBar.tsx:65 (72px).",
+   "fix": "useContentBottomPadding() ekle ve satir 85'i 'contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}' yap; satir 123'teki tek seferlik marginBottom hack'ini kaldir.",
+   "id": 77,
+   "verifyNote": "davet-olustur.tsx import bloğunda (1-17) useContentBottomPadding yok; :85 contentContainerStyle={styles.scrollContent} ve :208-210 scrollContent paddingBottom spacing.xl=20, :123 tek seferlik marginBottom spacing['3xl']=32 → toplam 52px. Rota 'ayarlar' → tabBarVisibility.ts:56 'daha' → bar görünür, TAB_BAR_CONTENT_HEIGHT (PersistentTabBar.tsx:65) + safe-area ≈106px. Klasördeki dört kardeşin hepsi hook'u kullanıyor; ekranın tek aksiyonu olan 'Kod Oluştur' butonu barın altında kalıyor."
+  },
+  {
+   "file": "src/app/ayarlar/davet-olustur.tsx",
+   "line": 72,
+   "title": "Ayni klasordeki uc kardesten yalniz bu ekran kendi basligini ciziyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Kok Stack'te headerShown:false ile kayitli uc ayarlar ekraninin ikisi kendi icinde <Stack.Screen options={{headerShown:true, ...}}/> ile yerlesik native basligi geri aciyor; davet-olustur ise <Screen top> + elle cizilmis satirla (BackButton + ortalanmis baslik + 40px genisliginde bos View) kendi basligini ciziyor. Sonuc: ayni menuden acilan uc sayfada baslik hizasi (ortali vs sola dayali), geri dugmesi bicimi (ChevronLeft vs iOS native back) ve basligin arka plani (colors.background vs colors.surface) farkli.",
+   "evidence": "src/app/_layout.tsx:927-944 uc ekranin da 'headerShown: false' ile kaydi | src/app/ayarlar/paylasilan-isletmeler.tsx:116-124 '<Stack.Screen options={{ headerShown: true, headerTitle: ..., headerStyle: { backgroundColor: colors.surface } }} />' | src/app/ayarlar/islem-gecmisi.tsx:155-163 ayni kalip | src/app/ayarlar/davet-olustur.tsx:65 '<Screen top>' ve :72-79 '<View style={styles.header}><BackButton /><View style={styles.headerCenter}>...<View style={{ width: 40 }} /></View>' (:192-197 header stili paddingHorizontal/Vertical spacing.md).",
+   "fix": "davet-olustur.tsx'i kardesleriyle ayni sekilde <Stack.Screen options={{ headerShown: true, headerTitle: t('multiUser:invites.title'), headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text, headerShadowVisible: false }} /> kalibina cevir, elle cizilen header'i ve <Screen top>'u kaldir.",
+   "id": 85,
+   "verifyNote": "_layout.tsx:927-944 üç ayarlar ekranı da headerShown:false ile kayıtlı; paylasilan-isletmeler.tsx:116-124 ve islem-gecmisi.tsx aynı kalıpla native başlığı geri açıyor, davet-olustur.tsx:65-79 ise <Screen top> + BackButton + ortalanmış başlık + 40px boş View ile kendi başlığını çiziyor. Aynı menüden açılan üç sayfada başlık hizası/geri düğmesi/zemin farkı gerçek."
+  }
+ ]
+}
