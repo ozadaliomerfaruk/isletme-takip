@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Alert } from 'react-native';
 import { StickyNote } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { GlassFab } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { useCreateNot, useInvalidateNotlar } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
@@ -84,13 +85,19 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
 
   return (
     <>
-      <TouchableOpacity
-        style={[styles.button, style]}
+      {/* Cam FAB — komşusundaki işlem FAB'ıyla AYNI DİLDE olmalı: ikisi 14px
+          arayla duruyor ve biri cam diğeri dolu disk olunca tutarsızlık
+          uygulamanın en görünür yerinde oluşuyordu. Renk sarı kalıyor (warning):
+          farklı bir aksiyon, aynı renk kafa karıştırırdı. */}
+      <GlassFab
+        size={44}
+        iconSize={20}
+        color={colors.warning}
         onPress={() => setModalVisible(true)}
-        activeOpacity={0.7}
-      >
-        <StickyNote size={20} color={colors.surface} />
-      </TouchableOpacity>
+        renderIcon={({ color, size }) => <StickyNote size={size} color={color} />}
+        style={style}
+        accessibilityLabel={t('common:notes.addNote')}
+      />
 
       <NoteInputModal
         visible={modalVisible}
@@ -104,18 +111,4 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.warning,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-});
+// Buton stili GlassFab'e taşındı (boyut/gölge/dolgu orada, cam-fallback ayrımıyla).

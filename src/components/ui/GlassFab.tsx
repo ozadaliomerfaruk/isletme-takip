@@ -7,22 +7,33 @@ import { GlassSurface, LIQUID_GLASS, FLOATING_CONTROL_SIZE } from './GlassSurfac
 /** Alt bölgedeki yüzen kontrollerle ORTAK — ayrı bir sayı yazma, bkz. sabit. */
 export const FAB_SIZE = FLOATING_CONTROL_SIZE;
 
+/** '#RRGGBB' → 'rgba(r,g,b,a)'. Hex değilse olduğu gibi döner. */
+function withAlpha(color: string, alpha: number): string {
+  if (!color.startsWith('#') || color.length !== 7) return color;
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 interface GlassFabProps {
   onPress: () => void;
   /**
-   * Marka rengi. CAM yolunda SEMBOLÜN rengi, cam YOKKEN DİSKİN rengi.
+   * Butonun rengi: camda TINT, cam yoksa DİSK rengi. Sembol her iki yolda beyaz.
    *
-   * Apple'ın deseni (Landmarks/BadgesView): yüzen köşe butonu `.buttonStyle(.glass)`
-   * — yani tint'siz NÖTR cam; renk camda değil İÇERİKTE yaşıyor (rozetin arkasındaki
-   * hexagon badgeColor'da, toggle sembolü badgeShowHideColor'da). Camı marka rengiyle
-   * tint'lemek saydam uygulandığı için 56px'lik dolu diski soluk bir tona çevirir ve
-   * birincil aksiyonun kontrastını düşürür.
+   * Apple'ın Landmarks örneğindeki yüzen köşe butonu tint'SİZ nötr camdı (renk
+   * içerikte yaşar). Biz bilinçli olarak ayrılıyoruz: nötr cam bizim AÇIK
+   * temamızda (arka plan #F5F5F5, kartlar beyaz) neredeyse beyaz bir daireye
+   * dönüşüyor ve birincil aksiyonun çıpası kayboluyor — GlassSurface'taki
+   * "küçük/tekil yüzey + açık zemin → tint şart" kuralının ta kendisi.
    */
   color?: string;
-  /** İkon, doğru tint verilerek çağrılır (cam: color, fallback: beyaz). */
+  /** İkon, tint'i verilerek çağrılır. */
   renderIcon: (props: { color: string; size: number }) => ReactNode;
   /** Konumlandırma çağırana ait (position/right/bottom/zIndex). */
   style?: StyleProp<ViewStyle>;
+  /** Çap. Varsayılan FAB_SIZE (56); ikincil FAB'lar daha küçük olabilir. */
+  size?: number;
   iconSize?: number;
   accessibilityLabel?: string;
   disabled?: boolean;
@@ -40,18 +51,20 @@ export function GlassFab({
   color = colors.primary,
   renderIcon,
   style,
+  size = FAB_SIZE,
   iconSize = 24,
   accessibilityLabel,
   disabled,
 }: GlassFabProps) {
-  // Camda sembol marka renginde, dolu diskte beyaz.
-  const iconColor = LIQUID_GLASS ? color : colors.surface;
-
   return (
     <GlassSurface
-      style={[styles.fab, style]}
+      style={[{ width: size, height: size, borderRadius: size / 2 }, style]}
       fallbackStyle={[styles.fabFallback, { backgroundColor: color }]}
-      interactive
+      // Marka renginde tint — bkz. `color` prop'unun gerekçesi.
+      tintColor={withAlpha(color, 0.45)}
+      // DİKKAT: dokunma TouchableOpacity'si cam yüzeyin İÇİNDE olmak zorunda.
+      // Dışına alınırsa activeOpacity basılıyken alpha<1 yapar ve cam çöker
+      // (GlassSurface'taki ALTIN KURAL).
     >
       <TouchableOpacity
         style={styles.touchable}
@@ -61,7 +74,7 @@ export function GlassFab({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
       >
-        {renderIcon({ color: iconColor, size: iconSize })}
+        {renderIcon({ color: colors.surface, size: iconSize })}
       </TouchableOpacity>
     </GlassSurface>
   );
@@ -104,13 +117,6 @@ export function GlassFabMenuItem({ icon, label, onPress }: GlassFabMenuItemProps
 }
 
 const styles = StyleSheet.create({
-  // Geometri — iki yolda da. Cam köşeyi kendi native corner configuration'ıyla
-  // çizer; RN clip maskesi/gölge/border EKLENMEZ (rim lighting'i perdeler).
-  fab: {
-    width: FAB_SIZE,
-    height: FAB_SIZE,
-    borderRadius: FAB_SIZE / 2,
-  },
   // Yalnız cam yokken: dolu disk + gölge (bugünkü görünüm birebir).
   fabFallback: {
     shadowColor: '#000',
