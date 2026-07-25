@@ -7,21 +7,15 @@ import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, formatCurrencyWithSign, toNumber, formatPercent, getIslemCurrency } from './currency';
+import { formatCurrency, toNumber, formatPercent, getIslemCurrency, signedCurrencyText } from './currency';
 import { createConversionSum } from '@/hooks/useExchangeRates';
 import { isReturnType } from '@/constants/islemTypes';
 import { IslemWithRelations } from '@/types/database';
 import type { ProductReportItem } from '@/hooks/useProductReport';
 import type { CashFlowItem } from '@/hooks/useCashFlowByCategory';
 
-/**
- * Net/fark hücreleri: negatifte İŞARETLİ yaz. Excel'de tek ayırt edici RENKTİ; renk
- * fark edilmediğinde zarar/borç rakamı kâr/alacak okunuyordu (metin hücresi olduğu için
- * Excel'in kendi negatif biçimi de devreye girmiyor).
- */
-function signedCurrencyText(v: number, ccy?: string | null): string {
-  return v < 0 ? formatCurrencyWithSign(v, ccy) : formatCurrency(v, ccy);
-}
+// Net/fark hücreleri negatifte İŞARETLİ yazılır — yardımcı artık lib/currency'de
+// (aynı kalıp 5 yüzeyde tekrarlanıyordu, tek kaynağa alındı).
 
 // ============================================================================
 // STYLE DEFINITIONS

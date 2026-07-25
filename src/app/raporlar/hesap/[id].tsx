@@ -20,7 +20,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, signedCurrencyText } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useIncomeSourceTransactions, IncomeSourceKind } from '@/hooks/useAccountReport';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -200,12 +200,15 @@ export default function HesapRaporDetayPage() {
           {/* Kolon 1: renkli NATIVE toplam (+ farklı para biriminde ana karşılığı) */}
           <View style={styles.statItem}>
             <Text variant="caption" color="secondary">{t('reports:summary.totalAmount')}</Text>
-            <Text variant="h2" color={isGelir ? 'success' : 'error'}>
-              {formatCurrency(total, hesapCurrency)}
+            {/* Toplam iade netlendiği için NEGATİF olabilir (iade > satış). Renk yalnız
+                tipe bağlıyken böyle bir kaynak hem artı hem YEŞİL görünüyordu; negatifte
+                işaret de renk de tersine döner. */}
+            <Text variant="h2" color={total < 0 ? (isGelir ? 'error' : 'success') : (isGelir ? 'success' : 'error')}>
+              {signedCurrencyText(total, hesapCurrency)}
             </Text>
             {baseTotal !== null && (
               <Text variant="caption" color="secondary">
-                ≈ {formatCurrency(baseTotal, baseCurrency)}
+                ≈ {signedCurrencyText(baseTotal, baseCurrency)}
               </Text>
             )}
           </View>

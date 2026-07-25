@@ -17,7 +17,7 @@ import { useReportExcelExport } from '@/hooks/useReportExcelExport';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
 import { useIncomeSourceReport, IncomeSourceItem } from '@/hooks/useAccountReport';
 import { PeriodType } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, signedCurrencyText } from '@/lib/currency';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -214,7 +214,7 @@ export default function GelirGiderRaporPage() {
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(gelirRaporu.totalAmount)}
+                  {signedCurrencyText(gelirRaporu.totalAmount)}
                 </Text>
               </TouchableOpacity>
 
@@ -242,7 +242,7 @@ export default function GelirGiderRaporPage() {
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(giderRaporu.totalAmount)}
+                  {signedCurrencyText(giderRaporu.totalAmount)}
                 </Text>
               </TouchableOpacity>
             </View>

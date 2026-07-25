@@ -285,6 +285,29 @@ export function formatCurrencyWithSign(amount: number, accountCurrency?: Currenc
 }
 
 /**
+ * NEGATİFTE işaretli, pozitifte sade para biçimi.
+ *
+ * NEDEN VAR — `formatCurrency` ilk satırında `Math.abs` yapar, yani İŞARETİ DÜŞÜRÜR.
+ * Yalnız pozitif olabilen tutarlarda bu doğru (sembolden önce eksi istemiyoruz), ama
+ * NET olabilen tutarlarda (iade düşülmüş kategori toplamı, kaynak neti, dönem farkı)
+ * negatif değer POZİTİF görünüyordu. Üstelik bu yüzeylerde renk çoğunlukla sabit
+ * (yeşil "gelir") olduğu için iade > satış olan bir kaynak hem artı hem YEŞİL çıkıyordu.
+ *
+ * `formatCurrencyWithSign`'dan farkı: pozitifte "+" YAZMAZ. Rapor yüzeylerinde her
+ * satırın başına "+" koymak gürültü; asıl istenen negatifin görünmesi.
+ *
+ * Renk de bu fonksiyonla birlikte düşünülmeli — sayı eksiye dönerken rengin yeşil
+ * kalması yalanı sürdürür. Kullanan yüzeyler değere göre renk seçer.
+ *
+ * @example signedCurrencyText(1200)          // "₺1.200,00"
+ * @example signedCurrencyText(-300)          // "-₺300,00"
+ * @example signedCurrencyText(-300, 'USD')   // "-$300.00"
+ */
+export function signedCurrencyText(amount: number, accountCurrency?: Currency | string | null): string {
+  return amount < 0 ? formatCurrencyWithSign(amount, accountCurrency) : formatCurrency(amount, accountCurrency);
+}
+
+/**
  * Sayıyı TextInput prefill'i için düz input string'ine çevirir:
  * binlik ayraç YOK, ondalık ayraç aktif (ana) para biriminin locale'ine göre.
  * parseCurrency bu çıktıyı her locale'de kayıpsız geri okur.

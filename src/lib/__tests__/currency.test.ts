@@ -51,6 +51,7 @@ import {
   formatPercentage,
   getCurrencyLocale,
   getLocaleSeparators,
+  signedCurrencyText,
 } from '../currency';
 
 // ============================================================================
@@ -787,5 +788,27 @@ describe('A5: işaretli para formatı', () => {
   it('formatCurrencyCompact ayracı da tek eşlemeden alır', () => {
     expect(formatCurrencyCompact(1_234_567, 'EUR')).toBe('€1,2M');
     expect(formatCurrencyCompact(1_234_567, 'USD')).toBe('$1.2M');
+  });
+});
+
+describe('signedCurrencyText — negatif tutar POZİTİF görünmesin', () => {
+  it('negatifte işaret KOYAR (formatCurrency Math.abs ile düşürüyordu)', () => {
+    // Kanıt: aynı değer formatCurrency'den işaretsiz çıkıyor
+    expect(formatCurrency(-300)).not.toContain('-');
+    expect(signedCurrencyText(-300)).toContain('-');
+  });
+
+  it('pozitifte "+" YAZMAZ — rapor satırlarında gürültü olmasın', () => {
+    expect(signedCurrencyText(1200)).toBe(formatCurrency(1200));
+    expect(signedCurrencyText(1200)).not.toContain('+');
+  });
+
+  it('sıfır pozitif sayılır (işaretsiz)', () => {
+    expect(signedCurrencyText(0)).toBe(formatCurrency(0));
+  });
+
+  it('hesap para birimini korur', () => {
+    expect(signedCurrencyText(-300, 'USD')).toBe('-' + formatCurrency(-300, 'USD'));
+    expect(signedCurrencyText(-300, 'USD')).toContain('$');
   });
 });
