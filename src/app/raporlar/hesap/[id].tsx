@@ -246,7 +246,7 @@ export default function HesapRaporDetayPage() {
           ListHeaderComponent={renderHeader}
           contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           refreshControl={
-            <RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} tintColor={colors.primary} />
+            <RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} colors={[colors.primary]} tintColor={colors.primary} />
           }
           ListEmptyComponent={
             <View style={styles.stateBox}>
@@ -270,7 +270,6 @@ export default function HesapRaporDetayPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
 
   // Özet Card
   summaryCard: { padding: spacing.lg, marginBottom: spacing.lg },

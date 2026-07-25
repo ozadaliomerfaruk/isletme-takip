@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Screen } from '@/components/ui';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
-import { ScrollView, StyleSheet, RefreshControl } from 'react-native';
+import { ScrollView, RefreshControl } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
 import { CariTabContent } from '@/components/reports/tabs';
@@ -51,10 +51,3 @@ export default function CariRaporPage() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-});

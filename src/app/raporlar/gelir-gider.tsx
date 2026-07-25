@@ -5,9 +5,9 @@ import { logEvent } from '@/lib/appEvents';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronUp, ChevronDown } from 'lucide-react-native';
 import { Text, TabFilter, CategoryReportCard, IncomeSourceCard, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { CollapsibleGroupHeader } from '@/components/reports/CollapsibleGroupHeader';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
@@ -305,26 +305,13 @@ export default function GelirGiderRaporPage() {
                     const collapsed = collapsedGroups.has(group.key);
                     return (
                       <View key={group.key}>
-                        <TouchableOpacity
-                          style={styles.groupHeader}
-                          onPress={() => toggleGroup(group.key)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.groupHeaderLeft}>
-                            {collapsed
-                              ? <ChevronDown size={16} color={colors.textSecondary} />
-                              : <ChevronUp size={16} color={colors.textSecondary} />}
-                            <Text variant="body" style={styles.groupHeaderText}>
-                              {t(`reports:incomeSource.groups.${group.key}`, { defaultValue: group.key })}
-                            </Text>
-                            <Text variant="caption" color="secondary">
-                              ({group.items.length})
-                            </Text>
-                          </View>
-                          <Text variant="body" style={styles.groupHeaderAmount}>
-                            {formatCurrency(group.total)}
-                          </Text>
-                        </TouchableOpacity>
+                        <CollapsibleGroupHeader
+                          label={t(`reports:incomeSource.groups.${group.key}`, { defaultValue: group.key })}
+                          count={group.items.length}
+                          amount={formatCurrency(group.total)}
+                          collapsed={collapsed}
+                          onToggle={() => toggleGroup(group.key)}
+                        />
                         {!collapsed && group.items.map((item) => (
                           <IncomeSourceCard
                             key={`${item.kind}-${item.id}`}
@@ -379,10 +366,6 @@ export default function GelirGiderRaporPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   periodFilter: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -412,41 +395,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     fontWeight: '600',
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  groupHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-  },
-  groupHeaderText: {
-    fontWeight: '600',
-  },
-  groupHeaderAmount: {
-    fontWeight: '700',
-  },
-  dateNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  navBtn: {
-    padding: spacing.xs,
-  },
-  dateLabel: {
-    fontWeight: '600',
-    color: colors.primary,
-    minWidth: 140,
-    textAlign: 'center',
   },
   summaryTabs: {
     flexDirection: 'row',

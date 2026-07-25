@@ -74,10 +74,6 @@ export default function KarsilastirmaRaporPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   /** Yalnız konum — boyut/görsel GlassIconButton'da. */
   headerBtn: {
     marginRight: spacing.sm,

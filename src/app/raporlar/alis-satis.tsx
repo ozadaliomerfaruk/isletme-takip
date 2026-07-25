@@ -4,10 +4,11 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
 import { Stack, useRouter, Href } from 'expo-router';
-import { Package, ShoppingCart, Store, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Package, ShoppingCart, Store } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, Card, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { CollapsibleGroupHeader } from '@/components/reports/CollapsibleGroupHeader';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
@@ -396,26 +397,13 @@ export default function AlisSatisRaporPage() {
                 return (
                   <View key={group.key}>
                     {showCategoryHeader && (
-                      <TouchableOpacity
-                        style={styles.categoryHeader}
-                        onPress={() => toggleCategory(group.key)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.categoryHeaderLeft}>
-                          {isCollapsed
-                            ? <ChevronDown size={16} color={colors.textSecondary} />
-                            : <ChevronUp size={16} color={colors.textSecondary} />}
-                          <Text variant="body" style={styles.categoryHeaderText}>
-                            {group.name}
-                          </Text>
-                          <Text variant="caption" color="secondary">
-                            ({group.items.length})
-                          </Text>
-                        </View>
-                        <Text variant="body" style={styles.categoryHeaderAmount}>
-                          {formatCurrency(group.totalAmount)}
-                        </Text>
-                      </TouchableOpacity>
+                      <CollapsibleGroupHeader
+                        label={group.name}
+                        count={group.items.length}
+                        amount={formatCurrency(group.totalAmount)}
+                        collapsed={isCollapsed}
+                        onToggle={() => toggleCategory(group.key)}
+                      />
                     )}
                     {!isCollapsed && group.items.map((item) => (
                       <ProductReportCard
@@ -493,10 +481,6 @@ function ProductReportCard({
 // ---- Styles ----
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   periodFilter: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -505,22 +489,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-  },
-  dateNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  navBtn: {
-    padding: spacing.xs,
-  },
-  dateLabel: {
-    fontWeight: '600',
-    color: colors.primary,
-    minWidth: 140,
-    textAlign: 'center',
   },
   summaryTabs: {
     flexDirection: 'row',
@@ -583,31 +551,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
   },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.xs,
-    marginTop: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.sm,
-  },
-  categoryHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-  },
-  categoryHeaderText: {
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  categoryHeaderAmount: {
-    fontWeight: '700',
-    color: colors.text,
-  },
   productList: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
@@ -642,11 +585,6 @@ const styles = StyleSheet.create({
   },
   productInfo: {
     flex: 1,
-  },
-  productMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
   },
   productAmount: {
     alignItems: 'flex-end',

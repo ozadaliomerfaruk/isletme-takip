@@ -2,11 +2,11 @@ import { useState, useCallback, useEffect } from 'react';
 import { Screen } from '@/components/ui';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
-import { ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { ScrollView, Alert, RefreshControl } from 'react-native';
 import { Stack } from 'expo-router';
-import { Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { GenelTabContent } from '@/components/reports/tabs';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -17,7 +17,6 @@ import { toNumber } from '@/lib/currency';
 import { exportGenelDurumToExcel, GenelDurumExcelTranslations } from '@/lib/reportExcelExport';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
-import { HIT_SLOP } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
@@ -119,18 +118,11 @@ export default function GenelRaporPage() {
           headerBackVisible: true,
           gestureEnabled: true,
           headerRight: () => (
-            <TouchableOpacity
+            <ReportExportButton
               onPress={handleExport}
-              disabled={isExporting}
-              style={styles.headerBtn}
-              hitSlop={HIT_SLOP.md}
-            >
-              {isExporting ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <ShareIcon size={22} color={colors.text} />
-              )}
-            </TouchableOpacity>
+              isExporting={isExporting}
+              accessibilityLabel={t('reports:export.exportExcel')}
+            />
           ),
         }}
       />
@@ -158,13 +150,3 @@ export default function GenelRaporPage() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  headerBtn: {
-    padding: 6,
-  },
-});

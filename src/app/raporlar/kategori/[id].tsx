@@ -23,9 +23,10 @@ import {
   FileSignature, Scale, ChartLine,
   Monitor, Smartphone, Laptop, Printer, HardDrive, Camera, Tv, Headphones, Cog,
   Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
-  Share as ShareIcon,
 } from 'lucide-react-native';
 import { Text, Card, Screen } from '@/components/ui';
+import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { TransactionRow } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
@@ -502,7 +503,9 @@ export default function KategoriDetayPage() {
         <Screen>
           <Stack.Screen options={{ title: t('reports:titles.uncategorized'), headerBackVisible: true, gestureEnabled: true }} />
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <SkeletonListItem />
+            <SkeletonListItem />
+            <SkeletonListItem />
           </View>
         </Screen>
       );
@@ -570,6 +573,7 @@ export default function KategoriDetayPage() {
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={10}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
@@ -591,7 +595,9 @@ export default function KategoriDetayPage() {
       <Screen>
         <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <SkeletonListItem />
+          <SkeletonListItem />
+          <SkeletonListItem />
         </View>
       </Screen>
     );
@@ -675,6 +681,7 @@ export default function KategoriDetayPage() {
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={10}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
@@ -700,13 +707,11 @@ export default function KategoriDetayPage() {
           gestureEnabled: true,
           headerRight: () =>
             !isUncategorized && subCategoryReport.subCategories.length > 0 ? (
-              <TouchableOpacity onPress={handleExport} disabled={isExporting} style={{ padding: 6 }}>
-                {isExporting ? (
-                  <ActivityIndicator size="small" color={colors.text} />
-                ) : (
-                  <ShareIcon size={22} color={colors.text} />
-                )}
-              </TouchableOpacity>
+              <ReportExportButton
+                onPress={handleExport}
+                isExporting={isExporting}
+                accessibilityLabel={t('reports:export.exportExcel')}
+              />
             ) : null,
         }}
       />
@@ -744,14 +749,11 @@ export default function KategoriDetayPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  // İskelet satırlar liste genişliğini taşımalı: ortalama (alignItems:center) satırları
+  // içeriğe daraltırdı — hesap detayındaki stateBox ile aynı yerleşim.
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: spacing.xl,
+    gap: spacing.sm,
   },
   errorContainer: {
     flex: 1,

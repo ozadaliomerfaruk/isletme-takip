@@ -179,10 +179,6 @@ export default function RaporlarPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   stickyHeader: {
     backgroundColor: colors.background,
     paddingBottom: spacing.sm,

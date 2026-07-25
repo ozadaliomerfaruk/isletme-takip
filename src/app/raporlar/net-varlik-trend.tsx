@@ -143,7 +143,7 @@ export default function NetVarlikTrendPage() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
       >
         {/* Bu sayfa ne işe yarar? — esnaf için sade açıklama */}
         <Card style={styles.introCard}>
@@ -393,7 +393,6 @@ export default function NetVarlikTrendPage() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: spacing['3xl'], gap: spacing.md },
   rangeBar: { marginBottom: spacing.xs },
   card: { padding: spacing.lg },
