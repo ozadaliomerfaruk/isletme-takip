@@ -94,7 +94,18 @@ Bir kısmının aynı şekilde kapanmış olması muhtemel — özellikle para/k
 
 TAZELEME-1'de sınanmayan 33 temanın (7-39) her `dosya:satır` referansı mevcut kodda tek tek açıldı. Sonuç: **hiçbir tema düşmedi** (0 DOSYA_YOK, 0 DUZELTILMIS), **1 tema kısmen kapandı** (Tema 10), **32 tema aynen duruyor**, doğrulanamayan yok. Sebebi tek cümle: `git diff 95d455c HEAD -- src/ supabase/` **boş** — baz commit'ten bu yana yalnız `docs/` değişmiş; i18n/kur turu (efb51ba…95d455c) ise denetimden ÖNCE bitmişti ve bu 33 temanın yüzeylerine büyük ölçüde dokunmamıştı. Satır referansları da şaşırtıcı ölçüde taze: yaklaşık on temada 1-3 satırlık kayma var, iki temada **yanlış dosya yolu**, bir temada **yanlış başlık**, bir temada bir sayı (10 → 9) sapmış. Yani belgenin 7-39 arası gövdesi olduğu gibi iş listesi olarak kullanılabilir; TAZELEME-1'deki "bir kısmı da kapanmış olabilir" beklentisi **doğrulanmadı** — kapanma yalnız TAZELEME-1'in baktığı para/kur yüzeylerinde olmuş.
 
-> Aşağıdaki tüm yollar `src/` altındadır (SQL yolları `supabase/migrations/` altında).
+> ### 📍 GÜNCEL REFERANSIN TEK KAYNAĞI BU BÖLÜMDEKİ TABLOLARDIR.
+>
+> Gövdedeki (YÜKSEK/ORTA/DÜŞÜK bölümlerindeki) **NEREDE** satırları **orijinal denetim
+> metnidir ve tazelenmemiştir.** Bir temayı uygularken referansı buradan al, gövdeden değil.
+>
+> Çoğu temada fark zararsızdır (1-3 satır kayma), ama en az bir yerde **aktif olarak
+> yanıltıcıdır**: gövdedeki **ORTA-9**, `20260710140000_networth_v3_...sql`'i işaret ediyor;
+> oysa `get_networth_opening_by_month` ve `get_networth_pl_trend`'in **canlı tanımı**
+> `20260716040000_rapor_rpc_modul_gate.sql`'dedir (o migration ikisini de yeniden tanımlayan
+> en son migration — doğrulandı). Gövdeye bakan biri ölü bir migration'ı düzenlemeye gider.
+>
+> Yollar `src/` altındadır (SQL yolları `supabase/migrations/` altında).
 
 ### Düşen temalar (artık geçersiz)
 
@@ -221,6 +232,11 @@ okur) — ürün için kural pratikte yalnız raporları ilgilendirir.
 
 
 ## Yönetici Özeti
+
+> ⚠️ **Buradan aşağısı ORİJİNAL DENETİM METNİDİR — tazelenmemiştir.**
+> `dosya:satır` referansları için **TAZELEME-1 ve TAZELEME-2 tablolarını** kullan.
+> Aşağıdaki gövde bulgunun *ne olduğunu* anlatır; *nerede olduğunun* güncel hâli yukarıdaki
+> tablolardadır. En az bir yerde (ORTA-9) gövde referansı ölü bir migration'a gider.
 
 Rapor bölümünün hesaplama çekirdeği (RPC'ler) büyük ölçüde doğru; sapmaların neredeyse tamamı **çıkış katmanında** (ekran satırı, Excel, PDF) ve **dönem seçim katmanında**. Üç kök neden 160 bulgunun çoğunu üretiyor: (1) merkezî yardımcıların atlanması — `getIslemCurrency`, `formatCurrencyWithSign`, `createConversionSum`, `fetchAllPages`, `upperTr` varken yerel kestirmeler yazılmış; (2) **aynı sayının iki farklı motordan üretilmesi** — üst özet sunucu RPC'sinden, drill-down ve Excel istemcideki ham `islemler` sorgusundan gelince üç yüzey birbirini tutmuyor; (3) hataların ve "kur bulunamadı" bayrağının sessizce yutulup `0` / "veri yok" olarak gösterilmesi. En acil iki şey: yabancı para kullanan işletmede **satır ve Excel'in yanlış para birimi sembolüyle basılması**, ve drill-down sorgularının **1000 satırda sessizce kırpılması** (gerçek veri kaybı, projenin açık "binlerce işlem" hedefinde kesinleşiyor). Yüksek şiddetli 9 bulgunun 7'si yabancı para veya Excel yüzeyinde toplanıyor — tek bir çalışma paketiyle kapanabilir.
 
@@ -364,7 +380,12 @@ NEDEN ÖNEMLİ · Beşinin de sonucu aynı: tıklanan kart ile içerideki liste/
 
 NE · `get_income_expense_summary`, `get_networth_pl_trend` ve `get_networth_opening_by_month` tek satırlık `exchange_rates`'ten GÜNCEL kuru okuyor; kur yoksa `COALESCE(..., 1)` ile yabancı para tutarı 1:1 TRY sayılıyor. İstemcinin `conversionIncomplete`'i yalnız TRY→ana para birimi adımını kapsadığı için bu kayıp hiç görünmüyor. Hesap/kaynak detayında da "≈" satırı bir tahmin olduğunu söylemiyor; net varlık dipnotu ise "her ay o ayki kur" izlenimi bırakıyor.
 
-NEREDE · `src/hooks/useAnalyticsSummary.ts:87-98, 104-118` + migration `20260630000000_exclude_passive_entities_from_reports.sql:59-66` · `src/hooks/useNetWorthTrend.ts:21, 129-146` + migration `20260710140000_networth_v3_pltrend_bug2_and_t3.sql:179-184` · `src/app/raporlar/hesap/[id].tsx:106-109, 206-210` (kardeş ekranda not var: `raporlar/kategori/[id].tsx:495-501`)
+NEREDE · `src/hooks/useAnalyticsSummary.ts:87-98, 104-118` + migration `20260630000000_exclude_passive_entities_from_reports.sql:59-66` · `src/hooks/useNetWorthTrend.ts:21, 129-146` + ~~migration `20260710140000_networth_v3_pltrend_bug2_and_t3.sql:179-184`~~ · `src/app/raporlar/hesap/[id].tsx:106-109, 206-210` (kardeş ekranda not var: `raporlar/kategori/[id].tsx:495-501`)
+
+⛔ **BU SATIRDAKİ MIGRATION REFERANSI ÖLÜ — TAZELEME-2 TABLOSUNU KULLAN.**
+`get_networth_opening_by_month` ve `get_networth_pl_trend`'in **canlı tanımı**
+`20260716040000_rapor_rpc_modul_gate.sql`'dedir (opening: `:137` + `149/177/182/187`,
+pl_trend: `:199` + `211/225-228`). `20260710140000`'i düzenlemek hiçbir şeyi değiştirmez.
 
 NEDEN ÖNEMLİ · Kur satırı eksikse 1.000 USD'lik satış 1.000 TL olarak toplanıyor — ne RPC ne istemci bunu bildiriyor. Ayrıca geçmiş ve bugün aynı kurla çevrildiği için delta/%değişim kurdan kaynaklı sahte hareket gösteriyor; USD/EUR/altın merceğinde hiç hareket etmemiş bir kasa geçmişte şişmiş görünüyor.
 
