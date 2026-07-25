@@ -1,7 +1,7 @@
-import { View, Modal, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Check, Wallet, Building2, UserCheck } from 'lucide-react-native';
-import { Text, ModalSearchBar } from '@/components/ui';
+import { Text, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import type { Hesap, Cari, Personel } from '@/types/database';
 import { styles } from './styles';

@@ -1,21 +1,6 @@
+import { Modal } from '@/components/ui';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  View,
-  Modal,
-  Animated,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  TextInput,
-  Keyboard,
-  KeyboardEvent,
-  Alert,
-  ActivityIndicator,
-  Text as RNText,
-  Platform,
-  StyleSheet,
-  ScrollView,
-  Dimensions,
-} from 'react-native';
+import { View, Animated, TouchableOpacity, TouchableWithoutFeedback, TextInput, Keyboard, KeyboardEvent, Alert, ActivityIndicator, Text as RNText, Platform, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';

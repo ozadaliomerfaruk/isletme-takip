@@ -1,18 +1,10 @@
 import { useState, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  Modal,
-  Pressable,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, Pressable, ScrollView } from 'react-native';
 import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react-native';
 import { upperTr } from '@/lib/turkishTextUtils';
 import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { PeriodType } from '@/hooks/useIslemler';

@@ -1,15 +1,6 @@
+import { Modal } from './Modal';
 import { useState, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  Animated,
-  Dimensions,
-  ScrollView,
-  Pressable,
-  AppState,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Pressable, AppState } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Bell, CalendarClock, X } from 'lucide-react-native';

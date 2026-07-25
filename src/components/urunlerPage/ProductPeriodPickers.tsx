@@ -1,7 +1,7 @@
-import { View, ScrollView, TouchableOpacity, Modal, Pressable, Platform } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Pressable, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { X } from 'lucide-react-native';
-import { Text, Button } from '@/components/ui';
+import { Text, Button, Modal } from '@/components/ui';
 import { styles } from './styles';
 import { colors } from '@/constants/colors';
 import { ensureValidDate } from '@/lib/date';

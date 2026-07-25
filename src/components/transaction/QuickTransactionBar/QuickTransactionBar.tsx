@@ -1,21 +1,8 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
-import {
-  View,
-  Modal,
-  Animated,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Platform,
-  Keyboard,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  useWindowDimensions,
-} from 'react-native';
+import { View, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, StyleSheet, Alert, ScrollView, useWindowDimensions } from 'react-native';
 import { X } from 'lucide-react-native';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';

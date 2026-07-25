@@ -1,17 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  Pressable,
-  TextInput,
-  Platform,
-  KeyboardAvoidingView,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Alert,
-} from 'react-native';
+import { View, StyleSheet, Pressable, TextInput, Platform, KeyboardAvoidingView, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import {
@@ -27,7 +15,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
-import { Text, Button } from '@/components/ui';
+import { Text, Button, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';

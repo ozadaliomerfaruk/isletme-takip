@@ -1,6 +1,6 @@
-import { Modal, TouchableOpacity, View, TextInput, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, TextInput, StyleSheet } from 'react-native';
 import { X } from 'lucide-react-native';
-import { Text, Button, BalanceDirectionSelector } from '@/components/ui';
+import { Text, Button, BalanceDirectionSelector, Modal } from '@/components/ui';
 import type { BalanceDirection } from '@/components/ui/BalanceDirectionSelector';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';

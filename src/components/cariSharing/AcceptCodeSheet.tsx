@@ -1,3 +1,4 @@
+import { Modal } from '@/components/ui';
 /**
  * AcceptCodeSheet - Paylasim kodu ile cari baglantisi kurma modal'i (v2)
  *
@@ -7,16 +8,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-} from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { Link, Check, AlertCircle, Users, ShoppingBag } from 'lucide-react-native';

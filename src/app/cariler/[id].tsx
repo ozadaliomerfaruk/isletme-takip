@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
-import { View, StyleSheet, Alert, TouchableOpacity, Modal, ScrollView, Dimensions, Linking } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, ScrollView, Dimensions, Linking } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -32,7 +32,7 @@ import {
   ChevronUp,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen, Modal } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';

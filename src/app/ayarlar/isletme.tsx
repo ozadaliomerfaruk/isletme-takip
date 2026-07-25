@@ -1,16 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  Modal,
-  Pressable,
-  TouchableOpacity,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Pressable, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -18,7 +8,7 @@ import {
   ShoppingBasket, Coffee, Scissors, Shirt, Car, Hammer, Truck, Pill, Camera, Laptop, Store,
   type LucideIcon,
 } from 'lucide-react-native';
-import { Text, Input, Button, Card, Screen } from '@/components/ui';
+import { Text, Input, Button, Card, Screen, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';

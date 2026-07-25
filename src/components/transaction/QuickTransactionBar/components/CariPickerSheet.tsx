@@ -1,19 +1,11 @@
 import { useState, useMemo, useCallback } from 'react';
-import {
-  View,
-  Modal,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  ScrollView,
-  Dimensions,
-  Keyboard,
-} from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Users, Building2, Check, Plus } from 'lucide-react-native';
 import { ActivityIndicator } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, ModalSearchBar } from '@/components/ui';
+import { Text, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';

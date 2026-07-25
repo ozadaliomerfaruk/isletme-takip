@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Switch, Linking } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Linking } from 'react-native';
 import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
@@ -31,7 +31,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { Text, Card, Avatar, Screen } from '@/components/ui';
+import { Text, Card, Avatar, Screen, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { useQueryClient } from '@tanstack/react-query';

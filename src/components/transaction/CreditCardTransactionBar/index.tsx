@@ -1,18 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  Modal,
-  Animated,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Platform,
-  Keyboard,
-  KeyboardEvent,
-  Easing,
-  Alert,
-  StyleSheet,
-} from 'react-native';
+import { View, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing, Alert, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Calendar,
@@ -29,7 +16,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
-import { Text, CategoryPicker } from '@/components/ui';
+import { Text, CategoryPicker, Modal } from '@/components/ui';
 import { TransactionTypeTabs, TransactionType, getTransactionTypeColor } from '../TransactionTypeTabs';
 import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';

@@ -1,4 +1,5 @@
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions, Keyboard, Platform, type StyleProp, type ViewStyle } from 'react-native';
+import { Modal } from './Modal';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions, Keyboard, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';

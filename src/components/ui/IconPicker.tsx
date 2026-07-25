@@ -1,4 +1,5 @@
-import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions } from 'react-native';
+import { Modal } from './Modal';
+import { View, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';

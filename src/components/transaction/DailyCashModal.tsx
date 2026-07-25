@@ -1,21 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  Animated,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Platform,
-  Keyboard,
-  KeyboardEvent,
-  Easing,
-  Alert,
-  ScrollView,
-  Dimensions,
-  ActivityIndicator,
-} from 'react-native';
+import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing, Alert, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, X, Wallet, Eye, EyeOff, SlidersHorizontal } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
@@ -23,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
-import { Text, Button, CategoryPicker } from '@/components/ui';
+import { Text, Button, CategoryPicker, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { parseCurrency, isValidAmount, formatCurrency, roundCurrency } from '@/lib/currency';

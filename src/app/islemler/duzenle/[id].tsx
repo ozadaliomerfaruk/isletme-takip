@@ -1,23 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  TextInput,
-  Dimensions,
-  TouchableWithoutFeedback,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, ActivityIndicator, TextInput, Dimensions, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown, Wallet, X, Search, Check, Users, UserCheck, Bell } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker, Screen } from '@/components/ui';
+import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker, Screen, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';

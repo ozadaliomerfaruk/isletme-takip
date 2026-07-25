@@ -1,17 +1,8 @@
 import { useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
-  TouchableOpacity,
-} from 'react-native';
+import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { Lock, KeyRound, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength, Screen, ModalInsets } from '@/components/ui';
+import { Text, Input, Button, PasswordStrengthIndicator, type PasswordStrength, Screen, ModalInsets, Modal } from '@/components/ui';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';

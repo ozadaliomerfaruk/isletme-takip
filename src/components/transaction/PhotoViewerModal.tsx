@@ -5,18 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Modal,
-  View,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  useWindowDimensions,
-  Alert,
-  StatusBar,
-  Share,
-} from 'react-native';
+import { View, Image, TouchableOpacity, StyleSheet, ActivityIndicator, useWindowDimensions, Alert, StatusBar, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Trash2, RefreshCw, Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +24,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Text, GlassSurface } from '@/components/ui';
+import { Text, GlassSurface, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 

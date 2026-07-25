@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useMemo, useEffect, memo } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
-import { View, StyleSheet, Alert, TouchableOpacity, Modal, ListRenderItemInfo } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, ListRenderItemInfo } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';

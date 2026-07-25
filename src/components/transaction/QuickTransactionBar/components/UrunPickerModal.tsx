@@ -1,24 +1,10 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  Modal,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  TextInput,
-  ScrollView,
-  Dimensions,
-  Keyboard,
-  StyleSheet,
-  ActivityIndicator,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-} from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, TextInput, ScrollView, Dimensions, Keyboard, StyleSheet, ActivityIndicator, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Package, Plus, Trash2, Check, Pencil, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, Button, UndoSnackbar, ModalSearchBar } from '@/components/ui';
+import { Text, Button, UndoSnackbar, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';

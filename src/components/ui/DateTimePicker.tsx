@@ -1,5 +1,6 @@
+import { Modal } from './Modal';
 import { useState, useMemo, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Platform, Modal } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Calendar, Clock } from 'lucide-react-native';

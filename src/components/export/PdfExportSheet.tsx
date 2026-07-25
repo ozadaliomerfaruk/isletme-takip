@@ -1,6 +1,7 @@
+import { Modal } from '@/components/ui';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { View, StyleSheet, Modal, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Pressable } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';

@@ -1,10 +1,10 @@
-import { Modal, View, StyleSheet, Pressable, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Pressable, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Animated, { ZoomIn, FadeIn } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Zap, ArrowRight, Share as ShareIcon, Phone } from 'lucide-react-native';
-import { Text, Avatar } from '@/components/ui';
+import { Text, Avatar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, shadows } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';

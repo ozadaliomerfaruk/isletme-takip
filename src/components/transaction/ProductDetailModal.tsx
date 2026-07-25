@@ -1,7 +1,7 @@
-import { Modal, View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import { Package, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button } from '@/components/ui';
+import { Text, Button, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
 import { formatCurrency, formatQuantity } from '@/lib/currency';

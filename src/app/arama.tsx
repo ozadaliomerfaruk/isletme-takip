@@ -1,16 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  SectionList,
-  Keyboard,
-  Platform,
-  Modal,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, SectionList, Keyboard, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import type { StyleProp, TextStyle } from 'react-native';
 import { useRouter, Href } from 'expo-router';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -38,7 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BackButton } from '@/components/ui/BackButton';
 import { useTranslation } from 'react-i18next';
 
-import { Text, Screen } from '@/components/ui';
+import { Text, Screen, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';

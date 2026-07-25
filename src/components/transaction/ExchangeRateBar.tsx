@@ -1,23 +1,11 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  Animated,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Platform,
-  Keyboard,
-  KeyboardEvent,
-  Easing,
-} from 'react-native';
+import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ArrowRight, RefreshCw } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { HIT_SLOP } from '@/constants/spacing';
 import { Currency } from '@/types/database';

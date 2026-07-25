@@ -1,17 +1,10 @@
 import { useCallback } from 'react';
-import {
-  View,
-  Modal,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  ScrollView,
-  Dimensions,
-} from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, CreditCard, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
 import { styles } from '../styles';

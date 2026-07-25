@@ -1,17 +1,6 @@
+import { Modal } from './Modal';
 import { useEffect, useRef, useCallback, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  Animated,
-  PanResponder,
-  useWindowDimensions,
-  TouchableWithoutFeedback,
-  Platform,
-  Keyboard,
-  KeyboardEvent,
-  Easing,
-} from 'react-native';
+import { View, StyleSheet, Animated, PanResponder, useWindowDimensions, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { borderRadius } from '@/constants/spacing';

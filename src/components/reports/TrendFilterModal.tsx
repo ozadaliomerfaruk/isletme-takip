@@ -5,14 +5,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  Pressable,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, FlatList, Pressable } from 'react-native';
 import {
   X,
   Check,
@@ -22,7 +15,7 @@ import {
   Tag,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, TabFilter, ModalSearchBar } from '@/components/ui';
+import { Text, Button, TabFilter, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';

@@ -1,3 +1,4 @@
+import { Modal } from '@/components/ui';
 /**
  * ShareCodeModal - Cari paylasim kodu olusturma ve paylasma modal'i (v2)
  *
@@ -8,15 +9,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  Share,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, Share, TouchableOpacity, Pressable, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';

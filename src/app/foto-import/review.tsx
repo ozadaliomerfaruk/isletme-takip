@@ -1,18 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  Switch,
-  Alert,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, AlertTriangle, Search, Package, Building2, Truck, Users, Plus, Wallet, Edit3, Info } from 'lucide-react-native';
-import { Text, Button, Card, DateTimePicker, CategoryPicker, Screen } from '@/components/ui';
+import { Text, Button, Card, DateTimePicker, CategoryPicker, Screen, Modal } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import {
   OcrReviewItem,

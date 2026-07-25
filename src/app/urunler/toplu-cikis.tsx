@@ -1,23 +1,10 @@
 import { useState, useMemo, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Modal,
-  TextInput,
-  LayoutAnimation,
-  UIManager,
-} from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TouchableWithoutFeedback, TextInput, LayoutAnimation, UIManager } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Plus, Trash2, Calendar, ChevronDown, Package, Search, X, Check } from 'lucide-react-native';
-import { Text, Button, Screen } from '@/components/ui';
+import { Text, Button, Screen, Modal } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';

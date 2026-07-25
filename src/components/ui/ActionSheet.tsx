@@ -1,12 +1,6 @@
+import { Modal } from './Modal';
 import { useCallback, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  Pressable,
-  Dimensions,
-  Platform,
-} from 'react-native';
+import { View, StyleSheet, Pressable, Dimensions, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
