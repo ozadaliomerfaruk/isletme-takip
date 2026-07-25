@@ -187,6 +187,18 @@ export interface ConversionSum {
   readonly excludedCount: number;
   /** excludedCount > 0 → "bazı döviz bakiyeleri çevrilemedi" uyarısı gösterilmeli. */
   readonly conversionIncomplete: boolean;
+  /**
+   * Gerçekten ÇEVRİLEN (para birimi farklı olduğu için kur uygulanan) kalem sayısı.
+   *
+   * Neden gerekli — `exchange_rates` tablosu TEK satır tutuyor, yani TARİHSEL kur yok:
+   * geçmiş bir dönemin yabancı-para kalemi BUGÜNKÜ kurla çevriliyor. Kaydın kendi
+   * kuru varsa (çapraz-kur işlemi) o kur saklıdır ama dönem raporu bu çeviriyi
+   * kalemin para biriminden ANA para birimine yapıyor ve orada güncel kuru kullanıyor
+   * → aynı rapordaki iki sayı farklı kurlarla üretilmiş olabiliyor. Tarihsel kur
+   * saklanmadan bu düzeltilemez; en azından çeviri OLDUĞUNU söyleyebiliriz.
+   * TRY-only kullanıcıda 0 kalır → not hiç gösterilmez (gürültü yok).
+   */
+  readonly convertedCount: number;
 }
 
 export function createConversionSum(
@@ -195,15 +207,18 @@ export function createConversionSum(
 ): ConversionSum {
   let total = 0;
   let excludedCount = 0;
+  let convertedCount = 0;
 
   return {
     add(amount, fromCurrency, sign = 1) {
       if (!isFinite(amount)) return;
-      const converted = convertCurrency(amount, fromCurrency || 'TRY', toCurrency, rates);
+      const from = fromCurrency || 'TRY';
+      const converted = convertCurrency(amount, from, toCurrency, rates);
       if (converted === null) {
         excludedCount++;
         return;
       }
+      if (from !== toCurrency) convertedCount++;
       total += sign * converted;
     },
     get total() {
@@ -214,6 +229,9 @@ export function createConversionSum(
     },
     get conversionIncomplete() {
       return excludedCount > 0;
+    },
+    get convertedCount() {
+      return convertedCount;
     },
   };
 }

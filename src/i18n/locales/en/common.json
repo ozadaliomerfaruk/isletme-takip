@@ -547,7 +547,7 @@
       "phone": "Phone",
       "date": "Date",
       "time": "Time",
-      "balance": "Balance",
+      "balance": "Closing Balance",
       "totalRecords": "Total Records",
       "page": "Page"
     }

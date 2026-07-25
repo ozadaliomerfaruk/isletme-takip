@@ -226,7 +226,13 @@ export default function KategoriDetayPage() {
       // İade tutarı yönü AZALTIR → net'ten düş.
       sum.add(amount, getIslemCurrency(islem), isReturnType(islem.type) ? -1 : 1);
     });
-    return { total: sum.total, conversionIncomplete: sum.conversionIncomplete };
+    return {
+      total: sum.total,
+      conversionIncomplete: sum.conversionIncomplete,
+      // Çeviri gerçekten yapıldıysa "bugünkü kur" notu gösterilir (tarihsel kur
+      // saklanmıyor). TRY-only kullanıcıda 0 → not çıkmaz.
+      converted: sum.convertedCount > 0,
+    };
   }, [filteredIslemler, baseCurrency, rates]);
   const filteredTotal = filteredSum.total;
   const filteredCount = filteredIslemler?.length ?? 0;
@@ -484,6 +490,13 @@ export default function KategoriDetayPage() {
       {filteredSum.conversionIncomplete && (
         <Text variant="caption" color="error" style={styles.conversionWarningText}>
           {t('reports:summary.conversionIncomplete')}
+        </Text>
+      )}
+      {/* Tarihsel kur saklanmıyor: geçmiş dönemin yabancı-para kalemi BUGÜNKÜ kurla
+          çevriliyor. Düzeltmesi şema işi; en azından sessiz kalmıyor. */}
+      {filteredSum.converted && (
+        <Text variant="caption" color="secondary" style={styles.conversionWarningText}>
+          {t('reports:summary.currentRateNote')}
         </Text>
       )}
     </View>

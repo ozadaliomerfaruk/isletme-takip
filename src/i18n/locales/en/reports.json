@@ -83,7 +83,7 @@
     "sparseNote": "Records are sparse in the earliest months; these values are reconstructed backward from today (derived).",
     "conversionIncomplete": "Exchange rates could not be loaded; balances without a rate were excluded. Values may be incomplete.",
     "updating": "Updating…",
-    "footnote": "Past months are recalculated backward from today's records. Balances of inactive/archived contacts, personnel and accounts, as well as inventory/fixed-asset value, are NOT included in net worth; only the cash effect of payments/collections to them is counted. Deleted transactions and undated openings may not reflect exactly in history. Today's value matches your current net worth exactly.",
+    "footnote": "Past months are recalculated backward from today's records. Balances of inactive/archived contacts, personnel and accounts, as well as inventory/fixed-asset value, are NOT included in net worth; only the cash effect of payments/collections to them is counted. Deleted transactions and undated openings may not reflect exactly in history. Today's value matches your current net worth exactly. The monthly CHANGE follows the same rule: transactions of passive/archived contacts, staff and accounts are excluded — so a month's change can differ from the same month in the Income-Expense report (that report includes archived records).",
     "footnoteFx": "Inflation, USD, EUR and gold data come from the Turkish Central Bank (TCMB / EVDS); each month uses its own period rate."
   },
   "tabs": {
@@ -118,7 +118,8 @@
     "totalAmount": "Total Amount",
     "transactionCount": "Transaction Count",
     "totalPersonnelDebt": "Staff Debt",
-    "personnelReceivables": "Staff Receivables"
+    "personnelReceivables": "Staff Receivables",
+    "currentRateNote": "Foreign-currency amounts are converted at TODAY's rate; past periods do not use the rate of that day."
   },
   "sections": {
     "accountBalances": "ACCOUNT BALANCES",

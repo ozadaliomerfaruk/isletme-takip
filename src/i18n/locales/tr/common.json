@@ -547,7 +547,7 @@
       "phone": "Telefon",
       "date": "Tarih",
       "time": "Saat",
-      "balance": "Son Bakiye",
+      "balance": "Dönem Sonu Bakiye",
       "totalRecords": "Toplam Kayıt",
       "page": "Sayfa"
     }
