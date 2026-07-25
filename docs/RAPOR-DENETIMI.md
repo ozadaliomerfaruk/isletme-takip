@@ -14,14 +14,44 @@ Mercek: muhasebe · senior developer · UI standartları.
 
 ## ⚠️ Bu belgeyi kullanmadan önce
 
-1. **Satır numaraları kaymış olabilir.** Denetim çalışırken paralel bir oturum aynı
-   ağaçta düzenleme yapıyordu. Bir bulguyu ele almadan önce `dosya:satır` referansını teyit et.
-2. **15 bulgu doğrulayıcıdan karar almadan onaylı sayıldı.** 184 bulguya karşılık 169
-   karar üretildi; kalanlar çıkarma sırasında onaylı kabul edildi. Bu gruptakiler kesin değil,
-   uygulamadan önce teker teker kontrol edilmeli.
-3. **Ham bulgu verisi** (her bulgunun tam metni; id / kanıt / öneri alanlarıyla, 184 kayıt)
-   git geçmişinde duruyor:
-   `git show 5abe195:docs/RAPOR-DENETIMI-HAM-BULGULAR.json`
+**BAZ COMMIT: `95d455c`** (25 Tem 18:02, denetimden önceki son kod commit'i).
+Denetim ~19:00–19:33 arasında bu ağaca karşı koştu; çalışma ağacı o sırada temizdi.
+Bütün `dosya:satır` referansları bu commit'e göredir — sonraki değişikliklerde kaymış olabilir.
+
+1. **Ham JSON git'te ama BAYAT bir ara-kayıttır.**
+   `git show 5abe195:docs/RAPOR-DENETIMI-HAM-BULGULAR.json` **162 onaylı / 22 çürütülen**
+   sayar; belgenin **160 / 24**'ü doğrudur. Fark, JSON'un denetim daha bitmeden (12
+   doğrulayıcıdan 11'i raporlamışken) alınmış olmasından gelir — sessizce bulgu düşürülmedi.
+   Ham veriye bakacaksan bu farkı hesaba kat.
+
+2. **~~15 bulgu kararsız~~ — BU UYARI YANLIŞTI, KALDIRILDI.**
+   Tam journal'da **184 bulgunun 184'ü de karar aldı**; kararsız bulgu YOKTUR.
+   Önceki "15 kararsız" ifadesi de aynı bayat ara-kayıttan türemişti.
+
+3. **Şiddet, tema düzeyinde yeniden takdir edildi — izlenebilirlik için:**
+   160 onaylı ham bulgu 39 temaya toplandı. Ham şiddet dağılımı **20 yüksek / 78 orta /
+   62 düşük**; belgedeki tema dağılımı **5 YÜKSEK / 19 ORTA / 15 DÜŞÜK**. Yani bazı
+   ham-yüksek bulgular ORTA/DÜŞÜK temaların içine düştü. En belirgin örnek: "negatif
+   tutar mutlak değerle basılıyor" ham'da **yüksek**, belgede **ORTA-6**. Bu editoryal
+   bir karardı ve tartışmalıdır — bir muhasebe uygulamasında işaret kaybı YÜKSEK
+   sayılabilir. Aynı şey **ORTA-11** (hata yutulup yanlış sayının cache'e yazılması) ve
+   **DÜŞÜK-30** (yazma yolunda `kdv_orani` NULL birikiyor — geriye dönük düzeltilemez)
+   için de geçerli. Uygulama sırası kurulurken ham şiddete de bakılmalı.
+
+4. **Kapsam sınırı — hiç bakılmayan komşu yüzeyler:** `nakit-akisi` ekranı (351 satır),
+   `src/widgets/finance/` (937 satır) ve 8 rapor hook'u (~1.700 satır) taranmadı
+   (bkz. EK-A). Ayrıca **web-ekstre** (müşteriye giden çıktı) ve **mutabakat raporu**
+   kapsama hiç alınmadı — ikisi de "rapor çıktısı" ailesinden.
+   ⚠️ YÜKSEK-5 ve EK-C, sistematik taranmamış `useCashFlowByCategory` hakkında hüküm veriyor.
+
+5. **EK bölümü gövdeyle dedup edilmedi.** "Denetimin DIŞINDA kalanlar" başlığı altındaki
+   şu maddeler gövdedeki bulguların tekrarıdır, yeni iş değildir:
+   EK-C/1 ve EK-C/2 = **ORTA-7** · EK-C'deki KPI `accountCount` maddesi = **ORTA-26/2**
+   (`useAnalyticsSummary.ts:179-183` birebir) · EK-B'deki "sessiz 1:1 kur" ≈ **ORTA-9**.
+
+6. **Kabul kriteri yok.** Hiçbir bulguda test/doğrulama ölçütü yazılı değil. 373 jest'i
+   olan bir repoda uygulama turuna geçmeden önce her YÜKSEK bulguya bir kabul testi
+   yazılmalı.
 
 ---
 
@@ -94,6 +124,8 @@ Rapor bölümünün hesaplama çekirdeği (RPC'ler) büyük ölçüde doğru; sa
 
 **1. Hesap bacağı olmayan işlemlerde para birimi ANA para birimine düşüyor (ekran + Excel, 5 yüzey)**
 
+⚠️ **TAZELENDİ — KISMEN KAPANDI.** Veri katmanı (`useIslemler` select'leri) ve `kategori/[id].tsx` toplamları düzelmiş; **satır** render'ı (`:313`) ve `reportExcelExport.ts` açık. Ayrıntı: belgenin başındaki TAZELEME tablosu.
+
 NE · `cari_alis / cari_satis / personel_gider / personel_satis` (ve iadeleri) hesap_id TAŞIMAZ ve çapraz-kur yoksa `source_currency` de null'dur. Bu yüzeyler para birimini `islem.hesap?.currency` üzerinden çözüyor → `undefined` → `formatCurrency` ana para biriminin sembolünü basıyor. Merkezî `getIslemCurrency` (source_currency → hesap → cari → personel zinciri) kullanılmıyor; rapor sorguları cari/personel `currency` alanını select'e bile koymuyor.
 
 NEREDE ·
@@ -111,6 +143,8 @@ NEDEN ÖNEMLİ · USD carili 1.000'lik fatura satırda "₺1.000,00" görünüyo
 
 **2. Excel toplamları yabancı parayı ÇEVİRMEDEN topluyor, ekran çeviriyor**
 
+⚠️ **TAZELENDİ — HÂLÂ AÇIK.** `reportExcelExport.ts:197` ham `reduce` toplamı aynen duruyor, `createConversionSum` kullanılmıyor.
+
 NE · Excel kategori ara toplamı ve genel toplam ham `islem.amount` değerlerini para birimine bakmadan topluyor ve sonucu tek sembolle yazıyor. Ekrandaki aynı rakam RPC'de TRY'ye, sonra `createRpcTotalConverter` ile ana para birimine çevriliyor.
 
 NEREDE · `src/lib/reportExcelExport.ts:188-197, 239, 246, 278, 284, 313` (`grandTotal = sorted.reduce((sum, islem) => sum + toNumber(islem.amount), 0)`) · alış-satış detayında aynısı `:563, 593` · karşılık `src/hooks/useCategoryReport.ts:265`
@@ -122,6 +156,8 @@ NEDEN ÖNEMLİ · 1.000 USD + 1.000 TL alış Excel'de "₺2.000,00", ekranda ~�
 ---
 
 **3. Excel/PDF ekranın motorunu kullanmıyor: iadeler düşülmüyor, kategori kırılımı farklı, detay ile özet çatışıyor**
+
+⚠️ **TAZELENDİ — HÂLÂ AÇIK.** Excel yolunda `isReturnType` / `RETURN_TYPES` hiç geçmiyor; iadeler hâlâ düşülmüyor.
 
 NE · Export yalnız `INCOME_TYPES`/`EXPENSE_TYPES` çekiyor (iade tipleri yok) ve kategoriyi `islem.kategori_id`'den kuruyor. Ekranın kaynağı `get_category_report` ise (a) toplamı `totalAmount − returnTotal` ile netliyor, (b) ürünlü işlemleri ÜRÜNÜN eşlenmiş kategorisine oransal DAĞITIYOR, (c) alt kategorileri üste topluyor. Alış-satış Excel'inde ise aynı dosyada iki "Toplam" var: üst blok çevrilmiş/net, alt detay bloğu ham ve iadesiz; detay sorgusu ürün hareketi olmayan işlemleri ve pasif ürünleri de içeriyor.
 
@@ -140,6 +176,8 @@ NEDEN ÖNEMLİ · İadesi olan her dönemde Excel'in "TOPLAM" hücresi ekrandan 
 
 **4. Drill-down sorguları sayfalanmıyor: 1000 satırda sessiz kırpma**
 
+⚠️ **TAZELENDİ — KISMEN KAPANDI.** `useCategoryReport.ts` altı sorguyu `fetchAllPages` ile sarmış (713, 772, 808, 906, 954, 970); `useAccountReport.ts` hâlâ import bile etmiyor.
+
 NE · İki drill-down yolu da ham `supabase.from(...).select(...)` kullanıyor; `fetchAllPages` yok, `urun_hareketler` tarafında tarih filtresi de yok. PostgREST varsayılan tavanı 1000 (`src/lib/supabaseHelpers.ts:4-8`).
 
 NEREDE · `src/hooks/useCategoryReport.ts:934-939` (ve `750-757`, `791-796`, `922-927`) — aynı fonksiyonun `:897` satırındaki yorum "fetchAllPages ile 1000 satır limitini aş" diyor · `src/hooks/useAccountReport.ts:358-383` (ve ölü ikizi `172-197`) · doğru desen: `useCategoryReport.ts:906-916`
@@ -151,6 +189,8 @@ NEDEN ÖNEMLİ · (a) İşlemlerin bir kısmı listede HİÇ görünmüyor; (b) 
 ---
 
 **5. Nakit akışı drill-down'ı kredi kartı giderlerini özete katıyor, tıklanan kart katmıyor**
+
+⚠️ **TAZELENDİ — HÂLÂ AÇIK.** `source='cash-flow'` yalnız işlem tiplerini değiştiriyor (`getIslemTypes`, satır 27-28); hesap tipi (kredi kartı) filtresi yok.
 
 NE · Nakit Akışı ekranında çıkış kategorisine basılınca açılan drill-down'un "Toplam Tutar" kartı `get_category_report(CASH_OUTFLOW_TYPES)` ile hesaplanıyor; bu RPC'de **hesap tipi filtresi yok**. Üst ekran ise kredi kartı hesabından yapılan giderleri `outflowByCategory`'ye hiç koymuyor, ayrı "Kredi Kartı Harcamaları" kovasına yazıyor.
 
@@ -165,6 +205,8 @@ NEDEN ÖNEMLİ · Kredi kartı kullanan her işletmede kullanıcı "₺40.000" y
 # ORTA
 
 **6. formatCurrency mutlak değer basıyor: negatif tutarlar POZİTİF görünüyor (7 yüzey)**
+
+⚠️ **TAZELENDİ — KISMEN KAPANDI.** Beş yüzeyde `formatCurrencyWithSign` uygulanmış; `gelir-gider.tsx`, `hesap/[id].tsx`, `CategoryReportCard.tsx`, `IncomeSourceCard.tsx` açık. ⚠️ `pdfExport.ts` ayağı SINANMADI. Ayrıca aşağıdaki NEREDE listesinde geçmeyen bazı yüzeyler (EntitySummaryCard, QuickInsights) tazelemede "kapandı" sayıldı — liste eksikti.
 
 NE · `formatCurrency` ilk satırında `const abs = Math.abs(amount)` yapıyor (`src/lib/currency.ts:260`); işaretli varyantlar (`formatCurrencyWithSign`, `signedCurrencyText`) mevcut ama bu yüzeylerde kullanılmıyor. Etkilenen değerler gerçekten negatif olabiliyor: iade satışı aşınca kategori/kaynak/dönem toplamı, net nakit akışı, kapanış bakiyesi, kredi kartı fazla ödemesi.
 
@@ -238,6 +280,8 @@ NEDEN ÖNEMLİ · Ana para birimi TRY dışı olan kullanıcıda kur bulunamazsa
 
 **11. Hata yutulup YANLIŞ SAYI üretiliyor (iade ve alt sorgular)**
 
+⚠️ **ŞİDDET TARTIŞMALI** — ham denetimde bu sınıf **yüksek**ti. Bir muhasebe uygulamasında hata yutulup YANLIŞ sayının cache'e yazılması YÜKSEK sayılabilir (bkz. giriş, madde 3).
+
 NE · İki yerde `catch` hatayı yutup nötr değer döndürüyor, React Query sorguyu BAŞARILI sayıyor: iade RPC'si `return 0` / `return []` yapıyor; ürün/mapping alt sorgularında `error` hiç destructure edilmiyor.
 
 NEREDE · `src/hooks/useProductReport.ts:127-131` (ana sorgu aynı durumda `:93` `throw error` yapıyor — politika tutarsız) · `src/hooks/useCategoryReport.ts:211-215, 386` (`combinedError` iade sorgusunu içermiyor) · `src/hooks/useCategoryReport.ts:886-893, 922-931, 934-941, 750-757, 791-796`
@@ -273,6 +317,8 @@ NEDEN ÖNEMLİ · Muhasebeciye giden dosyada SUM/sıralama/pivot çalışmıyor;
 ---
 
 **14. Arşivli/pasif cari ve personelin raporuna hiç erişilemiyor**
+
+⚠️ **KULLANICI KARARIYLA SÜRTÜŞÜYOR** — arşivli ayağı kararla uyumlu (arşivli kayıt raporlarda görünmeli). Pasif ayağı değil: karar "pasif hiçbir rapora girmez" diyor, bu bulgunun önerisi ise picker'a `includePassive=true` koymayı içeriyor. AYRIM: pasif bir kaydın **tutarlarının toplamlara girmesi** ile **geçmişinin açılabilmesi** aynı şey değil. Uygulamadan önce karara bağlanmalı.
 
 NE · Rapor picker'ları listeyi varsayılan argümanlarla çekiyor (`includePassive=false, includeArchived=false`); deep-link ile gelen id bu listede bulunamayınca seçili kayıt null kalıyor ve ekran "bir cari/personel seçin" boş kartına düşüyor. Detay sayfalarındaki "Rapor" butonu ise koşulsuz gösteriliyor.
 
@@ -474,6 +520,8 @@ NEDEN ÖNEMLİ · 3 kalemli tek fatura 3 işlem sayılıyor; özetteki adet list
 
 **30. Toplu stok girişinde `kdv_orani` yazılmıyor (yazma yolu)**
 
+⚠️ **ŞİDDET TARTIŞMALI** — bu bir YAZMA YOLU hatası: her gün geriye dönük düzeltilemeyen NULL `kdv_orani` kaydı birikiyor. "Düşük"ten ağır (bkz. giriş, madde 3).
+
 NE · Cari bağlantısı olmayan toplu stok girişinde `createUrunHareket` çağrısına `kdv_orani` verilmiyor; DB'ye NULL yazılıyor, rapor `COALESCE(uh.kdv_orani, 0)` ile 0 sayıyor.
 
 NEREDE · `src/app/urunler/toplu-giris.tsx:244-253` (cari'li dal `:226` veriyor) · `src/hooks/useUrunHareketler.ts:452` alanı bekliyor · okuma: migration `20260630000000:251`
@@ -594,11 +642,37 @@ NEDEN ÖNEMLİ · Klavye açıkken footer kapanabiliyor (kullanıcı `returnKeyT
 
 # ÖNCE ŞUNU YAP
 
-1. **`getIslemCurrency`'yi beş yüzeye uygula** ve `useAllIslemlerByCari` / `useAllIslemlerByPersonel` select'lerine `cari(currency)` / `personel(currency)` ekle — yabancı para kullanan işletmede ekran ve Excel şu an yanlış sembol basıyor (YÜKSEK-1).
-2. **İki drill-down sorgusunu `fetchAllPages` ile sar** (`useCategoryReport.ts:934-939` + `useAccountReport.ts:358-383` ve kardeşleri) — 1000 satırda sessiz veri kaybı (YÜKSEK-4).
-3. **Excel'i ekranın RPC'lerinden besle**: çeviri (`createConversionSum`), iade netleme ve ürün-kategori dağıtımı — dosya bugün ekrandan farklı rakam veriyor (YÜKSEK-2, YÜKSEK-3).
-4. **İşaretli para biçimini yedi yüzeye uygula** (`formatCurrencyWithSign` / `signedCurrencyText`) — negatif tutarlar pozitif ve yeşil görünüyor (ORTA-6). Aynı pakette nakit akışı drill-down özetini üst ekranla aynı motora bağla (YÜKSEK-5).
-5. **Dönem katmanını düzelt**: navigasyonda özel dönemde `period:'custom'` gönder, trend offset'ini string eşleme yerine doğrudan geçir, haftalık ay seçici offset'ini pazartesi referansına çevir (ORTA-7, ORTA-18).
+> **TAZELEME'ye göre güncellendi.** Önceki sürüm zaten bitmiş işleri listeliyordu
+> (`useCategoryReport` sayfalaması, `useIslemler` select'leri, beş yüzeydeki işaretli
+> biçim). Aşağıdaki liste yalnız **hâlâ açık olan** parçaları içerir.
+
+**0. GÜVENLİK — üç rapor RPC'sine guard + REVOKE (EK-B).**
+`get_income_expense_summary`, `get_category_report`, `get_product_report` `SECURITY DEFINER`
+ama `user_has_isletme_access` / `user_has_module_access` çağırmıyor ve hiçbir migration'da
+`REVOKE EXECUTE ... FROM PUBLIC, anon` almamışlar; `p_isletme_id` tamamen çağırandan geliyor.
+Kardeş RPC'lerin kalıbı hazır (`20260716040000` guard + dosya sonu REVOKE'ları).
+Listedeki tek **veri sızıntısı** maddesi budur ve en küçük işlerden biridir — bu yüzden 0.
+
+1. **Excel yolunu ekranın motoruna bağla** — TAZELEME'ye göre ekran tarafı büyük ölçüde
+   düzelmiş, Excel hiç dokunulmamış; yani ekran ile dosya arasındaki fark BÜYÜMÜŞ durumda.
+   Tek pakette üçü: `getIslemCurrency` ile para birimi çözümü, `createConversionSum` ile
+   çeviri, `isReturnType` ile iade netleme (YÜKSEK-1 Excel ayağı, YÜKSEK-2, YÜKSEK-3).
+2. **`useAccountReport.ts`'i `fetchAllPages` ile sar** — `useCategoryReport` tarafı bitti,
+   kalan tek yer burası; `fetchAllPages` import bile edilmemiş (YÜKSEK-4 kalan ayağı).
+3. **Nakit akışı drill-down özetini üst ekranla aynı motora bağla** — `source='cash-flow'`
+   şu an yalnız işlem tiplerini değiştiriyor, hesap tipi (kredi kartı) filtresi yok;
+   kullanıcı ₺40.000 karta basıp ₺65.000 görüyor (YÜKSEK-5).
+4. **İşaretli para biçimini kalan dört yüzeye uygula** — `gelir-gider.tsx`,
+   `hesap/[id].tsx`, `CategoryReportCard.tsx`, `IncomeSourceCard.tsx`. Diğer beş yüzey
+   bitti (ORTA-6 kalan ayağı) ve `kategori/[id].tsx:313` satır render'ı da bu pakette.
+5. **Dönem katmanını düzelt** — navigasyonda özel dönemde `period:'custom'` gönder,
+   trend offset'ini string eşleme yerine doğrudan geçir, haftalık ay seçici offset'ini
+   pazartesi referansına çevir (ORTA-7, ORTA-18).
+
+**Sıraya girmeyen ama şiddeti tartışmalı iki madde** (bkz. giriş, madde 3):
+ORTA-11 (hata yutulup yanlış sayı cache'e yazılıyor) ve DÜŞÜK-30 (`kdv_orani` NULL
+birikiyor, geriye dönük düzeltilemez). İkisi de bir muhasebe uygulamasında yukarı
+taşınmayı hak edebilir.
 ---
 
 # EK — Denetimin Dışında Kalanlar
