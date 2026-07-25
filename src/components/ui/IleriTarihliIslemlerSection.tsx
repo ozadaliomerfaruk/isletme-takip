@@ -16,14 +16,16 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
-import { IleriTarihliIslemWithRelations } from '@/types/database';
+import { Currency, IleriTarihliIslemWithRelations } from '@/types/database';
 import {
   useCompleteIleriTarihliIslem,
   useDeleteIleriTarihliIslem,
 } from '@/hooks/useIleriTarihliIslemler';
+import { isCrossCurrencyRateRequiredError } from '@/lib/crossCurrency';
 import { toErrorMessage } from '@/lib/errors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar/QuickTransactionBar';
+import { ExchangeRateBar } from '@/components/transaction/ExchangeRateBar';
 
 interface IleriTarihliIslemlerSectionProps {
   ileriTarihliIslemler: IleriTarihliIslemWithRelations[] | undefined;
@@ -76,6 +78,19 @@ export function IleriTarihliIslemlerSection({
   const completeIslem = useCompleteIleriTarihliIslem();
   const deleteIslem = useDeleteIleriTarihliIslem();
 
+  // Çapraz-kurlu bir planı tamamlarken kur TAMAMLAMA ANINDA sorulur:
+  // ileri_tarihli_islemler tablosu kur saklamıyor (kolon yok), bu yüzden planlama
+  // anında kaydedilemiyor. Hook kursuz denemede CrossCurrencyRateRequiredError
+  // fırlatıyor → burada yakalanıp ExchangeRateBar açılıyor, onay sonrası aynı id
+  // kurla tekrar gönderiliyor. (Eskiden kur hiç sorulmadığı için kullanıcı ham
+  // "Geçersiz döviz kuru: TRY → USD" hatası alıyor ve işlemi HİÇ tamamlayamıyordu.)
+  const [pendingRate, setPendingRate] = useState<{
+    id: string;
+    sourceCurrency: Currency;
+    targetCurrency: Currency;
+    sourceAmount: number;
+  } | null>(null);
+
   const displayTitle = title ?? t('transactions:scheduled.title');
 
   if (isLoading || !ileriTarihliIslemler || ileriTarihliIslemler.length === 0) {
@@ -105,6 +120,24 @@ export function IleriTarihliIslemlerSection({
     return scheduled.getTime() === today.getTime();
   };
 
+  const runComplete = async (id: string, exchangeRate?: number) => {
+    try {
+      await completeIslem.mutateAsync({ id, exchangeRate });
+      Alert.alert(t('common:status.success'), t('transactions:messages.saveSuccess'));
+    } catch (error) {
+      if (isCrossCurrencyRateRequiredError(error)) {
+        setPendingRate({
+          id,
+          sourceCurrency: error.sourceCurrency,
+          targetCurrency: error.targetCurrency,
+          sourceAmount: error.sourceAmount,
+        });
+        return;
+      }
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
+    }
+  };
+
   const handleComplete = (item: IleriTarihliIslemWithRelations) => {
     Alert.alert(
       t('transactions:scheduled.execute'),
@@ -113,13 +146,8 @@ export function IleriTarihliIslemlerSection({
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
           text: t('transactions:scheduled.execute'),
-          onPress: async () => {
-            try {
-              await completeIslem.mutateAsync(item.id);
-              Alert.alert(t('common:status.success'), t('transactions:messages.saveSuccess'));
-            } catch (error) {
-              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
-            }
+          onPress: () => {
+            void runComplete(item.id);
           },
         },
       ]
@@ -171,6 +199,22 @@ export function IleriTarihliIslemlerSection({
         isScheduledTransaction={true}
         onSuccess={() => setEditTransactionId(null)}
       />
+
+      {/* Çapraz-kur barı — tamamlama anında kur (ana bar ile aynı bileşen) */}
+      {pendingRate && (
+        <ExchangeRateBar
+          visible
+          onDismiss={() => setPendingRate(null)}
+          sourceAmount={pendingRate.sourceAmount}
+          sourceCurrency={pendingRate.sourceCurrency}
+          targetCurrency={pendingRate.targetCurrency}
+          onConfirm={(exchangeRate) => {
+            const { id } = pendingRate;
+            setPendingRate(null);
+            void runComplete(id, exchangeRate);
+          }}
+        />
+      )}
 
       {ileriTarihliIslemler.map((item) => {
         const overdue = isOverdue(item.scheduled_date);

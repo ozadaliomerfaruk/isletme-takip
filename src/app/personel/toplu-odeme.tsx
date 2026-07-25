@@ -15,6 +15,7 @@ import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber, formatAmountForInput } from '@/lib/currency';
+import { isCrossCurrency } from '@/constants/currencies';
 import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
@@ -184,17 +185,21 @@ export default function TopluOdemePage() {
     setAmounts(newAmounts);
   };
 
-  // Toplam tutar hesapla
-  const totalAmount = useMemo(() => {
-    let total = 0;
+  // Toplam tutar — PARA BİRİMİ BAŞINA. Satır tutarları personelin KENDİ para biriminde
+  // giriliyor (satır altındaki borç da öyle gösteriliyor); düz toplama "100 USD + 100 TRY"yi
+  // "₺200" diye yazıyordu (gerçeği ~₺3.400). Kur burada satır satır sorulamadığı için
+  // toplamı çevirmek de yalan olur → her para birimi ayrı satır (cariler.tsx byCur deseni).
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<string, number>();
     selectedPersonel.forEach(id => {
       const amount = parseCurrency(amounts[id] || '0');
       if (amount > 0) {
-        total += amount;
+        const cur = activePersonel.find(p => p.id === id)?.currency || 'TRY';
+        map.set(cur, (map.get(cur) ?? 0) + amount);
       }
     });
-    return total;
-  }, [selectedPersonel, amounts]);
+    return Array.from(map.entries());
+  }, [selectedPersonel, amounts, activePersonel]);
 
   // Seçili personel sayısı (tutar girilmiş olanlar)
   const selectedCount = useMemo(() => {
@@ -222,6 +227,32 @@ export default function TopluOdemePage() {
 
     if (selectedCount === 0) {
       Alert.alert(t('common:status.error'), t('transactions:dailyCash.noEntries'));
+      return;
+    }
+
+    // ÇAPRAZ-KUR ENGELİ — bu ekran personel_odeme yazıyor ve o tip bakiyeye
+    // calculateTargetAmount ile uygulanıyor (islemBalanceOps). Kur alanı burada
+    // doldurulmadığı için iki bacak da TRY sayılıyordu: TRY hesaptan EUR maaşlı
+    // personele 1.000 girmek personelin 1.000 EUR alacağını kapatıyordu (kalıcı,
+    // kaydın kuru olmadığı için sonradan düzeltilemez). Toplu ekranda satır satır kur
+    // sorulamaz (10 personel = 10 kur barı) → farklı para birimli satır varsa
+    // isimleriyle DURDUR; tek tek ödemede (QTB) kur zaten soruluyor.
+    const hesapCurrency = selectedHesap?.currency || 'TRY';
+    const mismatched = Array.from(selectedPersonel)
+      .filter(id => parseCurrency(amounts[id] || '0') > 0)
+      .map(id => activePersonel.find(p => p.id === id))
+      .filter((p): p is NonNullable<typeof p> => !!p && isCrossCurrency(p.currency, hesapCurrency));
+
+    if (mismatched.length > 0) {
+      Alert.alert(
+        t('staff:bulkPayment.currencyMismatchTitle'),
+        t('staff:bulkPayment.currencyMismatch', {
+          account: hesapCurrency,
+          names: mismatched
+            .map(p => `${p.first_name} ${p.last_name ?? ''}`.trim())
+            .join(', '),
+        })
+      );
       return;
     }
 
@@ -449,6 +480,9 @@ export default function TopluOdemePage() {
                           onChangeText={(val) => handleAmountChange(personel.id, val)}
                           style={styles.amountInput}
                           placeholder="0"
+                          // Satırın borcu personelin para biriminde gösteriliyor; giriş
+                          // alanının önekinin ANA para birimi olması çelişkiydi.
+                          currency={personel.currency}
                         />
                       </View>
                     </TouchableOpacity>
@@ -464,9 +498,18 @@ export default function TopluOdemePage() {
               <Text variant="caption" color="secondary">
                 {selectedCount} {t('staff:titles.personnel')}
               </Text>
-              <Text variant="h3" color="success">
-                {formatCurrency(totalAmount)}
-              </Text>
+              {/* Para birimi başına ayrı satır — karışık para birimi düz toplanmaz */}
+              {totalsByCurrency.length === 0 ? (
+                <Text variant="h3" color="success">
+                  {formatCurrency(0, selectedHesap?.currency)}
+                </Text>
+              ) : (
+                totalsByCurrency.map(([cur, total]) => (
+                  <Text key={cur} variant="h3" color="success">
+                    {formatCurrency(total, cur)}
+                  </Text>
+                ))
+              )}
             </View>
             <Button
               variant="primary"

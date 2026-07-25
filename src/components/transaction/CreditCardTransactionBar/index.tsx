@@ -22,6 +22,7 @@ import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
 import { Hesap, IslemType, IslemInsert, IleriTarihliIslemInsert, Urun, Currency } from '@/types/database';
 import { parseCurrency, formatCurrency, isValidAmount, roundCurrency, cleanAmountInput, formatAmountForInput } from '@/lib/currency';
+import { resolveIslemLegs } from '@/lib/crossCurrency';
 import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -34,6 +35,7 @@ import { usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIsle
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PhotoButton } from '../PhotoButton';
 import { PhotoViewerModal } from '../PhotoViewerModal';
+import { ExchangeRateBar } from '../ExchangeRateBar';
 import { UrunPickerModal } from '../QuickTransactionBar/components';
 import type { UrunItem } from '../QuickTransactionBar/types';
 import { useUrunler, useCreateUrun } from '@/hooks/useUrunler';
@@ -94,6 +96,17 @@ export function CreditCardTransactionBar({
   const [hesapSearchQuery, setHesapSearchQuery] = useState('');
   const [cariSearchQuery, setCariSearchQuery] = useState('');
   const [personelSearchQuery, setPersonelSearchQuery] = useState('');
+
+  // Çapraz-kur: kart/hesap ile karşı tarafın para birimi farklıysa kur SORULUR.
+  // (Eskiden bu bar'da tek satır kur kontrolü yoktu → tutar karşı tarafa 1:1
+  // uygulanıp bakiye kalıcı bozuluyordu; kayıtta kur olmadığı için sonradan
+  // düzeltmek de mümkün olmuyordu.)
+  const [pendingExchange, setPendingExchange] = useState<{
+    sourceCurrency: Currency;
+    targetCurrency: Currency;
+    sourceAmount: number;
+  } | null>(null);
+  const [showExchangeRateBar, setShowExchangeRateBar] = useState(false);
 
   // Category state
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
@@ -364,6 +377,164 @@ export function CreditCardTransactionBar({
     }
   }, [handleDismiss, isKeyboardVisible]);
 
+  /**
+   * Sekme tipini API tipine + bacak id'lerine + İKİ TARAFIN PARA BİRİMİNE çevirir.
+   * Kayıt ve kur kontrolü aynı kaynaktan beslenmeli; ayrı hesaplanırsa biri kur
+   * sorar diğeri başka bacağa yazar.
+   */
+  const resolveLegs = useCallback(() => {
+    let apiType: IslemType;
+    let hesapId: string | null = null;
+    let hedefHesapId: string | null = null;
+    let cariIdValue: string | null = null;
+    let personelIdValue: string | null = null;
+
+    if (type === 'kredi_karti_odeme') {
+      if (odemeHedefType === 'tedarikci') {
+        apiType = 'cari_odeme';
+        hesapId = creditCard.id;
+        cariIdValue = cariId;
+      } else {
+        apiType = 'personel_odeme';
+        hesapId = creditCard.id;
+        personelIdValue = personelId;
+      }
+    } else if (type === 'kredi_karti_ekstre') {
+      apiType = 'transfer';
+      hesapId = sourceHesapId;
+      hedefHesapId = creditCard.id;
+    } else {
+      // kredi_karti_gider (ve bilinmeyen) → kart hesabından gider
+      apiType = 'gider';
+      hesapId = creditCard.id;
+    }
+
+    const currencyOf = (id: string | null) =>
+      id === creditCard.id ? creditCard.currency : hesaplar?.find((h) => h.id === id)?.currency;
+
+    const legs = resolveIslemLegs(apiType, {
+      hesapCurrency: currencyOf(hesapId),
+      hedefHesapCurrency: currencyOf(hedefHesapId),
+      cariCurrency: tedarikciCariler?.find((c) => c.id === cariIdValue)?.currency,
+      personelCurrency: personelList?.find((p) => p.id === personelIdValue)?.currency,
+    });
+
+    return { apiType, hesapId, hedefHesapId, cariIdValue, personelIdValue, ...legs };
+  }, [type, odemeHedefType, cariId, personelId, sourceHesapId, creditCard, hesaplar, tedarikciCariler, personelList]);
+
+  /** Asıl kayıt. exchange verilirse source/target/exchange_rate üçlüsü DB'ye yazılır. */
+  const persistIslem = useCallback(
+    async (
+      parsedAmount: number,
+      exchange?: { sourceCurrency: Currency; targetCurrency: Currency; exchangeRate: number }
+    ) => {
+      setIsSaving(true);
+
+      if (Platform.OS !== 'web') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      }
+
+      try {
+        const { apiType, hesapId, hedefHesapId, cariIdValue, personelIdValue } = resolveLegs();
+
+        if (isScheduled) {
+          const scheduledData: Omit<IleriTarihliIslemInsert, 'isletme_id'> = {
+            type: apiType,
+            amount: parsedAmount,
+            description: description.trim() || null,
+            kategori_id: kategoriId,
+            hesap_id: hesapId,
+            hedef_hesap_id: hedefHesapId,
+            cari_id: cariIdValue,
+            personel_id: personelIdValue,
+            scheduled_date: formatDateForDB(date),
+          };
+          await createIleriTarihliIslem.mutateAsync(scheduledData);
+        } else {
+          const islemData: Omit<IslemInsert, 'isletme_id'> = {
+            type: apiType,
+            amount: parsedAmount,
+            description: description.trim() || null,
+            kategori_id: kategoriId,
+            hesap_id: hesapId,
+            hedef_hesap_id: hedefHesapId,
+            cari_id: cariIdValue,
+            personel_id: personelIdValue,
+            date: formatDateTimeForDB(date),
+            ...(exchange
+              ? {
+                  source_currency: exchange.sourceCurrency,
+                  target_currency: exchange.targetCurrency,
+                  exchange_rate: exchange.exchangeRate,
+                }
+              : {}),
+          };
+          const newIslem = await createIslem.mutateAsync(islemData);
+
+          // Foto varsa yükle → photo_path set et (ana bar ile aynı akış; scheduled hariç)
+          if (photoUri && isletme?.id && newIslem?.id) {
+            try {
+              const photoPath = await uploadPhoto.mutateAsync({
+                uri: photoUri,
+                isletmeId: isletme.id,
+                islemId: newIslem.id,
+              });
+              await updateIslem.mutateAsync({ id: newIslem.id, updates: { photo_path: photoPath } });
+            } catch (photoError) {
+              if (__DEV__) console.error('[PhotoUpload] Error:', photoError);
+              Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
+            }
+          }
+
+          // Ürün varsa stok hareketi oluştur — YALNIZ kredi_karti_gider → giriş.
+          // urunItems başka tipe geçilince state'te kalabildiği için tip guard'ı şart:
+          // ödeme/ekstre kaydında yanlışlıkla stok hareketi oluşmasını engeller.
+          if (urunItems.length > 0 && newIslem?.id && type === 'kredi_karti_gider') {
+            try {
+              await createUrunHareketlerKK(newIslem.id, description.trim());
+            } catch (urunError) {
+              if (__DEV__) console.error('[UrunHareket] Error:', urunError);
+              Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
+            }
+          }
+        }
+
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+
+        onSuccess?.();
+        handleDismiss();
+      } catch (error) {
+        if (__DEV__) {
+          console.error('Transaction error:', error);
+        }
+        setIsSaving(false);
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+        Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
+      }
+    },
+    [
+      t, type, description, date, kategoriId, isScheduled, resolveLegs,
+      createIslem, createIleriTarihliIslem, onSuccess, handleDismiss,
+      photoUri, uploadPhoto, updateIslem, isletme,
+      urunItems, createUrunHareketlerKK,
+    ]
+  );
+
+  const handleExchangeRateConfirm = useCallback(
+    (exchangeRate: number) => {
+      if (!pendingExchange) return;
+      const { sourceCurrency, targetCurrency, sourceAmount } = pendingExchange;
+      setShowExchangeRateBar(false);
+      setPendingExchange(null);
+      void persistIslem(sourceAmount, { sourceCurrency, targetCurrency, exchangeRate });
+    },
+    [pendingExchange, persistIslem]
+  );
+
   const handleSave = useCallback(async () => {
     if (!isValidAmount(amount)) {
       if (Platform.OS !== 'web') {
@@ -397,120 +568,41 @@ export function CreditCardTransactionBar({
       return;
     }
 
-    setIsSaving(true);
+    const parsedAmount = roundCurrency(parseCurrency(amount));
+    const legs = resolveLegs();
 
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    }
-
-    try {
-      const parsedAmount = roundCurrency(parseCurrency(amount));
-
-      let apiType: IslemType;
-      let hesapId: string | null = null;
-      let hedefHesapId: string | null = null;
-      let cariIdValue: string | null = null;
-      let personelIdValue: string | null = null;
-
-      if (type === 'kredi_karti_gider') {
-        apiType = 'gider';
-        hesapId = creditCard.id;
-      } else if (type === 'kredi_karti_odeme') {
-        if (odemeHedefType === 'tedarikci') {
-          apiType = 'cari_odeme';
-          hesapId = creditCard.id;
-          cariIdValue = cariId;
-        } else {
-          apiType = 'personel_odeme';
-          hesapId = creditCard.id;
-          personelIdValue = personelId;
-        }
-      } else if (type === 'kredi_karti_ekstre') {
-        apiType = 'transfer';
-        hesapId = sourceHesapId;
-        hedefHesapId = creditCard.id;
-      } else {
-        apiType = 'gider';
-        hesapId = creditCard.id;
-      }
-
+    // ÇAPRAZ-KUR: kart/hesap ile karşı taraf farklı para birimindeyse kur ZORUNLU.
+    if (legs.isCross) {
+      // İleri tarihli satırda kur SAKLANAMIYOR (ileri_tarihli_islemler tablosunda kur
+      // kolonu yok) → planlama anında kur alsak bile kaybolurdu. Sessiz 1:1 yerine
+      // kullanıcıyı açıkça engelle: bugün kaydetsin ya da aynı para biriminden hesap seçsin.
       if (isScheduled) {
-        const scheduledData: Omit<IleriTarihliIslemInsert, 'isletme_id'> = {
-          type: apiType,
-          amount: parsedAmount,
-          description: description.trim() || null,
-          kategori_id: kategoriId,
-          hesap_id: hesapId,
-          hedef_hesap_id: hedefHesapId,
-          cari_id: cariIdValue,
-          personel_id: personelIdValue,
-          scheduled_date: formatDateForDB(date),
-        };
-        await createIleriTarihliIslem.mutateAsync(scheduledData);
-      } else {
-        const islemData: Omit<IslemInsert, 'isletme_id'> = {
-          type: apiType,
-          amount: parsedAmount,
-          description: description.trim() || null,
-          kategori_id: kategoriId,
-          hesap_id: hesapId,
-          hedef_hesap_id: hedefHesapId,
-          cari_id: cariIdValue,
-          personel_id: personelIdValue,
-          date: formatDateTimeForDB(date),
-        };
-        const newIslem = await createIslem.mutateAsync(islemData);
-
-        // Foto varsa yükle → photo_path set et (ana bar ile aynı akış; scheduled hariç)
-        if (photoUri && isletme?.id && newIslem?.id) {
-          try {
-            const photoPath = await uploadPhoto.mutateAsync({
-              uri: photoUri,
-              isletmeId: isletme.id,
-              islemId: newIslem.id,
-            });
-            await updateIslem.mutateAsync({ id: newIslem.id, updates: { photo_path: photoPath } });
-          } catch (photoError) {
-            if (__DEV__) console.error('[PhotoUpload] Error:', photoError);
-            Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
-          }
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
-
-        // Ürün varsa stok hareketi oluştur — YALNIZ kredi_karti_gider → giriş.
-        // urunItems başka tipe geçilince state'te kalabildiği için tip guard'ı şart:
-        // ödeme/ekstre kaydında yanlışlıkla stok hareketi oluşmasını engeller.
-        if (urunItems.length > 0 && newIslem?.id && type === 'kredi_karti_gider') {
-          try {
-            await createUrunHareketlerKK(newIslem.id, description.trim());
-          } catch (urunError) {
-            if (__DEV__) console.error('[UrunHareket] Error:', urunError);
-            Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
-          }
-        }
+        Alert.alert(
+          t('common:status.warning'),
+          t('transactions:exchangeRate.scheduledCrossCurrencyBlocked')
+        );
+        return;
       }
-
       if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
-
-      onSuccess?.();
-      handleDismiss();
-    } catch (error) {
-      if (__DEV__) {
-        console.error('Transaction error:', error);
-      }
-      setIsSaving(false);
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
+      setPendingExchange({
+        sourceCurrency: legs.sourceCurrency,
+        targetCurrency: legs.targetCurrency,
+        sourceAmount: parsedAmount,
+      });
+      setShowExchangeRateBar(true);
+      return;
     }
+
+    await persistIslem(parsedAmount);
   }, [
-    t, amount, type, description, date, kategoriId, categorySkipped,
+    t, amount, type, kategoriId, categorySkipped,
     isScheduled, sourceHesapId, cariId, personelId, odemeHedefType,
-    creditCard, createIslem, createIleriTarihliIslem, onSuccess, handleDismiss,
-    photoUri, uploadPhoto, updateIslem, isletme,
-    urunItems, createUrunHareketlerKK,
+    urunItems, resolveLegs, persistIslem,
   ]);
 
   const handleAmountChange = useCallback((text: string) => {
@@ -932,6 +1024,22 @@ export function CreditCardTransactionBar({
         photoPath={photoUri}
         onClose={() => setShowPhotoViewer(false)}
       />
+
+      {/* Çapraz-kur barı — ana bar ile AYNI bileşen (tek kur giriş dili) */}
+      {pendingExchange && (
+        <ExchangeRateBar
+          visible={showExchangeRateBar}
+          onDismiss={() => {
+            setShowExchangeRateBar(false);
+            setPendingExchange(null);
+            setIsSaving(false);
+          }}
+          sourceAmount={pendingExchange.sourceAmount}
+          sourceCurrency={pendingExchange.sourceCurrency}
+          targetCurrency={pendingExchange.targetCurrency}
+          onConfirm={handleExchangeRateConfirm}
+        />
+      )}
     </Modal>
   );
 }

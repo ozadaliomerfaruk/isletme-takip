@@ -243,6 +243,8 @@
     "selectAccount": "Please select an account",
     "description": "Salary payment",
     "success": "Payment recorded for {{count}} staff",
-    "partialError": "{{success}} payment(s) recorded, {{failed}} failed. Failed ones stayed selected; you can retry (already-paid staff are no longer selected, so no double payment)."
+    "partialError": "{{success}} payment(s) recorded, {{failed}} failed. Failed ones stayed selected; you can retry (already-paid staff are no longer selected, so no double payment).",
+    "currencyMismatchTitle": "Currency mismatch",
+    "currencyMismatch": "The selected account is in {{account}}, but these staff members' balances are in a different currency: {{names}}. Bulk payment can't ask for an exchange rate, so either pay them from a {{account}} account or pay them individually from the staff detail screen (which asks for the rate)."
   }
 }

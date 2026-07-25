@@ -8,12 +8,25 @@ import {
   IleriTarihliIslemUpdate,
   IleriTarihliIslemWithRelations,
   IslemInsert,
+  IslemType,
 } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { computeBalanceOps } from '@/lib/islemBalanceOps';
+import { resolveIslemLegs, CrossCurrencyRateRequiredError } from '@/lib/crossCurrency';
+import { toNumber } from '@/lib/currency';
 import { cancelTransactionReminder } from '@/lib/notifications';
 import i18n from '@/i18n';
+
+/**
+ * Tamamlama girdisi. exchangeRate YALNIZ çapraz-kurlu planlarda gerekir; ilk deneme
+ * kursuz yapılır, hook CrossCurrencyRateRequiredError fırlatırsa çağıran ekran kuru
+ * sorup aynı id ile tekrar dener.
+ */
+export interface CompleteIleriTarihliInput {
+  id: string;
+  exchangeRate?: number | null;
+}
 
 // ============================================================================
 // QUERY HOOKS
@@ -351,13 +364,13 @@ export function useCompleteIleriTarihliIslem() {
   const { isletme } = useAuthContext();
 
   return useMutation({
-    mutationFn: async (id: string): Promise<IslemInsert | null> => {
+    mutationFn: async ({ id, exchangeRate }: CompleteIleriTarihliInput): Promise<IslemInsert | null> => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
-      // 0. Hatırlatıcıyı iptal et (varsa)
-      await cancelTransactionReminder(id);
-
       // 1. İleri tarihli işlemi al (relations ile birlikte - para birimi belirlemek için)
+      // NOT: hatırlatıcı iptali BİLEREK fetch'ten SONRAYA alındı — çapraz-kur kontrolü
+      // burada kaydı reddedebiliyor; önce iptal edilirse kullanıcı hem işlemi
+      // tamamlayamıyor hem hatırlatıcısını kaybediyordu.
       const { data: ileriIslem, error: fetchError } = await supabase
         .from('ileri_tarihli_islemler')
         .select(`
@@ -374,7 +387,31 @@ export function useCompleteIleriTarihliIslem() {
       if (fetchError) throw fetchError;
       if (!ileriIslem) throw new Error(i18n.t('common:errors.transactionNotFound'));
 
-      // 1b. ATOMİK "CLAIM": satırı yalnızca hâlâ tamamlanmamışken (pending/notified)
+      // 1a. ÇAPRAZ-KUR: iki bacak farklı para birimindeyse kur ZORUNLU. Tablo kur
+      // saklamadığı için (kolon yok) kur TAMAMLAMA ANINDA sorulur; çağıran ekran
+      // CrossCurrencyRateRequiredError'ı yakalayıp ExchangeRateBar açar ve
+      // exchangeRate ile tekrar dener. Bu kontrol CLAIM'DEN ÖNCE: aksi halde satır
+      // 'completed' işaretlenip sonra geri sarılıyor, kullanıcı ham
+      // "Geçersiz döviz kuru: TRY → USD" hatası görüp işlemi HİÇ tamamlayamıyordu.
+      const legs = resolveIslemLegs(ileriIslem.type as IslemType, {
+        hesapCurrency: ileriIslem.hesap?.currency,
+        hedefHesapCurrency: ileriIslem.hedef_hesap?.currency,
+        cariCurrency: ileriIslem.cari?.currency,
+        personelCurrency: ileriIslem.personel?.currency,
+      });
+
+      if (legs.isCross && (!exchangeRate || exchangeRate <= 0)) {
+        throw new CrossCurrencyRateRequiredError(
+          legs.sourceCurrency,
+          legs.targetCurrency,
+          toNumber(ileriIslem.amount)
+        );
+      }
+
+      // 1b. Hatırlatıcıyı iptal et (varsa) — artık kaydı reddedecek bir kontrol kalmadı.
+      await cancelTransactionReminder(id);
+
+      // 1c. ATOMİK "CLAIM": satırı yalnızca hâlâ tamamlanmamışken (pending/notified)
       // 'completed' yap. Bu koşullu UPDATE Postgres'te atomiktir; aynı satır için
       // yarışan iki tetikleme (çift dokunma, iki cihaz, çevrimdışı retry) olursa
       // SADECE biri satırı kaplar (claimed.length === 1), diğeri 0 satır günceller
@@ -396,26 +433,10 @@ export function useCompleteIleriTarihliIslem() {
         return null;
       }
 
-      // 2. Para birimlerini belirle (cross-currency desteği)
-      const hesapCurrency = ileriIslem.hesap?.currency || 'TRY';
-      const hedefHesapCurrency = ileriIslem.hedef_hesap?.currency || 'TRY';
-      const cariCurrency = ileriIslem.cari?.currency || 'TRY';
-      const personelCurrency = ileriIslem.personel?.currency || 'TRY';
-
-      // Source/target currency belirleme (işlem tipine göre)
-      let sourceCurrency = hesapCurrency;
-      let targetCurrency = hesapCurrency;
-
-      if (ileriIslem.type === 'transfer') {
-        sourceCurrency = hesapCurrency;
-        targetCurrency = hedefHesapCurrency;
-      } else if (ileriIslem.type.startsWith('cari_')) {
-        sourceCurrency = hesapCurrency;
-        targetCurrency = cariCurrency;
-      } else if (ileriIslem.type.startsWith('personel_')) {
-        sourceCurrency = hesapCurrency;
-        targetCurrency = personelCurrency;
-      }
+      // 2. Para birimleri 1a'da resolveIslemLegs ile çözüldü (TEK KAYNAK — QTB ve kredi
+      // kartı barı da aynı fonksiyonu kullanıyor). Buradaki elle yazılmış ikinci kopya
+      // kaldırıldı; çeviri uygulanmayan tiplerde artık iki bacak da aynı geliyor.
+      const { sourceCurrency, targetCurrency } = legs;
 
       // 3. Gerçek işlem olarak oluştur
       const islemData: IslemInsert = {
@@ -431,7 +452,10 @@ export function useCompleteIleriTarihliIslem() {
         personel_id: ileriIslem.personel_id,
         source_currency: sourceCurrency,
         target_currency: targetCurrency,
-        exchange_rate: ileriIslem.exchange_rate,
+        // Kur, tamamlama anında kullanıcıdan alınan değer. Eskiden burada
+        // `ileriIslem.exchange_rate` okunuyordu ama ileri_tarihli_islemler'de böyle bir
+        // kolon YOK → her zaman undefined kalıyor, çapraz-kurlu plan tamamlanamıyordu.
+        exchange_rate: legs.isCross ? exchangeRate : null,
         // Çift kayıt koruması: bu islem'i kaynak ileri tarihli satıra bağla.
         // DB'deki partial UNIQUE index, aynı kaynaktan ikinci bir islem
         // oluşturulmasını imkânsız kılar.

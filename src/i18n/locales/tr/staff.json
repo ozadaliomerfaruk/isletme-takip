@@ -243,6 +243,8 @@
     "selectAccount": "Lütfen hesap seçin",
     "description": "Maaş ödemesi",
     "success": "{{count}} personele ödeme kaydedildi",
-    "partialError": "{{success}} ödeme kaydedildi, {{failed}} başarısız oldu. Başarısız olanlar seçili kaldı; tekrar deneyebilirsiniz (ödenen personel artık seçili değil, çift ödeme olmaz)."
+    "partialError": "{{success}} ödeme kaydedildi, {{failed}} başarısız oldu. Başarısız olanlar seçili kaldı; tekrar deneyebilirsiniz (ödenen personel artık seçili değil, çift ödeme olmaz).",
+    "currencyMismatchTitle": "Para birimi uyuşmuyor",
+    "currencyMismatch": "Seçili hesap {{account}} cinsinden, şu personelin bakiyesi farklı para biriminde: {{names}}. Toplu ödemede kur girilemediği için bu personeli ya {{account}} bakiyeli hesaptan ödeyin ya da personel detayından tek tek ödeyin (orada kur sorulur)."
   }
 }
