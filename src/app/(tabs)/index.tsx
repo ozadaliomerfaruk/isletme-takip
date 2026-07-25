@@ -24,7 +24,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -383,9 +383,9 @@ export default function HomePage() {
         onTitlePress={() => router.push('/ayarlar/paylasilan-isletmeler')}
         right={
           <>
-            <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn} hitSlop={HIT_SLOP.md}>
-              <Search size={24} color={colors.text} />
-            </TouchableOpacity>
+            <GlassIconButton onPress={() => router.push('/arama')} accessibilityLabel={t('common:search.title')}>
+              <Search size={20} color={colors.text} />
+            </GlassIconButton>
             <NotificationBell />
             <AddEntityButton />
           </>
@@ -797,12 +797,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  headerIconBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // headerIconBtn → GlassIconButton'a taşındı.
   deletionWarning: {
     backgroundColor: colors.error,
     marginHorizontal: spacing.lg,

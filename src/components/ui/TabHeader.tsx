@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { Text } from './Text';
+import { GlassContainer, GLASS_MERGE_SPACING } from './GlassSurface';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { upperTr } from '@/lib/turkishTextUtils';
@@ -51,7 +52,21 @@ export function TabHeader({ title, subtitle, right, onTitlePress }: TabHeaderPro
       ) : (
         <View style={styles.left}>{titleBlock}</View>
       )}
-      {right ? <View style={styles.right}>{right}</View> : null}
+      {/**
+        * Sağ aksiyon grubu GlassContainer: yan yana duran CAM butonlar
+        * birbirine erir ve tek kapsül olur (Apple'ın ToolbarItemGroup dili).
+        * Kaldıraç markup değil BOŞLUK: styles.right'ın gap'i spacing.xs = 4 ve
+        * 4 < GLASS_MERGE_SPACING (10) → erirler. Bir butonu gruptan AYIRMAK
+        * istersen aradaki boşluğu spacing.md = 12'ye çıkar (12 > 10 → ayrı kalır).
+        *
+        * AddEntityButton (+EKLE) cam olmadığı için erimeye katılmaz, kendiliğinden
+        * ayrı durur — ama container'ın İÇİNDE kalmalı, dışarı alınırsa hizalama bozulur.
+        */}
+      {right ? (
+        <GlassContainer spacing={GLASS_MERGE_SPACING} style={styles.right}>
+          {right}
+        </GlassContainer>
+      ) : null}
     </View>
   );
 }

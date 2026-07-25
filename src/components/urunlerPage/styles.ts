@@ -28,15 +28,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  sortButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // sortButton → GlassIconButton'a taşındı.
   searchSection: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,

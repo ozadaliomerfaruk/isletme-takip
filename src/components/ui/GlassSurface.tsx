@@ -115,6 +115,20 @@ export function GlassContainer({
  */
 export const GLASS_TINT = 'transparent';
 
+/**
+ * KÜÇÜK, AYRIK kontroller için tint (header yuvarlak butonları gibi).
+ *
+ * GLASS_TINT ('transparent') büyük yüzeyler için doğru — kapsül şekli native rim
+ * lighting ile okunuyor. 36px'lik bir daire ise açık zeminde tint'siz kaybolur.
+ *
+ * Neden FAB'lardaki "doygun disk + cam" tarifi burada KULLANILMIYOR: opak disk
+ * GlassContainer erimesine katılmaz, oysa bu butonların işi tam olarak erimek
+ * (yan yana duran yardımcı aksiyonlar tek kapsül olur). Ayrım:
+ *   birincil aksiyon → doygun disk + cam (tekil durur, göze çarpar)
+ *   yardımcı kontrol → nötr cam + bu tint (erir, geri planda kalır)
+ */
+export const GLASS_TINT_CONTROL = 'rgba(255,255,255,0.22)';
+
 /** Fallback'te blur üstüne konan frost katmanı (tab bar gibi blur'lu yüzeyler). */
 export const FALLBACK_FROST =
   Platform.OS === 'ios' ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.70)';

@@ -23,11 +23,11 @@ interface GlassFabProps {
 }
 
 /**
- * Yüzen aksiyon butonu — cam varsa nötr cam gövde + renkli sembol,
- * yoksa bugünkü dolu renkli disk + beyaz sembol.
- *
- * Fallback'te iki platformda iki farklı kimlik oluşur (cam vs dolu yeşil); bu
- * bilinçli — cam yokken saydam bir buton okunmaz, dolu disk tek doğru seçenek.
+ * Yüzen aksiyon butonu — doygun renkli disk + üstünde cam ("prominent glass").
+ * Disk ve beyaz sembol HER İKİ YOLDA aynı; camlı cihazda üstüne parlama, kenar
+ * ışığı ve basma tepkisi biniyor. Yani platformlar arası kimlik farkı YOK —
+ * bir ara "iOS'ta cam, Android'de dolu yeşil, iki marka kimliği" endişesi
+ * vardı, bu kurulumda kendiliğinden ortadan kalktı.
  */
 export function GlassFab({
   onPress,

@@ -6,7 +6,7 @@ import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
-import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
+import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -770,14 +770,14 @@ export default function UrunlerPage() {
         right={
           <>
             {(urunler && urunler.length > 0) && (
-              <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); handleExportProductList(); }} activeOpacity={0.7} disabled={isExporting}>
+              <GlassIconButton onPress={() => { haptics.light(); handleExportProductList(); }} disabled={isExporting}>
                 <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
-              </TouchableOpacity>
+              </GlassIconButton>
             )}
             {(urunler && urunler.length > 0) && (
-              <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); setSortSheetVisible(true); }} activeOpacity={0.7}>
+              <GlassIconButton onPress={() => { haptics.light(); setSortSheetVisible(true); }}>
                 <ArrowUpDown size={18} color={colors.primary} />
-              </TouchableOpacity>
+              </GlassIconButton>
             )}
             <AddEntityButton />
           </>

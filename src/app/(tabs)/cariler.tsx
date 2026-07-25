@@ -22,7 +22,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassIconButton } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -915,17 +915,19 @@ export default function CarilerPage() {
         title={t('clients:titles.clients')}
         right={
           <>
-            <TouchableOpacity style={styles.linkButton} onPress={() => setAcceptCodeVisible(true)} activeOpacity={0.7}>
+            {/* Üçü de aynı aile (paylaş / dışa-aktar / sırala — hiçbiri veri
+                değiştirmiyor) → aynı gap'te kalıp tek cam kapsüle erirler. */}
+            <GlassIconButton onPress={() => setAcceptCodeVisible(true)}>
               <Link size={18} color={colors.primary} />
-            </TouchableOpacity>
+            </GlassIconButton>
             {filteredCariler.length > 0 && (
-              <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); setShareSheetVisible(true); }} activeOpacity={0.7} disabled={isExporting}>
+              <GlassIconButton onPress={() => { haptics.light(); setShareSheetVisible(true); }} disabled={isExporting}>
                 <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
-              </TouchableOpacity>
+              </GlassIconButton>
             )}
-            <TouchableOpacity style={styles.sortButton} onPress={() => setSortSheetVisible(true)} activeOpacity={0.7}>
+            <GlassIconButton onPress={() => setSortSheetVisible(true)}>
               <ArrowUpDown size={18} color={colors.primary} />
-            </TouchableOpacity>
+            </GlassIconButton>
             <AddEntityButton />
           </>
         }
@@ -1173,24 +1175,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  sortButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  linkButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // sortButton / linkButton → GlassIconButton'a taşındı.
   filterContainer: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,

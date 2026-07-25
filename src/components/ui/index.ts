@@ -54,7 +54,9 @@ export {
   AnimatedGlassView,
   LIQUID_GLASS,
   GLASS_TINT,
+  GLASS_TINT_CONTROL,
   GLASS_MERGE_SPACING,
   FLOATING_CONTROL_SIZE,
 } from './GlassSurface';
 export { GlassFab, GlassFabMenuItem, FAB_SIZE } from './GlassFab';
+export { GlassIconButton, ICON_BUTTON_SIZE } from './GlassIconButton';

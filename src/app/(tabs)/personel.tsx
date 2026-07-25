@@ -27,7 +27,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
+import { Text, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, Card, ActionSheet, type ActionSheetOption, SkeletonAccountList, Avatar, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -718,12 +718,12 @@ export default function PersonelPage() {
         subtitle={personelList && personelList.length > 0 ? t('staff:messages.personnelCount', { count: personelList.length }) : undefined}
         right={
           <>
-            <TouchableOpacity style={styles.sortButton} onPress={() => { haptics.light(); setShareSheetVisible(true); }} activeOpacity={0.7} disabled={isExporting}>
+            <GlassIconButton onPress={() => { haptics.light(); setShareSheetVisible(true); }} disabled={isExporting}>
               <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.sortButton} onPress={() => setSortSheetVisible(true)} activeOpacity={0.7}>
+            </GlassIconButton>
+            <GlassIconButton onPress={() => setSortSheetVisible(true)}>
               <ArrowUpDown size={18} color={colors.primary} />
-            </TouchableOpacity>
+            </GlassIconButton>
             <AddEntityButton />
           </>
         }
@@ -977,15 +977,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  sortButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // sortButton → GlassIconButton'a taşındı.
   summaryContainer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
