@@ -438,7 +438,8 @@ export default function IslemDuzenlePage() {
                       </Text>
                       {selectedPersonel && !isLeave && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                          {/* Bakiye personelin para biriminde tutulur — ana para biriminin sembolüyle basılmamalı */}
+                          {formatCurrency(Math.abs(Number(selectedPersonel.balance)), selectedPersonel.currency)}
                         </Text>
                       )}
                     </View>
@@ -787,7 +788,8 @@ export default function IslemDuzenlePage() {
                             { color: Number(personel.balance) >= 0 ? colors.success : colors.error },
                           ]}
                         >
-                          {formatCurrency(Math.abs(Number(personel.balance)))}
+                          {/* Bakiye personelin para biriminde tutulur — ana para biriminin sembolüyle basılmamalı */}
+                          {formatCurrency(Math.abs(Number(personel.balance)), personel.currency)}
                         </Text>
                         {isSelected && (
                           <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>

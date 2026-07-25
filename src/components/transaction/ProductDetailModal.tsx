@@ -6,6 +6,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
 import { formatCurrency, formatQuantity } from '@/lib/currency';
 import { useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
+import type { Currency } from '@/types/database';
 
 /**
  * İşleme bağlı ürün kalemlerini (ad · miktar × birim fiyat + KDV + toplam) alt-sheet
@@ -16,12 +17,16 @@ export function ProductDetailModal({
   islemId,
   onDismiss,
   onEdit,
+  currency,
 }: {
   islemId: string | null;
   onDismiss: () => void;
   onEdit: (islemId: string) => void;
+  /** İşlemin para birimi. Verilmezse ana para biriminin sembolü basılır (çağıran
+   *  sayfaların hepsi TransactionRow'a geçirdiği currency'yi buraya da geçmeli). */
+  currency?: Currency | string | null;
 }) {
-  const { t } = useTranslation(['clients', 'common']);
+  const { t } = useTranslation(['clients', 'common', 'products']);
   const { data: urunHareketler, isLoading } = useUrunHareketlerByIslemId(islemId || undefined);
   const windowHeight = Dimensions.get('window').height;
 
@@ -67,6 +72,9 @@ export function ProductDetailModal({
                 const subtotal = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
                 const kdvAmount = subtotal * ((hareket.kdv_orani || 0) / 100);
                 const total = subtotal + kdvAmount;
+                // Birim DB kodu olarak tutulur ("kg", "porsiyon"...) — ekranda çevirisi basılır
+                const birim = hareket.urunler?.birim;
+                const birimLabel = birim ? t(`products:units.${birim}`) : '';
                 return (
                   <View key={hareket.id} style={styles.item}>
                     <View style={styles.itemHeader}>
@@ -77,15 +85,15 @@ export function ProductDetailModal({
                     </View>
                     <View style={styles.itemDetails}>
                       <Text variant="caption" color="secondary">
-                        {formatQuantity(Math.abs(hareket.miktar))} {hareket.urunler?.birim || 'adet'} x {formatCurrency(hareket.birim_fiyat || 0)}
+                        {formatQuantity(Math.abs(hareket.miktar))}{birimLabel ? ` ${birimLabel}` : ''} x {formatCurrency(hareket.birim_fiyat || 0, currency)}
                       </Text>
                       {(hareket.kdv_orani ?? 0) > 0 && (
                         <Text variant="caption" color="secondary">
-                          {t('common:tax.vat')} %{hareket.kdv_orani}: {formatCurrency(kdvAmount)}
+                          {t('common:tax.vat')} %{hareket.kdv_orani}: {formatCurrency(kdvAmount, currency)}
                         </Text>
                       )}
                       <Text variant="body" color="primary" style={styles.itemTotal}>
-                        {formatCurrency(total)}
+                        {formatCurrency(total, currency)}
                       </Text>
                     </View>
                   </View>

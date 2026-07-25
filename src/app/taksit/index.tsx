@@ -85,8 +85,10 @@ export default function TaksitTakipPage() {
       cur,
       tahsil: sum('cari_satis'),
       ode: sum('cari_alis'),
-      tahsilAdet: acik.filter((p) => p.type === 'cari_satis').length,
-      odeAdet: acik.filter((p) => p.type === 'cari_alis').length,
+      // Adet de TUTARLA aynı para birimi süzgecinden geçer: aksi halde "₺10.000 · 5 plan"
+      // yazıp tutarın yalnız 3 planı kapsadığı yanıltıcı özet çıkıyor.
+      tahsilAdet: acik.filter((p) => p.currency === cur && p.type === 'cari_satis').length,
+      odeAdet: acik.filter((p) => p.currency === cur && p.type === 'cari_alis').length,
     };
   }, [planlar]);
 

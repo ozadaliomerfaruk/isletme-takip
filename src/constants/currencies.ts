@@ -4,6 +4,7 @@
  */
 
 import { Currency } from '@/types/database';
+import { getCurrentCurrency } from '@/hooks/useSettings';
 
 export interface CurrencyInfo {
   code: Currency;
@@ -26,7 +27,10 @@ export const CURRENCIES: CurrencyInfo[] = [
  * Para birimi sembolünü döndürür
  */
 export const getCurrencySymbol = (code: Currency | string | undefined | null): string => {
-  if (!code) return '₺';
+  // Kod yoksa sabit ₺ değil ANA para biriminin sembolü: formatCurrency'nin
+  // argümansız dalıyla aynı kaynak (getCurrentCurrency) olmalı, aksi halde
+  // ana para birimi USD olan kullanıcıda ₺ prefixli giriş alanları çıkıyor.
+  if (!code) return getCurrentCurrency().symbol;
   const currency = CURRENCIES.find(c => c.code === code);
   return currency?.symbol || code;
 };
