@@ -13,7 +13,7 @@ import { useUrunler } from '@/hooks/useUrunler';
 import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { isToday, formatDateTimeForDB, ensureValidDate } from '@/lib/date';
-import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
+import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, formatPercent } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
@@ -454,7 +454,7 @@ export default function TopluCikisPage() {
                                 row.kdvOrani === rate && styles.kdvChipTextActive,
                               ]}
                             >
-                              %{rate}
+                              {formatPercent(rate)}
                             </Text>
                           </TouchableOpacity>
                         ))}
@@ -624,7 +624,7 @@ export default function TopluCikisPage() {
                           )}
                           {urun.kdv_orani > 0 && (
                             <View style={styles.kdvPill}>
-                              <Text style={styles.kdvPillText}>%{urun.kdv_orani}</Text>
+                              <Text style={styles.kdvPillText}>{formatPercent(urun.kdv_orani)}</Text>
                             </View>
                           )}
                         </View>

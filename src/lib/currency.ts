@@ -320,6 +320,20 @@ export function formatNumber(amount: number): string {
 }
 
 /**
+ * ADET / SAYAÇ biçimi: binlik ayraçlı TAM SAYI, ana para biriminin locale'inde.
+ *
+ * `n.toLocaleString()` (argümansız) CİHAZ locale'ini kullanır: cihazı en-US olan
+ * Türkçe kullanıcı içe aktarma sonucunda "1,234" görürken hemen yanındaki satır
+ * "1.234" gösteriyordu. `i18n.language === 'tr' ? 'tr-TR' : 'en-US'` kalıbı da yetersiz
+ * (dile bakar, ana para birimine bakmaz — EUR/de-DE kullanıcısını en-US'a düşürür).
+ */
+export function formatCount(value: number): string {
+  return new Intl.NumberFormat(getCurrentCurrency().locale, {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+/**
  * Miktar (adet/kg/gram) formatla — kullanıcının locale'ine göre ONDALIK ayraçla.
  * Para DEĞİL; sembol eklemez. En fazla 3 ondalık (kg/gram hassasiyeti), sondaki
  * sıfırlar atılır (5 → "5", 5.977 → "5,977" (tr) / "5.977" (en), 5.5 → "5,5").
@@ -350,6 +364,34 @@ export function formatPercentage(value: number, decimals: number = 1): string {
   // para biriminde ondalık virgül beklenirken burada nokta basılıyordu.
   const { decimal } = getLocaleSeparators();
   return `${value.toFixed(decimals).replace('.', decimal)}%`;
+}
+
+/**
+ * YÜZDE — işaret KONUMU ve ayraç dile göre (tek kaynak).
+ *
+ * Kod tabanında ~20 yerde `%{{value}}` elle yazılıyordu: Türkçe'de yüzde işareti ÖNE,
+ * İngilizce'de SONA gelir. Türkçe kullanıcı "%45.0" (beklenen "%45,0"), İngilizce
+ * kullanıcı "%45.0" (beklenen "45.0%") görüyordu — Excel/PDF çıktısında da aynı.
+ * Intl `style:'percent'` hem konumu hem ayracı kendisi çözer.
+ *
+ * @param value - yüzde DEĞERİ (45 → "%45" / "45%"), oran DEĞİL
+ *
+ * @example (tr)    formatPercent(45)      // "%45"
+ * @example (tr)    formatPercent(45.5, 1) // "%45,5"
+ * @example (en-US) formatPercent(45.5, 1) // "45.5%"
+ */
+export function formatPercent(value: number, decimals: number = 0): string {
+  const locale = getCurrentCurrency().locale;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'percent',
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(value / 100);
+  } catch {
+    // Hermes'te percent stili beklenmedik şekilde patlarsa eski davranışa düş
+    return formatPercentage(value, decimals);
+  }
 }
 
 /**

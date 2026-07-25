@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Button, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
-import { formatCurrency, formatQuantity } from '@/lib/currency';
+import { formatCurrency, formatQuantity, formatPercent } from '@/lib/currency';
 import { useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
 import type { Currency } from '@/types/database';
 
@@ -89,7 +89,7 @@ export function ProductDetailModal({
                       </Text>
                       {(hareket.kdv_orani ?? 0) > 0 && (
                         <Text variant="caption" color="secondary">
-                          {t('common:tax.vat')} %{hareket.kdv_orani}: {formatCurrency(kdvAmount, currency)}
+                          {t('common:tax.vat')} {formatPercent(hareket.kdv_orani ?? 0)}: {formatCurrency(kdvAmount, currency)}
                         </Text>
                       )}
                       <Text variant="body" color="primary" style={styles.itemTotal}>

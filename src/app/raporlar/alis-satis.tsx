@@ -21,7 +21,7 @@ import { PeriodType } from '@/hooks/useIslemler';
 // Alış-Satış işlem tipleri (useProductReport ile uyumlu)
 const PURCHASE_TYPES = ['cari_alis'];
 const SALE_TYPES = ['cari_satis', 'personel_satis'];
-import { formatCurrency, formatQuantity } from '@/lib/currency';
+import { formatCurrency, formatQuantity, formatPercent } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { exportProductReportToExcel, ProductExcelTranslations } from '@/lib/reportExcelExport';
 import { supabase } from '@/lib/supabase';
@@ -470,7 +470,7 @@ function ProductReportCard({
             {formatCurrency(item.toplamTutar)}
           </Text>
           <Text variant="caption" color="secondary" style={{ textAlign: 'right' }}>
-            %{item.percentage}
+            {formatPercent(item.percentage)}
           </Text>
         </View>
       </View>

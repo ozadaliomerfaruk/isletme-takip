@@ -16,6 +16,7 @@ import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { BirimType, KdvOrani } from '@/types/database';
+import { formatPercent } from '@/lib/currency';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -169,7 +170,7 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
                     variant="caption"
                     style={kdvOrani === k ? styles.birimTextSelected : undefined}
                   >
-                    %{k}
+                    {formatPercent(k)}
                   </Text>
                 </TouchableOpacity>
               ))}

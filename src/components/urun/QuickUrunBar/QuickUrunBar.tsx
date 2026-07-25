@@ -18,7 +18,7 @@ import { formatDateTimeForDB, ensureValidDate, parseDateFromDB } from '@/lib/dat
 import { useSettings } from '@/hooks/useSettings';
 import { getCurrencySymbol } from '@/constants/currencies';
 
-import { formatCurrency, formatQuantity, formatAmountForInput, parseQuantity, parseCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity, formatAmountForInput, parseQuantity, parseCurrency, formatPercent } from '@/lib/currency';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -472,7 +472,7 @@ export function QuickUrunBar({
                             isActive && { color: accentColor, fontWeight: '700' },
                           ]}
                         >
-                          %{rate}
+                          {formatPercent(rate)}
                         </Text>
                       </TouchableOpacity>
                     );

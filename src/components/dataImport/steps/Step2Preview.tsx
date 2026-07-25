@@ -12,6 +12,7 @@ import {
 } from 'lucide-react-native';
 import { Text, Card, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
+import { formatCount } from '@/lib/currency';
 import i18n from '@/i18n';
 import type { ImportPreview, ValidationResult } from '@/lib/excelImport';
 import type { ModalType } from '../types';
@@ -69,7 +70,7 @@ export function Step2Preview({
           <Card style={styles.summaryCardInner}>
             <Receipt size={24} color={colors.primary} />
             <Text variant="h3" style={styles.summaryNumber}>
-              {preview.totalRows.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
+              {formatCount(preview.totalRows)}
             </Text>
             <Text variant="caption" color="secondary">{t('dataImport.labels.transaction')}</Text>
             <ChevronRight size={14} color={colors.textMuted} style={styles.cardChevron} />

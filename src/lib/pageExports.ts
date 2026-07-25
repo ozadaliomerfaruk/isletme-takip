@@ -2,7 +2,7 @@ import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency } from './currency';
+import { formatCurrency, formatPercent } from './currency';
 
 const thinBorder = {
   top: { style: 'thin', color: { rgb: 'CCCCCC' } },
@@ -229,14 +229,14 @@ export async function exportCategoryDetail(opts: CategoryDetailExportOptions) {
     const r = hRow + i;
     ws[XLSX.utils.encode_cell({ r, c: 0 })] = { v: sc.name, s: cellStyle };
     ws[XLSX.utils.encode_cell({ r, c: 1 })] = { v: formatCurrency(sc.amount, currency), s: numberCellStyle };
-    ws[XLSX.utils.encode_cell({ r, c: 2 })] = { v: `%${sc.percentage}`, s: numberCellStyle };
+    ws[XLSX.utils.encode_cell({ r, c: 2 })] = { v: formatPercent(sc.percentage), s: numberCellStyle };
     ws[XLSX.utils.encode_cell({ r, c: 3 })] = { v: sc.transactionCount, s: numberCellStyle };
   });
 
   const totalRow = hRow + subCategories.length;
   ws[XLSX.utils.encode_cell({ r: totalRow, c: 0 })] = { v: t.total, s: totalRowStyle };
   ws[XLSX.utils.encode_cell({ r: totalRow, c: 1 })] = { v: formatCurrency(totalAmount, currency), s: totalNumberStyle };
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 2 })] = { v: '%100', s: totalNumberStyle };
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 2 })] = { v: formatPercent(100), s: totalNumberStyle };
   const totalTx = subCategories.reduce((s, sc) => s + sc.transactionCount, 0);
   ws[XLSX.utils.encode_cell({ r: totalRow, c: 3 })] = { v: totalTx, s: totalNumberStyle };
 

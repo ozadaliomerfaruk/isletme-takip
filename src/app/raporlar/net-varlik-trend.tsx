@@ -11,6 +11,7 @@ import { logEvent } from '@/lib/appEvents';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize } from '@/constants/spacing';
 import { formatCurrency, formatCurrencyWithSign, formatCurrencyCompact, formatQuantity } from '@/lib/currency';
+import { getCurrencySymbol } from '@/constants/currencies';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
@@ -67,13 +68,13 @@ export default function NetVarlikTrendPage() {
   ];
   const LENS_OPTIONS = repricingSupported
     ? [
-        { label: t('reports:netWorthTrend.lensNominal'), value: 'nominal' },
+        { label: t('reports:netWorthTrend.lensNominal', { ccy: getCurrencySymbol(baseCurrency) }), value: 'nominal' },
         { label: t('reports:netWorthTrend.lensReal'), value: 'reel' },
         { label: 'USD', value: 'usd' },
         { label: 'EUR', value: 'eur' },
         { label: t('reports:netWorthTrend.lensGold'), value: 'altin' },
       ]
-    : [{ label: t('reports:netWorthTrend.lensNominal'), value: 'nominal' }];
+    : [{ label: t('reports:netWorthTrend.lensNominal', { ccy: getCurrencySymbol(baseCurrency) }), value: 'nominal' }];
   const shortLabel: Record<LensMode, string> = {
     nominal: t('reports:netWorthTrend.shortNominal'),
     reel: t('reports:netWorthTrend.shortReal'),

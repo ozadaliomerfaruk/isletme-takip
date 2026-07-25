@@ -21,6 +21,8 @@ import { IslemInsert, IslemType } from '@/types/database';
 import { CARI_ISLEM_TYPES, PERSONEL_ISLEM_TYPES } from '@/constants/islemTypes';
 
 import i18n from '@/i18n';
+import { formatCurrency } from '@/lib/currency';
+import { formatDateShort } from '@/lib/date';
 import {
   ImportProgress,
   ImportResult,
@@ -151,7 +153,7 @@ export function useDataImport() {
             skipped++;
             skippedTransactions.push({
               transaction: tx,
-              reason: i18n.t('settings:dataImport.skipReasons.duplicate', { date: new Date(dupInfo.existingDate).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US'), amount: dupInfo.existingAmount.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US') }),
+              reason: i18n.t('settings:dataImport.skipReasons.duplicate', { date: formatDateShort(dupInfo.existingDate), amount: formatCurrency(dupInfo.existingAmount) }),
               rowNumber,
             });
             continue;
@@ -261,13 +263,20 @@ export function useDataImport() {
           }
 
           if (bracketAmount && bracketCurrency && tx.currency && tx.currency !== bracketCurrency) {
-            sourceCurrency = tx.currency;
-            targetCurrency = bracketCurrency;
             if (finalAmount > 0 && bracketAmount > 0) {
-              if (sourceCurrency === 'TRY') {
-                exchangeRate = Math.round((finalAmount / bracketAmount) * 10000) / 10000;
-              } else {
-                exchangeRate = Math.round((bracketAmount / finalAmount) * 10000) / 10000;
+              const rate =
+                tx.currency === 'TRY'
+                  ? Math.round((finalAmount / bracketAmount) * 10000) / 10000
+                  : Math.round((bracketAmount / finalAmount) * 10000) / 10000;
+              // ÜÇLÜ BİRLİKTE yazılır: kur türetilebildiyse para birimleri de yazılır.
+              // Eskiden source/target kur'dan BAĞIMSIZ set ediliyordu; kur null kalırsa
+              // (tutarlardan biri 0) satır "para birimleri farklı ama kuru yok" hâlinde
+              // DB'ye giriyor ve computeBalanceOps o satırda THROW ediyordu → işlem
+              // sonradan düzenlenemez/silinemez hâle geliyordu.
+              if (rate > 0 && isFinite(rate)) {
+                sourceCurrency = tx.currency;
+                targetCurrency = bracketCurrency;
+                exchangeRate = rate;
               }
             }
           }

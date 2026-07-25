@@ -7,7 +7,7 @@ import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, formatCurrencyWithSign, toNumber } from './currency';
+import { formatCurrency, formatCurrencyWithSign, toNumber, formatPercent } from './currency';
 import { IslemWithRelations } from '@/types/database';
 import type { ProductReportItem } from '@/hooks/useProductReport';
 import type { CashFlowItem } from '@/hooks/useCashFlowByCategory';
@@ -517,7 +517,7 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
       ws[`C${rowIdx}`] = { v: item.toplamMiktar.toString(), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
       ws[`D${rowIdx}`] = { v: item.kategoriAdi || '-', s: cellStyle };
       ws[`E${rowIdx}`] = { v: formatCurrency(item.toplamTutar, baseCurrency), s: currencyCellStyle };
-      ws[`F${rowIdx}`] = { v: `%${item.percentage}`, s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
+      ws[`F${rowIdx}`] = { v: formatPercent(item.percentage), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
       rowIdx++;
     });
 
@@ -710,7 +710,7 @@ export async function exportCashFlowToExcel(options: CashFlowExportOptions): Pro
       ws[`A${rowIdx}`] = { v: item.kategori?.name || '-', s: cellStyle };
       ws[`B${rowIdx}`] = { v: item.count.toString(), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
       ws[`C${rowIdx}`] = { v: formatCurrency(item.total, baseCurrency), s: currencyCellStyle };
-      ws[`D${rowIdx}`] = { v: `%${Math.round(item.percentage)}`, s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
+      ws[`D${rowIdx}`] = { v: formatPercent(item.percentage), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
       rowIdx++;
     });
 

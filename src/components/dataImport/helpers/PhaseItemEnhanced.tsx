@@ -1,6 +1,7 @@
 import { View, ActivityIndicator } from 'react-native';
 import { CheckCircle2 } from 'lucide-react-native';
 import { Text } from '@/components/ui';
+import { formatCount } from '@/lib/currency';
 import { colors } from '@/constants/colors';
 import { styles } from '../styles';
 
@@ -40,8 +41,8 @@ export function PhaseItemEnhanced({
         {(done || active) && count !== undefined && count > 0 && (
           <Text variant="caption" color="muted" style={styles.phaseCount}>
             {showProgress && current !== undefined && total !== undefined
-              ? `(${current.toLocaleString()} / ${total.toLocaleString()})`
-              : `(${count.toLocaleString()})`}
+              ? `(${formatCount(current)} / ${formatCount(total)})`
+              : `(${formatCount(count)})`}
           </Text>
         )}
       </View>

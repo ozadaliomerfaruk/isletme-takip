@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, Button, UndoSnackbar, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
+import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, formatPercent } from '@/lib/currency';
 import { useKategoriler } from '@/hooks/useKategoriler';
 import { useSonUrunFiyati } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -537,7 +537,7 @@ export function UrunPickerModal({
                                 addingProduct.kdvOrani === oran && styles.kdvButtonTextActive,
                               ]}
                             >
-                              %{oran}
+                              {formatPercent(oran)}
                             </Text>
                           </TouchableOpacity>
                         ))}
@@ -553,7 +553,7 @@ export function UrunPickerModal({
                           <Text style={styles.addingBreakdownNet}>{formatCurrency(addingLineTotal.subtotal, currency)}</Text>
                         </View>
                         <View style={styles.addingBreakdownRow}>
-                          <Text style={styles.addingTotalLabel}>{t('common:tax.vat')} (%{addingProduct.kdvOrani})</Text>
+                          <Text style={styles.addingTotalLabel}>{t('common:tax.vat')} ({formatPercent(addingProduct.kdvOrani)})</Text>
                           <Text style={styles.addingBreakdownKdv}>{formatCurrency(addingLineTotal.kdvAmount, currency)}</Text>
                         </View>
                         <View style={styles.addingBreakdownRow}>

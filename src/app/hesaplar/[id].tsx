@@ -30,7 +30,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, roundCurrency, getCrossCurrencyDisplay } from '@/lib/currency';
+import { formatCurrency, parseCurrency, roundCurrency, getCrossCurrencyDisplay, calculateTargetAmount, toNumber } from '@/lib/currency';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
@@ -146,17 +146,23 @@ function getTransactionTarget(islem: IslemWithRelations, hesapId: string): { nam
   }
 }
 
+/**
+ * Hedef bacaktaki tutar — dönüşüm TEK KAYNAK calculateTargetAmount'tan.
+ *
+ * Buradaki elle yazılmış kopya roundCurrency UYGULAMIYOR ve iki yabancı para arası
+ * kuralı merkezî fonksiyondan ayrışıyordu → kur bozuk satırlarda hesap detayındaki
+ * yürüyen bakiye DB bakiyesiyle ayrışıyordu. (cariler/[id].tsx:132-148 deseni.)
+ */
 function calculateTargetAmountForDisplay(islem: IslemWithRelations): number {
   const sourceAmount = Number(islem.amount);
-  if (!islem.source_currency || !islem.target_currency ||
-      islem.source_currency === islem.target_currency ||
-      !islem.exchange_rate || islem.exchange_rate <= 0) {
+  const source = islem.source_currency;
+  const target = islem.target_currency;
+  if (!source || !target || source === target) return sourceAmount;
+  try {
+    return calculateTargetAmount(sourceAmount, toNumber(islem.exchange_rate), source, target);
+  } catch {
+    // Kur yok/geçersiz: ham tutara düş (gösterim; bakiyeyi etkilemez)
     return sourceAmount;
-  }
-  if (islem.source_currency === 'TRY') {
-    return sourceAmount / islem.exchange_rate;
-  } else {
-    return sourceAmount * islem.exchange_rate;
   }
 }
 
@@ -447,25 +453,13 @@ export default function HesapHareketleriPage() {
     }, 500);
   }, []);
 
-  // Cross-currency işlemler için hesabın para birimi cinsinden tutarı al
+  // Cross-currency işlemler için hesabın para birimi cinsinden tutarı al.
+  // Dönüşüm TEK KAYNAK'tan (calculateTargetAmountForDisplay → calculateTargetAmount):
+  // burada da elle yazılmış, yuvarlamasız ÜÇÜNCÜ bir kopya vardı → başlangıç bakiyesi
+  // (bu değerlerden türetiliyor) DB bakiyesinden kuruşlarca sapabiliyordu.
   const getAmountInAccountCurrency = useCallback((islem: IslemWithRelations): number => {
-    const sourceAmount = Number(islem.amount);
-    if (!islem.source_currency || !islem.target_currency ||
-        islem.source_currency === islem.target_currency) {
-      return sourceAmount;
-    }
-    if (!islem.exchange_rate || islem.exchange_rate <= 0) {
-      return sourceAmount;
-    }
     const isTargetAccount = islem.hedef_hesap_id === id;
-    if (isTargetAccount) {
-      if (islem.source_currency === 'TRY') {
-        return sourceAmount / islem.exchange_rate;
-      } else {
-        return sourceAmount * islem.exchange_rate;
-      }
-    }
-    return sourceAmount;
+    return isTargetAccount ? calculateTargetAmountForDisplay(islem) : Number(islem.amount);
   }, [id]);
 
   // Başlangıç bakiyesini hesapla - MEMOIZED

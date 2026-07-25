@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatPercent } from '@/lib/currency';
 import { useSettings } from '@/hooks/useSettings';
 import type { AccountReportItem } from '@/hooks/useAccountReport';
 
@@ -67,7 +67,7 @@ export function AccountReportCard({ item, type, onPress }: AccountReportCardProp
             )}
             <View style={[styles.percentageBadge, { backgroundColor: barColor + '18' }]}>
               <Text style={[styles.percentageText, { color: barColor }]}>
-                %{(item.percentage ?? 0).toFixed(1)}
+                {formatPercent(item.percentage ?? 0, 1)}
               </Text>
             </View>
           </View>

@@ -8,7 +8,7 @@ import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, toNumber, calculateTargetAmount } from './currency';
+import { formatCurrency, toNumber, calculateTargetAmount, formatPercent } from './currency';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { IslemWithRelations, Currency, UrunHareket } from '@/types/database';
 import { invertCariTransactionType, shouldInvertTransaction } from '@/lib/cariTransactionMapper';
@@ -209,20 +209,12 @@ export function getHesapDebitCredit(
       if (islem.hesap_id === hesapId) {
         return { debit: amount, credit: null }; // Çıkış
       } else {
-        // Hedef hesap - exchange rate varsa dönüştürülmüş tutar
-        const exchangeRate = islem.exchange_rate ? toNumber(islem.exchange_rate) : null;
-        const sourceCurrency = islem.source_currency || 'TRY';
-        const targetCurrency = islem.target_currency || 'TRY';
-
-        let targetAmount = amount;
-        if (exchangeRate && exchangeRate > 0 && sourceCurrency !== targetCurrency) {
-          if (sourceCurrency === 'TRY') {
-            targetAmount = amount / exchangeRate;
-          } else {
-            targetAmount = amount * exchangeRate;
-          }
-        }
-        return { debit: null, credit: targetAmount }; // Giriş
+        // Hedef hesap — dönüşüm TEK KAYNAK calculateTargetAmount ile.
+        // Buradaki yeniden-yazım roundCurrency UYGULAMIYORDU: Excel'de dönem toplamı
+        // ve kapanış bakiyesi uygulamadaki bakiyeden kuruşlarca sapıyordu (mutabakat
+        // özelliği olan bir uygulamada görünür tutarsızlık). İki yabancı para arası
+        // dalı da merkezî fonksiyonun kuralına uyar.
+        return { debit: null, credit: toEntityAmount(islem) }; // Giriş
       }
 
     default:
@@ -956,7 +948,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
     ws[`E${rowNum}`] = { v: r.unitLabel, s: cellStyle };
     ws[`F${rowNum}`] = moneyCell(r.unitPrice, currencyCellStyle);
     ws[`G${rowNum}`] = moneyCell(r.subtotal, currencyCellStyle);
-    ws[`H${rowNum}`] = { v: r.vatRate != null ? `%${r.vatRate}` : '', s: cellStyle };
+    ws[`H${rowNum}`] = { v: r.vatRate != null ? formatPercent(r.vatRate) : '', s: cellStyle };
     ws[`I${rowNum}`] = moneyCell(r.vatAmount, currencyCellStyle);
     ws[`J${rowNum}`] = moneyCell(r.total, currencyCellStyle);
     ws[`K${rowNum}`] = { v: r.description, s: cellStyle };
@@ -1118,7 +1110,7 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
     u.miktar,
     u.alis_fiyati > 0 ? formatCurrency(u.alis_fiyati, u.currency) : '',
     u.satis_fiyati > 0 ? formatCurrency(u.satis_fiyati, u.currency) : '',
-    `%${u.kdv_orani}`,
+    formatPercent(u.kdv_orani),
   ]);
 
   const wsData = [
