@@ -7,6 +7,7 @@ import { KategoriType, HesapType, IslemWithRelations } from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES } from '@/constants/islemTypes';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, createRpcTotalConverter } from '@/hooks/useExchangeRates';
+import { fetchAllPages } from '@/lib/supabaseHelpers';
 
 /**
  * HESAP BAZLI gelir/gider raporu — "hangi hesap ne kadar gelir/gider gördü".
@@ -173,23 +174,28 @@ export function useAccountTransactions(
     queryKey: queryKeys.reports.accountTransactions(isletme?.id ?? '', hesapId, type, startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme || !hesapId) return [] as IslemWithRelations[];
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          *,
-          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          kategori:kategoriler(id,name),
-          cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name)
-        `)
-        .eq('isletme_id', isletme.id)
-        .eq('hesap_id', hesapId)
-        .in('type', islemTypes as string[])
-        .gte('date', startDateTime)
-        .lte('date', endDateTime)
-        .order('date', { ascending: false });
-      if (error) throw error;
-      return (data || []) as unknown as IslemWithRelations[];
+      // NOT: bu hook şu an hiçbir ekrandan çağrılmıyor (ölü). Yine de kardeşiyle aynı
+      // sayfalama düzeltmesi uygulandı ki ileride bağlanırsa tuzak hazır olmasın.
+      return (await fetchAllPages<IslemWithRelations>(() =>
+        supabase
+          .from('islemler')
+          .select(`
+            *,
+            hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+            kategori:kategoriler(id,name),
+            cari:cariler(id,name,type),
+            personel:personel(id,first_name,last_name)
+          `)
+          .eq('isletme_id', isletme.id)
+          .eq('hesap_id', hesapId)
+          .in('type', islemTypes as string[])
+          .gte('date', startDateTime)
+          .lte('date', endDateTime)
+          .order('date', { ascending: false })
+          // id İKİNCİL anahtar: sayfalama range tabanlı; aynı tarihli satırların
+          // sırası sayfalar arasında değişirse satır tekrarı/kaybı olur.
+          .order('id', { ascending: false })
+      )) as unknown as IslemWithRelations[];
     },
     enabled: !!isletme && !!hesapId && !!startDate && !!endDate,
     meta: { query_purpose: 'reports:account-transactions' },
@@ -359,23 +365,31 @@ export function useIncomeSourceTransactions(
     queryKey: queryKeys.reports.incomeSourceTransactions(isletme?.id ?? '', kind, sourceId, startDateTime, endDateTime),
     queryFn: async () => {
       if (!isletme || !sourceId) return [] as IslemWithRelations[];
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          *,
-          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          kategori:kategoriler(id,name),
-          cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name)
-        `)
-        .eq('isletme_id', isletme.id)
-        .eq(config.field, sourceId)
-        .in('type', config.islemTypes)
-        .gte('date', startDateTime)
-        .lte('date', endDateTime)
-        .order('date', { ascending: false });
-      if (error) throw error;
-      return (data || []) as unknown as IslemWithRelations[];
+      // SAYFALAMA ŞART: PostgREST varsayılan tavanı 1000. Sayfalanmadığı için
+      // 1000. satırdan sonrası SESSİZCE kırpılıyordu; üstelik bu ekranda toplam
+      // ekrandan değil İNEN SATIRLARDAN hesaplandığı için kullanıcının az önce
+      // tıkladığı karttan küçük bir rakam çıkıyordu. Yıllık dönem seçilebildiği
+      // için tetiklenmesi kolaydı.
+      return (await fetchAllPages<IslemWithRelations>(() =>
+        supabase
+          .from('islemler')
+          .select(`
+            *,
+            hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
+            kategori:kategoriler(id,name),
+            cari:cariler(id,name,type),
+            personel:personel(id,first_name,last_name)
+          `)
+          .eq('isletme_id', isletme.id)
+          .eq(config.field, sourceId)
+          .in('type', config.islemTypes)
+          .gte('date', startDateTime)
+          .lte('date', endDateTime)
+          .order('date', { ascending: false })
+          // id İKİNCİL anahtar: aynı tarihli satırların sırası sayfalar arasında
+          // değişirse range tabanlı sayfalamada satır tekrarı/kaybı olur.
+          .order('id', { ascending: false })
+      )) as unknown as IslemWithRelations[];
     },
     enabled: !!isletme && !!sourceId && !!startDate && !!endDate,
     meta: { query_purpose: 'reports:income-source-transactions' },
