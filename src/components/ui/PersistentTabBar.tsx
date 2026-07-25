@@ -12,6 +12,7 @@ import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
 import { tabBarCollapsed, resetTabBarCollapse } from '@/lib/tabBarScroll';
+import { getActiveTab } from '@/lib/tabBarVisibility';
 import { AnimatedGlassView, GLASS_TINT, FALLBACK_FROST, FALLBACK_BLUR_INTENSITY } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
 
@@ -31,40 +32,8 @@ const TABS: TabConfig[] = [
   { key: 'daha', route: '/(tabs)/daha' as Href, icon: MoreHorizontal, labelKey: 'tabs.more' },
 ];
 
-function getActiveTab(segments: string[]): string | null {
-  const first = segments[0];
-  const second = segments[1];
-
-  if (first === '(auth)' || first === 'onboarding' || first === 'verify') return null;
-
-  if (first === '(tabs)') {
-    if (!second || second === 'index') return 'home';
-    if (second === 'cariler') return 'cariler';
-    if (second === 'personel') return 'personel';
-    if (second === 'urunler') return 'urunler';
-    if (second === 'daha') return 'daha';
-    return 'home';
-  }
-
-  if (first === 'cariler') return 'cariler';
-  if (first === 'personel') return 'personel';
-  if (first === 'urunler') return 'urunler';
-  if (first === 'hesaplar') return 'home';
-  if (first === 'islemler') return 'home';
-  if (first === 'nakit-akisi') return 'home';
-  if (first === 'arama') return 'home';
-  if (first === 'foto-import') return 'home';
-
-  if (first === 'raporlar') return 'daha';
-  if (first === 'ayarlar') return 'daha';
-  if (first === 'kategoriler') return 'daha';
-  if (first === 'notlar') return 'daha';
-  if (first === 'arsiv') return 'daha';
-  if (first === 'taksit') return 'daha';
-  if (first === 'yasal') return 'daha';
-
-  return 'home';
-}
+// getActiveTab → @/lib/tabBarVisibility (tek kaynak; _layout'un inset override'ı
+// da aynı fonksiyonu kullanıyor, yoksa bar'ın olmadığı ekranlarda hayalet boşluk kalır).
 
 // Floating cam pill ölçüleri.
 // EŞMERKEZLİ KÖŞE: iOS 26 iç içe köşeleri eşmerkezli hizalar (iç yarıçap =

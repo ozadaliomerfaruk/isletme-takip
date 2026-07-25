@@ -19,6 +19,7 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { WifiOff } from 'lucide-react-native';
 import { PersistentTabBar, TAB_BAR_CONTENT_HEIGHT } from '@/components/ui/PersistentTabBar';
 import { goToTab } from '@/lib/tabNav';
+import { isTabBarVisible } from '@/lib/tabBarVisibility';
 import { colors } from '@/constants/colors';
 import {
   registerForPushNotificationsAsync,
@@ -108,9 +109,14 @@ function RootLayoutNav() {
   // Eskiden bottom:0'dı (akıştaki bar boşluğu yönetiyordu); şimdi ekranların alt-boşluğu bar'ı
   // temizlemeli → bottom = gerçek safe-area + bar görsel yüksekliği. insets.bottom kullanan tüm
   // ekranlar (FAB'lar + inset-bağlı listeler) böylece otomatik bar'ın üstünde kalır.
+  // Override YALNIZ bar çizildiğinde: giriş/onboarding gibi bar'ın olmadığı
+  // rotalarda hayalet bir alt boşluk kalmasın. Görünürlük kararı
+  // PersistentTabBar ile AYNI kaynaktan (tabBarVisibility) geliyor — ayrı
+  // hesaplanırsa ikisi kaçınılmaz olarak ayrışır.
+  const tabBarVisible = isTabBarVisible(segments as string[]);
   const modifiedInsets = useMemo(
-    () => ({ ...insets, bottom: insets.bottom + TAB_BAR_CONTENT_HEIGHT }),
-    [insets]
+    () => ({ ...insets, bottom: insets.bottom + (tabBarVisible ? TAB_BAR_CONTENT_HEIGHT : 0) }),
+    [insets, tabBarVisible]
   );
   const isOffline = useNetworkStatus();
 

@@ -60,3 +60,4 @@ export {
 } from './GlassSurface';
 export { GlassFab, GlassFabMenuItem, FAB_SIZE } from './GlassFab';
 export { GlassIconButton, ICON_BUTTON_SIZE } from './GlassIconButton';
+export { Screen } from './Screen';
