@@ -5,8 +5,27 @@
 **Senaryo:** Cariler + Ürünler + Fatura işleme AÇIK; Raporlar, Personel maaşları,
 Hesap bakiyeleri KAPALI olmalı.
 
-**Sonuç:** 9 yüzey tarandı, her bulgu şüpheci doğrulamadan geçti.
-**39 onaylı bulgu** (13 yüksek / 14 orta / 12 düşük), 15 çürütüldü, 9 yüzey temiz çıktı.
+**Sonuç:** 9 yüzey tarandı → 63 ham bulgu → **39 onaylı** (13 yüksek / 14 orta /
+12 düşük), 15 çürütüldü, 9 yüzey temiz çıktı.
+
+> ### ⚠️ DOĞRULAMA EKSİK — 39'un 17'si şüpheci turdan GEÇMEDİ
+>
+> Denetim sırasında oturum limiti doldu ve **3 ajan öldü**: `cari-urun-detay` ve
+> `navigasyon` yüzeylerinin **doğrulayıcıları**, bir de sentez ajanı (raporu bu yüzden
+> elle yazdım). Karar üretilmeyen bulgular çıkarma sırasında otomatik "onaylı" sayıldı.
+>
+> **Gerçek durum: 22 doğrulanmış · 17 doğrulanmamış** (2'si YÜKSEK).
+>
+> Doğrulanmamış 17'nin tamamı şu iki yüzeyden: cari/ürün detay ekranları ve
+> navigasyon (Daha menüsü, sekmeler, rota koruması).
+>
+> **Ana oturumda elle teyit edilenler** (bunlar sağlam):
+> - Ana Sayfa Gelir/Gider kartı koşulsuz — `index.tsx:225` okundu, doğru ✓
+> - `Daha → Arşiv` izne bağlı değil — `daha.tsx:317` `router.push('/arsiv')`, kontrol yok ✓
+> - Arşiv ekranında sayfa koruması yok — `arsiv/index.tsx` içinde `usePagePermission` **0 kez** ✓
+>
+> Kalan 14 doğrulanmamış bulgu (çoğu düşük şiddet) **uygulamadan önce tek tek
+> kodda teyit edilmeli.** Bu, [[denetim-bulgusu-once-kod-teyidi]] kuralının aynısı.
 
 **Kısa cevap: HAYIR, şu anki modelle satın almacı görmemesi gerekeni görür.**
 Ama tek tek yamalanacak 39 ayrı hata değil — altta **iki kök neden** var.
