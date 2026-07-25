@@ -6,12 +6,13 @@
  * sorulur, evet derse sistem izni gösterilir. Açılışta otomatik izin sorma kaldırıldı.
  */
 import { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, BarChart3, BellRing } from 'lucide-react-native';
 
 import { Text, Button, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -20,6 +21,7 @@ import { logEvent } from '@/lib/appEvents';
 import { clearNeedsSetup } from '@/lib/setupFlow';
 
 export default function KurulumTamam() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['auth']);
   const { user } = useAuthContext();
@@ -56,7 +58,12 @@ export default function KurulumTamam() {
 
   return (
     <Screen top>
-      <View style={styles.content}>
+      {/* Kardeş kurulum ekranlarıyla aynı kalıp: küçük ekran/büyük yazı tipinde
+          yığın kabini aşınca "Şimdi değil" çıkışı kırpılmasın diye kaydırılabilir */}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.celebration}>
           <View style={styles.checkContainer}>
             <CheckCircle2 size={64} color={colors.success} />
@@ -109,7 +116,7 @@ export default function KurulumTamam() {
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ScrollView>
     </Screen>
   );
 }
@@ -120,7 +127,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     padding: spacing.xl,
     justifyContent: 'center',
   },

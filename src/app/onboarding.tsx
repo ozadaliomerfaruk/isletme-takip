@@ -22,7 +22,7 @@ import {
 import { Text, Button, Screen } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { getNeedsSetupSync } from '@/lib/setupFlow';
 
 const ONBOARDING_KEY = '@defter_onboarding_completed';
@@ -179,7 +179,8 @@ export default function OnboardingScreen() {
     <Screen top>
       {/* Skip Button */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={skipOnboarding} style={styles.skipButton}>
+        {/* 8px dolgu + 12pt etiket = ~31px; 44px eşiğine hitSlop ile tamamlanıyor */}
+        <TouchableOpacity onPress={skipOnboarding} style={styles.skipButton} hitSlop={HIT_SLOP.md}>
           <Text variant="label" color="secondary">
             {t('auth:onboarding.skip')}
           </Text>

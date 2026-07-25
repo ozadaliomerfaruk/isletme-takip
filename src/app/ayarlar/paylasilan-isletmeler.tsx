@@ -7,7 +7,7 @@ import { ArrowRightLeft, LogOut, UserPlus, ChevronRight } from 'lucide-react-nat
 import { Text, Card, Input, Button, Avatar, Screen } from '@/components/ui';
 import { UserEditSheet } from '@/components/multiUser/UserEditSheet';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import {
@@ -237,6 +237,7 @@ export default function PaylasilanIsletmelerPage() {
                         <TouchableOpacity
                           onPress={() => handleCancelInvite(invite.id)}
                           style={styles.cancelButton}
+                          hitSlop={HIT_SLOP.md}
                         >
                           <Text variant="caption" style={{ color: colors.error }}>
                             {t('multiUser:invites.cancelInvite')}
@@ -313,6 +314,7 @@ export default function PaylasilanIsletmelerPage() {
                       <TouchableOpacity
                         style={styles.switchButton}
                         onPress={() => handleSwitchTo(item)}
+                        hitSlop={HIT_SLOP.md}
                       >
                         <ArrowRightLeft size={14} color={colors.primary} />
                         <Text variant="caption" style={{ color: colors.primary }}>
@@ -322,6 +324,7 @@ export default function PaylasilanIsletmelerPage() {
                       <TouchableOpacity
                         style={styles.leaveButton}
                         onPress={() => handleLeave(item)}
+                        hitSlop={HIT_SLOP.md}
                       >
                         <LogOut size={14} color={colors.error} />
                       </TouchableOpacity>

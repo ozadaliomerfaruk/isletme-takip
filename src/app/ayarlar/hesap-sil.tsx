@@ -1,15 +1,17 @@
 import { useState } from 'react';
-import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Trash2, AlertTriangle } from 'lucide-react-native';
 import { Text, Button, Input, Card, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useRequireOwner } from '@/hooks/usePagePermission';
 
 export default function HesapSilPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
   useRequireOwner();
@@ -61,7 +63,13 @@ export default function HesapSilPage() {
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.content}>
+        {/* Onay kutusu zorunlu olduğu için klavye mutlaka açılıyor: kaydırılabilir
+            olmazsa "Hesabı Sil" satırı klavyenin altında kalıp erişilemez oluyordu */}
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.iconContainer}>
             <AlertTriangle size={64} color={colors.error} />
           </View>
@@ -132,7 +140,7 @@ export default function HesapSilPage() {
               {t('settings:account.deleteAccount')}
             </Button>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -147,7 +155,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    flex: 1,
+    flexGrow: 1,
     padding: spacing.lg,
   },
   iconContainer: {
