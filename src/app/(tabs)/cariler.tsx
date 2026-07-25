@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScroll } from '@/lib/tabBarScroll';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useRouter, type Href } from 'expo-router';
 import {
   Users,
@@ -22,7 +23,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, GlassIconButton, Screen } from '@/components/ui';
+import { Text, TabFilter, FloatingSearchBar, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, GlassIconButton, Screen } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -71,6 +72,9 @@ const ListSeparator = () => <View style={styles.separator} />;
 export default function CarilerPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  /** search: true → FLOATING_SEARCH_CLEARANCE'ı hook'un kendisi ekler; alt boşluk
+   *  hem cam tab bar'ı hem yüzen arama pill'ini tek kaynaktan temizler. */
+  const contentPaddingBottom = useContentBottomPadding({ search: true });
   const handleTabScroll = useTabBarScroll();
   const { t } = useTranslation(['clients', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
@@ -943,7 +947,7 @@ export default function CarilerPage() {
         removeClippedSubviews={true}
         // Extra data for re-renders when these change
         extraData={{ selectedIds, isSelectMode, sortBy, expandedCariId }}
-        contentContainerStyle={[styles.listContainer, { paddingTop: headerH, paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+        contentContainerStyle={[styles.listContainer, { paddingTop: headerH, paddingBottom: contentPaddingBottom }]}
       />
 
       <TabHeader
@@ -953,16 +957,28 @@ export default function CarilerPage() {
         right={
           <>
             {/* Üçü de aynı aile (paylaş / dışa-aktar / sırala — hiçbiri veri
-                değiştirmiyor) → aynı gap'te kalıp tek cam kapsüle erirler. */}
-            <GlassIconButton onPress={() => setAcceptCodeVisible(true)}>
+                değiştirmiyor) → aynı gap'te kalıp tek cam kapsüle erirler.
+                accessibilityLabel ŞART: buton yalnız ikon taşıyor, metin çocuğu
+                olmadığı için ekran okuyucu adlandıramaz. */}
+            <GlassIconButton
+              onPress={() => setAcceptCodeVisible(true)}
+              accessibilityLabel={t('clients:sharing.acceptTitle')}
+            >
               <Link size={18} color={colors.primary} />
             </GlassIconButton>
             {filteredCariler.length > 0 && (
-              <GlassIconButton onPress={() => { haptics.light(); setShareSheetVisible(true); }} disabled={isExporting}>
+              <GlassIconButton
+                onPress={() => { haptics.light(); setShareSheetVisible(true); }}
+                disabled={isExporting}
+                accessibilityLabel={t('clients:export.clientList.shareDialogTitle')}
+              >
                 <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
               </GlassIconButton>
             )}
-            <GlassIconButton onPress={() => setSortSheetVisible(true)}>
+            <GlassIconButton
+              onPress={() => setSortSheetVisible(true)}
+              accessibilityLabel={t('common:sort.sortBy')}
+            >
               <ArrowUpDown size={18} color={colors.primary} />
             </GlassIconButton>
             <AddEntityButton />
@@ -1194,7 +1210,9 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
+    // Alt boşluk BURADA DEĞİL: inline paddingBottom (contentPaddingBottom) onu
+    // eziyordu, yani buradaki değer ölüydü. İki yerde iki farklı cevap olması
+    // "hangisi geçerli?" tuzağı kuruyor — tek kaynak useContentBottomPadding.
   },
   cariHeader: {
     flexDirection: 'row',

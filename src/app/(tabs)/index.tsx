@@ -49,10 +49,15 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useSetupProgress, type SetupStepKey } from '@/hooks/useSetupProgress';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 
 export default function HomePage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // Yüzen FAB'ın zarfı kadar EK boşluk: FAB dip + spacing.lg'de duruyor, yani
+  // [insets.bottom + lg, insets.bottom + lg + FAB_SIZE] bandını kaplıyor. Bu
+  // boşluk olmadan sona kaydırınca son hesap satırının ⋮'ı FAB'ın altında kalıyor.
+  const contentPaddingBottom = useContentBottomPadding({ extra: FAB_SIZE + spacing.lg });
   const handleTabScroll = useTabBarScroll();
   const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff', 'multiUser']);
   const { getDateRangeLabel } = useDateFormat();
@@ -386,7 +391,7 @@ export default function HomePage() {
           (üstte boyansın) ve içeriğin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingTop: headerH, paddingBottom: insets.bottom }}
+        contentContainerStyle={{ paddingTop: headerH, paddingBottom: contentPaddingBottom }}
         showsVerticalScrollIndicator={false}
         onScroll={handleTabScroll}
         scrollEventThrottle={16}

@@ -756,10 +756,19 @@ export default function PersonelPage() {
         subtitle={personelList && personelList.length > 0 ? t('staff:messages.personnelCount', { count: personelList.length }) : undefined}
         right={
           <>
-            <GlassIconButton onPress={() => { haptics.light(); setShareSheetVisible(true); }} disabled={isExporting}>
+            {/* accessibilityLabel ŞART: buton yalnız ikon taşıyor, metin çocuğu
+                olmadığı için ekran okuyucu adlandıramaz. */}
+            <GlassIconButton
+              onPress={() => { haptics.light(); setShareSheetVisible(true); }}
+              disabled={isExporting}
+              accessibilityLabel={t('staff:export.staffList.shareDialogTitle')}
+            >
               <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
             </GlassIconButton>
-            <GlassIconButton onPress={() => setSortSheetVisible(true)}>
+            <GlassIconButton
+              onPress={() => setSortSheetVisible(true)}
+              accessibilityLabel={t('common:sort.sortBy')}
+            >
               <ArrowUpDown size={18} color={colors.primary} />
             </GlassIconButton>
             <AddEntityButton />

@@ -562,7 +562,7 @@ export default function UrunDetayPage() {
                             activeOpacity={0.8}
                           >
                             <Text style={[styles.ozetToggleText, ozetMode === 'miktar' && styles.ozetToggleTextActive]}>
-                              {t('products:stock.quantity')}
+                              {upperTr(t('products:stock.quantity'))}
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
@@ -571,7 +571,7 @@ export default function UrunDetayPage() {
                             activeOpacity={0.8}
                           >
                             <Text style={[styles.ozetToggleText, ozetMode === 'tutar' && styles.ozetToggleTextActive]}>
-                              {t('products:stock.amount')}
+                              {upperTr(t('products:stock.amount'))}
                             </Text>
                           </TouchableOpacity>
                         </View>
@@ -883,17 +883,20 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     padding: 2,
   },
+  // Liste sayfasındaki Miktar/Tutar geçişiyle BİREBİR aynı ölçüler (urunler/index.tsx
+  // ozetToggleStyles): aynı kontrol iki yüzeyde farklı puntoyla duruyordu (14/600 vs
+  // 12/700) ve etiketler burada büyük harfe çevrilmiyordu.
   ozetToggleBtn: {
     paddingHorizontal: spacing.md,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: borderRadius.full,
   },
   ozetToggleBtnActive: {
     backgroundColor: colors.primary,
   },
   ozetToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: colors.textSecondary,
   },
   ozetToggleTextActive: {

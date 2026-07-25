@@ -6,7 +6,7 @@ import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
-import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
+import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, FloatingSearchBar, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen, SkeletonAccountList } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -15,7 +15,8 @@ import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useUrunler, useArchiveUrun, usePermanentDeleteUrun, countUrunLinkedMovements } from '@/hooks/useUrunler';
 import { toErrorMessage } from '@/lib/errors';
 import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
@@ -62,6 +63,10 @@ export default function UrunlerPage() {
   /** Cam header akıştan çıktığı için yer kaplamıyor → listenin üst boşluğu bu.
    *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
   const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
+  /** search: true → FLOATING_SEARCH_CLEARANCE'ı hook'un kendisi ekler. Alt boşluk
+   *  tek kaynaktan geliyor; paylaşılan styles.flatListContent'teki sabit değer bu
+   *  inline'ın altında kalıp ölü durduğu için oradan kaldırıldı. */
+  const contentPaddingBottom = useContentBottomPadding({ search: true });
   const [activeTab] = useState<'active' | 'archived'>('active');
   // Dönem özeti gösterimi: miktar mı tutar mı (per-ürün giriş/çıkış pill'leri)
   const [ozetMode, setOzetMode] = useState<'miktar' | 'tutar'>('miktar');
@@ -612,12 +617,15 @@ export default function UrunlerPage() {
               </View>
             ) : (
               <View style={styles.periodNav}>
+                {/* hitSlop: buton 34px, dokunma hedefi eşiği 44px — ortak
+                    PeriodNavigator bileşeni de aynı sebeple hitSlop veriyor. */}
                 <TouchableOpacity
                   onPress={() => {
                     haptics.light();
                     setPeriodOffset(periodOffset - 1);
                   }}
                   style={styles.periodNavButton}
+                  hitSlop={HIT_SLOP.sm}
                 >
                   <ChevronLeft size={20} color={colors.primary} />
                 </TouchableOpacity>
@@ -630,6 +638,7 @@ export default function UrunlerPage() {
                     setPeriodOffset(periodOffset + 1);
                   }}
                   style={styles.periodNavButton}
+                  hitSlop={HIT_SLOP.sm}
                   disabled={periodOffset >= 0}
                 >
                   <ChevronRight size={20} color={periodOffset >= 0 ? colors.textMuted : colors.primary} />
@@ -699,6 +708,17 @@ export default function UrunlerPage() {
 
   // Empty component
   const listEmptyComponent = useMemo(() => {
+    // Yükleniyorken iskelet BURADA gösteriliyor (eskiden erken return ile tüm ekran
+    // "Yükleniyor…" metnine dönüyordu; başlık, cam butonlar ve arama çubuğu kaybolup
+    // veri gelince geri geldiği için sekmeler arası geçişte chrome sıçraması oluyordu).
+    // Diğer üç ana sekmenin kalıbı bu: chrome durur, yalnız liste alanı iskelete döner.
+    if (isLoading) {
+      return (
+        <View style={styles.listSection}>
+          <SkeletonAccountList count={5} />
+        </View>
+      );
+    }
     if (activeTab === 'active') {
       // Arama/kategori filtresi aktifken boÅŸ â†’ "sonuÃ§ yok"; aksi halde "Ã¼rÃ¼n yok".
       // (urunler.length yerine isFiltered: undo penceresinde tÃ¼m Ã¼rÃ¼nler silinince
@@ -751,20 +771,10 @@ export default function UrunlerPage() {
         />
       </View>
     );
-  }, [activeTab, t, router, isFiltered, searchQuery, handleClearFilters]);
+  }, [activeTab, t, router, isFiltered, searchQuery, handleClearFilters, isLoading]);
 
   // Active list data
   const listData = activeTab === 'active' ? filteredUrunler : filteredArchivedUrunler;
-
-  if (isLoading) {
-    return (
-      <Screen top>
-        <View style={styles.loadingContainer}>
-          <Text color="secondary">{t('common:status.loading')}</Text>
-        </View>
-      </Screen>
-    );
-  }
 
   return (
     // Screen'e `top` VERİLMİYOR — cam modda üst safe-area boşluğunu TabHeader
@@ -776,7 +786,7 @@ export default function UrunlerPage() {
       <FlatList
         onScroll={handleTabScroll}
         scrollEventThrottle={16}
-        data={listData}
+        data={isLoading ? [] : listData}
         keyExtractor={keyExtractor}
         renderItem={activeTab === 'active' ? renderActiveItem : renderArchivedItem}
         ItemSeparatorComponent={UrunListSeparator}
@@ -784,7 +794,7 @@ export default function UrunlerPage() {
         keyboardDismissMode="on-drag"
         ListHeaderComponent={listHeaderComponent}
         ListEmptyComponent={listEmptyComponent}
-        contentContainerStyle={[styles.flatListContent, { paddingTop: headerH, paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+        contentContainerStyle={[styles.flatListContent, { paddingTop: headerH, paddingBottom: contentPaddingBottom }]}
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
@@ -803,13 +813,22 @@ export default function UrunlerPage() {
         title={t('products:title')}
         right={
           <>
+            {/* accessibilityLabel ŞART: buton yalnız ikon taşıyor, metin çocuğu
+                olmadığı için ekran okuyucu adlandıramaz. */}
             {(urunler && urunler.length > 0) && (
-              <GlassIconButton onPress={() => { haptics.light(); handleExportProductList(); }} disabled={isExporting}>
+              <GlassIconButton
+                onPress={() => { haptics.light(); handleExportProductList(); }}
+                disabled={isExporting}
+                accessibilityLabel={t('products:export.productList.shareDialogTitle')}
+              >
                 <FileSpreadsheet size={18} color={isExporting ? colors.textMuted : colors.success} />
               </GlassIconButton>
             )}
             {(urunler && urunler.length > 0) && (
-              <GlassIconButton onPress={() => { haptics.light(); setSortSheetVisible(true); }}>
+              <GlassIconButton
+                onPress={() => { haptics.light(); setSortSheetVisible(true); }}
+                accessibilityLabel={t('products:sort.title')}
+              >
                 <ArrowUpDown size={18} color={colors.primary} />
               </GlassIconButton>
             )}

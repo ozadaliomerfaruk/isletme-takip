@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { FLOATING_SEARCH_CLEARANCE } from '@/components/ui/FloatingSearchBar';
 
 export const styles = StyleSheet.create({
   container: {
@@ -13,9 +12,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  flatListContent: {
-    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
-  },
+  // Alt boşluk BURADA DEĞİL: tek tüketicisi olan urunler/index.tsx inline
+  // paddingBottom (useContentBottomPadding) veriyor ve buradaki sabit değeri
+  // eziyordu — ölü değerdi. Sabit 32+80, cam tab bar'ın gerçek payını (insets.bottom
+  // override'lı, ~106) hiçbir zaman karşılamıyordu; iki kaynak olması da
+  // "hangisi geçerli?" tuzağıydı.
+  flatListContent: {},
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -44,6 +44,11 @@ export function getActiveTab(segments: readonly string[]): string | null {
   }
 
   if (first === 'cariler') return 'cariler';
+  // Mutabakat ve Vade Takibi'ne YALNIZ Cariler kolundan giriliyor (cari detay
+  // menüsü / Cariler mini-dashboard'u) → vurgu Cariler'de kalsın; listede
+  // olmadıkları için varsayılana ('home') düşüp vurguyu Ana Sayfa'ya atıyorlardı.
+  if (first === 'mutabakat') return 'cariler';
+  if (first === 'vade') return 'cariler';
   if (first === 'personel') return 'personel';
   if (first === 'urunler') return 'urunler';
   if (first === 'hesaplar') return 'home';
